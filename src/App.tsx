@@ -83,6 +83,7 @@ import { ApprovalQueue } from "./components/ApprovalQueue";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { useAuth } from "./components/AuthProvider";
 import { getRoleHome } from "./lib/roleNavigation";
+import { hasWorkspaceMembership } from "./lib/auth";
 import { ReliabilityCopilotPage } from "./pages/ReliabilityCopilotPage";
 import { FirstCustomerPilotPage } from "./pages/FirstCustomerPilotPage";
 import { DecisionCaseWorkspacePage } from "./pages/DecisionCaseWorkspacePage";
@@ -179,9 +180,12 @@ function App() {
   useEffect(() => {
     supabase.auth
       .getSession()
-      .then(({ data: { session } }) => {
-        setIsAuthenticated(!!session);
-        if (session) {
+      .then(async ({ data: { session } }) => {
+        const workspaceAuthorized = session
+          ? await hasWorkspaceMembership(session.user.id)
+          : false;
+        setIsAuthenticated(workspaceAuthorized);
+        if (workspaceAuthorized) {
           setCurrentPage("app");
           setSignInApproved(true);
         }
@@ -194,18 +198,32 @@ function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(!!session);
-      if (session) setCurrentPage("app");
-      else {
-        setCurrentPage("demo");
-        setSignInApproved(false);
-      }
+      void (async () => {
+        const workspaceAuthorized = session
+          ? await hasWorkspaceMembership(session.user.id)
+          : false;
+        setIsAuthenticated(workspaceAuthorized);
+        if (workspaceAuthorized) setCurrentPage("app");
+        else {
+          setCurrentPage("demo");
+          setSignInApproved(false);
+        }
+      })();
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleAuthSuccess = () => {
+  const handleAuthSuccess = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session || !(await hasWorkspaceMembership(session.user.id))) {
+      await supabase.auth.signOut();
+      throw new Error(
+        "Your identity is verified, but it has not been provisioned into a SyncAI organization.",
+      );
+    }
     setIsAuthenticated(true);
     setSignInApproved(true);
     setCurrentPage("app");

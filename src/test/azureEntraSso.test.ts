@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 const federation = readFileSync("src/lib/azure-ad.ts", "utf8");
 const authClient = readFileSync("src/lib/supabase.ts", "utf8");
 const callback = readFileSync("src/pages/AzureADCallback.tsx", "utf8");
+const application = readFileSync("src/App.tsx", "utf8");
 const hostedAuth = readFileSync("scripts/configure-production-auth.mjs", "utf8");
 
 describe("Azure A3 verified Entra session contract", () => {
@@ -32,6 +33,10 @@ describe("Azure A3 verified Entra session contract", () => {
     expect(callback).toContain("Authentication and commerce are separate controls");
     expect(federation).not.toContain("organization_id");
     expect(federation).not.toContain("marketplace-resolve");
+    expect(callback).toContain("hasWorkspaceMembership(verified.user.id)");
+    expect(callback).toContain("it has not been provisioned into a SyncAI organization");
+    expect(application).toContain("hasWorkspaceMembership(session.user.id)");
+    expect(application).toContain("await supabase.auth.signOut()");
   });
 
   it("deploys hosted Azure provider configuration only from protected secrets", () => {

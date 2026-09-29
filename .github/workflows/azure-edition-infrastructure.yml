@@ -15,9 +15,12 @@ on:
       - "src/test/azureEntraSso.test.ts"
       - "src/lib/azure-ad.ts"
       - "src/lib/azure-ad.test.ts"
+      - "src/lib/auth-workspace-membership.test.ts"
       - "src/lib/supabase.ts"
       - "src/pages/AzureADCallback.tsx"
       - "src/pages/EnterpriseAccess.tsx"
+      - "src/App.tsx"
+      - "src/pages/Login.tsx"
       - "scripts/configure-production-auth.mjs"
       - "src/lib/llm-resilience/**"
       - "supabase/functions/_shared/azure-openai-provider.ts"
@@ -38,9 +41,12 @@ on:
       - "src/test/azureEntraSso.test.ts"
       - "src/lib/azure-ad.ts"
       - "src/lib/azure-ad.test.ts"
+      - "src/lib/auth-workspace-membership.test.ts"
       - "src/lib/supabase.ts"
       - "src/pages/AzureADCallback.tsx"
       - "src/pages/EnterpriseAccess.tsx"
+      - "src/App.tsx"
+      - "src/pages/Login.tsx"
       - "scripts/configure-production-auth.mjs"
       - "src/lib/llm-resilience/**"
       - "supabase/functions/_shared/azure-openai-provider.ts"
@@ -76,4 +82,4 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Verify Azure contracts
-        run: npx vitest run src/test/azureEditionFoundation.test.ts src/test/azureIntelligencePlane.test.ts src/test/azureEntraSso.test.ts src/lib/azure-ad.test.ts src/lib/auth-production-config.test.ts src/lib/llm-resilience/azure-managed-identity.test.ts src/lib/llm-resilience/azure-openai-provider.test.ts src/lib/llm-resilience/llm-provider.test.ts
+        run: npx vitest run src/test/azureEditionFoundation.test.ts src/test/azureIntelligencePlane.test.ts src/test/azureEntraSso.test.ts src/lib/azure-ad.test.ts src/lib/auth-workspace-membership.test.ts src/lib/auth-production-config.test.ts src/lib/llm-resilience/azure-managed-identity.test.ts src/lib/llm-resilience/azure-openai-provider.test.ts src/lib/llm-resilience/llm-provider.test.ts

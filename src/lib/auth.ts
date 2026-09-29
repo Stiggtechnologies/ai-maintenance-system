@@ -60,6 +60,20 @@ export async function isEnterpriseFederatedUser(): Promise<boolean> {
   return provider === "azure_ad";
 }
 
+/**
+ * A valid identity session is not itself customer-workspace authorization.
+ * Access requires the canonical profile to be bound to an organization.
+ */
+export async function hasWorkspaceMembership(userId: string): Promise<boolean> {
+  if (!userId) return false;
+  const { data, error } = await supabase
+    .from("user_profiles")
+    .select("id, organization_id")
+    .eq("id", userId)
+    .maybeSingle();
+  return !error && data?.id === userId && Boolean(data.organization_id);
+}
+
 export async function signUp(data: SignUpData): Promise<SignUpResult> {
   try {
     const { data: authData, error: authError } = await supabase.auth.signUp({

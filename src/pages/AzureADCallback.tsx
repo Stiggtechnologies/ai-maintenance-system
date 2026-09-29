@@ -6,6 +6,8 @@ import {
   exchangeCodeForSession,
   handleAzureADCallback,
 } from "../lib/azure-ad";
+import { hasWorkspaceMembership } from "../lib/auth";
+import { supabase } from "../lib/supabase";
 
 export function AzureADCallback() {
   const navigate = useNavigate();
@@ -15,7 +17,21 @@ export function AzureADCallback() {
     try {
       const result = await handleAzureADCallback();
       try {
-        await exchangeCodeForSession(result.code, result.flowId);
+        const verified = await exchangeCodeForSession(result.code, result.flowId);
+
+        const hasPendingMarketplacePurchase = Boolean(
+          sessionStorage.getItem("marketplace_token") &&
+            sessionStorage.getItem("marketplace_subscription"),
+        );
+        if (
+          !hasPendingMarketplacePurchase &&
+          !(await hasWorkspaceMembership(verified.user.id))
+        ) {
+          await supabase.auth.signOut();
+          throw new Error(
+            "Your Microsoft identity is verified, but it has not been provisioned into a SyncAI organization. Contact your administrator.",
+          );
+        }
       } catch (exchangeErr) {
         console.error("Code exchange failed:", exchangeErr);
         throw new Error(
