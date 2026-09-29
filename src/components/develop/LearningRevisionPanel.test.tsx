@@ -13,6 +13,21 @@ function open(canWrite = true) {
   fireEvent.click(screen.getByRole("button", { name: "Review procedure revisions" }));
 }
 const revision = { id: 7, title: "Inspection", version: 2, change_summary: "Added hold point", basis: "Observed evidence", revision_requested_by: "requester", procedures: [{ id: 8, language_code: "en", content: "Changed content" }], approval: { status: "required", approver_user_id: null, decided_at: null } };
+it("loads beyond the first page without dropping older revision decisions", async () => {
+  const first = Array.from({ length: 100 }, (_, index) => ({ ...revision, id: index + 1, version: index + 1, approval: { ...revision.approval, status: "rejected" } }));
+  api.listProjectStandardWork.mockResolvedValueOnce(first).mockResolvedValueOnce([{ ...revision, id: 101, version: 101 }]);
+  open(false);
+  expect(await screen.findByText("Inspection · version 101 · required")).toBeInTheDocument();
+  expect(screen.getByText("Inspection · version 1 · rejected")).toBeInTheDocument();
+  expect(api.listProjectStandardWork).toHaveBeenNthCalledWith(2, 100, undefined, "obs");
+});
+it("reports a later-page failure rather than displaying an incomplete history as complete", async () => {
+  api.listProjectStandardWork.mockResolvedValueOnce(Array.from({ length: 100 }, (_, index) => ({ ...revision, id: index + 1 })))
+    .mockRejectedValueOnce(new Error("Second page unavailable"));
+  open(false);
+  expect(await screen.findByRole("alert")).toHaveTextContent("Second page unavailable");
+  expect(screen.queryByText("No revisions requested from this observation.")).not.toBeInTheDocument();
+});
 it("loads exact source and observation-scoped history only when opened", async () => {
   render(<LearningRevisionPanel observationId="obs" procedureId={3} canWrite={false} />);
   expect(api.getObservedProcedure).not.toHaveBeenCalled();
