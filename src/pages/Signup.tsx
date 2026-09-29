@@ -10,7 +10,7 @@ import {
 import { motion } from "framer-motion";
 
 interface SignupProps {
-  onSuccess: () => void;
+  onSuccess: () => void | Promise<void>;
   onTabChange: (
     tab: "signin" | "signup" | "enterprise" | "privacy" | "terms" | "security",
   ) => void;
@@ -62,7 +62,17 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
 
     // Route through the canonical sign-in transition. That transition persists
     // any staged public Reliability Engineer Decision Case before entering the app.
-    onSuccess();
+    try {
+      await onSuccess();
+    } catch (authError) {
+      setError(
+        authError instanceof Error
+          ? authError.message
+          : "Your evaluation workspace could not be authorized.",
+      );
+      setLoading(false);
+      return;
+    }
     window.location.assign("/signin?returnTo=/start");
   };
 
