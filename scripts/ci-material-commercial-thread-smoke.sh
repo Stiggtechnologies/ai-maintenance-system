@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+node --test "$(dirname "$0")/audit-material-production.test.mjs"
 eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL)=')"
 ORG='11111111-1111-1111-1111-111111111111'
 

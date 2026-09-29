@@ -66,6 +66,15 @@ disposable cloned fixture with two zero-quantity BOM rows; refused the
 `authenticated` role without global visibility. These are local fixture results,
 **not a production audit**. Production execution and recorded results remain due.
 
+`scripts/audit-material-production.mjs` submits the same SQL through the Supabase
+Management API with `read_only: true`, retaining the SQL read-only transaction
+and full-RLS-visibility check. The deployment workflow runs it before and after
+the migration push, using its existing secret without printing response details.
+Four local wrapper tests cover the read-only request, invalid configuration,
+HTTP refusal, and error-shaped responses. Remote execution is still unverified;
+an API or permission refusal must block rollout, not be bypassed. API contract:
+https://supabase.com/docs/reference/api/v1-run-a-query.
+
 - Verify the component associations and asset-level history boundaries added to the canonical traversal at runtime. Work orders do not have canonical component attribution; the UI must not infer it.
 - Test writes and reads using actual authenticated tenant roles against the complete migration chain.
 - Test anonymous/viewer/foreign-tenant access, all finite quantity boundaries and concurrent duplicate attempts.
