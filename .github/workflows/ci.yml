@@ -428,6 +428,9 @@ jobs:
       - name: Smoke — governed AI and calculation model registry
         run: bash scripts/ci-governed-model-registry-smoke.sh
 
+      - name: Smoke — hardware-neutral governed Edge Evidence Contract
+        run: bash scripts/ci-edge-evidence-contract-smoke.sh
+
       - name: Smoke — contract-strategy recommendation agent
         run: bash scripts/ci-develop-contract-strategy-agent-smoke.sh
 

@@ -8,6 +8,7 @@
     "calculation-service",
     "cmms-read-pull",
     "domain-specialist-run",
+    "edge-evidence-ingest",
     "engineering-model-supply-chain",
     "develop-benefits-agent",
     "develop-change-impact-agent",
@@ -32,7 +33,11 @@
     "sync-runtime",
     "sync-tts"
   ],
-  "allowedNoVerifyJwt": ["agent-loop-enrich", "onboarding-enrich"],
+  "allowedNoVerifyJwt": [
+    "agent-loop-enrich",
+    "edge-evidence-ingest",
+    "onboarding-enrich"
+  ],
   "blockedLegacyFunctions": [
     "document-processor",
     "edge-node-manager",

@@ -22,6 +22,7 @@ on:
       - "supabase/functions/calculation-service/**"
       - "src/lib/value/**"
       - "supabase/functions/domain-specialist-run/**"
+      - "supabase/functions/edge-evidence-ingest/**"
       - "src/lib/domain-specialists/**"
       - "supabase/functions/engineering-model-supply-chain/**"
       - "src/lib/engineering-models/**"
@@ -126,6 +127,7 @@ jobs:
           supabase functions deploy calculation-service
           supabase functions deploy cmms-read-pull
           supabase functions deploy domain-specialist-run
+          supabase functions deploy edge-evidence-ingest --no-verify-jwt
           supabase functions deploy engineering-model-supply-chain
           supabase functions deploy develop-evidence-agent
           supabase functions deploy develop-gate-agent
@@ -248,6 +250,23 @@ jobs:
             exit 1
           fi
           echo "Domain Specialist executor is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove Edge Evidence custom-auth boundary is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/edge-evidence-ingest"
+          status=$(curl --silent --show-error --output /tmp/edge-evidence-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{}' \
+            "$endpoint")
+          cat /tmp/edge-evidence-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=Edge Evidence boundary probe failed::Expected custom device authentication to return HTTP 401 without a signature; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Edge Evidence endpoint is deployed and refuses unsigned requests (HTTP 401)."
 
       - name: Prove HOP Agent is deployed
         run: |

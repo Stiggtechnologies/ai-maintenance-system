@@ -434,6 +434,13 @@ verify_jwt = true
 [functions.develop-contract-strategy-agent]
 verify_jwt = true
 
+# Hardware devices authenticate the exact request with an independently
+# enrolled Ed25519 key. Platform JWT verification is intentionally disabled for
+# this one endpoint; the reviewed custom signature boundary returns 401 before
+# any service-role write when the signature is absent or invalid.
+[functions.edge-evidence-ingest]
+verify_jwt = false
+
 [functions.sync-tts]
 verify_jwt = true
 
