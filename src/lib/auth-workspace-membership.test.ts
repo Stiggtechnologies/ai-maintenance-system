@@ -46,8 +46,10 @@ describe("workspace membership authorization", () => {
         data: { id: "user-1", organization_id: null },
         error: null,
       })
-      .mockResolvedValueOnce({ data: null, error: new Error("denied") });
+      .mockResolvedValueOnce({ data: null, error: new Error("denied") })
+      .mockRejectedValueOnce(new Error("network unavailable"));
 
+    await expect(hasWorkspaceMembership("user-1")).resolves.toBe(false);
     await expect(hasWorkspaceMembership("user-1")).resolves.toBe(false);
     await expect(hasWorkspaceMembership("user-1")).resolves.toBe(false);
     await expect(hasWorkspaceMembership("user-1")).resolves.toBe(false);
