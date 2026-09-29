@@ -1,12 +1,15 @@
 # SyncAI Azure Edition and Microsoft Marketplace
 
-**Status: Azure foundation, intelligence, Entra, fulfillment, and lifecycle
-controls are implemented; commerce is not buyer-proven.** The Supabase/Vercel
-production boundary includes the governed A4 fulfillment rail, but its
-publisher configuration and real buyer witness remain absent. The repository
-also contains a repeatable Azure application stamp and variable-consumption AI
-plane that are not yet production-proven. No claim that SyncAI is primarily
-platformed on Microsoft Azure, Marketplace certified, transactable, MACC
+**Status: Azure foundation, intelligence, Entra, fulfillment, lifecycle, and
+metering controls are implemented; commerce is not buyer-proven.** The
+Supabase/Vercel production boundary includes the governed A4 fulfillment and A5
+lifecycle rails, but publisher configuration and a real buyer witness remain
+absent. Hourly metering is implemented in code but remains disabled until the
+exact Partner Center plan/dimension contract and protected dispatcher are
+configured. No live usage event has been submitted to Microsoft. The
+repository also contains a repeatable Azure application stamp and
+variable-consumption AI plane that are not yet production-proven. No claim that
+SyncAI is primarily platformed on Microsoft Azure, Marketplace certified, transactable, MACC
 eligible, or co-sell ready is valid until the corresponding evidence below is
 green.
 
@@ -20,17 +23,17 @@ deployment does not satisfy that objective.
 
 The controlled sequence is:
 
-| Gate | Deliverable                                                                                                 | Current evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| ---- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A1   | Azure-hosted web foundation, managed identity, registry, Key Vault, logs, health proof                      | Implemented in `infra/azure`; deployment blocked until the Azure OIDC identity and environment secrets are configured                                                                                                                                                                                                                                                                                                                                                                                                            |
-| A2   | Azure-hosted compute/data plane whose consumption grows with customer use                                   | Azure Intelligence plane implemented in code: Container Apps + Azure OpenAI with managed identity, Key Vault references, strict Azure-only inference and controlled canonical-cron cutover. It remains unproven until the protected production workflow deploys it and usage evidence shows Azure is the fastest-scaling resource; existing Supabase/Vercel production remains authoritative                                                                                                                                     |
-| A3   | Microsoft Entra SSO that establishes a verified application session                                         | Supported Supabase OAuth/PKCE path implemented: hosted Auth owns the provider exchange, the callback verifies the issued user against the Auth server and requires an Azure-backed identity, and identity cannot assign a tenant or activate commerce. Production remains unproven until the multi-tenant Entra app credentials are configured and a real buyer-tenant sign-in is witnessed. The legacy hand-decoded-token path remains blocked.                                                                                 |
-| A4   | Backend-only SaaS Fulfillment APIs v2 resolve and activation flow                                           | Governed v2 resolve, explicit activation and authoritative status refresh are deployed. Purchase tokens are scrubbed from the browser URL and never persisted; activation requires a server-verified Microsoft tenant plus an existing SyncAI organization administrator and writes the canonical billing/audit records. The legacy function remains blocked. Publisher credentials are not configured and no real purchase has been witnessed end to end.                                                                       |
-| A5   | Authenticated, idempotent webhook lifecycle and canonical entitlement enforcement                           | Authenticated, idempotent webhook lifecycle and canonical entitlement enforcement are implemented in code. Microsoft signature and claims, Get Operation, and Get Subscription must agree before a service-only idempotency transition can alter canonical billing. Suspend/unsubscribe fail closed at the canonical tenant resolver without deleting customer evidence; reinstatement requires authoritative Microsoft success. This is not end-to-end commerce evidence until a preview offer exercises every lifecycle event. |
-| A6   | Hourly aggregated, idempotent Marketplace metering from canonical usage                                     | Not implemented                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| A7   | Preview-offer end-to-end certification suite                                                                | Not run                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| A8   | Live transactable offer, Partner Center business profile, regional sales contacts, one-pager and pitch deck | External Partner Center work remains                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| A9   | Azure IP co-sell and MACC eligibility                                                                       | Requires Microsoft's technical review and the then-current commercial threshold                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Gate | Deliverable                                                                                                 | Current evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| ---- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A1   | Azure-hosted web foundation, managed identity, registry, Key Vault, logs, health proof                      | Implemented in `infra/azure`; deployment blocked until the Azure OIDC identity and environment secrets are configured                                                                                                                                                                                                                                                                                                                                                       |
+| A2   | Azure-hosted compute/data plane whose consumption grows with customer use                                   | Azure Intelligence plane implemented in code: Container Apps + Azure OpenAI with managed identity, Key Vault references, strict Azure-only inference and controlled canonical-cron cutover. It remains unproven until the protected production workflow deploys it and usage evidence shows Azure is the fastest-scaling resource; existing Supabase/Vercel production remains authoritative                                                                                |
+| A3   | Microsoft Entra SSO that establishes a verified application session                                         | Supported Supabase OAuth/PKCE path implemented: hosted Auth owns the provider exchange, the callback verifies the issued user against the Auth server and requires an Azure-backed identity, and identity cannot assign a tenant or activate commerce. Production remains unproven until the multi-tenant Entra app credentials are configured and a real buyer-tenant sign-in is witnessed. The legacy hand-decoded-token path remains blocked.                            |
+| A4   | Backend-only SaaS Fulfillment APIs v2 resolve and activation flow                                           | Governed v2 resolve, explicit activation and authoritative status refresh are deployed. Purchase tokens are scrubbed from the browser URL and never persisted; activation requires a server-verified Microsoft tenant plus an existing SyncAI organization administrator and writes the canonical billing/audit records. The legacy function remains blocked. Publisher credentials are not configured and no real purchase has been witnessed end to end.                  |
+| A5   | Authenticated, idempotent webhook lifecycle and canonical entitlement enforcement                           | Deployed behind independent Microsoft JWT validation. Microsoft signature and claims, Get Operation, and Get Subscription must agree before a service-only idempotency transition can alter canonical billing. Suspend/unsubscribe fail closed at the canonical tenant resolver without deleting customer evidence; reinstatement requires authoritative Microsoft success. This is not end-to-end commerce evidence until a preview offer exercises every lifecycle event. |
+| A6   | Hourly aggregated, idempotent Marketplace metering from canonical usage                                     | Implemented in code. Settled canonical token usage is aggregated by subscription, configured dimension, term, and UTC hour; included units are subtracted cumulatively; claims are bounded to 25; accepted and exact-duplicate results preserve Microsoft's response. Dispatch remains disabled until protected plan-meter configuration exists, and no live Microsoft submission has been witnessed.                                                                       |
+| A7   | Preview-offer end-to-end certification suite                                                                | Not run                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| A8   | Live transactable offer, Partner Center business profile, regional sales contacts, one-pager and pitch deck | External Partner Center work remains                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| A9   | Azure IP co-sell and MACC eligibility                                                                       | Requires Microsoft's technical review and the then-current commercial threshold                                                                                                                                                                                                                                                                                                                                                                                             |
 
 No certification or co-sell claim may be published from source code, a preview
 offer, or a successful infrastructure deployment alone.
@@ -193,6 +196,37 @@ events can grant or restore access. A valid but unbound event is quarantined and
 grants no entitlement; acknowledgment-required changes are refused back to
 Microsoft. Do not configure Partner Center for automatic activation until a
 separately reviewed tenant-provisioning design exists.
+
+The A6 meter consumes only settled rows from the existing
+`private.llm_usage` ledger (`reserved = false`). It never accepts a quantity
+from a browser or API caller and never stores prompts or completions. For each
+active, subscribed Azure Marketplace billing record it converts cumulative
+token use through one explicitly configured plan/dimension definition, removes
+the included quantity once per subscription term, and creates at most one
+emission record per subscription, dimension, and UTC hour. A late-settling
+usage row is carried into the next unsent hour as the remaining cumulative
+delta instead of being discarded or double-counted. Microsoft submissions use
+the batch API in groups of no more than 25 and preserve the exact accepted,
+duplicate, expired, rejected, or conflicting response and correlation IDs.
+
+Production dispatch remains a deliberate no-op until these repository settings
+are supplied together:
+
+- Secret `SUPABASE_SERVICE_ROLE_KEY`, used only by the protected deployment and
+  stored in the private dispatcher configuration.
+- Variables `AZURE_MARKETPLACE_METER_PLAN_ID` and
+  `AZURE_MARKETPLACE_METER_DIMENSION`, matching the Partner Center plan and
+  custom meter exactly.
+- Variables `AZURE_MARKETPLACE_METER_UNIT_SIZE`,
+  `AZURE_MARKETPLACE_METER_INCLUDED_QUANTITY`, and
+  `AZURE_MARKETPLACE_METER_QUANTITY_SCALE`, defining the reviewed conversion
+  from canonical token counts to billable Marketplace units.
+
+The protected deployment refuses partial configuration. Even when configured,
+the code and production boundary probes are not commerce evidence: Gate A7
+must witness an accepted preview-offer event, its exact duplicate behavior,
+the Partner Center usage view, included-quantity reconciliation, suspension,
+and a deliberately rejected event before A6 can be treated as buyer-proven.
 
 Rollback does not delete evidence or reverse a model decision. Re-run
 `configure_agent_enrichment` with the previously approved Supabase Edge

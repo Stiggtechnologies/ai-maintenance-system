@@ -42,6 +42,7 @@ on:
       - "supabase/functions/develop-hop-agent/**"
       - "supabase/functions/lead-notify/**"
       - "supabase/functions/marketplace-fulfillment/**"
+      - "supabase/functions/marketplace-metering/**"
       - "supabase/functions/marketplace-webhook/**"
       - "supabase/functions/onboarding-enrich/**"
       - "supabase/functions/plant-historian-pull/**"
@@ -178,6 +179,7 @@ jobs:
           supabase functions deploy develop-hop-agent
           supabase functions deploy lead-notify
           supabase functions deploy marketplace-fulfillment --no-verify-jwt
+          supabase functions deploy marketplace-metering
           supabase functions deploy marketplace-webhook --no-verify-jwt
           supabase functions deploy onboarding-enrich --no-verify-jwt
           supabase functions deploy plant-historian-pull
@@ -189,6 +191,45 @@ jobs:
           supabase functions deploy sync-tts
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Configure Azure Marketplace metering
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MARKETPLACE_METER_PLAN_ID: ${{ vars.AZURE_MARKETPLACE_METER_PLAN_ID }}
+          MARKETPLACE_METER_DIMENSION: ${{ vars.AZURE_MARKETPLACE_METER_DIMENSION }}
+          MARKETPLACE_METER_UNIT_SIZE: ${{ vars.AZURE_MARKETPLACE_METER_UNIT_SIZE }}
+          MARKETPLACE_METER_INCLUDED_QUANTITY: ${{ vars.AZURE_MARKETPLACE_METER_INCLUDED_QUANTITY }}
+          MARKETPLACE_METER_QUANTITY_SCALE: ${{ vars.AZURE_MARKETPLACE_METER_QUANTITY_SCALE }}
+        run: |
+          set -euo pipefail
+          present=0
+          for name in MARKETPLACE_METER_PLAN_ID MARKETPLACE_METER_DIMENSION MARKETPLACE_METER_UNIT_SIZE MARKETPLACE_METER_INCLUDED_QUANTITY MARKETPLACE_METER_QUANTITY_SCALE; do
+            if [ -n "${!name:-}" ]; then present=$((present + 1)); fi
+          done
+          if [ "$present" -eq 0 ]; then
+            echo "::warning title=Azure Marketplace metering disabled::No protected metering configuration was supplied. Hourly dispatch remains unconfigured and no usage will be submitted."
+            exit 0
+          fi
+          if [ "$present" -ne 5 ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+            echo "::error title=Incomplete Azure Marketplace metering configuration::The service role and all five plan-meter values must be supplied together."
+            exit 1
+          fi
+          api="https://${SUPABASE_PROJECT_ID}.supabase.co/rest/v1/rpc"
+          auth=(--header "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" --header "authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" --header 'Content-Type: application/json')
+          dimension_payload=$(jq -n \
+            --arg plan "$MARKETPLACE_METER_PLAN_ID" \
+            --arg dimension "$MARKETPLACE_METER_DIMENSION" \
+            --argjson unit "$MARKETPLACE_METER_UNIT_SIZE" \
+            --argjson included "$MARKETPLACE_METER_INCLUDED_QUANTITY" \
+            --argjson scale "$MARKETPLACE_METER_QUANTITY_SCALE" \
+            '{p_plan_id:$plan,p_dimension:$dimension,p_unit_size:$unit,p_included_quantity:$included,p_quantity_scale:$scale,p_active:true}')
+          curl --fail-with-body --silent --show-error --request POST "${api}/configure_marketplace_meter_dimension" "${auth[@]}" --data "$dimension_payload"
+          dispatch_payload=$(jq -n \
+            --arg url "https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/marketplace-metering" \
+            --arg key "$SUPABASE_SERVICE_ROLE_KEY" \
+            '{p_function_url:$url,p_service_key:$key}')
+          curl --fail-with-body --silent --show-error --request POST "${api}/configure_marketplace_metering_dispatch" "${auth[@]}" --data "$dispatch_payload"
+          echo "Azure Marketplace metering is configured for protected hourly dispatch."
 
       - name: Prove production migrations converged
         env:
@@ -269,6 +310,23 @@ jobs:
             exit 1
           fi
           echo "Azure Marketplace Webhook is deployed and refuses unsigned lifecycle events (HTTP 401)."
+
+      - name: Prove Azure Marketplace Metering is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/marketplace-metering"
+          status=$(curl --silent --show-error --output /tmp/marketplace-metering-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{}' \
+            "$endpoint")
+          cat /tmp/marketplace-metering-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=Azure Marketplace Metering boundary probe failed::Expected the service-only function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Azure Marketplace Metering is deployed and refuses unauthenticated usage submission (HTTP 401)."
 
       - name: Prove Sync Realtime Voice is deployed
         run: |
