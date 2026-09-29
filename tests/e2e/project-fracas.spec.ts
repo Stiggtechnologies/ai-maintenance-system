@@ -35,7 +35,10 @@ test("planner records execution and a separate human adopts the learning revisio
   await observation.getByLabel("Change summary").fill("Clarify evidence retention location");
   await observation.getByLabel("Evidence and applicability basis").fill("Observed execution evidence; applies to equivalent flush acceptance work");
   await observation.getByRole("button", { name: "Request procedure revision" }).click();
-  await expect(observation.getByRole("status", { name: /Draft revision \d+ requested/ })).toBeVisible();
+  // role=status does not take its accessible name from the receipt text.
+  const receipt = observation.getByRole("status").filter({ hasText: /Draft revision \d+ requested/ });
+  await expect(receipt).toBeVisible();
+  await expect(observation.getByRole("status")).toHaveCount(1);
   await expect(observation.getByText("Loading source and revision history…")).toHaveCount(0);
   await expect(observation.getByText(/Flush acceptance · version .* · required/)).toBeVisible();
   await page.reload();
