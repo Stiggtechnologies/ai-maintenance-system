@@ -180,6 +180,17 @@ begin
  end if;
  update user_profiles set role='planner' where id=auth.uid();
  perform set_config('test.actor','00000000-0000-0000-0000-000000000009',true);
+ -- Privileged malformed history is not a pending human approval.
+ perform set_config('syncai.standard_revision_decision','1',true);
+ update approvals set status=null where standard_work_revision_id=revision_id;
+ perform set_config('syncai.standard_revision_decision','',true);
+ result := decide_project_standard_revision(revision_id,'approved','Must reject missing approval state');
+ if result->>'error' is distinct from 'Canonical approval is missing or already decided' then
+   raise exception 'Null approval state accepted: %',result;
+ end if;
+ perform set_config('syncai.standard_revision_decision','1',true);
+ update approvals set status='required' where standard_work_revision_id=revision_id;
+ perform set_config('syncai.standard_revision_decision','',true);
  result := decide_project_standard_revision(revision_id,'rejected','Scope review needs acceptance criteria');
  if result->>'status' <> 'rejected' then raise exception 'Rejection failed: %',result; end if;
  rejected_id := revision_id;
@@ -195,8 +206,12 @@ begin
    raise exception 'Retry did not preserve rejected history and adopted baseline';
  end if;
  perform set_config('test.actor','00000000-0000-0000-0000-000000000009',true);
+ -- A later role change cannot rewrite or invalidate the historical requester.
+ update user_profiles set role='technician' where id='00000000-0000-0000-0000-000000000002';
+ update standard_work set basis=basis where id=revision_id;
  result := decide_project_standard_revision(revision_id,'approved','Reviewed exact procedure and supporting evidence');
  if result->>'status' <> 'approved' then raise exception 'Adoption failed: %',result; end if;
+ update user_profiles set role='planner' where id='00000000-0000-0000-0000-000000000002';
  begin
    update procedure_translations set content='Silent rewrite' where standard_work_id=revision_id;
    raise exception 'Approved procedure rewrite accepted';
