@@ -43,6 +43,7 @@ begin
     from public.development_cases d where d.organization_id=v_org and d.id<>src.id;
   v_receipt:=jsonb_build_object('screenedAt',v_at,'actorId',v_actor,'basis',btrim(p_basis),
     'lessonId',l.id,'standardRevisionId',c.project_adopted_standard_id,
+    'sourceLifecycleType',src.lifecycle_type,'applicability',l.applicability,
     'population',v_population,'matches',v_matches,
     'populationCount',jsonb_array_length(v_population),'matchCount',jsonb_array_length(v_matches),
     'scope','All other current cases in this organization at the screening snapshot',

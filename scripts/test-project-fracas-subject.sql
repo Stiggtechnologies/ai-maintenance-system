@@ -241,6 +241,17 @@ begin
  if result->>'error' is null then raise exception 'Duplicate adoption accepted'; end if;
  perform set_config('test.actor','',true);
  result := screen_project_ca_exposure(closure_id,'Screened all current candidates');
+ if result->>'sourceLifecycleType' is distinct from 'capital_project'
+    or result->>'applicability' is distinct from 'All capital projects' then
+   raise exception 'Screening source basis snapshot missing: %',result;
+ end if;
+ begin
+   update learning_events set applicability='Only unrelated projects'
+     where id='00000000-0000-0000-0000-000000000003';
+   raise exception 'Referenced lesson applicability silently changed';
+ exception when raise_exception then
+   if sqlerrm <> 'A lesson used by corrective-action closure retains its source facts' then raise; end if;
+ end;
  if result->>'populationCount' <> '1' or result->>'matchCount' <> '1'
     or result->'population' <> '["00000000-0000-0000-0000-000000000014"]'::jsonb then
    raise exception 'Screen included source or foreign project: %',result;

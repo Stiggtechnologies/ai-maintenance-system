@@ -76,6 +76,7 @@ begin
        or new.development_case_id is distinct from old.development_case_id
        or new.failure_mode_key is distinct from old.failure_mode_key
        or new.cause is distinct from old.cause
+       or new.applicability is distinct from old.applicability
        or new.corrective_action is distinct from old.corrective_action) then
     raise exception 'A lesson used by corrective-action closure retains its source facts';
   end if;
