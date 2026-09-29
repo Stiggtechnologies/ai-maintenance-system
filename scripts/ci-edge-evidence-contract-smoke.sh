@@ -61,7 +61,7 @@ err() {
 }
 psqlc() {
   PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres \
-    -qAt -F ' ' -v ON_ERROR_STOP=1 -c "$1"
+    -qAt -F '|' -v ON_ERROR_STOP=1 -c "$1"
 }
 ingest_payload() {
   NODE="$NODE" KEY_ID="$1" SEQUENCE="$2" OBSERVATION_ID="$3" \
@@ -122,7 +122,7 @@ SQL
 
 FOREIGN=$(token 'edge-contract-foreign@syncai.ca' 'Foreign123!@#')
 test -n "$FOREIGN"
-read -r OLD_MODEL CURRENT_MODEL <<<"$(psqlc "select
+IFS='|' read -r OLD_MODEL CURRENT_MODEL <<<"$(psqlc "select
   (select id from model_register where organization_id='$ORG' and model_key='ci.decision.model' and version='1.0.0'),
   (select id from model_register where organization_id='$ORG' and model_key='ci.decision.model' and version='2.0.0')")"
 test -n "$OLD_MODEL" && test -n "$CURRENT_MODEL"
