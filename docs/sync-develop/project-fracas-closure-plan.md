@@ -107,5 +107,49 @@ without inventing measurement periods, effectiveness thresholds or a parallel
 workflow. This plan does not pre-approve a nullable-asset migration or declare
 asset and project effectiveness equivalent.
 
-The material-commercial release remains separate in PR #527. This worktree starts
-from main `31343c7`; it does not depend on unmerged material UI/migrations.
+## Contract investigation after the material release
+
+PR #527 is merged as `45f7e69`; this branch now includes that released main.
+Its production deployment passed, while authenticated live materials acceptance
+remains separately outstanding. This project-closure plan does not promote it.
+
+- The latest `record_verification_result` is in
+  `20261204090300_develop_slice5a_repair.sql`, not the earlier `090100` migration.
+  It preserves standing failed requirement verifications through derived status
+  and explicit supersession. Any subject extension must retain that behavior.
+- `verification_obligations` currently requires exactly one recommendation or
+  requirement subject. Its `learning_event_id` is a failure-result output, not
+  the originating lesson. Reusing that column as the project lesson would erase
+  the distinction between source and generated learning.
+- `standard_work` already has nullable measured duration and a unique
+  organization/work-key/version identity. A project revision must not fabricate
+  duration merely to create a standard. `procedure_translations` contains actual
+  procedure content and human translation verification; a title/basis change
+  alone must not be misrepresented as an adopted procedural change.
+- The canonical `approvals` store already supports a typed subject extension:
+  `20261219200000_significant_expenditure_approval.sql` adds an expenditure
+  reference and blocks generic approval mutation through a restrictive policy.
+  Standard adoption should follow that governed-subject pattern, with its own
+  evidence and stale-revision guards, rather than add another approval table.
+- `app_role_has_approval_authority` is database-owned in migration `00000000000022`.
+  The implementation must use that predicate plus same-tenant human attribution;
+  a copied UI role list is not the authority contract.
+
+These findings constrain implementation; they do not establish completed closure
+or choose a new verification subject without the required consumer tests.
+
+## Target-extension decision
+
+Extend `ca_verifications` for project lessons, as D9.05 requires, rather than
+create a competing closure store or disguise a lesson as a design requirement.
+The extension must use an exclusive subject constraint: an asset work order with
+its asset, OR a canonical project `learning_events` reference, never both.
+Project records must not inherit the asset-only default 90-day observation or
+`closed_effective` outcome. Add explicit project closure semantics and keep all
+existing asset evaluators, recent-row reads and metric denominators asset-scoped.
+
+The first migration's acceptance tests must prove these negative boundaries
+before the project write path is exposed. Standard revisions will use
+`standard_work` and typed canonical `approvals`; the future-project screen will
+reuse `sync_lesson_applies_to_case`. The existing `ProjectLessonsSection` is the
+customer entry point. No new top-level workflow or learning table is needed.
