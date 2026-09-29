@@ -135,6 +135,7 @@ jobs:
             --parameters \
               prefix=syncai \
               environmentName=production \
+              location="$LOCATION" \
               registryName="${{ steps.foundation.outputs.registry }}" \
               containerEnvironmentName="${{ steps.foundation.outputs.environment }}" \
               workloadIdentityName="${{ steps.foundation.outputs.identity }}" \

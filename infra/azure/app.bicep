@@ -13,6 +13,9 @@ param prefix string = 'syncai'
 ])
 param environmentName string = 'production'
 
+@description('Azure region used by the existing Container Apps environment.')
+param location string = resourceGroup().location
+
 @description('Existing Azure Container Registry name from foundation.bicep.')
 param registryName string
 
@@ -49,7 +52,7 @@ resource workloadIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023
 
 resource web 'Microsoft.App/containerApps@2024-03-01' = {
   name: appName
-  location: resourceGroup().location
+  location: location
   tags: {
     product: 'SyncAI'
     edition: 'azure'

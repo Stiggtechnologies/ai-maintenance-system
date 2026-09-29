@@ -33,6 +33,10 @@ describe("Azure Edition foundation", () => {
 
   it("runs the web workload in Container Apps with managed identity and health gates", () => {
     expect(application).toContain("Microsoft.App/containerApps");
+    expect(application).toContain(
+      "param location string = resourceGroup().location",
+    );
+    expect(application).toContain("location: location");
     expect(application).toContain("type: 'UserAssigned'");
     expect(application).toContain("identity: workloadIdentity.id");
     expect(application).toContain("external: true");
@@ -59,6 +63,7 @@ describe("Azure Edition foundation", () => {
     expect(workflow).toContain("infra/azure/foundation.bicep");
     expect(workflow).toContain("az acr build");
     expect(workflow).toContain("infra/azure/app.bicep");
+    expect(workflow).toContain('location="$LOCATION"');
     expect(workflow).toContain("/health");
     expect(workflow).toContain("azure-production");
     expect(workflow).not.toContain("AZURE_CLIENT_SECRET");
