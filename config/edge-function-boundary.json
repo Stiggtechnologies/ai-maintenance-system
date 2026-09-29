@@ -25,6 +25,7 @@
     "develop-risk-agent",
     "lead-notify",
     "marketplace-fulfillment",
+    "marketplace-metering",
     "marketplace-webhook",
     "onboarding-enrich",
     "plant-historian-pull",

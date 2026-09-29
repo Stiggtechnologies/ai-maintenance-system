@@ -121,7 +121,7 @@ describe("Azure Marketplace A4 production boundary", () => {
     );
     expect(docs).toContain("A5");
     expect(docs).toContain(
-      "Authenticated, idempotent webhook lifecycle and canonical entitlement enforcement are implemented in code",
+      "Deployed behind independent Microsoft JWT validation",
     );
   });
 });

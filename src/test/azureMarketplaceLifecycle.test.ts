@@ -84,9 +84,9 @@ describe("Azure Marketplace A5 lifecycle boundary", () => {
     expect(migration).toContain("when 'Unsubscribed' then 'cancelled'");
   });
 
-  it("documents A5 as code-complete but not buyer-proven", () => {
+  it("documents A5 as deployed but not buyer-proven", () => {
     expect(docs).toContain(
-      "Authenticated, idempotent webhook lifecycle and canonical entitlement enforcement are implemented in code",
+      "Deployed behind independent Microsoft JWT validation",
     );
     expect(docs).toContain(
       "not end-to-end commerce evidence until a preview offer exercises every lifecycle event",

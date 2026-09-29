@@ -466,6 +466,11 @@ verify_jwt = true
 [functions.marketplace-fulfillment]
 verify_jwt = false
 
+# Metering is a service-only scheduled function. The platform JWT gate and the
+# function's exact service-role comparison both run before any usage is claimed.
+[functions.marketplace-metering]
+verify_jwt = true
+
 # Microsoft signs webhook bearer tokens with Entra keys, not the Supabase JWT
 # secret. This reviewed custom-auth endpoint verifies the signature, audience,
 # publisher tenant and Microsoft caller before any service-role persistence.

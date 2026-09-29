@@ -437,6 +437,9 @@ jobs:
       - name: Smoke — authenticated Azure Marketplace lifecycle and entitlement
         run: bash scripts/ci-azure-marketplace-lifecycle-smoke.sh
 
+      - name: Smoke — canonical hourly Azure Marketplace metering
+        run: bash scripts/ci-azure-marketplace-metering-smoke.sh
+
       - name: Smoke — contract-strategy recommendation agent
         run: bash scripts/ci-develop-contract-strategy-agent-smoke.sh
 
