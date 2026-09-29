@@ -32,5 +32,9 @@ test("planner inspects completed project closure and its screening provenance", 
   await panel.getByText("Inspect screening receipt", { exact: true }).click();
   await expect(panel.getByText(`Screening basis: ${basis}`, { exact: true })).toBeVisible();
   await expect(panel.getByText(/not proof of adoption by matched projects/)).toBeVisible();
+  // Keep the real sticky application chrome in place while giving this tall
+  // evidence panel enough room for an unobscured visual-review artifact.
+  await page.setViewportSize({ width: 1440, height: 1600 });
+  await panel.evaluate(element => element.scrollIntoView({ block: "center" }));
   await panel.screenshot({ path: testInfo.outputPath("project-fracas-screening.png") });
 });
