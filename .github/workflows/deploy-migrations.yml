@@ -42,6 +42,7 @@ on:
       - "supabase/functions/develop-hop-agent/**"
       - "supabase/functions/lead-notify/**"
       - "supabase/functions/marketplace-fulfillment/**"
+      - "supabase/functions/marketplace-webhook/**"
       - "supabase/functions/onboarding-enrich/**"
       - "supabase/functions/plant-historian-pull/**"
       - "supabase/functions/public-reliability-agent/**"
@@ -177,6 +178,7 @@ jobs:
           supabase functions deploy develop-hop-agent
           supabase functions deploy lead-notify
           supabase functions deploy marketplace-fulfillment --no-verify-jwt
+          supabase functions deploy marketplace-webhook --no-verify-jwt
           supabase functions deploy onboarding-enrich --no-verify-jwt
           supabase functions deploy plant-historian-pull
           supabase functions deploy public-reliability-agent
@@ -250,6 +252,23 @@ jobs:
             exit 1
           fi
           echo "Azure Marketplace Fulfillment is deployed; activation and status custom-auth refuse unauthenticated callers (HTTP 401)."
+
+      - name: Prove Azure Marketplace Webhook is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/marketplace-webhook"
+          status=$(curl --silent --show-error --output /tmp/marketplace-webhook-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{}' \
+            "$endpoint")
+          cat /tmp/marketplace-webhook-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=Azure Marketplace Webhook boundary probe failed::Expected custom Microsoft JWT verification to return HTTP 401 without a bearer token; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Azure Marketplace Webhook is deployed and refuses unsigned lifecycle events (HTTP 401)."
 
       - name: Prove Sync Realtime Voice is deployed
         run: |

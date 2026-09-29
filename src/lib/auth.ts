@@ -29,7 +29,8 @@ export function resolveAuthSource(user: User): AuthSource {
   const providers = Array.isArray(user.app_metadata?.providers)
     ? user.app_metadata.providers
     : [];
-  const identities = user.identities?.map((identity) => identity.provider) ?? [];
+  const identities =
+    user.identities?.map((identity) => identity.provider) ?? [];
   if (
     provider === "azure" ||
     providers.includes("azure") ||
@@ -72,7 +73,19 @@ export async function hasWorkspaceMembership(userId: string): Promise<boolean> {
       .select("id, organization_id")
       .eq("id", userId)
       .maybeSingle();
-    return !error && data?.id === userId && Boolean(data.organization_id);
+    if (error || data?.id !== userId || !data.organization_id) return false;
+    const { data: entitlement, error: entitlementError } = await supabase.rpc(
+      "get_current_workspace_entitlement",
+    );
+    return (
+      !entitlementError &&
+      Boolean(
+        entitlement &&
+        typeof entitlement === "object" &&
+        "authorized" in entitlement &&
+        entitlement.authorized === true,
+      )
+    );
   } catch {
     return false;
   }
@@ -98,17 +111,26 @@ export async function signUp(data: SignUpData): Promise<SignUpResult> {
     if (authError) {
       return {
         success: false,
-        error: { message: authError.message, code: authError.status?.toString() },
+        error: {
+          message: authError.message,
+          code: authError.status?.toString(),
+        },
       };
     }
 
     if (!authData.user) {
-      return { success: false, error: { message: "Failed to create user account" } };
+      return {
+        success: false,
+        error: { message: "Failed to create user account" },
+      };
     }
 
     return { success: true, requiresConfirmation: !authData.session };
   } catch {
-    return { success: false, error: { message: "An unexpected error occurred" } };
+    return {
+      success: false,
+      error: { message: "An unexpected error occurred" },
+    };
   }
 }
 
@@ -117,13 +139,17 @@ export async function signIn(
   password: string,
 ): Promise<{ success: boolean; error?: AuthError }> {
   try {
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
     if (signInError) {
       if (signInError.message.includes("Invalid login credentials")) {
         return {
           success: false,
           error: {
-            message: "We couldn't verify your credentials. Please confirm or contact your administrator.",
+            message:
+              "We couldn't verify your credentials. Please confirm or contact your administrator.",
             code: signInError.status?.toString(),
           },
         };
@@ -132,7 +158,8 @@ export async function signIn(
         success: false,
         error: {
           message:
-            typeof signInError.message === "string" && signInError.message.trim().length > 2
+            typeof signInError.message === "string" &&
+            signInError.message.trim().length > 2
               ? signInError.message
               : "Sign-in is temporarily unavailable. Please try again in a moment.",
           code: signInError.status?.toString(),
@@ -141,7 +168,10 @@ export async function signIn(
     }
     return { success: true };
   } catch {
-    return { success: false, error: { message: "An unexpected error occurred" } };
+    return {
+      success: false,
+      error: { message: "An unexpected error occurred" },
+    };
   }
 }
 
@@ -150,7 +180,9 @@ export async function signOut(): Promise<void> {
 }
 
 export async function getUserProfile() {
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
   if (!user) return null;
   const { data: profile, error } = await supabase
     .from("user_profiles")

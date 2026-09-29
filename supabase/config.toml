@@ -465,3 +465,9 @@ verify_jwt = true
 # require one Azure tenant before any service-role claim.
 [functions.marketplace-fulfillment]
 verify_jwt = false
+
+# Microsoft signs webhook bearer tokens with Entra keys, not the Supabase JWT
+# secret. This reviewed custom-auth endpoint verifies the signature, audience,
+# publisher tenant and Microsoft caller before any service-role persistence.
+[functions.marketplace-webhook]
+verify_jwt = false
