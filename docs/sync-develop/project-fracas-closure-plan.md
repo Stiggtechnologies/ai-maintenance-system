@@ -20,14 +20,22 @@ the acceptance cases remain the completion criteria.
 - The new CI-only authenticated smoke reuses project-start fixtures and checks
   the API chain, exact PostgREST UI relationships, real applicable-lesson reads,
   foreign-case refusal, anonymous refusal and direct-client update refusal.
-  Script syntax validation passed; runtime acceptance is pending, not asserted.
+  At `c6423bd`, CI run `36516312587` passed the full migration/authentication
+  job and golden-path browser job. That evidence covers the original smoke and
+  browser inspection of the completed closure, not subsequent test additions.
+  The added foreign-tenant checks across all six write RPCs and concurrent-start
+  check at `210ae1d` are awaiting runtime results in run `36517691125`.
 - Administrative completion now uses `closed_project_workflow`, not
   `closed_effective`. Screening completes that state only with evidenced human
   stages, an adopted standard and an attributed receipt; effectiveness stays null.
   The local SQL fixture proves premature completion refusal and valid completion.
   Zero candidates remain an explicitly empty screening, not demonstrated prevention.
 - UI pagination/read-after-write and older-evidence search have local regression
-  coverage; their live/browser acceptance remains outstanding.
+  coverage; their live/browser acceptance remains outstanding. Browser inspection
+  of a seeded completed chain passed at `c6423bd`; it does not exercise every
+  input form. The additional rescreen-and-reload persistence test in `40270f1`
+  is committed locally but has not yet run in CI. The polished panel likewise
+  still requires rendered inspection at its final revision.
 - Still required: complete authenticated tenant/concurrency coverage,
   browser workflow and visual inspection, all final CI gates, and production
   schema plus live authorized-user verification. Passing targeted tests does not
