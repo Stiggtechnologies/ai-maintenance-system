@@ -48,7 +48,8 @@ test("planner records execution and a separate human adopts the learning revisio
     await approver.getByRole("textbox", { name: /work email/i }).fill("admin@syncai.ca");
     await approver.locator('input[type="password"]').fill("Admin123!@#");
     await approver.getByRole("button", { name: /access syncai/i }).click();
-    await expect(approver.getByRole("heading", { name: "Operational Briefing", exact: true })).toBeVisible({ timeout: 30_000 });
+    // Admin and planner have different authenticated landing pages.
+    await expect(approver.getByRole("heading", { name: "Mission Control", exact: true })).toBeVisible({ timeout: 30_000 });
     await approver.goto(new URL("/develop/cases/98550000-0000-4000-8000-000000000001#realize", page.url()).toString());
     const review = approver.getByRole("region", { name: "Standard-work learning", exact: true }).locator("article")
       .filter({ has: approver.getByRole("heading", { name: title, exact: true }) });
