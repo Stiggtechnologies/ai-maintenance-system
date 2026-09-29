@@ -41,6 +41,7 @@ on:
       - "supabase/functions/develop-governance-agent/**"
       - "supabase/functions/develop-hop-agent/**"
       - "supabase/functions/lead-notify/**"
+      - "supabase/functions/marketplace-fulfillment/**"
       - "supabase/functions/onboarding-enrich/**"
       - "supabase/functions/plant-historian-pull/**"
       - "supabase/functions/public-reliability-agent/**"
@@ -107,6 +108,35 @@ jobs:
           ENTRA_SSO_CLIENT_SECRET: ${{ secrets.ENTRA_SSO_CLIENT_SECRET }}
           ENTRA_SSO_TENANT: ${{ vars.ENTRA_SSO_TENANT }}
 
+      - name: Configure Azure Marketplace publisher service
+        env:
+          AZURE_MARKETPLACE_CLIENT_ID: ${{ secrets.AZURE_MARKETPLACE_CLIENT_ID }}
+          AZURE_MARKETPLACE_CLIENT_SECRET: ${{ secrets.AZURE_MARKETPLACE_CLIENT_SECRET }}
+          AZURE_MARKETPLACE_TENANT_ID: ${{ secrets.AZURE_MARKETPLACE_TENANT_ID }}
+          AZURE_MARKETPLACE_PUBLISHER_ID: ${{ secrets.AZURE_MARKETPLACE_PUBLISHER_ID }}
+          AZURE_MARKETPLACE_OFFER_ID: ${{ secrets.AZURE_MARKETPLACE_OFFER_ID }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          present=0
+          for name in AZURE_MARKETPLACE_CLIENT_ID AZURE_MARKETPLACE_CLIENT_SECRET AZURE_MARKETPLACE_TENANT_ID AZURE_MARKETPLACE_PUBLISHER_ID AZURE_MARKETPLACE_OFFER_ID; do
+            if [ -n "${!name:-}" ]; then present=$((present + 1)); fi
+          done
+          if [ "$present" -eq 0 ]; then
+            echo "::warning title=Azure Marketplace configuration unchanged::No publisher inputs were supplied by GitHub; the workflow is not changing any existing runtime secrets and this run is not end-to-end commerce evidence."
+            exit 0
+          fi
+          if [ "$present" -ne 5 ]; then
+            echo "::error title=Incomplete Azure Marketplace configuration::All five publisher and offer values must be supplied together."
+            exit 1
+          fi
+          supabase secrets set --project-ref "$SUPABASE_PROJECT_ID" \
+            AZURE_MARKETPLACE_CLIENT_ID="$AZURE_MARKETPLACE_CLIENT_ID" \
+            AZURE_MARKETPLACE_CLIENT_SECRET="$AZURE_MARKETPLACE_CLIENT_SECRET" \
+            AZURE_MARKETPLACE_TENANT_ID="$AZURE_MARKETPLACE_TENANT_ID" \
+            AZURE_MARKETPLACE_PUBLISHER_ID="$AZURE_MARKETPLACE_PUBLISHER_ID" \
+            AZURE_MARKETPLACE_OFFER_ID="$AZURE_MARKETPLACE_OFFER_ID"
+
       - name: Read-only material history preflight
         run: node scripts/audit-material-production.mjs
         env:
@@ -146,6 +176,7 @@ jobs:
           supabase functions deploy develop-governance-agent
           supabase functions deploy develop-hop-agent
           supabase functions deploy lead-notify
+          supabase functions deploy marketplace-fulfillment --no-verify-jwt
           supabase functions deploy onboarding-enrich --no-verify-jwt
           supabase functions deploy plant-historian-pull
           supabase functions deploy public-reliability-agent
@@ -202,6 +233,23 @@ jobs:
             exit 1
           fi
           echo "Calculation Service is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove Azure Marketplace Fulfillment is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/marketplace-fulfillment"
+          status=$(curl --silent --show-error --output /tmp/marketplace-fulfillment-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"action":"activate","resolutionId":"11111111-1111-4111-8111-111111111111","activationToken":"unauthenticated-boundary-probe-00000000"}' \
+            "$endpoint")
+          cat /tmp/marketplace-fulfillment-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=Azure Marketplace Fulfillment boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Azure Marketplace Fulfillment is deployed; activation and status custom-auth refuse unauthenticated callers (HTTP 401)."
 
       - name: Prove Sync Realtime Voice is deployed
         run: |

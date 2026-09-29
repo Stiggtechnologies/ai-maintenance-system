@@ -24,6 +24,7 @@
     "develop-requirements-agent",
     "develop-risk-agent",
     "lead-notify",
+    "marketplace-fulfillment",
     "onboarding-enrich",
     "plant-historian-pull",
     "public-reliability-agent",
@@ -36,6 +37,7 @@
   "allowedNoVerifyJwt": [
     "agent-loop-enrich",
     "edge-evidence-ingest",
+    "marketplace-fulfillment",
     "onboarding-enrich"
   ],
   "blockedLegacyFunctions": [
