@@ -458,6 +458,9 @@ jobs:
       - name: Smoke — project-start knowledge retrieval
         run: bash scripts/ci-project-start-knowledge-smoke.sh
 
+      - name: Smoke — governed project corrective-action closure
+        run: bash scripts/ci-project-fracas-smoke.sh
+
       - name: Smoke — case RAM completion (RBD, growth, FMEA and PM strategy)
         run: |
           bash scripts/ci-develop-ram-case-completion-smoke.sh
