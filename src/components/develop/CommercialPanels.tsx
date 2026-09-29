@@ -21,6 +21,7 @@
  * that owns it, so this screen cannot show a number a door would refuse.
  */
 import { useCallback, useEffect, useState } from "react";
+import { SpecificationReverseHistory } from "./SpecificationReverseHistory";
 import type { ReactNode } from "react";
 import type { WorkspaceEvidence } from "../../lib/develop";
 
@@ -1577,6 +1578,7 @@ export function CommercialPanel({
           </button>
         </div>
         {thread && !thread.answered && <Refusal text={thread.refusal} />}
+        {thread && <SpecificationReverseHistory thread={thread} />}
         {thread?.answered && (
           <div className="space-y-1 text-xs text-slate-300">
             <div>
@@ -1602,7 +1604,6 @@ export function CommercialPanel({
                 {link.positionNote ? ` · ${link.positionNote}` : ""}
               </div>
             ))}
-            <Refusal text={thread.backwardNote} />
             <p className="text-[11px] text-slate-500">{thread.basis}</p>
           </div>
         )}

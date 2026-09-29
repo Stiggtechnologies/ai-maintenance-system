@@ -6,6 +6,7 @@ import {
   createCatalogueMaterial,
   linkCatalogueSupplier,
   listMaterialSupplierOptions,
+  linkCatalogueBom,
   describeReserveResult,
   listMaterialDemand,
   recordMaterialEvent,
@@ -25,6 +26,52 @@ vi.mock("../lib/supabase", () => ({
 }));
 
 describe("materialsCallers", () => {
+  it.each([
+    0,
+    -1,
+    Number.NaN,
+    Number.POSITIVE_INFINITY,
+    Number.NEGATIVE_INFINITY,
+  ])(
+    "rejects invalid BOM quantity %s before sending a request",
+    async (quantity) => {
+      rpc.mockClear();
+      await expect(
+        linkCatalogueBom({
+          materialId: "m1",
+          assetId: "a1",
+          assetClass: null,
+          componentId: null,
+          quantity,
+          positionNote: "",
+          basis: "Drawing",
+        }),
+      ).rejects.toThrow("finite and positive");
+      expect(rpc).not.toHaveBeenCalled();
+    },
+  );
+
+  it("preserves a positive fractional quantity and component identity", async () => {
+    rpc.mockResolvedValue({ data: { bomLineId: "b1" }, error: null });
+    await linkCatalogueBom({
+      materialId: "m1",
+      assetId: "a1",
+      assetClass: null,
+      componentId: "c1",
+      quantity: 0.125,
+      positionNote: " Position 2 ",
+      basis: " Drawing 4 ",
+    });
+    expect(rpc).toHaveBeenCalledWith("link_catalogue_bom", {
+      p_material_id: "m1",
+      p_asset_id: "a1",
+      p_asset_class: null,
+      p_component_id: "c1",
+      p_qty_per: 0.125,
+      p_position_note: "Position 2",
+      p_basis: "Drawing 4",
+    });
+  });
   it("continues after a short server-capped page until every catalogue identity is read", async () => {
     const cursors: unknown[] = [];
     from.mockImplementation((table: string) => {
