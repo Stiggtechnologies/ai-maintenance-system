@@ -105,16 +105,11 @@ import {
   writeDecisionCases,
 } from "./lib/decision-case";
 import { readStoredDecisionDrafts } from "./lib/decision-case-drafts";
-
-type Page =
-  | "demo"
-  | "signin"
-  | "signup"
-  | "enterprise"
-  | "app"
-  | "security"
-  | "privacy"
-  | "terms";
+import {
+  initialAuthPage,
+  pageAfterWorkspaceAuthorization,
+  type AuthPage as Page,
+} from "./lib/auth-page";
 
 function PublicCopilotExperience() {
   useEffect(() => {
@@ -161,14 +156,9 @@ function AuthenticatedSignInTransition({
 }
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<Page>(() => {
-    const requested = new URLSearchParams(window.location.search).get("view");
-    return requested === "signin" ||
-      requested === "signup" ||
-      requested === "enterprise"
-      ? requested
-      : "demo";
-  });
+  const [currentPage, setCurrentPage] = useState<Page>(() =>
+    initialAuthPage(window.location.search),
+  );
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [signInApproved, setSignInApproved] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -203,9 +193,10 @@ function App() {
           ? await hasWorkspaceMembership(session.user.id)
           : false;
         setIsAuthenticated(workspaceAuthorized);
-        if (workspaceAuthorized) setCurrentPage("app");
-        else {
-          setCurrentPage("demo");
+        setCurrentPage((page) =>
+          pageAfterWorkspaceAuthorization(page, workspaceAuthorized),
+        );
+        if (!workspaceAuthorized) {
           setSignInApproved(false);
         }
       })();
