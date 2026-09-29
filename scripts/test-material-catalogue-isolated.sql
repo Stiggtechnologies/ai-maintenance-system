@@ -1,9 +1,9 @@
 -- Focused PostgreSQL execution test ONLY. Run in a disposable empty database.
 -- Minimal dependency fixtures do not replace the full Supabase migration smoke.
 \set ON_ERROR_STOP on
-create role anon;
-create role authenticated;
-create role service_role;
+do $$ begin create role anon; exception when duplicate_object then null; end $$;
+do $$ begin create role authenticated; exception when duplicate_object then null; end $$;
+do $$ begin create role service_role; exception when duplicate_object then null; end $$;
 create schema auth;
 create function auth.uid() returns uuid language sql stable as
   $$ select nullif(current_setting('test.actor', true), '')::uuid $$;
@@ -31,6 +31,7 @@ create table public.design_requirements(organization_id uuid, derived_from_failu
 \ir ../supabase/migrations/20261225170100_material_catalogue_write.sql
 \ir ../supabase/migrations/20261225170200_material_supplier_link.sql
 \ir ../supabase/migrations/20261225170300_material_bom_link.sql
+\ir ../supabase/migrations/20261225170500_material_relationship_tenant_keys.sql
 
 select set_config('test.org', '11111111-1111-1111-1111-111111111111', false);
 select set_config('test.actor', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', false);
@@ -77,6 +78,17 @@ begin
   end;
   select count(*) into n from audit_events;
   if n <> 4 then raise exception 'expected four success audit records, got %', n; end if;
+  begin
+    update suppliers set organization_id='22222222-2222-2222-2222-222222222222' where id=1;
+    raise exception 'supplier tenant mutation accepted';
+  exception when foreign_key_violation then null;
+  end;
+  begin
+    update components set asset_id='aaaaaaaa-0000-0000-0000-000000000002'
+      where id='cccccccc-0000-0000-0000-000000000001';
+    raise exception 'component parent mutation accepted';
+  exception when foreign_key_violation then null;
+  end;
   update user_profiles set role='ai_admin';
   if not (create_catalogue_material('AI','Other','each','Source') ? 'error') then raise exception 'AI write accepted'; end if;
   if not (link_catalogue_supplier(m,1,'SP','Quote') ? 'error') then raise exception 'AI supplier write accepted'; end if;

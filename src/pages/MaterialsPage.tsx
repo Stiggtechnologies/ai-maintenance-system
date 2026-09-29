@@ -15,6 +15,7 @@ import { SupplyExposure } from "../components/SupplyExposure";
 import { MaterialCatalogue } from "../components/MaterialCatalogue";
 import { MaterialSupplierLink } from "../components/MaterialSupplierLink";
 import { MaterialBomLink } from "../components/MaterialBomLink";
+import { MaterialRelationshipHistory } from "../components/MaterialRelationshipHistory";
 
 export function MaterialsPage() {
   const [catalogueVersion, setCatalogueVersion] = useState(0);
@@ -35,6 +36,7 @@ export function MaterialsPage() {
       />
       <MaterialSupplierLink refreshVersion={catalogueVersion} />
       <MaterialBomLink refreshVersion={catalogueVersion} />
+      <MaterialRelationshipHistory />
       <MaterialsReadiness />
       <SparesOptimization />
       <SupplyExposure />

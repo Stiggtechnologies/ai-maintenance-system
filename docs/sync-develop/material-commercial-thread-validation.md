@@ -13,7 +13,7 @@ This slice remains partial. The capability registers are deliberately unchanged.
 
 ## Evidence collected
 
-28 focused Vitest assertions passed during implementation. TypeScript and changed-file lint checks passed before the final test additions; rerun all checks before release.
+32 focused Vitest assertions passed during implementation. TypeScript and changed-file lint checks passed; rerun all checks on the final release commit.
 
 `scripts/test-material-catalogue-isolated.sql` executed successfully in a disposable PostgreSQL database. It covers successful catalogue/supplier/component/class writes, duplicate refusals, cross-tenant references, component-parent guard, NaN refusal, audit count, AI-role refusal and reverse lookup beyond fifteen modes.
 
@@ -21,13 +21,12 @@ That SQL harness uses minimal dependency fixtures and a test identity provider. 
 
 ## Required before ready for review / green status
 
-- Finish canonical component-history traversal and expose its evidence boundaries in the commercial panel.
-- Replace the original traversal's stale top-fifteen explanatory text.
+- Verify the component associations and asset-level history boundaries added to the canonical traversal at runtime. Work orders do not have canonical component attribution; the UI must not infer it.
 - Test writes and reads using actual authenticated tenant roles against the complete migration chain.
 - Test anonymous/viewer/foreign-tenant access, all finite quantity boundaries and concurrent duplicate attempts.
-- Review direct-writer guards and parent-reference mutation behavior.
-- Check selector pagination and ensure catalogues larger than the API row limit remain reachable.
-- Verify source provenance is inspectable after saving and refresh dependent selectors after catalogue creation.
+- Verify the new composite tenant/parent constraints against full seeded history and audit production history before rollout. Focused PostgreSQL tests reject supplier tenant and component parent mutation.
+- Render-check keyset-paginated selectors and the automatic refresh after catalogue creation; short-page pagination is covered by a service test.
+- Verify the paginated canonical audit-history panel under actual tenant RLS; the authenticated smoke now checks source and actor visibility and foreign-tenant exclusion.
 - Run the full test, lint, build, security and migration gates; inspect the rendered customer flow.
 - Complete architecture, security/tenancy and domain review, then verify deployment and production behavior.
 

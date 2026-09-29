@@ -36,6 +36,40 @@ export interface CreateCatalogueMaterialInput {
   basis: string;
 }
 
+export interface MaterialRelationshipAudit {
+  id: string;
+  entity_type: string;
+  event_time: string;
+  actor: string;
+  event_data: { actorId?: string; basis?: string; action?: string };
+  new_state: {
+    material_code?: string;
+    material_id?: string;
+    supplier_id?: number;
+    asset_id?: string;
+    asset_class?: string;
+    component_id?: string;
+  } | null;
+}
+
+export async function listMaterialRelationshipAudit(
+  page = 0,
+): Promise<MaterialRelationshipAudit[]> {
+  const { data, error } = await supabase
+    .from("audit_events")
+    .select("id, entity_type, event_time, actor, event_data, new_state")
+    .in("entity_type", [
+      "material_catalogue",
+      "material_supplier",
+      "material_bom",
+    ])
+    .order("event_time", { ascending: false })
+    .order("id")
+    .range(page * 25, page * 25 + 24);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as MaterialRelationshipAudit[];
+}
+
 export async function linkCatalogueSupplier(input: {
   materialId: string;
   supplierId: number;

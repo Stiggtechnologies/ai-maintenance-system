@@ -48,6 +48,21 @@ STATUS=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$API_URL/rest/v1/bom_l
  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $PLANNER" -H 'Content-Type: application/json' \
  -d "{\"organization_id\":\"$ORG\",\"material_id\":\"$MATERIAL\",\"asset_id\":\"$ASSET\",\"qty_per\":1}")
 test "$STATUS" = '403'
+# Anonymous callers cannot invoke the definer writes.
+STATUS=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$API_URL/rest/v1/rpc/create_catalogue_material" \
+ -H "apikey: $ANON_KEY" -H "Authorization: Bearer $ANON_KEY" -H 'Content-Type: application/json' -d "$INPUT")
+test "$STATUS" = '401' || test "$STATUS" = '403'
+# Validate existing seeded rows too; deployment uses NOT VALID to avoid silently
+# modifying customer history, so a separate historical audit is mandatory.
+psqlc "alter table material_suppliers validate constraint material_suppliers_material_tenant_fk;
+alter table material_suppliers validate constraint material_suppliers_supplier_tenant_fk;
+alter table bom_lines validate constraint bom_lines_material_tenant_fk;
+alter table bom_lines validate constraint bom_lines_asset_tenant_fk;
+alter table bom_lines validate constraint bom_lines_component_parent_fk;" >/dev/null
+# Audit provenance must be readable to the author and invisible cross-tenant.
+AUDIT=$(curl -fsS "$API_URL/rest/v1/audit_events?entity_type=eq.material_supplier&event_data->>materialId=eq.$MATERIAL&select=event_data,new_state" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $PLANNER")
+BODY="$AUDIT" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert len(x)==1 and x[0]['event_data']['basis']=='Supplier catalogue fixture' and x[0]['event_data']['actorId']"
+AUDIT=$(curl -fsS "$API_URL/rest/v1/audit_events?entity_type=eq.material_supplier&event_data->>materialId=eq.$MATERIAL&select=id" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $FOREIGN")
+test "$AUDIT" = '[]'
 test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type in ('material_catalogue','material_supplier') and event_data->>'materialId'='$MATERIAL'")" = '2'
 echo 'D6.07 authenticated material smoke passed: catalogue supplier component_bom duplicate_refusal role_refusal foreign_tenant RLS direct_write_denial audit'
-
