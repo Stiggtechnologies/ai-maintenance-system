@@ -190,4 +190,17 @@ describe("ApplicableLessonsBanner", () => {
       screen.getByText(/does not authorize work/i),
     ).toBeInTheDocument();
   });
+  it("shows adopted revision provenance without treating a match as authorization", async () => {
+    const payload = await screenApplicableProjectLessons("target-case");
+    payload.lessons[0].adoptedStandard = {
+      id: 7, workKey: "vendor-review", version: 2, title: "Vendor review procedure",
+      changeSummary: "Add acceptance owners before IFC release", approvalId: "approval-7",
+      adoptedAt: "2026-09-29T00:00:00Z", adoptedBy: "reviewer-2",
+    };
+    vi.mocked(screenApplicableProjectLessons).mockResolvedValue(payload);
+    render(<ApplicableLessonsBanner caseId="target-case" />);
+    expect(await screen.findByText(/Adopted standard: Vendor review procedure/)).toBeInTheDocument();
+    expect(screen.getByText(/Approved by reviewer-2/)).toBeInTheDocument();
+    expect(screen.getByText(/A match does not authorize work or prove prevention/)).toBeInTheDocument();
+  });
 });

@@ -558,6 +558,8 @@ export function RealizationCheckpointsSection({
   );
 }
 
+import { ProjectClosurePanel } from "./ProjectClosurePanel";
+
 export function ProjectLessonsSection({
   caseId,
   canRealize,
@@ -621,6 +623,7 @@ export function ProjectLessonsSection({
               <div className="text-slate-400">
                 Applies to: {lesson.applicability}
               </div>
+              <ProjectClosurePanel lessonId={lesson.id} canWrite={canRealize} />
             </div>
           ))}
         </div>
@@ -793,6 +796,12 @@ export function ApplicableLessonsBanner({ caseId }: { caseId: string }) {
               <li key={lesson.id} className="text-xs text-slate-300">
                 <span className="font-semibold">{lesson.title}</span>
                 <span className="text-slate-500"> — {lesson.matchReason}</span>
+                {lesson.adoptedStandard && <div className="mt-1 text-cyan-200">
+                  Adopted standard: {lesson.adoptedStandard.title} · {lesson.adoptedStandard.workKey} v{lesson.adoptedStandard.version}
+                  <p>{lesson.adoptedStandard.changeSummary}</p>
+                  <p>Approved by {lesson.adoptedStandard.adoptedBy} · {lesson.adoptedStandard.adoptedAt}</p>
+                  <p>Review applicability to this project. A match does not authorize work or prove prevention.</p>
+                </div>}
                 <div className="text-[11px] text-slate-500">
                   {lesson.applicability}
                 </div>
