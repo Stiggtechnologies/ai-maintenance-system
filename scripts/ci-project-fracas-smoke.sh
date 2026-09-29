@@ -138,6 +138,28 @@ OBS_ID=$(field "$(rpc "$PLANNER" record_standard_work_observation "$OBS_BODY")" 
 LEARNING_BODY="{\"p_observation_id\":\"$OBS_ID\",\"p_content\":\"Retain witnessed flush acceptance record and clarify inspection sequence\",\"p_change_summary\":\"Clarify inspection sequence from observed execution\",\"p_basis\":\"Execution and outcome evidence reviewed; improvement not yet measured\"}"
 refused "$(rpc "$FOREIGN" request_learning_standard_revision "$LEARNING_BODY")"
 LEARNING_REV=$(field "$(race_revision "$PLANNER" request_learning_standard_revision "$LEARNING_BODY")" revisionId)
+LEARNING_APPROVAL=$(psqlc "select revision_approval_id from standard_work where id=$LEARNING_REV")
+# Generic client writes must not replace the governed decision/capture paths.
+CODE=$(curl -sS -o /dev/null -w '%{http_code}' -X PATCH "$API_URL/rest/v1/approvals?id=eq.$LEARNING_APPROVAL" \
+  -H "apikey: $ANON_KEY" -H "authorization: Bearer $ADMIN" -H 'content-type: application/json' \
+  -d '{"status":"approved"}')
+case "$CODE" in 400|403) ;; *) echo "Direct learning approval unexpectedly returned $CODE"; exit 1;; esac
+test "$(psqlc "select status from approvals where id='$LEARNING_APPROVAL'")" = required
+CODE=$(curl -sS -o /dev/null -w '%{http_code}' -X PATCH "$API_URL/rest/v1/learning_events?id=eq.$OBS_ID" \
+  -H "apikey: $ANON_KEY" -H "authorization: Bearer $PLANNER" -H 'content-type: application/json' \
+  -d '{"standard_variation_kind":"varied"}')
+case "$CODE" in 400|403) ;; *) echo "Observation overwrite unexpectedly returned $CODE"; exit 1;; esac
+test "$(psqlc "select standard_variation_kind from learning_events where id='$OBS_ID'")" = conforming
+for OBS_RPC in record_standard_work_observation request_learning_standard_revision decide_learning_standard_revision; do
+  case "$OBS_RPC" in
+    record_standard_work_observation) ANON_BODY="$OBS_BODY";;
+    request_learning_standard_revision) ANON_BODY="$LEARNING_BODY";;
+    decide_learning_standard_revision) ANON_BODY="{\"p_revision_id\":$LEARNING_REV,\"p_outcome\":\"approved\",\"p_note\":\"Anonymous attempt\"}";;
+  esac
+  CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$API_URL/rest/v1/rpc/$OBS_RPC" \
+    -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "$ANON_BODY")
+  case "$CODE" in 401|403) ;; *) echo "Anonymous $OBS_RPC unexpectedly returned $CODE"; exit 1;; esac
+done
 refused "$(rpc "$PLANNER" decide_learning_standard_revision "{\"p_revision_id\":$LEARNING_REV,\"p_outcome\":\"approved\",\"p_note\":\"Requester attempts own adoption\"}")"
 refused "$(rpc "$FOREIGN" decide_learning_standard_revision "{\"p_revision_id\":$LEARNING_REV,\"p_outcome\":\"approved\",\"p_note\":\"Foreign adoption attempt\"}")"
 ok "$(race_revision "$ADMIN" decide_learning_standard_revision "{\"p_revision_id\":$LEARNING_REV,\"p_outcome\":\"approved\",\"p_note\":\"Independent human reviewed exact content and source evidence\"}")"
