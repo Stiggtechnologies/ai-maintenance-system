@@ -565,8 +565,13 @@ jobs:
       - name: Install Playwright
         run: npx playwright install --with-deps chromium
 
+      - name: Project FRACAS authenticated fixtures for browser acceptance
+        run: |
+          bash scripts/ci-project-start-knowledge-smoke.sh
+          bash scripts/ci-project-fracas-smoke.sh
+
       - name: Golden-path E2E (login → evidence → scenarios → approve → verify)
-        run: npx playwright test tests/e2e/golden-path.spec.ts tests/e2e/material-commercial-thread.spec.ts
+        run: npx playwright test tests/e2e/golden-path.spec.ts tests/e2e/material-commercial-thread.spec.ts tests/e2e/project-fracas.spec.ts
 
       - name: Upload Playwright artifacts
         if: always()
