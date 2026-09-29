@@ -92,6 +92,10 @@ alter table material_suppliers validate constraint material_suppliers_supplier_t
 alter table bom_lines validate constraint bom_lines_material_tenant_fk;
 alter table bom_lines validate constraint bom_lines_asset_tenant_fk;
 alter table bom_lines validate constraint bom_lines_component_parent_fk;" >/dev/null
+# Exercise the same read-only history audit used for rollout against the full
+# seeded migration chain, not only the isolated PostgreSQL fixture.
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres \
+  -f "$(dirname "$0")/audit-material-relationship-history.sql"
 # Audit provenance must be readable to the author and invisible cross-tenant.
 AUDIT=$(curl -fsS "$API_URL/rest/v1/audit_events?entity_type=eq.material_supplier&event_data->>materialId=eq.$MATERIAL&select=event_data,new_state" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $PLANNER")
 BODY="$AUDIT" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert len(x)==1 and x[0]['event_data']['basis']=='Supplier catalogue fixture' and x[0]['event_data']['actorId']"
