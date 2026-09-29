@@ -15,7 +15,6 @@ vi.mock("./supabase-config", () => ({
 }));
 
 import {
-  ENTERPRISE_SSO_ENABLED,
   clearAzureADCallbackUrl,
   exchangeCodeForSession,
   getAzureADAuthUrl,
@@ -67,7 +66,6 @@ describe("Microsoft Entra federation", () => {
     });
 
     await expect(getAzureADAuthUrl()).resolves.toContain("provider=azure");
-    expect(ENTERPRISE_SSO_ENABLED).toBe(true);
     expect(auth.signInWithOAuth).toHaveBeenCalledWith({
       provider: "azure",
       options: {

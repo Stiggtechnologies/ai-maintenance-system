@@ -25,7 +25,6 @@ export const azureAdConfig: AzureADConfig = {
 };
 
 export const AZURE_AD_REDIRECT_URI = azureAdConfig.redirectUri;
-export const ENTERPRISE_SSO_ENABLED = true as const;
 export const ENTERPRISE_SSO_UNAVAILABLE_MESSAGE =
   "Microsoft Entra sign-in is unavailable in this environment. Use an approved SyncAI account or contact your administrator.";
 
