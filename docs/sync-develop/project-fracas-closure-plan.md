@@ -75,6 +75,32 @@ a supporting reference, not a substitute for that change.
 
 ## Investigation still required before schema changes
 
+### Consumer inventory found on main
+
+- `src/components/CaEffectivenessPanel.tsx`: reads recent `ca_verifications`
+  without a subject discriminator and renders asset/work-order semantics.
+- `20261005090000_recommendation_contract_producers.sql`: current asset
+  effectiveness evaluator; its no-recurrence branch writes `closed_effective`.
+  A project row with no asset recurrence cannot be allowed through that branch.
+- `20261219133000_ca_effectiveness_kpi.sql`: `get_ca_effectiveness_rate` and
+  scheduled `snapshot_ca_effectiveness_kpi` count verification records without a
+  subject discriminator. Both require explicit scope preservation if project
+  records enter this table, including the disclosed observing count.
+- `20261219132000_failure_mode_elimination_rate.sql`: reads verification through
+  same-tenant work orders and damage mechanisms. Preserve asset–mechanism units,
+  latest-record selection, uncoded exclusion and direct-write revocations.
+- `20260901140000_verification_obligations.sql`: an obligation can reference a CA
+  verification. The later generalized requirement-verification contract
+  (`20261204090100`) explicitly preserves the distinct existing stores; do not
+  create another verification table to evade that contract.
+- `20260920002000_ria_sponsor_and_demo_assessment.sql`: demo/workspace table
+  inventory also includes CA verification. Check its handling of new targets.
+
+The existing `approvals` and `decisions` tables plus database-owned
+`app_has_approval_authority` are the starting approval contracts. The role
+predicate's latest migration and object-specific write rules still need tracing
+before selecting adoption authority; copying an older role list is not a design.
+
 Resolve the exact canonical approval references and target extension after
 reading every current CA consumer. Establish project-specific closure semantics
 without inventing measurement periods, effectiveness thresholds or a parallel
