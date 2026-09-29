@@ -17,7 +17,26 @@ ORG='11111111-1111-1111-1111-111111111111'
 EVIDENCE='98551000-0000-4000-8000-000000000001'
 LESSON=$(psqlc "select id from learning_events where organization_id='$ORG' and development_case_id='98550000-0000-4000-8000-000000000001' and title='Seal failure at first start' order by created_at desc limit 1")
 test -n "$LESSON"
-CLOSURE=$(field "$(rpc "$PLANNER" start_project_ca_verification "{\"p_lesson_id\":\"$LESSON\",\"p_basis\":\"CI witnessed flush failure review\"}")" id)
+CLOSURE=$(API_URL="$API_URL" ANON_KEY="$ANON_KEY" PLANNER="$PLANNER" LESSON="$LESSON" python3 - <<'PY'
+import concurrent.futures,json,os,threading,urllib.request
+barrier=threading.Barrier(2)
+def start(_):
+    request=urllib.request.Request(
+        os.environ['API_URL']+'/rest/v1/rpc/start_project_ca_verification',
+        data=json.dumps({'p_lesson_id':os.environ['LESSON'],'p_basis':'CI witnessed flush failure review'}).encode(),
+        headers={'apikey':os.environ['ANON_KEY'],'authorization':'Bearer '+os.environ['PLANNER'],'content-type':'application/json'})
+    barrier.wait(timeout=10)
+    with urllib.request.urlopen(request,timeout=30) as response:
+        return json.load(response)
+with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+    results=list(pool.map(start,range(2)))
+successes=[r for r in results if r.get('id')]
+refusals=[r for r in results if r.get('error')]
+assert len(successes)==1 and len(refusals)==1,results
+print(successes[0]['id'])
+PY
+)
+test "$(psqlc "select count(*) from ca_verifications where project_lesson_id='$LESSON'")" = 1
 refused "$(rpc "$PLANNER" attest_project_ca_stage "{\"p_verification_id\":\"$CLOSURE\",\"p_stage\":\"causal\",\"p_note\":\"Premature\",\"p_evidence_id\":\"$EVIDENCE\"}")"
 for stage in implementation causal; do
   ok "$(rpc "$PLANNER" attest_project_ca_stage "{\"p_verification_id\":\"$CLOSURE\",\"p_stage\":\"$stage\",\"p_note\":\"Witnessed acceptance evidence reviewed\",\"p_evidence_id\":\"$EVIDENCE\"}")"
