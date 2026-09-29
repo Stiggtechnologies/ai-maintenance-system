@@ -7,6 +7,19 @@ create or replace function public.guard_project_workflow_completion()
 returns trigger language plpgsql security definer set search_path=public as $$
 begin
   if new.status='closed_project_workflow' then
+    if jsonb_typeof(new.project_screening_receipt->'population') is distinct from 'array'
+       or jsonb_typeof(new.project_screening_receipt->'matches') is distinct from 'array' then
+      raise exception 'Project workflow completion requires a consistent screening population receipt';
+    end if;
+    if (new.project_screening_receipt->>'populationCount')::integer is distinct from
+         jsonb_array_length(new.project_screening_receipt->'population')
+       or (new.project_screening_receipt->>'matchCount')::integer is distinct from
+         jsonb_array_length(new.project_screening_receipt->'matches')
+       or not ((new.project_screening_receipt->'matches') <@ (new.project_screening_receipt->'population'))
+       or (new.project_screening_receipt->>'screenedAt')::timestamptz is distinct from new.project_screened_at
+       or nullif(btrim(new.project_screening_receipt->>'basis'),'') is null then
+      raise exception 'Project workflow completion requires a consistent screening population receipt';
+    end if;
     if new.project_lesson_id is null or new.effectiveness is not null
        or new.physical_verified_at is null or new.physical_verified_by is null
        or new.project_implementation_evidence_id is null

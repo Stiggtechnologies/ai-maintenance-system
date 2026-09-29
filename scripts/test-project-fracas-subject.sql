@@ -131,7 +131,7 @@ begin
    update ca_verifications set status='closed_project_workflow' where id=closure_id;
    raise exception 'Premature workflow completion accepted';
  exception when raise_exception then
-   if sqlerrm <> 'Project workflow completion requires evidenced stages, adopted standard and attributed screening' then raise; end if;
+   if sqlerrm <> 'Project workflow completion requires a consistent screening population receipt' then raise; end if;
  end;
  result := attest_project_ca_stage(closure_id,'causal','Premature','00000000-0000-0000-0000-000000000008');
  if result->>'error' is null then raise exception 'Out-of-order causal stage accepted'; end if;
@@ -266,6 +266,21 @@ begin
    and status='closed_project_workflow' and effectiveness is null) then
    raise exception 'Screening did not complete the workflow separately from effectiveness';
  end if;
+ begin
+   update ca_verifications set project_screening_receipt=jsonb_set(
+     project_screening_receipt,'{populationCount}','999'::jsonb) where id=closure_id;
+   raise exception 'Inconsistent screening count accepted';
+ exception when raise_exception then
+   if sqlerrm <> 'Project workflow completion requires a consistent screening population receipt' then raise; end if;
+ end;
+ begin
+   update ca_verifications set project_screening_receipt=jsonb_set(
+     project_screening_receipt,'{matches}','["00000000-0000-0000-0000-000000000099"]'::jsonb)
+     where id=closure_id;
+   raise exception 'Match outside screening population accepted';
+ exception when raise_exception then
+   if sqlerrm <> 'Project workflow completion requires a consistent screening population receipt' then raise; end if;
+ end;
  if result->>'sourceLifecycleType' is distinct from 'capital_project'
     or result->>'applicability' is distinct from 'All capital projects' then
    raise exception 'Screening source basis snapshot missing: %',result;
