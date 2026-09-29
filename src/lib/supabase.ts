@@ -38,6 +38,7 @@ export const supabase = createClient(
       // (for example password recovery) continue to be detected automatically.
       flowType: "pkce",
       detectSessionInUrl: (url) => url.pathname !== "/auth/callback/azure",
+      experimental: { appendPkceFlowIdToRedirects: true },
     },
     global: { fetch: fetchWithTimeout },
   },

@@ -22,6 +22,7 @@ describe("Azure A3 verified Entra session contract", () => {
 
   it("uses PKCE while reserving the Entra callback for explicit verification", () => {
     expect(authClient).toContain('flowType: "pkce"');
+    expect(authClient).toContain("appendPkceFlowIdToRedirects: true");
     expect(authClient).toContain(
       'url.pathname !== "/auth/callback/azure"',
     );
