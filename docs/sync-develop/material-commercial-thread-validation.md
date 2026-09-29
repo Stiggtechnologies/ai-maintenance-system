@@ -21,6 +21,8 @@ The broader tenancy/register/reachability/commercial set passed 1,278 assertions
 
 That SQL harness uses minimal dependency fixtures and a test identity provider. It does **not** prove the full migration chain, actual Supabase authentication, RLS policies or production behavior.
 
+CI run `36503571131` on `9451714` completed the authenticated material-commercial smoke successfully after applying the full migration chain. That revision tested catalogue/supplier/component-BOM writes, technician/foreign-tenant refusal, duplicate refusals, anonymous denial, direct-write denial, audit visibility/isolation and validation of all five composite tenant constraints against seeded history. The later concurrency assertion and component-traversal assertion were not included in that successful step and require the final-head run. The isolated PostgreSQL harness separately executed the complete component traversal and verified reverse evidence on a broken forward chain.
+
 ## Required before ready for review / green status
 
 - Verify the component associations and asset-level history boundaries added to the canonical traversal at runtime. Work orders do not have canonical component attribution; the UI must not infer it.
