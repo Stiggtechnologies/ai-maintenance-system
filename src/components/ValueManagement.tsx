@@ -13,117 +13,61 @@
  * ranking by benefit per unit cost fits more value in, and the difference is
  * shown as a number.
  */
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Coins, Info, ArrowDownWideNarrow } from "lucide-react";
 import { useAsyncData } from "../hooks/useAsyncData";
-import { supabase } from "../lib/supabase";
-import {
-  compareOptions,
-  prioritiseUnderBudget,
-  type CashFlow,
-} from "../lib/value";
+import { runValueCalculations } from "../services/valueCalculationService";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
-
-interface Posture {
-  cases_total: number;
-  cases_mixed_lives: number;
-  plan_items: number;
-  budget_lines: number;
-  basis: string;
-}
-
-interface CasePayload {
-  caseRef: string;
-  title: string;
-  driver: string;
-  discountRate: number;
-  discountRateSource: string | null;
-  options: {
-    label: string;
-    lifePeriods: number;
-    cashFlows: CashFlow[];
-    benefitProbability: number | null;
-    isDoNothing: boolean;
-    notes: string | null;
-  }[];
-}
-
-interface PlanItem {
-  label: string;
-  cost: number;
-  benefit: number;
-  mandatory: boolean;
-  mandatoryBasis: string | null;
-}
 
 const money = (x: number) =>
   `${x < 0 ? "−" : ""}$${Math.abs(Math.round(x)).toLocaleString()}`;
 
+function CalculationLimits({
+  title,
+  items,
+  runId,
+}: {
+  title: string;
+  items: string[];
+  runId?: string;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div
+      role="status"
+      className="rounded-xl border border-amber-400/20 bg-amber-400/5 p-4"
+    >
+      <p className="text-sm font-medium text-amber-200">
+        {title}
+        {runId && (
+          <span className="ml-2 font-mono text-xs font-normal text-amber-300/70">
+            run {runId.slice(0, 8)}
+          </span>
+        )}
+      </p>
+      <ul className="mt-2 list-disc space-y-1 pl-5 text-xs leading-relaxed text-amber-100/80">
+        {items.map((item) => (
+          <li key={item}>{item}</li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 export function ValueManagement() {
   const [budget, setBudget] = useState(3_000_000);
+  const [appliedBudget, setAppliedBudget] = useState(3_000_000);
 
-  const { data, loading, error, refetch } = useAsyncData<{
-    posture: Posture | null;
-    businessCase: CasePayload | null;
-    plan: PlanItem[];
-  }>(async () => {
-    const [p, c, pl] = await Promise.all([
-      supabase.rpc("get_value_posture"),
-      // No arguments. These asked for the business case literally named
-      // "DEMO-BC-01" and the capital plan for the literal year 2027, so the
-      // panel rendered empty for every organisation except the demo tenant.
-      // 20261005090200 made both parameters optional: null means this
-      // organisation's most recent, which is what was always wanted.
-      supabase.rpc("get_business_case"),
-      supabase.rpc("get_capital_plan"),
-    ]);
-    if (p.error) throw new Error(p.error.message);
-    if (c.error) throw new Error(c.error.message);
-    if (pl.error) throw new Error(pl.error.message);
-    return {
-      posture: (p.data as Posture[])?.[0] ?? null,
-      businessCase: (c.data as CasePayload) ?? null,
-      plan: (pl.data as PlanItem[]) ?? [],
-    };
-  }, []);
+  // The browser submits only the scenario budget. Canonical case/plan rows are
+  // re-read and both calculations are executed server-side, then appended to
+  // calculation_runs before the result is returned for display.
+  const { data, loading, error, refetch } = useAsyncData(
+    () => runValueCalculations(appliedBudget),
+    [appliedBudget],
+  );
 
-  const comparison = useMemo(() => {
-    const bc = data?.businessCase;
-    if (!bc || !bc.options?.length) return null;
-    return compareOptions(
-      bc.options.map((o) => ({
-        label: o.label,
-        lifePeriods: Number(o.lifePeriods),
-        cashFlows: (o.cashFlows ?? []).map((cf) => ({
-          period: Number(cf.period),
-          amount: Number(cf.amount),
-        })),
-      })),
-      Number(bc.discountRate),
-    );
-  }, [data]);
-
-  // Mandatory items are funded first and do not compete on benefit-cost.
-  const prioritisation = useMemo(() => {
-    const items = data?.plan ?? [];
-    const mandatory = items.filter((i) => i.mandatory);
-    const mandatoryCost = mandatory.reduce((s, i) => s + Number(i.cost), 0);
-    const discretionary = items
-      .filter((i) => !i.mandatory)
-      .map((i) => ({
-        label: i.label,
-        cost: Number(i.cost),
-        benefit: Number(i.benefit),
-      }));
-    return {
-      mandatory,
-      mandatoryCost,
-      result: prioritiseUnderBudget(
-        discretionary,
-        Math.max(0, budget - mandatoryCost),
-      ),
-    };
-  }, [data, budget]);
+  const comparison = data?.comparison ?? null;
+  const prioritisation = data?.prioritisation ?? null;
 
   if (loading) return <LoadingState label="Loading value posture" />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
@@ -143,7 +87,8 @@ export function ValueManagement() {
         </h2>
         <p className="mt-1 max-w-3xl text-sm text-slate-300">
           Options with different lives cannot be compared on NPV, and a capital
-          list ordered by benefit is not a prioritisation.
+          list ordered by benefit is not a prioritisation. Every result below is
+          server-computed from tenant records and written to immutable lineage.
         </p>
       </div>
 
@@ -154,6 +99,12 @@ export function ValueManagement() {
         </div>
       )}
 
+      <CalculationLimits
+        title="Option comparison limits"
+        items={data?.refusals.optionComparison ?? []}
+        runId={data?.lineage.optionComparisonRunId}
+      />
+
       {/* Option comparison. */}
       {bc && comparison && (
         <div className="rounded-xl border border-white/6 p-4">
@@ -161,6 +112,9 @@ export function ValueManagement() {
           <p className="mt-1 text-xs text-slate-500">
             Discounted at {(Number(bc.discountRate) * 100).toFixed(1)}%
             {bc.discountRateSource && ` · ${bc.discountRateSource}`}
+            {data?.lineage.optionComparisonRunId && (
+              <> · run {data.lineage.optionComparisonRunId.slice(0, 8)}</>
+            )}
           </p>
           <p
             className={`mt-2 text-xs leading-relaxed ${comparison.npvWouldMislead ? "text-amber-300" : "text-slate-400"}`}
@@ -223,8 +177,14 @@ export function ValueManagement() {
         </div>
       )}
 
+      <CalculationLimits
+        title="Capital-plan limits"
+        items={data?.refusals.capitalPlan ?? []}
+        runId={data?.lineage.capitalPlanRunId}
+      />
+
       {/* Capital prioritisation. */}
-      {(data?.plan.length ?? 0) > 0 && (
+      {(data?.plan.length ?? 0) > 0 && prioritisation && (
         <div className="rounded-xl border border-white/6 p-4">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
@@ -232,12 +192,18 @@ export function ValueManagement() {
                 className="h-4 w-4 text-signal-cyan"
                 aria-hidden
               />
-              2027 capital plan
+              {data?.planYear ?? "Current"} capital plan
             </h3>
-            <div>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                setAppliedBudget(budget);
+              }}
+              className="flex items-center gap-2"
+            >
               <label
                 htmlFor="budget"
-                className="mr-2 text-xs uppercase tracking-wide text-slate-400"
+                className="text-xs uppercase tracking-wide text-slate-400"
               >
                 Budget
               </label>
@@ -252,7 +218,14 @@ export function ValueManagement() {
                 }
                 className="w-36 rounded border border-white/10 bg-overlook-deep px-2 py-1 font-mono text-sm text-slate-200"
               />
-            </div>
+              <button
+                type="submit"
+                disabled={budget === appliedBudget}
+                className="rounded border border-signal-cyan/30 bg-signal-cyan/10 px-2 py-1 text-xs text-signal-cyan disabled:cursor-default disabled:opacity-40"
+              >
+                Record scenario
+              </button>
+            </form>
           </div>
 
           {prioritisation.mandatory.length > 0 && (
@@ -266,7 +239,9 @@ export function ValueManagement() {
             </p>
           )}
           <p className="mt-2 text-xs leading-relaxed text-slate-400">
-            {prioritisation.result.reason}
+            {prioritisation.result.reason} Run{" "}
+            {data?.lineage.capitalPlanRunId.slice(0, 8)} records the stated
+            budget, exact plan rows, method, result and any exclusions.
           </p>
           <ul className="mt-2 space-y-1 text-sm">
             {(data?.plan ?? [])
@@ -289,14 +264,25 @@ export function ValueManagement() {
                     </span>
                     <span className="text-slate-200">{i.label}</span>
                     <span className="font-mono text-xs text-slate-500 tabular-nums">
-                      {money(Number(i.cost))} → {money(Number(i.benefit))} (
-                      {(Number(i.benefit) / Number(i.cost)).toFixed(2)}×)
+                      {money(Number(i.cost))} →{" "}
+                      {i.benefitRecorded
+                        ? money(Number(i.benefit))
+                        : "benefit not recorded"}
+                      {i.benefitRecorded && Number(i.cost) > 0
+                        ? ` (${(Number(i.benefit) / Number(i.cost)).toFixed(2)}×)`
+                        : ""}
                     </span>
                   </li>
                 );
               })}
           </ul>
         </div>
+      )}
+
+      {data?.governance && (
+        <p className="rounded-xl border border-signal-cyan/20 bg-signal-cyan/5 p-3 text-xs leading-relaxed text-slate-300">
+          {data.governance.note}
+        </p>
       )}
     </section>
   );
