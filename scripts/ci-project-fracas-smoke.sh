@@ -15,6 +15,23 @@ ADMIN=$(token 'admin@syncai.ca' 'Admin123!@#')
 PLANNER=$(token 'planner@syncai.ca' 'Planner123!@#')
 ORG='11111111-1111-1111-1111-111111111111'
 EVIDENCE='98551000-0000-4000-8000-000000000001'
+# Dedicated foreign approver, created only in the explicitly local CI stack.
+psqlc "do \$\$ declare u uuid := '98559999-0000-4000-8000-000000000099'; begin
+ insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,
+   created_at,updated_at,raw_app_meta_data,raw_user_meta_data,confirmation_token,recovery_token,
+   email_change,email_change_token_new,email_change_token_current,phone_change,phone_change_token,reauthentication_token)
+ values('00000000-0000-0000-0000-000000000000',u,'authenticated','authenticated',
+   'fracas-foreign@syncai.ca',extensions.crypt('Foreign123!@#',extensions.gen_salt('bf')),
+   now(),now(),now(),'{\"provider\":\"email\",\"providers\":[\"email\"]}','{}','','','','','','','','')
+ on conflict(id) do nothing;
+ insert into auth.identities(id,user_id,provider_id,identity_data,provider,created_at,updated_at,last_sign_in_at)
+ select gen_random_uuid(),u,u,jsonb_build_object('sub',u::text,'email','fracas-foreign@syncai.ca'),
+   'email',now(),now(),now() where not exists(select 1 from auth.identities where user_id=u);
+ insert into user_profiles(id,organization_id,email,role)
+ values(u,'99999999-9999-9999-9999-999999999925','fracas-foreign@syncai.ca','admin')
+ on conflict(id) do update set organization_id=excluded.organization_id,role=excluded.role;
+end \$\$;"
+FOREIGN=$(token 'fracas-foreign@syncai.ca' 'Foreign123!@#')
 LESSON=$(psqlc "select id from learning_events where organization_id='$ORG' and development_case_id='98550000-0000-4000-8000-000000000001' and title='Seal failure at first start' order by created_at desc limit 1")
 test -n "$LESSON"
 CLOSURE=$(API_URL="$API_URL" ANON_KEY="$ANON_KEY" PLANNER="$PLANNER" LESSON="$LESSON" python3 - <<'PY'
@@ -71,6 +88,15 @@ CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$API_URL/rest/v1/rpc/start_proje
 case "$CODE" in 401|403) ;; *) echo "Anonymous start unexpectedly returned $CODE"; exit 1;; esac
 test "$(psqlc "select count(*) from ca_verifications where id='$CLOSURE' and status='closed_project_workflow' and project_adopted_standard_id=$REVISION and project_screened_at is not null and effectiveness is null and asset_id is null and work_order_id is null")" = 1
 test "$(psqlc "select count(*) from approvals where standard_work_revision_id=$FIRST and status='rejected'")" = 1
+refused "$(rpc "$FOREIGN" start_project_ca_verification "{\"p_lesson_id\":\"$LESSON\",\"p_basis\":\"Foreign attempt\"}")"
+refused "$(rpc "$FOREIGN" attest_project_ca_stage "{\"p_verification_id\":\"$CLOSURE\",\"p_stage\":\"implementation\",\"p_note\":\"Foreign attempt\",\"p_evidence_id\":\"$EVIDENCE\"}")"
+refused "$(rpc "$FOREIGN" register_standard_work_baseline "{\"p_work_key\":\"foreign-evidence-attempt\",\"p_title\":\"Foreign attempt\",\"p_language\":\"en\",\"p_content\":\"Controlled procedure\",\"p_basis\":\"Foreign evidence\",\"p_evidence_id\":\"$EVIDENCE\"}")"
+refused "$(rpc "$FOREIGN" request_project_standard_revision "{\"p_verification_id\":\"$CLOSURE\",\"p_previous_id\":$BASE,\"p_language\":\"en\",\"p_content\":\"Foreign change\",\"p_change_summary\":\"Foreign attempt\",\"p_basis\":\"Foreign attempt\"}")"
+refused "$(rpc "$FOREIGN" decide_project_standard_revision "{\"p_revision_id\":$REVISION,\"p_outcome\":\"approved\",\"p_note\":\"Foreign attempt\"}")"
+refused "$(rpc "$FOREIGN" screen_project_ca_exposure "{\"p_verification_id\":\"$CLOSURE\",\"p_basis\":\"Foreign attempt\"}")"
+curl --fail-with-body -sS "$API_URL/rest/v1/ca_verifications?id=eq.$CLOSURE&select=id" \
+  -H "apikey: $ANON_KEY" -H "authorization: Bearer $FOREIGN" \
+  | python3 -c 'import json,sys;assert json.load(sys.stdin)==[]'
 # Exercise the exact embedded relationship names consumed by the UI.
 curl --fail-with-body -sS -G "$API_URL/rest/v1/standard_work" -H "apikey: $ANON_KEY" -H "authorization: Bearer $PLANNER" \
   --data-urlencode "id=eq.$REVISION" \
