@@ -29,8 +29,124 @@ async function callRpc<T>(
   return body;
 }
 
+export interface CreateCatalogueMaterialInput {
+  materialCode: string;
+  description: string;
+  unitOfMeasure: string;
+  basis: string;
+}
+
+export async function linkCatalogueSupplier(input: {
+  materialId: string;
+  supplierId: number;
+  supplierPartNumber: string;
+  basis: string;
+}): Promise<{ linkId: number; approvedForThisMaterial: boolean }> {
+  return callRpc("link_catalogue_supplier", {
+    p_material_id: input.materialId,
+    p_supplier_id: input.supplierId,
+    p_supplier_part_number: input.supplierPartNumber.trim() || null,
+    p_basis: input.basis.trim(),
+  });
+}
+
+/** RLS filters both selectors to the signed-in tenant. */
+export async function listMaterialSupplierOptions() {
+  const [materials, suppliers] = await Promise.all([
+    supabase
+      .from("materials")
+      .select("id, material_code, description")
+      .order("material_code"),
+    supabase
+      .from("suppliers")
+      .select("id, supplier_code, name")
+      .order("supplier_code"),
+  ]);
+  if (materials.error) throw new Error(materials.error.message);
+  if (suppliers.error) throw new Error(suppliers.error.message);
+  return {
+    materials: (materials.data ?? []) as {
+      id: string;
+      material_code: string;
+      description: string;
+    }[],
+    suppliers: (suppliers.data ?? []) as {
+      id: number;
+      supplier_code: string;
+      name: string;
+    }[],
+  };
+}
+
+/** Creates a canonical identity, never stock, supplier approval or a template. */
+export async function createCatalogueMaterial(
+  input: CreateCatalogueMaterialInput,
+): Promise<{ materialId: string; materialCode: string }> {
+  return callRpc("create_catalogue_material", {
+    p_material_code: input.materialCode.trim(),
+    p_description: input.description.trim(),
+    p_unit_of_measure: input.unitOfMeasure.trim(),
+    p_basis: input.basis.trim(),
+  });
+}
+
 export type MaterialLineStatus =
   "requested" | "reserved" | "kitted" | "issued" | "short" | "cancelled";
+
+export async function listMaterialBomOptions() {
+  const [materials, assets, components] = await Promise.all([
+    supabase
+      .from("materials")
+      .select("id, material_code, description")
+      .order("material_code"),
+    supabase.from("assets").select("id, tag, name, asset_class").order("name"),
+    supabase.from("components").select("id, asset_id, name").order("name"),
+  ]);
+  for (const result of [materials, assets, components]) {
+    if (result.error) throw new Error(result.error.message);
+  }
+  return {
+    materials: (materials.data ?? []) as {
+      id: string;
+      material_code: string;
+      description: string;
+    }[],
+    assets: (assets.data ?? []) as {
+      id: string;
+      tag: string | null;
+      name: string;
+      asset_class: string | null;
+    }[],
+    components: (components.data ?? []) as {
+      id: string;
+      asset_id: string;
+      name: string;
+    }[],
+  };
+}
+
+export async function linkCatalogueBom(input: {
+  materialId: string;
+  assetId: string | null;
+  assetClass: string | null;
+  componentId: string | null;
+  quantity: number;
+  positionNote: string;
+  basis: string;
+}): Promise<{ bomLineId: string }> {
+  if (!Number.isFinite(input.quantity) || input.quantity <= 0) {
+    throw new Error("Quantity must be finite and positive.");
+  }
+  return callRpc("link_catalogue_bom", {
+    p_material_id: input.materialId,
+    p_asset_id: input.assetId,
+    p_asset_class: input.assetClass,
+    p_component_id: input.componentId,
+    p_qty_per: input.quantity,
+    p_position_note: input.positionNote.trim() || null,
+    p_basis: input.basis.trim(),
+  });
+}
 
 export interface MaterialDemandLine {
   id: string;
@@ -226,19 +342,21 @@ export async function listMaterialStockLots(): Promise<MaterialLotRow[]> {
     .order("updated_at", { ascending: false })
     .limit(50);
   if (error) throw new Error(error.message);
-  return ((data ?? []) as Array<{
-    id: string;
-    lot_ref: string;
-    qty: number;
-    condition: string;
-    certification_status: string;
-    source_system: string;
-    basis: string;
-    materials?:
-      | { material_code?: string; description?: string }
-      | { material_code?: string; description?: string }[]
-      | null;
-  }>).map((row) => {
+  return (
+    (data ?? []) as Array<{
+      id: string;
+      lot_ref: string;
+      qty: number;
+      condition: string;
+      certification_status: string;
+      source_system: string;
+      basis: string;
+      materials?:
+        | { material_code?: string; description?: string }
+        | { material_code?: string; description?: string }[]
+        | null;
+    }>
+  ).map((row) => {
     const material = embedOne(row.materials);
     return {
       id: row.id,

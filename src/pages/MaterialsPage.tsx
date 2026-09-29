@@ -11,6 +11,9 @@ import { RecoveryContextPanel } from "../components/RecoveryContextPanel";
 import { MaterialsReadiness } from "../components/MaterialsReadiness";
 import { SparesOptimization } from "../components/SparesOptimization";
 import { SupplyExposure } from "../components/SupplyExposure";
+import { MaterialCatalogue } from "../components/MaterialCatalogue";
+import { MaterialSupplierLink } from "../components/MaterialSupplierLink";
+import { MaterialBomLink } from "../components/MaterialBomLink";
 
 export function MaterialsPage() {
   return (
@@ -25,6 +28,9 @@ export function MaterialsPage() {
         </p>
       </div>
       <RecoveryContextPanel surface="materials" />
+      <MaterialCatalogue />
+      <MaterialSupplierLink />
+      <MaterialBomLink />
       <MaterialsReadiness />
       <SparesOptimization />
       <SupplyExposure />
