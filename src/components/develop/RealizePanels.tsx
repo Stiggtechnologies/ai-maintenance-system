@@ -12,6 +12,7 @@
  * is `verifyValueMetric` — the one existing loop.
  */
 import { useEffect, useState, type ReactNode } from "react";
+import { StandardWorkLearningPanel } from "./StandardWorkLearningPanel";
 import {
   BookOpen,
   Gauge,
@@ -1560,6 +1561,7 @@ export function RealizeCluster({
         canRealize={canRealize}
       />
       <ProjectSuccessSection caseId={caseId} />
+      <StandardWorkLearningPanel key={caseId} caseId={caseId} canRecord={canRealize} />
       <LifecycleSuccessSection caseId={caseId} />
       <OperationalWarrantySection
         caseId={caseId}

@@ -1,6 +1,10 @@
 # D9.06 — standard-work learning acceptance plan
 
-Status: investigation, not implementation or capability acceptance.
+Status: implementation in progress; not capability acceptance. The observation
+database contract, recording service and Realize capture/history surface are
+implemented on PR #529. Targeted tests do not yet establish authenticated
+end-to-end acceptance. Learning-sourced revision approval/adoption, full-chain
+boundary tests, rendered inspection and production acceptance remain open.
 
 ## Required outcome
 

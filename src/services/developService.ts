@@ -8951,13 +8951,13 @@ export interface ProjectStandardWorkOption {
   change_summary: string | null;
   revision_requested_by: string | null;
   revision_approval_id: string | null;
-  procedures: { language_code: string; content: string; translation_status: string; verified_by: string | null; verified_at: string | null }[];
+  procedures: { id: number; language_code: string; content: string; translation_status: string; verified_by: string | null; verified_at: string | null }[];
   approval: { status: string; approver_user_id: string | null; decided_at: string | null } | null;
 }
 
 export async function listProjectStandardWork(afterId?: number, exactId?: number): Promise<ProjectStandardWorkOption[]> {
   let query = supabase.from("standard_work")
-    .select("id, work_key, title, version, basis, source_project_ca_id, previous_standard_work_id, change_summary, revision_requested_by, revision_approval_id, procedures:procedure_translations!procedure_translations_standard_work_id_fkey(language_code, content, translation_status, verified_by, verified_at), approval:approvals!standard_work_revision_approval_id_fkey(status, approver_user_id, decided_at)")
+    .select("id, work_key, title, version, basis, source_project_ca_id, previous_standard_work_id, change_summary, revision_requested_by, revision_approval_id, procedures:procedure_translations!procedure_translations_standard_work_id_fkey(id, language_code, content, translation_status, verified_by, verified_at), approval:approvals!standard_work_revision_approval_id_fkey(status, approver_user_id, decided_at)")
     .order("id", { ascending: true }).limit(100);
   if (afterId !== undefined) query = query.gt("id", afterId);
   if (exactId !== undefined) query = query.eq("id", exactId);
@@ -9526,6 +9526,38 @@ export async function getCaseProjectSuccess(
     p_case_id: caseId,
   });
   return unwrapRpc(data, error, "Could not load the project success score");
+}
+
+export interface StandardWorkObservation {
+  id: string;
+  title: string;
+  detail: string;
+  applicability: string;
+  standard_procedure_id: number;
+  standard_execution_work_order_id: string;
+  standard_execution_evidence_id: string;
+  standard_outcome_evidence_id: string;
+  standard_execution_observed_at: string;
+  standard_execution_recorded_by: string;
+  standard_execution_description: string;
+  standard_variation_kind: "conforming" | "varied" | "undetermined";
+  standard_variation_basis: string;
+  standard_outcome_description: string;
+}
+
+/** Case-scoped, RLS-protected history. UUID keyset paging avoids timestamp ties. */
+export async function listStandardWorkObservations(
+  caseId: string,
+  afterId?: string,
+): Promise<StandardWorkObservation[]> {
+  let query = supabase.from("learning_events").select(
+    "id,title,detail,applicability,standard_procedure_id,standard_execution_work_order_id,standard_execution_evidence_id,standard_outcome_evidence_id,standard_execution_observed_at,standard_execution_recorded_by,standard_execution_description,standard_variation_kind,standard_variation_basis,standard_outcome_description",
+  ).eq("development_case_id", caseId).eq("event_type", "standard_work_observation")
+    .order("id", { ascending: true }).limit(100);
+  if (afterId) query = query.gt("id", afterId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as StandardWorkObservation[];
 }
 
 export interface StandardWorkObservationInput {

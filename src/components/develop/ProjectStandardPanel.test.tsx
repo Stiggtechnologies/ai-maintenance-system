@@ -29,6 +29,7 @@ const standard: ProjectStandardWorkOption = {
   approval: null,
   procedures: [
     {
+      id: 1,
       language_code: "en",
       content: "Review scope",
       translation_status: "human_verified",
