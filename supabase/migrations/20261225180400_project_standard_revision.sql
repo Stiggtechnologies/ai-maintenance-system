@@ -48,7 +48,19 @@ begin
   select * into prior from public.standard_work
     where id=new.previous_standard_work_id and organization_id=new.organization_id for share;
   if not found or prior.work_key is distinct from new.work_key
-     or new.version <> prior.version+1 then
+     or new.version <= prior.version or exists (
+       select 1 from public.standard_work s where s.organization_id=new.organization_id
+         and s.work_key=new.work_key and s.version>prior.version and s.version<new.version
+         and not exists(select 1 from public.approvals a where a.id=s.revision_approval_id
+           and a.organization_id=new.organization_id and a.standard_work_revision_id=s.id
+           and a.status='rejected')
+     ) then
+    raise exception 'Revision must retain the same-tenant standard identity and next version';
+  end if;
+  if tg_op='INSERT' and new.version <> (
+    select coalesce(max(s.version),prior.version)+1 from public.standard_work s
+      where s.organization_id=new.organization_id and s.work_key=new.work_key
+  ) then
     raise exception 'Revision must retain the same-tenant standard identity and next version';
   end if;
   perform 1 from public.ca_verifications c

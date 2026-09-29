@@ -6,7 +6,7 @@ returns jsonb language plpgsql security definer set search_path=public as $$
 declare
   v_org uuid:=public.app_current_org(); v_actor uuid:=auth.uid(); v_role text;
   v_ca public.ca_verifications%rowtype; prior public.standard_work%rowtype;
-  v_content text; v_id bigint; v_approval uuid;
+  v_content text; v_id bigint; v_approval uuid; v_version integer;
 begin
   select role into v_role from public.user_profiles where id=v_actor and organization_id=v_org;
   if v_actor is null or v_org is null or coalesce(v_role,'') not in
@@ -26,8 +26,12 @@ begin
   select * into prior from public.standard_work
     where id=p_previous_id and organization_id=v_org for update;
   if not found then return jsonb_build_object('error','Previous standard not found'); end if;
+  -- Rejected attempts remain immutable history, but must not strand the
+  -- last adopted baseline. Pending, missing and approved decisions still block.
   if exists(select 1 from public.standard_work s where s.organization_id=v_org
-    and s.work_key=prior.work_key and s.version>prior.version) then
+    and s.work_key=prior.work_key and s.version>prior.version
+    and not exists(select 1 from public.approvals a where a.id=s.revision_approval_id
+      and a.organization_id=v_org and a.standard_work_revision_id=s.id and a.status='rejected')) then
     return jsonb_build_object('error','A newer revision exists; review it before requesting another');
   end if;
   if prior.source_project_ca_id is not null and not exists (
@@ -42,11 +46,13 @@ begin
   if btrim(v_content)=btrim(p_content) then
     return jsonb_build_object('error','Unchanged procedure content is not a standard change');
   end if;
+  select coalesce(max(s.version),prior.version)+1 into v_version
+    from public.standard_work s where s.organization_id=v_org and s.work_key=prior.work_key;
   insert into public.standard_work(organization_id,work_key,title,craft,standard_minutes,basis,
     crew_template_id,version,source_project_ca_id,previous_standard_work_id,
     change_summary,revision_requested_by)
   values(v_org,prior.work_key,prior.title,prior.craft,prior.standard_minutes,btrim(p_basis),
-    prior.crew_template_id,prior.version+1,v_ca.id,prior.id,btrim(p_change_summary),v_actor)
+    prior.crew_template_id,v_version,v_ca.id,prior.id,btrim(p_change_summary),v_actor)
   returning id into v_id;
   insert into public.procedure_translations(organization_id,standard_work_id,language_code,
     content,translation_status) values(v_org,v_id,btrim(p_language),btrim(p_content),'draft');
@@ -60,7 +66,7 @@ begin
   values(v_org,'project_standard_revision',v_role,
     jsonb_build_object('action','requested','actorId',v_actor,'verificationId',v_ca.id,
       'previousId',prior.id,'revisionId',v_id,'approvalId',v_approval,'basis',btrim(p_basis)),
-    jsonb_build_object('version',prior.version+1,'status','draft','changeSummary',btrim(p_change_summary)));
+    jsonb_build_object('version',v_version,'status','draft','changeSummary',btrim(p_change_summary)));
   return jsonb_build_object('revisionId',v_id,'approvalId',v_approval,'status','draft');
 end $$;
 revoke all on function public.request_project_standard_revision(uuid,bigint,text,text,text,text)

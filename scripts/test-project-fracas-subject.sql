@@ -115,7 +115,7 @@ do $$ begin
  end if;
 end $$;
 do $$
-declare result jsonb; closure_id uuid; revision_id bigint;
+declare result jsonb; closure_id uuid; revision_id bigint; rejected_id bigint;
 begin
  result := start_project_ca_verification('00000000-0000-0000-0000-000000000003',' ');
  if result->>'error' is null then raise exception 'Empty basis accepted'; end if;
@@ -167,6 +167,21 @@ begin
    raise exception 'Self approval not refused: %',result;
  end if;
  update user_profiles set role='planner' where id=auth.uid();
+ perform set_config('test.actor','00000000-0000-0000-0000-000000000009',true);
+ result := decide_project_standard_revision(revision_id,'rejected','Scope review needs acceptance criteria');
+ if result->>'status' <> 'rejected' then raise exception 'Rejection failed: %',result; end if;
+ rejected_id := revision_id;
+ perform set_config('test.actor','',true);
+ result := request_project_standard_revision(closure_id,1,'en',
+   'Review estimate and scope completeness against signed acceptance criteria',
+   'Address reviewer feedback','Variance evidence and reviewer feedback');
+ if result->>'revisionId' is null then raise exception 'Rejected revision stranded baseline: %',result; end if;
+ revision_id := (result->>'revisionId')::bigint;
+ if not exists(select 1 from standard_work where id=revision_id and version=3
+   and previous_standard_work_id=1) or not exists(select 1 from approvals
+   where standard_work_revision_id=rejected_id and status='rejected') then
+   raise exception 'Retry did not preserve rejected history and adopted baseline';
+ end if;
  perform set_config('test.actor','00000000-0000-0000-0000-000000000009',true);
  result := decide_project_standard_revision(revision_id,'approved','Reviewed exact procedure and supporting evidence');
  if result->>'status' <> 'approved' then raise exception 'Adoption failed: %',result; end if;
@@ -228,7 +243,13 @@ begin
 end $$;
 -- Separate schema-boundary fixture after exercising the RPC.
 update ca_verifications set project_adopted_standard_id=null;
-update standard_work set revision_approval_id=null where source_project_ca_id is not null;
+-- Tear down newest first: a later retry still depends on the rejected
+-- predecessor's canonical decision until its own back-reference is detached.
+do $$ declare r record; begin
+ for r in select id from standard_work where source_project_ca_id is not null order by version desc loop
+   update standard_work set revision_approval_id=null where id=r.id;
+ end loop;
+end $$;
 delete from approvals;
 delete from standard_work where source_project_ca_id is not null;
 delete from ca_verifications;

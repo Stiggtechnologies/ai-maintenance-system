@@ -56,7 +56,7 @@ begin
   end if;
   select * into a from public.approvals where id=r.revision_approval_id
     and organization_id=v_org and standard_work_revision_id=r.id for update;
-  if not found or a.status not in ('required','pending') then
+  if not found or a.status is null or a.status not in ('required','pending') then
     return jsonb_build_object('error','Canonical approval is missing or already decided');
   end if;
   if p_outcome='approved' then
