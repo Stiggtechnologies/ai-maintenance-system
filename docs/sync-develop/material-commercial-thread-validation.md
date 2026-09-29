@@ -13,7 +13,9 @@ This slice remains partial. The capability registers are deliberately unchanged.
 
 ## Evidence collected
 
-32 focused Vitest assertions passed during implementation. TypeScript and changed-file lint checks passed; rerun all checks on the final release commit.
+The initial focused suite passed 32 assertions; six quantity-boundary assertions and two reverse-history presentation assertions subsequently passed. The latter confirm that reverse evidence remains visible when the forward chain refuses, without interpreting a requirement reference as verified failure prevention.
+
+The broader tenancy/register/reachability/commercial set passed 1,278 assertions. A full local run completed with 6,696 passes and three failures caused by sandbox-denied `tsx` IPC; the affected reliability-harness file then passed all 64 tests with IPC permission. This is not described as a single all-green full-suite run. Repository lint passed with zero errors and five existing warnings. The production build passed with a bundle-size warning. CI unit and lint/type checks passed on `9451714`; migration/browser checks were still running when recorded. Final-head checks remain required.
 
 `scripts/test-material-catalogue-isolated.sql` executed successfully in a disposable PostgreSQL database. It covers successful catalogue/supplier/component/class writes, duplicate refusals, cross-tenant references, component-parent guard, NaN refusal, audit count, AI-role refusal and reverse lookup beyond fifteen modes.
 

@@ -1507,6 +1507,13 @@ export function CommercialPanel({
       </Block>
 
       <Block title="Specification → failure history (spec I.16)">
+        <p className="text-xs text-slate-400">
+          Missing a supplier-to-material or material-to-equipment relationship?{" "}
+          <a href="/materials" className="text-blue-300 underline">
+            Manage catalogue relationships
+          </a>{" "}
+          and return here to walk the thread again.
+        </p>
         {canPlan && (
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <select
