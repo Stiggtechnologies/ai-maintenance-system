@@ -1,6 +1,31 @@
 # D9.05 — project FRACAS closure acceptance plan
 
-Status: design investigation only. No capability promotion or implementation claim.
+Status: implementation and validation in draft PR #528. No capability promotion
+or production-completion claim. The investigation below records design history;
+the acceptance cases remain the completion criteria.
+
+## Current evidence and outstanding acceptance
+
+- Implemented the exclusive project-lesson subject on `ca_verifications`,
+  evidence-backed human attestations, canonical standard-work revisions and
+  approvals, and recorded project-population screening. Existing project-lessons
+  UI exposes these operations; asset evaluators and denominators exclude projects.
+- Rejected revisions remain in history. A new attempt references the last adopted
+  baseline, receives the next unused version, and cannot skip pending or adopted
+  changes. Approval links and submitted standard facts cannot be rewritten.
+- The rollback-only PostgreSQL fixture exercises stage order, rejection/retry,
+  separate-human adoption, immutable history, screening population isolation and
+  the non-effectiveness boundary. Its matcher is a stub: it is not proof of the
+  real applicability algorithm or authenticated RLS.
+- The new CI-only authenticated smoke reuses project-start fixtures and checks
+  the API chain, exact PostgREST UI relationships, real applicable-lesson reads,
+  foreign-case refusal, anonymous refusal and direct-client update refusal.
+  Script syntax validation passed; runtime acceptance is pending, not asserted.
+- Still required: complete authenticated tenant/concurrency coverage, explicit
+  administrative closure semantics, UI pagination/read-after-write review,
+  browser workflow and visual inspection, all final CI gates, and production
+  schema plus live authorized-user verification. Passing targeted tests does not
+  close these requirements. Both capability registers remain unchanged.
 
 ## Required outcome
 

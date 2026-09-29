@@ -30,6 +30,26 @@ ok "$(rpc "$ADMIN" decide_project_standard_revision "{\"p_revision_id\":$FIRST,\
 REVISION=$(field "$(request 'Require witnessed flush acceptance and retain signed acceptance record')" revisionId)
 ok "$(rpc "$ADMIN" decide_project_standard_revision "{\"p_revision_id\":$REVISION,\"p_outcome\":\"approved\",\"p_note\":\"Exact procedure and evidence reviewed\"}")"
 ok "$(rpc "$PLANNER" screen_project_ca_exposure "{\"p_verification_id\":\"$CLOSURE\",\"p_basis\":\"Review current project exposure\"}")"
+SCREEN=$(rpc "$PLANNER" screen_applicable_project_lessons '{"p_case_id":"98550000-0000-4000-8000-000000000002"}')
+BODY="$SCREEN" LESSON="$LESSON" REVISION="$REVISION" python3 - <<'PY'
+import json,os
+x=json.loads(os.environ['BODY'])
+lesson=next(i for i in x['lessons'] if i['id']==os.environ['LESSON'])
+s=lesson['adoptedStandard']
+assert s['id']==int(os.environ['REVISION']) and s['version']==3,s
+assert s['approvalId'] and s['adoptedAt'] and s['adoptedBy'],s
+assert lesson['matchReason'],lesson
+PY
+refused "$(rpc "$PLANNER" screen_applicable_project_lessons '{"p_case_id":"98559999-0000-4000-8000-000000000001"}')"
+# A logged-in caller cannot substitute a direct row update for named approval.
+CODE=$(curl -sS -o /dev/null -w '%{http_code}' -X PATCH "$API_URL/rest/v1/ca_verifications?id=eq.$CLOSURE" \
+  -H "apikey: $ANON_KEY" -H "authorization: Bearer $PLANNER" -H 'content-type: application/json' \
+  -d '{"strategy_note":"Unauthorized overwrite"}')
+test "$CODE" = 403
+CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$API_URL/rest/v1/rpc/start_project_ca_verification" \
+  -H "apikey: $ANON_KEY" -H 'content-type: application/json' \
+  -d "{\"p_lesson_id\":\"$LESSON\",\"p_basis\":\"Anonymous attempt\"}")
+case "$CODE" in 401|403) ;; *) echo "Anonymous start unexpectedly returned $CODE"; exit 1;; esac
 test "$(psqlc "select count(*) from ca_verifications where id='$CLOSURE' and project_adopted_standard_id=$REVISION and project_screened_at is not null and effectiveness is null and asset_id is null and work_order_id is null")" = 1
 test "$(psqlc "select count(*) from approvals where standard_work_revision_id=$FIRST and status='rejected'")" = 1
 # Exercise the exact embedded relationship names consumed by the UI.
