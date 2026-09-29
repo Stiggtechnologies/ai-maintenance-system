@@ -11,6 +11,27 @@ rpc(){ curl --fail-with-body -sS "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY
 field(){ printf '%s' "$1" | python3 -c 'import json,sys;x=json.load(sys.stdin);assert "error" not in x,x;print(x[sys.argv[1]])' "$2"; }
 ok(){ printf '%s' "$1" | python3 -c 'import json,sys;x=json.load(sys.stdin);assert "error" not in x,x'; }
 refused(){ printf '%s' "$1" | python3 -c 'import json,sys;x=json.load(sys.stdin);assert x.get("error"),x'; }
+# Two authenticated attempts must serialize to one accepted write and one refusal.
+# HTTP/transport failures are test failures, not acceptable domain refusals.
+race_revision(){ API_URL="$API_URL" ANON_KEY="$ANON_KEY" RACE_TOKEN="$1" RACE_RPC="$2" RACE_BODY="$3" python3 - <<'PY'
+import concurrent.futures,json,os,threading,urllib.request
+barrier=threading.Barrier(2)
+def attempt(_):
+    request=urllib.request.Request(
+        os.environ['API_URL']+'/rest/v1/rpc/'+os.environ['RACE_RPC'],
+        data=os.environ['RACE_BODY'].encode(),
+        headers={'apikey':os.environ['ANON_KEY'],'authorization':'Bearer '+os.environ['RACE_TOKEN'],'content-type':'application/json'})
+    barrier.wait(timeout=10)
+    with urllib.request.urlopen(request,timeout=30) as response:
+        return json.load(response)
+with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
+    results=list(pool.map(attempt,range(2)))
+successes=[r for r in results if r.get('revisionId') and not r.get('error')]
+refusals=[r for r in results if r.get('error')]
+assert len(successes)==1 and len(refusals)==1,results
+print(json.dumps(successes[0]))
+PY
+}
 ADMIN=$(token 'admin@syncai.ca' 'Admin123!@#')
 PLANNER=$(token 'planner@syncai.ca' 'Planner123!@#')
 ORG='11111111-1111-1111-1111-111111111111'
@@ -60,11 +81,12 @@ for stage in implementation causal; do
 done
 BASE=$(field "$(rpc "$ADMIN" register_standard_work_baseline "{\"p_work_key\":\"ci.project.fracas.flush\",\"p_title\":\"Flush acceptance\",\"p_language\":\"en\",\"p_content\":\"Review flush record\",\"p_basis\":\"Existing controlled procedure\",\"p_evidence_id\":\"$EVIDENCE\"}")" standardWorkId)
 request(){ rpc "$PLANNER" request_project_standard_revision "{\"p_verification_id\":\"$CLOSURE\",\"p_previous_id\":$BASE,\"p_language\":\"en\",\"p_content\":\"$1\",\"p_change_summary\":\"Add witnessed acceptance\",\"p_basis\":\"Startup failure evidence\"}"; }
-FIRST=$(field "$(request 'Require witnessed flush acceptance')" revisionId)
+FIRST=$(field "$(race_revision "$PLANNER" request_project_standard_revision "{\"p_verification_id\":\"$CLOSURE\",\"p_previous_id\":$BASE,\"p_language\":\"en\",\"p_content\":\"Require witnessed flush acceptance\",\"p_change_summary\":\"Add witnessed acceptance\",\"p_basis\":\"Startup failure evidence\"}")" revisionId)
+test "$(psqlc "select count(*) from standard_work where source_project_ca_id='$CLOSURE'")" = 1
 refused "$(request 'Parallel pending proposal')"
 ok "$(rpc "$ADMIN" decide_project_standard_revision "{\"p_revision_id\":$FIRST,\"p_outcome\":\"rejected\",\"p_note\":\"Include retained acceptance record\"}")"
 REVISION=$(field "$(request 'Require witnessed flush acceptance and retain signed acceptance record')" revisionId)
-ok "$(rpc "$ADMIN" decide_project_standard_revision "{\"p_revision_id\":$REVISION,\"p_outcome\":\"approved\",\"p_note\":\"Exact procedure and evidence reviewed\"}")"
+ok "$(race_revision "$ADMIN" decide_project_standard_revision "{\"p_revision_id\":$REVISION,\"p_outcome\":\"approved\",\"p_note\":\"Exact procedure and evidence reviewed\"}")"
 ok "$(rpc "$PLANNER" screen_project_ca_exposure "{\"p_verification_id\":\"$CLOSURE\",\"p_basis\":\"Review current project exposure\"}")"
 SCREEN=$(rpc "$PLANNER" screen_applicable_project_lessons '{"p_case_id":"98550000-0000-4000-8000-000000000002"}')
 BODY="$SCREEN" LESSON="$LESSON" REVISION="$REVISION" python3 - <<'PY'
