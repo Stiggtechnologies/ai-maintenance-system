@@ -20,7 +20,8 @@ test("planner records execution and a separate human adopts the learning revisio
   await panel.getByLabel("Title", { exact: true }).fill(title);
   await panel.getByLabel("Actual execution", { exact: true }).fill("Witnessed acceptance record retained during execution");
   await panel.getByLabel("Variation basis", { exact: true }).fill("Intermediate steps not fully visible; conformance undetermined");
-  await panel.getByLabel("Observed outcome and attribution limits", { exact: true }).fill("Inspection record retained; improved performance not established");
+  await panel.getByLabel("Observed outcome", { exact: true }).fill("Inspection record retained; improved performance not established");
+  await panel.getByLabel("Attribution limits", { exact: true }).fill("One observed execution without a counterfactual; causality and improvement are not established");
   await panel.getByLabel("Learning", { exact: true }).fill("Clarify retention location in the controlled procedure");
   await panel.getByLabel("Applicability", { exact: true }).fill("Equivalent flush acceptance activities only");
   for (const label of ["Execution evidence", "Outcome evidence"]) {
@@ -30,6 +31,8 @@ test("planner records execution and a separate human adopts the learning revisio
   await expect(panel.getByRole("status").filter({ hasText: "Observation recorded:" })).toBeVisible();
   const observation = panel.locator("article").filter({ has: page.getByRole("heading", { name: title, exact: true }) });
   await expect(observation).toBeVisible();
+  await expect(observation.getByText("Qualitative", { exact: true })).toBeVisible();
+  await expect(observation.getByText(/One observed execution without a counterfactual/)).toBeVisible();
   await observation.getByRole("button", { name: "Review procedure revisions" }).click();
   await observation.getByLabel("Changed procedure content").fill("Retain witnessed flush acceptance evidence in the controlled handover record");
   await observation.getByLabel("Change summary").fill("Clarify evidence retention location");

@@ -1,18 +1,13 @@
 # D9.06 — standard-work learning acceptance plan
 
-Status: implementation in progress; not capability acceptance. The observation
-database contract, recording service and Realize capture/history surface are
-implemented on PR #529. Learning-sourced revision requests, separate-human
-approval/adoption and their UI are now implemented locally. Isolated PostgreSQL
-tests cover request, rejection, retry, adoption and immutable history; targeted
-service/component tests cover receipts and UI actions. These do not establish
-authenticated browser acceptance. CI run `36525685877` on `8ac4b73` passed the
-full migration chain and authenticated observation-to-adoption smoke, including
-tenant refusals and concurrent requests/decisions. Browser execution recorded
-an observation and persisted its draft revision across reload, but failed at
-the separate approver's role-specific landing-page assertion. Commit `9ffe0b5`
-corrects that test assumption; its full browser result, rendered inspection and
-production acceptance remain open. No capability promotion is claimed.
+Status: accepted implementation; D9.06 is promoted with the forward outcome
+contract in `20261231100000`. The canonical observation, learning revision and
+separate-human adoption path shipped previously; the final repair separates an
+outcome from its attribution boundary and requires a finite value plus unit for
+quantitative observations. Legacy combined text is retained exactly as a
+qualitative observation and attribution boundary—no measurement is inferred.
+Promotion remains coupled to the branch's full CI, migration-chain, browser and
+deployment gates; capture or adoption still does not claim measured improvement.
 
 ## Required outcome
 
@@ -133,22 +128,24 @@ nullable source column:
   writes, concurrent requests/decisions and immutable submitted procedure content.
 
 The generalized source guards and learning request/decision paths are implemented
-in migrations `20261225190200`–`20261225190400`. The isolated project FRACAS
-fixture runs its existing CA workflow against these guards and separately checks
-the learning request/reject/retry/adopt path and a CA successor of an adopted
-learning revision. The authenticated CI smoke on `8ac4b73` captures execution
-against an adopted CA revision and adopts its learning-driven successor, with
-concurrent request/decision assertions. This proves the CA-to-learning path
-through the authenticated API; the reverse chain currently has isolated SQL
-proof only. The authenticated smoke now also requests and adopts a later
-failure-driven successor of the learning revision, asserting the original
-observation remains conforming; that added check awaits its first CI result.
-Browser completion and live acceptance are still required; isolated
-fixtures are not substituted for those checks.
+in migrations `20261225190200`–`20261225190400`. The rollback fixture covers
+request/reject/retry/adopt and immutable history. The authenticated full-chain
+smoke proves both CA→learning and learning→CA transitions, concurrent requests
+and decisions, while asserting that the original conforming observation is never
+relabelled as a failure. Browser coverage performs the observation write, reload,
+revision request and separate-session human decision; isolated fixtures are not
+substituted for those checks.
 
-## Prior release boundary
+## Acceptance reconciliation
 
-#528 merged as `a7620539`; production deployment `36521832377` and all three
-Vercel statuses passed. Its authenticated production acceptance remains open:
-the available browser exposes public access, not an authenticated tenant session.
-Neither D9.05 nor D9.06 is promoted by this investigation.
+- Migrations `20261225190000`–`20261225190400` implement the canonical
+  observation-to-adoption chain; `20261231100000` adds the explicit outcome kind,
+  quantitative value/unit contract and independent attribution limit.
+- `scripts/ci-project-fracas-smoke.sh` exercises authenticated tenant/refusal,
+  qualitative and quantitative capture, CA→learning→CA lineage, concurrency,
+  separate-human adoption and immutable history against the full migration chain.
+- `tests/e2e/project-fracas.spec.ts` performs the customer write, reload, source
+  inspection and separate-browser approval on the reachable Realize surface.
+- Static, service and component tests pin the schema, receipts, read model and
+  honest UI language. The register evidence deliberately stops at observed and
+  adopted states; verified improvement needs later evidence and is not inferred.

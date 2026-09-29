@@ -135,6 +135,7 @@ insert into evidence_items values('00000000-0000-0000-0000-000000000099',
 insert into work_packages values(1,app_current_org(),'00000000-0000-0000-0000-000000000020');
 insert into work_package_work values(1,app_current_org(),'00000000-0000-0000-0000-000000000002');
 \ir ../supabase/migrations/20261225190100_record_standard_work_observation.sql
+\ir ../supabase/migrations/20261231100000_standard_work_outcome_contract.sql
 create function test_observation(payload jsonb, evidence uuid default '00000000-0000-0000-0000-000000000003',
  observed timestamptz default now()) returns jsonb language sql as $$
  select record_standard_work_observation('00000000-0000-0000-0000-000000000020',3,
@@ -143,7 +144,8 @@ $$;
 do $$ declare payload jsonb:=jsonb_build_object('title','Observed installation',
  'learning','Retain the witnessed sequence','applicability','Similar installation work',
  'execution','Witnessed the installation sequence','variationKind','conforming',
- 'variationBasis','Compared with the verified procedure','outcome','Installation observed; improvement not established');
+ 'variationBasis','Compared with the verified procedure','outcome','Installation observed; improvement not established',
+ 'outcomeKind','qualitative','attributionLimit','One witnessed execution; no counterfactual or causal attribution');
  result jsonb; field text; begin
  result:=test_observation(payload);
  if result->>'id' is null or result ? 'error' then raise exception 'capture failed: %',result; end if;
@@ -152,12 +154,22 @@ do $$ declare payload jsonb:=jsonb_build_object('title','Observed installation',
    and verified_value is null and failure_mode_key is null) then raise exception 'incorrect capture'; end if;
  if (select count(*) from audit_events where entity_type='standard_work_observation')<>1 then
   raise exception 'missing capture audit'; end if;
- foreach field in array array['title','learning','applicability','execution','variationKind','variationBasis','outcome'] loop
+ foreach field in array array['title','learning','applicability','execution','variationKind','variationBasis','outcome','outcomeKind','attributionLimit'] loop
   result:=test_observation(payload-field);
   if not result ? 'error' then raise exception 'missing field accepted: %',field; end if;
   result:=test_observation(jsonb_set(payload,array[field],'{"invalid":"not a narrative"}'::jsonb));
   if not result ? 'error' then raise exception 'non-string field accepted: %',field; end if;
  end loop;
+ result:=test_observation(payload||jsonb_build_object('outcomeValue',4.75,'outcomeUnit','hours'));
+ if not result ? 'error' then raise exception 'qualitative outcome accepted quantitative fields'; end if;
+ result:=test_observation((payload||jsonb_build_object('outcomeKind','quantitative','outcomeValue',4.75))-'outcomeUnit');
+ if not result ? 'error' then raise exception 'quantitative outcome without unit accepted'; end if;
+ result:=test_observation(payload||jsonb_build_object('outcomeKind','quantitative','outcomeValue',4.75,'outcomeUnit','hours'));
+ if result->>'id' is null or result ? 'error' then raise exception 'quantitative capture failed: %',result; end if;
+ if not exists(select 1 from learning_events where id=(result->>'id')::uuid
+   and standard_outcome_kind='quantitative' and standard_outcome_value=4.75
+   and standard_outcome_unit='hours' and verified_value is null) then
+  raise exception 'incorrect quantitative capture'; end if;
  result:=test_observation(payload,'00000000-0000-0000-0000-000000000099');
  if not result ? 'error' then raise exception 'foreign evidence accepted'; end if;
  result:=test_observation(payload,observed=>now()+interval '1 day');
@@ -171,7 +183,7 @@ do $$ declare payload jsonb:=jsonb_build_object('title','Observed installation',
  delete from work_package_work;
  result:=test_observation(payload);
  if not result ? 'error' then raise exception 'unlinked project work accepted'; end if;
- if (select count(*) from audit_events)<>1 then raise exception 'failed write left audit residue'; end if;
+ if (select count(*) from audit_events)<>2 then raise exception 'failed write left audit residue'; end if;
  if coalesce(current_setting('syncai.standard_observation_write',true),'')<>'' then
   raise exception 'recorder leaked write capability'; end if;
  begin

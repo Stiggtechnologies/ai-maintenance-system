@@ -38,6 +38,8 @@ export function StandardWorkLearningPanel({ caseId, canRecord = false }: { caseI
         <div><dt>Execution</dt><dd>{row.standard_execution_description}</dd></div>
         <div><dt>Variation basis</dt><dd>{row.standard_variation_basis}</dd></div>
         <div><dt>Outcome</dt><dd>{row.standard_outcome_description}</dd></div>
+        <div><dt>Outcome representation</dt><dd>{row.standard_outcome_kind === "quantitative" && row.standard_outcome_value !== null ? `${row.standard_outcome_value} ${row.standard_outcome_unit}` : "Qualitative"}</dd></div>
+        <div><dt>Attribution limits</dt><dd>{row.standard_outcome_attribution_limit}</dd></div>
         <div><dt>Learning</dt><dd>{row.detail}</dd></div>
         <div><dt>Applicability</dt><dd>{row.applicability}</dd></div>
       </dl>

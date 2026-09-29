@@ -24,6 +24,8 @@ it("renders recorded learning and exact provenance without verification claims",
     applicability: "Equivalent assemblies", standard_variation_kind: "undetermined",
     standard_execution_description: "Installation witnessed", standard_variation_basis: "Intermediate steps not visible",
     standard_outcome_description: "Inspection completed", standard_procedure_id: 3,
+    standard_outcome_kind: "quantitative", standard_outcome_value: 4.75, standard_outcome_unit: "hours",
+    standard_outcome_attribution_limit: "One observation; no causal counterfactual",
     standard_execution_work_order_id: "wo-1", standard_execution_evidence_id: "ev-1",
     standard_outcome_evidence_id: "ev-2", standard_execution_recorded_by: "human-1",
     standard_execution_observed_at: "2026-09-28T00:00:00Z" }]);
@@ -31,5 +33,7 @@ it("renders recorded learning and exact provenance without verification claims",
   expect(await screen.findByText("Inspection sequence")).toBeInTheDocument();
   expect(screen.getByText("Execution evidence: ev-1")).toBeInTheDocument();
   expect(screen.getByText("Outcome evidence: ev-2")).toBeInTheDocument();
+  expect(screen.getByText("4.75 hours")).toBeInTheDocument();
+  expect(screen.getByText("One observation; no causal counterfactual")).toBeInTheDocument();
   expect(screen.getByText(/Recorded observation · undetermined/)).toBeInTheDocument();
 });

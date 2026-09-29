@@ -10,6 +10,8 @@ const input = {
   observedAt: "2026-09-28T00:00:00Z", title: "Observed work",
   execution: "Witnessed installation", variationKind: "undetermined" as const,
   variationBasis: "Intermediate steps not visible", outcome: "Observed installation",
+  outcomeKind: "qualitative" as const,
+  attributionLimit: "One observation; no counterfactual or causal attribution",
   learning: "Retain inspection points", applicability: "Similar installations",
 };
 describe("standard-work observation history", () => {
@@ -52,6 +54,8 @@ describe("standard-work observation receipt", () => {
       p_observed_at: input.observedAt, p_observation: {
         title: input.title, execution: input.execution, variationKind: "undetermined",
         variationBasis: input.variationBasis, outcome: input.outcome,
+        outcomeKind: "qualitative", outcomeValue: null, outcomeUnit: null,
+        attributionLimit: input.attributionLimit,
         learning: input.learning, applicability: input.applicability,
       },
     });

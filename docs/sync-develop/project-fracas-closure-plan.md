@@ -1,45 +1,28 @@
 # D9.05 — project FRACAS closure acceptance plan
 
-Status: implementation and validation in draft PR #528. No capability promotion
-or production-completion claim. The investigation below records design history;
-the acceptance cases remain the completion criteria.
+Status: accepted implementation. D9.05 is promoted after the complete canonical
+closure chain, authenticated boundary smoke and customer browser workflow passed
+on the merged implementation. Administrative workflow closure remains distinct
+from measured effectiveness or demonstrated prevention.
 
-## Current evidence and outstanding acceptance
+## Accepted evidence
 
-- Implemented the exclusive project-lesson subject on `ca_verifications`,
-  evidence-backed human attestations, canonical standard-work revisions and
-  approvals, and recorded project-population screening. Existing project-lessons
-  UI exposes these operations; asset evaluators and denominators exclude projects.
-- Rejected revisions remain in history. A new attempt references the last adopted
-  baseline, receives the next unused version, and cannot skip pending or adopted
-  changes. Approval links and submitted standard facts cannot be rewritten.
-- The rollback-only PostgreSQL fixture exercises stage order, rejection/retry,
-  separate-human adoption, immutable history, screening population isolation and
-  the non-effectiveness boundary. Its matcher is a stub: it is not proof of the
-  real applicability algorithm or authenticated RLS.
-- The new CI-only authenticated smoke reuses project-start fixtures and checks
-  the API chain, exact PostgREST UI relationships, real applicable-lesson reads,
-  foreign-case refusal, anonymous refusal and direct-client update refusal.
-  At `c6423bd`, CI run `36516312587` passed the full migration/authentication
-  job and golden-path browser job. That evidence covers the original smoke and
-  browser inspection of the completed closure, not subsequent test additions.
-  The added foreign-tenant checks across all six write RPCs and concurrent-start
-  check at `210ae1d` are awaiting runtime results in run `36517691125`.
-- Administrative completion now uses `closed_project_workflow`, not
-  `closed_effective`. Screening completes that state only with evidenced human
-  stages, an adopted standard and an attributed receipt; effectiveness stays null.
-  The local SQL fixture proves premature completion refusal and valid completion.
-  Zero candidates remain an explicitly empty screening, not demonstrated prevention.
-- UI pagination/read-after-write and older-evidence search have local regression
-  coverage; their live/browser acceptance remains outstanding. Browser inspection
-  of a seeded completed chain passed at `c6423bd`; it does not exercise every
-  input form. The additional rescreen-and-reload persistence test in `40270f1`
-  is committed locally but has not yet run in CI. The polished panel likewise
-  still requires rendered inspection at its final revision.
-- Still required: complete authenticated tenant/concurrency coverage,
-  browser workflow and visual inspection, all final CI gates, and production
-  schema plus live authorized-user verification. Passing targeted tests does not
-  close these requirements. Both capability registers remain unchanged.
+- The exclusive project-lesson subject on `ca_verifications`, evidence-backed
+  human attestations, canonical standard-work revisions and approvals, and
+  recorded project-population screening are implemented. Asset evaluators and
+  KPI denominators explicitly exclude project subjects.
+- Rejected revisions remain history; retry uses the last adopted baseline and the
+  next unused version. Stale, pending, self-approved and concurrent decisions are
+  refused, and submitted approval/procedure facts are immutable.
+- `scripts/ci-project-fracas-smoke.sh` runs the authenticated API chain with the
+  real applicability predicate, exact PostgREST relationships, foreign/anonymous/
+  direct-write refusals, concurrent calls, screening population isolation and the
+  non-effectiveness boundary on the full migration chain.
+- `tests/e2e/project-fracas.spec.ts` inspects the completed chain, re-screens the
+  project population and proves receipt persistence after reload on the reachable
+  Realize workspace.
+- Administrative completion is `closed_project_workflow`; effectiveness remains
+  null. Zero candidates are an honest empty result, never prevention evidence.
 
 ## Required outcome
 
@@ -112,7 +95,7 @@ a supporting reference, not a substitute for that change.
     browser workflow and rendered review, then deployed-schema/live verification.
     Only then reconcile D9.05 and any other row actually proven complete.
 
-## Investigation still required before schema changes
+## Pre-implementation investigation record
 
 ### Consumer inventory found on main
 
