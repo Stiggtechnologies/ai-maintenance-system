@@ -9,7 +9,7 @@ test("planner inspects completed project closure and its screening provenance", 
   await expect(page.getByRole("heading", { name: "Operational Briefing", exact: true }))
     .toBeVisible({ timeout: 30_000 });
   await page.goto("/develop/cases/98550000-0000-4000-8000-000000000001#realize");
-  await expect(page.getByText("Seal failure at first start", { exact: true })).toBeVisible();
+  await expect(page.locator("#realize").getByText("Seal failure at first start", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Project closure", exact: true }).click();
   await expect(page.getByText(/Governed project workflow completed through/)).toBeVisible();
   await expect(page.getByText(/Effectiveness and failure prevention are not established/)).toBeVisible();
