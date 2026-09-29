@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { LoadingScreen } from "../components/LoadingScreen";
-import { handleAzureADCallback, exchangeCodeForSession } from "../lib/azure-ad";
-import { activateMarketplaceSubscription } from "../lib/azure-marketplace";
+import {
+  clearAzureADCallbackUrl,
+  exchangeCodeForSession,
+  handleAzureADCallback,
+} from "../lib/azure-ad";
+import { hasWorkspaceMembership } from "../lib/auth";
+import { supabase } from "../lib/supabase";
 
 export function AzureADCallback() {
   const navigate = useNavigate();
@@ -10,47 +15,23 @@ export function AzureADCallback() {
 
   const handleCallback = useCallback(async () => {
     try {
-      // Extract code and state from URL parameters
       const result = await handleAzureADCallback();
-
-      if (!result) {
-        throw new Error("Invalid callback: missing code or state parameter");
-      }
-
-      const { code } = result;
-
-      // Check if this is a marketplace signup flow
-      const marketplaceToken = sessionStorage.getItem("marketplace_token");
-      const subscriptionData = sessionStorage.getItem(
-        "marketplace_subscription",
-      );
-
       try {
-        // Exchange code for session
-        await exchangeCodeForSession(code);
+        const verified = await exchangeCodeForSession(result.code, result.flowId);
 
-        // If this is a marketplace flow, activate the subscription
-        if (subscriptionData && marketplaceToken) {
-          const subscription = JSON.parse(subscriptionData);
-          try {
-            await activateMarketplaceSubscription(
-              subscription.subscription.id,
-              subscription.planId,
-              subscription.quantity,
-            );
-          } catch (activationErr) {
-            // Log activation error but don't fail the callback
-            console.error("Marketplace activation error:", activationErr);
-            // User can still access the app, subscription may need manual activation
-          }
-
-          // Clean up session storage
-          sessionStorage.removeItem("marketplace_token");
-          sessionStorage.removeItem("marketplace_subscription");
+        const hasPendingMarketplacePurchase = Boolean(
+          sessionStorage.getItem("marketplace_token") &&
+            sessionStorage.getItem("marketplace_subscription"),
+        );
+        if (
+          !hasPendingMarketplacePurchase &&
+          !(await hasWorkspaceMembership(verified.user.id))
+        ) {
+          await supabase.auth.signOut();
+          throw new Error(
+            "Your Microsoft identity is verified, but it has not been provisioned into a SyncAI organization. Contact your administrator.",
+          );
         }
-
-        // Redirect to the application
-        navigate("/overview");
       } catch (exchangeErr) {
         console.error("Code exchange failed:", exchangeErr);
         throw new Error(
@@ -59,8 +40,24 @@ export function AzureADCallback() {
             : "Failed to authenticate with Azure AD",
           { cause: exchangeErr },
         );
+      } finally {
+        clearAzureADCallbackUrl();
       }
+
+      // Authentication and commerce are separate controls. A marketplace
+      // purchase returns to its landing page; only the backend fulfillment
+      // workflow may bind or activate that subscription.
+      const hasPendingMarketplacePurchase = Boolean(
+        sessionStorage.getItem("marketplace_token") &&
+          sessionStorage.getItem("marketplace_subscription"),
+      );
+      navigate(
+        hasPendingMarketplacePurchase
+          ? "/marketplace/signup?resume=1"
+          : "/overview",
+      );
     } catch (err) {
+      clearAzureADCallbackUrl();
       const errorMessage =
         err instanceof Error ? err.message : "Authentication failed";
       console.error("Azure AD callback error:", err);
@@ -68,7 +65,7 @@ export function AzureADCallback() {
 
       // Redirect to login with error message after a delay
       setTimeout(() => {
-        navigate(`/login?error=${encodeURIComponent(errorMessage)}`);
+        navigate(`/?view=enterprise&error=${encodeURIComponent(errorMessage)}`);
       }, 3000);
     }
   }, [navigate]);

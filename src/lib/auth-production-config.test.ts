@@ -38,6 +38,18 @@ describe("production Auth deployment contract", () => {
     expect(script).not.toContain("${resendKey}");
   });
 
+  it("configures and verifies hosted Microsoft Entra without exposing its secret", () => {
+    expect(script).toContain("ENTRA_SSO_CLIENT_ID");
+    expect(script).toContain("ENTRA_SSO_CLIENT_SECRET");
+    expect(script).toContain("external_azure_enabled: true");
+    expect(script).toContain("external_azure_client_id: entraClientId");
+    expect(script).toContain("external_azure_secret: entraClientSecret");
+    expect(script).toContain("https://login.microsoftonline.com/${entraTenant}");
+    expect(script).toContain("Microsoft Entra provider not enabled");
+    expect(script).not.toContain("console.log(entraClientSecret");
+    expect(script).not.toContain("${entraClientSecret}");
+  });
+
   it("runs as a protected production-deploy gate and triggers when its own contract changes", () => {
     expect(workflow).toContain('"scripts/configure-production-auth.mjs"');
     expect(workflow).toContain('".github/workflows/deploy-migrations.yml"');
@@ -45,5 +57,8 @@ describe("production Auth deployment contract", () => {
     expect(workflow).toContain("node scripts/configure-production-auth.mjs");
     expect(workflow).toContain("SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}");
     expect(workflow).toContain("RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}");
+    expect(workflow).toContain("ENTRA_SSO_CLIENT_ID: ${{ secrets.ENTRA_SSO_CLIENT_ID }}");
+    expect(workflow).toContain("ENTRA_SSO_CLIENT_SECRET: ${{ secrets.ENTRA_SSO_CLIENT_SECRET }}");
+    expect(workflow).toContain("ENTRA_SSO_TENANT: ${{ vars.ENTRA_SSO_TENANT }}");
   });
 });

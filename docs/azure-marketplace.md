@@ -21,7 +21,7 @@ The controlled sequence is:
 | ---- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | A1   | Azure-hosted web foundation, managed identity, registry, Key Vault, logs, health proof                      | Implemented in `infra/azure`; deployment blocked until the Azure OIDC identity and environment secrets are configured                                                                                                                                                                                                                                                                        |
 | A2   | Azure-hosted compute/data plane whose consumption grows with customer use                                   | Azure Intelligence plane implemented in code: Container Apps + Azure OpenAI with managed identity, Key Vault references, strict Azure-only inference and controlled canonical-cron cutover. It remains unproven until the protected production workflow deploys it and usage evidence shows Azure is the fastest-scaling resource; existing Supabase/Vercel production remains authoritative |
-| A3   | Microsoft Entra SSO that establishes a verified application session                                         | Fail-closed in the current product; the legacy hand-decoded-token path remains blocked                                                                                                                                                                                                                                                                                                       |
+| A3   | Microsoft Entra SSO that establishes a verified application session                                         | Supported Supabase OAuth/PKCE path implemented: hosted Auth owns the provider exchange, the callback verifies the issued user against the Auth server and requires an Azure-backed identity, and identity cannot assign a tenant or activate commerce. Production remains unproven until the multi-tenant Entra app credentials are configured and a real buyer-tenant sign-in is witnessed. The legacy hand-decoded-token path remains blocked. |
 | A4   | Backend-only SaaS Fulfillment APIs v2 resolve and activation flow                                           | Legacy code is blocked and is not production evidence                                                                                                                                                                                                                                                                                                                                        |
 | A5   | Authenticated, idempotent webhook lifecycle and canonical entitlement enforcement                           | Not implemented                                                                                                                                                                                                                                                                                                                                                                              |
 | A6   | Hourly aggregated, idempotent Marketplace metering from canonical usage                                     | Not implemented                                                                                                                                                                                                                                                                                                                                                                              |
@@ -120,6 +120,25 @@ a global SKU without a data-processing and residency review. A run is
 successful only when both immutable ACR images, the web revision, Azure OpenAI
 deployment, Intelligence revision, refusal probes, managed-identity probe, and
 canonical-cron cutover all pass.
+
+Configure Microsoft Entra SSO independently of the Azure deployment identity
+and Marketplace publisher service principal:
+
+- Register a multi-tenant web application that accepts the Supabase Auth
+  callback `https://<project-ref>.supabase.co/auth/v1/callback`. The browser
+  callback at `https://app.syncai.ca/auth/callback/azure` belongs in the
+  Supabase redirect allow-list, not as a direct Microsoft token endpoint.
+- Store `ENTRA_SSO_CLIENT_ID` and `ENTRA_SSO_CLIENT_SECRET` as GitHub repository
+  secrets. Set the `ENTRA_SSO_TENANT` repository variable to `common` for the
+  Microsoft Marketplace buyer flow. The production Auth deployment configures
+  and verifies the provider through the Supabase Management API.
+- Do not reuse the GitHub OIDC deployment identity or assume the Marketplace
+  publisher credentials have the correct account-type and redirect settings.
+- A code deployment is not end-to-end proof. Before marking A3 green, witness
+  sign-in from a non-publisher Entra tenant, verify the Supabase user/provider,
+  verify the user receives only a pre-provisioned organization membership, and
+  confirm a Microsoft login alone cannot activate a subscription or elevate a
+  role.
 
 Rollback does not delete evidence or reverse a model decision. Re-run
 `configure_agent_enrichment` with the previously approved Supabase Edge

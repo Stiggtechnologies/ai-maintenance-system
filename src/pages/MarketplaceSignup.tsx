@@ -9,7 +9,12 @@ import {
 import { signInWithAzureAD } from "../lib/azure-ad";
 
 type MarketplaceStep =
-  "loading" | "resolved" | "auth-in-progress" | "activation-complete" | "error";
+  | "loading"
+  | "resolved"
+  | "auth-in-progress"
+  | "identity-verified"
+  | "activation-complete"
+  | "error";
 
 interface ErrorState {
   type: "invalid-token" | "resolution-failed" | "activation-failed" | "unknown";
@@ -28,6 +33,29 @@ export function MarketplaceSignup() {
 
   // Extract and validate token from URL
   useEffect(() => {
+    if (searchParams.get("resume") === "1") {
+      const pending = sessionStorage.getItem("marketplace_subscription");
+      try {
+        if (!pending) throw new Error("Pending subscription context is missing.");
+        const parsed = JSON.parse(pending) as MarketplaceSubscription;
+        if (!parsed.subscription?.id || !parsed.beneficiary?.tenantId) {
+          throw new Error("Pending subscription context is invalid.");
+        }
+        setSubscription(parsed);
+        setStep("identity-verified");
+      } catch {
+        sessionStorage.removeItem("marketplace_subscription");
+        sessionStorage.removeItem("marketplace_token");
+        setError({
+          type: "activation-failed",
+          message:
+            "Your Microsoft identity is verified, but the pending purchase context could not be recovered. Return to Microsoft Marketplace to restart activation.",
+        });
+        setStep("error");
+      }
+      return;
+    }
+
     const marketplaceToken = searchParams.get("token");
 
     if (!marketplaceToken) {
@@ -250,6 +278,37 @@ export function MarketplaceSignup() {
         )}
 
         {/* Activation Complete State */}
+        {step === "identity-verified" && subscription && (
+          <div className="space-y-6 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full border border-emerald-400/40 bg-emerald-400/10 text-3xl text-emerald-300">
+              ✓
+            </div>
+            <div>
+              <h2 className="text-2xl font-bold text-industrial-text">
+                Microsoft identity verified
+              </h2>
+              <p className="mt-2 text-industrial-muted">
+                Your purchase has not been activated yet. SyncAI keeps identity
+                verification separate from tenant assignment and commercial
+                entitlement while the governed backend fulfillment step is
+                completed.
+              </p>
+            </div>
+            <div className="rounded-lg border border-industrial-border bg-industrial-black p-4 text-left text-sm">
+              <p className="text-industrial-muted">Pending subscription</p>
+              <p className="mt-1 font-semibold text-industrial-text">
+                {subscription.subscription.name || subscription.planId}
+              </p>
+            </div>
+            <a
+              href="mailto:support@syncai.ca?subject=Azure%20Marketplace%20activation"
+              className="inline-flex w-full justify-center rounded-lg border border-industrial-border px-4 py-3 font-medium text-industrial-text transition-colors hover:border-[#3A8DFF]/60 hover:text-[#3A8DFF]"
+            >
+              Contact SyncAI activation support
+            </a>
+          </div>
+        )}
+
         {step === "activation-complete" && (
           <div className="space-y-6">
             <div className="text-center">
