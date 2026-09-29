@@ -47,6 +47,12 @@ was attached in memory but was not present in the uploaded `test-results` files;
 the test now writes it to `testInfo.outputPath` before attaching it. Visual review
 of the completed workflow therefore still awaits a retained success artifact.
 
+Run `36507767320` subsequently completed successfully: all 12 browser tests,
+unit/build checks, and the complete migration/auth smoke passed. Its material
+step explicitly logged a passing historical relationship audit on the full
+seeded snapshot. Production history is still unverified. The screenshot-only
+follow-up requires final-head checks and visual inspection before release.
+
 ## Implementation review boundaries
 
 The implementation review checked canonical `materials`, `material_suppliers`,
