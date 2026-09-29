@@ -9544,6 +9544,10 @@ export interface StandardWorkObservation {
   standard_variation_kind: "conforming" | "varied" | "undetermined";
   standard_variation_basis: string;
   standard_outcome_description: string;
+  standard_outcome_kind: "qualitative" | "quantitative";
+  standard_outcome_value: number | null;
+  standard_outcome_unit: string | null;
+  standard_outcome_attribution_limit: string;
 }
 
 /** Case-scoped, RLS-protected history. UUID keyset paging avoids timestamp ties. */
@@ -9552,7 +9556,7 @@ export async function listStandardWorkObservations(
   afterId?: string,
 ): Promise<StandardWorkObservation[]> {
   let query = supabase.from("learning_events").select(
-    "id,title,detail,applicability,standard_procedure_id,standard_execution_work_order_id,standard_execution_evidence_id,standard_outcome_evidence_id,standard_execution_observed_at,standard_execution_recorded_by,standard_execution_description,standard_variation_kind,standard_variation_basis,standard_outcome_description",
+    "id,title,detail,applicability,standard_procedure_id,standard_execution_work_order_id,standard_execution_evidence_id,standard_outcome_evidence_id,standard_execution_observed_at,standard_execution_recorded_by,standard_execution_description,standard_variation_kind,standard_variation_basis,standard_outcome_description,standard_outcome_kind,standard_outcome_value,standard_outcome_unit,standard_outcome_attribution_limit",
   ).eq("development_case_id", caseId).eq("event_type", "standard_work_observation")
     .order("id", { ascending: true }).limit(100);
   if (afterId) query = query.gt("id", afterId);
@@ -9614,6 +9618,10 @@ export interface StandardWorkObservationInput {
   variationKind: "conforming" | "varied" | "undetermined";
   variationBasis: string;
   outcome: string;
+  outcomeKind: "qualitative" | "quantitative";
+  outcomeValue?: number;
+  outcomeUnit?: string;
+  attributionLimit: string;
   learning: string;
   applicability: string;
 }
@@ -9631,6 +9639,8 @@ export async function recordStandardWorkObservation(
     p_observation: {
       title: input.title, execution: input.execution, variationKind: input.variationKind,
       variationBasis: input.variationBasis, outcome: input.outcome,
+      outcomeKind: input.outcomeKind, outcomeValue: input.outcomeValue ?? null,
+      outcomeUnit: input.outcomeUnit ?? null, attributionLimit: input.attributionLimit,
       learning: input.learning, applicability: input.applicability,
     },
   });

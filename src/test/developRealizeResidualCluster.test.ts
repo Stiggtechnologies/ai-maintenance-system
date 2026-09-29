@@ -189,9 +189,11 @@ describe("register flips only the rows this cluster closed", () => {
     expect(row("D9.01")).toContain("`LifecycleSuccessSection`");
   });
 
-  it("does not paper-close leftovers this slice did not ship", () => {
-    expect(row("D9.05")).toMatch(/^\| D9\.05 \|[^|]*\|[^|]*\| 🟡/);
-    expect(row("D9.06")).toMatch(/^\| D9\.06 \|[^|]*\|[^|]*\| 🟡/);
+  it("recognizes later accepted learning loops without paper-closing remaining gaps", () => {
+    expect(row("D9.05")).toMatch(/^\| D9\.05 \|[^|]*\|[^|]*\| ✅/);
+    expect(row("D9.05")).toContain("`screen_project_ca_exposure`");
+    expect(row("D9.06")).toMatch(/^\| D9\.06 \|[^|]*\|[^|]*\| ✅/);
+    expect(row("D9.06")).toContain("`20261231100000`");
     // D9.07/D9.15 were subsequently closed by governed value leakage, and
     // D9.09 by methodology outcome learning. This older residual test must
     // not pin later delivered work red.

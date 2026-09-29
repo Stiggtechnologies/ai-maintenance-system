@@ -870,16 +870,16 @@
     "backticked": 8
   },
   "D9.05": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 6,
-    "backticked": 0
+    "citations": 14,
+    "backticked": 14
   },
   "D9.06": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 4,
-    "backticked": 0
+    "citations": 7,
+    "backticked": 7
   },
   "D9.07": {
     "status": "✅",

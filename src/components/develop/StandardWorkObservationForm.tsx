@@ -12,6 +12,7 @@ export function StandardWorkObservationForm({ caseId, onRecorded }: { caseId: st
   const [receipt, setReceipt] = useState("");
   const [attempt, setAttempt] = useState(0);
   const [procedureId, setProcedureId] = useState("");
+  const [outcomeKind, setOutcomeKind] = useState<StandardWorkObservationInput["outcomeKind"]>("qualitative");
   const selectedProcedure = standards.flatMap(s => s.procedures).find(p => String(p.id) === procedureId);
   useEffect(() => {
     let active = true;
@@ -45,9 +46,12 @@ export function StandardWorkObservationForm({ caseId, onRecorded }: { caseId: st
     const value = (key: string) => String(data.get(key) ?? "").trim();
     setBusy(true); setError(""); setReceipt("");
     try {
-      const result = await recordStandardWorkObservation({ caseId, procedureId: Number(value("procedure")), workOrderId: value("work"), executionEvidenceId: value("executionEvidence"), outcomeEvidenceId: value("outcomeEvidence"), observedAt: new Date(value("observedAt")).toISOString(), title: value("title"), execution: value("execution"), variationKind: value("variationKind") as StandardWorkObservationInput["variationKind"], variationBasis: value("variationBasis"), outcome: value("outcome"), learning: value("learning"), applicability: value("applicability") });
+      const outcomeValue = outcomeKind === "quantitative" ? Number(value("outcomeValue")) : undefined;
+      const outcomeUnit = outcomeKind === "quantitative" ? value("outcomeUnit") : undefined;
+      if (outcomeKind === "quantitative" && (outcomeValue === undefined || !Number.isFinite(outcomeValue) || !outcomeUnit)) throw new Error("Quantitative outcomes require a finite value and unit");
+      const result = await recordStandardWorkObservation({ caseId, procedureId: Number(value("procedure")), workOrderId: value("work"), executionEvidenceId: value("executionEvidence"), outcomeEvidenceId: value("outcomeEvidence"), observedAt: new Date(value("observedAt")).toISOString(), title: value("title"), execution: value("execution"), variationKind: value("variationKind") as StandardWorkObservationInput["variationKind"], variationBasis: value("variationBasis"), outcome: value("outcome"), outcomeKind, outcomeValue, outcomeUnit, attributionLimit: value("attributionLimit"), learning: value("learning"), applicability: value("applicability") });
       setReceipt(`Observation recorded: ${result.id}. Improvement has not been established.`);
-      form.reset(); setProcedureId(""); onRecorded();
+      form.reset(); setProcedureId(""); setOutcomeKind("qualitative"); onRecorded();
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Recording failed; reload history before retrying"); }
     finally { setBusy(false); }
   }
@@ -64,7 +68,14 @@ export function StandardWorkObservationForm({ caseId, onRecorded }: { caseId: st
         <label className="block">Observed at (local time)<input name="observedAt" type="datetime-local" required /></label>
         <label className="block">Title<input name="title" required minLength={3} maxLength={500} /></label>
         <label className="block">Variation<select name="variationKind" defaultValue="undetermined"><option value="undetermined">Undetermined</option><option value="conforming">Conforming</option><option value="varied">Varied</option></select></label>
-        {([['execution', 'Actual execution'], ['variationBasis', 'Variation basis'], ['outcome', 'Observed outcome and attribution limits'], ['learning', 'Learning'], ['applicability', 'Applicability']] as const).map(([name, label]) => <label className="block" key={name}>{label}<textarea name={name} required minLength={10} maxLength={10000} className="block w-full" /></label>)}
+        {([['execution', 'Actual execution'], ['variationBasis', 'Variation basis']] as const).map(([name, label]) => <label className="block" key={name}>{label}<textarea name={name} required minLength={10} maxLength={10000} className="block w-full" /></label>)}
+        <label className="block">Outcome representation<select name="outcomeKind" value={outcomeKind} onChange={event => setOutcomeKind(event.target.value as StandardWorkObservationInput["outcomeKind"])}><option value="qualitative">Qualitative</option><option value="quantitative">Quantitative</option></select></label>
+        {([['outcome', 'Observed outcome'], ['attributionLimit', 'Attribution limits']] as const).map(([name, label]) => <label className="block" key={name}>{label}<textarea name={name} required minLength={10} maxLength={10000} className="block w-full" /></label>)}
+        {outcomeKind === "quantitative" && <div className="grid gap-3 sm:grid-cols-2">
+          <label className="block">Outcome value<input name="outcomeValue" type="number" step="any" required /></label>
+          <label className="block">Outcome unit<input name="outcomeUnit" required minLength={1} maxLength={120} /></label>
+        </div>}
+        {([['learning', 'Learning'], ['applicability', 'Applicability']] as const).map(([name, label]) => <label className="block" key={name}>{label}<textarea name={name} required minLength={10} maxLength={10000} className="block w-full" /></label>)}
         <ProjectEvidenceSearch onResults={items => setEvidence(previous => [...new Map([...previous, ...items].map(item => [item.id, item])).values()])} />
         {([['executionEvidence', 'Execution evidence'], ['outcomeEvidence', 'Outcome evidence']] as const).map(([name, label]) => <label className="block" key={name}>{label}<select name={name} required defaultValue=""><option value="">Choose evidence</option>{evidence.map(item => <option key={item.id} value={item.id}>{item.description} · {item.id}</option>)}</select></label>)}
         <p className="text-sm">Recording an observation does not complete the work order, verify savings or authorize a procedure change.</p>

@@ -14,13 +14,24 @@ it("records the selected canonical references and refreshes only on success", as
   const refreshed = vi.fn();
   render(<StandardWorkObservationForm caseId="case" onRecorded={refreshed} />);
   await waitFor(() => expect(screen.getByRole("button", { name: "Record observation" })).toBeEnabled());
-  for (const [label, value] of [["Procedure version", "3"], ["Actual work order", "work"], ["Observed at (local time)", "2026-09-28T10:00"], ["Title", "Observed installation"], ["Actual execution", "Witnessed installation"], ["Variation basis", "Intermediate steps not visible"], ["Observed outcome and attribution limits", "Inspection completed only"], ["Learning", "Retain inspection points"], ["Applicability", "Equivalent installations"], ["Execution evidence", "evidence"], ["Outcome evidence", "evidence"]]) {
+  for (const [label, value] of [["Procedure version", "3"], ["Actual work order", "work"], ["Observed at (local time)", "2026-09-28T10:00"], ["Title", "Observed installation"], ["Actual execution", "Witnessed installation"], ["Variation basis", "Intermediate steps not visible"], ["Observed outcome", "Inspection completed only"], ["Attribution limits", "One observation with no causal counterfactual"], ["Learning", "Retain inspection points"], ["Applicability", "Equivalent installations"], ["Execution evidence", "evidence"], ["Outcome evidence", "evidence"]]) {
     fireEvent.change(screen.getByLabelText(label), { target: { value } });
   }
   fireEvent.click(screen.getByRole("button", { name: "Record observation" }));
   expect(await screen.findByText(/Observation recorded: observation/)).toBeInTheDocument();
-  expect(api.recordStandardWorkObservation).toHaveBeenCalledWith(expect.objectContaining({ caseId: "case", procedureId: 3, workOrderId: "work", variationKind: "undetermined", executionEvidenceId: "evidence", outcomeEvidenceId: "evidence" }));
+  expect(api.recordStandardWorkObservation).toHaveBeenCalledWith(expect.objectContaining({ caseId: "case", procedureId: 3, workOrderId: "work", variationKind: "undetermined", executionEvidenceId: "evidence", outcomeEvidenceId: "evidence", outcomeKind: "qualitative", attributionLimit: "One observation with no causal counterfactual" }));
   expect(refreshed).toHaveBeenCalledTimes(1);
+});
+it("captures an explicit quantitative value and unit without claiming improvement", async () => {
+  api.recordStandardWorkObservation.mockResolvedValue({ id: "quantitative-observation", status: "observed" });
+  const { container } = render(<StandardWorkObservationForm caseId="case" onRecorded={vi.fn()} />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "Record observation" })).toBeEnabled());
+  fireEvent.change(screen.getByLabelText("Outcome representation"), { target: { value: "quantitative" } });
+  fireEvent.change(screen.getByLabelText("Outcome value"), { target: { value: "4.75" } });
+  fireEvent.change(screen.getByLabelText("Outcome unit"), { target: { value: "hours" } });
+  fireEvent.change(screen.getByLabelText("Observed at (local time)"), { target: { value: "2026-09-28T10:00" } });
+  fireEvent.submit(container.querySelector("form")!);
+  await waitFor(() => expect(api.recordStandardWorkObservation).toHaveBeenCalledWith(expect.objectContaining({ outcomeKind: "quantitative", outcomeValue: 4.75, outcomeUnit: "hours" })));
 });
 it("refuses to enable recording when case context is denied", async () => {
   api.getCaseWorkPackages.mockResolvedValue({ answered: false, refusal: "Not authorized" });
