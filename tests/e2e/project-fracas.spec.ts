@@ -80,10 +80,11 @@ test("planner inspects completed project closure and its screening provenance", 
     .toBeVisible({ timeout: 30_000 });
   await page.goto("/develop/cases/98550000-0000-4000-8000-000000000001#realize");
   await expect(page.locator("#realize").getByText("Seal failure at first start", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Project closure", exact: true }).click();
+  const failureLesson = page.locator("#realize").getByText("Seal failure at first start", { exact: true }).locator("..");
+  await failureLesson.getByRole("button", { name: "Project closure", exact: true }).click();
   await expect(page.getByText(/Governed project workflow completed through/)).toBeVisible();
   await expect(page.getByText(/Effectiveness and failure prevention are not established/)).toBeVisible();
-  const panel = page.getByRole("region", { name: "Project standard change" });
+  const panel = failureLesson.getByRole("region", { name: "Project standard change" });
   await expect(panel.getByText(/Adopted standard reference:/)).toBeVisible();
   await panel.getByText("Inspect screening receipt", { exact: true }).click();
   await expect(panel.getByText(/^Screening basis:/)).toBeVisible();
@@ -97,7 +98,7 @@ test("planner inspects completed project closure and its screening provenance", 
   await expect(panel.getByRole("status")).toContainText("Screened 2 projects; 1 applicable matches.");
   await expect(panel.getByText(`Screening basis: ${basis}`, { exact: true })).toBeVisible();
   await page.reload();
-  await page.getByRole("button", { name: "Project closure", exact: true }).click();
+  await failureLesson.getByRole("button", { name: "Project closure", exact: true }).click();
   await expect(page.getByText(/Governed project workflow completed through/)).toBeVisible();
   await panel.getByText("Inspect screening receipt", { exact: true }).click();
   await expect(panel.getByText(`Screening basis: ${basis}`, { exact: true })).toBeVisible();
