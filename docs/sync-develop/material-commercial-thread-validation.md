@@ -41,6 +41,12 @@ the enabled Supplier combobox with populated options. The test now uses named
 combobox locators for selects. This is not yet a passing end-to-end flow; supplier,
 BOM and provenance assertions still require the next run.
 
+On `e05bb88`, run `36507767320` passed the browser job, including the complete
+catalogue → supplier → BOM → persisted-source workflow. The success screenshot
+was attached in memory but was not present in the uploaded `test-results` files;
+the test now writes it to `testInfo.outputPath` before attaching it. Visual review
+of the completed workflow therefore still awaits a retained success artifact.
+
 ## Implementation review boundaries
 
 The implementation review checked canonical `materials`, `material_suppliers`,

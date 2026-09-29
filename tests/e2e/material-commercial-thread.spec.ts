@@ -88,8 +88,10 @@ test("planner creates a material, links supplier and BOM, then reads provenance"
   await expect(
     history.getByText(`Source / basis: Quote for ${code}`),
   ).toBeVisible();
+  const screenshotPath = testInfo.outputPath("material-commercial-workflow.png");
+  await page.screenshot({ path: screenshotPath, fullPage: true });
   await testInfo.attach("material-commercial-workflow", {
-    body: await page.screenshot({ fullPage: true }),
+    path: screenshotPath,
     contentType: "image/png",
   });
 });
