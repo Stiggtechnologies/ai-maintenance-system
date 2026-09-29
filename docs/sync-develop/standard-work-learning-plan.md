@@ -45,6 +45,31 @@ not be disguised as failures merely to use project FRACAS.
 9. Prove with boundary tests, authenticated migration-chain tests, browser writes
    and reloads, rendered inspection and deployed/live acceptance before promotion.
 
+## Execution-model findings
+
+- `20261210090000_develop_work_package_object.sql` explicitly assigns execution
+  state to `work_orders.status` (ruling 19). Package status is release state,
+  not execution state. `work_package_work` joins a real work order to a package
+  and its development case; one work order can appear at multiple package levels.
+  Do not introduce another execution-status engine or count each membership as
+  a separate execution.
+- `learning_events_case_lesson_complete` currently admits case-linked
+  `project_outcome` events or requires failure/cause/corrective action. A new
+  positive standard-work learning type needs its own complete, enforced subject
+  contract; merely exempting it from the existing constraint would weaken it.
+- `project_outcome` is a completed-project reference-class observation with
+  baseline/actual project cost and duration, independently verified evidence,
+  and immutable provenance. It is not a per-execution outcome. Reusing it for a
+  single standard-work observation would contaminate the reference-class corpus.
+- Candidate extension: typed standard-work observation on canonical
+  `learning_events`, referencing exact procedure and actual `work_orders`
+  context, with evidence-backed execution/variation/outcome fields. This must
+  not alter work-order completion or imply that evidence of execution authorizes
+  work. Trace downstream lesson screening and metrics before adopting this shape.
+- The newly released revision guard currently requires a project CA source.
+  Generalization must preserve existing CA invariants while admitting a distinct
+  evidenced learning source, not create a dummy CA or relax both source paths.
+
 ## Prior release boundary
 
 #528 merged as `a7620539`; production deployment `36521832377` and all three
