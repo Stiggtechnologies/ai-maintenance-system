@@ -4752,14 +4752,21 @@ export async function listCommissioningTests(): Promise<
  * only non-null writer in the repository was a smoke script. A parameter with
  * no writer is a capability the register cannot claim.
  */
-export async function listOrgEvidenceItems(): Promise<
+export async function listOrgEvidenceItems(search?: string): Promise<
   { id: string; description: string; evidence_class: string | null }[]
 > {
-  const { data, error } = await supabase
+  let query = supabase
     .from("evidence_items")
     .select("id, description, evidence_class")
     .order("created_at", { ascending: false })
     .limit(200);
+  if (search?.trim()) {
+    const term = search.trim();
+    query = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(term)
+      ? query.eq("id", term)
+      : query.ilike("description", `%${term.replace(/[\\%_]/g, "\\$&")}%`);
+  }
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return (data ?? []) as {
     id: string;

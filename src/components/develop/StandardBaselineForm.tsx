@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ProjectEvidenceSearch } from "./ProjectEvidenceSearch";
 import {
   listOrgEvidenceItems,
   registerStandardWorkBaseline,
@@ -106,6 +107,9 @@ export function StandardBaselineForm({
           />
         </label>
       ))}
+      <ProjectEvidenceSearch onResults={(rows) => {
+        setItems(rows); setFields((old) => ({ ...old, evidenceId: "" })); setReady(true);
+      }} />
       <label className="block">
         Controlled-procedure evidence
         <select
@@ -126,7 +130,7 @@ export function StandardBaselineForm({
         </select>
       </label>
       <p>
-        Shows the organization’s 200 most recent evidence items. Selection alone
+        Initially shows the organization’s 200 most recent evidence items. Selection alone
         does not establish quality or applicability.
       </p>
       <label className="block">

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ProjectStandardPanel } from "./ProjectStandardPanel";
+import { ProjectEvidenceSearch } from "./ProjectEvidenceSearch";
 import {
   getProjectCaVerification,
   attestProjectCaStage,
@@ -244,6 +245,9 @@ function ProjectStageForm({
         automatic proof.
       </p>
       {error && <p role="alert">{error}</p>}
+      <ProjectEvidenceSearch onResults={(rows) => {
+        setEvidence(rows); setEvidenceId(""); setReady(true);
+      }} />
       <label className="block">
         Supporting evidence
         <select
@@ -262,7 +266,7 @@ function ProjectStageForm({
         </select>
       </label>
       <p>
-        Shows the 200 most recent evidence items available to your organization.
+        Initially shows the 200 most recent evidence items available to your organization.
         Selection does not verify their quality or applicability.
       </p>
       {ready && !evidence.length && (
