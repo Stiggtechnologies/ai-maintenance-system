@@ -10,8 +10,9 @@ test("planner creates a material, links supplier and BOM, then reads provenance"
     .fill("planner@syncai.ca");
   await page.locator('input[type="password"]').fill("Planner123!@#");
   await page.getByRole("button", { name: /access syncai/i }).click();
+  // Planners land on Operational Briefing, not the engineer's Mission Control.
   await expect(
-    page.getByRole("heading", { name: "Mission Control" }),
+    page.getByRole("heading", { name: "Operational Briefing", exact: true }),
   ).toBeVisible({ timeout: 30_000 });
   await page.goto("/materials");
   const code = `E2E-MATERIAL-${Date.now()}`;
