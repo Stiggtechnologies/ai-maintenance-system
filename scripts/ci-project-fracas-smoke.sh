@@ -125,3 +125,28 @@ curl --fail-with-body -sS -G "$API_URL/rest/v1/standard_work" -H "apikey: $ANON_
   --data-urlencode 'select=id,procedures:procedure_translations!procedure_translations_standard_work_id_fkey(content),approval:approvals!standard_work_revision_approval_id_fkey(status)' \
   | python3 -c 'import json,sys;x=json.load(sys.stdin);assert len(x)==1 and x[0]["procedures"] and x[0]["approval"]["status"]=="approved",x'
 echo 'Project FRACAS authenticated chain passed; no asset effectiveness inferred.'
+
+# D9.06: use the adopted CA revision as the observed baseline, proving the
+# CA -> learning path without disguising the observation as another failure.
+OBS_WORK=$(psqlc "with w as (insert into work_orders(organization_id,wo_number,title,status,type) values('$ORG','CI-LEARNING-OBS','Witnessed procedure execution','completed','human_created') returning id) select id from w")
+OBS_PACKAGE=$(field "$(rpc "$PLANNER" record_work_package '{"p_case_id":"98550000-0000-4000-8000-000000000001","p_package":{"package_code":"CI-LEARNING-OBS","title":"Observed engineering work","package_type":"engineering","scope":"Witnessed actual execution for standard-work learning"}}')" work_package_id)
+ok "$(rpc "$PLANNER" assign_work_to_package "{\"p_package_id\":$OBS_PACKAGE,\"p_work_order_id\":\"$OBS_WORK\",\"p_basis\":\"Actual work executed against the observed procedure\"}")"
+OBS_PROC=$(psqlc "select id from procedure_translations where standard_work_id=$REVISION and language_code='en'")
+OBS_BODY="{\"p_case_id\":\"98550000-0000-4000-8000-000000000001\",\"p_procedure_id\":$OBS_PROC,\"p_work_order_id\":\"$OBS_WORK\",\"p_execution_evidence_id\":\"$EVIDENCE\",\"p_outcome_evidence_id\":\"$EVIDENCE\",\"p_observed_at\":\"2026-09-01T00:00:00Z\",\"p_observation\":{\"title\":\"Witnessed controlled execution\",\"execution\":\"Witnessed all recorded inspection points\",\"variationKind\":\"conforming\",\"variationBasis\":\"Recorded sequence matched the controlled procedure\",\"outcome\":\"Inspection complete; causality not established\",\"learning\":\"Retain clearer acceptance record instructions\",\"applicability\":\"Equivalent flush acceptance activities\"}}"
+refused "$(rpc "$FOREIGN" record_standard_work_observation "$OBS_BODY")"
+OBS_ID=$(field "$(rpc "$PLANNER" record_standard_work_observation "$OBS_BODY")" id)
+LEARNING_BODY="{\"p_observation_id\":\"$OBS_ID\",\"p_content\":\"Retain witnessed flush acceptance record and clarify inspection sequence\",\"p_change_summary\":\"Clarify inspection sequence from observed execution\",\"p_basis\":\"Execution and outcome evidence reviewed; improvement not yet measured\"}"
+refused "$(rpc "$FOREIGN" request_learning_standard_revision "$LEARNING_BODY")"
+LEARNING_REV=$(field "$(race_revision "$PLANNER" request_learning_standard_revision "$LEARNING_BODY")" revisionId)
+refused "$(rpc "$PLANNER" decide_learning_standard_revision "{\"p_revision_id\":$LEARNING_REV,\"p_outcome\":\"approved\",\"p_note\":\"Requester attempts own adoption\"}")"
+refused "$(rpc "$FOREIGN" decide_learning_standard_revision "{\"p_revision_id\":$LEARNING_REV,\"p_outcome\":\"approved\",\"p_note\":\"Foreign adoption attempt\"}")"
+ok "$(race_revision "$ADMIN" decide_learning_standard_revision "{\"p_revision_id\":$LEARNING_REV,\"p_outcome\":\"approved\",\"p_note\":\"Independent human reviewed exact content and source evidence\"}")"
+curl --fail-with-body -sS "$API_URL/rest/v1/learning_events?id=eq.$OBS_ID&select=id" \
+  -H "apikey: $ANON_KEY" -H "authorization: Bearer $FOREIGN" \
+  | python3 -c 'import json,sys;assert json.load(sys.stdin)==[]'
+curl --fail-with-body -sS -G "$API_URL/rest/v1/standard_work" \
+  -H "apikey: $ANON_KEY" -H "authorization: Bearer $PLANNER" \
+  --data-urlencode "source_learning_observation_id=eq.$OBS_ID" \
+  --data-urlencode 'select=id,procedures:procedure_translations!procedure_translations_standard_work_id_fkey(id,content,translation_status),approval:approvals!standard_work_revision_approval_id_fkey(status)' \
+  | python3 -c 'import json,sys;x=json.load(sys.stdin);assert len(x)==1 and x[0]["approval"]["status"]=="approved" and x[0]["procedures"][0]["translation_status"]=="human_verified",x'
+echo 'Standard-work observation and learning adoption authenticated chain passed; improvement remains unproven.'

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { listStandardWorkObservations, type StandardWorkObservation } from "../../services/developService";
 import { StandardWorkObservationForm } from "./StandardWorkObservationForm";
+import { LearningRevisionPanel } from "./LearningRevisionPanel";
 
 export function StandardWorkLearningPanel({ caseId, canRecord = false }: { caseId: string; canRecord?: boolean }) {
   const [rows, setRows] = useState<StandardWorkObservation[]>([]);
@@ -45,6 +46,7 @@ export function StandardWorkLearningPanel({ caseId, canRecord = false }: { caseI
         <p>Execution evidence: {row.standard_execution_evidence_id}</p><p>Outcome evidence: {row.standard_outcome_evidence_id}</p>
         <p>Recorded by: {row.standard_execution_recorded_by}</p><p>Observation: {row.id}</p>
       </details>
+      <LearningRevisionPanel observationId={row.id} procedureId={row.standard_procedure_id} canWrite={canRecord} />
     </article>)}
     {more && !error && <button type="button" disabled={loading} onClick={() => setCursor(rows.at(-1)?.id)}>Load more observations</button>}
   </section>;

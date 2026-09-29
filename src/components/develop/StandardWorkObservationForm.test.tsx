@@ -28,6 +28,14 @@ it("refuses to enable recording when case context is denied", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent("Not authorized");
   expect(screen.getByRole("button", { name: "Record observation" })).toBeDisabled();
 });
+it("excludes an unadopted learning revision even if a procedure claims verification", async () => {
+  api.listProjectStandardWork.mockResolvedValue([{ id: 2, title: "Unadopted learning revision", version: 2,
+    previous_standard_work_id: 1, source_project_ca_id: null, approval: { status: "pending" },
+    procedures: [{ id: 4, language_code: "en", translation_status: "human_verified", verified_by: "human", verified_at: "today" }] }]);
+  render(<StandardWorkObservationForm caseId="case" onRecorded={vi.fn()} />);
+  await waitFor(() => expect(screen.getByRole("button", { name: "Record observation" })).toBeEnabled());
+  expect(screen.queryByRole("option", { name: /Unadopted learning revision/ })).not.toBeInTheDocument();
+});
 it("preserves entered work and does not refresh history when the server refuses a save", async () => {
   api.recordStandardWorkObservation.mockRejectedValue(new Error("Evidence no longer available"));
   const refreshed = vi.fn();

@@ -2,9 +2,12 @@
 
 Status: implementation in progress; not capability acceptance. The observation
 database contract, recording service and Realize capture/history surface are
-implemented on PR #529. Targeted tests do not yet establish authenticated
-end-to-end acceptance. Learning-sourced revision approval/adoption, full-chain
-boundary tests, rendered inspection and production acceptance remain open.
+implemented on PR #529. Learning-sourced revision requests, separate-human
+approval/adoption and their UI are now implemented locally. Isolated PostgreSQL
+tests cover request, rejection, retry, adoption and immutable history; targeted
+service/component tests cover receipts and UI actions. These do not establish
+authenticated end-to-end acceptance. Full-chain boundary tests, cross-source
+acceptance, rendered inspection and production acceptance remain open.
 
 ## Required outcome
 
@@ -89,6 +92,44 @@ not be disguised as failures merely to use project FRACAS.
   metrics need an explicit compatibility review of the new type, not only the
   project-specific UI. Architectural north-star lesson links currently require
   `lesson_learned`; do not silently present the new subtype as already traversable.
+
+## Revision generalization boundary audit
+
+The existing revision path is CA-specific in more places than its request RPC.
+The learning extension must update these contracts together, not merely add a
+nullable source column:
+
+- `project_standard_revision_complete` and `guard_project_standard_revision`
+  must admit exactly one source (project CA or standard-work observation), retain
+  same-tenant identity, exact prior version, immutable content and the canonical
+  approval back-reference. Baselines have neither source nor revision metadata.
+- `guard_project_procedure_history` currently protects revisions by testing
+  `source_project_ca_id`. Extend all three branches (draft insertion, immutable
+  history and approved verification) to learning revisions too; otherwise their
+  procedure content could change after approval submission.
+- `request_project_standard_revision` checks adoption of its predecessor using
+  the CA source field. A CA-driven successor of a learning-driven revision must
+  still require an adopted predecessor. The new learning request must bind its
+  predecessor and language to the observation's exact procedure, not an arbitrary
+  selected standard. Rejected attempts remain history, not a stranded baseline.
+- The decision path must retain separate requester/approver, canonical approval
+  locking, stale-version refusal and one reviewed draft. Learning decisions must
+  not update CA strategy/completion fields or claim measured effectiveness.
+- Observation capture (`guard_standard_work_observation`) and the form's
+  eligible-procedure filter also test the CA source field. Extend their adoption
+  check so a learning revision cannot become a new observed baseline while draft.
+- Existing project screening/completion intentionally remains CA-specific. A
+  positive learning observation must not appear as a failure or close FRACAS.
+- Exercise both cross-source chains (CA → learning and learning → CA), rejection
+  then retry, self-approval refusal, foreign evidence/source, generic approval
+  writes, concurrent requests/decisions and immutable submitted procedure content.
+
+The generalized source guards and learning request/decision paths are implemented
+in migrations `20261225190200`–`20261225190400`. The isolated project FRACAS
+fixture runs its existing CA workflow against these guards and separately checks
+the learning request/reject/retry/adopt path. Both cross-source chains, concurrent
+transactions and full authenticated source-to-adoption acceptance still require
+explicit proof; the isolated fixture is not evidence of those properties.
 
 ## Prior release boundary
 

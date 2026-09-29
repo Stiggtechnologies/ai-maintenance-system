@@ -8955,12 +8955,13 @@ export interface ProjectStandardWorkOption {
   approval: { status: string; approver_user_id: string | null; decided_at: string | null } | null;
 }
 
-export async function listProjectStandardWork(afterId?: number, exactId?: number): Promise<ProjectStandardWorkOption[]> {
+export async function listProjectStandardWork(afterId?: number, exactId?: number, observationId?: string): Promise<ProjectStandardWorkOption[]> {
   let query = supabase.from("standard_work")
     .select("id, work_key, title, version, basis, source_project_ca_id, previous_standard_work_id, change_summary, revision_requested_by, revision_approval_id, procedures:procedure_translations!procedure_translations_standard_work_id_fkey(id, language_code, content, translation_status, verified_by, verified_at), approval:approvals!standard_work_revision_approval_id_fkey(status, approver_user_id, decided_at)")
     .order("id", { ascending: true }).limit(100);
   if (afterId !== undefined) query = query.gt("id", afterId);
   if (exactId !== undefined) query = query.eq("id", exactId);
+  if (observationId !== undefined) query = query.eq("source_learning_observation_id", observationId);
   const { data, error } = await query;
   if (error) throw new Error(`Could not load standard work: ${error.message}`);
   return (data ?? []) as unknown as ProjectStandardWorkOption[];
@@ -9558,6 +9559,47 @@ export async function listStandardWorkObservations(
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []) as StandardWorkObservation[];
+}
+
+export async function getObservedProcedure(procedureId: number): Promise<{ id: number; language_code: string; content: string }> {
+  const { data, error } = await supabase.from("procedure_translations")
+    .select("id,language_code,content").eq("id", procedureId).single();
+  if (error) throw error;
+  if (!data) throw new Error("Observed procedure unavailable");
+  return data as { id: number; language_code: string; content: string };
+}
+
+export async function requestLearningStandardRevision(input: {
+  observationId: string; content: string; changeSummary: string; basis: string;
+}): Promise<{ revisionId: number; approvalId: string; status: "draft" }> {
+  const { data, error } = await supabase.rpc("request_learning_standard_revision", {
+    p_observation_id: input.observationId, p_content: input.content,
+    p_change_summary: input.changeSummary, p_basis: input.basis,
+  });
+  const result = unwrapRpc<{ revisionId?: number; approvalId?: string; status?: string }>(
+    data, error, "Could not request learning revision",
+  );
+  if (!result || !Number.isSafeInteger(result.revisionId) || result.revisionId! <= 0
+    || typeof result.approvalId !== "string" || !result.approvalId.trim() || result.status !== "draft") {
+    throw new Error("Invalid learning revision receipt; reload before retrying");
+  }
+  return { revisionId: result.revisionId!, approvalId: result.approvalId, status: "draft" };
+}
+
+export async function decideLearningStandardRevision(
+  revisionId: number, outcome: "approved" | "rejected", note: string,
+): Promise<{ revisionId: number; status: "approved" | "rejected"; detail: string }> {
+  const { data, error } = await supabase.rpc("decide_learning_standard_revision", {
+    p_revision_id: revisionId, p_outcome: outcome, p_note: note,
+  });
+  const result = unwrapRpc<{ revisionId?: number; status?: string; detail?: string }>(
+    data, error, "Could not decide learning revision",
+  );
+  if (!result || result.revisionId !== revisionId || result.status !== outcome
+    || typeof result.detail !== "string" || !result.detail.trim()) {
+    throw new Error("Invalid learning decision receipt; reload before retrying");
+  }
+  return { revisionId, status: outcome, detail: result.detail };
 }
 
 export interface StandardWorkObservationInput {
