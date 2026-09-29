@@ -1,7 +1,8 @@
 # SyncAI Azure Edition and Microsoft Marketplace
 
-**Status: foundation implemented; not yet production deployed.** The repository
-contains the first repeatable Azure application stamp and its release gate. No
+**Status: web foundation and Azure Intelligence plane implemented in code; not
+yet production deployed.** The repository contains a repeatable Azure
+application stamp, a variable-consumption AI plane, and their release gates. No
 claim that SyncAI is primarily platformed on Microsoft Azure, Marketplace
 certified, transactable, MACC eligible, or co-sell ready is valid until the
 corresponding evidence below is green.
@@ -16,17 +17,17 @@ deployment does not satisfy that objective.
 
 The controlled sequence is:
 
-| Gate | Deliverable                                                                                                 | Current evidence                                                                                                      |
-| ---- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| A1   | Azure-hosted web foundation, managed identity, registry, Key Vault, logs, health proof                      | Implemented in `infra/azure`; deployment blocked until the Azure OIDC identity and environment secrets are configured |
-| A2   | Azure-hosted compute/data plane whose consumption grows with customer use                                   | Not implemented; existing Supabase/Vercel production remains authoritative                                            |
-| A3   | Microsoft Entra SSO that establishes a verified application session                                         | Fail-closed in the current product; the legacy hand-decoded-token path remains blocked                                |
-| A4   | Backend-only SaaS Fulfillment APIs v2 resolve and activation flow                                           | Legacy code is blocked and is not production evidence                                                                 |
-| A5   | Authenticated, idempotent webhook lifecycle and canonical entitlement enforcement                           | Not implemented                                                                                                       |
-| A6   | Hourly aggregated, idempotent Marketplace metering from canonical usage                                     | Not implemented                                                                                                       |
-| A7   | Preview-offer end-to-end certification suite                                                                | Not run                                                                                                               |
-| A8   | Live transactable offer, Partner Center business profile, regional sales contacts, one-pager and pitch deck | External Partner Center work remains                                                                                  |
-| A9   | Azure IP co-sell and MACC eligibility                                                                       | Requires Microsoft's technical review and the then-current commercial threshold                                       |
+| Gate | Deliverable                                                                                                 | Current evidence                                                                                                                                                                                                                                                                                                                                                                             |
+| ---- | ----------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A1   | Azure-hosted web foundation, managed identity, registry, Key Vault, logs, health proof                      | Implemented in `infra/azure`; deployment blocked until the Azure OIDC identity and environment secrets are configured                                                                                                                                                                                                                                                                        |
+| A2   | Azure-hosted compute/data plane whose consumption grows with customer use                                   | Azure Intelligence plane implemented in code: Container Apps + Azure OpenAI with managed identity, Key Vault references, strict Azure-only inference and controlled canonical-cron cutover. It remains unproven until the protected production workflow deploys it and usage evidence shows Azure is the fastest-scaling resource; existing Supabase/Vercel production remains authoritative |
+| A3   | Microsoft Entra SSO that establishes a verified application session                                         | Fail-closed in the current product; the legacy hand-decoded-token path remains blocked                                                                                                                                                                                                                                                                                                       |
+| A4   | Backend-only SaaS Fulfillment APIs v2 resolve and activation flow                                           | Legacy code is blocked and is not production evidence                                                                                                                                                                                                                                                                                                                                        |
+| A5   | Authenticated, idempotent webhook lifecycle and canonical entitlement enforcement                           | Not implemented                                                                                                                                                                                                                                                                                                                                                                              |
+| A6   | Hourly aggregated, idempotent Marketplace metering from canonical usage                                     | Not implemented                                                                                                                                                                                                                                                                                                                                                                              |
+| A7   | Preview-offer end-to-end certification suite                                                                | Not run                                                                                                                                                                                                                                                                                                                                                                                      |
+| A8   | Live transactable offer, Partner Center business profile, regional sales contacts, one-pager and pitch deck | External Partner Center work remains                                                                                                                                                                                                                                                                                                                                                         |
+| A9   | Azure IP co-sell and MACC eligibility                                                                       | Requires Microsoft's technical review and the then-current commercial threshold                                                                                                                                                                                                                                                                                                              |
 
 No certification or co-sell claim may be published from source code, a preview
 offer, or a successful infrastructure deployment alone.
@@ -46,9 +47,34 @@ The first stamp uses:
   `AZURE_CLIENT_SECRET` and refuses to deploy when required values are absent.
 - An immutable image digest, followed by a live `/health` proof.
 
-This is a hosting foundation, not yet the complete Azure compute/data plane.
-The next platform slice must move the scaling AI/data workload to Azure before
-SyncAI represents the edition as primarily Azure-platformed.
+The Azure Intelligence plane reuses the canonical recommendation records,
+LLM-usage records, agent runs, evidence, approvals, and audit history. It does
+not create a second queue, decision store, approval model, or audit ledger. A
+dedicated Container App runs the governed `agent-loop-enrich` worker and uses
+its user-assigned managed identity to call an explicitly deployed Azure OpenAI
+model; local Azure OpenAI key authentication is disabled. The only operational
+secrets are the canonical Supabase service role and an enrichment caller
+secret, both read through Key Vault references. The Azure edition runs in
+strict mode and refuses service rather than silently moving inference to a
+non-Azure provider.
+
+The protected release proves the web health contract, the Intelligence health
+contract, anonymous refusal, shared-caller authentication, acquisition of the
+managed-identity token, and a bounded non-persistent inference against the
+selected Azure OpenAI deployment. The probe discards the model content and
+cannot read or mutate customer records.
+Only after those checks pass does it repoint the existing
+`private.enrichment_config` through the existing
+`configure_agent_enrichment` function. Therefore the canonical cron and
+records stay unchanged while variable inference compute moves to Azure. The
+worker may enrich rationale and confidence on pending recommendations; it does
+not authorize operational action, approve a recommendation, create work, or
+change a decision.
+
+This is still not evidence that the Azure edition is primarily platformed. The
+production workflow must run successfully and Azure billing/usage evidence
+must show that this Azure-hosted plane is the resource whose consumption grows
+fastest with customer use before that Marketplace claim is permitted.
 
 The first stamp also keeps the registry and vault public endpoints reachable
 while enforcing identity/RBAC. Private endpoints, Front Door/WAF, an approved
@@ -65,16 +91,41 @@ deployment protection rules, and add these environment secrets:
   user-assigned identity trusted through GitHub OIDC.
 - `AZURE_TENANT_ID` — SyncAI publisher directory ID.
 - `AZURE_SUBSCRIPTION_ID` — the subscription that owns the Azure edition.
+- `AZURE_DEPLOYMENT_PRINCIPAL_OBJECT_ID` — Microsoft Entra object ID (not the
+  client ID) of the GitHub OIDC service principal. The foundation uses it to
+  grant that protected release identity Key Vault Secrets Officer on this
+  application vault only.
 - `VITE_SUPABASE_URL` — current public Supabase API URL during the controlled
   migration period.
 - `VITE_SUPABASE_PUBLISHABLE_KEY` — browser-publishable key only; never a
   service-role key.
+- `SUPABASE_SERVICE_ROLE_KEY` — used only by the protected release to preserve
+  the canonical worker persistence contract and to repoint the private cron
+  configuration after the Azure proofs pass. It is stored in Key Vault for the
+  runtime and is never compiled into either image.
+- `ENRICH_SHARED_SECRET` — existing governed caller secret. Store the same
+  value in the Supabase project and the `azure-production` environment; the
+  release places it in Key Vault and uses it to prove the Azure caller boundary.
 
 Grant the deployment principal the least roles needed at the target resource
-group and configure a federated credential scoped to this repository and the
-`azure-production` environment. Then manually run **Deploy Azure Edition
-foundation**. A run is successful only when the resource deployments, ACR build,
-Container App revision, and external health proof all pass.
+group: resource deployment permission and permission to create the scoped role
+assignments. The foundation grants it **Key Vault Secrets Officer** on the
+generated application vault; the runtime identity receives only AcrPull, Key
+Vault Secrets User, and Cognitive Services OpenAI User. Configure a federated
+credential scoped to this repository and the `azure-production` environment.
+Then manually run **Deploy Azure Edition
+foundation** and explicitly select the approved Azure OpenAI region, model,
+version, and deployment SKU. Model availability is regional; do not substitute
+a global SKU without a data-processing and residency review. A run is
+successful only when both immutable ACR images, the web revision, Azure OpenAI
+deployment, Intelligence revision, refusal probes, managed-identity probe, and
+canonical-cron cutover all pass.
+
+Rollback does not delete evidence or reverse a model decision. Re-run
+`configure_agent_enrichment` with the previously approved Supabase Edge
+Function URL and its existing caller secret, then verify the Azure endpoint is
+no longer receiving cron traffic. Keep the Azure resources for log and billing
+evidence until the incident review authorizes their removal.
 
 ## Marketplace contract for the next slices
 

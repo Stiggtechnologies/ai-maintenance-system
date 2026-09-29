@@ -28,6 +28,8 @@ describe("Azure Edition foundation", () => {
     expect(foundation).toContain("Microsoft.Insights/components");
     expect(foundation).toContain("AcrPull");
     expect(foundation).toContain("Key Vault Secrets User");
+    expect(foundation).toContain("Key Vault Secrets Officer");
+    expect(foundation).toContain("deploymentPrincipalObjectId");
     expect(foundation).not.toMatch(/adminUserEnabled:\s*true/);
   });
 
@@ -55,6 +57,7 @@ describe("Azure Edition foundation", () => {
     expect(workflow).toContain("AZURE_CLIENT_ID");
     expect(workflow).toContain("AZURE_TENANT_ID");
     expect(workflow).toContain("AZURE_SUBSCRIPTION_ID");
+    expect(workflow).toContain("AZURE_DEPLOYMENT_PRINCIPAL_OBJECT_ID");
     expect(workflow).toContain("Azure deployment prerequisites are missing");
     expect(workflow).toContain("GITHUB_REF");
     expect(workflow).toContain("refs/heads/main");
@@ -69,7 +72,7 @@ describe("Azure Edition foundation", () => {
     expect(workflow).not.toContain("AZURE_CLIENT_SECRET");
   });
 
-  it("compiles both Bicep entry points on every Azure infrastructure change", () => {
+  it("compiles every Bicep entry point on each Azure infrastructure change", () => {
     expect(validationWorkflow).toMatch(/azure\/cli@[0-9a-f]{40}/);
     expect(validationWorkflow).not.toMatch(/azure\/cli@v\d/);
     expect(validationWorkflow).toContain(
@@ -77,6 +80,9 @@ describe("Azure Edition foundation", () => {
     );
     expect(validationWorkflow).toContain(
       "az bicep build --file infra/azure/app.bicep",
+    );
+    expect(validationWorkflow).toContain(
+      "az bicep build --file infra/azure/intelligence.bicep",
     );
     expect(validationWorkflow).toContain(
       "src/test/azureEditionFoundation.test.ts",
@@ -93,7 +99,7 @@ describe("Azure Edition foundation", () => {
 
   it("keeps marketplace and co-sell status honest until deployed evidence exists", () => {
     expect(runbook).toContain(
-      "Status: foundation implemented; not yet production deployed",
+      "Status: web foundation and Azure Intelligence plane implemented in code; not",
     );
     expect(runbook).toContain("primarily platformed on Microsoft Azure");
     expect(runbook).toContain("SaaS Fulfillment APIs v2");
