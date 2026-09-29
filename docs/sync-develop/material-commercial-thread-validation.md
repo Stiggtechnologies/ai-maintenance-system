@@ -32,6 +32,15 @@ Control. Commit `9adae41` corrects that assertion without skipping the material
 workflow; run `36506294349` is the rerun. Its result must be inspected before any
 browser acceptance claim. Later audit additions also require final-head CI.
 
+Run `36506294349` finished with unit/build and full migration/auth checks passing.
+Its eleven existing browser tests passed. The new browser flow logged in and
+created a material, then timed out on the exact-label Supplier selector. A local
+Chromium reproduction using the same nested label/select shape found zero exact
+label matches but one correctly named combobox; the captured page likewise shows
+the enabled Supplier combobox with populated options. The test now uses named
+combobox locators for selects. This is not yet a passing end-to-end flow; supplier,
+BOM and provenance assertions still require the next run.
+
 ## Implementation review boundaries
 
 The implementation review checked canonical `materials`, `material_suppliers`,

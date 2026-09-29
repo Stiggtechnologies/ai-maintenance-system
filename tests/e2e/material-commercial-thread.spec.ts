@@ -34,12 +34,17 @@ test("planner creates a material, links supplier and BOM, then reads provenance"
     name: "Supplier relationship",
     exact: true,
   });
-  await expect(supplierPanel.getByLabel("Catalogue material")).toBeEnabled();
+  await expect(
+    supplierPanel.getByRole("combobox", {
+      name: "Catalogue material",
+      exact: true,
+    }),
+  ).toBeEnabled();
   await supplierPanel
-    .getByLabel("Catalogue material")
+    .getByRole("combobox", { name: "Catalogue material", exact: true })
     .selectOption({ label: `${code} — E2E traceable seal` });
   await supplierPanel
-    .getByLabel("Supplier", { exact: true })
+    .getByRole("combobox", { name: "Supplier", exact: true })
     .selectOption({ index: 1 });
   await supplierPanel
     .getByLabel("Relationship source / basis")
@@ -56,10 +61,10 @@ test("planner creates a material, links supplier and BOM, then reads provenance"
     exact: true,
   });
   await bomPanel
-    .getByLabel("BOM material", { exact: true })
+    .getByRole("combobox", { name: "BOM material", exact: true })
     .selectOption({ label: `${code} — E2E traceable seal` });
   await bomPanel
-    .getByLabel("BOM asset", { exact: true })
+    .getByRole("combobox", { name: "BOM asset", exact: true })
     .selectOption({ index: 1 });
   await bomPanel.getByLabel("Quantity per asset / component").fill("2");
   await bomPanel.getByLabel("Position note (optional)").fill(code);
