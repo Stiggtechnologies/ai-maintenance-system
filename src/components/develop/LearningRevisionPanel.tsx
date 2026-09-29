@@ -56,10 +56,10 @@ export function LearningRevisionPanel({ observationId, procedureId, canWrite }: 
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Decision failed; reload before retrying"); }
     finally { setBusy(false); }
   }
-  return <div className="space-y-3 text-sm [&_textarea]:block [&_textarea]:w-full [&_textarea]:rounded [&_textarea]:bg-slate-900 [&_textarea]:p-2 [&_select]:rounded [&_select]:bg-slate-900 [&_select]:p-2">
+  return <div aria-busy={opened && loading} className="space-y-3 text-sm [&_textarea]:block [&_textarea]:w-full [&_textarea]:rounded [&_textarea]:bg-slate-900 [&_textarea]:p-2 [&_select]:rounded [&_select]:bg-slate-900 [&_select]:p-2">
     <button type="button" aria-expanded={opened} onClick={() => setOpened(value => !value)}>Review procedure revisions</button>
     {opened && <>
-      {loading && <p role="status">Loading source and revision history…</p>}
+      {loading && !message && <p role="status">Loading source and revision history…</p>}
       {error && <p role="alert">{error} <button type="button" onClick={() => setTick(n => n + 1)}>Reload revisions</button></p>}
       {message && <p role="status">{message}</p>}
       {original && <details><summary>Exact observed procedure · {original.language_code}</summary><p className="whitespace-pre-wrap">{original.content}</p></details>}
