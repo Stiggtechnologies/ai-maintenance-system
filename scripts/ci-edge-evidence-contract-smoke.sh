@@ -137,6 +137,16 @@ APPROVE=$(rpc "$REVIEWER" review_edge_node_enrollment \
   "{\"p_edge_node_id\":\"$NODE\",\"p_decision\":\"approved\",\"p_basis\":\"Independent review confirmed tenant, device identity, purpose, and public key fingerprint.\"}")
 ok "$APPROVE"
 
+CLONED_KEY_PAYLOAD=$(JWK="$JWK_ONE" python3 -c 'import json,os;print(json.dumps({
+  "p_node_name":"Edge Contract Cloned Credential","p_hardware_family":"hardware-neutral",
+  "p_runtime_name":"syncai-edge-adapter","p_runtime_version":"1.0.0",
+  "p_firmware_version":"ci-fixture","p_key_id":"edge-key-clone-2026-01",
+  "p_public_key_jwk":json.loads(os.environ["JWK"]),"p_site_id":None,
+  "p_basis":"This deliberately attempts to clone public key material across two tenant devices."
+}))')
+CLONED_KEY=$(rpc "$ADMIN" request_edge_node_enrollment "$CLONED_KEY_PAYLOAD")
+err "$CLONED_KEY" 'cannot be reused within an organization'
+
 # Neither direct credential enrollment nor forged edge provenance may bypass the governed paths.
 PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres \
   -qAt -v ON_ERROR_STOP=1 <<SQL
@@ -165,9 +175,28 @@ begin
   exception when others then
     if sqlerrm not like '%only be inserted after device-signature verification%' then raise; end if;
   end;
+  begin
+    insert into evidence_items(
+      organization_id,asset_id,source_system,evidence_type,description,evidence_class,
+      edge_model_register_id,edge_observation_id,edge_sequence,
+      edge_payload_sha256,edge_signature_key_id,edge_signature_verified_at,edge_observation
+    ) values (
+      '$ORG','$ASSET','forged','edge_inference','Node-free forged edge provenance must be rejected.',
+      'AI_INFERENCE',$CURRENT_MODEL,'forged-node-free-01',1,'$DIGEST',
+      '$KEY_ONE',now(),'{"summary":"forged without a signed node identity"}'::jsonb
+    );
+    raise exception 'node-free edge provenance was incorrectly allowed';
+  exception when others then
+    if sqlerrm not like '%evidence_edge_contract_complete%' then raise; end if;
+  end;
 end
 \$test\$;
 SQL
+
+FINGERPRINTS=$(psqlc "select
+  edge_public_key_fingerprint('$JWK_ONE'::jsonb)=
+  edge_public_key_fingerprint((('$JWK_ONE'::jsonb)-'alg'-'key_ops'-'ext')||'{\"use\":\"sig\"}'::jsonb)")
+test "$FINGERPRINTS" = 't'
 
 NOAUTH=$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
   "$API_URL/rest/v1/rpc/ingest_verified_edge_evidence" \

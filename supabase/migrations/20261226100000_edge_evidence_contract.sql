@@ -41,7 +41,9 @@ language sql
 immutable
 set search_path = public, extensions
 as $$
-  select encode(extensions.digest(p_jwk::text, 'sha256'), 'hex')
+  select encode(extensions.digest(jsonb_build_object(
+    'kty',p_jwk->>'kty','crv',p_jwk->>'crv','x',p_jwk->>'x'
+  )::text, 'sha256'), 'hex')
 $$;
 
 create table if not exists public.edge_nodes (
@@ -141,6 +143,8 @@ alter table public.evidence_items
       and edge_observation is null
     )
     or (
+      edge_node_id is not null
+      and
       edge_model_register_id is not null
       and asset_id is not null
       and length(btrim(coalesce(edge_observation_id,''))) >= 8
@@ -271,6 +275,25 @@ begin
       and node_name = btrim(p_node_name)
   ) then
     return jsonb_build_object('error','an edge node with this name already exists in this organization');
+  end if;
+  if exists (
+    select 1 from public.edge_nodes where organization_id = v_org and (
+      current_key_id = btrim(p_key_id)
+      or pending_key_id = btrim(p_key_id)
+      or current_public_key_jwk->>'x' = p_public_key_jwk->>'x'
+      or pending_public_key_jwk->>'x' = p_public_key_jwk->>'x'
+    )
+  ) or exists (
+    select 1 from public.approvals a where a.organization_id = v_org and (
+      a.approval_scope->>'keyId' = btrim(p_key_id)
+      or a.approval_scope->>'oldKeyId' = btrim(p_key_id)
+      or a.approval_scope->>'newKeyId' = btrim(p_key_id)
+      or a.approval_scope->>'keyFingerprint' = public.edge_public_key_fingerprint(p_public_key_jwk)
+      or a.approval_scope->>'oldKeyFingerprint' = public.edge_public_key_fingerprint(p_public_key_jwk)
+      or a.approval_scope->>'newKeyFingerprint' = public.edge_public_key_fingerprint(p_public_key_jwk)
+    )
+  ) then
+    return jsonb_build_object('error','edge key IDs and public keys cannot be reused within an organization');
   end if;
 
   perform set_config('app.edge_node_governed_write','granted',true);
@@ -413,10 +436,20 @@ begin
     return jsonb_build_object('error','new public key must differ from the current key');
   end if;
   if exists (
+    select 1 from public.edge_nodes n where n.organization_id = v_org
+      and n.id <> v_node.id and (
+        n.current_key_id = btrim(p_new_key_id)
+        or n.pending_key_id = btrim(p_new_key_id)
+        or n.current_public_key_jwk->>'x' = p_new_public_key_jwk->>'x'
+        or n.pending_public_key_jwk->>'x' = p_new_public_key_jwk->>'x'
+      )
+  ) then
+    return jsonb_build_object('error','edge key IDs and public keys cannot be reused within an organization');
+  end if;
+  if exists (
     select 1 from public.approvals a
     where a.organization_id=v_org
       and a.approval_scope->>'kind' in ('edge_node_enrollment','edge_node_key_rotation')
-      and a.approval_scope->>'edgeNodeId'=v_node.id::text
       and (
         a.approval_scope->>'keyId'=btrim(p_new_key_id)
         or a.approval_scope->>'oldKeyId'=btrim(p_new_key_id)

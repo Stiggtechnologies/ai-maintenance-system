@@ -6,6 +6,7 @@ import {
   signedAtWithinWindow,
   verifyEdgeSignature,
 } from "./auth.ts";
+import { EdgeBodyTooLargeError, readBoundedBody } from "./body.ts";
 
 const MAX_BODY_BYTES = 256 * 1024;
 const responseHeaders = {
@@ -93,9 +94,18 @@ Deno.serve(async (request: Request) => {
   const signature = request.headers.get("x-syncai-edge-signature");
   if (!signature) return json(401, { error: "device authentication failed" });
 
-  const rawBody = new Uint8Array(await request.arrayBuffer());
-  if (rawBody.byteLength === 0 || rawBody.byteLength > MAX_BODY_BYTES) {
-    return json(413, { error: "request body must contain at most 256 KiB" });
+  let rawBody: Uint8Array;
+  try {
+    rawBody = await readBoundedBody(request, MAX_BODY_BYTES);
+  } catch (error) {
+    if (error instanceof EdgeBodyTooLargeError) {
+      return json(413, { error: "request body exceeds 256 KiB" });
+    }
+    console.error("edge evidence request body could not be read");
+    return json(400, { error: "request body could not be read" });
+  }
+  if (rawBody.byteLength === 0) {
+    return json(400, { error: "request body must contain JSON" });
   }
 
   let parsedJson: unknown;

@@ -40,6 +40,13 @@ describe("hardware-neutral Edge Evidence Contract", () => {
       /status <> 'active'[\s\S]*approval_id is not null/,
     );
     expect(migration).not.toMatch(/not in \('admin','ai_admin'/);
+    expect(migration).toContain(
+      "edge key IDs and public keys cannot be reused within an organization",
+    );
+    expect(migration).toContain("current_public_key_jwk->>'x'");
+    expect(migration).toMatch(
+      /edge_public_key_fingerprint[\s\S]*jsonb_build_object\([\s\S]*'kty'[\s\S]*'crv'[\s\S]*'x'/,
+    );
   });
 
   it("admits only approved exact model versions as unverified AI inference", () => {
@@ -70,6 +77,9 @@ describe("hardware-neutral Edge Evidence Contract", () => {
       /edge_node_id is null[\s\S]*edge_observation is null[\s\S]*or \(/,
     );
     expect(migration).toMatch(
+      /or \(\s*edge_node_id is not null\s*and\s*edge_model_register_id is not null/,
+    );
+    expect(migration).toMatch(
       /edge_node_id, edge_signature_key_id, edge_sequence/,
     );
     expect(migration).toMatch(
@@ -92,6 +102,8 @@ describe("hardware-neutral Edge Evidence Contract", () => {
 
   it("bounds device input and calls only the service-role persistence RPC after verification", () => {
     expect(ingest).toContain("MAX_BODY_BYTES = 256 * 1024");
+    expect(ingest).toContain("readBoundedBody(request, MAX_BODY_BYTES)");
+    expect(ingest).not.toContain("request.arrayBuffer()");
     expect(ingest).toContain("await verifyEdgeSignature(");
     expect(ingest).toContain('supabase.rpc("ingest_verified_edge_evidence"');
     expect(migration).toMatch(
