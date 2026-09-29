@@ -1,0 +1,50 @@
+name: Azure Edition infrastructure
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/azure-edition-infrastructure.yml"
+      - ".github/workflows/deploy-azure-edition.yml"
+      - "Dockerfile"
+      - "docs/azure-marketplace.md"
+      - "infra/azure/**"
+      - "src/test/azureEditionFoundation.test.ts"
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/azure-edition-infrastructure.yml"
+      - ".github/workflows/deploy-azure-edition.yml"
+      - "Dockerfile"
+      - "docs/azure-marketplace.md"
+      - "infra/azure/**"
+      - "src/test/azureEditionFoundation.test.ts"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Compile Bicep and verify Azure contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Compile Azure infrastructure
+        uses: azure/cli@9eb25b8360668fb0ecbafa808d40e2197b2f5f52 # v3.0.0
+        with:
+          azcliversion: latest
+          inlineScript: |
+            set -euo pipefail
+            az bicep build --file infra/azure/foundation.bicep --outfile /tmp/syncai-azure-foundation.json
+            az bicep build --file infra/azure/app.bicep --outfile /tmp/syncai-azure-app.json
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Verify Azure contracts
+        run: npx vitest run src/test/azureEditionFoundation.test.ts

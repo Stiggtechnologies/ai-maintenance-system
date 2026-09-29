@@ -6,6 +6,19 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
+
+# Vite public configuration is compiled into the browser bundle. These values
+# are intentionally limited to the Supabase URL/publishable key and public app
+# identity; no service-role, Marketplace, Entra, or Azure credential belongs in
+# this image or in a build argument.
+ARG VITE_SUPABASE_URL
+ARG VITE_SUPABASE_PUBLISHABLE_KEY
+ARG VITE_APP_URL
+ARG VITE_ENVIRONMENT=production
+ENV VITE_SUPABASE_URL=$VITE_SUPABASE_URL \
+    VITE_SUPABASE_PUBLISHABLE_KEY=$VITE_SUPABASE_PUBLISHABLE_KEY \
+    VITE_APP_URL=$VITE_APP_URL \
+    VITE_ENVIRONMENT=$VITE_ENVIRONMENT
 RUN npm run build
 
 FROM nginx:alpine

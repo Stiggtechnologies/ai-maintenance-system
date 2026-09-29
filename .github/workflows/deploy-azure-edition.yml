@@ -1,0 +1,160 @@
+name: Deploy Azure Edition foundation
+
+on:
+  workflow_dispatch:
+    inputs:
+      resourceGroup:
+        description: Azure resource group for the production stamp
+        required: true
+        default: rg-syncai-production
+        type: string
+      location:
+        description: Azure region approved for the production stamp
+        required: true
+        default: canadacentral
+        type: string
+      appUrl:
+        description: Public application URL compiled into the web bundle
+        required: true
+        default: https://app.syncai.ca
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: azure-edition-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Build, deploy, and prove Azure web foundation
+    runs-on: ubuntu-latest
+    environment: azure-production
+    env:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      RESOURCE_GROUP: ${{ inputs.resourceGroup }}
+      LOCATION: ${{ inputs.location }}
+      APP_URL: ${{ inputs.appUrl }}
+      DEPLOYMENT_NAME: syncai-azure-${{ github.run_id }}-${{ github.run_attempt }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Refuse an unconfigured release
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY; do
+            if [ -z "${!name:-}" ]; then missing+=("$name"); fi
+          done
+          if [ "${#missing[@]}" -ne 0 ]; then
+            echo "::error title=Azure deployment prerequisites are missing::Configure the azure-production environment secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Sign in to Azure with GitHub OIDC
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Create or converge the resource group
+        shell: bash
+        run: |
+          set -euo pipefail
+          az group create --name "$RESOURCE_GROUP" --location "$LOCATION" --tags product=SyncAI edition=azure environment=production >/dev/null
+
+      - name: Deploy the Azure foundation
+        id: foundation
+        shell: bash
+        run: |
+          set -euo pipefail
+          az deployment group create \
+            --name "${DEPLOYMENT_NAME}-foundation" \
+            --resource-group "$RESOURCE_GROUP" \
+            --template-file infra/azure/foundation.bicep \
+            --parameters prefix=syncai environmentName=production location="$LOCATION" \
+            --only-show-errors >/dev/null
+
+          deployment="${DEPLOYMENT_NAME}-foundation"
+          echo "registry=$(az deployment group show --resource-group "$RESOURCE_GROUP" --name "$deployment" --query properties.outputs.registryName.value -o tsv)" >> "$GITHUB_OUTPUT"
+          echo "environment=$(az deployment group show --resource-group "$RESOURCE_GROUP" --name "$deployment" --query properties.outputs.containerEnvironmentName.value -o tsv)" >> "$GITHUB_OUTPUT"
+          echo "identity=$(az deployment group show --resource-group "$RESOURCE_GROUP" --name "$deployment" --query properties.outputs.workloadIdentityName.value -o tsv)" >> "$GITHUB_OUTPUT"
+
+      - name: Build the immutable web image in Azure Container Registry
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_SHA}"
+          image="syncai-web:${tag}"
+          az acr build \
+            --registry "${{ steps.foundation.outputs.registry }}" \
+            --image "$image" \
+            --build-arg VITE_SUPABASE_URL="$VITE_SUPABASE_URL" \
+            --build-arg VITE_SUPABASE_PUBLISHABLE_KEY="$VITE_SUPABASE_PUBLISHABLE_KEY" \
+            --build-arg VITE_APP_URL="$APP_URL" \
+            --build-arg VITE_ENVIRONMENT=production \
+            --file Dockerfile . \
+            --only-show-errors >/dev/null
+          digest=$(az acr repository show --name "${{ steps.foundation.outputs.registry }}" --image "$image" --query digest -o tsv)
+          test -n "$digest"
+          echo "reference=${{ steps.foundation.outputs.registry }}.azurecr.io/syncai-web@${digest}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy the web workload
+        id: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          az deployment group create \
+            --name "${DEPLOYMENT_NAME}-app" \
+            --resource-group "$RESOURCE_GROUP" \
+            --template-file infra/azure/app.bicep \
+            --parameters \
+              prefix=syncai \
+              environmentName=production \
+              registryName="${{ steps.foundation.outputs.registry }}" \
+              containerEnvironmentName="${{ steps.foundation.outputs.environment }}" \
+              workloadIdentityName="${{ steps.foundation.outputs.identity }}" \
+              containerImage="${{ steps.image.outputs.reference }}" \
+            --only-show-errors >/dev/null
+          deployment="${DEPLOYMENT_NAME}-app"
+          echo "fqdn=$(az deployment group show --resource-group "$RESOURCE_GROUP" --name "$deployment" --query properties.outputs.fqdn.value -o tsv)" >> "$GITHUB_OUTPUT"
+
+      - name: Prove the deployed revision is healthy
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint="https://${{ steps.app.outputs.fqdn }}/health"
+          for attempt in $(seq 1 18); do
+            status=$(curl --silent --show-error --output /tmp/azure-health.json --write-out '%{http_code}' "$endpoint" || true)
+            if [ "$status" = '200' ] && grep -q '"status":"healthy"' /tmp/azure-health.json; then
+              echo "Azure Edition web foundation is healthy at $endpoint"
+              exit 0
+            fi
+            sleep 10
+          done
+          cat /tmp/azure-health.json || true
+          echo "::error title=Azure health proof failed::The deployed revision did not return the expected health contract."
+          exit 1
+
+      - name: Publish deployment evidence
+        shell: bash
+        run: |
+          {
+            echo '## SyncAI Azure Edition foundation'
+            echo
+            echo "- Resource group: \`$RESOURCE_GROUP\`"
+            echo "- Region: \`$LOCATION\`"
+            echo "- Image: \`${{ steps.image.outputs.reference }}\`"
+            echo "- Health: https://${{ steps.app.outputs.fqdn }}/health"
+            echo '- Identity: GitHub OIDC to Azure; no client secret'
+          } >> "$GITHUB_STEP_SUMMARY"
