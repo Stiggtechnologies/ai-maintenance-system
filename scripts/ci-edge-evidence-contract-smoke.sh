@@ -210,10 +210,14 @@ FINGERPRINTS=$(psqlc "select
   edge_public_key_fingerprint((('$JWK_ONE'::jsonb)-'alg'-'key_ops'-'ext')||'{\"use\":\"sig\"}'::jsonb)")
 test "$FINGERPRINTS" = 't'
 
+NOAUTH_PAYLOAD=$(ingest_payload "$KEY_ONE" 1 edge-observation-unauthorized "$ASSET" "$SENSOR" "$CURRENT_MODEL")
 NOAUTH=$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
   "$API_URL/rest/v1/rpc/ingest_verified_edge_evidence" \
-  -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d '{}')
-test "$NOAUTH" = 401 || test "$NOAUTH" = 403
+  -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "$NOAUTH_PAYLOAD")
+if [ "$NOAUTH" != 401 ] && [ "$NOAUTH" != 403 ]; then
+  echo "Expected anon execution denial for ingest_verified_edge_evidence; got HTTP $NOAUTH"
+  exit 1
+fi
 
 STALE=$(service_rpc ingest_verified_edge_evidence \
   "$(ingest_payload "$KEY_ONE" 1 edge-observation-stale "$ASSET" "$SENSOR" "$OLD_MODEL")")
