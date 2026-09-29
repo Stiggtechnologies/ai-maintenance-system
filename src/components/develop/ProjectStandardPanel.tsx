@@ -80,9 +80,12 @@ export function ProjectStandardPanel({
   return (
     <section
       aria-label="Project standard change"
-      className="mt-3 space-y-2 border-t border-slate-700 pt-3"
+      className="mt-4 space-y-4 rounded-xl border border-slate-700/70 bg-slate-950/30 p-4 text-sm leading-relaxed sm:p-6 [&_button]:rounded-lg [&_button]:border [&_button]:border-slate-600 [&_button]:px-3 [&_button]:py-2 [&_button]:font-medium [&_button]:transition-colors [&_button:hover]:bg-slate-700/50 [&_button:disabled]:opacity-50 [&_button:focus-visible]:outline-2 [&_button:focus-visible]:outline-cyan-400 [&_select]:rounded-lg [&_select]:border [&_select]:border-slate-600 [&_select]:p-2 [&_textarea]:min-h-24 [&_textarea]:rounded-lg [&_textarea]:border [&_textarea]:border-slate-600 [&_label]:space-y-2 [&_form]:space-y-3"
     >
-      <h4 className="font-semibold">Standard change and project screening</h4>
+      <header className="space-y-1">
+        <h4 className="text-base font-semibold text-slate-100">Standard change and project screening</h4>
+        <p className="text-xs text-slate-400">Evidence-backed revision · human adoption · traceable project exposure</p>
+      </header>
       {canWrite && (
         <>
           <button
@@ -99,8 +102,8 @@ export function ProjectStandardPanel({
           )}
         </>
       )}
-      {error && <p role="alert">{error}</p>}
-      {message && <p role="status">{message}</p>}
+      {error && <p role="alert" className="rounded-lg border border-rose-500/40 bg-rose-950/30 p-3 text-rose-200">{error}</p>}
+      {message && <p role="status" className="rounded-lg border border-cyan-500/30 bg-cyan-950/30 p-3 text-cyan-100">{message}</p>}
       <label className="block">
         Standard / revision
         <select
@@ -300,7 +303,7 @@ export function ProjectStandardPanel({
         </>
       )}
       {closure.project_adopted_standard_id && (
-        <p>Adopted standard reference: {closure.project_adopted_standard_id}</p>
+        <p className="rounded-lg border border-emerald-500/30 bg-emerald-950/20 px-3 py-2 text-emerald-200">Adopted standard reference: {closure.project_adopted_standard_id}</p>
       )}
       {canWrite && closure.project_adopted_standard_id && (
         <form
@@ -327,18 +330,18 @@ export function ProjectStandardPanel({
         </form>
       )}
       {closure.project_screening_receipt && (
-        <div>
-          <p>
+        <div className="space-y-3 rounded-xl border border-slate-700 bg-slate-900/60 p-4">
+          <p className="break-words text-xs text-slate-400">
             Last screen: {closure.project_screening_receipt.screenedAt} ·{" "}
             {closure.project_screening_receipt.actorId}
           </p>
-          <p>
+          <p className="text-lg font-semibold text-slate-100">
             {closure.project_screening_receipt.populationCount} screened;{" "}
             {closure.project_screening_receipt.matchCount} matches.
           </p>
-          <p>{closure.project_screening_receipt.limitation}</p>
-          <details>
-            <summary>Inspect screening receipt</summary>
+          <p className="text-xs leading-relaxed text-amber-200/90">{closure.project_screening_receipt.limitation}</p>
+          <details className="space-y-2 border-t border-slate-700 pt-3 [&_p]:break-words">
+            <summary className="cursor-pointer py-1 font-medium text-cyan-200 focus-visible:outline-2 focus-visible:outline-cyan-400">Inspect screening receipt</summary>
             <p>Screening basis: {closure.project_screening_receipt.basis}</p>
             <p>Scope: {closure.project_screening_receipt.scope}</p>
             <p>Standard revision: {closure.project_screening_receipt.standardRevisionId}</p>
@@ -347,9 +350,9 @@ export function ProjectStandardPanel({
             {closure.project_screening_receipt.population.length === 0 ? (
               <p>No candidate projects existed in this screening snapshot.</p>
             ) : (
-              <ul className="max-h-64 overflow-auto">
+              <ul className="max-h-64 space-y-2 overflow-auto pt-2">
                 {closure.project_screening_receipt.population.map((id) => (
-                  <li key={id}>
+                  <li key={id} className="break-words rounded-lg border border-slate-700/60 px-3 py-2 text-xs">
                     <a className="text-cyan-300 underline" href={`/develop/cases/${encodeURIComponent(id)}`}>{id}</a>
                     {closure.project_screening_receipt!.matches.includes(id)
                       ? " — applicable match" : " — screened, not matched"}
