@@ -30,7 +30,8 @@
     "compliance:licenses": "node scripts/compliance/generate-license-inventory.mjs --check",
     "compliance:licenses:write": "node scripts/compliance/generate-license-inventory.mjs --write",
     "compliance:sbom": "npm sbom --sbom-format cyclonedx",
-    "compliance:check": "npm run compliance:governance && npm run compliance:licenses"
+    "compliance:check": "npm run compliance:governance && npm run compliance:licenses",
+    "marketplace:certify-preview": "tsx scripts/azure-marketplace-preview-certification.ts"
   },
   "lint-staged": {
     "src/**/*.{ts,tsx}": [

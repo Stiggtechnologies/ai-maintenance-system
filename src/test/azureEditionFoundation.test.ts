@@ -99,10 +99,12 @@ describe("Azure Edition foundation", () => {
 
   it("keeps marketplace and co-sell status honest until deployed evidence exists", () => {
     expect(runbook).toContain(
-      "Status: Azure foundation, intelligence, Entra, fulfillment, lifecycle, and",
+      "Status: Azure foundation, intelligence, Entra, fulfillment, lifecycle,",
     );
-    expect(runbook).toContain("metering controls are implemented");
-    expect(runbook).toContain("commerce is not buyer-proven");
+    expect(runbook).toContain(
+      "metering, and the preview-certification harness are implemented",
+    );
+    expect(runbook).toMatch(/commerce is\s+not buyer-proven/);
     expect(runbook).toMatch(/primarily\s+platformed on Microsoft Azure/);
     expect(runbook).toContain("SaaS Fulfillment APIs v2");
     expect(runbook).toContain("Microsoft Entra SSO");

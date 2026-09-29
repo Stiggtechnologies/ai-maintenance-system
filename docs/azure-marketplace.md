@@ -1,7 +1,8 @@
 # SyncAI Azure Edition and Microsoft Marketplace
 
-**Status: Azure foundation, intelligence, Entra, fulfillment, lifecycle, and
-metering controls are implemented; commerce is not buyer-proven.** The
+**Status: Azure foundation, intelligence, Entra, fulfillment, lifecycle,
+metering, and the preview-certification harness are implemented; commerce is
+not buyer-proven.** The
 Supabase/Vercel production boundary includes the governed A4 fulfillment and A5
 lifecycle rails, but publisher configuration and a real buyer witness remain
 absent. Hourly metering is implemented in code but remains disabled until the
@@ -30,8 +31,8 @@ The controlled sequence is:
 | A3   | Microsoft Entra SSO that establishes a verified application session                                         | Supported Supabase OAuth/PKCE path implemented: hosted Auth owns the provider exchange, the callback verifies the issued user against the Auth server and requires an Azure-backed identity, and identity cannot assign a tenant or activate commerce. Production remains unproven until the multi-tenant Entra app credentials are configured and a real buyer-tenant sign-in is witnessed. The legacy hand-decoded-token path remains blocked.                            |
 | A4   | Backend-only SaaS Fulfillment APIs v2 resolve and activation flow                                           | Governed v2 resolve, explicit activation and authoritative status refresh are deployed. Purchase tokens are scrubbed from the browser URL and never persisted; activation requires a server-verified Microsoft tenant plus an existing SyncAI organization administrator and writes the canonical billing/audit records. The legacy function remains blocked. Publisher credentials are not configured and no real purchase has been witnessed end to end.                  |
 | A5   | Authenticated, idempotent webhook lifecycle and canonical entitlement enforcement                           | Deployed behind independent Microsoft JWT validation. Microsoft signature and claims, Get Operation, and Get Subscription must agree before a service-only idempotency transition can alter canonical billing. Suspend/unsubscribe fail closed at the canonical tenant resolver without deleting customer evidence; reinstatement requires authoritative Microsoft success. This is not end-to-end commerce evidence until a preview offer exercises every lifecycle event. |
-| A6   | Hourly aggregated, idempotent Marketplace metering from canonical usage                                     | Implemented in code. Settled canonical token usage is aggregated by subscription, configured dimension, term, and UTC hour; included units are subtracted cumulatively; claims are bounded to 25; accepted and exact-duplicate results preserve Microsoft's response. Dispatch remains disabled until protected plan-meter configuration exists, and no live Microsoft submission has been witnessed.                                                                       |
-| A7   | Preview-offer end-to-end certification suite                                                                | Not run                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| A6   | Hourly aggregated, idempotent Marketplace metering from canonical usage                                     | Deployed behind a service-only boundary. Settled canonical token usage is aggregated by subscription, configured dimension, term, and UTC hour; included units are subtracted cumulatively; claims are bounded to 25; accepted and exact-duplicate results preserve Microsoft's response. Dispatch remains disabled until protected plan-meter configuration exists, and no live Microsoft submission has been witnessed.                                                   |
+| A7   | Preview-offer end-to-end certification suite                                                                | Protected, fail-closed live suite implemented in `.github/workflows/azure-marketplace-preview-certification.yml`; not run. It requires two real preview purchases, all lifecycle witnesses, a recent accepted usage event, exact Microsoft duplicate and safe rejection responses, included-quantity reconciliation, a hashed Partner Center usage-view artifact, and distinct observer/reviewer identities. A source-code or dry run cannot pass it.                       |
 | A8   | Live transactable offer, Partner Center business profile, regional sales contacts, one-pager and pitch deck | External Partner Center work remains                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | A9   | Azure IP co-sell and MACC eligibility                                                                       | Requires Microsoft's technical review and the then-current commercial threshold                                                                                                                                                                                                                                                                                                                                                                                             |
 
@@ -227,6 +228,54 @@ the code and production boundary probes are not commerce evidence: Gate A7
 must witness an accepted preview-offer event, its exact duplicate behavior,
 the Partner Center usage view, included-quantity reconciliation, suspension,
 and a deliberately rejected event before A6 can be treated as buyer-proven.
+
+## Gate A7 protected preview certification
+
+The manual **Azure Marketplace preview certification** workflow is the only
+repository automation allowed to emit a Gate A7 pass report. It runs in the
+protected `azure-production` environment and fails closed unless all publisher,
+offer, meter, Supabase service, and preview-subscription inputs are present.
+The suite does not create a purchase, activate a tenant, invent canonical
+usage, or change an entitlement.
+
+Use two preview purchases so terminal cancellation evidence does not destroy
+the active subscription needed for metering and authoritative status checks:
+
+1. On the primary preview subscription, complete governed activation, plan
+   change, quantity change, renewal, suspension, and reinstatement. Generate
+   real settled SyncAI usage above the included quantity and wait for one
+   accepted hourly event.
+2. On a separate preview subscription, complete governed activation and then
+   unsubscribe. The canonical billing row must be `cancelled` and the retained
+   resolution must be `Unsubscribed`; no evidence may be deleted.
+3. Capture the Partner Center usage view after Microsoft displays the primary
+   event. Retain the original artifact, calculate its SHA-256, and provide a
+   stable reference without an access token, query string, or fragment. The
+   protected run refuses evidence captured before the accepted canonical meter
+   event or more than 24 hours earlier.
+4. Have one person witness the buyer and Partner Center flow and a different
+   person review the reconciliation. Supply both identities to the protected
+   workflow.
+5. Run the workflow while the accepted primary event is less than 23 hours
+   old. It safely resubmits that exact resource, plan, dimension, hour, and
+   quantity to witness Microsoft's `Duplicate` response. It separately submits
+   one random nonexistent resource ID to witness a non-billable rejection.
+
+The generated JSON artifact contains the Git commit and workflow run, hashed
+publisher, offer, subscription and external-reference identifiers, the exact
+plan and meter dimension, canonical checks, external-evidence digest, hashed
+human-witness identities, and a SHA-256 of the report. It deliberately contains no purchase
+token, bearer token, client secret, prompt, completion, email, or Entra object
+ID. A green
+suite means the preview evidence passed SyncAI's controlled A7 checks; it does
+not mean Microsoft has certified or published the offer. Partner Center remains
+the authority for Gate A8.
+
+Before the workflow reports success, a service-only database function repeats
+the canonical entitlement, lifecycle, unsubscribe, and recent accepted-meter
+checks and appends the report digest and hashed identifiers to the existing
+append-only `audit_events` ledger. Re-running the same report is idempotent.
+There is no parallel certification ledger and no mutation or deletion path.
 
 Rollback does not delete evidence or reverse a model decision. Re-run
 `configure_agent_enrichment` with the previously approved Supabase Edge

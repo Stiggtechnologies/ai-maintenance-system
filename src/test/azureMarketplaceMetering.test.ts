@@ -11,6 +11,9 @@ const core = read("supabase/functions/marketplace-metering/core.ts");
 const migration = read(
   "supabase/migrations/20261229100000_azure_marketplace_metering.sql",
 );
+const clockConsistencyMigration = read(
+  "supabase/migrations/20261230110000_azure_marketplace_metering_clock_consistency.sql",
+);
 const deploy = read(".github/workflows/deploy-migrations.yml");
 const config = read("supabase/config.toml");
 const docs = read("docs/azure-marketplace.md");
@@ -55,6 +58,16 @@ describe("Azure Marketplace A6 metering boundary", () => {
     expect(migration).toContain("last_error_code='stale_claim_released'");
     expect(migration).toContain("make_interval(mins=>least(60,power(2");
     expect(core).toContain("MARKETPLACE_METERING_BATCH_LIMIT = 25");
+  });
+
+  it("uses one processing clock for preparation and immediate claim eligibility", () => {
+    expect(clockConsistencyMigration).toContain(
+      "next_attempt_at,created_at,updated_at",
+    );
+    expect(clockConsistencyMigration).toContain("p_now,p_now,p_now");
+    expect(clockConsistencyMigration).not.toMatch(
+      /next_attempt_at,created_at,updated_at[\s\S]*?now\(\),now\(\),now\(\)/,
+    );
   });
 
   it("uses Microsoft's current batch contract and requires exact accepted or duplicate identity", () => {
