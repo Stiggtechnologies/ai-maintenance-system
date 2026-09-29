@@ -41,6 +41,11 @@ begin
       or new.change_summary is distinct from old.change_summary
       or new.revision_requested_by is distinct from old.revision_requested_by
       or new.title is distinct from old.title
+      or new.craft is distinct from old.craft
+      or new.standard_minutes is distinct from old.standard_minutes
+      or new.crew_template_id is distinct from old.crew_template_id
+      or (old.revision_approval_id is not null and
+          new.revision_approval_id is distinct from old.revision_approval_id)
       or new.basis is distinct from old.basis) then
     raise exception 'Project standard revision content and source identity are immutable';
   end if;
@@ -68,7 +73,9 @@ begin
       and c.project_lesson_id is not null and c.causal_addressed_at is not null
       and c.project_causal_evidence_id is not null for share;
   if not found then raise exception 'Revision requires evidenced project causal attestation'; end if;
-  if not exists(select 1 from public.user_profiles p
+  -- Authorization is checked at creation, not retroactively after a human's
+  -- role changes. The recorded actor is immutable historical provenance.
+  if tg_op='INSERT' and not exists(select 1 from public.user_profiles p
     where p.id=new.revision_requested_by and p.organization_id=new.organization_id
       and p.role in ('admin','executive','maintenance_manager','reliability_engineer','planner')) then
     raise exception 'Revision requires a named same-tenant human';

@@ -153,6 +153,18 @@ begin
    and translation_status='draft' and verified_at is null) then
    raise exception 'Draft procedure was not preserved as unverified';
  end if;
+ begin
+   update standard_work set revision_approval_id=null where id=revision_id;
+   raise exception 'Canonical approval detached';
+ exception when raise_exception then
+   if sqlerrm <> 'Project standard revision content and source identity are immutable' then raise; end if;
+ end;
+ begin
+   update standard_work set standard_minutes=999 where id=revision_id;
+   raise exception 'Unreviewed standard duration rewrite accepted';
+ exception when raise_exception then
+   if sqlerrm <> 'Project standard revision content and source identity are immutable' then raise; end if;
+ end;
  result := request_project_standard_revision(closure_id,1,'en','Another change','Repeat','Review basis');
  if result->>'error' is null then raise exception 'Stale prior version accepted'; end if;
  begin
@@ -242,6 +254,9 @@ begin
  end if;
 end $$;
 -- Separate schema-boundary fixture after exercising the RPC.
+-- The cyclic approval back-reference is deliberately immutable in production.
+-- Remove this trigger only for teardown inside this rolled-back test transaction.
+drop trigger project_standard_revision_guard on standard_work;
 update ca_verifications set project_adopted_standard_id=null;
 -- Tear down newest first: a later retry still depends on the rejected
 -- predecessor's canonical decision until its own back-reference is detached.
