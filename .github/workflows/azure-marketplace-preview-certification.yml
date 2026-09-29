@@ -1,0 +1,89 @@
+name: Azure Marketplace preview certification
+
+on:
+  workflow_dispatch:
+    inputs:
+      primary_subscription_id:
+        description: Active preview subscription used for lifecycle and metering witnesses
+        required: true
+        type: string
+      unsubscribe_subscription_id:
+        description: Separate preview subscription already exercised through Unsubscribe
+        required: true
+        type: string
+      partner_center_evidence_reference:
+        description: Stable query-free reference to the Partner Center usage-view evidence
+        required: true
+        type: string
+      partner_center_evidence_sha256:
+        description: SHA-256 of the unmodified Partner Center usage-view evidence
+        required: true
+        type: string
+      partner_center_evidence_captured_at:
+        description: UTC timestamp when the Partner Center evidence was captured
+        required: true
+        type: string
+      witnessed_by:
+        description: Human who observed the live buyer and Partner Center flow
+        required: true
+        type: string
+      independently_reviewed_by:
+        description: Different human who reviewed the evidence and reconciliation
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: azure-marketplace-preview-certification
+  cancel-in-progress: false
+
+jobs:
+  certify:
+    name: Run protected preview-offer certification suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: azure-production
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v6
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Execute live certification witnesses
+        run: npm run marketplace:certify-preview
+        env:
+          SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          AZURE_MARKETPLACE_CLIENT_ID: ${{ secrets.AZURE_MARKETPLACE_CLIENT_ID }}
+          AZURE_MARKETPLACE_CLIENT_SECRET: ${{ secrets.AZURE_MARKETPLACE_CLIENT_SECRET }}
+          AZURE_MARKETPLACE_TENANT_ID: ${{ secrets.AZURE_MARKETPLACE_TENANT_ID }}
+          AZURE_MARKETPLACE_PUBLISHER_ID: ${{ secrets.AZURE_MARKETPLACE_PUBLISHER_ID }}
+          AZURE_MARKETPLACE_OFFER_ID: ${{ secrets.AZURE_MARKETPLACE_OFFER_ID }}
+          AZURE_MARKETPLACE_METER_PLAN_ID: ${{ vars.AZURE_MARKETPLACE_METER_PLAN_ID }}
+          AZURE_MARKETPLACE_METER_DIMENSION: ${{ vars.AZURE_MARKETPLACE_METER_DIMENSION }}
+          AZURE_MARKETPLACE_METER_UNIT_SIZE: ${{ vars.AZURE_MARKETPLACE_METER_UNIT_SIZE }}
+          AZURE_MARKETPLACE_METER_INCLUDED_QUANTITY: ${{ vars.AZURE_MARKETPLACE_METER_INCLUDED_QUANTITY }}
+          AZURE_MARKETPLACE_METER_QUANTITY_SCALE: ${{ vars.AZURE_MARKETPLACE_METER_QUANTITY_SCALE }}
+          MARKETPLACE_PREVIEW_SUBSCRIPTION_ID: ${{ inputs.primary_subscription_id }}
+          MARKETPLACE_PREVIEW_UNSUBSCRIBE_SUBSCRIPTION_ID: ${{ inputs.unsubscribe_subscription_id }}
+          PARTNER_CENTER_USAGE_EVIDENCE_REFERENCE: ${{ inputs.partner_center_evidence_reference }}
+          PARTNER_CENTER_USAGE_EVIDENCE_SHA256: ${{ inputs.partner_center_evidence_sha256 }}
+          PARTNER_CENTER_USAGE_EVIDENCE_CAPTURED_AT: ${{ inputs.partner_center_evidence_captured_at }}
+          MARKETPLACE_CERTIFICATION_WITNESS: ${{ inputs.witnessed_by }}
+          MARKETPLACE_CERTIFICATION_REVIEWER: ${{ inputs.independently_reviewed_by }}
+
+      - name: Preserve immutable certification report
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: azure-marketplace-preview-certification-${{ github.run_id }}
+          path: artifacts/azure-marketplace-preview-certification.json
+          if-no-files-found: warn
+          retention-days: 90

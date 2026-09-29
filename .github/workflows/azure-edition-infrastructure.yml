@@ -23,6 +23,12 @@ on:
       - "src/pages/Login.tsx"
       - "src/pages/Signup.tsx"
       - "scripts/configure-production-auth.mjs"
+      - "scripts/azure-marketplace-preview-certification.ts"
+      - "scripts/ci-azure-marketplace-preview-certification-smoke.sh"
+      - ".github/workflows/azure-marketplace-preview-certification.yml"
+      - "src/lib/azure-marketplace-certification.ts"
+      - "src/test/azureMarketplacePreviewCertification.test.ts"
+      - "supabase/migrations/20261230100000_azure_marketplace_preview_certification.sql"
       - "src/lib/llm-resilience/**"
       - "supabase/functions/_shared/azure-openai-provider.ts"
       - "supabase/functions/_shared/azure-managed-identity.ts"
@@ -50,6 +56,12 @@ on:
       - "src/pages/Login.tsx"
       - "src/pages/Signup.tsx"
       - "scripts/configure-production-auth.mjs"
+      - "scripts/azure-marketplace-preview-certification.ts"
+      - "scripts/ci-azure-marketplace-preview-certification-smoke.sh"
+      - ".github/workflows/azure-marketplace-preview-certification.yml"
+      - "src/lib/azure-marketplace-certification.ts"
+      - "src/test/azureMarketplacePreviewCertification.test.ts"
+      - "supabase/migrations/20261230100000_azure_marketplace_preview_certification.sql"
       - "src/lib/llm-resilience/**"
       - "supabase/functions/_shared/azure-openai-provider.ts"
       - "supabase/functions/_shared/azure-managed-identity.ts"
@@ -84,4 +96,4 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Verify Azure contracts
-        run: npx vitest run src/test/azureEditionFoundation.test.ts src/test/azureIntelligencePlane.test.ts src/test/azureEntraSso.test.ts src/lib/azure-ad.test.ts src/lib/auth-workspace-membership.test.ts src/lib/auth-production-config.test.ts src/lib/llm-resilience/azure-managed-identity.test.ts src/lib/llm-resilience/azure-openai-provider.test.ts src/lib/llm-resilience/llm-provider.test.ts
+        run: npx vitest run src/test/azureEditionFoundation.test.ts src/test/azureIntelligencePlane.test.ts src/test/azureEntraSso.test.ts src/test/azureMarketplacePreviewCertification.test.ts src/lib/azure-ad.test.ts src/lib/auth-workspace-membership.test.ts src/lib/auth-production-config.test.ts src/lib/llm-resilience/azure-managed-identity.test.ts src/lib/llm-resilience/azure-openai-provider.test.ts src/lib/llm-resilience/llm-provider.test.ts
