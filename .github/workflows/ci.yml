@@ -449,6 +449,9 @@ jobs:
       - name: Smoke — governed enterprise portfolio optimization
         run: bash scripts/ci-enterprise-portfolio-optimization-smoke.sh
 
+      - name: Smoke — value calculations execute server-side with immutable lineage
+        run: bash scripts/ci-value-calculation-lineage-smoke.sh
+
       - name: Smoke — Sync Develop nine-dimension portfolio frontier
         run: bash scripts/ci-develop-portfolio-frontier-smoke.sh
 

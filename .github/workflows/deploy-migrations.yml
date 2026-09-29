@@ -19,6 +19,8 @@ on:
       - "supabase/functions/cmms-read-pull/**"
       - "supabase/functions/ai-agent-processor/**"
       - "supabase/functions/autonomous-orchestrator/**"
+      - "supabase/functions/calculation-service/**"
+      - "src/lib/value/**"
       - "supabase/functions/domain-specialist-run/**"
       - "src/lib/domain-specialists/**"
       - "supabase/functions/engineering-model-supply-chain/**"
@@ -121,6 +123,7 @@ jobs:
           supabase functions deploy agent-loop-enrich --no-verify-jwt
           supabase functions deploy ai-agent-processor
           supabase functions deploy autonomous-orchestrator
+          supabase functions deploy calculation-service
           supabase functions deploy cmms-read-pull
           supabase functions deploy domain-specialist-run
           supabase functions deploy engineering-model-supply-chain
@@ -177,6 +180,23 @@ jobs:
             exit 1
           fi
           echo "Sync Investigation Runtime is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove Calculation Service is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/calculation-service"
+          status=$(curl --silent --show-error --output /tmp/calculation-service-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"action":"value_management","budget":0}' \
+            "$endpoint")
+          cat /tmp/calculation-service-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=Calculation Service boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Calculation Service is deployed and JWT-protected (HTTP 401 unauthenticated)."
 
       - name: Prove Sync Realtime Voice is deployed
         run: |

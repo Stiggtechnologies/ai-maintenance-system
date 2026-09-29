@@ -5,6 +5,7 @@
     "agent-loop-enrich",
     "ai-agent-processor",
     "autonomous-orchestrator",
+    "calculation-service",
     "cmms-read-pull",
     "domain-specialist-run",
     "engineering-model-supply-chain",
