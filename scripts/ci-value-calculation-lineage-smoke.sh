@@ -24,6 +24,13 @@ psqlc() {
 AUTHOR=$(token)
 test -n "$AUTHOR"
 
+# Earlier full-chain smokes intentionally create additional business cases for
+# the demo tenant. Make this smoke's canonical fixture the newest case so the
+# service's documented "latest business case" selection is deterministic no
+# matter which integration smoke ran before it.
+FIXTURE_CASES=$(psqlc "update business_cases set created_at=clock_timestamp() where organization_id='$ORG' and case_ref='DEMO-BC-01' returning 1;")
+test "$(printf '%s\n' "$FIXTURE_CASES" | grep -c '^1$')" = '1'
+
 NOAUTH=$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
   "$API_URL/functions/v1/calculation-service" \
   -H 'content-type: application/json' \
