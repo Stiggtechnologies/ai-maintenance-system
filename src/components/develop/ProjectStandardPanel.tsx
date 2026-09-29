@@ -27,6 +27,7 @@ export function ProjectStandardPanel({
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [more, setMore] = useState(true);
+  const [cursor, setCursor] = useState<number | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [registering, setRegistering] = useState(false);
@@ -36,6 +37,7 @@ export function ProjectStandardPanel({
       .then((rows) => {
         if (active) {
           setItems(rows);
+          setCursor(rows.at(-1)?.id);
           setMore(rows.length > 0);
         }
       })
@@ -51,6 +53,16 @@ export function ProjectStandardPanel({
   const procedure = selected?.procedures.find(
     (row) => row.language_code === language,
   );
+  const refreshStandard = async (id: number) => {
+    const rows = await listProjectStandardWork(undefined, id);
+    const row = rows.find((item) => item.id === id);
+    if (!row) throw new Error(`Standard ${id} was saved but could not be reloaded. Reload before retrying the action.`);
+    setItems((old) => [...old.filter((item) => item.id !== id), row].sort((a, b) => a.id - b.id));
+    setSelectedId(String(id));
+    setLanguage(row.procedures[0]?.language_code ?? "");
+    // Keep the sequential page cursor: a newly inserted high ID must not make
+    // Load more skip the intervening standards that have not been fetched.
+  };
   const run = async (action: () => Promise<string>) => {
     setBusy(true);
     setError(null);
@@ -82,10 +94,7 @@ export function ProjectStandardPanel({
           </button>
           {registering && (
             <StandardBaselineForm
-              onSaved={async () => {
-                setItems(await listProjectStandardWork());
-                setMore(true);
-              }}
+              onSaved={refreshStandard}
             />
           )}
         </>
@@ -120,7 +129,8 @@ export function ProjectStandardPanel({
           disabled={busy}
           onClick={() =>
             void run(async () => {
-              const rows = await listProjectStandardWork(items.at(-1)?.id);
+              const rows = await listProjectStandardWork(cursor);
+              if (rows.length) setCursor(rows.at(-1)?.id);
               setItems((old) => [
                 ...old,
                 ...rows.filter(
@@ -189,9 +199,7 @@ export function ProjectStandardPanel({
                       changeSummary: summary,
                       basis,
                     });
-                    setItems(await listProjectStandardWork());
-                    setMore(true);
-                    setSelectedId("");
+                    await refreshStandard(receipt.revisionId);
                     return `Draft revision ${receipt.revisionId} requested; approval ${receipt.approvalId} is pending.`;
                   });
                 }}
@@ -275,8 +283,7 @@ export function ProjectStandardPanel({
                               outcome,
                               note,
                             );
-                            setItems(await listProjectStandardWork());
-                            setMore(true);
+                            await refreshStandard(selected.id);
                             return receipt.detail;
                           })
                         }

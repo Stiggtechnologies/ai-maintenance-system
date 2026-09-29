@@ -7,7 +7,7 @@ import {
 export function StandardBaselineForm({
   onSaved,
 }: {
-  onSaved: () => Promise<void>;
+  onSaved: (standardWorkId: number) => Promise<void>;
 }) {
   const [fields, setFields] = useState({
     workKey: "",
@@ -52,7 +52,7 @@ export function StandardBaselineForm({
         setMessage(null);
         try {
           const receipt = await registerStandardWorkBaseline(fields);
-          await onSaved();
+          await onSaved(receipt.standardWorkId);
           setMessage(
             `Existing procedure registered as standard ${receipt.standardWorkId}. No measured standard time was invented.`,
           );

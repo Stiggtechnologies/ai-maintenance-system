@@ -38,6 +38,31 @@ const standard: ProjectStandardWorkOption = {
   ],
 };
 beforeEach(() => vi.resetAllMocks());
+it("reloads a newly saved high-ID revision without skipping unloaded pages", async () => {
+  const revision = {
+    ...standard, id: 901, version: 2, source_project_ca_id: "closure",
+    approval: { status: "required", approver_user_id: null, decided_at: null },
+    procedures: [{ ...standard.procedures[0], translation_status: "draft" }],
+  };
+  vi.mocked(listProjectStandardWork).mockImplementation(async (afterId, exactId) =>
+    exactId === 901 ? [revision] : afterId === 1 ? [{ ...standard, id: 2 }] : [standard],
+  );
+  vi.mocked(requestProjectStandardRevision).mockResolvedValue({
+    revisionId: 901, approvalId: "approval", status: "draft",
+  });
+  render(<ProjectStandardPanel closure={closure} canWrite onChanged={vi.fn()} />);
+  await selectProcedure();
+  fireEvent.change(screen.getByLabelText("Proposed procedure"), { target: { value: "Review scope and interfaces" } });
+  fireEvent.change(screen.getByLabelText("Exact change summary"), { target: { value: "Add interface review" } });
+  fireEvent.change(screen.getByLabelText("Revision source basis"), { target: { value: "Failure evidence" } });
+  fireEvent.click(screen.getByRole("button", { name: "Request draft revision" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("Draft revision 901");
+  expect(screen.getByLabelText("Standard / revision")).toHaveValue("901");
+  fireEvent.click(screen.getByRole("button", { name: "Load more standards" }));
+  await screen.findByText("Additional standards loaded");
+  expect(listProjectStandardWork).toHaveBeenCalledWith(1);
+  expect(screen.getByLabelText("Standard / revision")).toHaveValue("901");
+});
 async function selectProcedure() {
   await screen.findByRole("option", { name: /Estimate review/ });
   fireEvent.change(screen.getByLabelText("Standard / revision"), {

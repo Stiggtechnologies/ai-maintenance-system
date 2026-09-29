@@ -8945,11 +8945,12 @@ export interface ProjectStandardWorkOption {
   approval: { status: string; approver_user_id: string | null; decided_at: string | null } | null;
 }
 
-export async function listProjectStandardWork(afterId?: number): Promise<ProjectStandardWorkOption[]> {
+export async function listProjectStandardWork(afterId?: number, exactId?: number): Promise<ProjectStandardWorkOption[]> {
   let query = supabase.from("standard_work")
     .select("id, work_key, title, version, basis, source_project_ca_id, previous_standard_work_id, change_summary, revision_requested_by, revision_approval_id, procedures:procedure_translations!procedure_translations_standard_work_id_fkey(language_code, content, translation_status, verified_by, verified_at), approval:approvals!standard_work_revision_approval_id_fkey(status, approver_user_id, decided_at)")
     .order("id", { ascending: true }).limit(100);
   if (afterId !== undefined) query = query.gt("id", afterId);
+  if (exactId !== undefined) query = query.eq("id", exactId);
   const { data, error } = await query;
   if (error) throw new Error(`Could not load standard work: ${error.message}`);
   return (data ?? []) as unknown as ProjectStandardWorkOption[];
