@@ -65,3 +65,28 @@ create trigger standard_work_observation_guard before insert or update or delete
 
 comment on column public.learning_events.standard_variation_kind is
   'Explicit observation: conforming, varied, or undetermined. Not proof of improvement or authorization to execute.';
+
+-- Observation history points to exact procedure content, not a mutable label.
+-- A later recorder must lock the standard and procedure while taking references.
+create or replace function public.guard_observed_standard_history()
+returns trigger language plpgsql security definer set search_path=public as $$
+declare referenced boolean;
+begin
+  if tg_table_name='procedure_translations' then
+    select exists(select 1 from public.learning_events l
+      where l.standard_procedure_id=old.id) into referenced;
+  else
+    select exists(select 1 from public.learning_events l
+      join public.procedure_translations p on p.id=l.standard_procedure_id
+      where p.standard_work_id=old.id) into referenced;
+  end if;
+  if referenced and (tg_op='DELETE' or to_jsonb(new) is distinct from to_jsonb(old)) then
+    raise exception 'Observed standard/procedure history is immutable; create a new version';
+  end if;
+  return case when tg_op='DELETE' then old else new end;
+end $$;
+create trigger observed_procedure_history_guard before update or delete on public.procedure_translations
+  for each row execute function public.guard_observed_standard_history();
+create trigger observed_standard_history_guard before update or delete on public.standard_work
+  for each row execute function public.guard_observed_standard_history();
+revoke all on function public.guard_observed_standard_history() from public;

@@ -3,7 +3,8 @@
 begin;
 create schema auth;
 create table auth.users(id uuid primary key);
-create table procedure_translations(id bigint primary key);
+create table standard_work(id bigint primary key, title text);
+create table procedure_translations(id bigint primary key, standard_work_id bigint, content text);
 create table work_orders(id uuid primary key);
 create table evidence_items(id uuid primary key);
 create function sync_delivery_failure_types() returns text[] language sql as $$
@@ -20,7 +21,8 @@ create table learning_events (
 insert into auth.users values('00000000-0000-0000-0000-000000000001');
 insert into work_orders values('00000000-0000-0000-0000-000000000002');
 insert into evidence_items values('00000000-0000-0000-0000-000000000003');
-insert into procedure_translations values(1);
+insert into standard_work values(1,'Original standard'),(2,'Unreferenced standard');
+insert into procedure_translations values(1,1,'Original content'),(2,2,'Unreferenced content');
 do $$ begin
  begin
   insert into learning_events(event_type) values('standard_work_observation');
@@ -66,6 +68,28 @@ do $$ declare col text; begin
  exception when check_violation then null; end;
 end $$;
 alter table learning_events enable trigger standard_work_observation_guard;
+do $$ declare statement text; begin
+ foreach statement in array array[
+  'update procedure_translations set content=''Rewritten'' where id=1',
+  'update procedure_translations set standard_work_id=2 where id=1',
+  'delete from procedure_translations where id=1',
+  'update standard_work set title=''Rewritten'' where id=1',
+  'delete from standard_work where id=1'
+ ] loop
+  begin
+   execute statement;
+   raise exception 'observed source mutation accepted';
+  exception when raise_exception then
+   if sqlerrm not like 'Observed standard/procedure history is immutable%' then raise; end if;
+  end;
+ end loop;
+end $$;
+-- No-op writes and genuinely unreferenced content retain existing semantics.
+update procedure_translations set content=content where id=1;
+update procedure_translations set content='Updated unreferenced content' where id=2;
+delete from procedure_translations where id=2;
+update standard_work set title='Updated unreferenced standard' where id=2;
+delete from standard_work where id=2;
 do $$ begin
  begin
   update learning_events set title='Rewrite';
