@@ -8899,6 +8899,71 @@ export async function recordCheckpointObservation(input: {
   return unwrapRpc(data, error, "Could not record the observation");
 }
 
+export interface ProjectCaVerification {
+  id: string;
+  project_lesson_id: string;
+  project_started_by: string;
+  project_start_basis: string;
+  physical_verified_at: string | null;
+  physical_verified_by: string | null;
+  physical_note: string | null;
+  project_implementation_evidence_id: string | null;
+  causal_addressed_at: string | null;
+  causal_addressed_by: string | null;
+  causal_note: string | null;
+  project_causal_evidence_id: string | null;
+}
+
+export async function getProjectCaVerification(
+  lessonId: string,
+): Promise<ProjectCaVerification | null> {
+  const { data, error } = await supabase
+    .from("ca_verifications")
+    .select("id, project_lesson_id, project_started_by, project_start_basis, physical_verified_at, physical_verified_by, physical_note, project_implementation_evidence_id, causal_addressed_at, causal_addressed_by, causal_note, project_causal_evidence_id")
+    .eq("project_lesson_id", lessonId)
+    .maybeSingle();
+  if (error) throw new Error(`Could not load project closure: ${error.message}`);
+  return data as ProjectCaVerification | null;
+}
+
+export async function startProjectCaVerification(
+  lessonId: string,
+  basis: string,
+): Promise<{ id: string; status: "open"; detail: string }> {
+  const { data, error } = await supabase.rpc("start_project_ca_verification", {
+    p_lesson_id: lessonId,
+    p_basis: basis,
+  });
+  const result = unwrapRpc<{ id?: string; status?: string; detail?: string }>(
+    data, error, "Could not start project closure",
+  );
+  if (!result.id || result.status !== "open" || !result.detail) {
+    throw new Error("Project closure did not return a valid start receipt");
+  }
+  return { id: result.id, status: "open", detail: result.detail };
+}
+
+export async function attestProjectCaStage(input: {
+  verificationId: string;
+  stage: "implementation" | "causal";
+  note: string;
+  evidenceId: string;
+}): Promise<{ ok: true; stage: "implementation" | "causal"; detail: string }> {
+  const { data, error } = await supabase.rpc("attest_project_ca_stage", {
+    p_verification_id: input.verificationId,
+    p_stage: input.stage,
+    p_note: input.note,
+    p_evidence_id: input.evidenceId,
+  });
+  const result = unwrapRpc<{ ok?: boolean; stage?: string; detail?: string }>(
+    data, error, "Could not attest project closure stage",
+  );
+  if (result.ok !== true || result.stage !== input.stage || !result.detail) {
+    throw new Error("Project attestation did not return a matching receipt");
+  }
+  return { ok: true, stage: input.stage, detail: result.detail };
+}
+
 export async function recordProjectLesson(input: {
   caseId: string;
   failureModeKey: string;

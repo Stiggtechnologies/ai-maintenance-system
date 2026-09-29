@@ -558,6 +558,8 @@ export function RealizationCheckpointsSection({
   );
 }
 
+import { ProjectClosurePanel } from "./ProjectClosurePanel";
+
 export function ProjectLessonsSection({
   caseId,
   canRealize,
@@ -621,6 +623,7 @@ export function ProjectLessonsSection({
               <div className="text-slate-400">
                 Applies to: {lesson.applicability}
               </div>
+              <ProjectClosurePanel lessonId={lesson.id} canWrite={canRealize} />
             </div>
           ))}
         </div>

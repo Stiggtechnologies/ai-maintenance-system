@@ -23,6 +23,8 @@ insert into learning_events values
 create table audit_events (
  organization_id uuid,entity_type text,actor text,event_data jsonb,new_state jsonb
 );
+create table evidence_items(id uuid primary key,organization_id uuid,unique(organization_id,id));
+insert into evidence_items values('00000000-0000-0000-0000-000000000008',app_current_org());
 create table ca_verifications (
  id uuid primary key default gen_random_uuid(), organization_id uuid not null,
  work_order_id uuid not null, asset_id uuid not null,
@@ -38,8 +40,9 @@ create table ca_verifications (
 );
 \ir ../supabase/migrations/20261225180100_project_fracas_subject.sql
 \ir ../supabase/migrations/20261225180200_start_project_fracas.sql
+\ir ../supabase/migrations/20261225180300_project_fracas_attestation.sql
 do $$
-declare result jsonb;
+declare result jsonb; closure_id uuid;
 begin
  result := start_project_ca_verification('00000000-0000-0000-0000-000000000003',' ');
  if result->>'error' is null then raise exception 'Empty basis accepted'; end if;
@@ -49,6 +52,17 @@ begin
  update user_profiles set role='planner';
  result := start_project_ca_verification('00000000-0000-0000-0000-000000000003','Source review');
  if result->>'id' is null then raise exception 'Human start failed: %',result; end if;
+ closure_id := (result->>'id')::uuid;
+ result := attest_project_ca_stage(closure_id,'causal','Premature','00000000-0000-0000-0000-000000000008');
+ if result->>'error' is null then raise exception 'Out-of-order causal stage accepted'; end if;
+ result := attest_project_ca_stage(closure_id,'implementation','Verified',null);
+ if result->>'error' is null then raise exception 'Evidence-free stage accepted'; end if;
+ result := attest_project_ca_stage(closure_id,'implementation','Verified','00000000-0000-0000-0000-000000000008');
+ if result->>'ok' <> 'true' then raise exception 'Implementation failed: %',result; end if;
+ result := attest_project_ca_stage(closure_id,'implementation','Overwrite','00000000-0000-0000-0000-000000000008');
+ if result->>'error' is null then raise exception 'Overwrite accepted'; end if;
+ result := attest_project_ca_stage(closure_id,'causal','Cause addressed','00000000-0000-0000-0000-000000000008');
+ if result->>'ok' <> 'true' then raise exception 'Causal stage failed: %',result; end if;
  result := start_project_ca_verification('00000000-0000-0000-0000-000000000003','Duplicate');
  if result->>'error' is null then raise exception 'Duplicate start accepted'; end if;
  if (select count(*) from audit_events where event_data->>'basis'='Source review'
