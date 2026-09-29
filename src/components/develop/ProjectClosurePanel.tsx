@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { ProjectStandardPanel } from "./ProjectStandardPanel";
 import {
   getProjectCaVerification,
   attestProjectCaStage,
@@ -88,6 +89,18 @@ export function ProjectClosurePanel({
                 Standard adoption and future-project screening are not verified
                 by these attestations.
               </p>
+              {record.causal_addressed_at && (
+                <ProjectStandardPanel
+                  closure={record}
+                  canWrite={canWrite}
+                  onChanged={async () => {
+                    const value = await getProjectCaVerification(lessonId);
+                    if (!value)
+                      throw new Error("Could not reload project closure");
+                    setRecord(value);
+                  }}
+                />
+              )}
               {canWrite && !record.causal_addressed_at && (
                 <ProjectStageForm
                   key={`${record.id}:${record.physical_verified_at ?? "implementation"}`}

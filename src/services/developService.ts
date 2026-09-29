@@ -8912,6 +8912,104 @@ export interface ProjectCaVerification {
   causal_addressed_by: string | null;
   causal_note: string | null;
   project_causal_evidence_id: string | null;
+  project_adopted_standard_id?: number | null;
+  project_screening_receipt?: ProjectScreeningReceipt | null;
+}
+
+export interface ProjectScreeningReceipt {
+  screenedAt: string;
+  actorId: string;
+  basis: string;
+  lessonId: string;
+  standardRevisionId: number;
+  population: string[];
+  matches: string[];
+  populationCount: number;
+  matchCount: number;
+  scope: string;
+  limitation: string;
+}
+
+export interface ProjectStandardWorkOption {
+  id: number;
+  work_key: string;
+  title: string;
+  version: number;
+  basis: string | null;
+  source_project_ca_id: string | null;
+  previous_standard_work_id: number | null;
+  change_summary: string | null;
+  revision_requested_by: string | null;
+  revision_approval_id: string | null;
+  procedures: { language_code: string; content: string; translation_status: string; verified_by: string | null; verified_at: string | null }[];
+  approval: { status: string; approver_user_id: string | null; decided_at: string | null } | null;
+}
+
+export async function listProjectStandardWork(afterId?: number): Promise<ProjectStandardWorkOption[]> {
+  let query = supabase.from("standard_work")
+    .select("id, work_key, title, version, basis, source_project_ca_id, previous_standard_work_id, change_summary, revision_requested_by, revision_approval_id, procedures:procedure_translations!procedure_translations_standard_work_id_fkey(language_code, content, translation_status, verified_by, verified_at), approval:approvals!standard_work_revision_approval_id_fkey(status, approver_user_id, decided_at)")
+    .order("id", { ascending: true }).limit(100);
+  if (afterId !== undefined) query = query.gt("id", afterId);
+  const { data, error } = await query;
+  if (error) throw new Error(`Could not load standard work: ${error.message}`);
+  return (data ?? []) as unknown as ProjectStandardWorkOption[];
+}
+
+export async function registerStandardWorkBaseline(input: {
+  workKey: string; title: string; language: string; content: string; basis: string; evidenceId: string;
+}): Promise<{ standardWorkId: number; status: "human_verified" }> {
+  const { data, error } = await supabase.rpc("register_standard_work_baseline", {
+    p_work_key: input.workKey, p_title: input.title, p_language: input.language,
+    p_content: input.content, p_basis: input.basis, p_evidence_id: input.evidenceId,
+  });
+  const result = unwrapRpc<{ standardWorkId?: number; status?: string }>(data, error, "Could not register the existing procedure");
+  if (!Number.isSafeInteger(result.standardWorkId) || result.status !== "human_verified") {
+    throw new Error("Procedure registration did not return a verified baseline receipt");
+  }
+  return { standardWorkId: result.standardWorkId!, status: "human_verified" };
+}
+
+export async function requestProjectStandardRevision(input: {
+  verificationId: string; previousId: number; language: string;
+  content: string; changeSummary: string; basis: string;
+}): Promise<{ revisionId: number; approvalId: string; status: "draft" }> {
+  const { data, error } = await supabase.rpc("request_project_standard_revision", {
+    p_verification_id: input.verificationId, p_previous_id: input.previousId,
+    p_language: input.language, p_content: input.content,
+    p_change_summary: input.changeSummary, p_basis: input.basis,
+  });
+  const result = unwrapRpc<{ revisionId?: number; approvalId?: string; status?: string }>(data, error, "Could not request standard revision");
+  if (!Number.isSafeInteger(result.revisionId) || !result.approvalId || result.status !== "draft") {
+    throw new Error("Standard revision did not return a draft approval receipt");
+  }
+  return { revisionId: result.revisionId!, approvalId: result.approvalId, status: "draft" };
+}
+
+export async function decideProjectStandardRevision(
+  revisionId: number, outcome: "approved" | "rejected", note: string,
+): Promise<{ revisionId: number; status: "approved" | "rejected"; detail: string }> {
+  const { data, error } = await supabase.rpc("decide_project_standard_revision", {
+    p_revision_id: revisionId, p_outcome: outcome, p_note: note,
+  });
+  const result = unwrapRpc<{ revisionId?: number; status?: string; detail?: string }>(data, error, "Could not decide standard revision");
+  if (result.revisionId !== revisionId || result.status !== outcome || !result.detail) {
+    throw new Error("Standard decision did not return a matching receipt");
+  }
+  return { revisionId, status: outcome, detail: result.detail };
+}
+
+export async function screenProjectCaExposure(verificationId: string, basis: string): Promise<ProjectScreeningReceipt> {
+  const { data, error } = await supabase.rpc("screen_project_ca_exposure", {
+    p_verification_id: verificationId, p_basis: basis,
+  });
+  const result = unwrapRpc<ProjectScreeningReceipt>(data, error, "Could not screen project exposure");
+  if (!result.screenedAt || !result.actorId || !result.limitation ||
+      !Array.isArray(result.population) || !Array.isArray(result.matches) ||
+      result.populationCount !== result.population.length || result.matchCount !== result.matches.length ||
+      result.matches.some((id) => !result.population.includes(id))) {
+    throw new Error("Project screening did not return a consistent population receipt");
+  }
+  return result;
 }
 
 export async function getProjectCaVerification(
@@ -8919,7 +9017,7 @@ export async function getProjectCaVerification(
 ): Promise<ProjectCaVerification | null> {
   const { data, error } = await supabase
     .from("ca_verifications")
-    .select("id, project_lesson_id, project_started_by, project_start_basis, physical_verified_at, physical_verified_by, physical_note, project_implementation_evidence_id, causal_addressed_at, causal_addressed_by, causal_note, project_causal_evidence_id")
+    .select("id, project_lesson_id, project_started_by, project_start_basis, physical_verified_at, physical_verified_by, physical_note, project_implementation_evidence_id, causal_addressed_at, causal_addressed_by, causal_note, project_causal_evidence_id, project_adopted_standard_id, project_screening_receipt")
     .eq("project_lesson_id", lessonId)
     .maybeSingle();
   if (error) throw new Error(`Could not load project closure: ${error.message}`);
@@ -8992,6 +9090,16 @@ export async function recordProjectLesson(input: {
 // ---------------------------------------------------------------------------
 
 export interface ApplicableProjectLesson {
+  adoptedStandard?: {
+    id: number;
+    workKey: string;
+    version: number;
+    title: string;
+    changeSummary: string;
+    approvalId: string;
+    adoptedAt: string;
+    adoptedBy: string;
+  } | null;
   id: string;
   title: string;
   failureModeKey: string;

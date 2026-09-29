@@ -185,4 +185,8 @@ begin
 end
 $$;
 
+revoke all on function public.attest_ca_stage(uuid,text,text) from public,anon;
+grant execute on function public.attest_ca_stage(uuid,text,text) to authenticated;
+revoke all on function public.screen_similar_assets(uuid) from public,anon;
+grant execute on function public.screen_similar_assets(uuid) to authenticated;
 notify pgrst, 'reload schema';

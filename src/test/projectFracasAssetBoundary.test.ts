@@ -30,6 +30,15 @@ function latestFunction(name: string): string {
 }
 
 describe("project FRACAS must not enter asset effectiveness", () => {
+  it("carries only approved same-tenant standard references through the existing matcher", () => {
+    const body = latestFunction("screen_applicable_project_lessons");
+    expect(body).toContain("public.sync_lesson_applies_to_case(");
+    expect(body).toContain("sw.organization_id=v_org");
+    expect(body).toContain("a.organization_id=v_org");
+    expect(body).toContain("cv.organization_id=v_org");
+    expect(body).toContain("a.status='approved'");
+    expect(body).toContain("sw.source_project_ca_id=cv.id");
+  });
   it("refuses project records through both legacy asset mutation paths", () => {
     for (const name of ["attest_ca_stage", "screen_similar_assets"]) {
       expect(latestFunction(name)).toContain("if v.project_lesson_id is not null then");
