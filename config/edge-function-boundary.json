@@ -25,6 +25,7 @@
     "develop-risk-agent",
     "lead-notify",
     "marketplace-fulfillment",
+    "marketplace-webhook",
     "onboarding-enrich",
     "plant-historian-pull",
     "public-reliability-agent",
@@ -38,6 +39,7 @@
     "agent-loop-enrich",
     "edge-evidence-ingest",
     "marketplace-fulfillment",
+    "marketplace-webhook",
     "onboarding-enrich"
   ],
   "blockedLegacyFunctions": [

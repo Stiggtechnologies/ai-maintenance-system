@@ -112,14 +112,16 @@ describe("Azure Marketplace A4 production boundary", () => {
     expect(smoke).toContain("raw purchase token material was persisted");
   });
 
-  it("documents A4 honestly as implemented but not production-proven", () => {
+  it("documents the deployed A4 boundary without claiming a buyer-proven offer", () => {
     expect(docs).toContain(
-      "Governed v2 resolve, explicit activation and authoritative status refresh are implemented in code",
+      "Governed v2 resolve, explicit activation and authoritative status refresh are deployed",
     );
     expect(docs).toContain(
-      "Production remains unproven until the separate publisher credentials",
+      "Publisher credentials are not configured and no real purchase has been witnessed end to end",
     );
     expect(docs).toContain("A5");
-    expect(docs).toContain("Not implemented");
+    expect(docs).toContain(
+      "Authenticated, idempotent webhook lifecycle and canonical entitlement enforcement are implemented in code",
+    );
   });
 });

@@ -434,6 +434,9 @@ jobs:
       - name: Smoke — governed Azure Marketplace Fulfillment v2
         run: bash scripts/ci-azure-marketplace-fulfillment-smoke.sh
 
+      - name: Smoke — authenticated Azure Marketplace lifecycle and entitlement
+        run: bash scripts/ci-azure-marketplace-lifecycle-smoke.sh
+
       - name: Smoke — contract-strategy recommendation agent
         run: bash scripts/ci-develop-contract-strategy-agent-smoke.sh
 

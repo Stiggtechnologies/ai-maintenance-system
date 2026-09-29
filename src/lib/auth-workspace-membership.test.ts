@@ -5,11 +5,13 @@ const query = vi.hoisted(() => ({
   select: vi.fn(),
   eq: vi.fn(),
   maybeSingle: vi.fn(),
+  rpc: vi.fn(),
 }));
 
 vi.mock("./supabase", () => ({
   supabase: {
     from: query.from,
+    rpc: query.rpc,
   },
 }));
 
@@ -21,6 +23,10 @@ describe("workspace membership authorization", () => {
     query.from.mockReturnValue({ select: query.select });
     query.select.mockReturnValue({ eq: query.eq });
     query.eq.mockReturnValue({ maybeSingle: query.maybeSingle });
+    query.rpc.mockResolvedValue({
+      data: { authorized: true, source: "direct_or_evaluation" },
+      error: null,
+    });
   });
 
   it("authorizes only the matching canonical profile with an organization", async () => {
@@ -33,6 +39,24 @@ describe("workspace membership authorization", () => {
     expect(query.from).toHaveBeenCalledWith("user_profiles");
     expect(query.select).toHaveBeenCalledWith("id, organization_id");
     expect(query.eq).toHaveBeenCalledWith("id", "user-1");
+    expect(query.rpc).toHaveBeenCalledWith("get_current_workspace_entitlement");
+  });
+
+  it("refuses a canonical profile when commercial entitlement is inactive", async () => {
+    query.maybeSingle.mockResolvedValue({
+      data: { id: "user-1", organization_id: "org-1" },
+      error: null,
+    });
+    query.rpc.mockResolvedValue({
+      data: {
+        authorized: false,
+        source: "azure_marketplace",
+        reason: "commercial_entitlement_inactive",
+      },
+      error: null,
+    });
+
+    await expect(hasWorkspaceMembership("user-1")).resolves.toBe(false);
   });
 
   it("refuses missing, foreign, unbound, and failed profile reads", async () => {

@@ -109,7 +109,7 @@ describe("Azure Intelligence plane", () => {
 
   it("keeps the marketplace claim below deployed proof", () => {
     expect(runbook).toContain("Azure Intelligence plane");
-    expect(runbook).toMatch(/not\s+yet production deployed/);
+    expect(runbook).toMatch(/not\s+yet production-proven/);
     expect(runbook).toContain("canonical recommendation records");
     expect(runbook).toMatch(/does\s+not authorize operational action/);
   });
