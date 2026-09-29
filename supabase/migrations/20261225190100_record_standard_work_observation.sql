@@ -1,4 +1,18 @@
 -- Named-human capture; no execution authorization or verified-effect claim.
+create unique index if not exists work_orders_org_identity
+  on public.work_orders(organization_id,id);
+create unique index if not exists procedure_translations_org_identity
+  on public.procedure_translations(organization_id,id);
+alter table public.learning_events
+  add constraint standard_observation_procedure_tenant foreign key (organization_id,standard_procedure_id)
+    references public.procedure_translations(organization_id,id) on delete restrict,
+  add constraint standard_observation_work_tenant foreign key (organization_id,standard_execution_work_order_id)
+    references public.work_orders(organization_id,id) on delete restrict,
+  add constraint standard_observation_execution_evidence_tenant foreign key (organization_id,standard_execution_evidence_id)
+    references public.evidence_items(organization_id,id) on delete restrict,
+  add constraint standard_observation_outcome_evidence_tenant foreign key (organization_id,standard_outcome_evidence_id)
+    references public.evidence_items(organization_id,id) on delete restrict;
+
 create or replace function public.guard_standard_work_observation()
 returns trigger language plpgsql security definer set search_path=public as $$
 declare p public.procedure_translations%rowtype; s public.standard_work%rowtype;

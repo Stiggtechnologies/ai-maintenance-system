@@ -120,6 +120,7 @@ alter table procedure_translations add column organization_id uuid,
  add column translation_status text,add column verified_by uuid,add column verified_at timestamptz;
 alter table work_orders add column organization_id uuid;
 alter table evidence_items add column organization_id uuid;
+create unique index on evidence_items(organization_id,id);
 create table approvals(id uuid,standard_work_revision_id bigint,organization_id uuid,status text);
 create table work_packages(id bigint,organization_id uuid,development_case_id uuid);
 create table work_package_work(work_package_id bigint,organization_id uuid,work_order_id uuid);
@@ -171,6 +172,16 @@ do $$ declare payload jsonb:=jsonb_build_object('title','Observed installation',
  if (select count(*) from audit_events)<>1 then raise exception 'failed write left audit residue'; end if;
  if coalesce(current_setting('syncai.standard_observation_write',true),'')<>'' then
   raise exception 'recorder leaked write capability'; end if;
+ begin
+  update evidence_items set organization_id='00000000-0000-0000-0000-000000000099'
+   where id='00000000-0000-0000-0000-000000000003';
+  raise exception 'referenced evidence tenant reassignment accepted';
+ exception when foreign_key_violation then null; end;
+ begin
+  update work_orders set organization_id='00000000-0000-0000-0000-000000000099'
+   where id='00000000-0000-0000-0000-000000000002';
+  raise exception 'referenced work tenant reassignment accepted';
+ exception when foreign_key_violation then null; end;
 end $$;
 rollback;
 \echo 'Standard-work observation subject boundaries passed (isolated fixture only).'
