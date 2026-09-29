@@ -9,12 +9,12 @@ test("planner records execution and a separate human adopts the learning revisio
   await page.goto("/develop/cases/98550000-0000-4000-8000-000000000001#realize");
   const panel = page.getByRole("region", { name: "Standard-work learning", exact: true });
   await panel.getByText("Record actual execution and learning", { exact: true }).click();
-  const procedure = panel.getByLabel("Procedure version", { exact: true });
+  const procedure = panel.getByRole("combobox", { name: "Procedure version", exact: true });
   await expect(procedure).toBeEnabled();
   const latest = procedure.getByRole("option", { name: /Flush acceptance/ }).last();
   await expect(latest).toHaveAttribute("value", /\d+/);
   await procedure.selectOption((await latest.getAttribute("value"))!);
-  await panel.getByLabel("Actual work order", { exact: true }).selectOption({ label: "CI-LEARNING-OBS · Witnessed procedure execution · completed" });
+  await panel.getByRole("combobox", { name: "Actual work order", exact: true }).selectOption({ label: "CI-LEARNING-OBS · Witnessed procedure execution · completed" });
   await panel.getByLabel("Observed at (local time)", { exact: true }).fill("2026-09-01T10:00");
   const title = `Browser witnessed learning ${testInfo.retry}`;
   await panel.getByLabel("Title", { exact: true }).fill(title);
@@ -24,7 +24,7 @@ test("planner records execution and a separate human adopts the learning revisio
   await panel.getByLabel("Learning", { exact: true }).fill("Clarify retention location in the controlled procedure");
   await panel.getByLabel("Applicability", { exact: true }).fill("Equivalent flush acceptance activities only");
   for (const label of ["Execution evidence", "Outcome evidence"]) {
-    await panel.getByLabel(label, { exact: true }).selectOption("98551000-0000-4000-8000-000000000001");
+    await panel.getByRole("combobox", { name: label, exact: true }).selectOption("98551000-0000-4000-8000-000000000001");
   }
   await panel.getByRole("button", { name: "Record observation", exact: true }).click();
   await expect(panel.getByRole("status").filter({ hasText: "Observation recorded:" })).toBeVisible();
@@ -53,7 +53,7 @@ test("planner records execution and a separate human adopts the learning revisio
     const review = approver.getByRole("region", { name: "Standard-work learning", exact: true }).locator("article")
       .filter({ has: approver.getByRole("heading", { name: title, exact: true }) });
     await review.getByRole("button", { name: "Review procedure revisions" }).click();
-    await review.getByLabel("Decision", { exact: true }).selectOption("approved");
+    await review.getByRole("combobox", { name: "Decision", exact: true }).selectOption("approved");
     await review.getByLabel("Decision basis", { exact: true }).fill("Second human reviewed source observation, evidence and exact changed procedure");
     await review.getByRole("button", { name: "Record human decision" }).click();
     await expect(review.getByText(/Flush acceptance · version .* · approved/)).toBeVisible();
