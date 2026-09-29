@@ -33,6 +33,12 @@ export interface LlmProvider {
   /** Model to request from THIS provider — a gateway alias like "stigg/fast"
    *  means nothing to OpenAI, so each provider names its own. */
   model: string;
+  /** Provider-specific chat-completions path. Azure OpenAI binds the model
+   *  deployment in the URL rather than in the JSON body. */
+  chatCompletionsPath?: string;
+  /** Azure OpenAI rejects the OpenAI `model` body field because the deployment
+   *  in the request path is authoritative. */
+  omitModelFromBody?: boolean;
 }
 
 export interface LlmCallOptions {
@@ -82,6 +88,36 @@ export function resolveExternalGatewayUrl(value: string): string | undefined {
     if (url.protocol !== "https:") return undefined;
     if (url.hostname.toLowerCase() === "api.openai.com") return undefined;
     return url.toString().replace(/\/$/, "");
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * Accept only Microsoft-owned Azure AI data-plane hosts before attaching a
+ * managed-identity bearer token. This is an SSRF/token-exfiltration boundary,
+ * not merely URL normalization.
+ */
+export function resolveAzureOpenAiEndpoint(value: string): string | undefined {
+  if (!value.trim()) return undefined;
+  try {
+    const url = new URL(value);
+    const host = url.hostname.toLowerCase();
+    const microsoftHost = [
+      ".openai.azure.com",
+      ".services.ai.azure.com",
+      ".cognitiveservices.azure.com",
+    ].some((suffix) => host.endsWith(suffix));
+    if (
+      url.protocol !== "https:" ||
+      !microsoftHost ||
+      url.username ||
+      url.password ||
+      url.port
+    ) {
+      return undefined;
+    }
+    return `${url.origin}${url.pathname}`.replace(/\/$/, "");
   } catch {
     return undefined;
   }
@@ -140,6 +176,10 @@ function unsupportedParam(body: string): string | null {
  * is legal and simply has no failover.
  */
 export function buildProviderChain(env: {
+  azureOpenAiEndpoint?: string;
+  azureOpenAiAccessToken?: string;
+  azureOpenAiDeployment?: string;
+  azureOpenAiApiVersion?: string;
   gatewayUrl?: string;
   gatewayKey?: string;
   gatewayModel?: string;
@@ -155,6 +195,29 @@ export function buildProviderChain(env: {
   openaiSafetyModel?: string;
 }): LlmProvider[] {
   const chain: LlmProvider[] = [];
+  const azureEndpoint = env.azureOpenAiEndpoint
+    ? resolveAzureOpenAiEndpoint(env.azureOpenAiEndpoint)
+    : undefined;
+  if (
+    azureEndpoint &&
+    env.azureOpenAiAccessToken &&
+    env.azureOpenAiDeployment
+  ) {
+    const deployment = encodeURIComponent(env.azureOpenAiDeployment);
+    const apiVersion = encodeURIComponent(
+      env.azureOpenAiApiVersion ?? "2024-10-21",
+    );
+    chain.push({
+      name: "azure-openai",
+      baseUrl: azureEndpoint,
+      apiKey: env.azureOpenAiAccessToken,
+      model: env.azureOpenAiDeployment,
+      chatCompletionsPath:
+        `/openai/deployments/${deployment}/chat/completions` +
+        `?api-version=${apiVersion}`,
+      omitModelFromBody: true,
+    });
+  }
   if (env.gatewayUrl && env.gatewayKey) {
     chain.push({
       name: "stigg-gateway",
@@ -243,7 +306,10 @@ export async function callWithResilience(
       dropped = new Set<string>();
       rejectedParams.set(memoKey, dropped);
     }
-    const url = new URL("/v1/chat/completions", provider.baseUrl).toString();
+    const url = new URL(
+      provider.chatCompletionsPath ?? "/v1/chat/completions",
+      provider.baseUrl,
+    ).toString();
     const hasNext = p < providers.length - 1;
 
     for (let attempt = 1; attempt <= attempts; attempt++) {
@@ -254,12 +320,12 @@ export async function callWithResilience(
 
       try {
         const payload: Record<string, unknown> = {
-          model: provider.model,
           messages: [
             { role: "system", content: opts.systemPrompt },
             { role: "user", content: opts.userContent },
           ],
         };
+        if (!provider.omitModelFromBody) payload.model = provider.model;
         // Optional parameters, omitted once a provider has rejected them.
         if (!dropped.has("temperature"))
           payload.temperature = opts.temperature ?? 0.3;

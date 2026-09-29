@@ -41,7 +41,11 @@ function unsupportedStreamParam(body: string): string | null {
     const code = String(error?.code ?? "");
     if (
       ["stream_options", "max_completion_tokens"].includes(param) &&
-      ["unsupported_value", "unknown_parameter", "unsupported_parameter"].includes(code)
+      [
+        "unsupported_value",
+        "unknown_parameter",
+        "unsupported_parameter",
+      ].includes(code)
     ) {
       return param;
     }
@@ -171,7 +175,11 @@ export async function callWithResilienceStream(
     };
   }
 
-  for (let providerIndex = 0; providerIndex < providers.length; providerIndex += 1) {
+  for (
+    let providerIndex = 0;
+    providerIndex < providers.length;
+    providerIndex += 1
+  ) {
     const provider = providers[providerIndex];
     const hasNext = providerIndex < providers.length - 1;
     const dropped = new Set<string>();
@@ -180,18 +188,18 @@ export async function callWithResilienceStream(
       let status: number | null = null;
       let fatal = false;
       let renegotiated = false;
-      let detail = "";
+      let detail: string;
       let emittedContent = "";
       let firstTokenAtMs: number | null = null;
       try {
         const payload: Record<string, unknown> = {
-          model: provider.model,
           messages: [
             { role: "system", content: opts.systemPrompt },
             { role: "user", content: opts.userContent },
           ],
           stream: true,
         };
+        if (!provider.omitModelFromBody) payload.model = provider.model;
         if (!dropped.has("max_completion_tokens")) {
           payload.max_completion_tokens = opts.maxTokens ?? 1200;
         }
@@ -200,7 +208,10 @@ export async function callWithResilienceStream(
         }
 
         const response = await fetchLike(
-          new URL("/v1/chat/completions", provider.baseUrl).toString(),
+          new URL(
+            provider.chatCompletionsPath ?? "/v1/chat/completions",
+            provider.baseUrl,
+          ).toString(),
           {
             method: "POST",
             signal: combineSignals(opts.timeoutMs ?? 90_000, opts.signal),
@@ -217,13 +228,15 @@ export async function callWithResilienceStream(
           const consumed = await consumeChatCompletionStream(
             response,
             async (text) => {
-              if (firstTokenAtMs === null) firstTokenAtMs = Date.now() - startedAt;
+              if (firstTokenAtMs === null)
+                firstTokenAtMs = Date.now() - startedAt;
               emittedContent += text;
               await opts.onDelta(text);
             },
             startedAt,
           );
-          if (!consumed.content.trim()) throw new Error("empty_stream_response");
+          if (!consumed.content.trim())
+            throw new Error("empty_stream_response");
           events.push({
             provider: provider.name,
             outcome: "ok",
@@ -283,7 +296,12 @@ export async function callWithResilienceStream(
       }
 
       if (renegotiated) {
-        events.push({ provider: provider.name, outcome: "retried", status, detail });
+        events.push({
+          provider: provider.name,
+          outcome: "retried",
+          status,
+          detail,
+        });
         attempt -= 1;
         continue;
       }

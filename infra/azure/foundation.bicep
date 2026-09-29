@@ -16,6 +16,9 @@ param environmentName string = 'production'
 @description('Azure region for the regional application resources.')
 param location string = resourceGroup().location
 
+@description('Microsoft Entra object ID of the protected GitHub OIDC deployment service principal.')
+param deploymentPrincipalObjectId string
+
 var compactPrefix = toLower(replace('${prefix}${environmentName}', '-', ''))
 var uniqueSuffix = uniqueString(subscription().id, resourceGroup().id, prefix, environmentName)
 var logName = take('${prefix}-${environmentName}-logs-${uniqueSuffix}', 63)
@@ -29,6 +32,7 @@ var vaultName = take('${compactPrefix}-${uniqueSuffix}', 24)
 // review intent without looking up an opaque GUID.
 var acrPullRoleDefinitionId = '7f951dda-4ed3-4680-a7ca-43fe172d538d' // AcrPull
 var keyVaultSecretsUserRoleDefinitionId = '4633458b-17de-408a-b874-0445c86b69e6' // Key Vault Secrets User
+var keyVaultSecretsOfficerRoleDefinitionId = 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7' // Key Vault Secrets Officer
 
 resource logs 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: logName
@@ -167,6 +171,16 @@ resource keyVaultSecretsUser 'Microsoft.Authorization/roleAssignments@2022-04-01
     principalId: workloadIdentity.properties.principalId
     principalType: 'ServicePrincipal'
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', keyVaultSecretsUserRoleDefinitionId)
+  }
+}
+
+resource deploymentSecretsOfficer 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(vault.id, deploymentPrincipalObjectId, keyVaultSecretsOfficerRoleDefinitionId)
+  scope: vault
+  properties: {
+    principalId: deploymentPrincipalObjectId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', keyVaultSecretsOfficerRoleDefinitionId)
   }
 }
 
