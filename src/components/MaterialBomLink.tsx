@@ -5,8 +5,12 @@ import {
   listMaterialBomOptions,
 } from "../services/materialsCallers";
 
-export function MaterialBomLink() {
-  const options = useAsyncData(listMaterialBomOptions);
+export function MaterialBomLink({
+  refreshVersion = 0,
+}: {
+  refreshVersion?: number;
+}) {
+  const options = useAsyncData(listMaterialBomOptions, [refreshVersion]);
   const [mode, setMode] = useState("asset");
   const [assetId, setAssetId] = useState("");
   const [componentId, setComponentId] = useState("");

@@ -5,8 +5,12 @@ import {
   listMaterialSupplierOptions,
 } from "../services/materialsCallers";
 
-export function MaterialSupplierLink() {
-  const options = useAsyncData(listMaterialSupplierOptions);
+export function MaterialSupplierLink({
+  refreshVersion = 0,
+}: {
+  refreshVersion?: number;
+}) {
+  const options = useAsyncData(listMaterialSupplierOptions, [refreshVersion]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);

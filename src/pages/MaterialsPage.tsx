@@ -8,6 +8,7 @@
  * modified.
  */
 import { RecoveryContextPanel } from "../components/RecoveryContextPanel";
+import { useState } from "react";
 import { MaterialsReadiness } from "../components/MaterialsReadiness";
 import { SparesOptimization } from "../components/SparesOptimization";
 import { SupplyExposure } from "../components/SupplyExposure";
@@ -16,6 +17,7 @@ import { MaterialSupplierLink } from "../components/MaterialSupplierLink";
 import { MaterialBomLink } from "../components/MaterialBomLink";
 
 export function MaterialsPage() {
+  const [catalogueVersion, setCatalogueVersion] = useState(0);
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -28,9 +30,11 @@ export function MaterialsPage() {
         </p>
       </div>
       <RecoveryContextPanel surface="materials" />
-      <MaterialCatalogue />
-      <MaterialSupplierLink />
-      <MaterialBomLink />
+      <MaterialCatalogue
+        onCreated={() => setCatalogueVersion((version) => version + 1)}
+      />
+      <MaterialSupplierLink refreshVersion={catalogueVersion} />
+      <MaterialBomLink refreshVersion={catalogueVersion} />
       <MaterialsReadiness />
       <SparesOptimization />
       <SupplyExposure />

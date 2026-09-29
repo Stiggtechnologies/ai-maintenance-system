@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { createCatalogueMaterial } from "../services/materialsCallers";
 
-export function MaterialCatalogue() {
+export function MaterialCatalogue({ onCreated }: { onCreated?: () => void }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<string | null>(null);
@@ -22,6 +22,7 @@ export function MaterialCatalogue() {
       });
       setCreated(result.materialCode);
       form.reset();
+      onCreated?.();
     } catch (cause) {
       setError(
         cause instanceof Error

@@ -10,6 +10,27 @@ const sql = stripComments(
 );
 
 describe("material commercial feedback migration contract", () => {
+  it("exposes canonical component BOM links without inventing component failure attribution", () => {
+    const thread = stripComments(
+      readFileSync(
+        "supabase/migrations/20261225170400_material_commercial_component_thread.sql",
+        "utf8",
+      ),
+    );
+    expect(thread).toContain("from get_design_feedback_loop() f");
+    expect(thread).not.toContain("top fifteen");
+    expect(thread).toContain(
+      "join public.components c on c.id = b.component_id",
+    );
+    expect(thread).toContain("c.asset_id = b.asset_id");
+    expect(thread).toContain(
+      "b.organization_id = v_org and c.organization_id = v_org",
+    );
+    expect(thread).toContain("'componentLinks'");
+    expect(thread).toContain("'bomAssets'");
+    expect(thread).toContain("Corrective work orders are asset-level history");
+    expect(thread).not.toContain("w.component_id");
+  });
   it("extends the canonical reverse traversal without a top-N cutoff", () => {
     expect(sql).toContain(
       "create or replace function public.get_design_feedback_loop()",

@@ -7024,6 +7024,17 @@ export interface SpecificationFailureThread {
   vendors?: { supplierId: number; supplier: string; approvedVendor: boolean }[];
   materials?: number;
   installedAssets?: number;
+  bomAssets?: number;
+  historyScope?: string;
+  componentLinks?: {
+    bomLineId: string;
+    materialId: string;
+    componentId: string;
+    componentName: string;
+    assetId: string;
+    quantity: number;
+    positionNote: string | null;
+  }[];
   failures?: {
     failureMode: string;
     occurrences: number;

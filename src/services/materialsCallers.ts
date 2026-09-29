@@ -50,31 +50,49 @@ export async function linkCatalogueSupplier(input: {
   });
 }
 
+/** Keyset pages avoid silently losing identities beyond PostgREST's row cap. */
+async function readRelationshipOptions<T extends { id: string | number }>(
+  table: "materials" | "suppliers" | "assets" | "components",
+  columns: string,
+): Promise<T[]> {
+  const rows: T[] = [];
+  let cursor: string | number | null = null;
+  for (;;) {
+    let query = supabase.from(table).select(columns).order("id").limit(500);
+    if (cursor !== null) query = query.gt("id", cursor);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    const page = (data ?? []) as unknown as T[];
+    if (!page.length) return rows;
+    const next = page[page.length - 1].id;
+    if (next == null || next === cursor)
+      throw new Error("Catalogue pagination did not advance.");
+    rows.push(...page);
+    cursor = next;
+  }
+}
+
 /** RLS filters both selectors to the signed-in tenant. */
 export async function listMaterialSupplierOptions() {
   const [materials, suppliers] = await Promise.all([
-    supabase
-      .from("materials")
-      .select("id, material_code, description")
-      .order("material_code"),
-    supabase
-      .from("suppliers")
-      .select("id, supplier_code, name")
-      .order("supplier_code"),
-  ]);
-  if (materials.error) throw new Error(materials.error.message);
-  if (suppliers.error) throw new Error(suppliers.error.message);
-  return {
-    materials: (materials.data ?? []) as {
+    readRelationshipOptions<{
       id: string;
       material_code: string;
       description: string;
-    }[],
-    suppliers: (suppliers.data ?? []) as {
+    }>("materials", "id, material_code, description"),
+    readRelationshipOptions<{
       id: number;
       supplier_code: string;
       name: string;
-    }[],
+    }>("suppliers", "id, supplier_code, name"),
+  ]);
+  return {
+    materials: materials.sort((a, b) =>
+      a.material_code.localeCompare(b.material_code),
+    ),
+    suppliers: suppliers.sort((a, b) =>
+      a.supplier_code.localeCompare(b.supplier_code),
+    ),
   };
 }
 
@@ -95,33 +113,28 @@ export type MaterialLineStatus =
 
 export async function listMaterialBomOptions() {
   const [materials, assets, components] = await Promise.all([
-    supabase
-      .from("materials")
-      .select("id, material_code, description")
-      .order("material_code"),
-    supabase.from("assets").select("id, tag, name, asset_class").order("name"),
-    supabase.from("components").select("id, asset_id, name").order("name"),
-  ]);
-  for (const result of [materials, assets, components]) {
-    if (result.error) throw new Error(result.error.message);
-  }
-  return {
-    materials: (materials.data ?? []) as {
+    readRelationshipOptions<{
       id: string;
       material_code: string;
       description: string;
-    }[],
-    assets: (assets.data ?? []) as {
+    }>("materials", "id, material_code, description"),
+    readRelationshipOptions<{
       id: string;
       tag: string | null;
       name: string;
       asset_class: string | null;
-    }[],
-    components: (components.data ?? []) as {
-      id: string;
-      asset_id: string;
-      name: string;
-    }[],
+    }>("assets", "id, tag, name, asset_class"),
+    readRelationshipOptions<{ id: string; asset_id: string; name: string }>(
+      "components",
+      "id, asset_id, name",
+    ),
+  ]);
+  return {
+    materials: materials.sort((a, b) =>
+      a.material_code.localeCompare(b.material_code),
+    ),
+    assets: assets.sort((a, b) => a.name.localeCompare(b.name)),
+    components: components.sort((a, b) => a.name.localeCompare(b.name)),
   };
 }
 

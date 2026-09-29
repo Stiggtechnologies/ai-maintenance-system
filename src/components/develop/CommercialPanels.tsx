@@ -1583,8 +1583,8 @@ export function CommercialPanel({
               {thread.requirementRef} → {thread.packageCount} package(s),{" "}
               {thread.awardedPackages} awarded → {thread.vendors?.length ?? 0}{" "}
               vendor(s) → {thread.materials} material(s) →{" "}
-              {thread.installedAssets} installed asset(s) →{" "}
-              {thread.failureTotal} corrective work order(s).
+              {thread.bomAssets ?? thread.installedAssets} BOM-associated
+              asset(s) → {thread.failureTotal} corrective work order(s).
             </div>
             {(thread.failures ?? []).slice(0, 5).map((f) => (
               <div key={f.failureMode} className="text-[11px] text-slate-400">
@@ -1592,6 +1592,16 @@ export function CommercialPanel({
               </div>
             ))}
             <Refusal text={thread.failureNote} />
+            <p className="text-[11px] text-amber-300">
+              {thread.historyScope ??
+                "Asset-level history does not establish component failure, installation or supplier causation."}
+            </p>
+            {(thread.componentLinks ?? []).map((link) => (
+              <div key={link.bomLineId} className="text-[11px] text-slate-400">
+                BOM component: {link.componentName} · quantity {link.quantity}
+                {link.positionNote ? ` · ${link.positionNote}` : ""}
+              </div>
+            ))}
             <Refusal text={thread.backwardNote} />
             <p className="text-[11px] text-slate-500">{thread.basis}</p>
           </div>

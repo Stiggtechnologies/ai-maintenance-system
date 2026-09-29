@@ -30,7 +30,8 @@ describe("MaterialCatalogue", () => {
       materialId: "m-1",
       materialCode: "SEAL-1",
     });
-    render(<MaterialCatalogue />);
+    const onCreated = vi.fn();
+    render(<MaterialCatalogue onCreated={onCreated} />);
     fill();
     fireEvent.click(screen.getByRole("button", { name: "Create material" }));
     await screen.findByRole("status");
@@ -44,6 +45,7 @@ describe("MaterialCatalogue", () => {
       "Stock and supplier qualification remain separate",
     );
     expect(screen.getByLabelText("Material code")).toHaveValue("");
+    expect(onCreated).toHaveBeenCalledOnce();
   });
 
   it("preserves input on refusal and never displays a success message", async () => {

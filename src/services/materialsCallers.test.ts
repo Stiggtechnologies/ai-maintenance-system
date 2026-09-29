@@ -5,6 +5,7 @@ import {
   canReserve,
   createCatalogueMaterial,
   linkCatalogueSupplier,
+  listMaterialSupplierOptions,
   describeReserveResult,
   listMaterialDemand,
   recordMaterialEvent,
@@ -24,6 +25,46 @@ vi.mock("../lib/supabase", () => ({
 }));
 
 describe("materialsCallers", () => {
+  it("continues after a short server-capped page until every catalogue identity is read", async () => {
+    const cursors: unknown[] = [];
+    from.mockImplementation((table: string) => {
+      let cursor: unknown = null;
+      const query = {
+        select: () => query,
+        order: () => query,
+        limit: () => query,
+        gt: (_key: string, value: unknown) => {
+          cursor = value;
+          cursors.push(value);
+          return query;
+        },
+        then: (resolve: (result: unknown) => unknown) =>
+          Promise.resolve(
+            resolve({
+              data:
+                table === "suppliers"
+                  ? []
+                  : cursor === null
+                    ? [{ id: "m1", material_code: "Z", description: "First" }]
+                    : cursor === "m1"
+                      ? [
+                          {
+                            id: "m2",
+                            material_code: "A",
+                            description: "Second",
+                          },
+                        ]
+                      : [],
+              error: null,
+            }),
+          ),
+      };
+      return query;
+    });
+    const result = await listMaterialSupplierOptions();
+    expect(result.materials.map((m) => m.id)).toEqual(["m2", "m1"]);
+    expect(cursors).toEqual(["m1", "m2"]);
+  });
   it("links an existing supplier without accepting any approval flag", async () => {
     rpc.mockResolvedValue({
       data: { linkId: 9, approvedForThisMaterial: false },
