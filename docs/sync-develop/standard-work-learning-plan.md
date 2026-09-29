@@ -70,6 +70,22 @@ not be disguised as failures merely to use project FRACAS.
   Generalization must preserve existing CA invariants while admitting a distinct
   evidenced learning source, not create a dummy CA or relax both source paths.
 
+## Downstream consumer boundaries
+
+- The current `screen_applicable_project_lessons` definition in
+  `20261225180800` explicitly selects `lesson_learned` plus delivery failure
+  taxonomy. Preserve that contract; do not inject positive observations with
+  null failure/cause fields into existing failure-lesson cards.
+- Project assurance and methodology outcome learning select `project_outcome`.
+  A distinct typed observation must stay outside that project-level corpus.
+- The eight-dimension substrate counts all case-linked learning as recorded
+  outcome coverage. Inspect its displayed meaning and test that an observation
+  does not imply verified improvement or completion; count is not effectiveness.
+- `getLearningEvents` reads all learning types. Its generic feed and derived
+  metrics need an explicit compatibility review of the new type, not only the
+  project-specific UI. Architectural north-star lesson links currently require
+  `lesson_learned`; do not silently present the new subtype as already traversable.
+
 ## Prior release boundary
 
 #528 merged as `a7620539`; production deployment `36521832377` and all three
