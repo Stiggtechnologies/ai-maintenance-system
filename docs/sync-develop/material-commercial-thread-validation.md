@@ -23,6 +23,31 @@ That SQL harness uses minimal dependency fixtures and a test identity provider. 
 
 CI run `36503571131` on `9451714` completed the authenticated material-commercial smoke successfully after applying the full migration chain. That revision tested catalogue/supplier/component-BOM writes, technician/foreign-tenant refusal, duplicate refusals, anonymous denial, direct-write denial, audit visibility/isolation and validation of all five composite tenant constraints against seeded history. The later concurrency assertion and component-traversal assertion were not included in that successful step and require the final-head run. The isolated PostgreSQL harness separately executed the complete component traversal and verified reverse evidence on a broken forward chain.
 
+Subsequent run `36504744680` on `5109aef` passed the complete migration/auth smoke,
+including the two-request BOM race and canonical component traversal, plus unit
+tests and lint/type checks. Its browser job passed eleven existing tests but
+failed the new test's login landing assertion: the captured authenticated planner
+screen was Operational Briefing, matching `getRoleHome('planner')`, not Mission
+Control. Commit `9adae41` corrects that assertion without skipping the material
+workflow; run `36506294349` is the rerun. Its result must be inspected before any
+browser acceptance claim. Later audit additions also require final-head CI.
+
+## Implementation review boundaries
+
+The implementation review checked canonical `materials`, `material_suppliers`,
+`bom_lines`, `components`, and `audit_events` reuse; same-organization actor/role
+checks in each write RPC; parent locks plus composite tenant foreign keys;
+duplicate refusal without qualification changes; and component traversal joined
+on its asset and organization. Supplier creation remains unapproved; BOM links
+do not establish actual installation. Reverse requirement references are not
+presented as verified failure prevention. The history surface exposes stored
+source basis and actor identity, explicitly without independent verification.
+
+This is an implementation self-review, not an independent reviewer approval or
+proof of production acceptance. Rendered workflow evidence and production
+historical audit remain release gates. `NOT VALID` constraints protect new writes
+but cannot be cited as proof that pre-existing production relationships are clean.
+
 ## Required before ready for review / green status
 
 ### Historical rollout audit
