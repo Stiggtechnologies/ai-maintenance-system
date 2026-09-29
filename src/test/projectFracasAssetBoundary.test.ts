@@ -30,6 +30,20 @@ function latestFunction(name: string): string {
 }
 
 describe("project FRACAS must not enter asset effectiveness", () => {
+  it("refuses project records through both legacy asset mutation paths", () => {
+    for (const name of ["attest_ca_stage", "screen_similar_assets"]) {
+      expect(latestFunction(name)).toContain("if v.project_lesson_id is not null then");
+    }
+  });
+  it("starts closure with a tenant-bound human and one audited source", () => {
+    const body = latestFunction("start_project_ca_verification");
+    expect(body).toContain("id = v_actor and organization_id = v_org");
+    expect(body).toContain("id = p_lesson_id and organization_id = v_org for update");
+    expect(body).toContain("on conflict (project_lesson_id)");
+    expect(body).toContain("'actorId',v_actor");
+    expect(body).toContain("insert into public.audit_events");
+    expect(body).toContain("null,null,null,'open'");
+  });
   for (const name of [
     "evaluate_ca_effectiveness",
     "get_ca_effectiveness_rate",
