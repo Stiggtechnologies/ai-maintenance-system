@@ -6,6 +6,7 @@ import {
   startProjectCaVerification,
   attestProjectCaStage,
   listOrgEvidenceItems,
+  listProjectStandardWork,
   type ProjectCaVerification,
 } from "../../services/developService";
 vi.mock("../../services/developService", () => ({
@@ -13,6 +14,7 @@ vi.mock("../../services/developService", () => ({
   startProjectCaVerification: vi.fn(),
   attestProjectCaStage: vi.fn(),
   listOrgEvidenceItems: vi.fn(),
+  listProjectStandardWork: vi.fn(),
 }));
 beforeEach(() => vi.resetAllMocks());
 const closure: ProjectCaVerification = {
@@ -29,6 +31,21 @@ const closure: ProjectCaVerification = {
   causal_note: null,
   project_causal_evidence_id: null,
 };
+it("distinguishes a completed governed workflow from demonstrated effectiveness", async () => {
+  vi.mocked(getProjectCaVerification).mockResolvedValue({
+    ...closure, status: "closed_project_workflow",
+    physical_verified_at: "2026-09-29", causal_addressed_at: "2026-09-29",
+    project_adopted_standard_id: 3,
+  });
+  vi.mocked(listProjectStandardWork).mockResolvedValue([]);
+  render(<ProjectClosurePanel lessonId="lesson" canWrite={false} />);
+  fireEvent.click(screen.getByRole("button", { name: "Project closure" }));
+  expect(await screen.findByText(/Governed project workflow completed/)).toHaveTextContent(
+    "Effectiveness and failure prevention are not established",
+  );
+  expect(screen.queryByText("Project closure workflow remains open.")).not.toBeInTheDocument();
+  expect(screen.queryByRole("button", { name: "Start project closure" })).not.toBeInTheDocument();
+});
 it("submits named evidence and advances only after reloading the persisted stage", async () => {
   vi.mocked(getProjectCaVerification)
     .mockResolvedValueOnce(closure)

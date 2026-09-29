@@ -50,7 +50,7 @@ CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$API_URL/rest/v1/rpc/start_proje
   -H "apikey: $ANON_KEY" -H 'content-type: application/json' \
   -d "{\"p_lesson_id\":\"$LESSON\",\"p_basis\":\"Anonymous attempt\"}")
 case "$CODE" in 401|403) ;; *) echo "Anonymous start unexpectedly returned $CODE"; exit 1;; esac
-test "$(psqlc "select count(*) from ca_verifications where id='$CLOSURE' and project_adopted_standard_id=$REVISION and project_screened_at is not null and effectiveness is null and asset_id is null and work_order_id is null")" = 1
+test "$(psqlc "select count(*) from ca_verifications where id='$CLOSURE' and status='closed_project_workflow' and project_adopted_standard_id=$REVISION and project_screened_at is not null and effectiveness is null and asset_id is null and work_order_id is null")" = 1
 test "$(psqlc "select count(*) from approvals where standard_work_revision_id=$FIRST and status='rejected'")" = 1
 # Exercise the exact embedded relationship names consumed by the UI.
 curl --fail-with-body -sS -G "$API_URL/rest/v1/standard_work" -H "apikey: $ANON_KEY" -H "authorization: Bearer $PLANNER" \
