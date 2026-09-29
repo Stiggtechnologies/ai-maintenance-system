@@ -154,6 +154,13 @@ begin
    raise exception 'Draft procedure was not preserved as unverified';
  end if;
  begin
+   update procedure_translations set translation_status='human_verified',
+     verified_by=auth.uid(),verified_at=now() where standard_work_id=revision_id;
+   raise exception 'Draft verification bypass accepted';
+ exception when raise_exception then
+   if sqlerrm <> 'Project procedure verification requires its recorded adoption decision' then raise; end if;
+ end;
+ begin
    update standard_work set revision_approval_id=null where id=revision_id;
    raise exception 'Canonical approval detached';
  exception when raise_exception then

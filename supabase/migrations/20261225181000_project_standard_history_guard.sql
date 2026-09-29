@@ -31,6 +31,18 @@ begin
         or new.verified_at is distinct from old.verified_at) then
       raise exception 'Recorded procedure verification cannot be overwritten';
     end if;
+    if new.translation_status='human_verified' and old.translation_status is distinct from 'human_verified'
+       and exists(select 1 from public.standard_work s where s.id=old.standard_work_id
+         and s.source_project_ca_id is not null)
+       and not exists(select 1 from public.standard_work s join public.approvals a
+         on a.id=s.revision_approval_id and a.standard_work_revision_id=s.id
+           and a.organization_id=s.organization_id
+         where s.id=old.standard_work_id and s.organization_id=new.organization_id
+           and a.status='approved' and a.approver_user_id=new.verified_by
+           and a.decided_at=new.verified_at and new.verified_by is not null
+           and new.verified_at is not null) then
+      raise exception 'Project procedure verification requires its recorded adoption decision';
+    end if;
   end if;
   if tg_op='DELETE' then return old; end if;
   return new;
