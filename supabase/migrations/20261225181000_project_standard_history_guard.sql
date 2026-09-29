@@ -14,7 +14,21 @@ create trigger referenced_standard_history_guard before update on public.standar
 
 create or replace function public.guard_project_procedure_history()
 returns trigger language plpgsql security definer set search_path=public as $$
+declare parent public.standard_work%rowtype;
 begin
+  if tg_op='INSERT' then
+    select * into parent from public.standard_work where id=new.standard_work_id for share;
+    if found and parent.source_project_ca_id is not null then
+      if new.organization_id is distinct from parent.organization_id
+         or parent.revision_approval_id is not null
+         or new.translation_status is distinct from 'draft'
+         or new.verified_by is not null or new.verified_at is not null
+         or exists(select 1 from public.procedure_translations p where p.standard_work_id=parent.id) then
+        raise exception 'Project revision accepts one same-tenant unverified draft before approval submission';
+      end if;
+    end if;
+    return new;
+  end if;
   if exists(select 1 from public.standard_work s where s.id=old.standard_work_id
     and (s.source_project_ca_id is not null or exists(select 1 from public.standard_work r
       where r.previous_standard_work_id=s.id))) then
@@ -47,7 +61,7 @@ begin
   if tg_op='DELETE' then return old; end if;
   return new;
 end $$;
-create trigger project_procedure_history_guard before update or delete on public.procedure_translations
+create trigger project_procedure_history_guard before insert or update or delete on public.procedure_translations
   for each row execute function public.guard_project_procedure_history();
 revoke all on function public.guard_referenced_standard_history() from public,anon,authenticated;
 revoke all on function public.guard_project_procedure_history() from public,anon,authenticated;

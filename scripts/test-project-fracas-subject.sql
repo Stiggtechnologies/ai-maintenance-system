@@ -218,6 +218,13 @@ begin
  update standard_work set basis=basis where id=revision_id;
  result := decide_project_standard_revision(revision_id,'approved','Reviewed exact procedure and supporting evidence');
  if result->>'status' <> 'approved' then raise exception 'Adoption failed: %',result; end if;
+ begin
+   insert into procedure_translations(organization_id,standard_work_id,language_code,content,translation_status)
+     values(app_current_org(),revision_id,'fr','Unreviewed added content','draft');
+   raise exception 'Post-approval procedure insertion accepted';
+ exception when raise_exception then
+   if sqlerrm <> 'Project revision accepts one same-tenant unverified draft before approval submission' then raise; end if;
+ end;
  update user_profiles set role='planner' where id='00000000-0000-0000-0000-000000000002';
  result := request_project_standard_revision(closure_id,revision_id,'en',
    'Another unnecessary pending change','After adoption','Must not create an unadoptable approval');
