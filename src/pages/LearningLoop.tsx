@@ -125,6 +125,11 @@ const typeConfig: Record<string, { color: string; bg: string; label: string }> =
       bg: "bg-signal-cyan/10",
       label: "Lesson Learned",
     },
+    standard_work_observation: {
+      color: "text-signal-cyan",
+      bg: "bg-signal-cyan/10",
+      label: "Standard Work Observation",
+    },
     model_confidence: {
       color: "text-teal-400",
       bg: "bg-teal-500/10",
@@ -155,7 +160,9 @@ export function LearningLoop() {
     type: event.event_type,
     title: event.title ?? event.event_type,
     source: event.detail ?? "",
-    impact: event.verified_value
+    impact: event.event_type === "standard_work_observation"
+      ? "Recorded observation — improvement not established"
+      : event.verified_value
       ? `Verified value $${Number(event.verified_value).toLocaleString()}`
       : "Closed-loop signal",
     agent: "Learning Loop",

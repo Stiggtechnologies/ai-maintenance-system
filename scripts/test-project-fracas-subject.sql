@@ -84,6 +84,112 @@ create table ca_verifications (
 \ir ../supabase/migrations/20261225180900_register_standard_work_baseline.sql
 \ir ../supabase/migrations/20261225181000_project_standard_history_guard.sql
 \ir ../supabase/migrations/20261225181100_project_workflow_completion.sql
+-- Run the existing CA lifecycle against the generalized source guards too.
+-- This fixture does not exercise the observation recorder or its full contract.
+alter table procedure_translations add column id bigserial primary key;
+alter table learning_events add column event_type text;
+alter table learning_events add column standard_procedure_id bigint;
+\ir ../supabase/migrations/20261225190200_learning_revision_source_guards.sql
+\ir ../supabase/migrations/20261225190300_request_learning_standard_revision.sql
+\ir ../supabase/migrations/20261225190400_decide_learning_standard_revision.sql
+savepoint learning_source_fixture;
+do $$ declare baseline bigint; proc bigint; revision bigint; obs uuid:=gen_random_uuid(); result jsonb; closure uuid; begin
+ insert into standard_work(organization_id,work_key,version,title,basis)
+ values(app_current_org(),'learning-source-fixture',1,'Observed baseline','Fixture source') returning id into baseline;
+ insert into procedure_translations(organization_id,standard_work_id,language_code,content,translation_status,verified_by,verified_at)
+ values(app_current_org(),baseline,'en','Original learning procedure','human_verified',auth.uid(),now()) returning id into proc;
+ -- Synthetic source isolates revision guards, not observation validation.
+ insert into learning_events(id,organization_id,event_type,standard_procedure_id)
+ values(obs,app_current_org(),'standard_work_observation',proc);
+ begin
+  insert into standard_work(organization_id,work_key,version,title,basis,previous_standard_work_id,source_learning_observation_id,change_summary,revision_requested_by)
+  values(app_current_org(),'learning-source-fixture',2,'Observed baseline','Evidence basis',baseline,obs,'Changed sequence',auth.uid());
+  raise exception 'Ungoverned learning request accepted';
+ exception when raise_exception then
+  if sqlerrm <> 'Learning revisions require the governed named-human request' then raise; end if;
+ end;
+ result:=request_learning_standard_revision(gen_random_uuid(),'Changed content','Changed sequence','Evidence basis');
+ if not result ? 'error' then raise exception 'Missing observation accepted'; end if;
+ result:=request_learning_standard_revision(obs,'Original learning procedure','Changed sequence','Evidence basis');
+ if not result ? 'error' then raise exception 'Unchanged content accepted'; end if;
+ update user_profiles set role='ai_admin' where id=auth.uid();
+ result:=request_learning_standard_revision(obs,'Changed learning procedure','Changed sequence','Evidence basis');
+ if not result ? 'error' then raise exception 'AI-authored revision request accepted'; end if;
+ result:=decide_learning_standard_revision(1,'approved','AI adoption attempt');
+ if result->>'error' is distinct from 'A named human with approval authority must decide adoption' then
+   raise exception 'AI adoption authority was not refused';
+ end if;
+ update user_profiles set role='planner' where id=auth.uid();
+ result:=request_learning_standard_revision(obs,'Changed learning procedure','Changed sequence','Evidence basis');
+ if result->>'status' is distinct from 'draft' then raise exception 'Learning request failed: %',result; end if;
+ revision:=(result->>'revisionId')::bigint;
+ if not exists(select 1 from standard_work s join approvals a on a.id=s.revision_approval_id
+   where s.id=revision and s.source_learning_observation_id=obs and s.previous_standard_work_id=baseline
+     and s.source_project_ca_id is null and a.standard_work_revision_id=s.id and a.status='required') then
+   raise exception 'Canonical learning approval provenance missing';
+ end if;
+ result:=request_learning_standard_revision(obs,'Another procedure','Changed sequence','Evidence basis');
+ if not result ? 'error' then raise exception 'Concurrent pending successor allowed'; end if;
+ begin
+  update standard_work set source_learning_observation_id=null where id=revision;
+  raise exception 'Source identity changed';
+ exception when raise_exception then
+  if sqlerrm <> 'Project standard revision content and source identity are immutable' then raise; end if;
+ end;
+ begin
+  update procedure_translations set content='Overwritten procedure' where standard_work_id=revision;
+  raise exception 'Learning draft content changed';
+ exception when raise_exception then
+  if sqlerrm <> 'Referenced project procedure content is immutable; request a new revision' then raise; end if;
+ end;
+ begin
+  update procedure_translations set translation_status='human_verified',verified_by=auth.uid(),verified_at=now() where standard_work_id=revision;
+  raise exception 'Unapproved learning draft verified';
+ exception when raise_exception then
+  if sqlerrm <> 'Project procedure verification requires its recorded adoption decision' then raise; end if;
+ end;
+ update user_profiles set role='reliability_engineer' where id=auth.uid();
+ result:=decide_learning_standard_revision(revision,'approved','Reviewed evidence');
+ if result->>'error' is distinct from 'The revision requester cannot decide their own adoption' then
+   raise exception 'Self adoption was not refused: %',result;
+ end if;
+ perform set_config('test.actor','00000000-0000-0000-0000-000000000009',true);
+ result:=decide_learning_standard_revision(revision,'rejected','Insufficient change basis');
+ if result->>'status' is distinct from 'rejected' then raise exception 'Rejection failed: %',result; end if;
+ result:=decide_learning_standard_revision(revision,'approved','Attempt to overwrite rejection');
+ if not result ? 'error' then raise exception 'Decided rejection overwritten'; end if;
+ perform set_config('test.actor','00000000-0000-0000-0000-000000000002',true);
+ result:=request_learning_standard_revision(obs,'Revised after review','Improved change basis','Execution and outcome evidence');
+ if result->>'status' is distinct from 'draft' then raise exception 'Retry after rejection failed: %',result; end if;
+ revision:=(result->>'revisionId')::bigint;
+ perform set_config('test.actor','00000000-0000-0000-0000-000000000009',true);
+ result:=decide_learning_standard_revision(revision,'approved','Reviewed exact content and source evidence');
+ if result->>'status' is distinct from 'approved' then raise exception 'Adoption failed: %',result; end if;
+ if not exists(select 1 from procedure_translations p join standard_work s on s.id=p.standard_work_id
+   join approvals a on a.id=s.revision_approval_id where s.id=revision and s.version=3
+   and p.translation_status='human_verified' and p.verified_by=auth.uid()
+   and p.verified_at=a.decided_at and a.approver_user_id=auth.uid()) then
+   raise exception 'Adoption did not preserve verifier, decision and version provenance';
+ end if;
+ if exists(select 1 from ca_verifications) then raise exception 'Learning adoption fabricated a failure closure'; end if;
+ -- A later real failure may revise a learning-adopted standard; it must use
+ -- the same canonical predecessor, rather than restarting a separate lineage.
+ result:=start_project_ca_verification('00000000-0000-0000-0000-000000000003','Separate later failure review');
+ if result ? 'error' then raise exception 'Later failure setup failed: %',result; end if;
+ closure:=(result->>'id')::uuid;
+ result:=attest_project_ca_stage(closure,'implementation','Implemented corrective action','00000000-0000-0000-0000-000000000008');
+ if result ? 'error' then raise exception 'Later implementation failed: %',result; end if;
+ result:=attest_project_ca_stage(closure,'causal','Reviewed causal evidence','00000000-0000-0000-0000-000000000008');
+ if result ? 'error' then raise exception 'Later causal review failed: %',result; end if;
+ result:=request_project_standard_revision(closure,revision,'en','Later failure-driven change','Address later causal finding','Retained causal evidence');
+ if result->>'status' is distinct from 'draft' then raise exception 'Learning to CA successor failed: %',result; end if;
+ if not exists(select 1 from standard_work where id=(result->>'revisionId')::bigint
+   and previous_standard_work_id=revision and source_project_ca_id=closure
+   and source_learning_observation_id is null and version=4) then
+   raise exception 'Cross-source successor lost canonical lineage';
+ end if;
+end $$;
+rollback to savepoint learning_source_fixture;
 do $$
 declare result jsonb; baseline_id bigint;
 begin

@@ -125,3 +125,63 @@ curl --fail-with-body -sS -G "$API_URL/rest/v1/standard_work" -H "apikey: $ANON_
   --data-urlencode 'select=id,procedures:procedure_translations!procedure_translations_standard_work_id_fkey(content),approval:approvals!standard_work_revision_approval_id_fkey(status)' \
   | python3 -c 'import json,sys;x=json.load(sys.stdin);assert len(x)==1 and x[0]["procedures"] and x[0]["approval"]["status"]=="approved",x'
 echo 'Project FRACAS authenticated chain passed; no asset effectiveness inferred.'
+
+# D9.06: use the adopted CA revision as the observed baseline, proving the
+# CA -> learning path without disguising the observation as another failure.
+OBS_WORK=$(psqlc "with w as (insert into work_orders(organization_id,wo_number,title,status,type) values('$ORG','CI-LEARNING-OBS','Witnessed procedure execution','completed','human_created') returning id) select id from w")
+OBS_PACKAGE=$(field "$(rpc "$PLANNER" record_work_package '{"p_case_id":"98550000-0000-4000-8000-000000000001","p_package":{"package_code":"CI-LEARNING-OBS","title":"Observed engineering work","package_type":"engineering","scope":"Witnessed actual execution for standard-work learning"}}')" work_package_id)
+ok "$(rpc "$PLANNER" assign_work_to_package "{\"p_package_id\":$OBS_PACKAGE,\"p_work_order_id\":\"$OBS_WORK\",\"p_basis\":\"Actual work executed against the observed procedure\"}")"
+OBS_PROC=$(psqlc "select id from procedure_translations where standard_work_id=$REVISION and language_code='en'")
+OBS_BODY="{\"p_case_id\":\"98550000-0000-4000-8000-000000000001\",\"p_procedure_id\":$OBS_PROC,\"p_work_order_id\":\"$OBS_WORK\",\"p_execution_evidence_id\":\"$EVIDENCE\",\"p_outcome_evidence_id\":\"$EVIDENCE\",\"p_observed_at\":\"2026-09-01T00:00:00Z\",\"p_observation\":{\"title\":\"Witnessed controlled execution\",\"execution\":\"Witnessed all recorded inspection points\",\"variationKind\":\"conforming\",\"variationBasis\":\"Recorded sequence matched the controlled procedure\",\"outcome\":\"Inspection complete; causality not established\",\"learning\":\"Retain clearer acceptance record instructions\",\"applicability\":\"Equivalent flush acceptance activities\"}}"
+refused "$(rpc "$FOREIGN" record_standard_work_observation "$OBS_BODY")"
+OBS_ID=$(field "$(rpc "$PLANNER" record_standard_work_observation "$OBS_BODY")" id)
+LEARNING_BODY="{\"p_observation_id\":\"$OBS_ID\",\"p_content\":\"Retain witnessed flush acceptance record and clarify inspection sequence\",\"p_change_summary\":\"Clarify inspection sequence from observed execution\",\"p_basis\":\"Execution and outcome evidence reviewed; improvement not yet measured\"}"
+refused "$(rpc "$FOREIGN" request_learning_standard_revision "$LEARNING_BODY")"
+LEARNING_REV=$(field "$(race_revision "$PLANNER" request_learning_standard_revision "$LEARNING_BODY")" revisionId)
+LEARNING_APPROVAL=$(psqlc "select revision_approval_id from standard_work where id=$LEARNING_REV")
+# Generic client writes must not replace the governed decision/capture paths.
+CODE=$(curl -sS -o /dev/null -w '%{http_code}' -X PATCH "$API_URL/rest/v1/approvals?id=eq.$LEARNING_APPROVAL" \
+  -H "apikey: $ANON_KEY" -H "authorization: Bearer $ADMIN" -H 'content-type: application/json' \
+  -d '{"status":"approved"}')
+case "$CODE" in 400|403) ;; *) echo "Direct learning approval unexpectedly returned $CODE"; exit 1;; esac
+test "$(psqlc "select status from approvals where id='$LEARNING_APPROVAL'")" = required
+CODE=$(curl -sS -o /dev/null -w '%{http_code}' -X PATCH "$API_URL/rest/v1/learning_events?id=eq.$OBS_ID" \
+  -H "apikey: $ANON_KEY" -H "authorization: Bearer $PLANNER" -H 'content-type: application/json' \
+  -d '{"standard_variation_kind":"varied"}')
+case "$CODE" in 400|403) ;; *) echo "Observation overwrite unexpectedly returned $CODE"; exit 1;; esac
+test "$(psqlc "select standard_variation_kind from learning_events where id='$OBS_ID'")" = conforming
+for OBS_RPC in record_standard_work_observation request_learning_standard_revision decide_learning_standard_revision; do
+  case "$OBS_RPC" in
+    record_standard_work_observation) ANON_BODY="$OBS_BODY";;
+    request_learning_standard_revision) ANON_BODY="$LEARNING_BODY";;
+    decide_learning_standard_revision) ANON_BODY="{\"p_revision_id\":$LEARNING_REV,\"p_outcome\":\"approved\",\"p_note\":\"Anonymous attempt\"}";;
+  esac
+  CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$API_URL/rest/v1/rpc/$OBS_RPC" \
+    -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "$ANON_BODY")
+  case "$CODE" in 401|403) ;; *) echo "Anonymous $OBS_RPC unexpectedly returned $CODE"; exit 1;; esac
+done
+refused "$(rpc "$PLANNER" decide_learning_standard_revision "{\"p_revision_id\":$LEARNING_REV,\"p_outcome\":\"approved\",\"p_note\":\"Requester attempts own adoption\"}")"
+refused "$(rpc "$FOREIGN" decide_learning_standard_revision "{\"p_revision_id\":$LEARNING_REV,\"p_outcome\":\"approved\",\"p_note\":\"Foreign adoption attempt\"}")"
+ok "$(race_revision "$ADMIN" decide_learning_standard_revision "{\"p_revision_id\":$LEARNING_REV,\"p_outcome\":\"approved\",\"p_note\":\"Independent human reviewed exact content and source evidence\"}")"
+curl --fail-with-body -sS "$API_URL/rest/v1/learning_events?id=eq.$OBS_ID&select=id" \
+  -H "apikey: $ANON_KEY" -H "authorization: Bearer $FOREIGN" \
+  | python3 -c 'import json,sys;assert json.load(sys.stdin)==[]'
+curl --fail-with-body -sS -G "$API_URL/rest/v1/standard_work" \
+  -H "apikey: $ANON_KEY" -H "authorization: Bearer $PLANNER" \
+  --data-urlencode "source_learning_observation_id=eq.$OBS_ID" \
+  --data-urlencode 'select=id,procedures:procedure_translations!procedure_translations_standard_work_id_fkey(id,content,translation_status),approval:approvals!standard_work_revision_approval_id_fkey(status)' \
+  | python3 -c 'import json,sys;x=json.load(sys.stdin);assert len(x)==1 and x[0]["approval"]["status"]=="approved" and x[0]["procedures"][0]["translation_status"]=="human_verified",x'
+echo 'Standard-work observation and learning adoption authenticated chain passed; improvement remains unproven.'
+
+# Reverse source transition: a distinct later failure revises the adopted
+# learning standard. Never relabel the conforming observation as a failure.
+LATER_LESSON=$(field "$(rpc "$PLANNER" record_project_lesson '{"p_case_id":"98550000-0000-4000-8000-000000000001","p_failure_mode_key":"project_delivery.startup_failure","p_title":"Later acceptance record retrieval failure","p_cause":"Retained acceptance record could not be retrieved during startup review","p_corrective_action":"Require a witnessed retrieval check for the retained record","p_applicability":"Equivalent flush acceptance record handovers","p_detail":"Separate synthetic CI failure; not the conforming execution observation"}')" lesson_id)
+LATER_CA=$(field "$(rpc "$PLANNER" start_project_ca_verification "{\"p_lesson_id\":\"$LATER_LESSON\",\"p_basis\":\"Separate later record retrieval failure\"}")" id)
+for stage in implementation causal; do
+  ok "$(rpc "$PLANNER" attest_project_ca_stage "{\"p_verification_id\":\"$LATER_CA\",\"p_stage\":\"$stage\",\"p_note\":\"Witnessed retrieval check and causal evidence reviewed\",\"p_evidence_id\":\"$EVIDENCE\"}")"
+done
+LATER_REV=$(field "$(rpc "$PLANNER" request_project_standard_revision "{\"p_verification_id\":\"$LATER_CA\",\"p_previous_id\":$LEARNING_REV,\"p_language\":\"en\",\"p_content\":\"Retain witnessed flush acceptance record and verify retrieval during handover\",\"p_change_summary\":\"Add witnessed record retrieval check\",\"p_basis\":\"Separate later failure evidence and causal review\"}")" revisionId)
+ok "$(rpc "$ADMIN" decide_project_standard_revision "{\"p_revision_id\":$LATER_REV,\"p_outcome\":\"approved\",\"p_note\":\"Second human reviewed later failure and exact procedure change\"}")"
+test "$(psqlc "select count(*) from standard_work s join approvals a on a.id=s.revision_approval_id join procedure_translations p on p.standard_work_id=s.id where s.id=$LATER_REV and s.previous_standard_work_id=$LEARNING_REV and s.source_project_ca_id='$LATER_CA' and s.source_learning_observation_id is null and s.version=5 and a.status='approved' and p.translation_status='human_verified' and p.verified_by=a.approver_user_id and p.verified_at=a.decided_at")" = 1
+test "$(psqlc "select count(*) from learning_events where id='$OBS_ID' and event_type='standard_work_observation' and standard_variation_kind='conforming' and failure_mode_key is null")" = 1
+echo 'Authenticated CA-to-learning-to-CA lineage passed; original observation remains conforming.'

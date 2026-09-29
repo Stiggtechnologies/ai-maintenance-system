@@ -8951,16 +8951,17 @@ export interface ProjectStandardWorkOption {
   change_summary: string | null;
   revision_requested_by: string | null;
   revision_approval_id: string | null;
-  procedures: { language_code: string; content: string; translation_status: string; verified_by: string | null; verified_at: string | null }[];
+  procedures: { id: number; language_code: string; content: string; translation_status: string; verified_by: string | null; verified_at: string | null }[];
   approval: { status: string; approver_user_id: string | null; decided_at: string | null } | null;
 }
 
-export async function listProjectStandardWork(afterId?: number, exactId?: number): Promise<ProjectStandardWorkOption[]> {
+export async function listProjectStandardWork(afterId?: number, exactId?: number, observationId?: string): Promise<ProjectStandardWorkOption[]> {
   let query = supabase.from("standard_work")
-    .select("id, work_key, title, version, basis, source_project_ca_id, previous_standard_work_id, change_summary, revision_requested_by, revision_approval_id, procedures:procedure_translations!procedure_translations_standard_work_id_fkey(language_code, content, translation_status, verified_by, verified_at), approval:approvals!standard_work_revision_approval_id_fkey(status, approver_user_id, decided_at)")
+    .select("id, work_key, title, version, basis, source_project_ca_id, previous_standard_work_id, change_summary, revision_requested_by, revision_approval_id, procedures:procedure_translations!procedure_translations_standard_work_id_fkey(id, language_code, content, translation_status, verified_by, verified_at), approval:approvals!standard_work_revision_approval_id_fkey(status, approver_user_id, decided_at)")
     .order("id", { ascending: true }).limit(100);
   if (afterId !== undefined) query = query.gt("id", afterId);
   if (exactId !== undefined) query = query.eq("id", exactId);
+  if (observationId !== undefined) query = query.eq("source_learning_observation_id", observationId);
   const { data, error } = await query;
   if (error) throw new Error(`Could not load standard work: ${error.message}`);
   return (data ?? []) as unknown as ProjectStandardWorkOption[];
@@ -9526,6 +9527,120 @@ export async function getCaseProjectSuccess(
     p_case_id: caseId,
   });
   return unwrapRpc(data, error, "Could not load the project success score");
+}
+
+export interface StandardWorkObservation {
+  id: string;
+  title: string;
+  detail: string;
+  applicability: string;
+  standard_procedure_id: number;
+  standard_execution_work_order_id: string;
+  standard_execution_evidence_id: string;
+  standard_outcome_evidence_id: string;
+  standard_execution_observed_at: string;
+  standard_execution_recorded_by: string;
+  standard_execution_description: string;
+  standard_variation_kind: "conforming" | "varied" | "undetermined";
+  standard_variation_basis: string;
+  standard_outcome_description: string;
+}
+
+/** Case-scoped, RLS-protected history. UUID keyset paging avoids timestamp ties. */
+export async function listStandardWorkObservations(
+  caseId: string,
+  afterId?: string,
+): Promise<StandardWorkObservation[]> {
+  let query = supabase.from("learning_events").select(
+    "id,title,detail,applicability,standard_procedure_id,standard_execution_work_order_id,standard_execution_evidence_id,standard_outcome_evidence_id,standard_execution_observed_at,standard_execution_recorded_by,standard_execution_description,standard_variation_kind,standard_variation_basis,standard_outcome_description",
+  ).eq("development_case_id", caseId).eq("event_type", "standard_work_observation")
+    .order("id", { ascending: true }).limit(100);
+  if (afterId) query = query.gt("id", afterId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as StandardWorkObservation[];
+}
+
+export async function getObservedProcedure(procedureId: number): Promise<{ id: number; language_code: string; content: string }> {
+  const { data, error } = await supabase.from("procedure_translations")
+    .select("id,language_code,content").eq("id", procedureId).single();
+  if (error) throw error;
+  if (!data) throw new Error("Observed procedure unavailable");
+  return data as { id: number; language_code: string; content: string };
+}
+
+export async function requestLearningStandardRevision(input: {
+  observationId: string; content: string; changeSummary: string; basis: string;
+}): Promise<{ revisionId: number; approvalId: string; status: "draft" }> {
+  const { data, error } = await supabase.rpc("request_learning_standard_revision", {
+    p_observation_id: input.observationId, p_content: input.content,
+    p_change_summary: input.changeSummary, p_basis: input.basis,
+  });
+  const result = unwrapRpc<{ revisionId?: number; approvalId?: string; status?: string }>(
+    data, error, "Could not request learning revision",
+  );
+  if (!result || !Number.isSafeInteger(result.revisionId) || result.revisionId! <= 0
+    || typeof result.approvalId !== "string" || !result.approvalId.trim() || result.status !== "draft") {
+    throw new Error("Invalid learning revision receipt; reload before retrying");
+  }
+  return { revisionId: result.revisionId!, approvalId: result.approvalId, status: "draft" };
+}
+
+export async function decideLearningStandardRevision(
+  revisionId: number, outcome: "approved" | "rejected", note: string,
+): Promise<{ revisionId: number; status: "approved" | "rejected"; detail: string }> {
+  const { data, error } = await supabase.rpc("decide_learning_standard_revision", {
+    p_revision_id: revisionId, p_outcome: outcome, p_note: note,
+  });
+  const result = unwrapRpc<{ revisionId?: number; status?: string; detail?: string }>(
+    data, error, "Could not decide learning revision",
+  );
+  if (!result || result.revisionId !== revisionId || result.status !== outcome
+    || typeof result.detail !== "string" || !result.detail.trim()) {
+    throw new Error("Invalid learning decision receipt; reload before retrying");
+  }
+  return { revisionId, status: outcome, detail: result.detail };
+}
+
+export interface StandardWorkObservationInput {
+  caseId: string;
+  procedureId: number;
+  workOrderId: string;
+  executionEvidenceId: string;
+  outcomeEvidenceId: string;
+  observedAt: string;
+  title: string;
+  execution: string;
+  variationKind: "conforming" | "varied" | "undetermined";
+  variationBasis: string;
+  outcome: string;
+  learning: string;
+  applicability: string;
+}
+
+export async function recordStandardWorkObservation(
+  input: StandardWorkObservationInput,
+): Promise<{ id: string; status: "observed" }> {
+  const { data, error } = await supabase.rpc("record_standard_work_observation", {
+    p_case_id: input.caseId,
+    p_procedure_id: input.procedureId,
+    p_work_order_id: input.workOrderId,
+    p_execution_evidence_id: input.executionEvidenceId,
+    p_outcome_evidence_id: input.outcomeEvidenceId,
+    p_observed_at: input.observedAt,
+    p_observation: {
+      title: input.title, execution: input.execution, variationKind: input.variationKind,
+      variationBasis: input.variationBasis, outcome: input.outcome,
+      learning: input.learning, applicability: input.applicability,
+    },
+  });
+  const result = unwrapRpc<{ id?: unknown; status?: unknown }>(
+    data, error, "Could not record standard-work observation",
+  );
+  if (!result || typeof result.id !== "string" || !result.id.trim() || result.status !== "observed") {
+    throw new Error("Invalid standard-work observation receipt; reload before retrying");
+  }
+  return { id: result.id, status: "observed" };
 }
 
 export async function getCaseLifecycleSuccess(
