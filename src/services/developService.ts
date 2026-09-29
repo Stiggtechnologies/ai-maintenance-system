@@ -9528,6 +9528,47 @@ export async function getCaseProjectSuccess(
   return unwrapRpc(data, error, "Could not load the project success score");
 }
 
+export interface StandardWorkObservationInput {
+  caseId: string;
+  procedureId: number;
+  workOrderId: string;
+  executionEvidenceId: string;
+  outcomeEvidenceId: string;
+  observedAt: string;
+  title: string;
+  execution: string;
+  variationKind: "conforming" | "varied" | "undetermined";
+  variationBasis: string;
+  outcome: string;
+  learning: string;
+  applicability: string;
+}
+
+export async function recordStandardWorkObservation(
+  input: StandardWorkObservationInput,
+): Promise<{ id: string; status: "observed" }> {
+  const { data, error } = await supabase.rpc("record_standard_work_observation", {
+    p_case_id: input.caseId,
+    p_procedure_id: input.procedureId,
+    p_work_order_id: input.workOrderId,
+    p_execution_evidence_id: input.executionEvidenceId,
+    p_outcome_evidence_id: input.outcomeEvidenceId,
+    p_observed_at: input.observedAt,
+    p_observation: {
+      title: input.title, execution: input.execution, variationKind: input.variationKind,
+      variationBasis: input.variationBasis, outcome: input.outcome,
+      learning: input.learning, applicability: input.applicability,
+    },
+  });
+  const result = unwrapRpc<{ id?: unknown; status?: unknown }>(
+    data, error, "Could not record standard-work observation",
+  );
+  if (!result || typeof result.id !== "string" || !result.id.trim() || result.status !== "observed") {
+    throw new Error("Invalid standard-work observation receipt; reload before retrying");
+  }
+  return { id: result.id, status: "observed" };
+}
+
 export async function getCaseLifecycleSuccess(
   caseId: string,
 ): Promise<CaseLifecycleSuccess> {
