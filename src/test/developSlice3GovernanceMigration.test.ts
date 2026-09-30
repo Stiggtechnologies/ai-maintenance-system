@@ -23,6 +23,9 @@ const read = (f: string) =>
   stripComments(readFileSync(`supabase/migrations/${f}`, "utf8"));
 
 const orgTree = read("20261120090000_develop_org_five_level_tree.sql");
+const crossNodeExecution = read(
+  "20270101110000_cross_node_governance_execution.sql",
+);
 const library = read("20261120090100_governance_profile_library.sql");
 const tailoring = read("20261120090200_governance_intensity_tailoring.sql");
 const enforcement = read("20261120090300_intensity_binding_enforcement.sql");
@@ -77,14 +80,17 @@ describe("organization five-level tree (D11.14)", () => {
     expect(fn).toMatch(/order by a\.depth asc, fw\.version desc/);
   });
 
-  it("create_development_case inherits by walking the tree, and only an OPERABLE framework governs", () => {
+  it("create_development_case inherits by walking the tree, then the closure makes an adopted ancestor operable", () => {
     expect(orgTree).toContain("from resolve_org_governance_profile(v_org)");
-    // Ancestor-owned resolutions are reported, never silently half-applied.
+    // The first slice failed closed while cross-node execution was absent.
     expect(orgTree).toContain("'framework_inheritance_not_operable'");
-    // Explicit selection stays strictly org-scoped.
-    expect(orgTree).toContain(
-      "where id = v_framework_id and organization_id = v_org",
+    // The later closure explicitly transforms that refusal and scopes both
+    // implicit and explicit selection to adopted ancestry.
+    expect(crossNodeExecution).toContain(
+      "not framework_operable_for_org(v_framework_id, v_org)",
     );
+    expect(crossNodeExecution).toContain("v_framework_id := v_resolved.framework_id");
+    expect(crossNodeExecution).toContain("framework_visible_to_current_org");
     // The audit and the return both name the inheritance source.
     expect(orgTree).toContain("'framework_inherited_from', v_inherited_from");
   });
