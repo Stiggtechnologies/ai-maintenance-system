@@ -79,6 +79,10 @@ const CATEGORY_ICON: Record<string, React.ElementType> = {
 const AGENT_ROUTE_LABELS: Record<string, string> = {
   "/job-plans": "planning",
   "/scheduling": "scheduling",
+  "/briefing": "shift handovers",
+  "/handover": "release and return to service",
+  "/work": "work execution",
+  "/materials": "material readiness",
 };
 
 function agentRowToAgent(row: AgentRow): Agent {

@@ -250,6 +250,9 @@ jobs:
       - name: Smoke — governed Planning & Scheduling agent
         run: bash scripts/ci-planning-agent-smoke.sh
 
+      - name: Smoke — governed Site Maintenance Manager shift handover
+        run: bash scripts/ci-site-maintenance-handover-smoke.sh
+
       # The Sync Develop transcripts run in CI against the same booted chain,
       # so the gate/sanction discipline and the value-spine refusals cannot
       # rot silently behind green checks. Both scripts are idempotent and
