@@ -36,7 +36,7 @@
  *
  * Pure functions. No database, no network.
  */
-import { weibullMLE, weibullMRR, type WeibullFit } from "./index";
+import { weibullMLE, weibullMRR, type WeibullFit } from "./index.ts";
 
 export type EstimatorChoice =
   "rank_regression" | "mle_censored" | "mle" | "none";
@@ -77,15 +77,16 @@ export function selectWeibullMethod(
     suspendedFraction,
   };
 
-  if (f.length < 2) {
+  const distinctFailures = new Set(f).size;
+  if (f.length < 2 || distinctFailures < 2) {
     return {
       ...base,
       method: "none",
       beta: null,
       eta: null,
       modelWarning: null,
-      ruleApplied: "Insufficient failures",
-      reason: `${f.length} failure(s). Two distinct failures are the minimum for any Weibull estimator — below that the shape parameter is not identifiable, and a fitted line through one point is a drawing rather than an estimate. ${s.length} suspension(s) are present and bound life from below, but suspensions alone cannot locate a distribution.`,
+      ruleApplied: "Insufficient distinct failure times",
+      reason: `${f.length} failure(s) at ${distinctFailures} distinct exposure time(s). Two distinct failure times are the minimum for any Weibull estimator — below that the shape parameter is not identifiable, and a fitted line through one exposure is a drawing rather than an estimate. ${s.length} suspension(s) are present and bound life from below, but suspensions alone cannot identify the shape.`,
     };
   }
 

@@ -11,6 +11,7 @@
  */
 import { useState } from "react";
 import { ReliabilityAnalytics } from "../components/ReliabilityAnalytics";
+import { ReliabilityLifeDataWorkbench } from "../components/ReliabilityLifeDataWorkbench";
 import { ModellingStudio } from "../components/ModellingStudio";
 import { CaEffectivenessPanel } from "../components/CaEffectivenessPanel";
 import { FailureModeElimination } from "../components/FailureModeElimination";
@@ -48,6 +49,7 @@ export function Reliability() {
         </p>
       </div>
 
+      <ReliabilityLifeDataWorkbench />
       <ReliabilityAnalytics />
       <ModellingStudio />
 
