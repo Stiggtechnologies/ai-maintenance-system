@@ -12,6 +12,7 @@ eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL)=')"
 ORG='11111111-1111-1111-1111-111111111111'
 WO='fa110000-0000-4000-8000-000000000001'
 OTHER_WO='fa110000-0000-4000-8000-000000000099'
+OTHER_ORG='fa110000-0000-4000-8000-000000000098'
 ASSET='aaaaaaaa-0000-0000-0000-000000000002'
 
 psqlc() {
@@ -43,8 +44,7 @@ restore_demo_role() {
 trap restore_demo_role EXIT
 MATERIAL=$(psqlc "select id from public.materials where organization_id='$ORG' order by id limit 1")
 test -n "$MATERIAL"
-OTHER_ORG=$(psqlc "insert into public.organizations(name,industry) values ('Planning agent foreign tenant','ci_tenant_wall') returning id")
-test -n "$OTHER_ORG"
+psqlc "insert into public.organizations(id,name,industry) values ('$OTHER_ORG','Planning agent foreign tenant','ci_tenant_wall') on conflict(id) do nothing" >/dev/null
 
 psqlc "
   insert into public.work_orders
