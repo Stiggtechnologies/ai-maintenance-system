@@ -10,6 +10,32 @@ const sql = stripComments(
 );
 
 describe("material commercial feedback migration contract", () => {
+  it("promotes every material relationship tenant key only through explicit historical validation", () => {
+    const validation = stripComments(
+      readFileSync(
+        "supabase/migrations/20270101100000_validate_material_relationship_tenant_constraints.sql",
+        "utf8",
+      ),
+    );
+    const constraints = [
+      "material_suppliers_material_tenant_fk",
+      "material_suppliers_supplier_tenant_fk",
+      "bom_lines_material_tenant_fk",
+      "bom_lines_asset_tenant_fk",
+      "bom_lines_component_parent_fk",
+    ];
+
+    for (const constraint of constraints) {
+      expect(validation).toContain(`validate constraint ${constraint}`);
+    }
+    expect(validation.match(/validate constraint/g)).toHaveLength(
+      constraints.length,
+    );
+    expect(validation).not.toMatch(
+      /\b(insert|update|delete|truncate|drop|disable)\b/i,
+    );
+  });
+
   it("exposes canonical component BOM links without inventing component failure attribution", () => {
     const thread = stripComments(
       readFileSync(
