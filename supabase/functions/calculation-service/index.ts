@@ -11,6 +11,7 @@ import {
   prioritiseUnderBudget,
   type CashFlow,
 } from "../../../src/lib/value/index.ts";
+import { selectWeibullMethod } from "../../../src/lib/reliability/method-selection.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -69,6 +70,12 @@ type CapitalPlanRow = {
   mandatory_basis: string | null;
   case_id: number | null;
 };
+type LifeEventRow = {
+  id: number;
+  hoursAtChangeOut: number | string;
+  eventKind: "failure" | "scheduled" | "other";
+  component: string;
+};
 
 function finiteNumber(value: unknown): number | null {
   if (
@@ -116,7 +123,7 @@ Deno.serve(async (request) => {
   if (profileError || !profile?.organization_id)
     return json({ error: "organization_membership_required" }, 403);
 
-  let body: { action?: unknown; budget?: unknown };
+  let body: { action?: unknown; budget?: unknown; component?: unknown };
   try {
     const raw = await request.text();
     if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES)
@@ -125,6 +132,64 @@ Deno.serve(async (request) => {
   } catch {
     return json({ error: "invalid_json" }, 400);
   }
+  const organizationId = profile.organization_id;
+  const actorId = userData.user.id;
+
+  if (body.action === "reliability_life_data") {
+    const component =
+      typeof body.component === "string" ? body.component.trim() : "";
+    if (component.length < 2 || component.length > 160)
+      return json({ error: "component_must_contain_2_to_160_characters" }, 400);
+    try {
+      const { data: sourceData, error: sourceError } = await service.rpc(
+        "get_reliability_life_data_source",
+        {
+          p_organization_id: organizationId,
+          p_actor_id: actorId,
+          p_component: component,
+        },
+      );
+      if (sourceError) throw new Error(sourceError.message);
+      const source = sourceData as {
+        error?: string;
+        component?: string;
+        kernelVersion?: string;
+        events?: LifeEventRow[];
+      } | null;
+      if (source?.error) return json({ error: source.error }, 403);
+      const events = Array.isArray(source?.events) ? source.events : [];
+      if (events.length === 0)
+        return json({ error: "no_component_life_data" }, 422);
+      const failures = events
+        .filter((event) => event.eventKind === "failure")
+        .map((event) => finiteNumber(event.hoursAtChangeOut))
+        .filter((hours): hours is number => hours !== null && hours > 0);
+      const suspensions = events
+        .filter((event) => event.eventKind === "scheduled")
+        .map((event) => finiteNumber(event.hoursAtChangeOut))
+        .filter((hours): hours is number => hours !== null && hours > 0);
+      const methodSelection = selectWeibullMethod(failures, suspensions);
+      const { data: receiptData, error: receiptError } = await service.rpc(
+        "record_reliability_life_data_run",
+        {
+          p_organization_id: organizationId,
+          p_actor_id: actorId,
+          p_component: source?.component ?? component,
+          p_event_ids: events.map((event) => event.id),
+          p_kernel_version: source?.kernelVersion,
+          p_result: methodSelection,
+        },
+      );
+      if (receiptError) throw new Error(receiptError.message);
+      const receipt = receiptData as { error?: string } | null;
+      if (receipt?.error) return json({ error: receipt.error }, 422);
+      return json(receipt);
+    } catch (error) {
+      console.error("reliability life-data calculation failed", error);
+      return json({ error: "reliability_life_data_calculation_failed" }, 422);
+    }
+  }
+
   if (body.action !== "value_management")
     return json({ error: "unsupported_action" }, 400);
   const budget = finiteNumber(body.budget);
@@ -133,9 +198,6 @@ Deno.serve(async (request) => {
       { error: "budget_must_be_finite_nonnegative_and_bounded" },
       400,
     );
-
-  const organizationId = profile.organization_id;
-  const actorId = userData.user.id;
 
   async function recordRun(input: {
     subjectType: "organization" | "business_case" | "capital_plan_year";
