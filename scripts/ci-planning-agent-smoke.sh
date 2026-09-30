@@ -43,7 +43,7 @@ restore_demo_role() {
 trap restore_demo_role EXIT
 MATERIAL=$(psqlc "select id from public.materials where organization_id='$ORG' order by id limit 1")
 test -n "$MATERIAL"
-OTHER_ORG=$(psqlc "select id from public.organizations where id <> '$ORG' order by id limit 1")
+OTHER_ORG=$(psqlc "insert into public.organizations(name,industry) values ('Planning agent foreign tenant','ci_tenant_wall') returning id")
 test -n "$OTHER_ORG"
 
 psqlc "
