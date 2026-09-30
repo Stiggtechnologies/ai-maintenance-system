@@ -180,18 +180,17 @@ describe("businessHoursDeadline — one business hour, Alberta", () => {
     expect(due("2026-09-21T05:00:00Z")).toBe("Mon Sep 21, 2026 at 9:00 AM MDT");
   });
 
-  it("keeps the wall clock across a DST change rather than the UTC offset", () => {
-    // Fri 2026-10-30 16:30 MDT (UTC-6) spills into Mon 2026-11-02, by which
-    // point Edmonton is on MST (UTC-7). The promise is "8:30 in the morning",
-    // so the wall clock is what must survive.
+  it("keeps the wall clock when Alberta enters permanent UTC-6", () => {
+    // Fri 2026-10-30 16:30 MDT spills into Mon 2026-11-02. Alberta no longer
+    // falls back in November 2026, so both the wall clock and UTC-6 survive.
     const deadline = businessHoursDeadline(
       "2026-10-30T22:30:00Z",
       FIRST_RESPONSE_SLA_MINUTES,
     );
     expect(formatBusinessInstant(deadline)).toBe(
-      "Mon Nov 2, 2026 at 8:30 AM MST",
+      "Mon Nov 2, 2026 at 8:30 AM MDT",
     );
-    expect(deadline?.toISOString()).toBe("2026-11-02T15:30:00.000Z");
+    expect(deadline?.toISOString()).toBe("2026-11-02T14:30:00.000Z");
   });
 
   it("returns null rather than an Invalid Date for unusable input", () => {
@@ -226,7 +225,7 @@ describe("businessHoursDeadline — one business hour, Alberta", () => {
     ).toBe("MDT");
     expect(
       zoneAbbreviation(new Date("2026-12-18T22:30:00Z"), "America/Edmonton"),
-    ).toBe("MST");
+    ).toBe("MDT");
   });
 
   it("formats a short stamp for the subject line", () => {
