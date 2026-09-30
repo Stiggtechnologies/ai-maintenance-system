@@ -86,7 +86,7 @@ export function selectWeibullMethod(
       eta: null,
       modelWarning: null,
       ruleApplied: "Insufficient distinct failure times",
-      reason: `${f.length} failure(s) at ${distinctFailures} distinct exposure time(s). Two distinct failure times are the minimum for any Weibull estimator — below that the shape parameter is not identifiable, and a fitted line through one exposure is a drawing rather than an estimate. ${s.length} suspension(s) are present and bound life from below, but suspensions alone cannot identify the shape.`,
+      reason: `${f.length} failure(s) at ${distinctFailures} distinct exposure time(s). Two distinct failures at distinct exposure times are the minimum for any Weibull estimator — below that the shape parameter is not identifiable, and a fitted line through one exposure is a drawing rather than an estimate. ${s.length} suspension(s) are present and bound life from below, but suspensions alone cannot identify the shape.`,
     };
   }
 
