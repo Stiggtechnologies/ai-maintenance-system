@@ -114,6 +114,8 @@ interface WallClock {
 }
 
 const MS_PER_DAY = 86_400_000;
+const ALBERTA_PERMANENT_TIME_START_MS = Date.parse("2026-11-01T08:00:00Z");
+const ALBERTA_PERMANENT_TIME_ZONE = "Etc/GMT+6";
 
 const WEEKDAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTH_LABELS = [
@@ -131,10 +133,23 @@ const MONTH_LABELS = [
   "Dec",
 ];
 
+/**
+ * Alberta remains on UTC-6 after 2026-11-01. Older ICU/tzdata builds still
+ * model the retired winter fallback, so pin the enacted rule for this one
+ * business zone instead of allowing infrastructure age to change a customer
+ * response promise.
+ */
+function effectiveTimeZone(instant: Date, timeZone: string): string {
+  return timeZone === ALBERTA_BUSINESS_HOURS.timeZone &&
+    instant.getTime() >= ALBERTA_PERMANENT_TIME_START_MS
+    ? ALBERTA_PERMANENT_TIME_ZONE
+    : timeZone;
+}
+
 /** The wall clock a given instant shows in a given zone. */
 function wallClockIn(instant: Date, timeZone: string): WallClock {
   const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
+    timeZone: effectiveTimeZone(instant, timeZone),
     hour12: false,
     year: "numeric",
     month: "2-digit",
@@ -278,8 +293,13 @@ export function businessHoursDeadline(
   return null;
 }
 
-/** "MST" / "MDT" for the instant — whichever is actually in force. */
+/** The Alberta/customer-zone abbreviation actually in force at the instant. */
 export function zoneAbbreviation(instant: Date, timeZone: string): string {
+  if (
+    timeZone === ALBERTA_BUSINESS_HOURS.timeZone &&
+    instant.getTime() >= ALBERTA_PERMANENT_TIME_START_MS
+  )
+    return "MDT";
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone,
     timeZoneName: "short",
@@ -609,7 +629,8 @@ export function buildLeadAcknowledgement(ctx: TemplateContext): EmailContent {
   // The form labels this field "Decision you need to improve" and its options
   // include "Executive reporting takes too long" — echoing it back as the
   // customer's "primary reliability pain" relabels their own answer.
-  if (primaryPain) submitted.push(`Decision you want to improve: ${primaryPain}`);
+  if (primaryPain)
+    submitted.push(`Decision you want to improve: ${primaryPain}`);
 
   const commitment = dueText
     ? `I will come back to you personally within one business hour — by ${dueText}. Business hours here are Monday to Friday, 8:00 AM to 5:00 PM Mountain Time, so a request that arrives outside them is answered within the first hour of the next working day.`

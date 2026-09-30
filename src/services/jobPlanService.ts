@@ -52,8 +52,11 @@ export interface JobPlanSummary {
   materials: number;
   tools: number;
   permits: number;
+  documents: number;
   checks: number;
   applied_to_work_orders: number;
+  draft_origin: "human" | "agent";
+  agent_run_id: string | null;
 }
 
 export interface PlanningAccuracy {
@@ -97,6 +100,12 @@ export interface JobPlanCheck {
   is_hold_point: boolean;
 }
 
+export interface JobPlanDocumentLine {
+  document_id: string;
+  title: string;
+  purpose: string;
+}
+
 export interface JobPlanDetail {
   id: string;
   plan_key: string;
@@ -111,6 +120,7 @@ export interface JobPlanDetail {
   materials: JobPlanMaterialLine[];
   tools: JobPlanTool[];
   permits: JobPlanPermit[];
+  documents: JobPlanDocumentLine[];
   checks: JobPlanCheck[];
 }
 
@@ -125,6 +135,7 @@ export interface JobPlanDraft {
   materials: JobPlanMaterialLine[];
   tools: JobPlanTool[];
   permits: JobPlanPermit[];
+  documents: JobPlanDocumentLine[];
   checks: JobPlanCheck[];
 }
 
@@ -133,6 +144,50 @@ export interface MaterialOption {
   material_code: string;
   description: string;
   unit_of_measure: string;
+}
+
+export interface DocumentOption {
+  id: string;
+  title: string;
+  document_class: string;
+  document_type: string | null;
+}
+
+export interface PlanningAgentGap {
+  code: string;
+  severity: "blocker" | "attention";
+  label: string;
+  detail: string;
+}
+
+export interface PlanningAgentMaterialStatus {
+  materialId: string;
+  materialCode: string;
+  description: string;
+  quantity: number;
+  workOrderStatus: string;
+  quantityReserved: number;
+  quantityRequired: number;
+  ready: boolean;
+}
+
+export interface PlanningAgentResult {
+  run_id: string;
+  agent_id: string;
+  agent_key: string;
+  work_order_id: string;
+  job_plan_id: string;
+  draft_created: boolean;
+  draft_origin: "human" | "agent";
+  reference_plan_id: string | null;
+  gaps: PlanningAgentGap[];
+  materials: PlanningAgentMaterialStatus[];
+  human_approval_required: true;
+  required_human_approver_role: string;
+  may_adopt: false;
+  may_apply: false;
+  may_release_schedule: false;
+  basis: string;
 }
 
 export interface WorkOrderOption {
@@ -213,6 +268,16 @@ export async function listMaterials(): Promise<MaterialOption[]> {
   return (data ?? []) as MaterialOption[];
 }
 
+export async function listJobPlanDocuments(): Promise<DocumentOption[]> {
+  const { data, error } = await supabase
+    .from("kb_intake_documents")
+    .select("id,title,document_class,document_type")
+    .eq("status", "indexed")
+    .order("title");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as DocumentOption[];
+}
+
 export async function listOpenWorkOrders(): Promise<WorkOrderOption[]> {
   const { data, error } = await supabase
     .from("work_orders")
@@ -227,34 +292,45 @@ export async function listOpenWorkOrders(): Promise<WorkOrderOption[]> {
 }
 
 export async function getJobPlanDetail(id: string): Promise<JobPlanDetail> {
-  const [planRes, stepsRes, materialsRes, toolsRes, permitsRes, checksRes] =
-    await Promise.all([
-      supabase
-        .from("job_plans")
-        .select(
-          "id,plan_key,title,scope,applies_to_asset_class,applies_to_system_group,basis,status,version",
-        )
-        .eq("id", id)
-        .maybeSingle(),
-      supabase
-        .from("job_plan_steps")
-        .select("step_number,description,craft,crew_size,estimated_hours")
-        .eq("job_plan_id", id)
-        .order("step_number"),
-      supabase
-        .from("job_plan_materials")
-        .select("qty,materials(material_code,description)")
-        .eq("job_plan_id", id),
-      supabase.from("job_plan_tools").select("tool,note").eq("job_plan_id", id),
-      supabase
-        .from("job_plan_permits")
-        .select("permit_type,isolation_required,verification_note")
-        .eq("job_plan_id", id),
-      supabase
-        .from("job_plan_checks")
-        .select("check_description,acceptance_criterion,is_hold_point")
-        .eq("job_plan_id", id),
-    ]);
+  const [
+    planRes,
+    stepsRes,
+    materialsRes,
+    toolsRes,
+    permitsRes,
+    documentsRes,
+    checksRes,
+  ] = await Promise.all([
+    supabase
+      .from("job_plans")
+      .select(
+        "id,plan_key,title,scope,applies_to_asset_class,applies_to_system_group,basis,status,version",
+      )
+      .eq("id", id)
+      .maybeSingle(),
+    supabase
+      .from("job_plan_steps")
+      .select("step_number,description,craft,crew_size,estimated_hours")
+      .eq("job_plan_id", id)
+      .order("step_number"),
+    supabase
+      .from("job_plan_materials")
+      .select("qty,materials(material_code,description)")
+      .eq("job_plan_id", id),
+    supabase.from("job_plan_tools").select("tool,note").eq("job_plan_id", id),
+    supabase
+      .from("job_plan_permits")
+      .select("permit_type,isolation_required,verification_note")
+      .eq("job_plan_id", id),
+    supabase
+      .from("job_plan_documents")
+      .select("document_id,purpose,kb_intake_documents(title)")
+      .eq("job_plan_id", id),
+    supabase
+      .from("job_plan_checks")
+      .select("check_description,acceptance_criterion,is_hold_point")
+      .eq("job_plan_id", id),
+  ]);
 
   for (const res of [
     planRes,
@@ -262,6 +338,7 @@ export async function getJobPlanDetail(id: string): Promise<JobPlanDetail> {
     materialsRes,
     toolsRes,
     permitsRes,
+    documentsRes,
     checksRes,
   ]) {
     if (res.error) throw new Error(res.error.message);
@@ -327,6 +404,18 @@ export async function getJobPlanDetail(id: string): Promise<JobPlanDetail> {
       isolation_required: perm.isolation_required ?? "",
       verification_note: perm.verification_note ?? "",
     })),
+    documents: (documentsRes.data ?? []).map((row) => {
+      const document = row.kb_intake_documents as
+        { title?: string | null } | Array<{ title?: string | null }> | null;
+      const title = Array.isArray(document)
+        ? document[0]?.title
+        : document?.title;
+      return {
+        document_id: String(row.document_id ?? ""),
+        title: title ?? "Indexed document",
+        purpose: String(row.purpose ?? ""),
+      };
+    }),
     checks: ((checksRes.data ?? []) as JobPlanCheck[]).map((c) => ({
       check_description: c.check_description ?? "",
       acceptance_criterion: c.acceptance_criterion ?? "",
@@ -418,6 +507,16 @@ export function buildUpsertPayload(
         isolation_required: compactText(p.isolation_required),
         verification_note: compactText(p.verification_note),
       })),
+    documents: draft.documents
+      .filter(
+        (document) =>
+          document.document_id.trim().length > 0 &&
+          document.purpose.trim().length > 0,
+      )
+      .map((document) => ({
+        document_id: document.document_id.trim(),
+        purpose: document.purpose.trim(),
+      })),
     checks: draft.checks
       .filter(
         (c) =>
@@ -468,6 +567,14 @@ export async function applyJobPlan(
   });
 }
 
+export async function runPlanningAgent(
+  workOrderId: string,
+): Promise<PlanningAgentResult> {
+  return callRpc<PlanningAgentResult>("run_planning_agent", {
+    p_work_order_id: workOrderId,
+  });
+}
+
 export function draftFromDetail(detail: JobPlanDetail): JobPlanDraft {
   return {
     plan_key: detail.plan_key,
@@ -480,6 +587,7 @@ export function draftFromDetail(detail: JobPlanDetail): JobPlanDraft {
     materials: detail.materials,
     tools: detail.tools,
     permits: detail.permits,
+    documents: detail.documents ?? [],
     checks: detail.checks.length > 0 ? detail.checks : [emptyCheck()],
   };
 }
@@ -496,6 +604,7 @@ export function emptyDraft(): JobPlanDraft {
     materials: [],
     tools: [],
     permits: [],
+    documents: [],
     checks: [emptyCheck()],
   };
 }
@@ -516,6 +625,10 @@ export function emptyCheck(): JobPlanCheck {
     acceptance_criterion: "",
     is_hold_point: false,
   };
+}
+
+export function emptyDocument(): JobPlanDocumentLine {
+  return { document_id: "", title: "", purpose: "" };
 }
 
 export function emptyTool(): JobPlanTool {

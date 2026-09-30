@@ -10,6 +10,7 @@ import {
   buildUpsertPayload,
   canAuthorJobPlans,
   emptyDraft,
+  runPlanningAgent,
   unresolvedMaterialRefusalMessage,
   upsertJobPlan,
 } from "./jobPlanService";
@@ -98,6 +99,26 @@ describe("buildUpsertPayload", () => {
     expect(plan.materials).toEqual([{ material_code: "SEAL-25", qty: 1 }]);
     expect(plan.steps).toHaveLength(1);
     expect(plan.checks).toHaveLength(1);
+  });
+
+  it("retains only complete document links in the authoring payload", () => {
+    const draft = emptyDraft();
+    draft.plan_key = "JP-SEAL";
+    draft.title = "Replace pump seal";
+    draft.scope = "Mechanical seal replacement on process-water pumps.";
+    draft.documents = [
+      {
+        document_id: "doc-1",
+        title: "Seal procedure",
+        purpose: "Work instruction",
+      },
+      { document_id: "doc-2", title: "Drawing", purpose: "  " },
+    ];
+
+    const { plan } = buildUpsertPayload(draft, CATALOGUE);
+    expect(plan.documents).toEqual([
+      { document_id: "doc-1", purpose: "Work instruction" },
+    ]);
   });
 });
 
@@ -267,6 +288,37 @@ describe("job plan RPC callers", () => {
       p_work_order_id: "wo1",
       p_plan_key: "JP-SEAL",
     });
+  });
+
+  it("runs the governed Planning agent against one work order", async () => {
+    rpc.mockResolvedValue({
+      data: {
+        run_id: "run-1",
+        agent_id: "agent-1",
+        agent_key: "planning_scheduling",
+        work_order_id: "wo1",
+        job_plan_id: "plan-1",
+        draft_created: true,
+        draft_origin: "agent",
+        reference_plan_id: null,
+        gaps: [],
+        materials: [],
+        human_approval_required: true,
+        required_human_approver_role: "maintenance_manager",
+        may_adopt: false,
+        may_apply: false,
+        may_release_schedule: false,
+        basis: "Canonical context only.",
+      },
+      error: null,
+    });
+
+    const result = await runPlanningAgent("wo1");
+    expect(rpc).toHaveBeenCalledWith("run_planning_agent", {
+      p_work_order_id: "wo1",
+    });
+    expect(result.draft_created).toBe(true);
+    expect(result.may_adopt).toBe(false);
   });
 
   it("surfaces an in-band database refusal as an error", async () => {

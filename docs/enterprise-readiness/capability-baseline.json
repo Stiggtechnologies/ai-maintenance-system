@@ -18,16 +18,16 @@
     "backticked": 0
   },
   "C1.04": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 6,
+    "backticked": 6
   },
   "C1.05": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 0,
-    "backticked": 0
+    "citations": 4,
+    "backticked": 4
   },
   "C1.06": {
     "status": "🟡",
@@ -390,16 +390,16 @@
     "backticked": 0
   },
   "C5.02": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 7,
+    "backticked": 7
   },
   "C5.03": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 3,
+    "backticked": 3
   },
   "C5.04": {
     "status": "✅",
@@ -924,10 +924,10 @@
     "backticked": 0
   },
   "C9.02": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 3,
-    "backticked": 3
+    "citations": 6,
+    "backticked": 6
   },
   "C9.03": {
     "status": "🟡",
