@@ -115,9 +115,7 @@ describe("D9.14 — no fabricated VR percentage", () => {
     const body = functionBody("approve_case_baseline");
     expect(body).toContain("BENEFITS");
     expect(body).toContain("app.baseline_write");
-    expect(body).toContain(
-      "the AI-operator identity cannot record one",
-    );
+    expect(body).toContain("the AI-operator identity cannot record one");
     expect(body).toContain(
       "'admin','executive','maintenance_manager','reliability_engineer'",
     );
@@ -194,10 +192,11 @@ describe("register flips only the rows this cluster closed", () => {
     expect(row("D9.05")).toContain("`screen_project_ca_exposure`");
     expect(row("D9.06")).toMatch(/^\| D9\.06 \|[^|]*\|[^|]*\| ✅/);
     expect(row("D9.06")).toContain("`20261231100000`");
-    // D9.07/D9.15 were subsequently closed by governed value leakage, and
-    // D9.09 by methodology outcome learning. This older residual test must
-    // not pin later delivered work red.
-    expect(row("D3.02")).toMatch(/^\| D3\.02 \|[^|]*\|[^|]*\| 🟡/);
+    // D9.07/D9.15 were subsequently closed by governed value leakage, D9.09
+    // by methodology outcome learning, and D3.02 by customer-reachable root
+    // provisioning seeding. This older residual test must not pin later
+    // delivered work red.
+    expect(row("D3.02")).toMatch(/^\| D3\.02 \|[^|]*\|[^|]*\| ✅/);
     expect(row("D11.27")).toMatch(/^\| D11\.27 \|[^|]*\|[^|]*\| 🟡/);
     // D1.03 was subsequently closed by the reachable Hybrid Development
     // workstream slice; this older cluster must not pin a shipped row red.

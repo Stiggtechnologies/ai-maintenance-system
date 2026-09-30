@@ -176,7 +176,9 @@ describe("status-lag flips are backed by live callers the gate can walk", () => 
     // slice. Preserve the completed state here so this older residual sweep
     // cannot silently reinstate the missing six-term/forecast-split gap.
     expect(row("D4.07")).toMatch(/^\| D4\.07 \|[^|]*\|[^|]*\| ✅/);
-    expect(row("D3.02")).toMatch(/^\| D3\.02 \|[^|]*\|[^|]*\| 🟡/);
+    // D3.02 was subsequently closed by root-level provisioning seeding on
+    // every customer-reachable organization creation path.
+    expect(row("D3.02")).toMatch(/^\| D3\.02 \|[^|]*\|[^|]*\| ✅/);
     expect(row("D7.06")).toMatch(/^\| D7\.06 \|[^|]*\|[^|]*\| ✅/);
     // D8.06 was subsequently closed by the dedicated commissioning-family
     // slice; retain the status assertion here so this older residual sweep
