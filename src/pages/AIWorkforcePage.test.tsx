@@ -13,6 +13,7 @@
  * that reads as "this organisation has no agents".
  */
 import { fireEvent, render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { AgentRow } from "../types/operating";
 import { AIWorkforce } from "./AIWorkforcePage";
@@ -26,7 +27,9 @@ vi.mock("../services/operatingLoopService", async () => {
   return { ...actual, getAgents: () => getAgents() };
 });
 
-function agent(over: Partial<AgentRow> & Pick<AgentRow, "id" | "name">): AgentRow {
+function agent(
+  over: Partial<AgentRow> & Pick<AgentRow, "id" | "name">,
+): AgentRow {
   return {
     organization_id: "org-1",
     key: null,
@@ -59,7 +62,11 @@ const AGENTS: AgentRow[] = [
 
 function renderPage() {
   getAgents.mockResolvedValue(AGENTS);
-  return render(<AIWorkforce />);
+  return render(
+    <MemoryRouter>
+      <AIWorkforce />
+    </MemoryRouter>,
+  );
 }
 
 const searchBox = () =>
@@ -69,7 +76,9 @@ describe("AIWorkforce search", () => {
   it("lists every agent before a query is typed", async () => {
     renderPage();
     expect(await screen.findByText("Inventory Agent")).toBeInTheDocument();
-    expect(screen.getByText("Reliability Engineering Agent")).toBeInTheDocument();
+    expect(
+      screen.getByText("Reliability Engineering Agent"),
+    ).toBeInTheDocument();
     expect(screen.getByText("Condition Monitoring Agent")).toBeInTheDocument();
   });
 
@@ -91,7 +100,9 @@ describe("AIWorkforce search", () => {
     // purpose renders as `Specialized <category> agent`.
     fireEvent.change(searchBox(), { target: { value: "reliability" } });
 
-    expect(screen.getByText("Reliability Engineering Agent")).toBeInTheDocument();
+    expect(
+      screen.getByText("Reliability Engineering Agent"),
+    ).toBeInTheDocument();
     expect(screen.queryByText("Inventory Agent")).toBeNull();
   });
 
@@ -135,5 +146,46 @@ describe("AIWorkforce search", () => {
     // the board.
     expect(screen.getByText("Condition Monitoring Agent")).toBeInTheDocument();
     expect(screen.getByText("Inventory Agent")).toBeInTheDocument();
+  });
+
+  it("shows an agent's database-backed operating charter and routes", async () => {
+    getAgents.mockResolvedValue([
+      agent({
+        id: "planner",
+        name: "Planning & Scheduling Agent",
+        key: "planning_scheduling",
+        operating_charter: {
+          purpose: "Turn approved technical intent into executable drafts.",
+          outputs: ["non-authoritative job-plan draft", "readiness gaps"],
+          guardrails: ["Never adopt or apply a job plan"],
+          routes: ["/job-plans", "/scheduling"],
+        },
+      }),
+    ]);
+    render(
+      <MemoryRouter>
+        <AIWorkforce />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByText(
+        "Turn approved technical intent into executable drafts.",
+      ),
+    ).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: "Show Planning & Scheduling Agent charter and controls",
+      }),
+    );
+    expect(
+      await screen.findByText(/Never adopt or apply a job plan/),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("link", { name: "Open planning" }),
+    ).toHaveAttribute("href", "/job-plans");
+    expect(
+      screen.getByRole("link", { name: "Open scheduling" }),
+    ).toHaveAttribute("href", "/scheduling");
   });
 });
