@@ -273,6 +273,9 @@ jobs:
       - name: Smoke — organization governance workspace (root seeding, scoped tree, human acts)
         run: bash scripts/ci-organization-governance-workspace-smoke.sh
 
+      - name: Smoke — cross-node governance execution (ancestor definition, descendant acts)
+        run: bash scripts/ci-cross-node-governance-smoke.sh
+
       - name: Smoke — Sync Develop slice 4A (scope chain, P6 boundary, cost lines, controls baseline, lineage)
         run: bash scripts/ci-develop-slice4a-smoke.sh
 
