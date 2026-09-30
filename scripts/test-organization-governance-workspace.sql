@@ -14,7 +14,6 @@ create table public.organizations (
   id uuid primary key default gen_random_uuid(),
   name text not null,
   industry text,
-  timezone text,
   org_level text not null default 'enterprise',
   parent_id uuid references public.organizations(id),
   jurisdiction text

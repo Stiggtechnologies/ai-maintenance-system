@@ -47,7 +47,6 @@ export interface OrganizationGovernanceWorkspace {
     id: string;
     name: string;
     industry: string | null;
-    timezone: string | null;
     orgLevel: OrganizationLevel;
     jurisdiction: string | null;
   };

@@ -42,7 +42,8 @@ W=$(rpc "$EXEC" get_organization_governance_workspace '{}')
 BODY="$W" ROOT="$ROOT" python3 - <<'PY'
 import json,os
 w=json.loads(os.environ['BODY'])
-assert not w.get('error'), w
+assert not w.get('error') and not w.get('message'), w
+assert 'root' in w, w
 assert w['root']['id']=='11111111-1111-1111-1111-111111111111', w['root']
 assert w['canManage'] is True and w['actorRole']=='executive', w
 ids={n['id'] for n in w['nodes']}
@@ -52,7 +53,8 @@ W=$(rpc "$PLANNER" get_organization_governance_workspace '{}')
 BODY="$W" python3 - <<'PY'
 import json,os
 w=json.loads(os.environ['BODY'])
-assert not w.get('error'), w
+assert not w.get('error') and not w.get('message'), w
+assert 'root' in w, w
 assert w['canManage'] is False and w['actorRole']=='planner', w
 PY
 echo '   executive and planner can read only their subtree; authority is explicit'

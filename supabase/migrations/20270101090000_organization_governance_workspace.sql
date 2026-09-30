@@ -83,7 +83,6 @@ begin
     'id', o.id,
     'name', o.name,
     'industry', o.industry,
-    'timezone', o.timezone,
     'orgLevel', o.org_level,
     'jurisdiction', o.jurisdiction
   ) into v_root
