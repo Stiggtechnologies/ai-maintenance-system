@@ -91,10 +91,14 @@ describe("governed Maintenance Executive Specialist execution", () => {
     );
     expect(smoke).toContain("role_scoped_read=true");
     expect(smoke).toContain("risk_sensitivity_preserved=true");
+    expect(smoke).toContain("kpi_audience_preserved=true");
     expect(migration).toContain("public.can_read_risk(id)");
     expect(migration).toContain("information_sensitivity='restricted'");
     expect(migration).toContain("agent_runs_information_sensitivity_check");
+    expect(migration).toContain("agent_runs_audience_role_check");
     expect(migration).toContain("audit_events_information_sensitivity_check");
+    expect(migration).toContain("audit_events_audience_role_check");
+    expect(migration).toContain("v_role=any(c.audience)");
     expect(migration).toContain("sync_maintenance_executive_source_snapshot");
     expect(migration).toContain("extensions.digest");
     expect(migration).toContain("value is separated by recorded unit");
@@ -147,6 +151,7 @@ describe("governed Maintenance Executive Specialist execution", () => {
     expect(panel).toContain("Record independent disposition");
     expect(panel).toContain("reviewer.id !== brief?.createdBy");
     expect(panel).toContain('brief?.informationSensitivity !== "restricted"');
+    expect(panel).toContain('brief?.audienceRole === "maintenance_manager"');
     expect(host).toContain("<MaintenanceExecutiveAgentWorkbench />");
   });
 

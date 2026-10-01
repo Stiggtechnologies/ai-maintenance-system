@@ -91,11 +91,20 @@ export function MaintenanceExecutiveAgentWorkbench() {
       (data?.reviewers ?? []).filter(
         (reviewer) =>
           reviewer.id !== brief?.createdBy &&
+          (reviewer.role === "admin" ||
+            reviewer.role === brief?.audienceRole ||
+            (brief?.audienceRole === "maintenance_manager" &&
+              reviewer.role === "executive")) &&
           (brief?.informationSensitivity !== "restricted" ||
             reviewer.role === "executive" ||
             reviewer.role === "admin"),
       ),
-    [brief?.createdBy, brief?.informationSensitivity, data?.reviewers],
+    [
+      brief?.audienceRole,
+      brief?.createdBy,
+      brief?.informationSensitivity,
+      data?.reviewers,
+    ],
   );
 
   useEffect(() => {
@@ -255,7 +264,8 @@ export function MaintenanceExecutiveAgentWorkbench() {
                 </span>
                 <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/4 px-2.5 py-1">
                   <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
-                  {title(brief.informationSensitivity)} handling
+                  {title(brief.informationSensitivity)} handling ·{" "}
+                  {title(brief.audienceRole)} audience
                 </span>
               </div>
 

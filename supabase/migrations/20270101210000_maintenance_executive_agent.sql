@@ -115,16 +115,28 @@ alter table public.agent_runs
 alter table public.agent_runs
   add column if not exists information_sensitivity text not null default 'internal';
 alter table public.agent_runs
+  add column if not exists audience_role text not null default 'all';
+alter table public.agent_runs
   drop constraint if exists agent_runs_information_sensitivity_check;
 alter table public.agent_runs
   add constraint agent_runs_information_sensitivity_check check (
     information_sensitivity in ('public','internal','confidential','restricted')
+  );
+alter table public.agent_runs
+  drop constraint if exists agent_runs_audience_role_check;
+alter table public.agent_runs
+  add constraint agent_runs_audience_role_check check (
+    audience_role in ('all','maintenance_manager','executive','admin')
   );
 drop policy if exists agent_runs_org_rw on public.agent_runs;
 drop policy if exists agent_runs_org_read on public.agent_runs;
 create policy agent_runs_org_read on public.agent_runs
   for select to authenticated using (
     organization_id=public.app_current_org() and (
+      audience_role='all' or coalesce(public.app_current_role(),'')='admin'
+      or audience_role=coalesce(public.app_current_role(),'')
+      or (audience_role='maintenance_manager' and coalesce(public.app_current_role(),'')='executive')
+    ) and (
       information_sensitivity in ('public','internal')
       or (information_sensitivity='confidential' and coalesce(public.app_current_role(),'')
         in ('admin','ai_admin','executive','maintenance_manager','reliability_engineer'))
@@ -142,6 +154,9 @@ create table if not exists public.maintenance_executive_briefs (
   agent_run_id uuid not null unique references public.agent_runs(id) on delete restrict,
   period_start date not null,
   period_end date not null,
+  audience_role text not null check (
+    audience_role in ('maintenance_manager','executive','admin')
+  ),
   information_sensitivity text not null default 'internal' check (
     information_sensitivity in ('public','internal','confidential','restricted')
   ),
@@ -197,6 +212,12 @@ create policy maintenance_executive_briefs_read on public.maintenance_executive_
     organization_id=public.app_current_org()
     and coalesce(public.app_current_role(),'') in ('executive','maintenance_manager','admin')
     and (
+      coalesce(public.app_current_role(),'')='admin'
+      or audience_role=coalesce(public.app_current_role(),'')
+      or (audience_role='maintenance_manager'
+        and coalesce(public.app_current_role(),'')='executive')
+    )
+    and (
       information_sensitivity in ('public','internal')
       or (information_sensitivity='confidential'
         and coalesce(public.app_current_role(),'') in ('executive','maintenance_manager','admin'))
@@ -211,7 +232,14 @@ create policy maintenance_executive_reviews_read on public.maintenance_executive
     and coalesce(public.app_current_role(),'') in ('executive','maintenance_manager','admin')
     and exists (
       select 1 from public.maintenance_executive_briefs b
-      where b.id=brief_id and b.organization_id=public.app_current_org()
+      where b.id=maintenance_executive_review_assignments.brief_id
+        and b.organization_id=public.app_current_org()
+        and (
+          coalesce(public.app_current_role(),'')='admin'
+          or b.audience_role=coalesce(public.app_current_role(),'')
+          or (b.audience_role='maintenance_manager'
+            and coalesce(public.app_current_role(),'')='executive')
+        )
         and (
           b.information_sensitivity in ('public','internal')
           or (b.information_sensitivity='confidential'
@@ -228,7 +256,14 @@ create policy maintenance_executive_dispositions_read on public.maintenance_exec
     and coalesce(public.app_current_role(),'') in ('executive','maintenance_manager','admin')
     and exists (
       select 1 from public.maintenance_executive_briefs b
-      where b.id=brief_id and b.organization_id=public.app_current_org()
+      where b.id=maintenance_executive_dispositions.brief_id
+        and b.organization_id=public.app_current_org()
+        and (
+          coalesce(public.app_current_role(),'')='admin'
+          or b.audience_role=coalesce(public.app_current_role(),'')
+          or (b.audience_role='maintenance_manager'
+            and coalesce(public.app_current_role(),'')='executive')
+        )
         and (
           b.information_sensitivity in ('public','internal')
           or (b.information_sensitivity='confidential'
@@ -251,15 +286,27 @@ grant select on public.maintenance_executive_briefs,
 alter table public.audit_events
   add column if not exists information_sensitivity text not null default 'internal';
 alter table public.audit_events
+  add column if not exists audience_role text not null default 'all';
+alter table public.audit_events
   drop constraint if exists audit_events_information_sensitivity_check;
 alter table public.audit_events
   add constraint audit_events_information_sensitivity_check check (
     information_sensitivity in ('public','internal','confidential','restricted')
   );
+alter table public.audit_events
+  drop constraint if exists audit_events_audience_role_check;
+alter table public.audit_events
+  add constraint audit_events_audience_role_check check (
+    audience_role in ('all','maintenance_manager','executive','admin')
+  );
 drop policy if exists audit_events_org_read on public.audit_events;
 create policy audit_events_org_read on public.audit_events
   for select to authenticated using (
     organization_id=public.app_current_org() and (
+      audience_role='all' or coalesce(public.app_current_role(),'')='admin'
+      or audience_role=coalesce(public.app_current_role(),'')
+      or (audience_role='maintenance_manager' and coalesce(public.app_current_role(),'')='executive')
+    ) and (
       information_sensitivity in ('public','internal')
       or (information_sensitivity='confidential' and coalesce(public.app_current_role(),'')
         in ('admin','ai_admin','executive','maintenance_manager','reliability_engineer'))
@@ -394,8 +441,11 @@ returns jsonb language sql stable security definer set search_path=public as $$
       encode(extensions.digest(coalesce(string_agg(jsonb_build_object(
         'id',v.id,'key',v.kpi_key,'value',v.value,'status',v.status,
         'confidence',v.confidence,'computedAt',v.computed_at)::text,'|' order by v.id),'empty'),'sha256'),'hex'))
-      from public.kpi_values v where v.organization_id=p_org
-        and v.computed_at::date between p_period_start and p_period_end),
+      from public.kpi_values v join public.kpi_catalog c on c.kpi_key=v.kpi_key
+      where v.organization_id=p_org
+        and v.computed_at::date between p_period_start and p_period_end
+        and (c.audience is null or coalesce(public.app_current_role(),'')=any(c.audience)
+          or coalesce(public.app_current_role(),'')='admin')),
     'budgets',(select jsonb_build_object('count',count(*),'sha256',
       encode(extensions.digest(coalesce(string_agg(jsonb_build_object(
         'id',id,'year',budget_year,'category',category,'site',site_id,
@@ -501,11 +551,13 @@ begin
     select distinct on(v.kpi_key) v.*,c.computable
     from public.kpi_values v join public.kpi_catalog c on c.kpi_key=v.kpi_key
     where v.organization_id=v_org and v.computed_at::date between p_period_start and p_period_end
+      and (c.audience is null or v_role=any(c.audience) or v_role='admin')
     order by v.kpi_key,v.computed_at desc,v.id desc
   ) select count(*),count(*) filter(where status='breach')
     into v_kpi_total,v_kpi_breaches from latest;
   select count(*) into v_kpi_waiting from public.kpi_catalog c
-    where c.computable=false and (c.audience is null or v_role=any(c.audience));
+    where c.computable=false
+      and (c.audience is null or v_role=any(c.audience) or v_role='admin');
   select count(*),
     count(*) filter(where forecast is not null and nullif(btrim(forecast_basis),'') is null),
     count(*) filter(where actual>budgeted or (forecast is not null and forecast>budgeted))
@@ -660,12 +712,12 @@ begin
 
   perform set_config('app.maintenance_executive_agent_run_write','granted',true);
   insert into public.agent_runs(organization_id,agent_id,status,summary,confidence,
-    started_at,completed_at,requested_by,organization_scope_id,information_sensitivity,
+    started_at,completed_at,requested_by,organization_scope_id,information_sensitivity,audience_role,
     agent_control_profile_id,agent_tool_key,agent_decision_right_key,
     input_snapshot,result,retained_for_governance)
   values(v_org,v_agent.id,'completed',
     'Assembled a canonical maintenance-executive decision brief without approving, funding or executing action.',
-    null,now(),now(),auth.uid(),v_org,v_risk_sensitivity,
+    null,now(),now(),auth.uid(),v_org,v_risk_sensitivity,v_role,
     (v_control->>'profile_id')::uuid,'assemble_maintenance_executive_brief',
     'generate_meeting_packs',v_snapshot,jsonb_build_object(
       'facts',v_facts,'priorities',v_priorities,'advisory',true,
@@ -674,12 +726,13 @@ begin
       'mayReturnToService',false),true) returning id into v_run;
   perform set_config('app.maintenance_executive_record_write','granted',true);
   insert into public.maintenance_executive_briefs(organization_id,agent_run_id,
-    period_start,period_end,information_sensitivity,source_snapshot,facts,priorities,
+    period_start,period_end,audience_role,information_sensitivity,source_snapshot,facts,priorities,
     limitations,created_by)
-  values(v_org,v_run,p_period_start,p_period_end,v_risk_sensitivity,v_snapshot,v_facts,v_priorities,
+  values(v_org,v_run,p_period_start,p_period_end,v_role,v_risk_sensitivity,v_snapshot,v_facts,v_priorities,
     jsonb_build_array(
       'The brief describes only records present at the captured source fingerprints; missing external records remain absent.',
       'KPI results and statuses are reused from the canonical KPI service; this specialist does not recompute them.',
+      'KPI populations preserve the requester role audience and are not redistributed to a lower audience by the retained brief.',
       'Budget rows do not carry a currency field, so budget totals are reported without inventing a currency.',
       'Value is separated by recorded unit and projected value is never promoted to verified value.',
       'Risk inputs preserve canonical information-sensitivity rules; restricted populations are included only in executive or administrator briefs.',
@@ -692,11 +745,11 @@ begin
     current_task='Maintenance executive brief through '||p_period_end,
     last_action='Generated an immutable governed maintenance-executive brief'
   where id=v_agent.id;
-  insert into public.audit_events(organization_id,entity_type,actor,event_data,information_sensitivity)
+  insert into public.audit_events(organization_id,entity_type,actor,event_data,information_sensitivity,audience_role)
   values(v_org,'maintenance_executive_brief',v_role,jsonb_build_object(
     'action','generated','brief_id',v_brief,'agent_run_id',v_run,
     'requested_by',auth.uid(),'period_start',p_period_start,'period_end',p_period_end,
-    'priority_count',jsonb_array_length(v_priorities),'advisory',true),v_risk_sensitivity);
+    'priority_count',jsonb_array_length(v_priorities),'advisory',true),v_risk_sensitivity,v_role);
   return jsonb_build_object('briefId',v_brief,'runId',v_run,
     'facts',v_facts,'priorities',v_priorities,'advisory',true,
     'mayApprove',false,'mayAcceptRisk',false,'mayCommitSpend',false,
@@ -719,6 +772,12 @@ begin
   select * into b from public.maintenance_executive_briefs
   where id=p_brief_id and organization_id=v_org;
   if not found then return jsonb_build_object('error','brief not found'); end if;
+  if coalesce(public.app_current_role(),'')<>'admin'
+    and b.audience_role<>coalesce(public.app_current_role(),'')
+    and not (b.audience_role='maintenance_manager'
+      and coalesce(public.app_current_role(),'')='executive') then
+    return jsonb_build_object('error','brief not found');
+  end if;
   if b.information_sensitivity='restricted' and coalesce(public.app_current_role(),'')
     not in ('executive','admin') then
     return jsonb_build_object('error','brief not found');
@@ -736,6 +795,15 @@ begin
   ) then
     return jsonb_build_object('error','restricted briefs require an executive or administrator reviewer');
   end if;
+  if not exists(
+    select 1 from public.user_profiles u where u.id=p_assigned_to
+      and u.organization_id=v_org and (
+        u.role='admin' or u.role=b.audience_role
+        or (b.audience_role='maintenance_manager' and u.role='executive')
+      )
+  ) then
+    return jsonb_build_object('error','reviewer is outside the retained brief audience');
+  end if;
   if p_due_date<current_date or coalesce(length(btrim(p_note)),0)<10 then
     return jsonb_build_object('error','a current due date and review basis of at least 10 characters are required');
   end if;
@@ -744,11 +812,11 @@ begin
     brief_id,assigned_to,assigned_by,due_date,assignment_note)
   values(v_org,b.id,p_assigned_to,auth.uid(),p_due_date,btrim(p_note)) returning id into v_id;
   perform set_config('app.maintenance_executive_record_write','',true);
-  insert into public.audit_events(organization_id,entity_type,actor,event_data,information_sensitivity)
+  insert into public.audit_events(organization_id,entity_type,actor,event_data,information_sensitivity,audience_role)
   values(v_org,'maintenance_executive_review',public.app_current_role(),jsonb_build_object(
     'action','assigned','assignment_id',v_id,'brief_id',b.id,
     'assigned_to',p_assigned_to,'assigned_by',auth.uid(),'due_date',p_due_date),
-    b.information_sensitivity);
+    b.information_sensitivity,b.audience_role);
   return jsonb_build_object('assignmentId',v_id,'status','assigned');
 exception when unique_violation then
   perform set_config('app.maintenance_executive_record_write','',true);
@@ -771,6 +839,12 @@ begin
   select * into b from public.maintenance_executive_briefs
   where id=p_brief_id and organization_id=v_org;
   if not found then return jsonb_build_object('error','brief not found'); end if;
+  if coalesce(public.app_current_role(),'')<>'admin'
+    and b.audience_role<>coalesce(public.app_current_role(),'')
+    and not (b.audience_role='maintenance_manager'
+      and coalesce(public.app_current_role(),'')='executive') then
+    return jsonb_build_object('error','brief not found');
+  end if;
   if b.information_sensitivity='restricted' and coalesce(public.app_current_role(),'')
     not in ('executive','admin') then
     return jsonb_build_object('error','brief not found');
@@ -799,13 +873,13 @@ begin
   values(v_org,b.id,p_priority_key,p_disposition,btrim(p_note),
     nullif(btrim(p_action_reference),''),auth.uid()) returning id into v_id;
   perform set_config('app.maintenance_executive_record_write','',true);
-  insert into public.audit_events(organization_id,entity_type,actor,event_data,information_sensitivity)
+  insert into public.audit_events(organization_id,entity_type,actor,event_data,information_sensitivity,audience_role)
   values(v_org,'maintenance_executive_disposition',public.app_current_role(),jsonb_build_object(
     'action','reviewed','disposition_id',v_id,'brief_id',b.id,
     'priority_key',p_priority_key,'disposition',p_disposition,
     'reviewed_by',auth.uid(),'action_reference',nullif(btrim(p_action_reference),''),
     'authority','This receipt does not approve, accept risk, commit spend, release work, change strategy or change a KPI target.'),
-    b.information_sensitivity);
+    b.information_sensitivity,b.audience_role);
   return jsonb_build_object('dispositionId',v_id,'status',p_disposition,
     'approvalGranted',false,'riskAccepted',false,'spendCommitted',false,
     'workReleased',false,'strategyChanged',false,'operationalAuthorization',false);
@@ -830,7 +904,8 @@ begin
   return jsonb_build_object(
     'briefs',coalesce((select jsonb_agg(jsonb_build_object(
       'id',b.id,'agentRunId',b.agent_run_id,'periodStart',b.period_start,
-      'periodEnd',b.period_end,'informationSensitivity',b.information_sensitivity,
+      'periodEnd',b.period_end,'audienceRole',b.audience_role,
+      'informationSensitivity',b.information_sensitivity,
       'sourceSnapshot',b.source_snapshot,'facts',b.facts,
       'priorities',b.priorities,'limitations',b.limitations,
       'createdBy',b.created_by,'createdAt',b.created_at,
@@ -848,6 +923,11 @@ begin
         from public.maintenance_executive_dispositions d where d.brief_id=b.id),'[]'::jsonb))
       order by b.created_at desc) from public.maintenance_executive_briefs b
       where b.organization_id=v_org and (
+        coalesce(public.app_current_role(),'')='admin'
+        or b.audience_role=coalesce(public.app_current_role(),'')
+        or (b.audience_role='maintenance_manager'
+          and coalesce(public.app_current_role(),'')='executive')
+      ) and (
         b.information_sensitivity in ('public','internal')
         or (b.information_sensitivity='confidential' and coalesce(public.app_current_role(),'')
           in ('executive','maintenance_manager','admin'))

@@ -41,6 +41,7 @@ export interface MaintenanceExecutiveBrief {
   agentRunId: string;
   periodStart: string;
   periodEnd: string;
+  audienceRole: "maintenance_manager" | "executive" | "admin";
   informationSensitivity: "public" | "internal" | "confidential" | "restricted";
   sourceSnapshot: Record<string, unknown>;
   facts: Record<string, Record<string, unknown>>;

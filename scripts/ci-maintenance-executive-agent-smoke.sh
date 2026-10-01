@@ -47,12 +47,16 @@ test "$(psqlc "select count(*) from public.agent_decision_right_bindings b join 
 # Seed a deterministic unsupported forecast and critical overdue risk. These are
 # canonical source records, not agent conclusions.
 psqlc "insert into public.budget_lines(organization_id,site_id,budget_year,category,budgeted,committed,actual,forecast,forecast_basis) values('$ORG','$SITE',$YEAR,'other',100000,40000,25000,120000,null) on conflict do nothing" >/dev/null
+psqlc "insert into public.kpi_catalog(kpi_key,name,page,formula,target_label,direction,unit,accountable,responsible,audience,computable) values('c101_executive_only','C1.01 executive-only proof','executive','CI evidence','Recorded','up','count','Executive','Executive',array['executive'],true) on conflict(kpi_key) do update set audience=excluded.audience" >/dev/null
+psqlc "insert into public.kpi_values(organization_id,kpi_key,value,status,confidence,computed_at) values('$ORG','c101_executive_only',1,'breach','high',now())" >/dev/null
 psqlc "insert into public.risks(organization_id,site_id,title,current_risk_level,current_risk_score,risk_owner_id,review_date,status,source_kind,created_by) values('$ORG','$SITE','C1.01 CI executive risk','Critical',90,null,current_date-1,'discovered','human','$MANAGER_ID')" >/dev/null
 psqlc "insert into public.risks(organization_id,site_id,title,current_risk_level,current_risk_score,risk_owner_id,review_date,status,source_kind,created_by) values('$ORG','$SITE','C1.01 CI draft risk','Critical',95,null,current_date-2,'draft','human','$MANAGER_ID')" >/dev/null
 psqlc "insert into public.risks(organization_id,site_id,title,current_risk_level,current_risk_score,risk_owner_id,review_date,status,source_kind,created_by,information_sensitivity) values('$ORG','$SITE','C1.01 CI restricted executive risk','Critical',98,null,current_date-1,'discovered','human','$EXEC_ID','restricted')" >/dev/null
 EXPECTED_ACTIVE_RISKS=$(psqlc "select count(*) from public.risks where organization_id='$ORG' and status not in ('draft','closed','archived') and information_sensitivity<>'restricted'")
 EXPECTED_DRAFT_RISKS=$(psqlc "select count(*) from public.risks where organization_id='$ORG' and status='draft'")
 EXPECTED_CRITICAL_RISKS=$(psqlc "select count(*) from public.risks where organization_id='$ORG' and status not in ('draft','closed','archived') and current_risk_level='Critical' and information_sensitivity<>'restricted'")
+EXPECTED_MANAGER_KPIS=$(psqlc "select count(distinct v.kpi_key) from public.kpi_values v join public.kpi_catalog c on c.kpi_key=v.kpi_key where v.organization_id='$ORG' and v.computed_at::date between '$START' and '$END' and (c.audience is null or 'maintenance_manager'=any(c.audience))")
+EXPECTED_EXECUTIVE_KPIS=$(psqlc "select count(distinct v.kpi_key) from public.kpi_values v join public.kpi_catalog c on c.kpi_key=v.kpi_key where v.organization_id='$ORG' and v.computed_at::date between '$START' and '$END' and (c.audience is null or 'executive'=any(c.audience))")
 
 # A technician cannot run the executive specialist.
 DENIED=$(rpc "$TECH" run_maintenance_executive_agent \
@@ -71,7 +75,7 @@ BEFORE_RECS=$(psqlc "select count(*) from public.recommendations where organizat
 BEFORE_AGENT_RECS=$(psqlc "select recommendations_generated from public.ai_agents where organization_id='$ORG' and key='maintenance_executive'")
 RUN=$(rpc "$MANAGER" run_maintenance_executive_agent \
   "{\"p_period_start\":\"$START\",\"p_period_end\":\"$END\"}")
-RUN_IDS=$(RUN="$RUN" EXPECTED_ACTIVE_RISKS="$EXPECTED_ACTIVE_RISKS" EXPECTED_DRAFT_RISKS="$EXPECTED_DRAFT_RISKS" EXPECTED_CRITICAL_RISKS="$EXPECTED_CRITICAL_RISKS" python3 - <<'PY'
+RUN_IDS=$(RUN="$RUN" EXPECTED_ACTIVE_RISKS="$EXPECTED_ACTIVE_RISKS" EXPECTED_DRAFT_RISKS="$EXPECTED_DRAFT_RISKS" EXPECTED_CRITICAL_RISKS="$EXPECTED_CRITICAL_RISKS" EXPECTED_MANAGER_KPIS="$EXPECTED_MANAGER_KPIS" python3 - <<'PY'
 import json,os
 d=json.loads(os.environ['RUN'])
 assert d['advisory'] is True,d
@@ -81,6 +85,7 @@ for key in ('mayApprove','mayAcceptRisk','mayCommitSpend','mayReleaseWork',
 assert d['facts']['risk']['active'] == int(os.environ['EXPECTED_ACTIVE_RISKS']),d
 assert d['facts']['risk']['draftsAwaitingQualification'] == int(os.environ['EXPECTED_DRAFT_RISKS']),d
 assert d['facts']['risk']['critical'] == int(os.environ['EXPECTED_CRITICAL_RISKS']),d
+assert d['facts']['enterprisePerformance']['latestKpis'] == int(os.environ['EXPECTED_MANAGER_KPIS']),d
 assert d['facts']['budget']['forecastsWithoutBasis'] >= 1,d
 assert d['facts']['budget']['linesOverBudgetOrForecast'] >= 1,d
 assert d['facts']['budget']['aggregateAmount'].startswith('not calculated'),d
@@ -94,8 +99,8 @@ PY
 )
 BRIEF=${RUN_IDS%%|*}
 RUN_ID=${RUN_IDS##*|}
-test "$(psqlc "select count(*) from public.agent_runs where id='$RUN_ID' and organization_id='$ORG' and organization_scope_id='$ORG' and retained_for_governance and confidence is null")" = '1'
-test "$(psqlc "select count(*) from public.maintenance_executive_briefs where id='$BRIEF' and information_sensitivity<>'restricted' and source_snapshot ? 'kpis' and source_snapshot->'budgets' ? 'sha256' and source_snapshot->'risks' ? 'sha256' and source_snapshot->'maintenancePlans' ? 'sha256' and source_snapshot->'valueMetrics' ? 'sha256' and source_snapshot->'authorityLimits' ? 'sha256'")" = '1'
+test "$(psqlc "select count(*) from public.agent_runs where id='$RUN_ID' and organization_id='$ORG' and organization_scope_id='$ORG' and audience_role='maintenance_manager' and retained_for_governance and confidence is null")" = '1'
+test "$(psqlc "select count(*) from public.maintenance_executive_briefs where id='$BRIEF' and audience_role='maintenance_manager' and information_sensitivity<>'restricted' and source_snapshot ? 'kpis' and source_snapshot->'budgets' ? 'sha256' and source_snapshot->'risks' ? 'sha256' and source_snapshot->'maintenancePlans' ? 'sha256' and source_snapshot->'valueMetrics' ? 'sha256' and source_snapshot->'authorityLimits' ? 'sha256'")" = '1'
 TECH_READ=$(curl -sS "$API_URL/rest/v1/maintenance_executive_briefs?id=eq.$BRIEF&select=id" \
   -H "apikey: $ANON_KEY" -H "authorization: Bearer $TECH")
 TECH_READ="$TECH_READ" python3 -c "import json,os; assert json.loads(os.environ['TECH_READ']) == []"
@@ -104,11 +109,11 @@ TECH_READ="$TECH_READ" python3 -c "import json,os; assert json.loads(os.environ[
 # brief; a maintenance manager cannot retrieve that retained artifact.
 EXEC_RUN=$(rpc "$EXEC" run_maintenance_executive_agent \
   "{\"p_period_start\":\"$START\",\"p_period_end\":\"$END\"}")
-EXEC_BRIEF=$(EXEC_RUN="$EXEC_RUN" EXPECTED_ACTIVE_RISKS="$EXPECTED_ACTIVE_RISKS" python3 -c "import json,os; d=json.loads(os.environ['EXEC_RUN']); assert d['facts']['risk']['active'] > int(os.environ['EXPECTED_ACTIVE_RISKS']); print(d['briefId'])")
-test "$(psqlc "select information_sensitivity from public.maintenance_executive_briefs where id='$EXEC_BRIEF'")" = 'restricted'
+EXEC_BRIEF=$(EXEC_RUN="$EXEC_RUN" EXPECTED_ACTIVE_RISKS="$EXPECTED_ACTIVE_RISKS" EXPECTED_EXECUTIVE_KPIS="$EXPECTED_EXECUTIVE_KPIS" python3 -c "import json,os; d=json.loads(os.environ['EXEC_RUN']); assert d['facts']['risk']['active'] > int(os.environ['EXPECTED_ACTIVE_RISKS']); assert d['facts']['enterprisePerformance']['latestKpis'] == int(os.environ['EXPECTED_EXECUTIVE_KPIS']); print(d['briefId'])")
+test "$(psqlc "select audience_role||':'||information_sensitivity from public.maintenance_executive_briefs where id='$EXEC_BRIEF'")" = 'executive:restricted'
 EXEC_RUN_ID=$(EXEC_RUN="$EXEC_RUN" python3 -c "import json,os; print(json.loads(os.environ['EXEC_RUN'])['runId'])")
-test "$(psqlc "select information_sensitivity from public.agent_runs where id='$EXEC_RUN_ID'")" = 'restricted'
-test "$(psqlc "select information_sensitivity from public.audit_events where entity_type='maintenance_executive_brief' and event_data->>'brief_id'='$EXEC_BRIEF'")" = 'restricted'
+test "$(psqlc "select audience_role||':'||information_sensitivity from public.agent_runs where id='$EXEC_RUN_ID'")" = 'executive:restricted'
+test "$(psqlc "select audience_role||':'||information_sensitivity from public.audit_events where entity_type='maintenance_executive_brief' and event_data->>'brief_id'='$EXEC_BRIEF'")" = 'executive:restricted'
 MANAGER_RESTRICTED_READ=$(curl -sS "$API_URL/rest/v1/maintenance_executive_briefs?id=eq.$EXEC_BRIEF&select=id" \
   -H "apikey: $ANON_KEY" -H "authorization: Bearer $MANAGER")
 MANAGER_RESTRICTED_READ="$MANAGER_RESTRICTED_READ" python3 -c "import json,os; assert json.loads(os.environ['MANAGER_RESTRICTED_READ']) == []"
@@ -152,4 +157,4 @@ test "$(psqlc "select count(*) from public.approvals where organization_id='$ORG
 test "$(psqlc "select count(*) from public.recommendations where organization_id='$ORG'")" = "$BEFORE_RECS"
 test "$(psqlc "select recommendations_generated from public.ai_agents where organization_id='$ORG' and key='maintenance_executive'")" = "$BEFORE_AGENT_RECS"
 
-echo 'Maintenance Executive Specialist smoke passed: canonical_kpis=true canonical_budgets=true budget_amounts_not_mixed_without_currency=true canonical_risks=true risk_sensitivity_preserved=true canonical_strategy=true canonical_governance=true verified_value_statuses_and_units_separated=true exact_source_fingerprints=true organization_scope=true role_scoped_read=true immutable_brief=true no_invented_confidence=true no_shadow_recommendations=true sod_review=true no_agent_approval=true no_risk_acceptance=true no_spend_commitment=true no_work_release=true no_strategy_mutation=true no_operational_authority=true'
+echo 'Maintenance Executive Specialist smoke passed: canonical_kpis=true kpi_audience_preserved=true canonical_budgets=true budget_amounts_not_mixed_without_currency=true canonical_risks=true risk_sensitivity_preserved=true canonical_strategy=true canonical_governance=true verified_value_statuses_and_units_separated=true exact_source_fingerprints=true organization_scope=true role_scoped_read=true immutable_brief=true no_invented_confidence=true no_shadow_recommendations=true sod_review=true no_agent_approval=true no_risk_acceptance=true no_spend_commitment=true no_work_release=true no_strategy_mutation=true no_operational_authority=true'
