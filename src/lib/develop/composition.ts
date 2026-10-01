@@ -178,7 +178,7 @@ export const DEVELOP_MODULES: readonly DevelopModuleDefinition[] = [
     label: "Sync Reliability",
     engine: "design",
     purpose: "RAM, RCM, FMEA and life data",
-    target: { kind: "route", path: "/design", carriesCase: true },
+    target: { kind: "route", path: "/design", carriesCase: false },
   },
   {
     key: "recovery",

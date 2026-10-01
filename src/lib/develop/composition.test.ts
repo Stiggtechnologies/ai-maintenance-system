@@ -62,6 +62,8 @@ describe("Sync Develop composition contract", () => {
       hrefs.every((href) => href.startsWith("#") || href.startsWith("/")),
     ).toBe(true);
     expect(hrefs).toContain("/sync-field?case=case%20%2F%2017");
+    expect(hrefs).toContain("/design");
+    expect(hrefs).not.toContain("/design?case=case%20%2F%2017");
     expect(hrefs).toContain("/recovery");
     expect(hrefs).not.toContain("#");
   });
