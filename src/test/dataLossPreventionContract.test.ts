@@ -8,6 +8,9 @@ const guard = readFileSync(
   "supabase/functions/_shared/data-egress-guard.ts",
   "utf8",
 );
+const deploymentBoundary = JSON.parse(
+  readFileSync("config/edge-function-boundary.json", "utf8"),
+) as { activeFunctions: string[]; blockedLegacyFunctions: string[] };
 
 const deployedTenantModelCallers = [
   "agent-loop-enrich",
@@ -85,6 +88,40 @@ describe("E5.07 governed data-loss prevention", () => {
       expect(source).toContain("withDataEgressGuard");
     },
   );
+
+  it("cannot add an active tenant provider caller outside the governed boundary", () => {
+    const providerCallMarkers = [
+      /callWithResilience(?:Stream)?\(/,
+      /resolveExternalGatewayUrl\(/,
+      /synthesizeOpenAiSpeech\(/,
+      /api\.openai\.com/,
+      /api\.x\.ai/,
+      /openai\.azure\.com/,
+      /generativelanguage\.googleapis/,
+    ];
+    const discovered: string[] = [];
+
+    for (const name of deploymentBoundary.activeFunctions) {
+      const source = readFileSync(`supabase/functions/${name}/index.ts`, "utf8");
+      if (!providerCallMarkers.some((marker) => marker.test(source))) continue;
+
+      // This is the anonymous, public-reference rail: it has no tenant corpus
+      // or tenant id. Authenticated requests are handed to ai-agent-processor,
+      // which is guarded separately above.
+      if (name === "public-reliability-agent") {
+        expect(source).toContain("organization_id: null");
+        expect(source).toContain("No tenant documents");
+        continue;
+      }
+
+      discovered.push(name);
+      expect(source, `${name} opens a provider boundary without DLP`).toContain(
+        "withDataEgressGuard",
+      );
+    }
+
+    expect(discovered.sort()).toEqual([...deployedTenantModelCallers].sort());
+  });
 
   it("exposes the governed register to customers without claiming plant authority", () => {
     const panel = readFileSync(
