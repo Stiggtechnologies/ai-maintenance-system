@@ -46,5 +46,14 @@ describe("DevelopCompositionNav", () => {
     expect(
       screen.getByText(/AI may explain, detect and prepare/),
     ).toBeInTheDocument();
+    expect(
+      screen.getByText("Architecture and persistence contract"),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Every AI edge function is confined/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Postgres remains authoritative/),
+    ).toBeInTheDocument();
   });
 });

@@ -1,5 +1,9 @@
-import { ArrowUpRight, Boxes, ShieldCheck } from "lucide-react";
+import { ArrowUpRight, Boxes, Layers3, ShieldCheck } from "lucide-react";
 import { Link } from "react-router-dom";
+import {
+  developArchitectureContract,
+  developPersistenceContract,
+} from "../../lib/develop/architecture";
 import {
   DEVELOP_COMPOSITION_BOUNDARY,
   DEVELOP_ENGINES,
@@ -15,6 +19,8 @@ import {
  * no verdict is recomputed here, and following a link grants no authority.
  */
 export function DevelopCompositionNav({ caseId }: { caseId: string }) {
+  const architecture = developArchitectureContract();
+  const persistence = developPersistenceContract();
   return (
     <section
       aria-labelledby="develop-composition-title"
@@ -100,6 +106,67 @@ export function DevelopCompositionNav({ caseId }: { caseId: string }) {
               </Link>
             );
           })}
+        </div>
+      </details>
+
+      <details className="mt-3 rounded-lg border border-white/6 bg-black/10">
+        <summary className="flex cursor-pointer select-none items-center gap-2 px-3 py-2 text-xs font-semibold text-slate-300 hover:text-white">
+          <Layers3 className="h-3.5 w-3.5 text-signal-cyan" aria-hidden />
+          Architecture and persistence contract
+        </summary>
+        <div className="grid gap-4 border-t border-white/6 p-3 lg:grid-cols-2">
+          <div>
+            <h3 className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              Seven controlled layers
+            </h3>
+            <ol className="mt-2 space-y-1.5">
+              {architecture.layers.map((layer, index) => (
+                <li
+                  key={layer.key}
+                  className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-2 text-[10px] leading-4"
+                >
+                  <span className="font-mono text-slate-600">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
+                  <span>
+                    <strong className="font-semibold text-slate-300">
+                      {layer.label}
+                    </strong>
+                    <span className="block text-slate-500">
+                      {layer.implementation}
+                    </span>
+                  </span>
+                </li>
+              ))}
+            </ol>
+            <div className="mt-3 rounded border border-white/6 bg-white/[0.02] p-2 text-[10px] leading-4 text-slate-500">
+              <p>{architecture.rpcBoundary.intelligence}</p>
+              <p>{architecture.rpcBoundary.actions}</p>
+              <p>{architecture.rpcBoundary.failClosed}</p>
+            </div>
+          </div>
+          <div>
+            <h3 className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+              One authoritative persistence model
+            </h3>
+            <ul className="mt-2 space-y-1.5">
+              {persistence.map((domain) => (
+                <li key={domain.key} className="text-[10px] leading-4">
+                  <strong className="font-semibold text-slate-300">
+                    {domain.label}
+                  </strong>
+                  <span className="block text-slate-500">
+                    {domain.authoritativeFor} · {domain.mechanism}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+        <div className="grid gap-1 border-t border-white/6 px-3 py-2 text-[10px] leading-4 text-slate-500 lg:grid-cols-3">
+          <p>{architecture.boundary.llm}</p>
+          <p>{architecture.boundary.authority}</p>
+          <p>{architecture.boundary.persistence}</p>
         </div>
       </details>
 
