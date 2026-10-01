@@ -78,7 +78,8 @@ import json,os
 x=json.loads(os.environ['BODY'])
 assert x['recurrence']['matchingEvents']==1,x
 assert x['hypotheses'][0]['status']=='reported_not_verified',x
-assert 'does not claim a verified root cause' in x['limitations'],x
+assert any('does not claim a verified root cause' in item.lower()
+           for item in x['limitations']),x
 for key in ('mayClaimRootCause','mayCloseInvestigation','mayAttestVerification',
             'mayApproveStrategy','mayAcceptRisk','mayCommitSpend','mayReturnToService'):
     assert x[key] is False,(key,x)
