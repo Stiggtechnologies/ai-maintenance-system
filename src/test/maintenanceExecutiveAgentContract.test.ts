@@ -140,6 +140,7 @@ describe("governed Maintenance Executive Specialist execution", () => {
     expect(panel).toContain("Assemble retained brief");
     expect(panel).toContain("Assign independent review");
     expect(panel).toContain("Record independent disposition");
+    expect(panel).toContain("reviewer.id !== brief?.createdBy");
     expect(host).toContain("<MaintenanceExecutiveAgentWorkbench />");
   });
 

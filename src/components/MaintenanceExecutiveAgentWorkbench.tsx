@@ -80,20 +80,37 @@ export function MaintenanceExecutiveAgentWorkbench() {
 
   useEffect(() => {
     if (!briefId && data?.briefs[0]) setBriefId(data.briefs[0].id);
-    if (!reviewerId && data?.reviewers[0]) setReviewerId(data.reviewers[0].id);
-  }, [briefId, data, reviewerId]);
+  }, [briefId, data]);
 
   const brief = useMemo(
     () => data?.briefs.find((item) => item.id === briefId) ?? null,
     [briefId, data],
   );
+  const reviewerOptions = useMemo(
+    () =>
+      (data?.reviewers ?? []).filter(
+        (reviewer) => reviewer.id !== brief?.createdBy,
+      ),
+    [brief?.createdBy, data?.reviewers],
+  );
 
   useEffect(() => {
     if (!brief) return;
-    const disposed = new Set(brief.dispositions.map((item) => item.priorityKey));
+    if (!reviewerOptions.some((reviewer) => reviewer.id === reviewerId)) {
+      setReviewerId(reviewerOptions[0]?.id ?? "");
+    }
+  }, [brief, reviewerId, reviewerOptions]);
+
+  useEffect(() => {
+    if (!brief) return;
+    const disposed = new Set(
+      brief.dispositions.map((item) => item.priorityKey),
+    );
     setPriorityKey(
       brief.priorities.find((item) => !disposed.has(item.priorityKey))
-        ?.priorityKey ?? brief.priorities[0]?.priorityKey ?? "",
+        ?.priorityKey ??
+        brief.priorities[0]?.priorityKey ??
+        "",
     );
   }, [brief]);
 
@@ -173,7 +190,10 @@ export function MaintenanceExecutiveAgentWorkbench() {
                 act(
                   "run",
                   async () => {
-                    await runMaintenanceExecutiveAgent({ periodStart, periodEnd });
+                    await runMaintenanceExecutiveAgent({
+                      periodStart,
+                      periodEnd,
+                    });
                   },
                   "Immutable maintenance-executive brief generated.",
                 )
@@ -211,8 +231,8 @@ export function MaintenanceExecutiveAgentWorkbench() {
               <option value="">No retained brief yet</option>
               {(data?.briefs ?? []).map((item) => (
                 <option key={item.id} value={item.id}>
-                  {item.periodStart} → {item.periodEnd} · {item.priorities.length}{" "}
-                  priorities
+                  {item.periodStart} → {item.periodEnd} ·{" "}
+                  {item.priorities.length} priorities
                 </option>
               ))}
             </select>
@@ -267,7 +287,8 @@ export function MaintenanceExecutiveAgentWorkbench() {
                   <article
                     key={priority.priorityKey}
                     className={`rounded-xl border p-4 ${
-                      severityStyle[priority.severity] ?? severityStyle.information
+                      severityStyle[priority.severity] ??
+                      severityStyle.information
                     }`}
                   >
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -290,7 +311,8 @@ export function MaintenanceExecutiveAgentWorkbench() {
                       onClick={() => navigate(priority.route)}
                       className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-violet-200 hover:text-white"
                     >
-                      Open canonical workspace <ArrowRight className="h-3.5 w-3.5" />
+                      Open canonical workspace{" "}
+                      <ArrowRight className="h-3.5 w-3.5" />
                     </button>
                   </article>
                 ))}
@@ -338,7 +360,7 @@ export function MaintenanceExecutiveAgentWorkbench() {
                 onChange={(event) => setReviewerId(event.target.value)}
               >
                 <option value="">Select a different named human…</option>
-                {(data?.reviewers ?? []).map((reviewer) => (
+                {reviewerOptions.map((reviewer) => (
                   <option key={reviewer.id} value={reviewer.id}>
                     {reviewer.name ?? reviewer.email ?? reviewer.id} ·{" "}
                     {title(reviewer.role)}
@@ -401,7 +423,10 @@ export function MaintenanceExecutiveAgentWorkbench() {
                 onChange={(event) => setPriorityKey(event.target.value)}
               >
                 {(brief?.priorities ?? []).map((priority) => (
-                  <option key={priority.priorityKey} value={priority.priorityKey}>
+                  <option
+                    key={priority.priorityKey}
+                    value={priority.priorityKey}
+                  >
                     {title(priority.priorityKey)}
                   </option>
                 ))}
@@ -414,12 +439,15 @@ export function MaintenanceExecutiveAgentWorkbench() {
                 value={disposition}
                 onChange={(event) =>
                   setDisposition(
-                    event.target.value as MaintenanceExecutiveDisposition["disposition"],
+                    event.target
+                      .value as MaintenanceExecutiveDisposition["disposition"],
                   )
                 }
               >
                 <option value="acknowledged">Acknowledged</option>
-                <option value="route_for_action">Route to canonical action</option>
+                <option value="route_for_action">
+                  Route to canonical action
+                </option>
                 <option value="deferred">Deferred</option>
                 <option value="rejected">Rejected</option>
               </select>
