@@ -16,6 +16,7 @@ import { MaterialCatalogue } from "../components/MaterialCatalogue";
 import { MaterialSupplierLink } from "../components/MaterialSupplierLink";
 import { MaterialBomLink } from "../components/MaterialBomLink";
 import { MaterialRelationshipHistory } from "../components/MaterialRelationshipHistory";
+import { MroMaterialsAgentWorkbench } from "../components/MroMaterialsAgentWorkbench";
 
 export function MaterialsPage() {
   const [catalogueVersion, setCatalogueVersion] = useState(0);
@@ -34,6 +35,7 @@ export function MaterialsPage() {
       <MaterialCatalogue
         onCreated={() => setCatalogueVersion((version) => version + 1)}
       />
+      <MroMaterialsAgentWorkbench refreshVersion={catalogueVersion} />
       <MaterialSupplierLink refreshVersion={catalogueVersion} />
       <MaterialBomLink refreshVersion={catalogueVersion} />
       <MaterialRelationshipHistory />
