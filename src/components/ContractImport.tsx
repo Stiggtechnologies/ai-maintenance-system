@@ -54,6 +54,7 @@ import {
   type IngestEntityKey,
 } from "../lib/ingest-entities";
 import { P6ResourceDemandReview } from "./P6ResourceDemandReview";
+import { P6ScheduleRevisionReview } from "./P6ScheduleRevisionReview";
 
 interface Reject {
   external_id: string | null;
@@ -91,6 +92,9 @@ export function ContractImport({
   const [xerAssignments, setXerAssignments] = useState<
     P6XerResourceAssignment[]
   >([]);
+  const [completedScheduleRunId, setCompletedScheduleRunId] = useState<
+    string | null
+  >(null);
 
   const entity = INGEST_ENTITIES[entityKey];
 
@@ -113,6 +117,7 @@ export function ContractImport({
     setSourceName("Manual upload");
     setXerWarnings([]);
     setXerAssignments([]);
+    setCompletedScheduleRunId(null);
   }
 
   function chooseEntity(key: IngestEntityKey) {
@@ -232,6 +237,9 @@ export function ContractImport({
         p_status: totals.rejected > 0 ? "partial" : "success",
       });
       finished = true;
+      if (entity.key === "schedule_activity") {
+        setCompletedScheduleRunId(runId);
+      }
 
       if (totals.rejected > 0) {
         const { data: rej } = await supabase.rpc("get_import_rejects", {
@@ -440,6 +448,8 @@ export function ContractImport({
         assignments={xerAssignments}
         scheduleReady={Boolean(summary && summary.rejected === 0)}
       />
+
+      <P6ScheduleRevisionReview runId={completedScheduleRunId} />
 
       {ignored.length > 0 && (
         <p className="mt-3 text-xs text-slate-500">
