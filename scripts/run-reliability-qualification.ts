@@ -542,10 +542,16 @@ function recordForbidden(counters: ReturnType<typeof hardFailureCounters>, id: s
 
 async function main() {
   if (mode === "capture") {
-    for (const entry of manifest.protectedPaths) {
-      const actual = gitHash(entry.path);
-      if (actual !== entry.gitBlobSha) {
-        throw new Error(`Cannot capture RE-2026.08 reference after protected path changed: ${entry.path}`);
+    // A real reference capture must remain byte-identical to the frozen
+    // protected surface. The dry run deliberately writes unusable stub data
+    // (dryRun:true), so allow it to exercise the capture plumbing on a feature
+    // branch whose protected surface is awaiting live qualification.
+    if (!dryRun) {
+      for (const entry of manifest.protectedPaths) {
+        const actual = gitHash(entry.path);
+        if (actual !== entry.gitBlobSha) {
+          throw new Error(`Cannot capture RE-2026.08 reference after protected path changed: ${entry.path}`);
+        }
       }
     }
     const captured: ReferenceFile = {
