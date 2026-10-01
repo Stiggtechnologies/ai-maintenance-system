@@ -263,12 +263,40 @@ jobs:
           set -euo pipefail
           if [ "${{ inputs.mode }}" = "capture-reference" ]; then
             OUT="benchmarks/reliability-engineer/re-2026.08/reference-outputs.json"
-            npx tsx scripts/run-reliability-qualification.ts \
-              --capture-reference --output="$OUT"
+            QUALIFICATION_ARGS=(--capture-reference --output="$OUT")
           else
             OUT="benchmarks/reliability-engineer/qualification-reports/$(date -u +%Y-%m-%dT%H-%M-%SZ).json"
-            npx tsx scripts/run-reliability-qualification.ts --output="$OUT"
+            QUALIFICATION_ARGS=(--output="$OUT")
           fi
+
+          # The 31-case run makes 62 sequential provider calls. Retry the
+          # complete, deterministic harness only for an explicitly transient
+          # provider/network failure; never retry a floor, schema or code
+          # failure. The report still names and hashes the pinned producer
+          # script, and no partial report is accepted or committed.
+          for ATTEMPT in 1 2 3; do
+            LOG="$RUNNER_TEMP/reliability-qualification-attempt-$ATTEMPT.log"
+            set +e
+            npx tsx scripts/run-reliability-qualification.ts \
+              "${QUALIFICATION_ARGS[@]}" 2>&1 | tee "$LOG"
+            STATUS=${PIPESTATUS[0]}
+            set -e
+
+            if [ "$STATUS" -eq 0 ]; then
+              break
+            fi
+
+            if ! grep -Eq 'HTTP (408|409|425|429|5[0-9][0-9])|fetch failed|ECONNRESET|ETIMEDOUT|UND_ERR_' "$LOG"; then
+              exit "$STATUS"
+            fi
+            if [ "$ATTEMPT" -eq 3 ]; then
+              exit "$STATUS"
+            fi
+
+            echo "::warning::Transient qualification-provider failure on attempt $ATTEMPT; retrying the complete immutable suite."
+            sleep "$((ATTEMPT * 20))"
+          done
+
           echo "evidence=$OUT" >> "$GITHUB_OUTPUT"
           echo "sha256=$(sha256sum "$OUT" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 

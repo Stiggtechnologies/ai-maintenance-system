@@ -779,6 +779,19 @@ describe("the frozen floor names its own blocker (H5)", () => {
     );
   });
 
+  it("retries only explicitly transient live-provider failures", () => {
+    const workflow = readRepoFile(
+      ".github/workflows/reliability-qualification.yml",
+    );
+    expect(workflow).toContain("for ATTEMPT in 1 2 3");
+    expect(workflow).toContain(
+      "HTTP (408|409|425|429|5[0-9][0-9])|fetch failed|ECONNRESET|ETIMEDOUT|UND_ERR_",
+    );
+    expect(workflow).toContain("if ! grep -Eq");
+    expect(workflow).toContain('exit "$STATUS"');
+    expect(workflow).toContain("no partial report is accepted or committed");
+  });
+
   it("manifest and cases stay where both enforcement layers look for them", () => {
     expect(MANIFEST_PATH).toBe(
       "benchmarks/reliability-engineer/re-2026.08/manifest.json",
