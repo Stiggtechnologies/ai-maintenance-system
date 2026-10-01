@@ -70,6 +70,7 @@ describe("governed Maintenance Executive Specialist execution", () => {
       "budget_forecast_basis_missing",
       "budget_exception_attention",
       "enterprise_risk_attention",
+      "risk_drafts_unqualified",
       "maintenance_strategy_evidence_gap",
       "authority_instrument_not_adopted",
       "outcome_verification_overdue",

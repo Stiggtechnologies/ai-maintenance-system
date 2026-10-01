@@ -380,7 +380,8 @@ declare
   v_snapshot jsonb; v_facts jsonb; v_priorities jsonb:='[]'::jsonb;
   v_kpi_total bigint; v_kpi_breaches bigint; v_kpi_waiting bigint;
   v_budget_lines bigint; v_budget_missing_basis bigint; v_budget_exception_lines bigint;
-  v_risks bigint; v_critical_risks bigint; v_risks_no_owner bigint; v_overdue_risks bigint;
+  v_risks bigint; v_draft_risks bigint; v_critical_risks bigint;
+  v_risks_no_owner bigint; v_overdue_risks bigint;
   v_plans bigint; v_plans_no_source bigint; v_strategy_assessments bigint;
   v_pending_recommendations bigint; v_pending_approvals bigint;
   v_outcomes_open bigint; v_outcomes_overdue bigint;
@@ -423,10 +424,12 @@ begin
     into v_budget_lines,v_budget_missing_basis,v_budget_exception_lines
   from public.budget_lines where organization_id=v_org
     and budget_year between extract(year from p_period_start)::int and extract(year from p_period_end)::int;
-  select count(*),count(*) filter(where current_risk_level='Critical'),
-    count(*) filter(where risk_owner_id is null),
-    count(*) filter(where review_date<current_date)
-    into v_risks,v_critical_risks,v_risks_no_owner,v_overdue_risks
+  select count(*) filter(where status<>'draft'),
+    count(*) filter(where status='draft'),
+    count(*) filter(where status<>'draft' and current_risk_level='Critical'),
+    count(*) filter(where status<>'draft' and risk_owner_id is null),
+    count(*) filter(where status<>'draft' and review_date<current_date)
+    into v_risks,v_draft_risks,v_critical_risks,v_risks_no_owner,v_overdue_risks
   from public.risks where organization_id=v_org and status not in ('closed','archived');
   select count(*),count(*) filter(where nullif(btrim(source),'') is null)
     into v_plans,v_plans_no_source from public.maintenance_plans
@@ -499,6 +502,11 @@ begin
       'decisionQuestion','Which accountable human owns treatment, escalation or a separately governed risk-acceptance decision?',
       'route','/risk','humanDecisionRequired',true));
   end if;
+  if v_draft_risks>0 then v_priorities:=v_priorities||jsonb_build_array(jsonb_build_object(
+    'priorityKey','risk_drafts_unqualified','category','risk','severity','medium',
+    'observed',format('%s draft risks are recorded separately and are not represented as active assessed risks.',v_draft_risks),
+    'decisionQuestion','Which risk owners must qualify, evidence or retire the draft records through the canonical ISO 31000 workflow?',
+    'route','/risk','humanDecisionRequired',true)); end if;
   if v_plans=0 or v_plans_no_source>0 then v_priorities:=v_priorities||jsonb_build_array(jsonb_build_object(
     'priorityKey','maintenance_strategy_evidence_gap','category','maintenance_strategy','severity','high',
     'observed',case when v_plans=0 then 'No active maintenance plan is recorded.'
@@ -537,7 +545,8 @@ begin
       'linesOverBudgetOrForecast',v_budget_exception_lines,
       'forecastsWithoutBasis',v_budget_missing_basis,
       'aggregateAmount','not calculated; canonical budget rows carry no currency field'),
-    'risk',jsonb_build_object('active',v_risks,'critical',v_critical_risks,
+    'risk',jsonb_build_object('active',v_risks,'draftsAwaitingQualification',v_draft_risks,
+      'critical',v_critical_risks,
       'withoutOwner',v_risks_no_owner,'overdueReview',v_overdue_risks),
     'maintenanceStrategy',jsonb_build_object('activePlans',v_plans,
       'plansWithoutSource',v_plans_no_source,'governedAssessments',v_strategy_assessments),

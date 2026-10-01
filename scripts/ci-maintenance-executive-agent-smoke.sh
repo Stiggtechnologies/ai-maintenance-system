@@ -47,7 +47,11 @@ test "$(psqlc "select count(*) from public.agent_decision_right_bindings b join 
 # Seed a deterministic unsupported forecast and critical overdue risk. These are
 # canonical source records, not agent conclusions.
 psqlc "insert into public.budget_lines(organization_id,site_id,budget_year,category,budgeted,committed,actual,forecast,forecast_basis) values('$ORG','$SITE',$YEAR,'other',100000,40000,25000,120000,null) on conflict do nothing" >/dev/null
-psqlc "insert into public.risks(organization_id,site_id,title,current_risk_level,current_risk_score,risk_owner_id,review_date,status,source_kind,created_by) values('$ORG','$SITE','C1.01 CI executive risk','Critical',90,null,current_date-1,'evaluated','human','$MANAGER_ID')" >/dev/null
+psqlc "insert into public.risks(organization_id,site_id,title,current_risk_level,current_risk_score,risk_owner_id,review_date,status,source_kind,created_by) values('$ORG','$SITE','C1.01 CI executive risk','Critical',90,null,current_date-1,'discovered','human','$MANAGER_ID')" >/dev/null
+psqlc "insert into public.risks(organization_id,site_id,title,current_risk_level,current_risk_score,risk_owner_id,review_date,status,source_kind,created_by) values('$ORG','$SITE','C1.01 CI draft risk','Critical',95,null,current_date-2,'draft','human','$MANAGER_ID')" >/dev/null
+EXPECTED_ACTIVE_RISKS=$(psqlc "select count(*) from public.risks where organization_id='$ORG' and status not in ('draft','closed','archived')")
+EXPECTED_DRAFT_RISKS=$(psqlc "select count(*) from public.risks where organization_id='$ORG' and status='draft'")
+EXPECTED_CRITICAL_RISKS=$(psqlc "select count(*) from public.risks where organization_id='$ORG' and status not in ('draft','closed','archived') and current_risk_level='Critical'")
 
 # A technician cannot run the executive specialist.
 DENIED=$(rpc "$TECH" run_maintenance_executive_agent \
@@ -64,19 +68,22 @@ BEFORE_RECS=$(psqlc "select count(*) from public.recommendations where organizat
 BEFORE_AGENT_RECS=$(psqlc "select recommendations_generated from public.ai_agents where organization_id='$ORG' and key='maintenance_executive'")
 RUN=$(rpc "$MANAGER" run_maintenance_executive_agent \
   "{\"p_period_start\":\"$START\",\"p_period_end\":\"$END\"}")
-RUN_IDS=$(RUN="$RUN" python3 - <<'PY'
+RUN_IDS=$(RUN="$RUN" EXPECTED_ACTIVE_RISKS="$EXPECTED_ACTIVE_RISKS" EXPECTED_DRAFT_RISKS="$EXPECTED_DRAFT_RISKS" EXPECTED_CRITICAL_RISKS="$EXPECTED_CRITICAL_RISKS" python3 - <<'PY'
 import json,os
 d=json.loads(os.environ['RUN'])
 assert d['advisory'] is True,d
 for key in ('mayApprove','mayAcceptRisk','mayCommitSpend','mayReleaseWork',
             'mayChangeStrategy','mayChangeKpiTarget','mayReturnToService'):
     assert d[key] is False,(key,d)
-assert d['facts']['risk']['critical'] >= 1,d
+assert d['facts']['risk']['active'] == int(os.environ['EXPECTED_ACTIVE_RISKS']),d
+assert d['facts']['risk']['draftsAwaitingQualification'] == int(os.environ['EXPECTED_DRAFT_RISKS']),d
+assert d['facts']['risk']['critical'] == int(os.environ['EXPECTED_CRITICAL_RISKS']),d
 assert d['facts']['budget']['forecastsWithoutBasis'] >= 1,d
 assert d['facts']['budget']['linesOverBudgetOrForecast'] >= 1,d
 assert d['facts']['budget']['aggregateAmount'].startswith('not calculated'),d
 keys={p['priorityKey'] for p in d['priorities']}
 assert 'enterprise_risk_attention' in keys,d
+assert 'risk_drafts_unqualified' in keys,d
 assert 'budget_forecast_basis_missing' in keys,d
 assert 'budget_exception_attention' in keys,d
 print(d['briefId']+'|'+d['runId'])
