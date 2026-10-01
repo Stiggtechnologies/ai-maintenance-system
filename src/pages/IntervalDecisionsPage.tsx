@@ -9,6 +9,7 @@
  * Group 3). The panel is remounted, not modified.
  */
 import { IntervalOptimization } from "../components/IntervalOptimization";
+import { AssetStrategyAgentWorkbench } from "../components/AssetStrategyAgentWorkbench";
 
 export function IntervalDecisionsPage() {
   return (
@@ -22,6 +23,7 @@ export function IntervalDecisionsPage() {
           basis shown, or a refusal
         </p>
       </div>
+      <AssetStrategyAgentWorkbench />
       <IntervalOptimization />
     </div>
   );
