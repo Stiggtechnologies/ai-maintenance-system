@@ -5,6 +5,7 @@
  */
 import { OutagePlanning } from "../components/OutagePlanning";
 import { MaintenanceOptimization } from "../components/MaintenanceOptimization";
+import { ShutdownTurnaroundAgentWorkbench } from "../components/ShutdownTurnaroundAgentWorkbench";
 
 export function TurnaroundsPage() {
   return (
@@ -18,6 +19,7 @@ export function TurnaroundsPage() {
           their work scope
         </p>
       </div>
+      <ShutdownTurnaroundAgentWorkbench />
       <MaintenanceOptimization />
       <OutagePlanning />
     </div>

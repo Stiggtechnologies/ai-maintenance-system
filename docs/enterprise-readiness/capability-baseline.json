@@ -48,10 +48,10 @@
     "backticked": 7
   },
   "C1.09": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 3,
-    "backticked": 0
+    "citations": 12,
+    "backticked": 12
   },
   "C1.10": {
     "status": "🟡",
@@ -470,8 +470,8 @@
   "C5.15": {
     "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 0
+    "citations": 3,
+    "backticked": 3
   },
   "C5.16": {
     "status": "✅",
