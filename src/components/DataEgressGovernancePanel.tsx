@@ -118,11 +118,12 @@ export function DataEgressGovernancePanel() {
             Data-loss prevention
           </h3>
           <p className="mt-1 max-w-4xl text-xs leading-relaxed text-slate-400">
-            Configure exact destination, data-class and purpose rules before the
-            fail-closed provider guard is activated. Once active, missing,
-            stale or redaction-incomplete rules deny the provider connection,
-            and fallback destinations are checked independently. This control
-            does not authorize plant action or certify a provider.
+            Tenant content is denied before a supported AI provider connection
+            unless the exact destination, data class and purpose match a current
+            independently approved rule. Missing, stale and
+            redaction-incomplete rules deny, and fallback destinations are
+            checked independently. This control does not authorize plant action
+            or certify a provider.
           </p>
         </div>
       </div>
