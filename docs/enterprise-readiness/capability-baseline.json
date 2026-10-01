@@ -1310,8 +1310,8 @@
   "E6.02": {
     "status": "🟡",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 8,
+    "backticked": 8
   },
   "E6.03": {
     "status": "✅",
@@ -1322,8 +1322,8 @@
   "E6.04": {
     "status": "🟡",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 7,
+    "backticked": 7
   },
   "E6.05": {
     "status": "🟡",
@@ -1380,10 +1380,10 @@
     "backticked": 4
   },
   "E6.14": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 2,
-    "backticked": 2
+    "citations": 7,
+    "backticked": 7
   },
   "E7.01": {
     "status": "🟡",
