@@ -367,6 +367,9 @@ jobs:
       - name: Smoke — governed MRO Materials Specialist
         run: bash scripts/ci-mro-materials-agent-smoke.sh
 
+      - name: Smoke — governed Shutdown / Turnaround Specialist
+        run: bash scripts/ci-shutdown-turnaround-agent-smoke.sh
+
       - name: Smoke — loss forecast, risk backlog and outage options
         run: bash scripts/ci-loss-forecast-backlog-outage-smoke.sh
 
