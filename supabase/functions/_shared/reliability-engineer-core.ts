@@ -18,18 +18,19 @@ export function buildReliabilityEngineerPrompt({
   structuredOutput = false,
 }: ReliabilityPromptOptions): string {
   const industryContext = industry ? ` in ${industry}` : "";
-  const accessBoundary = accessMode === "public"
-    ? [
-        "This is limited public access.",
-        "Treat the user's narrative as unverified context unless a fact is explicitly supplied in the governed reference case.",
-        "No tenant files, operating envelope, work history, condition-monitoring history, OEM limits, site procedures, or confidential company data are available unless explicitly supplied in the request.",
-        "Do not imply access to private systems or create operational write-backs.",
-      ].join(" ")
-    : [
-        "This is an authenticated, tenant-scoped workflow.",
-        "Use only evidence supplied through the governed tenant request plus approved knowledge returned by the retrieval boundary.",
-        "Preserve tenant isolation, evidence lineage, decision authority, and accountable human approval.",
-      ].join(" ");
+  const accessBoundary =
+    accessMode === "public"
+      ? [
+          "This is limited public access.",
+          "Treat the user's narrative as unverified context unless a fact is explicitly supplied in the governed reference case.",
+          "No tenant files, operating envelope, work history, condition-monitoring history, OEM limits, site procedures, or confidential company data are available unless explicitly supplied in the request.",
+          "Do not imply access to private systems or create operational write-backs.",
+        ].join(" ")
+      : [
+          "This is an authenticated, tenant-scoped workflow.",
+          "Use only evidence supplied through the governed tenant request plus approved knowledge returned by the retrieval boundary.",
+          "Preserve tenant isolation, evidence lineage, decision authority, and accountable human approval.",
+        ].join(" ");
 
   const deliverableContract = deliverable
     ? [
@@ -54,15 +55,15 @@ METHODOLOGY CHARTER:
 1. ANSWER THE USER'S SPECIFIC QUESTION using the specific asset, evidence, and decision context supplied. Do not replace the case with a generic template.
 2. Separate verified facts, user assertions, assumptions, calculations, hypotheses, engineering judgment, recommendations, and evidence gaps.
 3. Distinguish the failed component from the causal mechanism. A component may be the victim rather than the root cause; show the evidence-backed failure chain.
-4. Quantify deviations, uncertainty, and confidence only when inputs permit. Show formulas, units, exposure basis, event definitions, and calculation limits. Never calculate MTBF, Weibull parameters, availability, financial impact, or ROI without the required denominator and boundary data.
+4. Quantify deviations, uncertainty, and confidence only when inputs permit. When the supplied values support decision-relevant deterministic arithmetic, perform it explicitly with the formula, units, exposure basis, event definition, and calculation limits; do not skip a supported calculation merely because it cannot prove causality. Keep direct arithmetic separate from probabilistic inference. Never calculate MTBF, Weibull parameters, availability, financial impact, or ROI without the required denominator and boundary data.
 5. Rank plausible mechanisms and identify discriminating tests. Do not declare a verified root cause until evidence closes material competing hypotheses.
 6. Prefer reversible verification and lowest-regret containment before permanent changes. Every material action needs an owner role, time window, effectiveness check, consequence of being wrong, and approval boundary.
 7. FRACAS corrective action is not closed until implementation and effectiveness are verified over an appropriate operating period and similar assets are screened where applicable.
 8. Safety, regulatory requirements, OEM limits, MOC, permits, isolations, interlocks, protective functions, approved procedures, and qualified human authority always prevail. Never advise bypassing or weakening them.
-9. Use approved knowledge only for claims it is authorized to support. A maintenance manual, work-order history, standard, investigation, and marketing document do not have the same evidentiary standing.
+9. Use approved knowledge only for claims it is authorized to support. A maintenance manual, work-order history, standard, investigation, and marketing document do not have the same evidentiary standing. When a current OEM document conflicts with a still-live site instruction, do not silently choose either one for the disputed recommendation: preserve the last approved safe state, quarantine the conflict, and require document-control, technical-authority, and MOC resolution. Recency alone is not authorization, and an administratively active procedure is not proof that a conflicting technical limit is safe.
 10. Never invent citations, thresholds, operating limits, costs, measurements, standards, customer evidence, or precision. If evidence cannot support the conclusion, say so and name what evidence would unblock it.
 11. Keep severity separate from confidence. A critical consequence can still have low-confidence causality; the immediate action may be to secure evidence rather than claim a mechanism.
-12. End with a concise bottom line: the leading evidence-backed decision or next verification, what remains uncertain, and who has authority to proceed.
+12. Complete every requested decision element and the concise bottom line before optional depth. Stay concise enough to finish within the response budget; never let background exposition truncate the decision, uncertainties, verification, owners, or approval boundary. End with the leading evidence-backed decision or next verification, what remains uncertain, and who has authority to proceed.
 
 ${accessBoundary}
 ${deliverableContract}
@@ -87,13 +88,16 @@ export function sanitizeReliabilityCitations(
   const allowedKeys = new Set(
     allowed.map((citation) => `${citation.title}\u0000${citation.pageRange}`),
   );
-  return proposed.flatMap((item) => {
-    if (!item || typeof item !== "object") return [];
-    const record = item as Record<string, unknown>;
-    const title = typeof record.title === "string" ? record.title.trim() : "";
-    const pageRange = typeof record.pageRange === "string" ? record.pageRange.trim() : "";
-    return allowedKeys.has(`${title}\u0000${pageRange}`)
-      ? [{ title, pageRange }]
-      : [];
-  }).slice(0, 8);
+  return proposed
+    .flatMap((item) => {
+      if (!item || typeof item !== "object") return [];
+      const record = item as Record<string, unknown>;
+      const title = typeof record.title === "string" ? record.title.trim() : "";
+      const pageRange =
+        typeof record.pageRange === "string" ? record.pageRange.trim() : "";
+      return allowedKeys.has(`${title}\u0000${pageRange}`)
+        ? [{ title, pageRange }]
+        : [];
+    })
+    .slice(0, 8);
 }
