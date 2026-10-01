@@ -170,13 +170,22 @@ alter table public.maintenance_executive_review_assignments enable row level sec
 alter table public.maintenance_executive_dispositions enable row level security;
 drop policy if exists maintenance_executive_briefs_read on public.maintenance_executive_briefs;
 create policy maintenance_executive_briefs_read on public.maintenance_executive_briefs
-  for select to authenticated using(organization_id=public.app_current_org());
+  for select to authenticated using(
+    organization_id=public.app_current_org()
+    and coalesce(public.app_current_role(),'') in ('executive','maintenance_manager','admin')
+  );
 drop policy if exists maintenance_executive_reviews_read on public.maintenance_executive_review_assignments;
 create policy maintenance_executive_reviews_read on public.maintenance_executive_review_assignments
-  for select to authenticated using(organization_id=public.app_current_org());
+  for select to authenticated using(
+    organization_id=public.app_current_org()
+    and coalesce(public.app_current_role(),'') in ('executive','maintenance_manager','admin')
+  );
 drop policy if exists maintenance_executive_dispositions_read on public.maintenance_executive_dispositions;
 create policy maintenance_executive_dispositions_read on public.maintenance_executive_dispositions
-  for select to authenticated using(organization_id=public.app_current_org());
+  for select to authenticated using(
+    organization_id=public.app_current_org()
+    and coalesce(public.app_current_role(),'') in ('executive','maintenance_manager','admin')
+  );
 revoke insert,update,delete,truncate on public.maintenance_executive_briefs,
   public.maintenance_executive_review_assignments,public.maintenance_executive_dispositions
   from public,anon,authenticated;
@@ -522,7 +531,7 @@ begin
     'priorityKey','outcome_verification_overdue','category','verified_value','severity','high',
     'observed',format('%s recommendation outcome verifications are overdue.',v_outcomes_overdue),
     'decisionQuestion','Which accountable owners must verify results or record that the expected outcome did not occur?',
-    'route','/learning','humanDecisionRequired',true)); end if;
+    'route','/learning-loop','humanDecisionRequired',true)); end if;
   if v_unverified_value>0 then v_priorities:=v_priorities||jsonb_build_array(jsonb_build_object(
     'priorityKey','projected_value_unverified','category','verified_value','severity','medium',
     'observed',format('%s value records remain projected or otherwise unverified; status classes and units remain separate.',v_unverified_value),
@@ -709,6 +718,10 @@ returns jsonb language plpgsql stable security definer set search_path=public as
 declare v_org uuid:=public.app_current_org();
 begin
   if v_org is null then return jsonb_build_object('error','authentication required'); end if;
+  if coalesce(public.app_current_role(),'') not in
+    ('executive','maintenance_manager','admin') then
+    return jsonb_build_object('error','executive workspace requires a named executive, maintenance manager or administrator');
+  end if;
   return jsonb_build_object(
     'briefs',coalesce((select jsonb_agg(jsonb_build_object(
       'id',b.id,'agentRunId',b.agent_run_id,'periodStart',b.period_start,

@@ -57,6 +57,8 @@ EXPECTED_CRITICAL_RISKS=$(psqlc "select count(*) from public.risks where organiz
 DENIED=$(rpc "$TECH" run_maintenance_executive_agent \
   "{\"p_period_start\":\"$START\",\"p_period_end\":\"$END\"}")
 DENIED="$DENIED" python3 -c "import json,os; assert 'named executive' in json.loads(os.environ['DENIED'])['error']"
+DENIED_WORKSPACE=$(rpc "$TECH" get_maintenance_executive_workspace '{}')
+DENIED_WORKSPACE="$DENIED_WORKSPACE" python3 -c "import json,os; assert 'executive workspace' in json.loads(os.environ['DENIED_WORKSPACE'])['error']"
 
 # The time contract rejects an incomplete window.
 BAD_PERIOD=$(rpc "$EXEC" run_maintenance_executive_agent \
@@ -93,6 +95,9 @@ BRIEF=${RUN_IDS%%|*}
 RUN_ID=${RUN_IDS##*|}
 test "$(psqlc "select count(*) from public.agent_runs where id='$RUN_ID' and organization_id='$ORG' and organization_scope_id='$ORG' and retained_for_governance and confidence is null")" = '1'
 test "$(psqlc "select count(*) from public.maintenance_executive_briefs where id='$BRIEF' and source_snapshot ? 'kpis' and source_snapshot->'budgets' ? 'sha256' and source_snapshot->'risks' ? 'sha256' and source_snapshot->'maintenancePlans' ? 'sha256' and source_snapshot->'valueMetrics' ? 'sha256' and source_snapshot->'authorityLimits' ? 'sha256'")" = '1'
+TECH_READ=$(curl -sS "$API_URL/rest/v1/maintenance_executive_briefs?id=eq.$BRIEF&select=id" \
+  -H "apikey: $ANON_KEY" -H "authorization: Bearer $TECH")
+TECH_READ="$TECH_READ" python3 -c "import json,os; assert json.loads(os.environ['TECH_READ']) == []"
 
 # The requester cannot self-review; a different named human must be assigned.
 SELF=$(rpc "$MANAGER" assign_maintenance_executive_review \
@@ -125,4 +130,4 @@ test "$(psqlc "select count(*) from public.approvals where organization_id='$ORG
 test "$(psqlc "select count(*) from public.recommendations where organization_id='$ORG'")" = "$BEFORE_RECS"
 test "$(psqlc "select recommendations_generated from public.ai_agents where organization_id='$ORG' and key='maintenance_executive'")" = "$BEFORE_AGENT_RECS"
 
-echo 'Maintenance Executive Specialist smoke passed: canonical_kpis=true canonical_budgets=true budget_amounts_not_mixed_without_currency=true canonical_risks=true canonical_strategy=true canonical_governance=true verified_value_statuses_and_units_separated=true exact_source_fingerprints=true organization_scope=true immutable_brief=true no_invented_confidence=true no_shadow_recommendations=true sod_review=true no_agent_approval=true no_risk_acceptance=true no_spend_commitment=true no_work_release=true no_strategy_mutation=true no_operational_authority=true'
+echo 'Maintenance Executive Specialist smoke passed: canonical_kpis=true canonical_budgets=true budget_amounts_not_mixed_without_currency=true canonical_risks=true canonical_strategy=true canonical_governance=true verified_value_statuses_and_units_separated=true exact_source_fingerprints=true organization_scope=true role_scoped_read=true immutable_brief=true no_invented_confidence=true no_shadow_recommendations=true sod_review=true no_agent_approval=true no_risk_acceptance=true no_spend_commitment=true no_work_release=true no_strategy_mutation=true no_operational_authority=true'

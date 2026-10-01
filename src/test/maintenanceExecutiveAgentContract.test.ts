@@ -77,6 +77,8 @@ describe("governed Maintenance Executive Specialist execution", () => {
       "projected_value_unverified",
     ])
       expect(migration).toContain(priority);
+    expect(migration).toContain("'route','/learning-loop'");
+    expect(migration).not.toContain("'route','/learning'");
   });
 
   it("freezes exact organization-scoped evidence and preserves honest units", () => {
@@ -85,15 +87,15 @@ describe("governed Maintenance Executive Specialist execution", () => {
       "agent run organization scope crosses its organization boundary",
     );
     expect(migration).toContain(
-      "sync_maintenance_executive_source_snapshot",
+      "executive workspace requires a named executive, maintenance manager or administrator",
     );
+    expect(smoke).toContain("role_scoped_read=true");
+    expect(migration).toContain("sync_maintenance_executive_source_snapshot");
     expect(migration).toContain("extensions.digest");
     expect(migration).toContain("value is separated by recorded unit");
     expect(migration).toContain("'otherunverified'");
     expect(migration).toContain("'aggregateamount','not calculated;");
-    expect(migration).toContain(
-      "budget rows do not carry a currency field",
-    );
+    expect(migration).toContain("budget rows do not carry a currency field");
   });
 
   it("keeps the specialist advisory and incapable of executive acts", () => {
@@ -134,9 +136,7 @@ describe("governed Maintenance Executive Specialist execution", () => {
     expect(service).toContain('"get_maintenance_executive_workspace"');
     expect(service).toContain('"run_maintenance_executive_agent"');
     expect(service).toContain('"assign_maintenance_executive_review"');
-    expect(service).toContain(
-      '"record_maintenance_executive_disposition"',
-    );
+    expect(service).toContain('"record_maintenance_executive_disposition"');
     expect(panel).toContain("Assemble retained brief");
     expect(panel).toContain("Assign independent review");
     expect(panel).toContain("Record independent disposition");
