@@ -1,0 +1,13 @@
+{
+  "baselineId": "RE-2026.08",
+  "kind": "governed-sql",
+  "reviewer": "Orville Davis",
+  "reviewerRole": "Founder / reliability engineering SME",
+  "reviewedAt": "2026-10-01T19:47:25Z",
+  "rationale": "Approved in the SyncAI project thread on 2026-10-01. Migration 20270101320000_kb_document_security.sql adds fail-closed retrieval filtering so only cleared or independently released chunks can be returned, and wraps admitted content as JSON-escaped untrusted evidence data. The latest retrieve_kb_context definition preserves session-resolved tenant isolation, shared-corpus visibility, permitted_claims, trust rank, redistributability, approved/non-superseded governed-source gating, ranking and limits. kb_document_classes and kb_claim_types are referenced but not redefined; their digests move because the governed-object fingerprint covers migration references. Runtime step 87 proved quarantine, split-boundary detection, all-retriever exclusion, direct-release denial, AAL2/verified-factor separation of duties, tenant walls, rescan and rejection. Release grants retrieval standing only, not engineering or operational authority.",
+  "databaseObjects": {
+    "retrieve_kb_context": "a828cac83a4af30d6f42b832a4b7782fb180e399f7e39c35886983d57fda80d3",
+    "kb_document_classes": "422ba09e8e3b8227f4ab84a2994de154071ecba2a38bf01183b3ae522e67c23b",
+    "kb_claim_types": "161cf42409d19191de456dd36856ff872f2de1f106c593112d8617fc11e5136f"
+  }
+}
