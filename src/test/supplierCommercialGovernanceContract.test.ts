@@ -83,8 +83,16 @@ describe("E7 supplier and contractor governance", () => {
     );
   });
 
-  it("advances exactly the six proven E7 capabilities", () => {
-    for (const id of ["E7.01", "E7.02", "E7.07", "E7.09", "E7.11", "E7.12"]) {
+  it("advances the proven supplier and warranty capabilities", () => {
+    for (const id of [
+      "E7.01",
+      "E7.02",
+      "E7.07",
+      "E7.09",
+      "E7.11",
+      "E7.12",
+      "E8.12",
+    ]) {
       expect(register).toMatch(
         new RegExp(`\\| ${id.replace(".", "\\.")} \\|[^\\n]+\\| ✅`),
       );
