@@ -63,7 +63,7 @@ security definer
 set search_path=public,pg_temp
 as $$
 begin
-  if current_setting('app.data_egress_rule_writer',true)<>'governed' then
+  if coalesce(current_setting('app.data_egress_rule_writer',true),'')<>'governed' then
     raise exception 'Data egress rules require the governed proposal and independent review workflow';
   end if;
   if tg_op='DELETE' then

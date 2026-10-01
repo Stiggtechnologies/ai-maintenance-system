@@ -27,6 +27,9 @@ describe("E5.07 data-egress governance control plane", () => {
     expect(migration).toContain("propose_data_egress_rule");
     expect(migration).toContain("decide_data_egress_rule");
     expect(migration).toContain("trg_guard_data_egress_rule_write");
+    expect(migration).toContain(
+      "coalesce(current_setting('app.data_egress_rule_writer',true),'')<>'governed'",
+    );
     expect(migration).toContain("the proposer cannot independently");
     expect(migration).toContain("app_actor_has_verified_mfa(v_uid)");
     expect(migration).toContain("app_current_aal()<>'aal2'");
