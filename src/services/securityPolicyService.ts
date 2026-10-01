@@ -5,13 +5,6 @@ export type MfaEnforcementScope = "privileged_roles" | "all_members";
 export interface SecurityPosture {
   authenticated: boolean;
   workspaceMember: boolean;
-  role: string | null;
-  policyId: string | null;
-  policyVersion: number | null;
-  policyStatus: string | null;
-  enforcementScope: MfaEnforcementScope | null;
-  privilegedRoles: string[];
-  effectiveAt: string | null;
   required: boolean;
   verifiedFactorCount: number;
   currentAal: "aal1" | "aal2";

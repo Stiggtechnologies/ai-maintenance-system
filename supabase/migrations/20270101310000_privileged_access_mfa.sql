@@ -209,7 +209,6 @@ as $$
 declare
   v_uid uuid := auth.uid();
   v_org uuid;
-  v_role text;
   v_policy public.organization_mfa_policies%rowtype;
   v_required boolean := false;
   v_factor_count integer := 0;
@@ -219,7 +218,7 @@ begin
     return jsonb_build_object('authenticated',false,'satisfied',false,'reason','authentication_required');
   end if;
 
-  select organization_id,role into v_org,v_role
+  select organization_id into v_org
   from public.user_profiles where id=v_uid;
   if v_org is null then
     return jsonb_build_object('authenticated',true,'workspaceMember',false,
@@ -238,13 +237,6 @@ begin
   return jsonb_build_object(
     'authenticated',true,
     'workspaceMember',true,
-    'role',v_role,
-    'policyId',v_policy.id,
-    'policyVersion',v_policy.version,
-    'policyStatus',v_policy.status,
-    'enforcementScope',v_policy.enforcement_scope,
-    'privilegedRoles',coalesce(to_jsonb(v_policy.privileged_roles),'[]'::jsonb),
-    'effectiveAt',v_policy.effective_at,
     'required',v_required,
     'verifiedFactorCount',v_factor_count,
     'currentAal',v_aal,

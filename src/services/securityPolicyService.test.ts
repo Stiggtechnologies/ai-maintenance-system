@@ -17,7 +17,6 @@ describe("securityPolicyService", () => {
       data: {
         authenticated: true,
         workspaceMember: true,
-        role: "admin",
         required: true,
         verifiedFactorCount: 1,
         currentAal: "aal2",

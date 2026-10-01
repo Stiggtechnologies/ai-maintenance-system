@@ -88,6 +88,7 @@ import json,os
 x=json.loads(os.environ['BODY'])
 assert x['required'] is True and x['verifiedFactorCount']==0 and x['satisfied'] is False,x
 assert x['reason']=='factor_enrollment_required',x
+assert 'organizationId' not in x and 'policyId' not in x and 'role' not in x,x
 PY
 
 STEP_UP_POSTURE=$(rpc "$REVIEWER_AAL1" get_current_security_posture '{}')
@@ -116,7 +117,8 @@ FOREIGN_POSTURE=$(rpc "$FOREIGN_AAL1" get_current_security_posture '{}')
 BODY="$FOREIGN_POSTURE" python3 - <<'PY'
 import json,os
 x=json.loads(os.environ['BODY'])
-assert x['policyId'] is None and x['required'] is False and x['satisfied'] is True,x
+assert x['required'] is False and x['satisfied'] is True,x
+assert 'organizationId' not in x and 'policyId' not in x and 'role' not in x,x
 PY
 
 # RLS follows the canonical resolver: unenrolled and AAL1 privileged sessions

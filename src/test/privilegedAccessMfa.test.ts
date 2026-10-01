@@ -29,6 +29,15 @@ describe("tenant MFA and privileged-access contract", () => {
     expect(migration).toContain(
       "grant execute on function public.get_current_security_posture() to authenticated",
     );
+    const posture = migration.slice(
+      migration.indexOf(
+        "create or replace function public.get_current_security_posture()",
+      ),
+      migration.indexOf("-- Governed policy lifecycle."),
+    );
+    expect(posture).not.toContain("'policyId'");
+    expect(posture).not.toContain("'organizationId'");
+    expect(posture).not.toContain("'role'");
     expect(migration).toContain(
       "MFA policy changes require the governed named-human workflow",
     );
@@ -54,7 +63,7 @@ describe("tenant MFA and privileged-access contract", () => {
 
   it("keeps MFA separate from engineering and operational authority and runs live proof", () => {
     expect(migration).toContain("operational_authority',false");
-    expect(gate).toContain("does not approve engineering");
+    expect(gate).toMatch(/does not approve\s+engineering/);
     expect(workflow).toContain(
       "bash scripts/ci-privileged-access-mfa-smoke.sh",
     );
