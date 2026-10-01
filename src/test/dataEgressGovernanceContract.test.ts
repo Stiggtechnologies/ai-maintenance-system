@@ -36,13 +36,15 @@ describe("E5.07 data-egress governance control plane", () => {
   it("evaluates exact tenant, destination, class, purpose and redaction state", () => {
     expect(migration).toContain("authorize_data_egress");
     expect(migration).toContain("authorize_service_data_egress");
-    expect(migration).toContain("r.organization_id=p_organization_id");
-    expect(migration).toContain("r.destination=p_destination");
-    expect(migration).toContain("r.data_class=p_data_class");
-    expect(migration).toContain("p_purpose=any(r.allowed_purposes)");
-    expect(migration).toContain("r.rule_status='adopted'");
-    expect(migration).toContain("r.superseded_by_rule_id is null");
-    expect(migration).toContain("r.redaction_required and not p_redaction_applied");
+    expect(migration).toContain("der.organization_id=p_organization_id");
+    expect(migration).toContain("der.destination=p_destination");
+    expect(migration).toContain("der.data_class=p_data_class");
+    expect(migration).toContain("p_purpose=any(der.allowed_purposes)");
+    expect(migration).toContain("der.rule_status='adopted'");
+    expect(migration).toContain("der.superseded_by_rule_id is null");
+    expect(migration).toContain(
+      "v_rule.redaction_required and not p_redaction_applied",
+    );
     expect(migration).toContain("'allowed',false");
   });
 

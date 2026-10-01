@@ -325,24 +325,24 @@ security definer
 set search_path=public,pg_temp
 as $$
 declare
-  r public.data_egress_rules%rowtype;
+  v_rule public.data_egress_rules%rowtype;
   v_allowed boolean := false;
   v_reason text := 'no_current_rule';
 begin
-  select * into r from public.data_egress_rules r
-  where r.organization_id=p_organization_id
-    and r.destination=p_destination
-    and r.data_class=p_data_class
-    and p_purpose=any(r.allowed_purposes)
-    and r.rule_status='adopted'
-    and r.superseded_by_rule_id is null
-  order by r.version desc limit 1;
+  select der.* into v_rule from public.data_egress_rules der
+  where der.organization_id=p_organization_id
+    and der.destination=p_destination
+    and der.data_class=p_data_class
+    and p_purpose=any(der.allowed_purposes)
+    and der.rule_status='adopted'
+    and der.superseded_by_rule_id is null
+  order by der.version desc limit 1;
 
   if not found then
     v_reason := 'no_current_matching_rule';
-  elsif not r.permitted then
+  elsif not v_rule.permitted then
     v_reason := 'current_rule_denies';
-  elsif r.redaction_required and not p_redaction_applied then
+  elsif v_rule.redaction_required and not p_redaction_applied then
     v_reason := 'required_redaction_not_applied';
   else
     v_allowed := true;
@@ -352,7 +352,7 @@ begin
   insert into public.audit_events(organization_id,entity_type,actor,event_data)
   values(p_organization_id,'data_egress_decision',left(coalesce(p_actor_label,p_channel,'unknown'),200),
     jsonb_build_object('event','data_egress_decision','allowed',v_allowed,
-      'reason',v_reason,'rule_id',r.id,'rule_version',r.version,
+      'reason',v_reason,'rule_id',v_rule.id,'rule_version',v_rule.version,
       'destination',p_destination,'data_class',p_data_class,
       'purpose',p_purpose,'redaction_applied',p_redaction_applied,
       'channel',p_channel,'operational_authority',false));
@@ -364,8 +364,8 @@ begin
     left('destination='||p_destination||'; class='||p_data_class||'; purpose='||p_purpose||'; reason='||v_reason,2000));
 
   return jsonb_build_object('allowed',v_allowed,'reason',v_reason,
-    'ruleId',r.id,'ruleVersion',r.version,
-    'redactionRequired',coalesce(r.redaction_required,false),
+    'ruleId',v_rule.id,'ruleVersion',v_rule.version,
+    'redactionRequired',coalesce(v_rule.redaction_required,false),
     'operationalAuthority',false);
 end;
 $$;
