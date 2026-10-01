@@ -12,10 +12,6 @@ import {
   type CashFlow,
 } from "../../../src/lib/value/index.ts";
 import { selectWeibullMethod } from "../../../src/lib/reliability/method-selection.ts";
-import {
-  inspectionInterval,
-  optimalAgeReplacement,
-} from "../../../src/lib/optimization/index.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -259,6 +255,12 @@ Deno.serve(async (request) => {
       if (source?.error) return json({ error: source.error }, 403);
       if (!source?.plan || !source.asset || !source.kernelVersion)
         return json({ error: "asset_strategy_source_incomplete" }, 422);
+
+      // Keep the established reliability and value actions independent of the
+      // asset-strategy kernel.  The Edge Runtime loads this module only after
+      // the caller and exact tenant-scoped strategy source have been accepted.
+      const { inspectionInterval, optimalAgeReplacement } =
+        await import("../../../src/lib/optimization/index.ts");
 
       const events = Array.isArray(source.lifeEvents) ? source.lifeEvents : [];
       const failures = events

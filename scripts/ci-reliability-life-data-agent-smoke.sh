@@ -66,6 +66,10 @@ DENIED=$(curl -sS -o /tmp/reliability-life-denied.txt -w '%{http_code}' -X POST 
   -H "apikey: $ANON_KEY" -H "authorization: Bearer $MANAGER" \
   -H 'content-type: application/json' \
   -d "{\"action\":\"reliability_life_data\",\"component\":\"$COMPONENT\"}")
+if [ "$DENIED" != '403' ]; then
+  echo "Reliability role refusal returned HTTP $DENIED; response body follows:" >&2
+  sed -n '1,20p' /tmp/reliability-life-denied.txt >&2 || true
+fi
 test "$DENIED" = '403'
 grep -qi 'named same-tenant reliability engineer' /tmp/reliability-life-denied.txt
 
