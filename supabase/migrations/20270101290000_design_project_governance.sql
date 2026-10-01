@@ -384,8 +384,8 @@ begin
   insert into public.audit_events(organization_id,entity_type,actor,event_data,
     previous_state,new_state)
   values(v_org,'early_life_failure_feedback',v_role,jsonb_build_object(
-    'linkId',v_link_id,'caseId',c.id,'failureId',f.id,'requirementId',r.id,
-    'evidenceItemId',p_evidence_item_id,'humanRecorded',true),
+    'link_id',v_link_id,'case_id',c.id,'failure_id',f.id,'requirement_id',r.id,
+    'evidence_item_id',p_evidence_item_id,'human_recorded',true),
     jsonb_build_object('fedBackToDesign',f.fed_back_to_design),
     jsonb_build_object('fedBackToDesign',r.verification_status='verified','requirementRef',r.requirement_ref,
       'requirementVerificationStatus',r.verification_status));
