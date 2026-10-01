@@ -33,6 +33,7 @@ import {
 import { plantHistorianActions } from "../services/plantHistorian";
 import type { PlantHistorianStatus } from "../lib/plant-historian";
 import { ConditionStatePanel } from "./ConditionStatePanel";
+import { ConditionMonitoringAgentWorkbench } from "./ConditionMonitoringAgentWorkbench";
 
 interface Alert {
   id: string;
@@ -235,6 +236,8 @@ export function ConditionMonitoring() {
       <ContextualConditionEvidence
         payload={data?.contextual ?? EMPTY_CONTEXTUAL}
       />
+
+      <ConditionMonitoringAgentWorkbench />
 
       <ConditionStatePanel />
 

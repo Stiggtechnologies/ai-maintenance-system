@@ -30,10 +30,10 @@
     "backticked": 4
   },
   "C1.06": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 7,
+    "backticked": 7
   },
   "C1.07": {
     "status": "✅",
