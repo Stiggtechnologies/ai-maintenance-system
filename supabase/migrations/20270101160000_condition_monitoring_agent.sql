@@ -65,10 +65,8 @@ declare
   r record;
   v_profile uuid;
   v_version integer;
-  v_platform_basis constant text :=
-    'Platform advisory baseline: pending drafts only; accountable human approval remains mandatory.';
   v_basis constant text :=
-    'Platform advisory baseline: signal assessment and human-review hand-off only; no diagnosis or operational execution.';
+    'Platform advisory baseline: pending drafts only; accountable human approval remains mandatory.';
 begin
   for r in
     select a.id agent_id,a.organization_id,p.id old_profile,p.basis old_basis,
@@ -80,8 +78,7 @@ begin
      and p.status='adopted'
     where a.key='condition_monitoring'
   loop
-    if r.old_profile is not null
-       and r.old_basis not in (v_platform_basis,v_basis) then continue; end if;
+    if r.old_profile is not null and r.old_basis <> v_basis then continue; end if;
     if r.old_profile is null and exists (
       select 1 from public.agent_control_profiles history
       where history.agent_id=r.agent_id

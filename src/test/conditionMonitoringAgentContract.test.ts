@@ -67,6 +67,12 @@ describe("governed Condition Monitoring Analyst execution", () => {
   });
 
   it("fails closed on role, tenancy, adopted control and named review", () => {
+    expect(migration).toContain(
+      "platform advisory baseline: pending drafts only; accountable human approval remains mandatory.",
+    );
+    expect(migration).not.toContain(
+      "platform advisory baseline: signal assessment and human-review hand-off only",
+    );
     expect(migration).toContain("requires a named reliability engineer");
     expect(migration).toContain(
       "where id=p_sensor_id and organization_id=v_org",
