@@ -11,7 +11,7 @@
   "protectedPaths": [
     {
       "path": "supabase/functions/_shared/reliability-engineer-core.ts",
-      "gitBlobSha": "8afa8deeb842f940a3d361735f4d71b22f6cc8f5",
+      "gitBlobSha": "873853373684e75b3df9fb56f45c152d60f1eeee",
       "reachability": "entrypoint",
       "purpose": "canonical methodology and evidence/authority contract",
       "tier": "core"
@@ -211,17 +211,17 @@
   "protectedDatabaseObjects": [
     {
       "object": "retrieve_kb_context",
-      "definitionDigest": "25a3084e15671158cd2929768ecd248bd3fbef0fc4fdbd11d3fd0cfa92229532",
+      "definitionDigest": "96e9ef6c1367d8ccbf91803a8350487180c84df8f9a126f5190cc0cb729934c3",
       "purpose": "SECURITY DEFINER retrieval whose ranking, permitted_claims join and org filter decide which knowledge text is inlined into the Reliability Engineer system prompt"
     },
     {
       "object": "kb_document_classes",
-      "definitionDigest": "c28c7f52cd1bc12f18f857a47df626a4351ecdfebce52b5bc40ec2aef44fcb26",
+      "definitionDigest": "1a2d894890eb3598564e96e0299dc9ff3169182ce00556a235a4f1a4e055ac51",
       "purpose": "trust_rank, permitted_claims and redistributable \u2014 the claim-type and public-redistribution gate"
     },
     {
       "object": "kb_claim_types",
-      "definitionDigest": "ad6b9d93c69a3d88c72b4e0c20eb344dbd4d5448ac042bc554531367417b5793",
+      "definitionDigest": "b671503c907452f1193e2a8989d4200b478411860f90d4043b5febf880a9f6e5",
       "purpose": "the claim-type enumeration the retrieval gate is written against"
     }
   ],

@@ -8,13 +8,14 @@
  * reliability_kb_chunks. This page reads kb_intake_documents via RLS.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { RefreshCw, UploadCloud } from "lucide-react";
+import { RefreshCw, ShieldAlert, ShieldCheck, UploadCloud } from "lucide-react";
 import { useAuth } from "../components/AuthProvider";
 import { needsOcr, ocrPdfToText, type OcrProgress } from "../services/kbOcr";
 import {
   ingestKbDocument,
   listKbDocumentClasses,
   listKbIntakeDocuments,
+  reviewKbDocumentSecurity,
   type KbDocumentClass,
   type KbIntakeDocument,
 } from "../services/kbIntake";
@@ -23,11 +24,15 @@ import { trackUiEvent } from "../services/uiEvents";
 const INTAKE_ROLES = ["admin", "ai_admin", "reliability_engineer"];
 
 const TEXT_FILE_RE = /\.(txt|csv|md|markdown|json|log|pdf)$/i;
+const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
 
 export function KnowledgeBasePage() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const canIngest =
     profile?.role != null && INTAKE_ROLES.includes(profile.role);
+  const canReview = ["admin", "reliability_engineer"].includes(
+    String(profile?.role ?? ""),
+  );
 
   const [documents, setDocuments] = useState<KbIntakeDocument[]>([]);
   const [classes, setClasses] = useState<KbDocumentClass[]>([]);
@@ -48,6 +53,8 @@ export function KnowledgeBasePage() {
   const [pageEnd, setPageEnd] = useState("");
   const [pasted, setPasted] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [reviewBasis, setReviewBasis] = useState<Record<string, string>>({});
+  const [reviewing, setReviewing] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -114,6 +121,10 @@ export function KnowledgeBasePage() {
         );
         return;
       }
+      if (selectedFile.size > MAX_DOCUMENT_BYTES) {
+        setError("The document exceeds the 20 MB governed-intake limit.");
+        return;
+      }
       const raw = await selectedFile.arrayBuffer();
       const bytes = new Uint8Array(raw);
       let bin = "";
@@ -144,7 +155,9 @@ export function KnowledgeBasePage() {
       });
       trackUiEvent("kb_ingest_submitted", result.source_id.slice(0, 60));
       setNotice(
-        `Ingested "${result.source_id}" — ${result.chunks_created} chunk(s) indexed.`,
+        result.security_status === "quarantined"
+          ? `Ingested "${result.source_id}" — ${result.chunks_created} chunk(s) quarantined from AI retrieval pending independent security review.`
+          : `Ingested "${result.source_id}" — ${result.chunks_created} chunk(s) indexed and cleared by deterministic intake controls.`,
       );
       resetForm();
       await load();
@@ -160,6 +173,41 @@ export function KnowledgeBasePage() {
       }
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleSecurityReview = async (
+    doc: KbIntakeDocument,
+    decision: "release" | "reject",
+  ) => {
+    const basis = reviewBasis[doc.id]?.trim() ?? "";
+    if (basis.length < 20) {
+      setError("Record at least 20 characters of security-review basis.");
+      return;
+    }
+    setReviewing(doc.id);
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await reviewKbDocumentSecurity(
+        doc.source_id,
+        decision,
+        basis,
+      );
+      setNotice(
+        decision === "release"
+          ? `Released "${doc.title}" for governed retrieval after independent AAL2 review. This does not approve its engineering content.`
+          : `Rejected "${doc.title}"; it remains retained and excluded from retrieval.`,
+      );
+      setReviewBasis((current) => ({ ...current, [doc.id]: "" }));
+      if (result.engineeringAuthority !== false) {
+        throw new Error("Unexpected document-review authority response");
+      }
+      await load();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Security review failed");
+    } finally {
+      setReviewing(null);
     }
   };
 
@@ -191,7 +239,7 @@ export function KnowledgeBasePage() {
           </h1>
           <p className="text-sm text-industrial-muted">
             Governed document intake for the Reliability Knowledge Agent — every
-            chunk is tenant-scoped, class-trusted and audited.
+            chunk is tenant-scoped, class-trusted, security-scanned and audited.
           </p>
         </div>
         <button
@@ -230,6 +278,12 @@ export function KnowledgeBasePage() {
             <UploadCloud className="h-5 w-5 text-[#3A8DFF]" />
             Ingest a document
           </h2>
+          <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2 text-xs text-amber-100">
+            Only passive text, CSV, Markdown, JSON, log and PDF text documents
+            are accepted (20 MB maximum). Deterministic screening quarantines
+            instruction-like content before retrieval; it is containment, not
+            antivirus certification or proof that a cleared document is safe.
+          </div>
           <div className="grid gap-4 md:grid-cols-2">
             <label className="block">
               <span className="mb-1 block text-sm font-medium text-industrial-text">
@@ -403,33 +457,107 @@ export function KnowledgeBasePage() {
       ) : (
         <ul className="divide-y divide-industrial-border rounded-xl border border-industrial-border bg-industrial-surface/30">
           {documents.map((doc) => (
-            <li
-              key={doc.id}
-              className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div className="min-w-0">
-                <p
-                  className="truncate font-medium text-industrial-text"
-                  title={doc.title}
-                >
-                  {doc.title}
-                </p>
-                <p
-                  className="truncate text-xs text-industrial-muted"
-                  title={doc.source_id}
-                >
-                  {doc.source_id}
-                  {doc.original_filename ? ` · ${doc.original_filename}` : ""}
-                </p>
+            <li key={doc.id} className="flex flex-col gap-3 px-4 py-3">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div className="min-w-0">
+                  <p
+                    className="truncate font-medium text-industrial-text"
+                    title={doc.title}
+                  >
+                    {doc.title}
+                  </p>
+                  <p
+                    className="truncate text-xs text-industrial-muted"
+                    title={doc.source_id}
+                  >
+                    {doc.source_id}
+                    {doc.original_filename ? ` · ${doc.original_filename}` : ""}
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-wrap items-center gap-3 text-xs text-industrial-muted">
+                  <span className="rounded-full border border-industrial-border px-2 py-0.5">
+                    {doc.document_class ?? "unclassified"}
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 ${
+                      doc.security_status === "quarantined"
+                        ? "border-amber-500/50 text-amber-200"
+                        : doc.security_status === "rejected"
+                          ? "border-red-500/50 text-red-200"
+                          : "border-emerald-500/40 text-emerald-200"
+                    }`}
+                  >
+                    {doc.security_status === "quarantined" ? (
+                      <ShieldAlert className="h-3 w-3" />
+                    ) : (
+                      <ShieldCheck className="h-3 w-3" />
+                    )}
+                    {doc.security_status}
+                  </span>
+                  <span>{doc.chunk_count} chunk(s)</span>
+                  {doc.page_count != null && <span>{doc.page_count} p.</span>}
+                  <span>{new Date(doc.uploaded_at).toLocaleString()}</span>
+                </div>
               </div>
-              <div className="flex shrink-0 items-center gap-3 text-xs text-industrial-muted">
-                <span className="rounded-full border border-industrial-border px-2 py-0.5">
-                  {doc.document_class ?? "unclassified"}
-                </span>
-                <span>{doc.chunk_count} chunk(s)</span>
-                {doc.page_count != null && <span>{doc.page_count} p.</span>}
-                <span>{new Date(doc.uploaded_at).toLocaleString()}</span>
-              </div>
+              {doc.security_status === "quarantined" && (
+                <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-xs text-amber-100">
+                  <p className="font-semibold">
+                    Excluded from every supported AI retriever
+                  </p>
+                  <ul className="mt-1 list-disc space-y-1 pl-4">
+                    {doc.security_findings.flatMap((finding) =>
+                      finding.signals.map((signal) => (
+                        <li key={`${finding.chunkIndex}-${signal.signal}`}>
+                          Chunk {finding.chunkIndex}: {signal.explanation}
+                        </li>
+                      )),
+                    )}
+                  </ul>
+                  {canReview && (
+                    <div className="mt-3 space-y-2">
+                      <textarea
+                        value={reviewBasis[doc.id] ?? ""}
+                        onChange={(event) =>
+                          setReviewBasis((current) => ({
+                            ...current,
+                            [doc.id]: event.target.value,
+                          }))
+                        }
+                        rows={2}
+                        placeholder="Independent review basis (minimum 20 characters)"
+                        className="w-full rounded-lg border border-amber-500/30 bg-industrial-bg px-3 py-2 text-sm text-industrial-text placeholder:text-industrial-muted/60 focus:outline-none"
+                      />
+                      <p className="text-industrial-muted">
+                        A different named human with a verified factor and AAL2
+                        session must decide. Release permits retrieval only and
+                        does not approve the document's engineering content.
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          disabled={reviewing === doc.id || user == null}
+                          onClick={() =>
+                            void handleSecurityReview(doc, "release")
+                          }
+                          className="rounded-lg border border-emerald-500/50 px-3 py-1.5 font-semibold text-emerald-200 disabled:opacity-50"
+                        >
+                          Release false positive
+                        </button>
+                        <button
+                          type="button"
+                          disabled={reviewing === doc.id || user == null}
+                          onClick={() =>
+                            void handleSecurityReview(doc, "reject")
+                          }
+                          className="rounded-lg border border-red-500/50 px-3 py-1.5 font-semibold text-red-200 disabled:opacity-50"
+                        >
+                          Reject document
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </li>
           ))}
         </ul>
