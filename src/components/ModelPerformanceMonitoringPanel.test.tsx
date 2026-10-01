@@ -10,9 +10,10 @@ const runAssessment = vi.fn();
 const captureSnapshot = vi.fn();
 const reviewAssessment = vi.fn();
 const recordOutcome = vi.fn();
+let role = "reliability_engineer";
 
 vi.mock("./AuthProvider", () => ({
-  useAuth: () => ({ profile: { role: "reliability_engineer" } }),
+  useAuth: () => ({ profile: { role } }),
 }));
 vi.mock("../services/modelMonitoringService", () => ({
   getModelMonitoringWorkspace: (...args: unknown[]) => getWorkspace(...args),
@@ -95,6 +96,7 @@ const workspace = {
 
 describe("ModelPerformanceMonitoringPanel", () => {
   beforeEach(() => {
+    role = "reliability_engineer";
     getWorkspace.mockReset().mockResolvedValue(workspace);
     runAssessment.mockReset().mockResolvedValue({ assessmentId: "a1" });
     captureSnapshot.mockReset().mockResolvedValue({ snapshotId: 12 });
@@ -177,5 +179,15 @@ describe("ModelPerformanceMonitoringPanel", () => {
         designFeedback: "Retain and monitor",
       },
     });
+  });
+
+  it("does not offer field-evidence capture to an executive governance role", async () => {
+    role = "executive";
+    render(<ModelPerformanceMonitoringPanel />);
+    await screen.findByText("Model performance & drift");
+    expect(
+      screen.queryByLabelText("Calculation awaiting field outcome"),
+    ).toBeNull();
+    expect(screen.getByLabelText("Assessment model version")).toBeTruthy();
   });
 });

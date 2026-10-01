@@ -32,6 +32,11 @@ function words(value: string): string {
 export function ModelPerformanceMonitoringPanel() {
   const { profile } = useAuth();
   const role = String(profile?.role ?? "");
+  const canRecordOutcome = [
+    "admin",
+    "maintenance_manager",
+    "reliability_engineer",
+  ].includes(role);
   const canCapture = [
     "admin",
     "executive",
@@ -179,7 +184,7 @@ export function ModelPerformanceMonitoringPanel() {
             A prediction is not evidence of performance until a named human
             records what actually happened and why that observation is valid.
           </p>
-          {canCapture ? (
+          {canRecordOutcome ? (
             <div className="mt-4 space-y-2">
               <select
                 aria-label="Calculation awaiting field outcome"
