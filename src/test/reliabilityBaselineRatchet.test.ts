@@ -767,6 +767,16 @@ describe("the frozen floor names its own blocker (H5)", () => {
       scripts: Record<string, string>;
     };
     expect(pkg.scripts["reliability:dryrun"]).toContain("--dry-run");
+    const wrapper = readRepoFile("scripts/reliability-dryrun.mjs");
+    expect(wrapper).toContain(
+      "Cannot capture RE-2026\\.08 reference after protected path changed",
+    );
+    expect(wrapper).toContain(
+      "capture dry-run failed for an unexpected reason",
+    );
+    expect(wrapper).toContain(
+      "protected-surface capture refusal still wrote a scratch reference",
+    );
   });
 
   it("manifest and cases stay where both enforcement layers look for them", () => {

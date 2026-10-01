@@ -195,7 +195,10 @@ jobs:
         if: github.event_name != 'workflow_dispatch'
         run: npx tsx scripts/run-reliability-qualification.ts --dry-run --output=/tmp/re-2026-08-dry-run-report.json
 
-      # A manual dry-run against the unchanged baseline proves both paths.
+      # A manual dry-run proves the candidate path and then proves one of the
+      # only two valid capture outcomes: unchanged surface writes a scratch
+      # reference, changed surface refuses by the frozen fingerprint and
+      # writes nothing. Any other capture failure still fails the job.
       - name: Dry-run candidate and capture paths with a stub model
         if: github.event_name == 'workflow_dispatch'
         run: npm run reliability:dryrun
