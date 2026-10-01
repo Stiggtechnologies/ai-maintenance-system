@@ -308,6 +308,12 @@ export function OrganizationMfaPolicyPanel() {
                 </button>
               </div>
             </div>
+          ) : workspace?.scheduled ? (
+            <div className="rounded-lg border border-white/8 p-4 text-sm text-slate-400">
+              A future policy is already adopted. New proposals remain closed
+              until it becomes effective, keeping the activation order
+              deterministic.
+            </div>
           ) : (
             <div className="rounded-lg border border-white/8 p-4">
               <div className="flex items-center gap-2">

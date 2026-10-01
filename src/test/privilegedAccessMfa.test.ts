@@ -9,6 +9,10 @@ const app = readFileSync("src/App.tsx", "utf8");
 const gate = readFileSync("src/components/MfaAccessGate.tsx", "utf8");
 const manager = readFileSync("src/components/MfaManager.tsx", "utf8");
 const settings = readFileSync("src/pages/SettingsPage.tsx", "utf8");
+const policyPanel = readFileSync(
+  "src/components/OrganizationMfaPolicyPanel.tsx",
+  "utf8",
+);
 const workflow = readFileSync(".github/workflows/ci.yml", "utf8");
 const smoke = readFileSync("scripts/ci-privileged-access-mfa-smoke.sh", "utf8");
 
@@ -66,6 +70,7 @@ describe("tenant MFA and privileged-access contract", () => {
     expect(gate).toContain("Tenant records remain unavailable");
     expect(manager).toContain("protectLastFactor");
     expect(settings).toContain("<OrganizationMfaPolicyPanel />");
+    expect(policyPanel).toContain("New proposals remain closed");
   });
 
   it("keeps MFA separate from engineering and operational authority and runs live proof", () => {
