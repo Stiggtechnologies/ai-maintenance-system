@@ -578,7 +578,7 @@
   "D5.28": {
     "status": "🟡",
     "evidence": true,
-    "citations": 33,
+    "citations": 35,
     "backticked": 16
   },
   "D5.29": {
@@ -1172,8 +1172,8 @@
   "D11.33": {
     "status": "🟡",
     "evidence": true,
-    "citations": 27,
-    "backticked": 26
+    "citations": 33,
+    "backticked": 30
   },
   "D11.34": {
     "status": "✅",

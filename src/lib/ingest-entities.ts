@@ -67,7 +67,8 @@ export interface ColumnSpec {
   name: string;
   /** Every row must carry a non-blank value. */
   required?: boolean;
-  kind: "text" | "number" | "timestamp";
+  kind: "text" | "number" | "timestamp" | "json";
+  jsonShape?: "array" | "object";
   /** Allowed values, checked before upload because the column has a CHECK. */
   oneOf?: readonly string[];
   min?: number;
@@ -571,7 +572,7 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
       label: "Schedule activities (P6)",
       handler: "ingest_schedule_batch",
       purpose:
-        "A project schedule exported from Primavera P6 (CSV layout), imported against a development case. P6 remains the system of record — Sync analyzes the schedule and never writes back. This slice LISTS what was imported on the case workspace; critical-path and schedule-confidence analysis are later work and are not claimed.",
+        "A project schedule exported from Primavera P6 as native XER or the governed CSV layout, imported against a development case. P6 remains the system of record — Sync analyzes the schedule and never writes back.",
       columns: [
         {
           name: "case_title",
@@ -634,6 +635,38 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
           kind: "text",
           note: "groups activities into one named schedule per case; blank means “P6 import”",
         },
+        {
+          name: "total_float_hours",
+          kind: "number",
+          note: "P6 total float in hours; negative float is retained, never clamped",
+        },
+        {
+          name: "constraint_type",
+          kind: "text",
+          oneOf: [
+            "mandatory_start",
+            "mandatory_finish",
+            "start_on",
+            "finish_on",
+            "start_on_or_after",
+            "start_on_or_before",
+            "finish_on_or_after",
+            "finish_on_or_before",
+            "as_late_as_possible",
+          ],
+          note: "the P6 constraint classification; date constraints also require constraint_date",
+        },
+        {
+          name: "constraint_date",
+          kind: "timestamp",
+          note: "the P6 constraint date with an explicit timezone",
+        },
+        {
+          name: "relationships",
+          kind: "json",
+          jsonShape: "array",
+          note: "relationship annotations as JSON: predecessor, FS/SS/FF/SF link_type and lag_hours",
+        },
       ],
       requiredOneOf: [["case_title", "development_case_id"]],
       externalIdFrom: "activity_id",
@@ -644,7 +677,7 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
       caution:
         "Every predecessor must resolve WITHIN THIS SCHEDULE — an activity already imported, or a valid row of the same upload. A row naming a predecessor that is missing, or that was itself refused, is REFUSED with the predecessor named, so the stored dependency set can never point at an activity that is not there. Files are sent in batches of 500 rows: if an export lists a successor more than 500 rows before its predecessor, upload the file again — the rows already loaded deduplicate and the remainder land against them.",
       outcome:
-        "Activities appear in the case workspace's Schedule section, listed with their dependencies. Analysis — critical path, schedule confidence, simulation over imported activities — is later work and does not exist yet.",
+        "Activities appear in the case workspace's Schedule section with typed relationships, float and constraints feeding schedule quality and simulation.",
       templateRows: [
         [
           "Crusher relining programme",
@@ -991,6 +1024,34 @@ export function preflight(
             message: `${col.name} is "${raw}", which is not a date the database can read. Use 2026-08-01 or 2026-08-01T06:00:00Z.`,
           });
         }
+      } else if (col.kind === "json") {
+        try {
+          const parsed = JSON.parse(raw) as unknown;
+          if (col.jsonShape === "array" && !Array.isArray(parsed)) {
+            blockers.push({
+              row: n,
+              column: col.name,
+              message: `${col.name} must be a JSON array`,
+            });
+          } else if (
+            col.jsonShape === "object" &&
+            (parsed === null ||
+              Array.isArray(parsed) ||
+              typeof parsed !== "object")
+          ) {
+            blockers.push({
+              row: n,
+              column: col.name,
+              message: `${col.name} must be a JSON object`,
+            });
+          }
+        } catch {
+          blockers.push({
+            row: n,
+            column: col.name,
+            message: `${col.name} is not valid JSON`,
+          });
+        }
       } else if (col.oneOf && !col.oneOf.includes(raw)) {
         blockers.push({
           row: n,
@@ -1027,11 +1088,12 @@ export function toPayload(
   entity: IngestEntity,
   row: Record<string, string>,
   index: number,
-): Record<string, string | null> {
-  const out: Record<string, string | null> = {};
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
   for (const col of entity.columns) {
     const raw = (row[col.name] ?? "").trim();
-    out[col.name] = raw === "" ? null : raw;
+    out[col.name] =
+      raw === "" ? null : col.kind === "json" ? JSON.parse(raw) : raw;
   }
   const id = (row[entity.externalIdFrom] ?? "").trim();
   out.external_id =

@@ -41,6 +41,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { parseCSV } from "../lib/fleet-import";
+import { parseP6Xer } from "../lib/p6-xer";
 import {
   INGEST_ENTITIES,
   INGEST_ENTITY_ORDER,
@@ -80,6 +81,12 @@ export function ContractImport({
   const [rejects, setRejects] = useState<Reject[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sourceName, setSourceName] = useState("Manual upload");
+  const [xerUtcOffset, setXerUtcOffset] = useState("");
+  const [xerCaseTitle, setXerCaseTitle] = useState("");
+  const [xerCaseId, setXerCaseId] = useState("");
+  const [xerScheduleName, setXerScheduleName] = useState("");
+  const [xerWarnings, setXerWarnings] = useState<string[]>([]);
 
   const entity = INGEST_ENTITIES[entityKey];
 
@@ -99,6 +106,8 @@ export function ContractImport({
     setSummary(null);
     setRejects([]);
     setMsg(null);
+    setSourceName("Manual upload");
+    setXerWarnings([]);
   }
 
   function chooseEntity(key: IngestEntityKey) {
@@ -109,7 +118,33 @@ export function ContractImport({
   async function onFile(f: File) {
     clearFile();
     setFileName(f.name);
-    const all = parseCSV(await f.text());
+    const text = await f.text();
+    if (f.name.toLowerCase().endsWith(".xer")) {
+      if (entity.key !== "schedule_activity") {
+        setMsg("A P6 XER file can only be loaded as Schedule activities (P6).");
+        return;
+      }
+      try {
+        const parsed = parseP6Xer(text, {
+          developmentCaseId: xerCaseId,
+          caseTitle: xerCaseTitle,
+          utcOffset: xerUtcOffset,
+          scheduleName: xerScheduleName,
+        });
+        setHeaders(parsed.headers);
+        setRows(parsed.rows);
+        setXerWarnings(parsed.warnings);
+        setSourceName(`Primavera P6 XER · ${f.name}`);
+      } catch (error) {
+        setMsg(
+          error instanceof Error
+            ? error.message
+            : "Could not read the P6 XER file.",
+        );
+      }
+      return;
+    }
+    const all = parseCSV(text);
     if (all.length < 2) {
       setMsg("The file needs a header row and at least one row of data.");
       return;
@@ -122,6 +157,7 @@ export function ContractImport({
         Object.fromEntries(lower.map((h, i) => [h, (r[i] ?? "").trim()])),
       ),
     );
+    setSourceName(`Manual CSV · ${f.name}`);
   }
 
   function downloadTemplate() {
@@ -142,7 +178,7 @@ export function ContractImport({
     try {
       const { data: begin, error: beginErr } = await supabase.rpc(
         "begin_manual_import",
-        { p_entity_type: entity.key, p_source_name: "Manual upload" },
+        { p_entity_type: entity.key, p_source_name: sourceName },
       );
       if (beginErr) throw new Error(beginErr.message);
       const started = begin as { run_id?: string; error?: string };
@@ -319,12 +355,53 @@ export function ContractImport({
         </button>
       </div>
 
+      {entity.key === "schedule_activity" && (
+        <div className="mt-3 rounded-lg border border-signal-cyan/15 bg-signal-cyan/[0.04] p-4">
+          <p className="text-xs font-medium text-slate-300">
+            Native Primavera P6 XER destination
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-slate-500">
+            XER does not reliably carry the destination SyncAI case or project
+            timezone. State both before choosing the file; SyncAI will not guess
+            either.
+          </p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+            <input
+              value={xerCaseTitle}
+              onChange={(event) => setXerCaseTitle(event.target.value)}
+              placeholder="Exact Development Case title"
+              className="rounded border border-white/10 bg-overlook-void px-3 py-2 text-xs text-slate-200"
+            />
+            <input
+              value={xerCaseId}
+              onChange={(event) => setXerCaseId(event.target.value)}
+              placeholder="Development Case UUID (preferred)"
+              className="rounded border border-white/10 bg-overlook-void px-3 py-2 text-xs text-slate-200"
+            />
+            <input
+              value={xerUtcOffset}
+              onChange={(event) => setXerUtcOffset(event.target.value)}
+              placeholder="Project UTC offset, e.g. -07:00"
+              className="rounded border border-white/10 bg-overlook-void px-3 py-2 text-xs text-slate-200"
+            />
+            <input
+              value={xerScheduleName}
+              onChange={(event) => setXerScheduleName(event.target.value)}
+              placeholder="Schedule name override (optional)"
+              className="rounded border border-white/10 bg-overlook-void px-3 py-2 text-xs text-slate-200"
+            />
+          </div>
+        </div>
+      )}
+
       <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-300">
         <Upload className="h-3.5 w-3.5" />
-        Choose CSV
+        {entity.key === "schedule_activity"
+          ? "Choose CSV or P6 XER"
+          : "Choose CSV"}
         <input
           type="file"
-          accept=".csv"
+          accept={entity.key === "schedule_activity" ? ".csv,.xer" : ".csv"}
           className="hidden"
           onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
         />
@@ -337,6 +414,19 @@ export function ContractImport({
         <p className="mt-3 flex items-start gap-2 text-xs text-amber-300">
           <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {msg}
         </p>
+      )}
+
+      {xerWarnings.length > 0 && (
+        <div className="mt-3 space-y-1 rounded-lg border border-amber-400/15 bg-amber-400/[0.04] p-3">
+          {xerWarnings.map((warning) => (
+            <p
+              key={warning}
+              className="text-xs leading-relaxed text-amber-200/90"
+            >
+              {warning}
+            </p>
+          ))}
+        </div>
       )}
 
       {ignored.length > 0 && (
