@@ -66,10 +66,10 @@
     "backticked": 0
   },
   "C1.12": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 5,
+    "backticked": 5
   },
   "C1.13": {
     "status": "✅",
@@ -1776,16 +1776,16 @@
     "backticked": 2
   },
   "E12.03": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 3,
+    "backticked": 3
   },
   "E12.04": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 2,
+    "backticked": 2
   },
   "E12.05": {
     "status": "✅",
@@ -1794,10 +1794,10 @@
     "backticked": 1
   },
   "E12.06": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 2,
+    "backticked": 2
   },
   "E12.07": {
     "status": "🟡",
@@ -1824,10 +1824,10 @@
     "backticked": 0
   },
   "E12.11": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 2,
+    "backticked": 2
   },
   "E12.12": {
     "status": "✅",
@@ -1836,10 +1836,10 @@
     "backticked": 1
   },
   "E12.13": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 2,
+    "backticked": 2
   },
   "E12.14": {
     "status": "🟡",

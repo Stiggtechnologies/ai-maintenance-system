@@ -24,6 +24,7 @@ import {
   type Reading,
 } from "../lib/data-governance";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
+import { DataStewardAgentWorkbench } from "./DataStewardAgentWorkbench";
 
 interface Posture {
   assets_total: number;
@@ -93,6 +94,7 @@ export function DataGovernance() {
 
   return (
     <section aria-labelledby="datagov-heading" className="space-y-4">
+      <DataStewardAgentWorkbench />
       <div>
         <h2
           id="datagov-heading"

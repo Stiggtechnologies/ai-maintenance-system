@@ -373,6 +373,9 @@ jobs:
       - name: Smoke — governed Asset Strategy Specialist
         run: bash scripts/ci-asset-strategy-agent-smoke.sh
 
+      - name: Smoke — governed Data Steward Specialist
+        run: bash scripts/ci-data-steward-agent-smoke.sh
+
       - name: Smoke — loss forecast, risk backlog and outage options
         run: bash scripts/ci-loss-forecast-backlog-outage-smoke.sh
 
