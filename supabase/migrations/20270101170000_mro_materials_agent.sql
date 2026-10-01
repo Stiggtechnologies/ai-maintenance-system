@@ -531,6 +531,7 @@ begin
       'validFrom',s.valid_from,'validUntil',s.valid_until)
       order by s.approval_status,s.valid_from desc),'[]'::jsonb),
     count(*) filter(where s.approval_status='approved'
+      and (s.valid_from is null or s.valid_from<=now())
       and (s.valid_until is null or s.valid_until>=now()))::int
   into v_substitutions,v_approved_substitutions
   from (

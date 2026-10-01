@@ -136,9 +136,13 @@ export function MroMaterialsAgentWorkbench({
               type="button"
               disabled={!materialId || busy !== null}
               onClick={() =>
-                act("run", () =>
-                  runMroMaterialsAgent({ materialId, windowDays }),
-                )
+                act("run", async () => {
+                  const receipt = await runMroMaterialsAgent({
+                    materialId,
+                    windowDays,
+                  });
+                  setPackId(receipt.packId);
+                })
               }
               className="rounded-lg bg-emerald-300 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-emerald-200 disabled:opacity-40"
             >

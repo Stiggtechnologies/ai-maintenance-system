@@ -140,6 +140,11 @@ export interface MroMaterialsAgentWorkspace {
   basis: string;
 }
 
+export interface MroMaterialsAgentRunReceipt {
+  packId: string;
+  runId: string;
+}
+
 function rpcError(value: unknown): string | null {
   if (value && typeof value === "object" && "error" in value) {
     const error = (value as { error?: unknown }).error;
@@ -176,7 +181,7 @@ export async function loadMroMaterialsAgentWorkspace(): Promise<MroMaterialsAgen
 export async function runMroMaterialsAgent(input: {
   materialId: string;
   windowDays: number;
-}): Promise<void> {
+}): Promise<MroMaterialsAgentRunReceipt> {
   const { data, error } = await supabase.rpc("run_mro_materials_agent", {
     p_material_id: input.materialId,
     p_window_days: input.windowDays,
@@ -185,6 +190,19 @@ export async function runMroMaterialsAgent(input: {
   if (error) throw new Error(error.message);
   const message = rpcError(data);
   if (message) throw new Error(message);
+  if (
+    !data ||
+    typeof data !== "object" ||
+    !("packId" in data) ||
+    typeof data.packId !== "string" ||
+    !("runId" in data) ||
+    typeof data.runId !== "string"
+  ) {
+    throw new Error(
+      "The MRO Materials Specialist did not return a retained assessment receipt.",
+    );
+  }
+  return { packId: data.packId, runId: data.runId };
 }
 
 export async function assignMroMaterialReview(input: {

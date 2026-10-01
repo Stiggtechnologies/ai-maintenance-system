@@ -42,6 +42,12 @@ describe("governed MRO Materials Specialist execution", () => {
     expect(migration).toContain("insert into public.agent_runs");
     expect(migration).toContain("'supplierdeliveries',v_deliveries");
     expect(migration).toContain("'installedcomponents',v_component_instances");
+    expect(migration).toContain(
+      "s.valid_from is null or s.valid_from<=now()",
+    );
+    expect(migration).toContain(
+      "s.valid_until is null or s.valid_until>=now()",
+    );
     expect(migration).not.toContain(
       "create table if not exists public.materials",
     );
@@ -109,8 +115,13 @@ describe("governed MRO Materials Specialist execution", () => {
 
   it("is reachable in the canonical materials workspace", () => {
     expect(service).toContain('"run_mro_materials_agent"');
+    expect(service).toContain("MroMaterialsAgentRunReceipt");
+    expect(service).toContain(
+      "did not return a retained assessment receipt",
+    );
     expect(service).toContain('"assign_mro_material_review"');
     expect(panel).toContain("Run assessment");
+    expect(panel).toContain("setPackId(receipt.packId)");
     expect(panel).toContain("Assign review");
     expect(parent).toContain("<MroMaterialsAgentWorkbench");
   });

@@ -136,10 +136,23 @@ psqlc "
 
   insert into public.material_substitutions(
     id,organization_id,material_id,substitute_material_id,substitution_type,
-    approval_status,basis,approved_by)
+    approval_status,basis,valid_from,approved_by)
   values('$SUBSTITUTION','$ORG','$MATERIAL','$ALTERNATE','repairable_exchange',
-    'approved','Approved exchange fixture; use remains a human engineering and work decision.','$OWNER')
-  on conflict(id) do update set approval_status='approved',basis=excluded.basis;
+    'approved','Future-approved exchange fixture; it is not yet a current alternative.',
+    now()+interval '30 days','$OWNER')
+  on conflict(id) do update set approval_status='approved',basis=excluded.basis,
+    valid_from=excluded.valid_from;
+
+  insert into public.approved_substitutions(
+    organization_id,specified_material_id,substitute_material_id,conditions,
+    approved_by,approved_at,expires_at,is_bidirectional)
+  values('$ORG','$MATERIAL','$ALTERNATE',
+    'Current legacy approval fixture; use remains a human engineering and work decision.',
+    '$OWNER',now()-interval '30 days',now()+interval '1 year',false)
+  on conflict(organization_id,specified_material_id,substitute_material_id)
+  do update set conditions=excluded.conditions,approved_by=excluded.approved_by,
+    approved_at=excluded.approved_at,expires_at=excluded.expires_at,
+    is_bidirectional=excluded.is_bidirectional;
 "
 
 SUPPLIER=$(psqlc "
@@ -203,6 +216,11 @@ BEFORE_SOURCE=$(psqlc "select concat(
   (select count(*) from public.material_stock where organization_id='$ORG' and material_id='$MATERIAL'),'|',
   (select count(*) from public.work_order_materials where organization_id='$ORG' and material_id='$MATERIAL'),'|',
   (select count(*) from public.material_events where organization_id='$ORG' and material_id='$MATERIAL'),'|',
+  (select count(*) from public.bom_lines where organization_id='$ORG' and material_id='$MATERIAL'),'|',
+  (select count(*) from public.component_instances where organization_id='$ORG' and material_id='$MATERIAL'),'|',
+  (select count(*) from public.supplier_deliveries where organization_id='$ORG' and material_id='$MATERIAL'),'|',
+  (select count(*) from public.material_substitutions where organization_id='$ORG' and material_id='$MATERIAL'),'|',
+  (select count(*) from public.approved_substitutions where organization_id='$ORG' and specified_material_id='$MATERIAL'),'|',
   (select count(*) from public.approvals where organization_id='$ORG'))")
 
 BODY=$(rpc "$ENGINEER" run_mro_materials_agent \
@@ -211,6 +229,7 @@ IDS=$(BODY="$BODY" python3 - <<'PY'
 import json,os
 x=json.loads(os.environ['BODY'])
 assert x['criticalSpares']['state']=='shortage_evidence_present',x
+assert x['criticalSpares']['approvedAlternatives']==1,x
 assert x['reorderPolicy']['state']=='existing_minimum_reached_or_breached',x
 assert x['reorderPolicy']['observedLeadTimeDemand'] is not None,x
 assert x['repairables']['state']=='repairable_history_present_turnaround_unproven',x
@@ -232,11 +251,16 @@ PY
 PACK=${IDS%%|*}
 RUN=${IDS##*|}
 test "$(psqlc "select count(*) from public.agent_runs where id='$RUN' and organization_id='$ORG' and material_id='$MATERIAL' and retained_for_governance and status='completed' and agent_tool_key='analyse_mro_material_position'")" = '1'
-test "$(psqlc "select count(*) from public.mro_material_agent_packs where id='$PACK' and organization_id='$ORG' and source_snapshot->'material'->>'materialCode'='C1-08-ROTABLE' and jsonb_array_length(source_snapshot->'materialEvents')=5 and jsonb_array_length(source_snapshot->'supplierDeliveries')=1 and jsonb_array_length(source_snapshot->'installedComponents')=1 and jsonb_array_length(source_snapshot->'substitutions')=1 and assessment->'stockouts'->>'state'='open_short_line'")" = '1'
+test "$(psqlc "select count(*) from public.mro_material_agent_packs where id='$PACK' and organization_id='$ORG' and source_snapshot->'material'->>'materialCode'='C1-08-ROTABLE' and jsonb_array_length(source_snapshot->'materialEvents')=5 and jsonb_array_length(source_snapshot->'supplierDeliveries')=1 and jsonb_array_length(source_snapshot->'installedComponents')=1 and jsonb_array_length(source_snapshot->'substitutions')=2 and assessment->'criticalSpares'->>'approvedAlternatives'='1' and assessment->'stockouts'->>'state'='open_short_line'")" = '1'
 AFTER_SOURCE=$(psqlc "select concat(
   (select count(*) from public.material_stock where organization_id='$ORG' and material_id='$MATERIAL'),'|',
   (select count(*) from public.work_order_materials where organization_id='$ORG' and material_id='$MATERIAL'),'|',
   (select count(*) from public.material_events where organization_id='$ORG' and material_id='$MATERIAL'),'|',
+  (select count(*) from public.bom_lines where organization_id='$ORG' and material_id='$MATERIAL'),'|',
+  (select count(*) from public.component_instances where organization_id='$ORG' and material_id='$MATERIAL'),'|',
+  (select count(*) from public.supplier_deliveries where organization_id='$ORG' and material_id='$MATERIAL'),'|',
+  (select count(*) from public.material_substitutions where organization_id='$ORG' and material_id='$MATERIAL'),'|',
+  (select count(*) from public.approved_substitutions where organization_id='$ORG' and specified_material_id='$MATERIAL'),'|',
   (select count(*) from public.approvals where organization_id='$ORG'))")
 test "$AFTER_SOURCE" = "$BEFORE_SOURCE"
 
