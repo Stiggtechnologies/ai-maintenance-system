@@ -483,6 +483,9 @@ jobs:
       - name: Smoke — quarantined knowledge and independent AAL2 release
         run: bash scripts/ci-kb-document-security-smoke.sh
 
+      - name: Smoke — governed fail-closed tenant AI egress
+        run: bash scripts/ci-data-loss-prevention-smoke.sh
+
       - name: Smoke — hardware-neutral governed Edge Evidence Contract
         run: bash scripts/ci-edge-evidence-contract-smoke.sh
 
