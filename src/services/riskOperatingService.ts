@@ -4,6 +4,7 @@ import type {
   RiskAssessmentDraft,
   RiskCockpit,
   RiskDecisionOperations,
+  RiskDecisionPreviewContext,
   RiskImplementationState,
   RiskParticipant,
 } from "../types/risk";
@@ -109,6 +110,20 @@ export async function recordRiskAnalysis(
     data as RpcResult | null,
     error,
     "Could not record risk analysis",
+  );
+}
+
+export async function getRiskDecisionPreviewContext(
+  riskId: string,
+): Promise<RiskDecisionPreviewContext> {
+  const { data, error } = await supabase.rpc(
+    "get_risk_decision_preview_context",
+    { p_risk_id: riskId },
+  );
+  return unwrap(
+    data as (RiskDecisionPreviewContext & RpcResult) | null,
+    error,
+    "Could not load governed risk preview inputs",
   );
 }
 

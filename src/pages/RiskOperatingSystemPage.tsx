@@ -38,12 +38,17 @@ import {
   CONSEQUENCE_DIMENSIONS,
   ISO_31000_PRINCIPLES,
   RISK_ENGINE_ARCHITECTURE,
+  analyzeRisk,
+  assessTreatmentReadiness,
   buildDraftCriteriaDefinitions,
   detectStakeholderDisagreement,
+  evaluateValueOfInformation,
   getIndustryRiskFocus,
   getRiskIndustryOptionLabel,
   getRiskIndustryPackCatalog,
   RISK_INDUSTRY_READINESS_LABELS,
+  type RiskAnalysisInput,
+  type RiskCriteria,
   type RiskDecision,
   type RiskKind,
 } from "../lib/risk-operating-system";
@@ -68,6 +73,7 @@ import {
   createRiskTreatment,
   decideRiskDecision,
   getIso31000ImplementationState,
+  getRiskDecisionPreviewContext,
   getRiskAudienceView,
   getRiskOperatingCockpit,
   getRiskParticipants,
@@ -95,6 +101,7 @@ import type {
   RiskAssessmentDraft,
   RiskCockpit,
   RiskCriteriaProfile,
+  RiskDecisionPreviewContext,
   RiskImplementationState,
   RiskParticipant,
   RiskRecord,
@@ -154,6 +161,72 @@ function splitList(value: string): string[] {
     .split(/[,\n]/)
     .map((item) => item.trim())
     .filter(Boolean);
+}
+
+function finiteNumber(value: unknown): number | null {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = typeof value === "number" ? value : Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function buildPreviewCriteria(
+  context: RiskDecisionPreviewContext | null,
+): RiskCriteria | null {
+  if (!context) return null;
+  const source = context.criteria;
+  const likelihoodScale = source.likelihood_scale
+    .map((entry) =>
+      typeof entry === "number" ? entry : finiteNumber(entry.score),
+    )
+    .filter((entry): entry is number => entry !== null);
+  const weight = (key: string) => finiteNumber(source.scoring_weights[key]);
+  const threshold = (key: string) => finiteNumber(source.thresholds[key]);
+  const decision = (key: string) =>
+    finiteNumber(source.decision_thresholds[key]);
+  const weights = {
+    inherent: weight("inherent"),
+    exposure: weight("exposure"),
+    uncertainty: weight("uncertainty"),
+    connectivity: weight("connectivity"),
+    velocity: weight("velocity"),
+    capacity: weight("capacity"),
+    // record_risk_analysis treats an unstated time weight as zero.
+    timePressure: finiteNumber(source.time_factors.weight) ?? 0,
+  };
+  const thresholds = {
+    low: threshold("low"),
+    medium: threshold("medium"),
+    high: threshold("high"),
+    critical: threshold("critical"),
+  };
+  const decisions = {
+    accept: decision("accept") ?? 0,
+    monitor: decision("monitor"),
+    investigate: decision("investigate"),
+    treat: decision("treat"),
+    escalate: decision("escalate"),
+  };
+
+  if (
+    likelihoodScale.length === 0 ||
+    Object.values(weights).some((value) => value === null) ||
+    Object.values(thresholds).some((value) => value === null) ||
+    Object.values(decisions).some((value) => value === null)
+  )
+    return null;
+
+  return {
+    id: source.id,
+    name: source.name,
+    status: source.status,
+    version: source.version,
+    likelihoodScale,
+    consequenceDimensions: [...CONSEQUENCE_DIMENSIONS],
+    weights: weights as RiskCriteria["weights"],
+    thresholds: thresholds as RiskCriteria["thresholds"],
+    decisionThresholds: decisions as RiskCriteria["decisionThresholds"],
+    capacityLimit: finiteNumber(source.risk_capacity.capacity_limit) ?? 0,
+  };
 }
 
 function score(value: number | null): string {
@@ -1123,6 +1196,7 @@ function Field({
   required = false,
   min,
   max,
+  step,
 }: {
   label: string;
   value: string;
@@ -1132,6 +1206,7 @@ function Field({
   required?: boolean;
   min?: number;
   max?: number;
+  step?: number | "any";
 }) {
   return (
     <label className="block">
@@ -1143,6 +1218,7 @@ function Field({
         type={type}
         min={min}
         max={max}
+        step={step}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}
@@ -2225,6 +2301,122 @@ function ActionModal({
   });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const needsPreviewContext = kind === "analysis" || kind === "treatment";
+  const {
+    data: previewContext,
+    loading: previewContextLoading,
+    error: previewContextError,
+  } = useAsyncData<RiskDecisionPreviewContext | null>(
+    () =>
+      needsPreviewContext
+        ? getRiskDecisionPreviewContext(risk.id)
+        : Promise.resolve(null),
+    [risk.id, needsPreviewContext],
+  );
+  const previewCriteria = useMemo(
+    () => buildPreviewCriteria(previewContext),
+    [previewContext],
+  );
+  const analysisPreview = useMemo(() => {
+    if (kind !== "analysis" || !previewCriteria) return null;
+    const numericKeys = [
+      "likelihood",
+      "control_effectiveness",
+      "uncertainty",
+      "confidence",
+      "complexity",
+      "connectivity",
+      "exposure",
+      "capacity_load",
+      "velocity",
+    ] as const;
+    const numeric = Object.fromEntries(
+      numericKeys.map((key) => [key, finiteNumber(form[key])]),
+    ) as Record<(typeof numericKeys)[number], number | null>;
+    const consequences = Object.fromEntries(
+      CONSEQUENCE_DIMENSIONS.map((dimension) => [
+        dimension,
+        finiteNumber(form[`consequence_${dimension}`]),
+      ]),
+    );
+    if (
+      Object.values(numeric).some((value) => value === null) ||
+      Object.values(consequences).some((value) => value === null)
+    )
+      return null;
+    const input: RiskAnalysisInput = {
+      kind: risk.kind,
+      analysisLevel: form.analysis_level as RiskAnalysisInput["analysisLevel"],
+      likelihood: numeric.likelihood as number,
+      consequences: consequences as RiskAnalysisInput["consequences"],
+      controlEffectiveness: numeric.control_effectiveness as number,
+      uncertainty: numeric.uncertainty as number,
+      confidence: numeric.confidence as number,
+      exposure: numeric.exposure as number,
+      complexity: numeric.complexity as number,
+      connectivity: numeric.connectivity as number,
+      capacityLoad: numeric.capacity_load as number,
+      velocity: numeric.velocity as number,
+      timeToUnacceptableDays:
+        form.time_to_unacceptable_days === ""
+          ? null
+          : finiteNumber(form.time_to_unacceptable_days),
+      opportunityValue: finiteNumber(form.opportunity_value) ?? 0,
+    };
+    if (
+      form.time_to_unacceptable_days !== "" &&
+      input.timeToUnacceptableDays === null
+    )
+      return null;
+    return analyzeRisk(input, previewCriteria);
+  }, [form, kind, previewCriteria, risk.kind]);
+  const informationPreview = useMemo(() => {
+    if (kind !== "information") return null;
+    const informationCost = finiteNumber(form.information_cost);
+    const decisionCostIfWrong = finiteNumber(form.decision_cost_if_wrong);
+    const uncertaintyReduction = finiteNumber(form.uncertainty_reduction);
+    const probabilityDecisionChanges = finiteNumber(
+      form.probability_decision_changes,
+    );
+    if (
+      informationCost === null ||
+      decisionCostIfWrong === null ||
+      uncertaintyReduction === null ||
+      probabilityDecisionChanges === null ||
+      informationCost < 0 ||
+      decisionCostIfWrong < 0 ||
+      uncertaintyReduction < 0 ||
+      uncertaintyReduction > 1 ||
+      probabilityDecisionChanges < 0 ||
+      probabilityDecisionChanges > 1
+    )
+      return null;
+    return evaluateValueOfInformation({
+      informationCost,
+      decisionCostIfWrong,
+      uncertaintyReduction,
+      probabilityDecisionChanges,
+    });
+  }, [form, kind]);
+  const treatmentPreview = useMemo(() => {
+    if (kind !== "treatment" || !previewContext) return null;
+    const readiness = assessTreatmentReadiness({
+      requiredResources: splitList(form.required_resources),
+      availableResources: splitList(form.available_resources),
+      requiredCompetencies: splitList(form.required_competencies),
+      activeCompetencies: previewContext.active_competencies,
+    });
+    const governanceGaps = [
+      !form.treatment_owner_id ? "named treatment owner" : null,
+      !form.required_approver_role.trim() ? "required approver role" : null,
+      !form.verification_method.trim() ? "verification method" : null,
+    ].filter((item): item is string => item !== null);
+    return {
+      ...readiness,
+      governanceGaps,
+      readyForApproval: readiness.executable && governanceGaps.length === 0,
+    };
+  }, [form, kind, previewContext]);
   const set = (key: string) => (value: string) =>
     setForm((current) => ({ ...current, [key]: value }));
   async function submit(event: React.FormEvent) {
@@ -2658,6 +2850,89 @@ function ActionModal({
                 />
               )}
             </div>
+            <div
+              data-testid="risk-analysis-preview"
+              className="mt-4 rounded-xl border border-cyan-500/20 bg-cyan-500/6 p-4"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-cyan-200">
+                  Governed calculation preview
+                </p>
+                {analysisPreview && (
+                  <Pill
+                    tone={
+                      analysisPreview.authoritative
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                        : "border-amber-500/30 bg-amber-500/10 text-amber-200"
+                    }
+                  >
+                    {analysisPreview.authoritative
+                      ? "adopted criteria"
+                      : "diagnostic only"}
+                  </Pill>
+                )}
+              </div>
+              {previewContextLoading ? (
+                <p className="mt-2 text-xs text-slate-400">
+                  Loading the risk-bound criteria profile…
+                </p>
+              ) : previewContextError ? (
+                <p className="mt-2 text-xs text-red-300">
+                  Preview unavailable: {previewContextError}. The database
+                  writer will still recalculate and validate every input.
+                </p>
+              ) : analysisPreview ? (
+                <>
+                  <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+                    <div>
+                      <p className="text-[10px] uppercase text-slate-500">
+                        Inherent
+                      </p>
+                      <p className="mt-1 text-lg font-black text-white">
+                        {analysisPreview.inherentScore}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase text-slate-500">
+                        Controlled
+                      </p>
+                      <p className="mt-1 text-lg font-black text-white">
+                        {analysisPreview.controlledScore}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase text-slate-500">
+                        Current / level
+                      </p>
+                      <p className="mt-1 text-lg font-black text-white">
+                        {analysisPreview.currentScore} · {analysisPreview.level}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[10px] uppercase text-slate-500">
+                        Recommended action
+                      </p>
+                      <p className="mt-1 text-lg font-black text-cyan-200">
+                        {analysisPreview.decision}
+                      </p>
+                    </div>
+                  </div>
+                  <p className="mt-3 text-xs leading-relaxed text-slate-400">
+                    {analysisPreview.explanation}
+                  </p>
+                </>
+              ) : (
+                <p className="mt-2 text-xs text-amber-200">
+                  Complete valid numeric inputs and a configured bound criteria
+                  profile to produce a preview.
+                </p>
+              )}
+              <p className="mt-2 text-[10px] text-slate-500">
+                Advisory only. Recording runs the same calculation again in the
+                tenant-scoped database and does not approve the recommended
+                action.
+              </p>
+            </div>
           </div>
         )}
         {kind === "information" && (
@@ -2672,6 +2947,7 @@ function ActionModal({
               label="Information cost"
               type="number"
               min={0}
+              step={0.01}
               value={form.information_cost}
               onChange={set("information_cost")}
             />
@@ -2679,6 +2955,7 @@ function ActionModal({
               label="Cost if the decision is wrong"
               type="number"
               min={0}
+              step={0.01}
               value={form.decision_cost_if_wrong}
               onChange={set("decision_cost_if_wrong")}
             />
@@ -2687,6 +2964,7 @@ function ActionModal({
               type="number"
               min={0}
               max={1}
+              step={0.01}
               value={form.uncertainty_reduction}
               onChange={set("uncertainty_reduction")}
             />
@@ -2695,9 +2973,62 @@ function ActionModal({
               type="number"
               min={0}
               max={1}
+              step={0.01}
               value={form.probability_decision_changes}
               onChange={set("probability_decision_changes")}
             />
+            <div
+              data-testid="value-of-information-preview"
+              className="rounded-xl border border-violet-500/20 bg-violet-500/6 p-4 md:col-span-2"
+            >
+              <p className="text-xs font-bold uppercase tracking-[0.14em] text-violet-200">
+                Value-of-information preview
+              </p>
+              {informationPreview ? (
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
+                  <div>
+                    <p className="text-[10px] uppercase text-slate-500">
+                      Expected decision value
+                    </p>
+                    <p className="mt-1 text-lg font-black text-white">
+                      {money(
+                        informationPreview.expectedValue,
+                        risk.value_currency,
+                      )}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase text-slate-500">
+                      Net value
+                    </p>
+                    <p className="mt-1 text-lg font-black text-white">
+                      {money(informationPreview.netValue, risk.value_currency)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase text-slate-500">
+                      Recommendation
+                    </p>
+                    <p className="mt-1 text-sm font-black text-violet-200">
+                      {informationPreview.recommendation.replaceAll("_", " ")}
+                    </p>
+                  </div>
+                  <p className="md:col-span-3 text-xs text-slate-400">
+                    {informationPreview.explanation}
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-amber-200">
+                  Enter non-negative costs and probabilities between zero and
+                  one.
+                </p>
+              )}
+              <p className="mt-2 text-[10px] text-slate-500">
+                Advisory only. Recording preserves the calculation as evidence;
+                it does not order the enquiry, spend money or approve a
+                decision.
+              </p>
+            </div>
           </div>
         )}
         {kind === "decision" && (
@@ -2787,7 +3118,10 @@ function ActionModal({
                 "change_consequence",
                 "share",
                 "retain",
-              ].map((value) => ({ value, label: value.replaceAll("_", " ") }))}
+              ].map((value) => ({
+                value,
+                label: value.replaceAll("_", " "),
+              }))}
             />
             <Field
               label="Cost"
@@ -2933,6 +3267,75 @@ function ActionModal({
                 },
               ]}
             />
+            <div
+              data-testid="treatment-readiness-preview"
+              className="rounded-xl border border-emerald-500/20 bg-emerald-500/6 p-4 md:col-span-2"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-xs font-bold uppercase tracking-[0.14em] text-emerald-200">
+                  Treatment readiness
+                </p>
+                {treatmentPreview && (
+                  <Pill
+                    tone={
+                      treatmentPreview.readyForApproval
+                        ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200"
+                        : "border-amber-500/30 bg-amber-500/10 text-amber-200"
+                    }
+                  >
+                    {treatmentPreview.readyForApproval
+                      ? "ready for approval"
+                      : "not ready"}
+                  </Pill>
+                )}
+              </div>
+              {previewContextLoading ? (
+                <p className="mt-2 text-xs text-slate-400">
+                  Checking the active workforce competency roster…
+                </p>
+              ) : previewContextError ? (
+                <p className="mt-2 text-xs text-red-300">
+                  Readiness preview unavailable: {previewContextError}. The
+                  database writer remains fail-closed and authoritative.
+                </p>
+              ) : treatmentPreview ? (
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
+                  <div>
+                    <p className="text-[10px] uppercase text-slate-500">
+                      Missing resources
+                    </p>
+                    <p className="mt-1 text-xs text-slate-200">
+                      {treatmentPreview.missingResources.join(", ") || "None"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase text-slate-500">
+                      Missing competencies
+                    </p>
+                    <p className="mt-1 text-xs text-slate-200">
+                      {treatmentPreview.missingCompetencies.join(", ") ||
+                        "None"}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] uppercase text-slate-500">
+                      Governance gaps
+                    </p>
+                    <p className="mt-1 text-xs text-slate-200">
+                      {treatmentPreview.governanceGaps.join(", ") || "None"}
+                    </p>
+                  </div>
+                  <p className="md:col-span-3 text-xs text-slate-400">
+                    {treatmentPreview.explanation}
+                  </p>
+                </div>
+              ) : null}
+              <p className="mt-2 text-[10px] text-slate-500">
+                Competencies come from current, unexpired holdings for active
+                workforce members—not from this form. Selection still creates a
+                governed recommendation and requires a separate human approval.
+              </p>
+            </div>
           </div>
         )}
         {kind === "outcome" && (
