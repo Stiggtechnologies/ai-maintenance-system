@@ -187,7 +187,17 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
 
+      # Pull requests and main pushes can legitimately contain a protected
+      # surface change awaiting qualification. Exercise the candidate path
+      # there; the capture path must keep refusing to rewrite the frozen
+      # reference from a changed surface.
+      - name: Dry-run candidate path with a stub model
+        if: github.event_name != 'workflow_dispatch'
+        run: npx tsx scripts/run-reliability-qualification.ts --dry-run --output=/tmp/re-2026-08-dry-run-report.json
+
+      # A manual dry-run against the unchanged baseline proves both paths.
       - name: Dry-run candidate and capture paths with a stub model
+        if: github.event_name == 'workflow_dispatch'
         run: npm run reliability:dryrun
 
   live-qualification:
