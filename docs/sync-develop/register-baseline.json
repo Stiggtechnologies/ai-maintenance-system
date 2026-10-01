@@ -1134,10 +1134,10 @@
     "backticked": 27
   },
   "D11.27": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 0
+    "citations": 20,
+    "backticked": 20
   },
   "D11.28": {
     "status": "✅",
