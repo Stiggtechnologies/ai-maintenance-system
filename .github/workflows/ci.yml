@@ -486,6 +486,9 @@ jobs:
       - name: Smoke — governed fail-closed tenant AI egress
         run: bash scripts/ci-data-loss-prevention-smoke.sh
 
+      - name: Smoke — deterministic contract legal compliance
+        run: bash scripts/ci-contract-legal-compliance-smoke.sh
+
       - name: Smoke — hardware-neutral governed Edge Evidence Contract
         run: bash scripts/ci-edge-evidence-contract-smoke.sh
 
