@@ -89,9 +89,13 @@ export function MaintenanceExecutiveAgentWorkbench() {
   const reviewerOptions = useMemo(
     () =>
       (data?.reviewers ?? []).filter(
-        (reviewer) => reviewer.id !== brief?.createdBy,
+        (reviewer) =>
+          reviewer.id !== brief?.createdBy &&
+          (brief?.informationSensitivity !== "restricted" ||
+            reviewer.role === "executive" ||
+            reviewer.role === "admin"),
       ),
-    [brief?.createdBy, data?.reviewers],
+    [brief?.createdBy, brief?.informationSensitivity, data?.reviewers],
   );
 
   useEffect(() => {
@@ -248,6 +252,10 @@ export function MaintenanceExecutiveAgentWorkbench() {
                 <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/4 px-2.5 py-1">
                   <Fingerprint className="h-3.5 w-3.5" aria-hidden /> exact
                   source digests retained
+                </span>
+                <span className="inline-flex items-center gap-1 rounded-full border border-white/10 bg-white/4 px-2.5 py-1">
+                  <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+                  {title(brief.informationSensitivity)} handling
                 </span>
               </div>
 

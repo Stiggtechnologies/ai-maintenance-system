@@ -112,6 +112,26 @@ end $$;
 alter table public.agent_runs
   add column if not exists organization_scope_id uuid
     references public.organizations(id) on delete restrict;
+alter table public.agent_runs
+  add column if not exists information_sensitivity text not null default 'internal';
+alter table public.agent_runs
+  drop constraint if exists agent_runs_information_sensitivity_check;
+alter table public.agent_runs
+  add constraint agent_runs_information_sensitivity_check check (
+    information_sensitivity in ('public','internal','confidential','restricted')
+  );
+drop policy if exists agent_runs_org_rw on public.agent_runs;
+drop policy if exists agent_runs_org_read on public.agent_runs;
+create policy agent_runs_org_read on public.agent_runs
+  for select to authenticated using (
+    organization_id=public.app_current_org() and (
+      information_sensitivity in ('public','internal')
+      or (information_sensitivity='confidential' and coalesce(public.app_current_role(),'')
+        in ('admin','ai_admin','executive','maintenance_manager','reliability_engineer'))
+      or (information_sensitivity='restricted' and coalesce(public.app_current_role(),'')
+        in ('admin','ai_admin','executive'))
+    )
+  );
 create index if not exists idx_agent_runs_retained_organization_scope
   on public.agent_runs(organization_id,organization_scope_id,created_at desc)
   where retained_for_governance;
@@ -122,6 +142,9 @@ create table if not exists public.maintenance_executive_briefs (
   agent_run_id uuid not null unique references public.agent_runs(id) on delete restrict,
   period_start date not null,
   period_end date not null,
+  information_sensitivity text not null default 'internal' check (
+    information_sensitivity in ('public','internal','confidential','restricted')
+  ),
   source_snapshot jsonb not null,
   facts jsonb not null,
   priorities jsonb not null,
@@ -173,18 +196,47 @@ create policy maintenance_executive_briefs_read on public.maintenance_executive_
   for select to authenticated using(
     organization_id=public.app_current_org()
     and coalesce(public.app_current_role(),'') in ('executive','maintenance_manager','admin')
+    and (
+      information_sensitivity in ('public','internal')
+      or (information_sensitivity='confidential'
+        and coalesce(public.app_current_role(),'') in ('executive','maintenance_manager','admin'))
+      or (information_sensitivity='restricted'
+        and coalesce(public.app_current_role(),'') in ('executive','admin'))
+    )
   );
 drop policy if exists maintenance_executive_reviews_read on public.maintenance_executive_review_assignments;
 create policy maintenance_executive_reviews_read on public.maintenance_executive_review_assignments
   for select to authenticated using(
     organization_id=public.app_current_org()
     and coalesce(public.app_current_role(),'') in ('executive','maintenance_manager','admin')
+    and exists (
+      select 1 from public.maintenance_executive_briefs b
+      where b.id=brief_id and b.organization_id=public.app_current_org()
+        and (
+          b.information_sensitivity in ('public','internal')
+          or (b.information_sensitivity='confidential'
+            and coalesce(public.app_current_role(),'') in ('executive','maintenance_manager','admin'))
+          or (b.information_sensitivity='restricted'
+            and coalesce(public.app_current_role(),'') in ('executive','admin'))
+        )
+    )
   );
 drop policy if exists maintenance_executive_dispositions_read on public.maintenance_executive_dispositions;
 create policy maintenance_executive_dispositions_read on public.maintenance_executive_dispositions
   for select to authenticated using(
     organization_id=public.app_current_org()
     and coalesce(public.app_current_role(),'') in ('executive','maintenance_manager','admin')
+    and exists (
+      select 1 from public.maintenance_executive_briefs b
+      where b.id=brief_id and b.organization_id=public.app_current_org()
+        and (
+          b.information_sensitivity in ('public','internal')
+          or (b.information_sensitivity='confidential'
+            and coalesce(public.app_current_role(),'') in ('executive','maintenance_manager','admin'))
+          or (b.information_sensitivity='restricted'
+            and coalesce(public.app_current_role(),'') in ('executive','admin'))
+        )
+    )
   );
 revoke insert,update,delete,truncate on public.maintenance_executive_briefs,
   public.maintenance_executive_review_assignments,public.maintenance_executive_dispositions
@@ -192,6 +244,29 @@ revoke insert,update,delete,truncate on public.maintenance_executive_briefs,
 grant select on public.maintenance_executive_briefs,
   public.maintenance_executive_review_assignments,public.maintenance_executive_dispositions
   to authenticated;
+
+-- The canonical audit ledger and retained run carry the same handling label as
+-- the brief so their provenance cannot become a lower-classification side
+-- channel. Existing history remains internal unless its writer states more.
+alter table public.audit_events
+  add column if not exists information_sensitivity text not null default 'internal';
+alter table public.audit_events
+  drop constraint if exists audit_events_information_sensitivity_check;
+alter table public.audit_events
+  add constraint audit_events_information_sensitivity_check check (
+    information_sensitivity in ('public','internal','confidential','restricted')
+  );
+drop policy if exists audit_events_org_read on public.audit_events;
+create policy audit_events_org_read on public.audit_events
+  for select to authenticated using (
+    organization_id=public.app_current_org() and (
+      information_sensitivity in ('public','internal')
+      or (information_sensitivity='confidential' and coalesce(public.app_current_role(),'')
+        in ('admin','ai_admin','executive','maintenance_manager','reliability_engineer'))
+      or (information_sensitivity='restricted' and coalesce(public.app_current_role(),'')
+        in ('admin','ai_admin','executive'))
+    )
+  );
 
 create or replace function public.protect_maintenance_executive_records()
 returns trigger language plpgsql security definer set search_path=public as $$
@@ -332,7 +407,10 @@ returns jsonb language sql stable security definer set search_path=public as $$
       encode(extensions.digest(coalesce(string_agg(jsonb_build_object(
         'id',id,'status',status,'level',current_risk_level,'score',current_risk_score,
         'owner',risk_owner_id,'reviewDate',review_date,'decision',decision_action)::text,'|' order by id),'empty'),'sha256'),'hex'))
-      from public.risks where organization_id=p_org and status not in ('closed','archived')),
+      from public.risks where organization_id=p_org and status not in ('closed','archived')
+        and public.can_read_risk(id)
+        and (information_sensitivity<>'restricted'
+          or coalesce(public.app_current_role(),'') in ('executive','admin'))),
     'maintenancePlans',(select jsonb_build_object('count',count(*),'sha256',
       encode(extensions.digest(coalesce(string_agg(jsonb_build_object(
         'id',id,'asset',asset_id,'task',task_code,'basis',interval_basis,
@@ -391,6 +469,7 @@ declare
   v_budget_lines bigint; v_budget_missing_basis bigint; v_budget_exception_lines bigint;
   v_risks bigint; v_draft_risks bigint; v_critical_risks bigint;
   v_risks_no_owner bigint; v_overdue_risks bigint;
+  v_risk_sensitivity text;
   v_plans bigint; v_plans_no_source bigint; v_strategy_assessments bigint;
   v_pending_recommendations bigint; v_pending_approvals bigint;
   v_outcomes_open bigint; v_outcomes_overdue bigint;
@@ -439,7 +518,16 @@ begin
     count(*) filter(where status<>'draft' and risk_owner_id is null),
     count(*) filter(where status<>'draft' and review_date<current_date)
     into v_risks,v_draft_risks,v_critical_risks,v_risks_no_owner,v_overdue_risks
-  from public.risks where organization_id=v_org and status not in ('closed','archived');
+  from public.risks where organization_id=v_org and status not in ('closed','archived')
+    and public.can_read_risk(id)
+    and (information_sensitivity<>'restricted' or v_role in ('executive','admin'));
+  select case max(case information_sensitivity
+      when 'restricted' then 4 when 'confidential' then 3 when 'internal' then 2 else 1 end)
+      when 4 then 'restricted' when 3 then 'confidential' else 'internal' end
+    into v_risk_sensitivity
+  from public.risks where organization_id=v_org and status not in ('closed','archived')
+    and public.can_read_risk(id)
+    and (information_sensitivity<>'restricted' or v_role in ('executive','admin'));
   select count(*),count(*) filter(where nullif(btrim(source),'') is null)
     into v_plans,v_plans_no_source from public.maintenance_plans
     where organization_id=v_org and active;
@@ -572,12 +660,12 @@ begin
 
   perform set_config('app.maintenance_executive_agent_run_write','granted',true);
   insert into public.agent_runs(organization_id,agent_id,status,summary,confidence,
-    started_at,completed_at,requested_by,organization_scope_id,
+    started_at,completed_at,requested_by,organization_scope_id,information_sensitivity,
     agent_control_profile_id,agent_tool_key,agent_decision_right_key,
     input_snapshot,result,retained_for_governance)
   values(v_org,v_agent.id,'completed',
     'Assembled a canonical maintenance-executive decision brief without approving, funding or executing action.',
-    null,now(),now(),auth.uid(),v_org,
+    null,now(),now(),auth.uid(),v_org,v_risk_sensitivity,
     (v_control->>'profile_id')::uuid,'assemble_maintenance_executive_brief',
     'generate_meeting_packs',v_snapshot,jsonb_build_object(
       'facts',v_facts,'priorities',v_priorities,'advisory',true,
@@ -586,13 +674,15 @@ begin
       'mayReturnToService',false),true) returning id into v_run;
   perform set_config('app.maintenance_executive_record_write','granted',true);
   insert into public.maintenance_executive_briefs(organization_id,agent_run_id,
-    period_start,period_end,source_snapshot,facts,priorities,limitations,created_by)
-  values(v_org,v_run,p_period_start,p_period_end,v_snapshot,v_facts,v_priorities,
+    period_start,period_end,information_sensitivity,source_snapshot,facts,priorities,
+    limitations,created_by)
+  values(v_org,v_run,p_period_start,p_period_end,v_risk_sensitivity,v_snapshot,v_facts,v_priorities,
     jsonb_build_array(
       'The brief describes only records present at the captured source fingerprints; missing external records remain absent.',
       'KPI results and statuses are reused from the canonical KPI service; this specialist does not recompute them.',
       'Budget rows do not carry a currency field, so budget totals are reported without inventing a currency.',
       'Value is separated by recorded unit and projected value is never promoted to verified value.',
+      'Risk inputs preserve canonical information-sensitivity rules; restricted populations are included only in executive or administrator briefs.',
       'A source-population digest detects change but does not prove upstream correctness.',
       'Priorities are advisory decision questions and require independent named-human review.'),auth.uid())
   returning id into v_brief;
@@ -602,12 +692,11 @@ begin
     current_task='Maintenance executive brief through '||p_period_end,
     last_action='Generated an immutable governed maintenance-executive brief'
   where id=v_agent.id;
-  insert into public.audit_events(organization_id,entity_type,actor,event_data)
+  insert into public.audit_events(organization_id,entity_type,actor,event_data,information_sensitivity)
   values(v_org,'maintenance_executive_brief',v_role,jsonb_build_object(
     'action','generated','brief_id',v_brief,'agent_run_id',v_run,
     'requested_by',auth.uid(),'period_start',p_period_start,'period_end',p_period_end,
-    'priority_count',jsonb_array_length(v_priorities),'source_snapshot',v_snapshot,
-    'advisory',true));
+    'priority_count',jsonb_array_length(v_priorities),'advisory',true),v_risk_sensitivity);
   return jsonb_build_object('briefId',v_brief,'runId',v_run,
     'facts',v_facts,'priorities',v_priorities,'advisory',true,
     'mayApprove',false,'mayAcceptRisk',false,'mayCommitSpend',false,
@@ -630,12 +719,22 @@ begin
   select * into b from public.maintenance_executive_briefs
   where id=p_brief_id and organization_id=v_org;
   if not found then return jsonb_build_object('error','brief not found'); end if;
+  if b.information_sensitivity='restricted' and coalesce(public.app_current_role(),'')
+    not in ('executive','admin') then
+    return jsonb_build_object('error','brief not found');
+  end if;
   if p_assigned_to=b.created_by then
     return jsonb_build_object('error','segregation of duties requires a reviewer other than the brief requester');
   end if;
   if not exists(select 1 from public.user_profiles u where u.id=p_assigned_to
     and u.organization_id=v_org and u.role in ('executive','maintenance_manager','admin')) then
     return jsonb_build_object('error','reviewer must be a same-tenant named executive, maintenance manager or administrator');
+  end if;
+  if b.information_sensitivity='restricted' and not exists(
+    select 1 from public.user_profiles u where u.id=p_assigned_to
+      and u.organization_id=v_org and u.role in ('executive','admin')
+  ) then
+    return jsonb_build_object('error','restricted briefs require an executive or administrator reviewer');
   end if;
   if p_due_date<current_date or coalesce(length(btrim(p_note)),0)<10 then
     return jsonb_build_object('error','a current due date and review basis of at least 10 characters are required');
@@ -645,10 +744,11 @@ begin
     brief_id,assigned_to,assigned_by,due_date,assignment_note)
   values(v_org,b.id,p_assigned_to,auth.uid(),p_due_date,btrim(p_note)) returning id into v_id;
   perform set_config('app.maintenance_executive_record_write','',true);
-  insert into public.audit_events(organization_id,entity_type,actor,event_data)
+  insert into public.audit_events(organization_id,entity_type,actor,event_data,information_sensitivity)
   values(v_org,'maintenance_executive_review',public.app_current_role(),jsonb_build_object(
     'action','assigned','assignment_id',v_id,'brief_id',b.id,
-    'assigned_to',p_assigned_to,'assigned_by',auth.uid(),'due_date',p_due_date));
+    'assigned_to',p_assigned_to,'assigned_by',auth.uid(),'due_date',p_due_date),
+    b.information_sensitivity);
   return jsonb_build_object('assignmentId',v_id,'status','assigned');
 exception when unique_violation then
   perform set_config('app.maintenance_executive_record_write','',true);
@@ -671,6 +771,10 @@ begin
   select * into b from public.maintenance_executive_briefs
   where id=p_brief_id and organization_id=v_org;
   if not found then return jsonb_build_object('error','brief not found'); end if;
+  if b.information_sensitivity='restricted' and coalesce(public.app_current_role(),'')
+    not in ('executive','admin') then
+    return jsonb_build_object('error','brief not found');
+  end if;
   if b.created_by=auth.uid() then
     return jsonb_build_object('error','segregation of duties requires disposition by a different named human');
   end if;
@@ -695,12 +799,13 @@ begin
   values(v_org,b.id,p_priority_key,p_disposition,btrim(p_note),
     nullif(btrim(p_action_reference),''),auth.uid()) returning id into v_id;
   perform set_config('app.maintenance_executive_record_write','',true);
-  insert into public.audit_events(organization_id,entity_type,actor,event_data)
+  insert into public.audit_events(organization_id,entity_type,actor,event_data,information_sensitivity)
   values(v_org,'maintenance_executive_disposition',public.app_current_role(),jsonb_build_object(
     'action','reviewed','disposition_id',v_id,'brief_id',b.id,
     'priority_key',p_priority_key,'disposition',p_disposition,
     'reviewed_by',auth.uid(),'action_reference',nullif(btrim(p_action_reference),''),
-    'authority','This receipt does not approve, accept risk, commit spend, release work, change strategy or change a KPI target.'));
+    'authority','This receipt does not approve, accept risk, commit spend, release work, change strategy or change a KPI target.'),
+    b.information_sensitivity);
   return jsonb_build_object('dispositionId',v_id,'status',p_disposition,
     'approvalGranted',false,'riskAccepted',false,'spendCommitted',false,
     'workReleased',false,'strategyChanged',false,'operationalAuthorization',false);
@@ -725,7 +830,8 @@ begin
   return jsonb_build_object(
     'briefs',coalesce((select jsonb_agg(jsonb_build_object(
       'id',b.id,'agentRunId',b.agent_run_id,'periodStart',b.period_start,
-      'periodEnd',b.period_end,'sourceSnapshot',b.source_snapshot,'facts',b.facts,
+      'periodEnd',b.period_end,'informationSensitivity',b.information_sensitivity,
+      'sourceSnapshot',b.source_snapshot,'facts',b.facts,
       'priorities',b.priorities,'limitations',b.limitations,
       'createdBy',b.created_by,'createdAt',b.created_at,
       'assignments',coalesce((select jsonb_agg(jsonb_build_object(
@@ -741,7 +847,13 @@ begin
         'reviewedBy',d.reviewed_by,'reviewedAt',d.reviewed_at) order by d.reviewed_at)
         from public.maintenance_executive_dispositions d where d.brief_id=b.id),'[]'::jsonb))
       order by b.created_at desc) from public.maintenance_executive_briefs b
-      where b.organization_id=v_org),'[]'::jsonb),
+      where b.organization_id=v_org and (
+        b.information_sensitivity in ('public','internal')
+        or (b.information_sensitivity='confidential' and coalesce(public.app_current_role(),'')
+          in ('executive','maintenance_manager','admin'))
+        or (b.information_sensitivity='restricted' and coalesce(public.app_current_role(),'')
+          in ('executive','admin'))
+      )),'[]'::jsonb),
     'reviewers',coalesce((select jsonb_agg(jsonb_build_object(
       'id',u.id,'name',u.full_name,'email',u.email,'role',u.role)
       order by coalesce(u.full_name,u.email)) from public.user_profiles u

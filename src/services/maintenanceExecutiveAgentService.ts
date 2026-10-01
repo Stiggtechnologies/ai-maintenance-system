@@ -41,6 +41,7 @@ export interface MaintenanceExecutiveBrief {
   agentRunId: string;
   periodStart: string;
   periodEnd: string;
+  informationSensitivity: "public" | "internal" | "confidential" | "restricted";
   sourceSnapshot: Record<string, unknown>;
   facts: Record<string, Record<string, unknown>>;
   priorities: MaintenanceExecutivePriority[];
