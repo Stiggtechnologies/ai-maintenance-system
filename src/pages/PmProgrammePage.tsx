@@ -15,10 +15,11 @@
  * roleNavigation.ts and a contested IA document to say something the page can
  * say in a sentence.
  *
- * The first line below states the other half of the truth: a stated gap, not a
- * drawn screen.
+ * The page now also links the governed Asset Strategy Specialist, which reuses
+ * this canonical programme rather than creating a parallel interval register.
  */
 import { ContractImport } from "../components/ContractImport";
+import { Link } from "react-router-dom";
 
 export function PmProgrammePage() {
   return (
@@ -28,12 +29,18 @@ export function PmProgrammePage() {
           PM Programme &amp; data import
         </h1>
         <p className="text-sm text-slate-400 mt-0.5">
-          The platform can load and count maintenance plans, but it has no view
-          that lists them yet — this page imports your programme, and
-          work-management health measures compliance against it. The same
-          contract carries work orders, notifications, operating states,
-          production, condition readings and spares on hand.
+          Import the canonical programme here, measure compliance in
+          work-management health, and use the governed Asset Strategy Specialist
+          to review or adopt task intervals without creating a second plan
+          register. The same contract carries work orders, notifications,
+          operating states, production, condition readings and spares on hand.
         </p>
+        <Link
+          to="/reliability/intervals"
+          className="mt-3 inline-flex rounded-lg border border-signal-cyan/30 bg-signal-cyan/10 px-3 py-2 text-sm font-semibold text-signal-cyan"
+        >
+          Open governed interval decisions
+        </Link>
       </div>
       <ContractImport initialEntity="maintenance_plan" />
     </div>

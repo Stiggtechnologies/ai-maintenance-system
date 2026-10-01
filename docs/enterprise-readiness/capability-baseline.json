@@ -54,10 +54,10 @@
     "backticked": 12
   },
   "C1.10": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 10,
+    "backticked": 10
   },
   "C1.11": {
     "status": "✅",
