@@ -12,6 +12,7 @@
 import { useState } from "react";
 import { ReliabilityAnalytics } from "../components/ReliabilityAnalytics";
 import { ReliabilityLifeDataWorkbench } from "../components/ReliabilityLifeDataWorkbench";
+import { FracasAgentWorkbench } from "../components/FracasAgentWorkbench";
 import { ModellingStudio } from "../components/ModellingStudio";
 import { CaEffectivenessPanel } from "../components/CaEffectivenessPanel";
 import { FailureModeElimination } from "../components/FailureModeElimination";
@@ -95,6 +96,7 @@ export function Reliability() {
 
       {tab === "rca" && (
         <div className="space-y-3">
+          <FracasAgentWorkbench />
           {reliability.map((item) => (
             <div
               key={`fracas-${item.sessionId}`}
