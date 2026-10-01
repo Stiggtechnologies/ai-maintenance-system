@@ -88,6 +88,31 @@ describe("tenant data-egress guard", () => {
     expect(provider).toHaveBeenCalledTimes(2);
   });
 
+  it("re-authorizes a fallback hostname and can refuse it independently", async () => {
+    const provider = vi.fn(async () => new Response("ok", { status: 200 }));
+    const rpc = vi.fn(async (_name: string, args: Record<string, unknown>) => ({
+      data:
+        args.p_destination === "gateway.example.com"
+          ? { allowed: true, ruleId: 7 }
+          : { allowed: false, reason: "no_current_matching_rule" },
+      error: null,
+    }));
+    const guarded = withDataEgressGuard(
+      provider,
+      { rpc },
+      { dataClass: "security_sensitive", purpose: "model_inference" },
+    );
+
+    expect(
+      (await guarded("https://gateway.example.com/v1/responses")).status,
+    ).toBe(200);
+    expect((await guarded("https://api.openai.com/v1/responses")).status).toBe(
+      403,
+    );
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(provider).toHaveBeenCalledTimes(1);
+  });
+
   it("fails closed when the authorization RPC is unavailable", async () => {
     const provider = vi.fn(async () => new Response("provider"));
     const guarded = withDataEgressGuard(
