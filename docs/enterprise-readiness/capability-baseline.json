@@ -138,10 +138,10 @@
     "backticked": 0
   },
   "C2.08": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 4,
-    "backticked": 4
+    "citations": 16,
+    "backticked": 16
   },
   "C2.09": {
     "status": "🟡",
@@ -1302,10 +1302,10 @@
     "backticked": 0
   },
   "E6.01": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 2,
-    "backticked": 2
+    "citations": 7,
+    "backticked": 7
   },
   "E6.02": {
     "status": "🟡",
