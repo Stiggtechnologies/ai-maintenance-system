@@ -94,6 +94,8 @@ describe("WorkforceAdministration", () => {
     fireEvent.change(screen.getByLabelText("Craft or discipline"), { target: { value: "Electrician" } });
     fireEvent.change(screen.getByLabelText("Employment type"), { target: { value: "contractor" } });
     fireEvent.change(screen.getByLabelText("Employer"), { target: { value: "North Grid Services" } });
+    fireEvent.change(screen.getByLabelText("Hire or contract start"), { target: { value: "2026-01-12" } });
+    fireEvent.change(screen.getByLabelText("Expected departure or contract end"), { target: { value: "2027-01-11" } });
     fireEvent.click(screen.getByRole("button", { name: "Record workforce member" }));
 
     await waitFor(() =>
@@ -104,10 +106,26 @@ describe("WorkforceAdministration", () => {
         employmentType: "contractor",
         employer: "North Grid Services",
         fte: "1",
+        hiredOn: "2026-01-12",
+        expectedDeparture: "2027-01-11",
       }),
     );
     expect(getCompetencyRequirements).toHaveBeenCalledTimes(2);
     expect(onChanged).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses an expected departure before the hire date before invoking the writer", async () => {
+    render(<WorkforceAdministration />);
+    fireEvent.click(screen.getByText("Manage workforce evidence"));
+    await screen.findByRole("button", { name: "Record workforce member" });
+
+    fireEvent.change(screen.getByLabelText("Employee reference"), { target: { value: "EL-102" } });
+    fireEvent.change(screen.getByLabelText("Workforce member name"), { target: { value: "J. Singh" } });
+    fireEvent.change(screen.getByLabelText("Hire or contract start"), { target: { value: "2027-01-12" } });
+    fireEvent.change(screen.getByLabelText("Expected departure or contract end"), { target: { value: "2027-01-11" } });
+
+    expect(screen.getByRole("button", { name: "Record workforce member" })).toBeDisabled();
+    expect(recordWorkforceMember).not.toHaveBeenCalled();
   });
 
   it("will not submit a qualification without the evidence the canonical writer requires", async () => {

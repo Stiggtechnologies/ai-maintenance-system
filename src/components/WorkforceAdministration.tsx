@@ -75,6 +75,8 @@ export function WorkforceAdministration({ onChanged }: { onChanged?: () => void 
     employmentType: "employee",
     employer: "",
     fte: "1",
+    hiredOn: "",
+    expectedDeparture: "",
   });
   const [competency, setCompetency] = useState({
     competencyKey: "",
@@ -193,8 +195,16 @@ export function WorkforceAdministration({ onChanged }: { onChanged?: () => void 
               </select>
               <input aria-label="Employer" value={member.employer} onChange={(e) => setMember({ ...member, employer: e.target.value })} placeholder="Employer, if external" className={inputClass} />
               <input aria-label="Full-time equivalent" type="number" min="0.01" max="1.5" step="0.01" value={member.fte} onChange={(e) => setMember({ ...member, fte: e.target.value })} placeholder="FTE" className={inputClass} />
+              <label className="text-xs text-slate-500">
+                Hire or contract start
+                <input aria-label="Hire or contract start" type="date" value={member.hiredOn} onChange={(e) => setMember({ ...member, hiredOn: e.target.value })} className={`${inputClass} mt-1`} />
+              </label>
+              <label className="text-xs text-slate-500">
+                Expected departure or contract end
+                <input aria-label="Expected departure or contract end" type="date" min={member.hiredOn || undefined} value={member.expectedDeparture} onChange={(e) => setMember({ ...member, expectedDeparture: e.target.value })} className={`${inputClass} mt-1`} />
+              </label>
             </div>
-            <button type="button" onClick={() => void act("Workforce member", () => recordWorkforceMember(member))} disabled={busy || !member.employeeRef || !member.displayName} className={buttonClass}>Record workforce member</button>
+            <button type="button" onClick={() => void act("Workforce member", () => recordWorkforceMember({ ...member, hiredOn: member.hiredOn || undefined, expectedDeparture: member.expectedDeparture || undefined }))} disabled={busy || !member.employeeRef || !member.displayName || Boolean(member.hiredOn && member.expectedDeparture && member.expectedDeparture < member.hiredOn)} className={buttonClass}>Record workforce member</button>
 
             <div className="grid gap-2 border-t border-white/8 pt-3 sm:grid-cols-2">
               <select aria-label="Roster member" value={status.memberId} onChange={(e) => setStatus({ ...status, memberId: e.target.value })} className={inputClass} disabled={loading}>

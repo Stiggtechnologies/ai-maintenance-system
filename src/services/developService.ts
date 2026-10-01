@@ -8290,6 +8290,8 @@ export async function recordWorkforceMember(payload: {
   employer?: string;
   fte?: string;
   siteId?: string | null;
+  hiredOn?: string;
+  expectedDeparture?: string;
 }): Promise<CompetencyWriteResult> {
   const { data, error } = await supabase.rpc("record_workforce_member", {
     p_payload: payload,
