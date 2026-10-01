@@ -364,6 +364,9 @@ jobs:
       - name: Smoke — governed Condition Monitoring Analyst
         run: bash scripts/ci-condition-monitoring-agent-smoke.sh
 
+      - name: Smoke — governed MRO Materials Specialist
+        run: bash scripts/ci-mro-materials-agent-smoke.sh
+
       - name: Smoke — loss forecast, risk backlog and outage options
         run: bash scripts/ci-loss-forecast-backlog-outage-smoke.sh
 
