@@ -232,7 +232,7 @@ PY
 PACK=${IDS%%|*}
 RUN=${IDS##*|}
 test "$(psqlc "select count(*) from public.agent_runs where id='$RUN' and organization_id='$ORG' and material_id='$MATERIAL' and retained_for_governance and status='completed' and agent_tool_key='analyse_mro_material_position'")" = '1'
-test "$(psqlc "select count(*) from public.mro_material_agent_packs where id='$PACK' and organization_id='$ORG' and source_snapshot->'material'->>'materialCode'='C1-08-ROTABLE' and jsonb_array_length(source_snapshot->'materialEvents')=5 and assessment->'stockouts'->>'state'='open_short_line'")" = '1'
+test "$(psqlc "select count(*) from public.mro_material_agent_packs where id='$PACK' and organization_id='$ORG' and source_snapshot->'material'->>'materialCode'='C1-08-ROTABLE' and jsonb_array_length(source_snapshot->'materialEvents')=5 and jsonb_array_length(source_snapshot->'supplierDeliveries')=1 and jsonb_array_length(source_snapshot->'installedComponents')=1 and jsonb_array_length(source_snapshot->'substitutions')=1 and assessment->'stockouts'->>'state'='open_short_line'")" = '1'
 AFTER_SOURCE=$(psqlc "select concat(
   (select count(*) from public.material_stock where organization_id='$ORG' and material_id='$MATERIAL'),'|',
   (select count(*) from public.work_order_materials where organization_id='$ORG' and material_id='$MATERIAL'),'|',

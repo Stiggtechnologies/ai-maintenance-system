@@ -322,7 +322,9 @@ declare
   v_bom jsonb:='[]'::jsonb;
   v_bom_rows int:=0;
   v_assets_using int:=0;
+  v_component_instances jsonb:='[]'::jsonb;
   v_installed_components int:=0;
+  v_deliveries jsonb:='[]'::jsonb;
   v_substitutions jsonb:='[]'::jsonb;
   v_approved_substitutions int:=0;
   v_lead_time_demand numeric;
@@ -481,6 +483,21 @@ begin
   where ms.organization_id=v_org and ms.material_id=m.id;
 
   select coalesce(jsonb_agg(jsonb_build_object(
+      'deliveryId',d.id,'supplierId',d.supplier_id,
+      'supplierName',s.name,'orderedOn',d.ordered_on,
+      'promisedOn',d.promised_on,'receivedOn',d.received_on,
+      'quantity',d.quantity,'qualityOutcome',d.quality_outcome,
+      'note',d.note)
+      order by d.ordered_on desc,d.id desc),'[]'::jsonb)
+  into v_deliveries
+  from (
+    select x.* from public.supplier_deliveries x
+    where x.organization_id=v_org and x.material_id=m.id
+    order by x.ordered_on desc,x.id desc limit v_limit
+  ) d join public.suppliers s on s.id=d.supplier_id
+    and s.organization_id=d.organization_id;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
       'bomLineId',b.id,'assetId',b.asset_id,'assetTag',coalesce(a.asset_tag,a.tag),
       'assetName',a.name,'assetClass',coalesce(b.asset_class,a.asset_class),
       'componentId',b.component_id,'quantityPer',b.qty_per,
@@ -492,12 +509,23 @@ begin
   left join public.assets a on a.id=b.asset_id and a.organization_id=b.organization_id
   where b.organization_id=v_org and b.material_id=m.id;
 
-  select count(*)::int into v_installed_components
+  select coalesce(jsonb_agg(jsonb_build_object(
+      'componentInstanceId',ci.id,'assetId',ci.asset_id,
+      'assetTag',coalesce(a.asset_tag,a.tag),'assetName',a.name,
+      'component',ci.component,'position',ci.position,
+      'serialNumber',ci.serial_number,'installedAt',ci.installed_at,
+      'installedMeterHours',ci.installed_meter_hours,
+      'sourceSystem',ci.source_system,'sourceRef',ci.source_ref,
+      'basis',ci.basis)
+      order by ci.installed_at desc,ci.id),'[]'::jsonb),count(*)::int
+  into v_component_instances,v_installed_components
   from public.component_instances ci
+  join public.assets a on a.id=ci.asset_id and a.organization_id=ci.organization_id
   where ci.organization_id=v_org and ci.material_id=m.id and ci.state='installed';
 
   select coalesce(jsonb_agg(jsonb_build_object(
-      'substitutionId',s.id,'substituteMaterialId',s.substitute_material_id,
+      'sourceModel',s.source_model,'substitutionId',s.record_id,
+      'substituteMaterialId',s.substitute_material_id,
       'substituteCode',sm.material_code,'substitutionType',s.substitution_type,
       'approvalStatus',s.approval_status,'basis',s.basis,
       'validFrom',s.valid_from,'validUntil',s.valid_until)
@@ -505,10 +533,30 @@ begin
     count(*) filter(where s.approval_status='approved'
       and (s.valid_until is null or s.valid_until>=now()))::int
   into v_substitutions,v_approved_substitutions
-  from public.material_substitutions s
+  from (
+    select 'material_substitutions'::text source_model,id::text record_id,
+      substitute_material_id,substitution_type,approval_status,basis,
+      valid_from,valid_until
+    from public.material_substitutions
+    where organization_id=v_org and material_id=m.id
+    union all
+    select 'approved_substitutions'::text,id::text,
+      case when specified_material_id=m.id then substitute_material_id
+        else specified_material_id end,
+      'approved_alternate'::text,
+      case when approved_at is null then 'pending'
+        when expires_at is not null and expires_at<now() then 'expired'
+        else 'approved' end,
+      coalesce(nullif(btrim(conditions),''),
+        'No conditions recorded on legacy approved-substitution row.'),
+      approved_at,expires_at
+    from public.approved_substitutions
+    where organization_id=v_org
+      and (specified_material_id=m.id
+        or (is_bidirectional and substitute_material_id=m.id))
+  ) s
   join public.materials sm on sm.id=s.substitute_material_id
-    and sm.organization_id=s.organization_id
-  where s.organization_id=v_org and s.material_id=m.id;
+    and sm.organization_id=v_org;
 
   if m.lead_time_days is not null and v_window>0 and v_issue_events>=3 then
     v_lead_time_demand:=round((v_issued_qty/v_window::numeric)*m.lead_time_days,4);
@@ -615,12 +663,14 @@ begin
     'windowDays',v_window,'retainedRowLimit',v_limit,
     'inventoryConnectorKey',v_inventory_connector,
     'stock',v_stock,'stockLots',v_lots,'openDemand',v_demand,
-    'materialEvents',v_events,'suppliers',v_suppliers,'bom',v_bom,
-    'substitutions',v_substitutions,
+    'materialEvents',v_events,'suppliers',v_suppliers,
+    'supplierDeliveries',v_deliveries,'bom',v_bom,
+    'installedComponents',v_component_instances,'substitutions',v_substitutions,
     'sourceTables',jsonb_build_array(
       'materials','material_stock','material_stock_lots','work_order_materials',
       'material_events','bom_lines','component_instances','material_suppliers',
-      'suppliers','supplier_deliveries','material_substitutions','connectors'));
+      'suppliers','supplier_deliveries','material_substitutions',
+      'approved_substitutions','connectors'));
 
   perform set_config('app.mro_materials_agent_run_write','granted',true);
   insert into public.agent_runs

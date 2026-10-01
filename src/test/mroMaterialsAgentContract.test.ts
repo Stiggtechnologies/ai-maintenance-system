@@ -35,10 +35,13 @@ describe("governed MRO Materials Specialist execution", () => {
       "public.component_instances ci",
       "public.material_suppliers ms",
       "public.supplier_deliveries sd",
-      "public.material_substitutions s",
+      "public.material_substitutions",
+      "public.approved_substitutions",
     ])
       expect(migration).toContain(source);
     expect(migration).toContain("insert into public.agent_runs");
+    expect(migration).toContain("'supplierdeliveries',v_deliveries");
+    expect(migration).toContain("'installedcomponents',v_component_instances");
     expect(migration).not.toContain(
       "create table if not exists public.materials",
     );
