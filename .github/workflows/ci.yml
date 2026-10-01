@@ -474,6 +474,9 @@ jobs:
       - name: Smoke — governed AI and calculation model registry
         run: bash scripts/ci-governed-model-registry-smoke.sh
 
+      - name: Smoke — exact-version model performance, drift and cohort screening
+        run: bash scripts/ci-model-performance-governance-smoke.sh
+
       - name: Smoke — hardware-neutral governed Edge Evidence Contract
         run: bash scripts/ci-edge-evidence-contract-smoke.sh
 
