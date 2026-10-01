@@ -41,7 +41,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { parseCSV } from "../lib/fleet-import";
-import { parseP6Xer } from "../lib/p6-xer";
+import { parseP6Xer, type P6XerResourceAssignment } from "../lib/p6-xer";
 import {
   INGEST_ENTITIES,
   INGEST_ENTITY_ORDER,
@@ -53,6 +53,7 @@ import {
   type Blocker,
   type IngestEntityKey,
 } from "../lib/ingest-entities";
+import { P6ResourceDemandReview } from "./P6ResourceDemandReview";
 
 interface Reject {
   external_id: string | null;
@@ -87,6 +88,9 @@ export function ContractImport({
   const [xerCaseId, setXerCaseId] = useState("");
   const [xerScheduleName, setXerScheduleName] = useState("");
   const [xerWarnings, setXerWarnings] = useState<string[]>([]);
+  const [xerAssignments, setXerAssignments] = useState<
+    P6XerResourceAssignment[]
+  >([]);
 
   const entity = INGEST_ENTITIES[entityKey];
 
@@ -108,6 +112,7 @@ export function ContractImport({
     setMsg(null);
     setSourceName("Manual upload");
     setXerWarnings([]);
+    setXerAssignments([]);
   }
 
   function chooseEntity(key: IngestEntityKey) {
@@ -134,6 +139,7 @@ export function ContractImport({
         setHeaders(parsed.headers);
         setRows(parsed.rows);
         setXerWarnings(parsed.warnings);
+        setXerAssignments(parsed.resourceAssignments);
         setSourceName(`Primavera P6 XER · ${f.name}`);
       } catch (error) {
         setMsg(
@@ -428,6 +434,12 @@ export function ContractImport({
           ))}
         </div>
       )}
+
+      <P6ResourceDemandReview
+        caseId={xerCaseId}
+        assignments={xerAssignments}
+        scheduleReady={Boolean(summary && summary.rejected === 0)}
+      />
 
       {ignored.length > 0 && (
         <p className="mt-3 text-xs text-slate-500">

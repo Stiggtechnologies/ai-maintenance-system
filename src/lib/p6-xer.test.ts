@@ -15,8 +15,8 @@ const xer = [
   "%F\tclndr_id\tclndr_name",
   "%R\t7\t7d-24h",
   "%T\tRSRC",
-  "%F\trsrc_id\trsrc_short_name",
-  "%R\tR1\tMillwrights",
+  "%F\trsrc_id\trsrc_short_name\trsrc_type\tunit_name",
+  "%R\tR1\tMillwrights\tRT_Labor\th",
   "%T\tTASK",
   "%F\ttask_id\tproj_id\twbs_id\tclndr_id\ttask_code\ttask_name\ttarget_drtn_hr_cnt\ttarget_start_date\ttarget_end_date\ttotal_float_hr_cnt\tcstr_type\tcstr_date",
   "%R\t1\t10\t110\t7\tA1000\tMobilise crew\t24\t2027-03-01 06:00\t2027-03-02 06:00\t0\tCS_MSO\t2027-03-01 06:00",
@@ -76,8 +76,12 @@ describe("parseP6Xer", () => {
         activityId: "A1010",
         resourceId: "R1",
         resourceName: "Millwrights",
+        resourceType: "RT_Labor",
+        sourceUnit: "h",
         plannedUnits: 72,
         remainingUnits: 36,
+        plannedStart: "2027-03-02T06:00:00.000Z",
+        plannedFinish: "2027-03-03T18:00:00.000Z",
       },
     ]);
     expect(result.warnings.join(" ")).toMatch(

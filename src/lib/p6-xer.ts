@@ -18,8 +18,12 @@ export interface P6XerResourceAssignment {
   activityId: string;
   resourceId: string;
   resourceName: string | null;
+  resourceType: string | null;
+  sourceUnit: string | null;
   plannedUnits: number | null;
   remainingUnits: number | null;
+  plannedStart: string | null;
+  plannedFinish: string | null;
 }
 
 export interface P6XerResult {
@@ -188,11 +192,8 @@ export function parseP6Xer(source: string, options: P6XerOptions): P6XerResult {
       first(row, "clndr_name", "clndr_id"),
     ]),
   );
-  const resources = new Map(
-    (tables.get("RSRC")?.rows ?? []).map((row) => [
-      row.rsrc_id,
-      first(row, "rsrc_short_name", "rsrc_name", "rsrc_id"),
-    ]),
+  const resourceRows = new Map(
+    (tables.get("RSRC")?.rows ?? []).map((row) => [row.rsrc_id, row]),
   );
   const wbsRows = tables.get("PROJWBS")?.rows ?? [];
   const wbsById = new Map(wbsRows.map((row) => [row.wbs_id, row]));
@@ -219,6 +220,7 @@ export function parseP6Xer(source: string, options: P6XerOptions): P6XerResult {
   const taskCodeById = new Map(
     tasks.map((row) => [row.task_id, first(row, "task_code", "task_id")]),
   );
+  const taskById = new Map(tasks.map((row) => [row.task_id, row]));
   const relationshipsByTask = new Map<
     string,
     Array<{
@@ -303,17 +305,46 @@ export function parseP6Xer(source: string, options: P6XerOptions): P6XerResult {
 
   const resourceAssignments: P6XerResourceAssignment[] = [];
   for (const row of tables.get("TASKRSRC")?.rows ?? []) {
-    const activityId = taskCodeById.get(String(row.task_id ?? "").trim());
+    const taskId = String(row.task_id ?? "").trim();
+    const activityId = taskCodeById.get(taskId);
     if (!activityId) continue;
     const resourceId = String(row.rsrc_id ?? "").trim();
+    const resource = resourceRows.get(resourceId) ?? {};
+    const task = taskById.get(taskId) ?? {};
     const planned = Number(first(row, "target_qty"));
     const remaining = Number(first(row, "remain_qty"));
     resourceAssignments.push({
       activityId,
       resourceId,
-      resourceName: resources.get(resourceId) ?? null,
+      resourceName: first(resource, "rsrc_short_name", "rsrc_name") || null,
+      resourceType: first(resource, "rsrc_type") || null,
+      sourceUnit: first(resource, "unit_name", "unit_id") || null,
       plannedUnits: Number.isFinite(planned) ? planned : null,
       remainingUnits: Number.isFinite(remaining) ? remaining : null,
+      plannedStart:
+        timestamp(
+          first(row, "target_start_date", "restart_date", "act_start_date") ||
+            first(
+              task,
+              "target_start_date",
+              "early_start_date",
+              "restart_date",
+              "act_start_date",
+            ),
+          utcOffset,
+        ) || null,
+      plannedFinish:
+        timestamp(
+          first(row, "target_end_date", "reend_date", "act_end_date") ||
+            first(
+              task,
+              "target_end_date",
+              "early_end_date",
+              "reend_date",
+              "act_end_date",
+            ),
+          utcOffset,
+        ) || null,
     });
   }
   if (resourceAssignments.length > 0) {

@@ -3,6 +3,10 @@ import { describe, expect, it } from "vitest";
 import { INGEST_ENTITIES } from "../lib/ingest-entities";
 
 const importer = readFileSync("src/components/ContractImport.tsx", "utf8");
+const demandReview = readFileSync(
+  "src/components/P6ResourceDemandReview.tsx",
+  "utf8",
+);
 const parser = readFileSync("src/lib/p6-xer.ts", "utf8");
 const ingest = readFileSync(
   "supabase/migrations/20261202090300_develop_slice4c_repair.sql",
@@ -46,12 +50,20 @@ describe("D5.28 / D11.33 native P6 XER reachability", () => {
     expect(ingest).toContain("jsonb_typeof(row_in->'relationships') = 'array'");
   });
 
-  it("keeps resource commitment outside the parser and names the residual", () => {
+  it("routes assignments to unapproved canonical demand without inferring commitment", () => {
     expect(parser).toContain("not imported as approved resource demand");
     expect(parser).not.toMatch(
       /record_resource_demand|approve_resource_demand/,
     );
     expect(importer).toMatch(/SyncAI will not guess\s+either/);
+    expect(importer).toContain("P6ResourceDemandReview");
+    expect(demandReview).toContain("recordResourceDemand");
+    expect(demandReview).toContain('sourceKind: "estimate"');
+    expect(demandReview).toContain("Record as unapproved demand");
+    expect(demandReview).toContain("Choose governed category");
+    expect(demandReview).not.toMatch(
+      /approveResourceDemand|approve_resource_demand/,
+    );
   });
 
   it("contains no network, persistence or source-system write capability", () => {
