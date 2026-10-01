@@ -197,7 +197,7 @@ begin
       and e.verification_status='verified') then
     return jsonb_build_object('error','same-tenant independently verified canonical evidence is required');
   end if;
-  v_checksum:=encode(digest(p_distribution::text,'sha256'),'hex');
+  v_checksum:=encode(extensions.digest(p_distribution::text,'sha256'),'hex');
   perform set_config('app.model_monitoring_write','granted',true);
   insert into public.model_input_snapshots(organization_id,model_key,feature,
     snapshot_label,taken_on,distribution,is_reference,model_register_id,
@@ -295,7 +295,7 @@ begin
       filter(where p.outcome is not null),
     avg((case when p.outcome then 1 else 0 end)::numeric)
       filter(where p.outcome is not null),
-    encode(digest(coalesce(string_agg(concat_ws(':',p.id,p.predicted_at,
+    encode(extensions.digest(coalesce(string_agg(concat_ws(':',p.id,p.predicted_at,
       p.predicted_probability,p.outcome,p.outcome_recorded_at,
       coalesce(p.cohort_context->>'monitoringCohort','')),'|' order by p.id),''),'sha256'),'hex')
   into v_prediction_count,v_outcome_count,v_brier,v_base_rate,v_prediction_checksum

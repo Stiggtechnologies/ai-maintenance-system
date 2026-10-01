@@ -60,6 +60,8 @@ describe("E5.08/E5.10/E5.11 model-performance governance", () => {
     expect(migration).toContain("reference_checksum");
     expect(migration).toContain("current_checksum");
     expect(migration).toContain("prediction_snapshot_checksum");
+    expect(migration.match(/extensions\.digest/g)).toHaveLength(2);
+    expect(migration).not.toMatch(/(?<!extensions\.)digest\(/);
     expect(migration).toContain("model_register_id=m.id");
     expect(
       migration.match(
