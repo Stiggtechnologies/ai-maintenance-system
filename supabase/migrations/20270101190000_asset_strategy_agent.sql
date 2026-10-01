@@ -687,6 +687,12 @@ begin
     and d.required_authority='reliability_engineer') then
     return jsonb_build_object('error','the change_pm_interval decision right is not enforced as configured');
   end if;
+  -- One asset can have several maintenance plans.  Lock the canonical asset
+  -- before its plan so concurrent adoptions on different tasks cannot choose
+  -- the same next lifecycle-plan version.
+  perform 1 from public.assets a
+  where a.id=s.asset_id and a.organization_id=v_org for update;
+  if not found then return jsonb_build_object('error','asset not found'); end if;
   select * into p from public.maintenance_plans
   where id=s.maintenance_plan_id and organization_id=v_org for update;
   if not found then return jsonb_build_object('error','maintenance plan not found'); end if;

@@ -67,6 +67,9 @@ describe("governed Asset Strategy Specialist execution", () => {
     expect(migration).toContain("segregation of duties requires adoption");
     expect(migration).toContain("this named human is not assigned to review");
     expect(migration).toContain("maintenance plan changed after assessment");
+    expect(migration).toMatch(
+      /from public\.assets a\s+where a\.id=s\.asset_id and a\.organization_id=v_org for update/,
+    );
     expect(migration).toContain("change_pm_interval");
     expect(migration).toContain("d.required_authority='reliability_engineer'");
     expect(migration).toContain(
