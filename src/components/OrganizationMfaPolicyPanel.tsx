@@ -221,6 +221,27 @@ export function OrganizationMfaPolicyPanel() {
             </div>
           </div>
 
+          {workspace?.scheduled && (
+            <div className="rounded-lg border border-signal-cyan/25 bg-signal-cyan/5 p-4">
+              <div className="flex items-center gap-2 text-signal-cyan">
+                <Clock3 size={16} aria-hidden />
+                <p className="text-sm font-semibold">
+                  Version {workspace.scheduled.version} is scheduled
+                </p>
+              </div>
+              <p className="mt-2 text-sm text-slate-300">
+                {workspace.scheduled.scope === "all_members"
+                  ? "All members"
+                  : workspace.scheduled.privilegedRoles.join(", ")}{" "}
+                · effective {formatDate(workspace.scheduled.effectiveAt)}
+              </p>
+              <p className="mt-1 text-xs text-slate-400">
+                The current adopted policy remains effective until this
+                version’s effective time; there is no assurance gap.
+              </p>
+            </div>
+          )}
+
           {workspace?.proposed ? (
             <div className="rounded-lg border border-amber-500/25 bg-amber-500/5 p-4">
               <div className="flex items-center gap-2 text-amber-300">

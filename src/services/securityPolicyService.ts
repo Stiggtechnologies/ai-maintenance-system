@@ -32,6 +32,7 @@ export interface OrganizationMfaPolicy {
 
 export interface OrganizationMfaPolicyWorkspace {
   adopted: OrganizationMfaPolicy | null;
+  scheduled: OrganizationMfaPolicy | null;
   proposed: OrganizationMfaPolicy | null;
   boundary: string;
 }

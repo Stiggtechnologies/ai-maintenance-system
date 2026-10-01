@@ -51,7 +51,7 @@ create table if not exists public.organization_mfa_policies (
 create unique index if not exists organization_mfa_policy_one_proposed
   on public.organization_mfa_policies(organization_id)
   where status = 'proposed';
-create unique index if not exists organization_mfa_policy_one_adopted
+create index if not exists organization_mfa_policy_adopted
   on public.organization_mfa_policies(organization_id)
   where status = 'adopted';
 create index if not exists organization_mfa_policy_effective
@@ -152,7 +152,7 @@ as $$
     where p.organization_id = p_organization_id
       and p.status = 'adopted'
       and p.effective_at <= now()
-    order by p.version desc
+    order by p.effective_at desc,p.version desc
     limit 1
   ), false)
 $$;
@@ -210,6 +210,7 @@ declare
   v_uid uuid := auth.uid();
   v_org uuid;
   v_policy public.organization_mfa_policies%rowtype;
+  v_has_scheduled boolean := false;
   v_required boolean := false;
   v_factor_count integer := 0;
   v_aal text := public.app_current_aal();
@@ -227,8 +228,12 @@ begin
 
   select * into v_policy
   from public.organization_mfa_policies
-  where organization_id=v_org and status='adopted'
-  order by version desc limit 1;
+  where organization_id=v_org and status='adopted' and effective_at<=now()
+  order by effective_at desc,version desc limit 1;
+  select exists(
+    select 1 from public.organization_mfa_policies
+    where organization_id=v_org and status='adopted' and effective_at>now()
+  ) into v_has_scheduled;
 
   select count(*)::integer into v_factor_count
   from auth.mfa_factors where user_id=v_uid and status='verified';
@@ -242,8 +247,8 @@ begin
     'currentAal',v_aal,
     'satisfied',not v_required or (v_factor_count > 0 and v_aal='aal2'),
     'reason',case
+      when v_policy.id is null and v_has_scheduled then 'policy_not_effective'
       when v_policy.id is null then 'no_adopted_policy'
-      when v_policy.effective_at > now() then 'policy_not_effective'
       when not v_required then 'role_not_in_scope'
       when v_factor_count = 0 then 'factor_enrollment_required'
       when v_aal <> 'aal2' then 'step_up_required'
@@ -286,8 +291,20 @@ begin
         'decidedByLabel',(select coalesce(u.full_name,u.email) from public.user_profiles u where u.id=p.decided_by),
         'decidedAt',p.decided_at,'decisionReason',p.decision_reason)
       from public.organization_mfa_policies p
-      where p.organization_id=v_org and p.status='adopted'
-      order by p.version desc limit 1),
+      where p.organization_id=v_org and p.status='adopted' and p.effective_at<=now()
+      order by p.effective_at desc,p.version desc limit 1),
+    'scheduled',(
+      select jsonb_build_object(
+        'id',p.id,'version',p.version,'scope',p.enforcement_scope,
+        'privilegedRoles',p.privileged_roles,'effectiveAt',p.effective_at,
+        'status',p.status,'proposedBy',p.proposed_by,'proposedAt',p.proposed_at,
+        'proposedByLabel',(select coalesce(u.full_name,u.email) from public.user_profiles u where u.id=p.proposed_by),
+        'proposalReason',p.proposal_reason,'decidedBy',p.decided_by,
+        'decidedByLabel',(select coalesce(u.full_name,u.email) from public.user_profiles u where u.id=p.decided_by),
+        'decidedAt',p.decided_at,'decisionReason',p.decision_reason)
+      from public.organization_mfa_policies p
+      where p.organization_id=v_org and p.status='adopted' and p.effective_at>now()
+      order by p.effective_at,p.version limit 1),
     'proposed',(
       select jsonb_build_object(
         'id',p.id,'version',p.version,'scope',p.enforcement_scope,
@@ -350,6 +367,10 @@ begin
   if exists(select 1 from public.organization_mfa_policies
             where organization_id=v_org and status='proposed') then
     return jsonb_build_object('error','Decide the current proposal before creating another');
+  end if;
+  if exists(select 1 from public.organization_mfa_policies
+            where organization_id=v_org and status='adopted' and effective_at>now()) then
+    return jsonb_build_object('error','A scheduled MFA policy already exists; wait for its effective time before proposing another');
   end if;
 
   select coalesce(max(version),0)+1 into v_version
@@ -427,11 +448,6 @@ begin
 
   v_status := case when p_decision='adopt' then 'adopted' else 'rejected' end;
   perform set_config('app.organization_mfa_policy_writer','governed',true);
-  if p_decision='adopt' then
-    update public.organization_mfa_policies
-      set status='superseded'
-    where organization_id=v_org and status='adopted';
-  end if;
   update public.organization_mfa_policies
     set status=v_status,decided_by=v_uid,decided_at=now(),decision_reason=btrim(p_reason)
   where id=v_policy.id;

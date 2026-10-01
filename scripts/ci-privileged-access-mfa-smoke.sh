@@ -131,10 +131,22 @@ BODY="$(get_org "$MEMBER_AAL1")" ORG="$ORG" python3 -c "import json,os; x=json.l
 DENIED=$(rpc "$UNENROLLED_AAL1" get_organization_mfa_policy '{}')
 expect_error "$DENIED" 'assured administrator'
 OWN=$(rpc "$REVIEWER_AAL2" get_organization_mfa_policy '{}')
-BODY="$OWN" POLICY_ID="$POLICY_ID" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x['adopted']['id']==os.environ['POLICY_ID'] and x['proposed'] is None,x"
+BODY="$OWN" POLICY_ID="$POLICY_ID" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x['adopted']['id']==os.environ['POLICY_ID'] and x['scheduled'] is None and x['proposed'] is None,x"
 FOREIGN=$(rpc "$FOREIGN_AAL1" get_organization_mfa_policy '{}')
 noerr "$FOREIGN"
-BODY="$FOREIGN" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x['adopted'] is None and x['proposed'] is None,x"
+BODY="$FOREIGN" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x['adopted'] is None and x['scheduled'] is None and x['proposed'] is None,x"
+
+# A future replacement is retained as scheduled while the current effective
+# policy continues to govern. The future all-members scope must neither weaken
+# today's privileged wall nor activate early for ordinary users.
+FUTURE_AT=$(python3 -c 'from datetime import datetime,timedelta,timezone; print((datetime.now(timezone.utc)+timedelta(days=1)).replace(microsecond=0).isoformat().replace("+00:00","Z"))')
+SCHEDULED_PROPOSAL=$(rpc "$PROPOSER_AAL2" propose_organization_mfa_policy "{\"p_enforcement_scope\":\"all_members\",\"p_privileged_roles\":[],\"p_effective_at\":\"$FUTURE_AT\",\"p_reason\":\"CI scheduled replacement preserves the currently effective assurance wall.\"}")
+noerr "$SCHEDULED_PROPOSAL"; SCHEDULED_ID=$(field "$SCHEDULED_PROPOSAL" policyId); test -n "$SCHEDULED_ID"
+SCHEDULED_ADOPTION=$(rpc "$REVIEWER_AAL2" decide_organization_mfa_policy "{\"p_policy_id\":\"$SCHEDULED_ID\",\"p_decision\":\"adopt\",\"p_reason\":\"Independent review confirms the future all-member rollout without an assurance gap.\"}")
+noerr "$SCHEDULED_ADOPTION"; test "$(field "$SCHEDULED_ADOPTION" status)" = 'adopted'
+ACTIVE_AND_SCHEDULED=$(rpc "$REVIEWER_AAL2" get_organization_mfa_policy '{}')
+BODY="$ACTIVE_AND_SCHEDULED" POLICY_ID="$POLICY_ID" SCHEDULED_ID="$SCHEDULED_ID" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x['adopted']['id']==os.environ['POLICY_ID'] and x['scheduled']['id']==os.environ['SCHEDULED_ID'],x"
+BODY="$(get_org "$MEMBER_AAL1")" ORG="$ORG" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x==[{'id':os.environ['ORG']}],x"
 
 # A direct policy write is blocked even for the database/service path.
 OUT=$(sql_must_fail "insert into organization_mfa_policies(organization_id,version,enforcement_scope,effective_at,proposed_by,proposal_reason) values('$ORG',99,'all_members',now(),'$PROPOSER','This direct write must be rejected by the governed writer.');")
@@ -147,10 +159,10 @@ test "$(get_org "$REVIEWER_AAL2")" = '[]'
 REMOVED_POSTURE=$(rpc "$REVIEWER_AAL2" get_current_security_posture '{}')
 BODY="$REMOVED_POSTURE" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x['verifiedFactorCount']==0 and x['satisfied'] is False and x['reason']=='factor_enrollment_required',x"
 
-test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='organization_mfa_policy' and event_data->>'policy_id'='$POLICY_ID'")" -eq 2
-test "$(psqlc "select count(*) from security_events where organization_id='$ORG' and event_type='admin_action' and detail like '%MFA policy%'")" -eq 2
+test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='organization_mfa_policy' and event_data->>'policy_id' in ('$POLICY_ID','$SCHEDULED_ID')")" -eq 4
+test "$(psqlc "select count(*) from security_events where organization_id='$ORG' and event_type='admin_action' and detail like '%MFA policy%'")" -eq 4
 
 NOAUTH=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$API_URL/rest/v1/rpc/get_current_security_posture" -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' -d '{}')
 test "$NOAUTH" = '401'
 
-echo 'Privileged-access MFA smoke passed: independent_adoption=true canonical_org_wall=true aal1_denied=true aal2_admitted=true verified_factor_required=true tenant_isolation=true direct_write_blocked=true removal_fails_closed=true operational_authority=false'
+echo 'Privileged-access MFA smoke passed: independent_adoption=true canonical_org_wall=true aal1_denied=true aal2_admitted=true verified_factor_required=true scheduled_replacement_no_gap=true tenant_isolation=true direct_write_blocked=true removal_fails_closed=true operational_authority=false'
