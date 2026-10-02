@@ -327,7 +327,7 @@ declare
   v_role text;
   r public.equipment_releases%rowtype;
   t public.acceptance_tests%rowtype;
-  e public.evidence_items%rowtype;
+  v_evidence public.evidence_items%rowtype;
   v_performer_role text;
   v_releaser_role text;
   v_sha text;
@@ -388,12 +388,12 @@ begin
     return jsonb_build_object('error','the acceptance test does not cover this released work order');
   end if;
 
-  select * into e
-  from public.evidence_items e
-  where e.id = t.evidence_item_id
-    and e.organization_id = v_org
-    and e.asset_id = r.asset_id
-    and e.verification_status = 'verified';
+  select source_evidence.* into v_evidence
+  from public.evidence_items source_evidence
+  where source_evidence.id = t.evidence_item_id
+    and source_evidence.organization_id = v_org
+    and source_evidence.asset_id = r.asset_id
+    and source_evidence.verification_status = 'verified';
 
   if not found then
     return jsonb_build_object('error','the acceptance test requires independently verified same-asset canonical evidence');
@@ -436,9 +436,9 @@ begin
     'test_stage',t.test_stage,
     'outcome',t.outcome,
     'punch_items_open',t.punch_items_open,
-    'evidence_item_id',e.id,
-    'evidence_verified_by',e.verified_by,
-    'evidence_verified_at',e.verified_at,
+    'evidence_item_id',v_evidence.id,
+    'evidence_verified_by',v_evidence.verified_by,
+    'evidence_verified_at',v_evidence.verified_at,
     'performed_by',t.performed_by,
     'released_by',t.released_by,
     'accepted_by',v_actor,
@@ -464,7 +464,7 @@ begin
     'asset_id',r.asset_id,
     'action','return_to_service_verified',
     'acceptance_test_id',t.id,
-    'evidence_item_id',e.id,
+    'evidence_item_id',v_evidence.id,
     'performed_by',t.performed_by,
     'test_released_by',t.released_by,
     'accepted_by',v_actor,

@@ -29,7 +29,8 @@ describe("C5.21 governed return-to-service verification", () => {
     expect(sql).toContain("outcome = 'pass'");
     expect(sql).toContain("punch_items_open = 0");
     expect(sql).toContain("verification_status = 'verified'");
-    expect(sql).toContain("e.asset_id = r.asset_id");
+    expect(sql).toContain("source_evidence.asset_id = r.asset_id");
+    expect(sql).toContain("select source_evidence.* into v_evidence");
     expect(sql).toContain("candidate.released_at >= r.returned_at");
     expect(sql).toContain("idx_equipment_release_one_use_rts_test");
   });
