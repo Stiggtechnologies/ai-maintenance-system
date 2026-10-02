@@ -51,7 +51,7 @@ as $$
 begin
   if not public.cash_flows_well_formed(new.cash_flows) then
     raise exception
-      'cash_flows must be an array of finite {period: integer >= 0, amount: number} records'
+      'business_case_options_cash_flows_shape: cash_flows must be an array of finite {period: integer >= 0, amount: number} records'
       using errcode = 'check_violation';
   end if;
   return new;

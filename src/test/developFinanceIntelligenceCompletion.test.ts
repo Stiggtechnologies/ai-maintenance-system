@@ -32,6 +32,7 @@ describe("D2.04 finance intelligence completion", () => {
   it("makes the existing cash-flow shape helper reachable through a trigger", () => {
     const trigger = body(migration, "enforce_business_case_cash_flow_shape");
     expect(trigger).toContain("cash_flows_well_formed(new.cash_flows)");
+    expect(trigger).toContain("business_case_options_cash_flows_shape");
     expect(migration).toContain("trg_business_case_cash_flow_shape");
     expect(migration).toContain("before insert or update of cash_flows");
   });
