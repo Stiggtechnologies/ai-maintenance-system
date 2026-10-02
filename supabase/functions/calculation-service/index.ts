@@ -491,9 +491,11 @@ Deno.serve(async (request) => {
         postureResult,
         graphResult,
         historyResult,
+        costWorkOrderResult,
         treeIdentityResult,
         eventIdentityResult,
         dependencyIdentityResult,
+        assetIdentityResult,
       ] = await Promise.all([
         userClient.rpc("get_fault_trees"),
         userClient.rpc("get_shutdown_schedules"),
@@ -510,6 +512,12 @@ Deno.serve(async (request) => {
           .not("completed_at", "is", null)
           .order("completed_at"),
         service
+          .from("work_orders")
+          .select("id,asset_id,completed_at")
+          .eq("organization_id", organizationId)
+          .not("completed_at", "is", null)
+          .order("completed_at"),
+        service
           .from("fault_trees")
           .select("id,tree_key")
           .eq("organization_id", organizationId),
@@ -523,6 +531,10 @@ Deno.serve(async (request) => {
             "id,dependent_asset_id,supplier_asset_id,redundancy_group,min_suppliers_required",
           )
           .eq("organization_id", organizationId),
+        service
+          .from("assets")
+          .select("id")
+          .eq("organization_id", organizationId),
       ]);
       for (const result of [
         treesResult,
@@ -531,9 +543,11 @@ Deno.serve(async (request) => {
         postureResult,
         graphResult,
         historyResult,
+        costWorkOrderResult,
         treeIdentityResult,
         eventIdentityResult,
         dependencyIdentityResult,
+        assetIdentityResult,
       ]) {
         if (result.error) throw new Error(result.error.message);
       }
@@ -548,31 +562,46 @@ Deno.serve(async (request) => {
       }>;
       const treeIds = treeIdentities.map((row) => row.id);
       const eventIds = eventIdentities.map((row) => row.id);
-      const [nodeIdentityResult, taskIdentityResult, dependencyResult] =
-        await Promise.all([
-          treeIds.length === 0
-            ? Promise.resolve({ data: [], error: null })
-            : service
-                .from("fault_tree_nodes")
-                .select("id,tree_id,node_key")
-                .in("tree_id", treeIds),
-          eventIds.length === 0
-            ? Promise.resolve({ data: [], error: null })
-            : service
-                .from("shutdown_tasks")
-                .select("id,event_id,task_key")
-                .in("event_id", eventIds),
-          eventIds.length === 0
-            ? Promise.resolve({ data: [], error: null })
-            : service
-                .from("shutdown_task_dependencies")
-                .select("id,event_id,task_key,predecessor_key")
-                .in("event_id", eventIds),
-        ]);
+      const assetIdentities = (assetIdentityResult.data ?? []) as Array<{
+        id: string;
+      }>;
+      const assetIds = assetIdentities.map((row) => row.id);
+      const [
+        nodeIdentityResult,
+        taskIdentityResult,
+        dependencyResult,
+        economicsIdentityResult,
+      ] = await Promise.all([
+        treeIds.length === 0
+          ? Promise.resolve({ data: [], error: null })
+          : service
+              .from("fault_tree_nodes")
+              .select("id,tree_id,node_key")
+              .in("tree_id", treeIds),
+        eventIds.length === 0
+          ? Promise.resolve({ data: [], error: null })
+          : service
+              .from("shutdown_tasks")
+              .select("id,event_id,task_key")
+              .in("event_id", eventIds),
+        eventIds.length === 0
+          ? Promise.resolve({ data: [], error: null })
+          : service
+              .from("shutdown_task_dependencies")
+              .select("id,event_id,task_key,predecessor_key")
+              .in("event_id", eventIds),
+        assetIds.length === 0
+          ? Promise.resolve({ data: [], error: null })
+          : service
+              .from("asset_economics")
+              .select("id,asset_id")
+              .in("asset_id", assetIds),
+      ]);
       for (const result of [
         nodeIdentityResult,
         taskIdentityResult,
         dependencyResult,
+        economicsIdentityResult,
       ]) {
         if (result.error) throw new Error(result.error.message);
       }
@@ -675,9 +704,38 @@ Deno.serve(async (request) => {
               candidate.supplier_asset_id === edge.supplier &&
               candidate.redundancy_group === (edge.redundancyGroup ?? null) &&
               candidate.min_suppliers_required === (edge.minRequired ?? 1),
-          )?.id as string | undefined,
+          )?.id,
         }));
       }
+      type CostWorkOrderIdentity = {
+        id: string;
+        asset_id: string;
+        completed_at: string;
+      };
+      const costWorkOrders = (costWorkOrderResult.data ??
+        []) as CostWorkOrderIdentity[];
+      const dataEnd = costWorkOrders.reduce<Date | null>((latest, row) => {
+        const completed = new Date(row.completed_at);
+        return !Number.isFinite(completed.getTime()) ||
+          (latest && latest >= completed)
+          ? latest
+          : completed;
+      }, null);
+      const costWindowStart = dataEnd
+        ? new Date(
+            Date.UTC(dataEnd.getUTCFullYear(), dataEnd.getUTCMonth() - 24, 1),
+          )
+        : null;
+      const costWindowWorkOrders = costWindowStart
+        ? costWorkOrders.filter(
+            (row) => new Date(row.completed_at) >= costWindowStart,
+          )
+        : [];
+      const economicsIdentities = (economicsIdentityResult.data ??
+        []) as Array<{
+        id: string | number;
+        asset_id: string;
+      }>;
       const source = {
         trees,
         schedules,
@@ -797,6 +855,24 @@ Deno.serve(async (request) => {
       const dependencyRefs = dependencyIdentities.map((row) =>
         inputRef("asset_dependencies", row.id),
       );
+      const assetRefs = assetIdentities.map((row) =>
+        inputRef("assets", row.id),
+      );
+      const commonCauseRefs = (graph?.commonCauseGroups ?? []).flatMap(
+        (group) => [
+          inputRef("common_cause_groups", group.id),
+          ...(group.members ?? []).map((member) =>
+            inputRef("common_cause_members", `${group.id}:${member}`),
+          ),
+        ],
+      );
+      const costRefs = [
+        ...costWindowWorkOrders.map((row) => inputRef("work_orders", row.id)),
+        ...economicsIdentities.map((row) =>
+          inputRef("asset_economics", row.id),
+        ),
+        ...assetRefs,
+      ];
       const rbdRefusals = [
         ...(analysis.rbd.result.computable ? [] : [analysis.rbd.result.reason]),
         ...(analysis.rbd.result.groupsWithUnquantifiedCommonCause.length > 0
@@ -816,7 +892,12 @@ Deno.serve(async (request) => {
             graph,
             correctiveWorkOrderCount: history.length,
           },
-          refs: [...dependencyRefs, ...historyRefs],
+          refs: [
+            ...dependencyRefs,
+            ...historyRefs,
+            ...assetRefs,
+            ...commonCauseRefs,
+          ],
           outputs: analysis.rbd as unknown as Record<string, unknown>,
           refusals: rbdRefusals,
         }),
@@ -850,7 +931,7 @@ Deno.serve(async (request) => {
             posture: source.posture,
             horizonPeriods: 1,
           },
-          refs: historyRefs,
+          refs: costRefs,
           outputs: analysis.forecast as unknown as Record<string, unknown>,
           refusals: analysis.forecast.forecastable
             ? []

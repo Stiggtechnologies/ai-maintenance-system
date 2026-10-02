@@ -26,6 +26,9 @@ describe("D11.29 Modelling Studio calculation lineage", () => {
     }
     expect(edge).toContain('body.action === "modelling_studio"');
     expect(edge).toContain('service.rpc("record_calculation_run"');
+    expect(edge).toContain('inputRef("asset_economics"');
+    expect(edge).toContain('inputRef("common_cause_groups"');
+    expect(edge).toContain('inputRef("common_cause_members"');
   });
 
   it("validates narrow tenant subjects and preserves advisory authority", () => {

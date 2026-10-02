@@ -142,4 +142,67 @@ describe("analyseModellingStudio", () => {
     expect(result.simulation.simulable).toBe(false);
     expect(result.forecast.forecastable).toBe(false);
   });
+
+  it("carries recorded common cause into the RBD as an unquantified upper bound", () => {
+    const source = fixture();
+    source.graph!.nodes!.push({ id: "asset-c", tag: "C-1", name: "Asset C" });
+    source.graph!.edges = [
+      {
+        id: "edge-1",
+        dependent: "asset-b",
+        supplier: "asset-a",
+        redundancyGroup: "feeds",
+        minRequired: 1,
+      },
+      {
+        id: "edge-2",
+        dependent: "asset-b",
+        supplier: "asset-c",
+        redundancyGroup: "feeds",
+        minRequired: 1,
+      },
+    ];
+    source.graph!.commonCauseGroups = [
+      {
+        id: 9,
+        name: "Shared feeder",
+        causeKind: "shared_supply",
+        members: ["asset-a", "asset-c"],
+      },
+    ];
+    source.history.push(
+      {
+        id: "wo-c1",
+        asset_id: "asset-c",
+        tag: "C-1",
+        name: "Asset C",
+        completed_at: "2026-01-03T00:00:00Z",
+        downtime_hours: 1,
+      },
+      {
+        id: "wo-c2",
+        asset_id: "asset-c",
+        tag: "C-1",
+        name: "Asset C",
+        completed_at: "2026-02-05T00:00:00Z",
+        downtime_hours: 2,
+      },
+      {
+        id: "wo-c3",
+        asset_id: "asset-c",
+        tag: "C-1",
+        name: "Asset C",
+        completed_at: "2026-04-09T00:00:00Z",
+        downtime_hours: 2,
+      },
+    );
+
+    const result = analyseModellingStudio(source);
+
+    expect(result.rbd.result.computable).toBe(true);
+    expect(result.rbd.result.groupsWithUnquantifiedCommonCause).toEqual([
+      "feeds",
+    ]);
+    expect(result.rbd.result.reason).toContain("upper bound");
+  });
 });

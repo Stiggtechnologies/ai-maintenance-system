@@ -66,11 +66,17 @@ export interface ModellingHistoryRow {
 export interface ModellingGraphSource {
   nodes?: Array<{ id: string; tag: string | null; name: string }>;
   edges?: Array<{
-    id?: string;
+    id?: string | number;
     dependent: string;
     supplier: string;
     redundancyGroup?: string | null;
     minRequired?: number | null;
+  }>;
+  commonCauseGroups?: Array<{
+    id: string | number;
+    name: string;
+    causeKind: string;
+    members: string[];
   }>;
 }
 
@@ -203,6 +209,14 @@ export function analyseModellingStudio(source: ModellingStudioSource) {
     (graph?.nodes ?? []).map((node) => [node.id, node.tag ?? node.name]),
   );
   const availability = availabilityByAsset(source.history);
+  const commonCauseByAsset = new Map<string, string[]>();
+  for (const commonCause of graph?.commonCauseGroups ?? []) {
+    for (const member of commonCause.members ?? []) {
+      const memberships = commonCauseByAsset.get(member);
+      if (memberships) memberships.push(commonCause.name);
+      else commonCauseByAsset.set(member, [commonCause.name]);
+    }
+  }
   const seen = new Set<string>();
   const blocks: RbdBlock[] = [];
   const specifications = new Map<string, RbdGroupSpec>();
@@ -222,9 +236,21 @@ export function analyseModellingStudio(source: ModellingStudioSource) {
       label: labels.get(edge.supplier) ?? edge.supplier,
       reliability: availability.get(edge.supplier) ?? null,
       group,
+      commonCauseGroup:
+        commonCauseByAsset.get(edge.supplier)?.sort().join("|") ?? null,
     });
   }
-  const specificationList = [...specifications.values()];
+  const specificationList = [...specifications.values()].map(
+    (specification) => ({
+      ...specification,
+      betaFactor: blocks.some(
+        (block) =>
+          block.group === specification.group && block.commonCauseGroup != null,
+      )
+        ? null
+        : undefined,
+    }),
+  );
   const rbd = {
     result: evaluateRbd(blocks, specificationList),
     importance: blockImportance(blocks, specificationList).slice(0, 4),
