@@ -63,6 +63,13 @@ describe("C5.24 governed recommendation assumptions", () => {
     expect(sql).toContain("Assumptions and validation plan (C5.24)");
   });
 
+  it("asserts the non-operational boundary from parsed JSON instead of wire formatting", () => {
+    const smoke = read("scripts/ci-recommendation-assumptions-smoke.sh");
+
+    expect(smoke).toContain("field operationalAuthorization");
+    expect(smoke).not.toContain('operationalAuthorization":false');
+  });
+
   it("is reachable from Mission Control through one typed service", () => {
     const page = read("src/pages/MissionControl.tsx");
     const drawer = read("src/components/RecommendationAssumptionsDrawer.tsx");
