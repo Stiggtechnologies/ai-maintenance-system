@@ -1,19 +1,19 @@
-import { repairableSummary } from "../reliability";
-import { selectWeibullMethod } from "../reliability/method-selection";
+import { repairableSummary } from "../reliability/index.ts";
+import { selectWeibullMethod } from "../reliability/method-selection.ts";
 import {
   analyseFaultTree,
   eventImportance,
   type FaultTreeNode,
-} from "./fault-tree";
-import { forecastMaintenanceCost, type CostPeriod } from "./cost-forecast";
-import { simulateProduction, type SimUnit } from "./monte-carlo";
+} from "./fault-tree.ts";
+import { forecastMaintenanceCost, type CostPeriod } from "./cost-forecast.ts";
+import { simulateProduction, type SimUnit } from "./monte-carlo.ts";
 import {
   blockImportance,
   evaluateRbd,
   type RbdBlock,
   type RbdGroupSpec,
-} from "./rbd";
-import { scheduleRisk, type ScheduleTask } from "./schedule-risk";
+} from "./rbd.ts";
+import { scheduleRisk, type ScheduleTask } from "./schedule-risk.ts";
 
 export interface ModellingTreeSource {
   id: string;

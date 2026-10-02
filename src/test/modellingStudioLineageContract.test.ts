@@ -51,4 +51,34 @@ describe("D11.29 Modelling Studio calculation lineage", () => {
     expect(component).not.toContain("simulateProduction");
     expect(component).not.toContain("forecastMaintenanceCost");
   });
+
+  it("keeps the calculation-service static import closure bootable by Deno", () => {
+    const visited = new Set<string>();
+    const visit = (relativeFile: string) => {
+      if (visited.has(relativeFile)) return;
+      visited.add(relativeFile);
+      const source = read(relativeFile);
+      const imports = [
+        ...source.matchAll(/\bfrom\s+["'](\.{1,2}\/[^"']+)["']/g),
+      ].map((match) => match[1]);
+
+      for (const specifier of imports) {
+        expect(
+          specifier,
+          `${relativeFile} must use an explicit .ts extension for Deno`,
+        ).toMatch(/\.ts$/);
+        const resolved = path
+          .resolve(root, path.dirname(relativeFile), specifier)
+          .slice(root.length + 1);
+        expect(
+          fs.existsSync(path.join(root, resolved)),
+          `${relativeFile} imports missing module ${specifier}`,
+        ).toBe(true);
+        visit(resolved);
+      }
+    };
+
+    visit("supabase/functions/calculation-service/index.ts");
+    expect(visited).toContain("src/lib/modelling/studio.ts");
+  });
 });
