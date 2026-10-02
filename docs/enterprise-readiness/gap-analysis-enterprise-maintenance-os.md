@@ -308,14 +308,14 @@ this appendix scores every individual item so nothing is hidden by grouping._
 
 | Item                                   | Enforced today?                                                                                         |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| Change PM intervals                    | 🟡 No PM-plan object yet; strategy changes route via HITL recommendations                               |
-| Defer critical work                    | 🟡 Approval boundary exists; deferral is not a modeled action with risk assessment                      |
+| Change PM intervals                    | ✅ Canonical maintenance plans, immutable assessment evidence, assigned independent review and optimistic-locking adoption are live through the Asset Strategy workspace |
+| Defer critical work                    | ✅ Canonical work/approval action requires an active linked governed risk, current manager-held residual-risk acceptance, independent decision and exact work revision |
 | Change equipment operating limits      | ✅ Charters flag OEM-limit changes for human approval; limits are approved-source-only in physics layer |
 | Approve repair vs replacement          | 🟡 Recommendation + approval path exists; no LCC analysis behind it                                     |
 | Alter safety-critical procedures       | ❌ No procedure objects                                                                                 |
 | Release turnaround scope               | ❌ No turnaround capability                                                                             |
 | Commit significant expenditures        | ❌ No financial commitment objects                                                                      |
-| Create/reschedule safety-critical work | 🟡 Safety-flagged WOs exist; scheduling actions not modeled                                             |
+| Create/reschedule safety-critical work | ✅ A draft-first canonical work request, permit-bearing job-plan classification and exact-version reschedule request remain inert until an independent maintenance-manager decision; persistence guards close direct writes |
 
 ### Never autonomous (5)
 

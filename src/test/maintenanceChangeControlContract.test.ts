@@ -74,6 +74,15 @@ describe("C5.10/C5.11/C5.17 governed maintenance change control", () => {
     expect(sql).toContain("due_date");
   });
 
+  it("routes late safety classification from the canonical job-plan path into approval", () => {
+    expect(sql).toContain("create or replace function public.apply_job_plan");
+    expect(sql).toContain("a permit-bearing plan cannot first classify work as safety-critical after execution or closure");
+    expect(sql).toContain("schedule_approval_required");
+    expect(sql).toContain("status=case when v_permits>0 then 'approval' else status end");
+    expect(sql).toContain("status=case when w.status='approval' then 'scheduled' else status end");
+    expect(sql).toContain("new.safety_flag is distinct from old.safety_flag");
+  });
+
   it("fails closed for stale, cross-tenant, self-approved and wrong-role acts", () => {
     expect(sql).toContain("organization_id=v_org");
     expect(sql).toContain("request snapshot is stale");
