@@ -11,6 +11,7 @@ import { migrationFiles, stripComments } from "./support/migrationPolicies";
 const ORIGINAL = "20260811090000_job_plans.sql";
 const REFUSAL = "20261225140000_job_plan_unresolved_material_refusal.sql";
 const NEW_VERSION = "20261225150000_job_plan_new_version.sql";
+const MAINTENANCE_CONTROL = "20270101470000_maintenance_change_control.sql";
 
 function functionBodies(): Map<string, { file: string; body: string }> {
   const defs = new Map<string, { file: string; body: string }>();
@@ -100,7 +101,7 @@ describe("upsert_job_plan refuses unresolved material codes", () => {
   });
 });
 
-describe("adopt and apply authority is unchanged", () => {
+describe("adopt and apply authority remains bounded", () => {
   it("adopt_job_plan still requires a named basis, a step, and an acceptance check", () => {
     expect(defs.get("adopt_job_plan")?.file).toBe(ORIGINAL);
     const body = defs.get("adopt_job_plan")?.body ?? "";
@@ -113,10 +114,16 @@ describe("adopt and apply authority is unchanged", () => {
   });
 
   it("apply_job_plan still refuses a draft and does not become plant execute", () => {
-    expect(defs.get("apply_job_plan")?.file).toBe(ORIGINAL);
+    expect(defs.get("apply_job_plan")?.file).toBe(MAINTENANCE_CONTROL);
     const body = defs.get("apply_job_plan")?.body ?? "";
     expect(body).toContain("A draft plan may not be applied to real work");
     expect(body).toMatch(/status\s*=\s*'adopted'/i);
     expect(body).not.toMatch(/insert\s+into\s+(public\.)?materials\b/i);
+    expect(body).toContain("schedule_approval_required");
+    expect(body).toMatch(
+      /status\s*=\s*case\s+when\s+v_permits\s*>\s*0\s+then\s+'approval'/i,
+    );
+    expect(body).not.toMatch(/status\s*=\s*'in_progress'/i);
+    expect(body).not.toMatch(/status\s*=\s*'completed'/i);
   });
 });

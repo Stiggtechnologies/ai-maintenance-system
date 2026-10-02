@@ -438,16 +438,16 @@
     "backticked": 4
   },
   "C5.10": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 6,
+    "backticked": 6
   },
   "C5.11": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 8,
+    "backticked": 8
   },
   "C5.12": {
     "status": "✅",
@@ -480,10 +480,10 @@
     "backticked": 7
   },
   "C5.17": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 7,
+    "backticked": 7
   },
   "C5.18": {
     "status": "✅",
