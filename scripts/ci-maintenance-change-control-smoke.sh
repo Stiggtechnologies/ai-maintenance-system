@@ -160,10 +160,11 @@ values('$WORK','$ORG','$ASSET','C511-WO-1','Inspect the critical pressure safety
 on conflict(id) do nothing;
 select set_config('app.maintenance_change_control_write','',false);
 insert into risk_acceptances(organization_id,subject_type,subject_id,risk_level,rationale,compensating_controls,
-  accepted_by,accepted_role,expires_at,review_at)
+  accepted_by,accepted_role,expires_at,review_at,reassessment_trigger)
 values('$ORG','risk','$RISK','High','C5.11 manager accepts the bounded residual exposure for this test',
   'Daily operator check and immediate escalation on any barrier indication','$MANAGER_ID','maintenance_manager',
-  now()+interval '30 days',now()+interval '20 days');
+  now()+interval '30 days',now()+interval '20 days',
+  'Reassess immediately on any barrier indication, overdue daily check, process excursion or scope change.');
 SQL
 
 test "$(psqlc "select enforcement from decision_rights where right_key='change_pm_interval'")" = 'enforced'
