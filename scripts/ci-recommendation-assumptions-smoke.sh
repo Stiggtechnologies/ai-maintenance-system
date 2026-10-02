@@ -13,6 +13,7 @@ OTHER_ASSET='c5240000-0000-4000-8000-000000000002'
 REC='c5240000-0000-4000-8000-000000000011'
 REC2='c5240000-0000-4000-8000-000000000012'
 FOREIGN_REC='c5240000-0000-4000-8000-000000000013'
+SAFETY_REC='c5240000-0000-4000-8000-000000000014'
 
 field(){ python3 -c "import json,sys; d=json.load(sys.stdin); v=d.get('$1'); print('' if v is None else (json.dumps(v) if isinstance(v,(dict,list)) else v))"; }
 token(){ local r; r=$(curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}"); printf '%s' "$r" | python3 -c "import json,sys; print(json.load(sys.stdin).get('access_token',''))"; }
@@ -73,13 +74,16 @@ psqlc "insert into organizations(id,name,industry) values('$OTHER_ORG','C5.24 fo
     ('$ASSET','$ORG','C5.24 governed pump','C524-P-101','high'),
     ('$OTHER_ASSET','$OTHER_ORG','C5.24 foreign pump','C524-X-101','high')
   on conflict(id) do nothing;
-  delete from recommendations where id in ('$REC','$REC2','$FOREIGN_REC');
+  delete from recommendations where id in ('$REC','$REC2','$FOREIGN_REC','$SAFETY_REC');
   insert into recommendations(id,organization_id,asset_id,title,issue,action,impact,confidence,urgency,status,rationale,
     consequence_summary,alternatives_considered,required_completion_date,required_approver_role,verification_method)
   values
     ('$REC','$ORG','$ASSET','C5.24 first assumption proof','Repeated seal failures remain mechanistically unverified.','Run the evidence plan before changing the maintenance strategy.','Protect safe production and avoid unsupported interval changes.',78,'action','pending','Work history and inspection evidence are linked in the governed packet.','If the mechanism is wrong, the intervention may preserve the repeat failure.','Continue current controls or inspect before changing the maintenance basis.',current_date+30,'reliability_engineer','Compare seal condition and process solids through ten representative startups.'),
     ('$REC2','$ORG','$ASSET','C5.24 recorded assumptions proof','The startup exposure model carries one unverified premise.','Validate the premise before the recommendation is released.','Keep the decision basis explicit and testable.',72,'advisory','pending','The recommendation distinguishes observed timing from inferred mechanism.','A false premise would move the monitoring window away from the damaging event.','Retain current controls while collecting a discriminating startup dataset.',current_date+45,'maintenance_manager','Review the ten-start dataset and document whether the premise held.'),
     ('$FOREIGN_REC','$OTHER_ORG','$OTHER_ASSET','C5.24 foreign recommendation','Foreign tenant issue.','Foreign tenant action.','Foreign tenant impact.',70,'advisory','pending','Foreign tenant evidence basis.','Foreign tenant consequence statement is deliberately substantive.','Foreign tenant alternative statement is deliberately substantive.',current_date+20,'reliability_engineer','Foreign tenant verification statement is deliberately substantive.');" >/dev/null
+psqlc "insert into recommendations(id,organization_id,asset_id,title,issue,action,impact,confidence,urgency,status,rationale,risk_impact,financial_impact,
+    consequence_summary,alternatives_considered,required_completion_date,required_approver_role,verification_method)
+  values('$SAFETY_REC','$ORG','$ASSET','C5.24 safety-work routing proof','Condition evidence indicates an imminent barrier failure within the active operating window.','Inspect and replace the degraded safety barrier before the committed completion date.','Avoid an uncontrolled loss of the protected function.',91,'critical','pending','The governed evidence packet shows degradation above the adopted intervention threshold.','High','\$2.4M risk mitigation','If the intervention is wrong or late, the protected function may be unavailable during demand.','Retain the existing interval or increase monitoring; both were rejected because exposure exceeds tolerance.',current_date+7,'maintenance_manager','Functionally test the barrier against approved criteria and independently witness the recorded result.');" >/dev/null
 
 echo '— blank is not none, and the release trigger refuses it —'
 BEFORE=$(rpc "$RE" check_recommendation_contract "{\"p_recommendation_id\":\"$REC\"}")
@@ -112,6 +116,8 @@ grep -q '"releasable":true' <<<"$AFTER"
 echo '— explicit assumptions carry basis, consequence and validation —'
 RECORDED=$(rpc "$RE" record_recommendation_assumptions "{\"p_recommendation_id\":\"$REC2\",\"p_packet\":{\"disposition\":\"recorded\",\"basis\":\"The recommendation separates the observed startup timing from the causal premise that remains to be tested.\",\"items\":[{\"statement\":\"Intermittent solids exposure continues during the next operating period.\",\"basis\":\"Recent events cluster after startup but the historian does not measure solids continuously.\",\"consequence_if_wrong\":\"The proposed monitoring window may target the wrong exposure and preserve recurrence.\",\"validation_method\":\"Measure process solids and inspect the seal through ten representative startups.\"}]},\"p_note\":\"Reliability engineering recorded the material premise and its discriminating test.\"}")
 noerr "$RECORDED"
+SAFETY_PACKET=$(rpc "$RE" record_recommendation_assumptions "{\"p_recommendation_id\":\"$SAFETY_REC\",\"p_packet\":{\"disposition\":\"recorded\",\"basis\":\"The short-horizon degradation evidence and protected-function consequence were reviewed before routing work.\",\"items\":[{\"statement\":\"The observed degradation continues through the proposed intervention window.\",\"basis\":\"The governed trend remains above the adopted intervention threshold.\",\"consequence_if_wrong\":\"Acceleration could make the protected function unavailable before the planned intervention.\",\"validation_method\":\"Monitor the barrier daily and stop earlier if the adopted threshold is exceeded.\"}]},\"p_note\":\"Reliability engineering recorded the safety-work premise without granting schedule authority.\"}")
+noerr "$SAFETY_PACKET"
 PACKET=$(rpc "$RE" get_recommendation_assumption_packet "{\"p_recommendation_id\":\"$REC2\"}")
 test "$(printf '%s' "$PACKET" | field valid)" = 'True'
 test "$(printf '%s' "$PACKET" | field operationalAuthorization)" = 'False'
@@ -137,6 +143,22 @@ test "$(psqlc "select status from recommendations where id='$REC';")" = 'approve
 test "$(psqlc "select count(*) from decisions where recommendation_id='$REC' and approval_status='approved' and outcome_status='open';")" = '1'
 test "$(psqlc "select count(*) from work_orders where recommendation_id='$REC';")" = '1'
 test "$(psqlc "select count(*) from learning_events where recommendation_id='$REC' and event_type='recommendation_approved';")" = '1'
+
+echo '— safety-critical recommendation approval atomically routes C5.17 independent work approval —'
+SAFETY_APPROVAL=$(rpc "$RE" approve_operating_recommendation "{\"p_recommendation_id\":\"$SAFETY_REC\"}")
+noerr "$SAFETY_APPROVAL"
+SAFETY_WORK=$(printf '%s' "$SAFETY_APPROVAL" | field workOrderId)
+SAFETY_CONTROL=$(printf '%s' "$SAFETY_APPROVAL" | field maintenanceControlApprovalId)
+test -n "$SAFETY_WORK"; test -n "$SAFETY_CONTROL"
+test "$(printf '%s' "$SAFETY_APPROVAL" | field workStatus)" = 'approval'
+test "$(printf '%s' "$SAFETY_APPROVAL" | field independentWorkApprovalRequired)" = 'True'
+test "$(psqlc "select status||':'||safety_flag||':'||approval_required from work_orders where id='$SAFETY_WORK' and recommendation_id='$SAFETY_REC';")" = 'approval:true:true'
+test "$(psqlc "select status||':'||owner_role||':'||decision_right_key||':'||action_type from approvals where id='$SAFETY_CONTROL' and work_order_id='$SAFETY_WORK';")" = 'required:maintenance_manager:schedule_safety_critical_work:create_safety_critical_work'
+test "$(psqlc "select request_payload->>'scheduleBasis' from approvals where id='$SAFETY_CONTROL';")" = 'recommendations.required_completion_date_end_of_day_utc'
+SAFETY_DECISION=$(rpc "$MANAGER" decide_maintenance_change_control "{\"p_approval_id\":\"$SAFETY_CONTROL\",\"p_outcome\":\"approved\",\"p_note\":\"Approved after independent review of the consequence, date and functional validation method.\"}")
+noerr "$SAFETY_DECISION"
+test "$(psqlc "select status||':'||approval_required||':'||(schedule_control_approval_id='$SAFETY_CONTROL') from work_orders where id='$SAFETY_WORK';")" = 'scheduled:false:true'
+test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='maintenance_change_request' and event_data->>'approval_id'='$SAFETY_CONTROL' and event_data->>'recommendation_id'='$SAFETY_REC';")" = '1'
 
 echo '— a downstream contract refusal rolls back the complete approval act —'
 STALE_APPROVAL=$(rpc "$RE" approve_operating_recommendation "{\"p_recommendation_id\":\"$REC2\"}")
