@@ -531,7 +531,8 @@ export function MissionControl() {
   const { profile, user } = useAuth();
   const role = (profile?.role as string) ?? "reliability_engineer";
   const canAct = RECOMMENDATION_ACT_ROLES.has(role);
-  const canGovernEvidence = EVIDENCE_GOVERNANCE_ROLES.has(role);
+  const canGovernEvidence =
+    profile !== null && EVIDENCE_GOVERNANCE_ROLES.has(role);
   const { missionSignals } = useOnboardingOperatingLoop();
   const { data, loading, error, refetch } = useAsyncData(
     () => getMissionControl(),
