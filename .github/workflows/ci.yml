@@ -480,6 +480,9 @@ jobs:
       - name: Smoke — governed sixteen-family degradation library
         run: bash scripts/ci-degradation-library-smoke.sh
 
+      - name: Smoke — governed recommendation evidence provenance
+        run: bash scripts/ci-recommendation-evidence-provenance-smoke.sh
+
       - name: Smoke — exact-version model performance, drift and cohort screening
         run: bash scripts/ci-model-performance-governance-smoke.sh
 

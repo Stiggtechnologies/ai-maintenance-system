@@ -35,11 +35,11 @@ import { LiveBadge } from "../components/ui/LiveBadge";
 import { useAuth } from "../components/AuthProvider";
 import { useOnboardingOperatingLoop } from "../hooks/useOnboardingOperatingLoop";
 import { EngineeringModelTracePanel } from "../components/EngineeringModelTracePanel";
+import { RecommendationEvidenceDrawer } from "../components/RecommendationEvidenceDrawer";
 import { FirstRunNextStepStrip } from "../components/help/FirstRunNextStepStrip";
 import { Stage1OperatorRunbook } from "../components/help/Stage1OperatorRunbook";
 import {
   getMissionControl,
-  getEvidence,
   getScenarios,
   approveRecommendation,
   signEngineeringReview,
@@ -50,7 +50,6 @@ import {
 } from "../services/operatingLoopService";
 import type {
   RecommendationRow,
-  EvidenceItemRow,
   ScenarioRow,
 } from "../types/operating";
 
@@ -154,85 +153,6 @@ function money(n: number) {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
   return `$${n}`;
-}
-
-/* ---- Evidence slide-over (real evidence_items) --------------------------- */
-function EvidenceDrawer({
-  rec,
-  onClose,
-}: {
-  rec: RecommendationRow;
-  onClose: () => void;
-}) {
-  const { data, loading, error, refetch } = useAsyncData<EvidenceItemRow[]>(
-    () => getEvidence(rec.id),
-    [rec.id],
-  );
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-md h-full bg-[#0D1520] border-l border-white/8 overflow-y-auto p-5">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-sm font-semibold text-slate-200">Evidence</h3>
-          <button
-            aria-label="Close"
-            onClick={onClose}
-            className="text-slate-400 hover:text-white"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <p className="text-xs text-slate-400 mb-4">
-          {rec.title} · {rec.asset?.name ?? "—"}
-        </p>
-        {loading && <LoadingState label="Loading evidence…" />}
-        {error && <ErrorState message={error} onRetry={refetch} />}
-        {!loading && !error && (data?.length ?? 0) === 0 && (
-          <EmptyState message="No evidence recorded for this recommendation." />
-        )}
-        <div className="space-y-3">
-          {(data ?? []).map((e) => (
-            <div
-              key={e.id}
-              className="rounded-xl border border-white/6 bg-black/20 p-3"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-slate-200">
-                  {e.evidence_type}
-                </span>
-                <span className="text-xs font-mono text-teal-400">
-                  +{e.confidence_contribution}% conf
-                </span>
-              </div>
-              <p className="text-xs text-slate-400 mt-1">{e.description}</p>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-xs text-slate-400">
-                <div>
-                  Source:{" "}
-                  <span className="text-slate-400">{e.source_system}</span>
-                </div>
-                <div>
-                  Data quality:{" "}
-                  <span className="text-slate-400">{e.data_quality}</span>
-                </div>
-                <div>
-                  Related asset:{" "}
-                  <span className="text-slate-400">
-                    {e.related_asset ?? rec.asset?.name}
-                  </span>
-                </div>
-                <div>
-                  Captured:{" "}
-                  <span className="text-slate-400">
-                    {new Date(e.ts).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 /* ---- Scenario comparison modal (real scenarios) -------------------------- */
@@ -604,7 +524,7 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 export function MissionControl() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const role = (profile?.role as string) ?? "reliability_engineer";
   const canAct = RECOMMENDATION_ACT_ROLES.has(role);
   const { missionSignals } = useOnboardingOperatingLoop();
@@ -994,8 +914,10 @@ export function MissionControl() {
       )}
 
       {evidenceRec && (
-        <EvidenceDrawer
+        <RecommendationEvidenceDrawer
           rec={evidenceRec}
+          currentUserId={user?.id ?? null}
+          canGovern={canAct}
           onClose={() => setEvidenceRec(null)}
         />
       )}
