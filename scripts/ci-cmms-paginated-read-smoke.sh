@@ -27,7 +27,7 @@ PY
 }
 rpc(){ curl -sS -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d "$3"; }
 field(){ BODY="$1" KEY="$2" python3 -c "import json,os; x=json.loads(os.environ['BODY']); v=x.get(os.environ['KEY']); print('' if v is None else str(v).lower() if isinstance(v,bool) else v)"; }
-noerr(){ BODY="$1" python3 -c "import json,os,sys; x=json.loads(os.environ['BODY']); e=x.get('error') if isinstance(x,dict) else None; print(x,file=sys.stderr) if e else None; sys.exit(1 if e else 0)"; }
+noerr(){ BODY="$1" python3 -c "import json,os,sys; x=json.loads(os.environ['BODY']); e=(x.get('error') or (x.get('message') if x.get('code') else None)) if isinstance(x,dict) else 'unexpected response'; print(x,file=sys.stderr) if e else None; sys.exit(1 if e else 0)"; }
 expect_error(){ BODY="$1" WANT="$2" python3 -c "import json,os,sys; x=json.loads(os.environ['BODY']); e=str(x.get('error') or x.get('message') or ''); sys.exit(0) if os.environ['WANT'].lower() in e.lower() else (print('expected',os.environ['WANT'],'got',x) or sys.exit(1))"; }
 psqlc(){ PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -qAt -c "$1"; }
 sql_must_fail(){ local out rc; set +e; out=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "$1" 2>&1); rc=$?; set -e; test "$rc" != 0; printf '%s' "$out"; }
@@ -82,6 +82,8 @@ CONFIGURED=$(rpc "$ADMIN_JWT" configure_cmms_read_source "$BASE")
 noerr "$CONFIGURED"
 test "$(field "$CONFIGURED" enabled)" = 'true'
 test "$(field "$CONFIGURED" write_enabled)" = 'false'
+test "$(field "$CONFIGURED" system_kind)" = 'cmms'
+test "$(field "$CONFIGURED" source_profile)" = 'generic_cmms'
 test "$(field "$CONFIGURED" pagination_mode)" = 'next_url'
 test "$(field "$CONFIGURED" pagination_max_pages)" = '20'
 
@@ -92,6 +94,8 @@ noerr "$MAPPED"; test "$(field "$MAPPED" status)" = 'approved'
 SOURCE=$(rpc "$PLANNER_JWT" get_cmms_read_source "{\"p_connector_key\":\"$CONNECTOR_KEY\"}")
 noerr "$SOURCE"
 test "$(field "$SOURCE" pagination_mode)" = 'next_url'
+test "$(field "$SOURCE" system_kind)" = 'cmms'
+test "$(field "$SOURCE" source_profile)" = 'generic_cmms'
 test "$(field "$SOURCE" pagination_next_path)" = 'links.next'
 test "$(field "$SOURCE" pagination_max_pages)" = '20'
 FOREIGN_SOURCE=$(rpc "$FOREIGN_JWT" get_cmms_read_source "{\"p_connector_key\":\"$CONNECTOR_KEY\"}")
@@ -132,6 +136,6 @@ test "$(psqlc "select pagination_max_pages from connectors where organization_id
 OUT=$(sql_must_fail "update connectors set pagination_mode='next_url',pagination_next_path=null,pagination_max_pages=20 where organization_id='$ORG' and connector_key='$CONNECTOR_KEY';")
 grep -qi 'connectors_pagination_profile_check' <<<"$OUT"
 test "$(psqlc "select count(*) from decisions where organization_id='$ORG' and decision_type='cmms_read_source';")" = '1'
-test "$(psqlc "select count(*) from connectors where organization_id='$ORG' and connector_key='$CONNECTOR_KEY' and direction='read_only' and not write_enabled and pagination_mode='next_url' and pagination_next_path='links.next' and pagination_max_pages=20;")" = '1'
+test "$(psqlc "select count(*) from connectors where organization_id='$ORG' and connector_key='$CONNECTOR_KEY' and system_kind='cmms' and connector_profile='generic_cmms' and direction='read_only' and not write_enabled and pagination_mode='next_url' and pagination_next_path='links.next' and pagination_max_pages=20;")" = '1'
 
-echo 'C2.12 CMMS paginated read smoke passed: canonical_connector=true canonical_work_orders=true tenant_wall=true administrator_profile=true bounded_pagination=true same_contract_mapping=true external_asset_binding=true retained_rejects=true idempotent_replay=true clean_run_watermark=true direct_write_locked=true source_write_back=false unattended=false'
+echo 'C2.12 CMMS paginated read smoke passed: canonical_connector=true canonical_system_kind=true source_profile=true canonical_work_orders=true tenant_wall=true administrator_profile=true bounded_pagination=true same_contract_mapping=true external_asset_binding=true retained_rejects=true idempotent_replay=true clean_run_watermark=true direct_write_locked=true source_write_back=false unattended=false'

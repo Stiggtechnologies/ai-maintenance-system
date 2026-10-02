@@ -15,6 +15,7 @@ describe("CMMS paginated read contract", () => {
     expect(migration).toContain("pagination_mode");
     expect(migration).toContain("pagination_next_path");
     expect(migration).toContain("pagination_max_pages");
+    expect(migration).toContain("connector_profile");
     expect(migration).not.toMatch(
       /create table[^;]+(?:connector|integration)/i,
     );
@@ -27,7 +28,13 @@ describe("CMMS paginated read contract", () => {
     expect(migration).toContain(
       "configuring a CMMS source requires an administrator",
     );
-    expect(migration).toContain("coalesce(p_system_kind,'') not in");
+    expect(migration).toContain(
+      "v_profile not in ('sap_pm','maximo','oracle_eam','generic_cmms')",
+    );
+    expect(migration).toContain("when 'generic_cmms' then 'cmms'");
+    expect(migration).toContain("when 'sap_pm' then 'cmms'");
+    expect(migration).toContain("else 'eam'");
+    expect(migration).toContain("'source_profile',v_connector.connector_profile");
     expect(migration).toContain("192\\.168\\.");
     expect(migration).toContain("v_ref ~ '[@?=#]'");
     expect(migration).toContain("pagination mode must be none or next_url");

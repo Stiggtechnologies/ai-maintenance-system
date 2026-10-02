@@ -8,9 +8,22 @@
 -- public.connector_entity_mappings and public.ingest_watermarks retained.
 
 alter table public.connectors
+  add column if not exists connector_profile text,
   add column if not exists pagination_mode text not null default 'none',
   add column if not exists pagination_next_path text,
   add column if not exists pagination_max_pages int not null default 1;
+
+-- connector.system_kind stays the canonical integration category. The
+-- customer-selected source product/profile is separate so SAP PM, Maximo and
+-- Oracle EAM do not widen or bypass the shared connector taxonomy.
+alter table public.connectors
+  drop constraint if exists connectors_cmms_profile_check;
+alter table public.connectors
+  add constraint connectors_cmms_profile_check check (
+    connector_type is distinct from 'cmms_read'
+    or connector_profile is null
+    or connector_profile in ('sap_pm','maximo','oracle_eam','generic_cmms')
+  );
 
 alter table public.connectors
   drop constraint if exists connectors_pagination_profile_check;
@@ -36,6 +49,8 @@ comment on column public.connectors.pagination_next_path is
   'Safe dotted JSON path containing the next-page URL. Never evaluated as code and never allowed to change origin.';
 comment on column public.connectors.pagination_max_pages is
   'Hard administrator-approved ceiling for one pull. Runtime additionally caps total rows and bytes.';
+comment on column public.connectors.connector_profile is
+  'Optional product/profile inside the canonical system_kind category; never a credential or source-system authority.';
 
 -- Replace the old configuration signature so every caller states the
 -- pagination posture explicitly. Existing sources remain valid as none/1.
@@ -66,6 +81,8 @@ declare
   v_id uuid;
   v_endpoint text := nullif(trim(coalesce(p_endpoint_url,'')), '');
   v_ref text := nullif(trim(coalesce(p_credential_binding_ref,'')), '');
+  v_profile text := lower(trim(coalesce(p_system_kind,'')));
+  v_system_kind text;
   v_mode text := lower(trim(coalesce(p_pagination_mode,'none')));
   v_next_path text := nullif(trim(coalesce(p_pagination_next_path,'')), '');
   v_max_pages int := coalesce(p_pagination_max_pages,1);
@@ -77,9 +94,14 @@ begin
   if coalesce(length(trim(p_key)),0)<3 or coalesce(length(trim(p_name)),0)<3 then
     return jsonb_build_object('error','connector key and name are required');
   end if;
-  if coalesce(p_system_kind,'') not in ('sap_pm','maximo','oracle_eam','generic_cmms') then
+  if v_profile not in ('sap_pm','maximo','oracle_eam','generic_cmms') then
     return jsonb_build_object('error','CMMS kind must be sap_pm, maximo, oracle_eam or generic_cmms');
   end if;
+  v_system_kind := case v_profile
+    when 'generic_cmms' then 'cmms'
+    when 'sap_pm' then 'cmms'
+    else 'eam'
+  end;
   if coalesce(length(trim(p_basis)),0)<20 then
     return jsonb_build_object('error','record a substantive CMMS activation authority and basis');
   end if;
@@ -124,12 +146,12 @@ begin
   end if;
 
   insert into public.connectors(
-    organization_id,connector_key,name,connector_type,system_kind,endpoint_hint,
+    organization_id,connector_key,name,connector_type,system_kind,connector_profile,endpoint_hint,
     expected_interval_minutes,credential_binding_ref,contract_note,register_ref,
     status,enabled,direction,write_enabled,pagination_mode,
     pagination_next_path,pagination_max_pages
   ) values(
-    v_org,trim(p_key),trim(p_name),'cmms_read',p_system_kind,v_endpoint,
+    v_org,trim(p_key),trim(p_name),'cmms_read',v_system_kind,v_profile,v_endpoint,
     p_expected_interval_minutes,v_ref,
     'Bounded read-only CMMS work-order pull. No source-system write-back, execute, or autonomous control.',
     'C2.12',case when p_enabled then 'active' else 'configured' end,p_enabled,
@@ -140,6 +162,7 @@ begin
     name=excluded.name,
     connector_type='cmms_read',
     system_kind=excluded.system_kind,
+    connector_profile=excluded.connector_profile,
     endpoint_hint=excluded.endpoint_hint,
     expected_interval_minutes=excluded.expected_interval_minutes,
     credential_binding_ref=excluded.credential_binding_ref,
@@ -171,6 +194,8 @@ begin
     'enabled',p_enabled,
     'direction','read_only',
     'write_enabled',false,
+    'system_kind',v_system_kind,
+    'source_profile',v_profile,
     'pagination_mode',v_mode,
     'pagination_next_path',v_next_path,
     'pagination_max_pages',v_max_pages,
@@ -227,6 +252,8 @@ begin
     'enabled',v_connector.enabled,
     'direction',v_connector.direction,
     'write_enabled',v_connector.write_enabled,
+    'system_kind',v_connector.system_kind,
+    'source_profile',v_connector.connector_profile,
     'endpoint_url',v_connector.endpoint_hint,
     'credential_binding_ref',v_connector.credential_binding_ref,
     'mapping_status',v_mapping.status,
