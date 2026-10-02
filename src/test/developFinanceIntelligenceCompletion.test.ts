@@ -97,6 +97,12 @@ describe("D2.04 finance intelligence completion", () => {
     expect(read).toContain("'recorded_unbound'");
     expect(read).toContain("'refused'");
     expect(read).toContain("'missing'");
+    expect(read).toContain(
+      "then to_jsonb('The one value kernel has complete recorded inputs.'::text)",
+    );
+    expect(read).toContain(
+      "else coalesce(v_model->'refusals', '[]'::jsonb) end",
+    );
   });
 
   it("routes the live service and surface through the composed read and pure adjustment kernel", () => {

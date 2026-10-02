@@ -399,7 +399,9 @@ begin
     jsonb_build_object('key','lifecycle_cost','status',case when v_has_flows then 'recorded' else 'missing' end,
       'reason',case when v_has_flows then 'Full-life option cash-flow inputs are recorded.' else 'No full-life option cash flow is recorded.' end),
     jsonb_build_object('key','npv','status',case when (v_model->>'npvInputsComplete')::boolean then 'computable' else 'refused' end,
-      'reason',case when (v_model->>'npvInputsComplete')::boolean then 'The one value kernel has complete recorded inputs.' else v_model->'refusals' end),
+      'reason',case when (v_model->>'npvInputsComplete')::boolean
+        then to_jsonb('The one value kernel has complete recorded inputs.'::text)
+        else coalesce(v_model->'refusals', '[]'::jsonb) end),
     jsonb_build_object('key','irr','status',case when (v_model->>'npvInputsComplete')::boolean then 'computable' else 'refused' end,
       'reason','The one value kernel computes or refuses IRR from the same dated flows.'),
     jsonb_build_object('key','payback','status',case when (v_model->>'npvInputsComplete')::boolean then 'computable' else 'refused' end,
