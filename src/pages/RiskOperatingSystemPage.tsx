@@ -112,7 +112,7 @@ import {
 } from "../components/risk/RiskEnterprisePanels";
 import { ServiceContractRiskPanel } from "../components/risk/ServiceContractRiskPanel";
 import { RiskUncertaintyPanel } from "../components/risk/RiskUncertaintyPanel";
-import { useAuth } from "../components/AuthProvider";
+import { useOptionalAuth } from "../components/AuthProvider";
 
 type Tab =
   | "cockpit"
@@ -4050,7 +4050,9 @@ function CriteriaModal({
 }
 
 export function RiskOperatingSystemPage() {
-  const { profile, user } = useAuth();
+  const auth = useOptionalAuth();
+  const profile = auth?.profile ?? null;
+  const user = auth?.user ?? null;
   const [tab, setTab] = useState<Tab>("cockpit");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [setupOpen, setSetupOpen] = useState(false);
