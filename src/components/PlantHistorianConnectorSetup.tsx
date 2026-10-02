@@ -29,6 +29,11 @@ export function PlantHistorianConnectorSetup({
   const [interval, setInterval] = useState("15");
   const [credentialRef, setCredentialRef] = useState("");
   const [sourceArrayPath, setSourceArrayPath] = useState("readings");
+  const [paginationMode, setPaginationMode] = useState<"none" | "next_url">(
+    "none",
+  );
+  const [paginationNextPath, setPaginationNextPath] = useState("links.next");
+  const [paginationMaxPages, setPaginationMaxPages] = useState("20");
   const [basis, setBasis] = useState("");
   const [approveMapping, setApproveMapping] = useState(false);
   const [enabled, setEnabled] = useState(false);
@@ -48,6 +53,9 @@ export function PlantHistorianConnectorSetup({
         endpointUrl: endpointUrl.trim() || null,
         expectedIntervalMinutes: Number(interval),
         credentialBindingRef: credentialRef.trim() || null,
+        paginationMode,
+        paginationNextPath,
+        paginationMaxPages: Number(paginationMaxPages),
         enabled,
         basis,
       });
@@ -82,8 +90,8 @@ export function PlantHistorianConnectorSetup({
       const result = await plantHistorianActions.pull(key.trim(), dryRun);
       setMessage(
         dryRun
-          ? `Dry run: read ${String(result.read ?? 0)}, accepted ${String(result.accepted ?? 0)}, rejected ${String(result.rejected ?? 0)}. No canonical rows written.`
-          : `Pull ${String(result.status ?? "complete")}: accepted ${String(result.accepted ?? 0)}, rejected ${String(result.rejected ?? 0)}.`,
+          ? `Dry run: ${String(result.pages ?? 1)} page(s), read ${String(result.read ?? 0)}, accepted ${String(result.accepted ?? 0)}, rejected ${String(result.rejected ?? 0)}. No canonical rows written.`
+          : `Pull ${String(result.status ?? "complete")}: ${String(result.pages ?? 1)} page(s), accepted ${String(result.accepted ?? 0)}, rejected ${String(result.rejected ?? 0)}.`,
       );
       await onConfigured();
     } catch (caught) {
@@ -92,6 +100,13 @@ export function PlantHistorianConnectorSetup({
       setWorking(false);
     }
   }
+
+  const paginationValid =
+    paginationMode === "none" ||
+    (paginationNextPath.trim().length > 0 &&
+      Number.isInteger(Number(paginationMaxPages)) &&
+      Number(paginationMaxPages) >= 2 &&
+      Number(paginationMaxPages) <= 100);
 
   return (
     <section className="rounded-xl border border-signal-cyan/20 bg-signal-cyan/5 p-5">
@@ -104,8 +119,8 @@ export function PlantHistorianConnectorSetup({
           <p className="mt-1 text-sm text-slate-400">
             Point SyncAI at a HTTPS JSON historian or condition-monitoring
             export. This is a thin read: no write-back, no execute, no
-            unattended polling. When unset or disabled, seed/sim telemetry
-            stays in force and is never labelled live plant data. Deploy
+            unattended polling. When unset or disabled, seed/sim telemetry stays
+            in force and is never labelled live plant data. Deploy
             <code className="mx-1 text-slate-300">
               PLANT_HISTORIAN_ALLOWED_HOSTS
             </code>
@@ -177,6 +192,42 @@ export function PlantHistorianConnectorSetup({
               value={sourceArrayPath}
               onChange={(event) => setSourceArrayPath(event.target.value)}
             />
+            <select
+              aria-label="Pagination mode"
+              className={inputClass}
+              value={paginationMode}
+              onChange={(event) =>
+                setPaginationMode(event.target.value as "none" | "next_url")
+              }
+            >
+              <option value="none">Single response</option>
+              <option value="next_url">Same-origin next-link pagination</option>
+            </select>
+            {paginationMode === "next_url" && (
+              <>
+                <input
+                  aria-label="Next-link JSON path"
+                  className={inputClass}
+                  placeholder="Next-link JSON path (for example links.next)"
+                  value={paginationNextPath}
+                  onChange={(event) =>
+                    setPaginationNextPath(event.target.value)
+                  }
+                />
+                <input
+                  aria-label="Maximum pages per pull"
+                  className={inputClass}
+                  type="number"
+                  min="2"
+                  max="100"
+                  placeholder="Maximum pages per pull"
+                  value={paginationMaxPages}
+                  onChange={(event) =>
+                    setPaginationMaxPages(event.target.value)
+                  }
+                />
+              </>
+            )}
           </div>
           <textarea
             className={`${inputClass} mt-3`}
@@ -193,8 +244,8 @@ export function PlantHistorianConnectorSetup({
               onChange={(event) => setApproveMapping(event.target.checked)}
             />
             <span>
-              Approve the default condition_reading field mapping
-              (external_id, sensor_name, value, taken_at, quality).
+              Approve the default condition_reading field mapping (external_id,
+              sensor_name, value, taken_at, quality).
             </span>
           </label>
           <label className="mt-2 flex items-start gap-2 text-sm text-slate-300">
@@ -225,6 +276,7 @@ export function PlantHistorianConnectorSetup({
                 basis.trim().length < 20 ||
                 !Number.isFinite(Number(interval)) ||
                 Number(interval) < 1 ||
+                !paginationValid ||
                 (enabled &&
                   (endpointUrl.trim().length < 12 ||
                     credentialRef.trim().length < 8))
