@@ -218,13 +218,17 @@ describe("recommendation producers fill the contract they are gated on", () => {
   it("discloses every producer that raises a recommendation with no asset", () => {
     const unasseted = [
       ...new Set(
-        producers.filter((p) => !p.columns.includes("asset_id")).map((p) => p.fn),
+        producers
+          .filter((p) => !p.columns.includes("asset_id"))
+          .map((p) => p.fn),
       ),
     ].sort();
     expect(unasseted).toEqual(KNOWN_UNASSETED.map((k) => k.fn).sort());
     for (const k of KNOWN_UNASSETED) {
       expect(finalFunctions.has(k.fn), `${k.fn} no longer exists`).toBe(true);
-      expect(k.reason.length, `${k.fn} needs a real reason`).toBeGreaterThan(120);
+      expect(k.reason.length, `${k.fn} needs a real reason`).toBeGreaterThan(
+        120,
+      );
       expect(k.since).toMatch(/^\d{4}-\d{2}-\d{2}$/);
     }
     expect(KNOWN_UNASSETED.length).toBeLessThanOrEqual(2);
@@ -259,7 +263,7 @@ describe("the release gate is stronger than the producers, not weaker", () => {
 
   it("checks every contract field through the blank helpers, not btrim", () => {
     expect(gate?.source).toBe(
-      "20261005090000_recommendation_contract_producers.sql",
+      "20270101450000_recommendation_assumption_contract.sql",
     );
     for (const column of [
       "consequence_summary",
@@ -270,6 +274,9 @@ describe("the release gate is stronger than the producers, not weaker", () => {
     }
     expect(gate?.body).toContain(
       "contract_field_blank(r.required_approver_role)",
+    );
+    expect(gate?.body).toContain(
+      "recommendation_assumption_packet_valid(r.assumption_packet)",
     );
     expect(gate?.body).toContain("r.required_completion_date is not null");
   });
@@ -307,7 +314,7 @@ describe("the release gate is stronger than the producers, not weaker", () => {
   it("puts the blank helpers in the path that ENFORCES, not only the preflight", () => {
     const gaps = finalFunctions.get("recommendation_contract_gaps");
     expect(gaps?.source).toBe(
-      "20261005090300_signature_and_contract_gate_repair.sql",
+      "20270101450000_recommendation_assumption_contract.sql",
     );
     for (const column of [
       "consequence_summary",
@@ -316,9 +323,17 @@ describe("the release gate is stronger than the producers, not weaker", () => {
     ]) {
       expect(gaps?.body).toContain(`contract_narrative_blank(r.${column})`);
     }
-    for (const column of ["issue", "rationale", "action", "required_approver_role"]) {
+    for (const column of [
+      "issue",
+      "rationale",
+      "action",
+      "required_approver_role",
+    ]) {
       expect(gaps?.body).toContain(`contract_field_blank(r.${column})`);
     }
+    expect(gaps?.body).toContain(
+      "recommendation_assumption_packet_valid(r.assumption_packet)",
+    );
     // And no survivor of the old predicate, which is what let 'TBD' through.
     expect(gaps?.body).not.toMatch(/coalesce\s*\(\s*btrim/i);
 
@@ -377,13 +392,13 @@ describe("the release gate is stronger than the producers, not weaker", () => {
 
   it("is the last writer of all three, so nothing downstream reverts it again", () => {
     expect(gate?.source).toBe(
-      "20261005090000_recommendation_contract_producers.sql",
+      "20270101450000_recommendation_assumption_contract.sql",
     );
-    expect(finalFunctions.get("get_recommendation_contract_posture")?.source).toBe(
-      "20261005090000_recommendation_contract_producers.sql",
-    );
+    expect(
+      finalFunctions.get("get_recommendation_contract_posture")?.source,
+    ).toBe("20270101450000_recommendation_assumption_contract.sql");
     expect(finalFunctions.get("recommendation_contract_gaps")?.source).toBe(
-      "20261005090300_signature_and_contract_gate_repair.sql",
+      "20270101450000_recommendation_assumption_contract.sql",
     );
   });
 

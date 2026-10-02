@@ -21,6 +21,7 @@ import {
   Pencil,
   ArrowUpCircle,
   HardHat,
+  ClipboardList,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { ChallengeAIModal } from "../components/ChallengeAIModal";
@@ -37,6 +38,7 @@ import { useOnboardingOperatingLoop } from "../hooks/useOnboardingOperatingLoop"
 import { EngineeringModelTracePanel } from "../components/EngineeringModelTracePanel";
 import { RecommendationEvidenceDrawer } from "../components/RecommendationEvidenceDrawer";
 import { RecommendationContractPosturePanel } from "../components/RecommendationContractPosturePanel";
+import { RecommendationAssumptionsDrawer } from "../components/RecommendationAssumptionsDrawer";
 import { FirstRunNextStepStrip } from "../components/help/FirstRunNextStepStrip";
 import { Stage1OperatorRunbook } from "../components/help/Stage1OperatorRunbook";
 import {
@@ -273,6 +275,7 @@ function RecommendationCard({
   onApprove,
   onAction,
   onEvidence,
+  onAssumptions,
   onScenarios,
   onChallenge,
   onCreateWO,
@@ -287,6 +290,7 @@ function RecommendationCard({
     a: Exclude<RecommendationAction, "approved">,
   ) => void;
   onEvidence: (r: RecommendationRow) => void;
+  onAssumptions: (r: RecommendationRow) => void;
   onScenarios: (r: RecommendationRow) => void;
   onChallenge: (r: RecommendationRow) => void;
   onCreateWO: (r: RecommendationRow) => void;
@@ -437,6 +441,12 @@ function RecommendationCard({
               <Eye className="w-3 h-3" /> Evidence
             </button>
             <button
+              onClick={() => onAssumptions(rec)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
+            >
+              <ClipboardList className="w-3 h-3" /> Assumptions
+            </button>
+            <button
               onClick={() => onScenarios(rec)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
             >
@@ -545,6 +555,9 @@ export function MissionControl() {
   );
 
   const [evidenceRec, setEvidenceRec] = useState<RecommendationRow | null>(
+    null,
+  );
+  const [assumptionRec, setAssumptionRec] = useState<RecommendationRow | null>(
     null,
   );
   const [scenarioRec, setScenarioRec] = useState<RecommendationRow | null>(
@@ -824,6 +837,7 @@ export function MissionControl() {
                     onAction={handleAction}
                     onSign={handleSignEngineering}
                     onEvidence={setEvidenceRec}
+                    onAssumptions={setAssumptionRec}
                     onScenarios={setScenarioRec}
                     onChallenge={setChallengeRec}
                     onCreateWO={handleCreateWO}
@@ -928,6 +942,13 @@ export function MissionControl() {
           currentUserId={user?.id ?? null}
           canGovern={canGovernEvidence}
           onClose={() => setEvidenceRec(null)}
+        />
+      )}
+      {assumptionRec && (
+        <RecommendationAssumptionsDrawer
+          rec={assumptionRec}
+          canGovern={canGovernEvidence}
+          onClose={() => setAssumptionRec(null)}
         />
       )}
       {scenarioRec && (

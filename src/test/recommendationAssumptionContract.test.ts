@@ -45,9 +45,15 @@ describe("C5.24 governed recommendation assumptions", () => {
   });
 
   it("makes assumptions a binary release requirement in preflight, trigger and posture", () => {
-    expect(sql).toContain("create or replace function public.check_recommendation_contract");
-    expect(sql).toContain("create or replace function public.recommendation_contract_gaps");
-    expect(sql).toContain("create or replace function public.get_recommendation_contract_posture");
+    expect(sql).toContain(
+      "create or replace function public.check_recommendation_contract",
+    );
+    expect(sql).toContain(
+      "create or replace function public.recommendation_contract_gaps",
+    );
+    expect(sql).toContain(
+      "create or replace function public.get_recommendation_contract_posture",
+    );
     expect(sql).toContain("recommendation_assumption_packet_valid");
     expect(sql).toContain("Assumptions and validation plan (C5.24)");
   });
