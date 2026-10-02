@@ -53,6 +53,7 @@ export type IngestEntityKey =
   | "condition_reading"
   | "material_stock"
   | "operating_state"
+  | "process_event"
   | "production_record"
   | "schedule_activity"
   | "procurement_status"
@@ -61,6 +62,7 @@ export type IngestEntityKey =
 export type IngestHandler =
   | "ingest_batch"
   | "ingest_context_batch"
+  | "ingest_process_event_batch"
   | "ingest_schedule_batch"
   | "ingest_procurement_status_batch"
   | "ingest_cost_actual_batch";
@@ -571,6 +573,63 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
       ],
     },
 
+    process_event: {
+      key: "process_event",
+      label: "Process events (alarms, trips and excursions)",
+      handler: "ingest_process_event_batch",
+      purpose:
+        "Operator-facing DCS events that explain what happened around an asset — alarms, trips, interlocks, excursions, starts and stops.",
+      columns: [
+        ...ASSET_REF,
+        {
+          name: "external_id",
+          required: true,
+          kind: "text",
+          note: "the stable source-system event identifier",
+        },
+        {
+          name: "event_type",
+          required: true,
+          kind: "text",
+          oneOf: ["alarm", "trip", "interlock", "excursion", "start", "stop"],
+          note: "alarm, trip, interlock, excursion, start or stop",
+        },
+        {
+          name: "severity",
+          kind: "text",
+          oneOf: ["low", "medium", "high", "critical"],
+          note: "optional source severity; blank remains unknown",
+        },
+        { name: "tag", kind: "text", note: "the DCS or historian tag" },
+        {
+          name: "description",
+          kind: "text",
+          note: "the source event description; tag or description is required",
+        },
+        {
+          name: "occurred_at",
+          required: true,
+          kind: "timestamp",
+          timezoneRequired: true,
+          note: "the event instant with Z or an explicit UTC offset",
+        },
+      ],
+      requiredOneOf: [["asset_name", "asset_id"], ["tag", "description"]],
+      externalIdFrom: "external_id",
+      dedupe: "one event per external_id, per upload connector",
+      reupload: "skips",
+      reuploadSentence:
+        "A re-upload is counted as DUPLICATE and skipped. Process events are immutable source facts.",
+      caution:
+        "Process alarms and trips remain separate from predictive condition alerts. Importing an event never acknowledges, suppresses or resets an alarm, changes a trip/interlock, or grants operating authority. Missing severity remains unknown.",
+      outcome:
+        "Events appear in the selected asset's operating context and can support governed handovers. The source DCS remains authoritative for alarm state and control action.",
+      templateRows: [
+        ["Conveyor C-22", "", "DCS-45001", "alarm", "high", "C22-BELT-DRIFT", "Belt drift high", "2026-08-01T14:02:11Z"],
+        ["Conveyor C-22", "", "DCS-45002", "trip", "critical", "C22-TRIP", "Conveyor protective trip", "2026-08-01T14:03:02Z"],
+      ],
+    },
+
     schedule_activity: {
       key: "schedule_activity",
       label: "Schedule activities (P6)",
@@ -992,6 +1051,7 @@ export const INGEST_ENTITY_ORDER: readonly IngestEntityKey[] = [
   "work_order",
   "maintenance_notification",
   "operating_state",
+  "process_event",
   "production_record",
   "condition_reading",
   "material_stock",

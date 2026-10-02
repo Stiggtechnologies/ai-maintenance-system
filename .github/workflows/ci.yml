@@ -549,6 +549,9 @@ jobs:
       - name: Smoke — governed cost/ERP actuals import
         run: bash scripts/ci-develop-cost-actual-connector-smoke.sh
 
+      - name: Smoke — governed process-event import and per-asset context
+        run: bash scripts/ci-process-event-ingest-smoke.sh
+
       - name: Smoke — thirteen-dimension finance intelligence
         run: bash scripts/ci-develop-finance-intelligence-smoke.sh
 
