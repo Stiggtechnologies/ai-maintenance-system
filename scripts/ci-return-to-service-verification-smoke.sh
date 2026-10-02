@@ -15,7 +15,7 @@ OPS_UID='00000000-0000-0000-0000-000000000002'
 
 token(){ local r; r=$(curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}"); printf '%s' "$r" | python3 -c "import json,sys; print(json.load(sys.stdin).get('access_token',''))"; }
 rpc(){ curl -sS -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d "$3"; }
-psqlc(){ PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -tAc "$1"; }
+psqlc(){ PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -qAt -c "$1"; }
 field(){ BODY="$1" KEY="$2" python3 - <<'PY'
 import json,os
 x=json.loads(os.environ['BODY']); v=x.get(os.environ['KEY']) if isinstance(x,dict) else None
