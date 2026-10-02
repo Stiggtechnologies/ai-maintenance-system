@@ -48,10 +48,7 @@ import {
   submitChallengeFeedback,
   type RecommendationAction,
 } from "../services/operatingLoopService";
-import type {
-  RecommendationRow,
-  ScenarioRow,
-} from "../types/operating";
+import type { RecommendationRow, ScenarioRow } from "../types/operating";
 
 const alertLevels: Record<
   string,
@@ -514,6 +511,13 @@ const RECOMMENDATION_ACT_ROLES = new Set([
   "operator",
 ]);
 
+const EVIDENCE_GOVERNANCE_ROLES = new Set([
+  "admin",
+  "executive",
+  "maintenance_manager",
+  "reliability_engineer",
+]);
+
 const ROLE_LABEL: Record<string, string> = {
   executive: "Executive",
   maintenance_manager: "Maintenance Manager",
@@ -527,6 +531,7 @@ export function MissionControl() {
   const { profile, user } = useAuth();
   const role = (profile?.role as string) ?? "reliability_engineer";
   const canAct = RECOMMENDATION_ACT_ROLES.has(role);
+  const canGovernEvidence = EVIDENCE_GOVERNANCE_ROLES.has(role);
   const { missionSignals } = useOnboardingOperatingLoop();
   const { data, loading, error, refetch } = useAsyncData(
     () => getMissionControl(),
@@ -917,7 +922,7 @@ export function MissionControl() {
         <RecommendationEvidenceDrawer
           rec={evidenceRec}
           currentUserId={user?.id ?? null}
-          canGovern={canAct}
+          canGovern={canGovernEvidence}
           onClose={() => setEvidenceRec(null)}
         />
       )}
