@@ -39,6 +39,7 @@ describe("C2.06 governed production-loss reconciliation", () => {
     expect(migration).toContain(
       "v_previous is distinct from p_expected_review_id",
     );
+    expect(migration).toContain("for update");
     expect(migration).toContain("downtime classifications are append-only");
     expect(migration).toContain("insert into public.audit_events");
   });
@@ -50,6 +51,8 @@ describe("C2.06 governed production-loss reconciliation", () => {
       "constraint signal is outside the active tenant",
     );
     expect(migration).toContain("work order is outside the active tenant");
+    expect(migration).toContain("s.valid_until>=v_state.started_at");
+    expect(migration).toContain("s.site_id=v_asset_site");
   });
 
   it("derives units at risk only from demonstrated rate and reports missing coverage", () => {
@@ -57,6 +60,7 @@ describe("C2.06 governed production-loss reconciliation", () => {
     expect(migration).toContain("never nameplate");
     expect(migration).toContain("not_measurable");
     expect(migration).toContain("unclassifieddownhours");
+    expect(migration).toContain("e.event_rank<=200");
     expect(panel).toContain("No nameplate assumptions");
   });
 

@@ -61,6 +61,8 @@ const payload = {
       estimatedUnitsLost: null,
     },
   ],
+  eventsReturned: 1,
+  eventsTruncated: false,
   categories: [
     {
       classification: "unclassified",

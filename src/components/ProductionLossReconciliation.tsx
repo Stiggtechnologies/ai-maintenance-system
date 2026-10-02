@@ -184,194 +184,203 @@ export function ProductionLossReconciliation() {
           were running.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-white/6">
-          <table className="w-full min-w-[64rem] text-left text-xs">
-            <caption className="sr-only">
-              Canonical downtime events and current human classifications
-            </caption>
-            <thead className="bg-white/2 uppercase tracking-wide text-slate-500">
-              <tr>
-                <th className="px-3 py-2 font-medium">Asset / start</th>
-                <th className="px-3 py-2 font-medium">Hours / state</th>
-                <th className="px-3 py-2 font-medium">Classification</th>
-                <th className="px-3 py-2 font-medium">Evidence</th>
-                <th className="px-3 py-2 font-medium">Units at risk</th>
-                <th className="px-3 py-2 font-medium">Review</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.events.map((event) => (
-                <tr
-                  key={event.operatingStateId}
-                  className="border-t border-white/6 align-top"
-                >
-                  <td className="px-3 py-3 text-slate-200">
-                    <p className="font-medium">
-                      {event.assetTag ?? event.asset}
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-slate-500">
-                      {new Date(event.startedAt).toLocaleString()}
-                    </p>
-                  </td>
-                  <td className="px-3 py-3">
-                    <p className="font-mono text-slate-300">
-                      {event.downHours.toFixed(1)} h
-                    </p>
-                    <p className="mt-0.5 text-[11px] text-slate-500">
-                      {event.state.replaceAll("_", " ")}
-                      {event.reasonCode ? ` · ${event.reasonCode}` : ""}
-                    </p>
-                  </td>
-                  <td className="px-3 py-3">
-                    <span
-                      className={`rounded-full border px-2 py-0.5 ${
-                        event.classification === "unclassified"
-                          ? "border-amber-500/30 text-amber-300"
-                          : "border-teal-500/20 text-teal-300"
-                      }`}
-                    >
-                      {labelFor(event.classification)}
-                    </span>
-                    {event.classifiedBy && (
-                      <p className="mt-1.5 text-[11px] text-slate-500">
-                        by {event.classifiedBy}
+        <div className="space-y-2">
+          {data.eventsTruncated && (
+            <p className="text-[11px] text-slate-500">
+              Showing the 200 most recent events; summary and category totals
+              still cover all {summary.downEvents} events in the window.
+            </p>
+          )}
+          <div className="overflow-x-auto rounded-xl border border-white/6">
+            <table className="w-full min-w-[64rem] text-left text-xs">
+              <caption className="sr-only">
+                Canonical downtime events and current human classifications
+              </caption>
+              <thead className="bg-white/2 uppercase tracking-wide text-slate-500">
+                <tr>
+                  <th className="px-3 py-2 font-medium">Asset / start</th>
+                  <th className="px-3 py-2 font-medium">Hours / state</th>
+                  <th className="px-3 py-2 font-medium">Classification</th>
+                  <th className="px-3 py-2 font-medium">Evidence</th>
+                  <th className="px-3 py-2 font-medium">Units at risk</th>
+                  <th className="px-3 py-2 font-medium">Review</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.events.map((event) => (
+                  <tr
+                    key={event.operatingStateId}
+                    className="border-t border-white/6 align-top"
+                  >
+                    <td className="px-3 py-3 text-slate-200">
+                      <p className="font-medium">
+                        {event.assetTag ?? event.asset}
                       </p>
-                    )}
-                  </td>
-                  <td className="max-w-xs px-3 py-3 text-slate-400">
-                    <p className="line-clamp-2">
-                      {event.classificationBasis ?? "No human basis recorded."}
-                    </p>
-                    {event.constraintKey && (
-                      <p className="mt-1 flex items-center gap-1 text-[11px] text-cyan-300">
-                        <Link2 className="h-3 w-3" aria-hidden />
-                        {event.constraintKind}: {event.constraintKey}
+                      <p className="mt-0.5 text-[11px] text-slate-500">
+                        {new Date(event.startedAt).toLocaleString()}
                       </p>
-                    )}
-                  </td>
-                  <td className="px-3 py-3">
-                    {event.estimatedUnitsLost === null ? (
-                      <span className="inline-flex items-center gap-1 text-amber-300">
-                        <TriangleAlert className="h-3 w-3" aria-hidden />
-                        Not measurable
+                    </td>
+                    <td className="px-3 py-3">
+                      <p className="font-mono text-slate-300">
+                        {event.downHours.toFixed(1)} h
+                      </p>
+                      <p className="mt-0.5 text-[11px] text-slate-500">
+                        {event.state.replaceAll("_", " ")}
+                        {event.reasonCode ? ` · ${event.reasonCode}` : ""}
+                      </p>
+                    </td>
+                    <td className="px-3 py-3">
+                      <span
+                        className={`rounded-full border px-2 py-0.5 ${
+                          event.classification === "unclassified"
+                            ? "border-amber-500/30 text-amber-300"
+                            : "border-teal-500/20 text-teal-300"
+                        }`}
+                      >
+                        {labelFor(event.classification)}
                       </span>
-                    ) : (
-                      <>
-                        <p className="font-mono text-amber-300">
-                          {event.estimatedUnitsLost.toLocaleString()}{" "}
-                          {event.unitOfMeasure}
+                      {event.classifiedBy && (
+                        <p className="mt-1.5 text-[11px] text-slate-500">
+                          by {event.classifiedBy}
                         </p>
-                        <p className="mt-0.5 text-[11px] text-slate-500">
-                          {event.demonstratedRate} {event.unitOfMeasure}/h
+                      )}
+                    </td>
+                    <td className="max-w-xs px-3 py-3 text-slate-400">
+                      <p className="line-clamp-2">
+                        {event.classificationBasis ??
+                          "No human basis recorded."}
+                      </p>
+                      {event.constraintKey && (
+                        <p className="mt-1 flex items-center gap-1 text-[11px] text-cyan-300">
+                          <Link2 className="h-3 w-3" aria-hidden />
+                          {event.constraintKind}: {event.constraintKey}
                         </p>
-                      </>
-                    )}
-                  </td>
-                  <td className="px-3 py-3">
-                    {editing === event.operatingStateId ? (
-                      <div className="w-72 space-y-2">
-                        <select
-                          aria-label={`Classification for ${event.assetTag ?? event.asset}`}
-                          value={classification}
-                          onChange={(e) => {
-                            const next = e.target
-                              .value as DowntimeClassification;
-                            setClassification(next);
-                            if (!CONSTRAINT_CLASSIFICATIONS.has(next))
-                              setConstraintSignalId("");
-                          }}
-                          className="w-full rounded-lg border border-white/10 bg-overlook-deep px-2 py-1.5 text-slate-200"
-                        >
-                          {DOWNTIME_CLASSIFICATIONS.map(([key, label]) => (
-                            <option key={key} value={key}>
-                              {label}
-                            </option>
-                          ))}
-                        </select>
-                        {CONSTRAINT_CLASSIFICATIONS.has(classification) && (
+                      )}
+                    </td>
+                    <td className="px-3 py-3">
+                      {event.estimatedUnitsLost === null ? (
+                        <span className="inline-flex items-center gap-1 text-amber-300">
+                          <TriangleAlert className="h-3 w-3" aria-hidden />
+                          Not measurable
+                        </span>
+                      ) : (
+                        <>
+                          <p className="font-mono text-amber-300">
+                            {event.estimatedUnitsLost.toLocaleString()}{" "}
+                            {event.unitOfMeasure}
+                          </p>
+                          <p className="mt-0.5 text-[11px] text-slate-500">
+                            {event.demonstratedRate} {event.unitOfMeasure}/h
+                          </p>
+                        </>
+                      )}
+                    </td>
+                    <td className="px-3 py-3">
+                      {editing === event.operatingStateId ? (
+                        <div className="w-72 space-y-2">
                           <select
-                            aria-label="Supporting constraint signal"
-                            value={constraintSignalId}
-                            onChange={(e) =>
-                              setConstraintSignalId(e.target.value)
-                            }
+                            aria-label={`Classification for ${event.assetTag ?? event.asset}`}
+                            value={classification}
+                            onChange={(e) => {
+                              const next = e.target
+                                .value as DowntimeClassification;
+                              setClassification(next);
+                              if (!CONSTRAINT_CLASSIFICATIONS.has(next))
+                                setConstraintSignalId("");
+                            }}
                             className="w-full rounded-lg border border-white/10 bg-overlook-deep px-2 py-1.5 text-slate-200"
                           >
-                            <option value="">
-                              Select supporting constraint…
-                            </option>
-                            {data.constraints
-                              .filter(
-                                (item) =>
-                                  item.assetId === null ||
-                                  item.assetId === event.assetId,
-                              )
-                              .map((item) => (
-                                <option key={item.id} value={item.id}>
-                                  {item.kind}: {item.key} · {item.state}
-                                  {item.current ? "" : " · expired"}
-                                </option>
-                              ))}
-                          </select>
-                        )}
-                        {event.candidateWorkOrders.length > 0 && (
-                          <select
-                            aria-label="Related work order"
-                            value={workOrderId}
-                            onChange={(e) => setWorkOrderId(e.target.value)}
-                            className="w-full rounded-lg border border-white/10 bg-overlook-deep px-2 py-1.5 text-slate-200"
-                          >
-                            <option value="">No linked work order</option>
-                            {event.candidateWorkOrders.map((workOrder) => (
-                              <option key={workOrder.id} value={workOrder.id}>
-                                {workOrder.woNumber ?? workOrder.id} ·{" "}
-                                {workOrder.title}
+                            {DOWNTIME_CLASSIFICATIONS.map(([key, label]) => (
+                              <option key={key} value={key}>
+                                {label}
                               </option>
                             ))}
                           </select>
-                        )}
-                        <textarea
-                          aria-label="Classification evidence basis"
-                          value={basis}
-                          onChange={(e) => setBasis(e.target.value)}
-                          placeholder="What source evidence supports this classification?"
-                          rows={3}
-                          className="w-full rounded-lg border border-white/10 bg-overlook-deep px-2 py-1.5 text-slate-200 placeholder:text-slate-600"
-                        />
-                        <div className="flex gap-2">
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => void submit(event)}
-                            className="rounded-lg bg-teal-500/15 px-2.5 py-1.5 text-teal-300 disabled:opacity-50"
-                          >
-                            Record review
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setEditing(null)}
-                            className="rounded-lg border border-white/10 px-2.5 py-1.5 text-slate-400"
-                          >
-                            Cancel
-                          </button>
+                          {CONSTRAINT_CLASSIFICATIONS.has(classification) && (
+                            <select
+                              aria-label="Supporting constraint signal"
+                              value={constraintSignalId}
+                              onChange={(e) =>
+                                setConstraintSignalId(e.target.value)
+                              }
+                              className="w-full rounded-lg border border-white/10 bg-overlook-deep px-2 py-1.5 text-slate-200"
+                            >
+                              <option value="">
+                                Select supporting constraint…
+                              </option>
+                              {data.constraints
+                                .filter(
+                                  (item) =>
+                                    item.assetId === null ||
+                                    item.assetId === event.assetId,
+                                )
+                                .map((item) => (
+                                  <option key={item.id} value={item.id}>
+                                    {item.kind}: {item.key} · {item.state}
+                                    {item.current ? "" : " · expired"}
+                                  </option>
+                                ))}
+                            </select>
+                          )}
+                          {event.candidateWorkOrders.length > 0 && (
+                            <select
+                              aria-label="Related work order"
+                              value={workOrderId}
+                              onChange={(e) => setWorkOrderId(e.target.value)}
+                              className="w-full rounded-lg border border-white/10 bg-overlook-deep px-2 py-1.5 text-slate-200"
+                            >
+                              <option value="">No linked work order</option>
+                              {event.candidateWorkOrders.map((workOrder) => (
+                                <option key={workOrder.id} value={workOrder.id}>
+                                  {workOrder.woNumber ?? workOrder.id} ·{" "}
+                                  {workOrder.title}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                          <textarea
+                            aria-label="Classification evidence basis"
+                            value={basis}
+                            onChange={(e) => setBasis(e.target.value)}
+                            placeholder="What source evidence supports this classification?"
+                            rows={3}
+                            className="w-full rounded-lg border border-white/10 bg-overlook-deep px-2 py-1.5 text-slate-200 placeholder:text-slate-600"
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              disabled={busy}
+                              onClick={() => void submit(event)}
+                              className="rounded-lg bg-teal-500/15 px-2.5 py-1.5 text-teal-300 disabled:opacity-50"
+                            >
+                              Record review
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditing(null)}
+                              className="rounded-lg border border-white/10 px-2.5 py-1.5 text-slate-400"
+                            >
+                              Cancel
+                            </button>
+                          </div>
                         </div>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => begin(event)}
-                        className="rounded-lg border border-white/10 px-2.5 py-1.5 text-slate-300 hover:border-white/20"
-                      >
-                        {event.classification === "unclassified"
-                          ? "Classify"
-                          : "Supersede"}
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => begin(event)}
+                          className="rounded-lg border border-white/10 px-2.5 py-1.5 text-slate-300 hover:border-white/20"
+                        >
+                          {event.classification === "unclassified"
+                            ? "Classify"
+                            : "Supersede"}
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

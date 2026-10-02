@@ -93,6 +93,8 @@ export interface ProductionLossPayload {
     estimatedUnitsLost: number;
   };
   events: ProductionLossEvent[];
+  eventsReturned: number;
+  eventsTruncated: boolean;
   categories: Array<{
     classification: DowntimeClassification | "unclassified";
     events: number;

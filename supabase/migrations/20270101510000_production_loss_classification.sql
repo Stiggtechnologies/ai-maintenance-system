@@ -94,6 +94,7 @@ returns jsonb language plpgsql security definer set search_path=public as $$
 declare
   v_org uuid:=public.app_current_org();
   v_state public.operating_states%rowtype;
+  v_asset_site uuid;
   v_previous bigint;
   v_id bigint;
   v_constrained constant text[]:=array[
@@ -119,13 +120,16 @@ begin
   end if;
 
   select * into v_state from public.operating_states
-  where id=p_operating_state_id and organization_id=v_org;
+  where id=p_operating_state_id and organization_id=v_org
+  for update;
   if not found then
     return jsonb_build_object('error','operating-state event is outside the active tenant');
   end if;
   if v_state.state not in ('down_planned','down_unplanned','offline') then
     return jsonb_build_object('error','only a canonical down or offline state can be classified');
   end if;
+  select a.site_id into v_asset_site from public.assets a
+  where a.id=v_state.asset_id and a.organization_id=v_org;
 
   if p_classification=any(v_constrained) and p_constraint_signal_id is null then
     return jsonb_build_object('error','a constraint signal is required for a constrained-loss classification');
@@ -134,6 +138,9 @@ begin
     select 1 from public.operational_constraint_signals s
     where s.id=p_constraint_signal_id and s.organization_id=v_org
       and (s.asset_id is null or s.asset_id=v_state.asset_id)
+      and (s.site_id is null or s.site_id=v_asset_site)
+      and s.observed_at<=coalesce(v_state.ended_at,now())
+      and s.valid_until>=v_state.started_at
   ) then
     return jsonb_build_object('error','constraint signal is outside the active tenant or does not apply to this asset');
   end if;
@@ -141,6 +148,8 @@ begin
     select 1 from public.work_orders w
     where w.id=p_work_order_id and w.organization_id=v_org
       and w.asset_id=v_state.asset_id
+      and w.created_at<=coalesce(v_state.ended_at,now())+interval '7 days'
+      and coalesce(w.completed_at,now())>=v_state.started_at-interval '7 days'
   ) then
     return jsonb_build_object('error','work order is outside the active tenant or belongs to another asset');
   end if;
@@ -215,7 +224,7 @@ begin
       count(distinct p.unit_of_measure) unit_count
     from public.production_records p
     where p.organization_id=v_org and p.asset_id is not null
-      and p.period_start<now() and p.period_end>v_from
+      and p.period_start>=v_from and p.period_end<=now()
     group by p.asset_id
   ), rate as (
     select p.asset_id,p.units/nullif(r.running_hours,0) demonstrated_rate,
@@ -242,7 +251,8 @@ begin
       cs.basis constraint_basis,
       rt.demonstrated_rate,rt.uom,
       case when rt.demonstrated_rate is null then 'not_measurable'
-        else 'demonstrated_rate' end measurement_state
+        else 'demonstrated_rate' end measurement_state,
+      row_number() over(order by s.started_at desc,s.id desc) event_rank
     from public.operating_states s
     join public.assets a on a.id=s.asset_id and a.organization_id=v_org
     left join latest_review d on d.operating_state_id=s.id
@@ -293,7 +303,7 @@ begin
       'unitOfMeasure',e.uom,
       'estimatedUnitsLost',case when e.demonstrated_rate is null then null
         else round((e.down_hours*e.demonstrated_rate)::numeric,1) end
-    ) order by e.started_at desc),'[]'::jsonb),
+    ) order by e.started_at desc) filter(where e.event_rank<=200),'[]'::jsonb),
     count(*)::integer,coalesce(sum(e.down_hours),0),
     coalesce(sum(e.down_hours) filter(where e.classification<>'unclassified'),0),
     count(*) filter(where e.measurement_state='demonstrated_rate')::integer,
@@ -361,7 +371,9 @@ begin
       'measurableEvents',v_measurable,
       'estimatedUnitsLost',round(v_units,1)
     ),
-    'events',v_events,'categories',v_categories,'constraints',v_constraints,
+    'events',v_events,'eventsReturned',least(v_total_events,200),
+    'eventsTruncated',v_total_events>200,
+    'categories',v_categories,'constraints',v_constraints,
     'basis','Units at risk are down hours multiplied by demonstrated production per running hour in the same window; never nameplate. Missing running or production evidence remains not_measurable. Classification is a named-human interpretation and does not rewrite the source event.',
     'authority','advisory evidence only; this reader and classifier do not change production plans, controls, work, risk or return-to-service state'
   );
