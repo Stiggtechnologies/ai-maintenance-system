@@ -44,7 +44,9 @@ describe("C2.07 governed materials and serialized repairable history", () => {
     expect(migration).toContain("material_master_revisions");
     expect(migration).toContain("material master history is append-only");
     expect(migration).toContain("lead_time_days is null");
-    expect(migration).toContain("repairable classification is explicitly unknown");
+    expect(migration).toContain(
+      "repairable classification is explicitly unknown",
+    );
   });
 
   it("tracks one serialized rotable across installation, removal, repair and return", () => {
@@ -63,8 +65,12 @@ describe("C2.07 governed materials and serialized repairable history", () => {
     expect(migration).toContain("invalid repairable-unit transition");
     expect(migration).toContain("outside the active tenant");
     expect(migration).toContain("basis must be at least 20 characters");
+    expect(migration).toContain("event time cannot precede");
     expect(migration).toContain("repair turnaround is not measurable");
     expect(migration).toContain("repairturnaroundhours");
+    expect(migration).toContain("evidence_snapshot");
+    expect(migration).toContain("masterversion");
+    expect(migration).toContain("receipt supplier conflicts");
     expect(migration).toContain("null");
   });
 
