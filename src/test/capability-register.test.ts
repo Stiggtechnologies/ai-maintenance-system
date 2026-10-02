@@ -148,9 +148,8 @@ describe("sync-develop register", () => {
     expect(DEVELOP_SOURCE).toContain(expected);
   });
 
-  it("keeps the tally honest — a ✅ majority would mean the Develop program is done", () => {
-    const done = developRows.filter((r) => r.status === "✅").length;
-    expect(done).toBeLessThan(developRows.length);
+  it("records the completed Develop program without partial or absent items", () => {
+    expect(developRows.filter((r) => r.status !== "✅")).toEqual([]);
   });
 });
 
