@@ -151,4 +151,17 @@ PATCH_STATUS=$(curl -sS -o /tmp/reliability-improvement-link-patch.txt -w '%{htt
 case "$PATCH_STATUS" in 401|403) ;; 200) test "$(cat /tmp/reliability-improvement-link-patch.txt)" = '[]' ;; *) false ;; esac
 test "$(psqlc "select development_case_id from public.fracas_improvement_case_links where id='$LINK'")" = "$CASE"
 
+# Immutability includes the statement-level path that bypasses row triggers,
+# and the API service principal has no direct mutation verb on the ledger.
+test "$(psqlc "select has_table_privilege('service_role','public.fracas_improvement_case_links','INSERT,UPDATE,DELETE,TRUNCATE')")" = 'f'
+psqlc "do \$\$ begin
+  begin
+    truncate table public.fracas_improvement_case_links;
+    raise exception 'truncate unexpectedly succeeded';
+  exception when insufficient_privilege then
+    null;
+  end;
+end \$\$;"
+test "$(psqlc "select count(*) from public.fracas_improvement_case_links where id='$LINK'")" = '1'
+
 echo 'Reliability improvement case smoke passed: tenant_rank=true named_fracas_owner=true canonical_case=true canonical_asset_scope=true immutable_link=true idempotent_handoff=true role_gate=true tenant_wall=true no_execution_authority=true'

@@ -36,7 +36,7 @@ create policy fracas_improvement_case_links_read
   on public.fracas_improvement_case_links for select to authenticated
   using (organization_id=public.app_current_org());
 revoke insert,update,delete,truncate on public.fracas_improvement_case_links
-  from public,anon,authenticated;
+  from public,anon,authenticated,service_role;
 grant select on public.fracas_improvement_case_links to authenticated;
 
 create or replace function public.enforce_fracas_improvement_case_link()
@@ -52,8 +52,13 @@ declare
   v_case_org uuid;
   v_case_lifecycle text;
 begin
+  if tg_op='TRUNCATE' then
+    raise exception 'reliability improvement links are immutable provenance and cannot be truncated'
+      using errcode='insufficient_privilege';
+  end if;
   if tg_op in ('UPDATE','DELETE') then
-    raise exception 'reliability improvement links are append-only; retain the original FRACAS-to-case provenance';
+    raise exception 'reliability improvement links are append-only; retain the original FRACAS-to-case provenance'
+      using errcode='insufficient_privilege';
   end if;
   if v_marker<>'granted' then
     raise exception 'reliability improvement links are written only by start_reliability_improvement_case()';
@@ -91,6 +96,11 @@ drop trigger if exists trg_enforce_fracas_improvement_case_link
 create trigger trg_enforce_fracas_improvement_case_link
   before insert or update or delete on public.fracas_improvement_case_links
   for each row execute function public.enforce_fracas_improvement_case_link();
+drop trigger if exists trg_fracas_improvement_case_link_no_truncate
+  on public.fracas_improvement_case_links;
+create trigger trg_fracas_improvement_case_link_no_truncate
+  before truncate on public.fracas_improvement_case_links
+  for each statement execute function public.enforce_fracas_improvement_case_link();
 
 -- Tenant-relative bad-actor intake. The window is anchored to the newest
 -- completed corrective event in this tenant, not wall-clock time, so a static

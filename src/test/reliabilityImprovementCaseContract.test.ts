@@ -56,6 +56,11 @@ describe("Reliability Engineer composite improvement workflow", () => {
     expect(migration).toContain(
       "revoke insert,update,delete,truncate on public.fracas_improvement_case_links",
     );
+    expect(migration).toContain("from public,anon,authenticated,service_role");
+    expect(migration).toContain(
+      "before truncate on public.fracas_improvement_case_links",
+    );
+    expect(migration).toContain("if tg_op='truncate'");
   });
 
   it("keeps the workflow advisory and preserves every human act", () => {
