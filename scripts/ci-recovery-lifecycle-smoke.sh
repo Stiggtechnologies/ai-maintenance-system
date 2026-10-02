@@ -252,14 +252,14 @@ assert_error_contains "$CLOSE_BLOCKED" 'handover has not been accepted'
 
 # Return to service is no longer a free-text door. Bind the exact release to a
 # canonical independently released RTS test and verified same-asset evidence.
-RTS_EVIDENCE=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "
+RTS_EVIDENCE=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAtc "
 insert into evidence_items(organization_id,asset_id,source_system,evidence_type,description,
   data_quality,verification_status,verified_by,verified_at,verification_method)
 values('$ORG','$ASSET','recovery-lifecycle-smoke','return_to_service_test',
   'Signed functional check, guard restoration and protection restoration record',
   'high','verified','$MANAGER_UID',now(),'Independent maintenance-manager evidence review')
 returning id;")
-RTS_TEST=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc "
+RTS_TEST=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAtc "
 insert into acceptance_tests(organization_id,test_ref,test_stage,scheduled_on,performed_on,outcome,
   punch_items_raised,punch_items_open,witnessed_by_owner,asset_id,acceptance_criteria,
   test_procedure_reference,tested_samples,passed_samples,evidence_item_id,performed_by,
