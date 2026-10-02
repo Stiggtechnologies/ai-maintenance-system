@@ -38,6 +38,38 @@ export interface CashFlow {
   amount: number;
 }
 
+export interface EconomicAssumptionValue {
+  key: string;
+  value: number;
+  unit: string | null;
+  source: string;
+}
+
+/**
+ * The exact economic transformations a human bound to one option.
+ *
+ * `status` and `refusal` come from the tenant-scoped finance read. The pure
+ * kernel repeats the validation at its own door because values cross the JSON
+ * boundary by assertion, not proof. A missing or malformed rate therefore
+ * becomes a named refusal, never an implicit 1.0 multiplier.
+ */
+export interface EconomicAdjustment {
+  status: "ready" | "refused";
+  sourceCurrency: string;
+  targetCurrency: string;
+  basis: string;
+  escalation: EconomicAssumptionValue | null;
+  foreignExchange: EconomicAssumptionValue | null;
+  refusal: string | null;
+}
+
+export interface EconomicAdjustmentResult {
+  cashFlows: CashFlow[];
+  applied: boolean;
+  refusal: string | null;
+  reason: string;
+}
+
 /**
  * The named defect in a flow set, or null when the flows are computable.
  *
@@ -63,6 +95,104 @@ export function cashFlowsDefect(cashFlows: CashFlow[]): string | null {
     }
   }
   return null;
+}
+
+/**
+ * Convert one option's explicitly based cash flows into business-case currency.
+ *
+ * Escalation is a sourced per-period fractional rate and is applied as
+ * `(1 + rate)^period`. FX is a sourced target-currency-per-source-currency
+ * multiplier. Nothing is inferred from labels, market data or today's date;
+ * no binding means the recorded flow is already in business-case currency.
+ */
+export function applyEconomicAdjustments(
+  cashFlows: CashFlow[],
+  adjustment: EconomicAdjustment | null | undefined,
+): EconomicAdjustmentResult {
+  const flowDefect = cashFlowsDefect(cashFlows);
+  if (flowDefect) {
+    return { cashFlows: [], applied: false, refusal: flowDefect, reason: flowDefect };
+  }
+  if (adjustment == null) {
+    return {
+      cashFlows: cashFlows.map((flow) => ({ ...flow })),
+      applied: false,
+      refusal: null,
+      reason:
+        "Recorded cash flows are already stated in business-case currency; no escalation or FX adjustment is configured.",
+    };
+  }
+  if (adjustment.status === "refused" || adjustment.refusal) {
+    const refusal =
+      adjustment.refusal ??
+      "Economic adjustment refused: the governed finance read did not provide complete inputs.";
+    return { cashFlows: [], applied: false, refusal, reason: refusal };
+  }
+  if (adjustment.basis.trim().length < 20) {
+    const refusal =
+      "Economic adjustment refused: the option does not state a sufficient basis for changing its recorded cash flows.";
+    return { cashFlows: [], applied: false, refusal, reason: refusal };
+  }
+
+  const sourceCurrency = adjustment.sourceCurrency.toUpperCase();
+  const targetCurrency = adjustment.targetCurrency.toUpperCase();
+  const escalation = adjustment.escalation;
+  const fx = adjustment.foreignExchange;
+
+  if (escalation) {
+    if (escalation.unit !== "fraction_per_period") {
+      const refusal = `Escalation assumption ${escalation.key} must use unit fraction_per_period; ${escalation.unit ?? "no unit"} cannot be applied as a rate.`;
+      return { cashFlows: [], applied: false, refusal, reason: refusal };
+    }
+    if (!Number.isFinite(escalation.value) || escalation.value <= -1) {
+      const refusal = `Escalation assumption ${escalation.key} must be finite and greater than -1 per period.`;
+      return { cashFlows: [], applied: false, refusal, reason: refusal };
+    }
+  }
+
+  if (sourceCurrency !== targetCurrency && fx == null) {
+    const refusal = `FX unavailable: source currency ${sourceCurrency} differs from business-case currency ${targetCurrency} and no approved FX assumption is bound.`;
+    return { cashFlows: [], applied: false, refusal, reason: refusal };
+  }
+  if (fx) {
+    const expectedUnit = `${targetCurrency}_per_${sourceCurrency}`;
+    if (fx.unit !== expectedUnit) {
+      const refusal = `FX assumption ${fx.key} must use unit ${expectedUnit}; ${fx.unit ?? "no unit"} would reverse or obscure the conversion.`;
+      return { cashFlows: [], applied: false, refusal, reason: refusal };
+    }
+    if (!Number.isFinite(fx.value) || fx.value <= 0) {
+      const refusal = `FX assumption ${fx.key} must be finite and greater than zero.`;
+      return { cashFlows: [], applied: false, refusal, reason: refusal };
+    }
+  }
+
+  const fxRate = fx?.value ?? 1;
+  const escalationRate = escalation?.value ?? 0;
+  const adjusted = cashFlows.map((flow) => ({
+    period: flow.period,
+    amount: flow.amount * Math.pow(1 + escalationRate, flow.period) * fxRate,
+  }));
+  if (adjusted.some((flow) => !Number.isFinite(flow.amount))) {
+    const refusal =
+      "Economic adjustment refused: the sourced rates produced a non-finite cash flow.";
+    return { cashFlows: [], applied: false, refusal, reason: refusal };
+  }
+
+  const bindings = [
+    escalation
+      ? `escalation ${escalation.key} (${escalation.source})`
+      : null,
+    fx ? `FX ${fx.key} (${fx.source})` : null,
+  ].filter((value): value is string => value != null);
+  return {
+    cashFlows: adjusted,
+    applied: bindings.length > 0,
+    refusal: null,
+    reason:
+      bindings.length > 0
+        ? `Applied ${bindings.join(" and ")} under the option's recorded basis; raw flows remain unchanged.`
+        : "Recorded cash flows are already stated in business-case currency; no escalation or FX multiplier was required.",
+  };
 }
 
 /** Net present value at a per-period discount rate. */

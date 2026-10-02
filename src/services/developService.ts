@@ -1254,10 +1254,38 @@ export async function recordCaseValueEvaluation(input: {
 export async function getCaseFinanceModel(
   caseId: string,
 ): Promise<CaseFinanceModel> {
-  const { data, error } = await supabase.rpc("get_case_finance_model", {
+  const { data, error } = await supabase.rpc("get_case_finance_intelligence", {
     p_case_id: caseId,
   });
   return unwrapRpc(data, error, "Could not load the finance model");
+}
+
+export async function configureBusinessCaseOptionEconomics(input: {
+  optionId: number;
+  sourceCurrency: string;
+  escalationAssumptionKey?: string | null;
+  fxAssumptionKey?: string | null;
+  basis: string;
+}): Promise<{
+  optionId: number;
+  sourceCurrency: string;
+  targetCurrency: string;
+  escalationAssumptionKey: string | null;
+  fxAssumptionKey: string | null;
+  basis: string;
+}> {
+  const { data, error } = await supabase.rpc(
+    "configure_business_case_option_economics",
+    {
+      p_option_id: input.optionId,
+      p_source_currency: input.sourceCurrency,
+      p_escalation_assumption_key:
+        input.escalationAssumptionKey ?? null,
+      p_fx_assumption_key: input.fxAssumptionKey ?? null,
+      p_basis: input.basis,
+    },
+  );
+  return unwrapRpc(data, error, "Could not configure option economics");
 }
 
 export async function getCaseOptionComparison(
