@@ -62,6 +62,7 @@ import {
   clearOrgContextCache,
   getAssets,
   getMissionControl,
+  getRecommendationContractPosture,
   getPilotScorecard,
   getOpenObligationIdForRecommendation,
   getOpenVerifications,
@@ -149,6 +150,36 @@ describe("operatingLoopService", () => {
     const sc = await getPilotScorecard();
     expect(sc.pilot_day).toBe(5);
     expect(sc.value_verified_usd).toBe(1000);
+  });
+
+  it("loads recommendation release posture from the canonical server gate", async () => {
+    state.result = {
+      data: [
+        {
+          register: "C8.21",
+          label: "Method for verifying effectiveness",
+          blocking: true,
+          populated: 2,
+          total: 5,
+          share: 0.4,
+          releasable_rows: 1,
+          blocked_rows: 4,
+        },
+      ],
+      error: null,
+    };
+
+    const posture = await getRecommendationContractPosture();
+
+    expect(state.rpcCalls).toContainEqual({
+      name: "get_recommendation_contract_posture",
+      args: undefined,
+    });
+    expect(posture[0]).toMatchObject({
+      register: "C8.21",
+      releasable_rows: 1,
+      blocked_rows: 4,
+    });
   });
 });
 
