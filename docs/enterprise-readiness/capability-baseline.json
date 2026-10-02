@@ -132,10 +132,10 @@
     "backticked": 14
   },
   "C2.07": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 3,
-    "backticked": 0
+    "citations": 16,
+    "backticked": 16
   },
   "C2.08": {
     "status": "✅",
