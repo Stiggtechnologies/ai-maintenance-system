@@ -27,7 +27,7 @@ const payload = {
     unclassifiedDownHours: 4,
     classificationCoveragePct: 0,
     measurableEvents: 0,
-    estimatedUnitsLost: 0,
+    lossByUnit: [],
   },
   events: [
     {
@@ -37,6 +37,8 @@ const payload = {
       asset: "Process Pump 101",
       state: "down_unplanned",
       reasonCode: "TRIP",
+      sourceSystem: "plant_historian",
+      externalId: "trip-7",
       startedAt: "2026-09-01T00:00:00Z",
       endedAt: "2026-09-01T04:00:00Z",
       downHours: 4,
@@ -56,7 +58,12 @@ const payload = {
       constraintValidUntil: null,
       constraintBasis: null,
       measurementState: "not_measurable",
+      measurementRefusal:
+        "No completed production records are recorded in the window.",
       demonstratedRate: null,
+      runningHours: null,
+      productionUnits: null,
+      productionRecordCount: null,
       unitOfMeasure: null,
       estimatedUnitsLost: null,
     },

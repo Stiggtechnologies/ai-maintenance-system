@@ -61,6 +61,8 @@ describe("C2.06 governed production-loss reconciliation", () => {
     expect(migration).toContain("not_measurable");
     expect(migration).toContain("unclassifieddownhours");
     expect(migration).toContain("e.event_rank<=200");
+    expect(migration).toContain("lossbyunit");
+    expect(migration).not.toContain("'estimatedunitslost',round(v_units");
     expect(panel).toContain("No nameplate assumptions");
   });
 
@@ -78,6 +80,7 @@ describe("C2.06 governed production-loss reconciliation", () => {
       "append_only=true",
       "constraint_required=true",
       "demonstrated_rate=true",
+      "unit_separation=true",
       "unknown_visible=true",
       "direct_write_locked=true",
     ])

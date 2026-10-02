@@ -49,7 +49,7 @@ create policy downtime_classification_reviews_org_read
   using (organization_id=public.app_current_org());
 
 revoke insert,update,delete,truncate
-  on public.downtime_classification_reviews from public,anon,authenticated;
+  on public.downtime_classification_reviews from public,anon,authenticated,service_role;
 grant select on public.downtime_classification_reviews to authenticated;
 
 create or replace function public.protect_downtime_classification_reviews()
@@ -107,7 +107,7 @@ begin
     return jsonb_build_object('error',
       'classifying downtime requires a named human operations, planning, maintenance or reliability role');
   end if;
-  if p_classification not in (
+  if p_classification is null or p_classification not in (
     'equipment_failure','planned_maintenance','process_upset',
     'upstream_constraint','downstream_constraint','utility_constraint',
     'material_constraint','workforce_constraint','quality_hold','weather',
@@ -205,7 +205,7 @@ declare
   v_total_hours numeric;
   v_classified_hours numeric;
   v_measurable integer;
-  v_units numeric;
+  v_loss_by_unit jsonb;
 begin
   if v_org is null then return jsonb_build_object('error','forbidden'); end if;
   v_from:=now()-make_interval(days=>v_days);
@@ -221,14 +221,14 @@ begin
     group by s.asset_id
   ), production as (
     select p.asset_id,sum(p.units_produced) units,min(p.unit_of_measure) uom,
-      count(distinct p.unit_of_measure) unit_count
+      count(distinct p.unit_of_measure) unit_count,count(*) record_count
     from public.production_records p
     where p.organization_id=v_org and p.asset_id is not null
       and p.period_start>=v_from and p.period_end<=now()
     group by p.asset_id
   ), rate as (
     select p.asset_id,p.units/nullif(r.running_hours,0) demonstrated_rate,
-      p.uom,p.unit_count,r.running_hours
+      p.uom,p.unit_count,p.units,p.record_count,r.running_hours
     from production p join running r on r.asset_id=p.asset_id
     where r.running_hours>0 and p.unit_count=1
   ), latest_review as (
@@ -238,6 +238,7 @@ begin
     order by d.operating_state_id,d.classified_at desc,d.id desc
   ), down_events as (
     select s.id,s.asset_id,a.tag,a.name asset,s.state,s.reason_code,
+      s.source_system,s.external_id,
       s.started_at,s.ended_at,
       extract(epoch from (
         least(coalesce(s.ended_at,now()),now())-greatest(s.started_at,v_from)
@@ -249,9 +250,18 @@ begin
       cs.id constraint_signal_id,cs.signal_kind,cs.signal_key,
       cs.state constraint_state,cs.valid_until constraint_valid_until,
       cs.basis constraint_basis,
-      rt.demonstrated_rate,rt.uom,
+      rt.demonstrated_rate,rt.uom,rt.units production_units,
+      rt.record_count production_record_count,rt.running_hours,
       case when rt.demonstrated_rate is null then 'not_measurable'
         else 'demonstrated_rate' end measurement_state,
+      case when rt.demonstrated_rate is not null then null
+        when r.asset_id is null or coalesce(r.running_hours,0)<=0
+          then 'No running-state hours are recorded in the window.'
+        when p.asset_id is null or coalesce(p.record_count,0)=0
+          then 'No completed production records are recorded in the window.'
+        when p.unit_count<>1
+          then 'Production records use multiple units and cannot be combined.'
+        else 'A demonstrated production rate is not available.' end measurement_refusal,
       row_number() over(order by s.started_at desc,s.id desc) event_rank
     from public.operating_states s
     join public.assets a on a.id=s.asset_id and a.organization_id=v_org
@@ -262,6 +272,8 @@ begin
       and w.organization_id=v_org
     left join public.operational_constraint_signals cs
       on cs.id=d.constraint_signal_id and cs.organization_id=v_org
+    left join running r on r.asset_id=s.asset_id
+    left join production p on p.asset_id=s.asset_id
     left join rate rt on rt.asset_id=s.asset_id
     where s.organization_id=v_org
       and s.state in ('down_planned','down_unplanned','offline')
@@ -271,6 +283,7 @@ begin
     coalesce(jsonb_agg(jsonb_build_object(
       'operatingStateId',e.id,'assetId',e.asset_id,'assetTag',e.tag,
       'asset',e.asset,'state',e.state,'reasonCode',e.reason_code,
+      'sourceSystem',e.source_system,'externalId',e.external_id,
       'startedAt',e.started_at,'endedAt',e.ended_at,
       'downHours',round(e.down_hours::numeric,1),
       'classification',e.classification,'classificationBasis',e.basis,
@@ -298,8 +311,13 @@ begin
       'constraintValidUntil',e.constraint_valid_until,
       'constraintBasis',e.constraint_basis,
       'measurementState',e.measurement_state,
+      'measurementRefusal',e.measurement_refusal,
       'demonstratedRate',case when e.demonstrated_rate is null then null
         else round(e.demonstrated_rate::numeric,3) end,
+      'runningHours',case when e.running_hours is null then null
+        else round(e.running_hours::numeric,1) end,
+      'productionUnits',e.production_units,
+      'productionRecordCount',e.production_record_count,
       'unitOfMeasure',e.uom,
       'estimatedUnitsLost',case when e.demonstrated_rate is null then null
         else round((e.down_hours*e.demonstrated_rate)::numeric,1) end
@@ -307,9 +325,16 @@ begin
     count(*)::integer,coalesce(sum(e.down_hours),0),
     coalesce(sum(e.down_hours) filter(where e.classification<>'unclassified'),0),
     count(*) filter(where e.measurement_state='demonstrated_rate')::integer,
-    coalesce(sum(e.down_hours*e.demonstrated_rate)
-      filter(where e.demonstrated_rate is not null),0)
-  into v_events,v_total_events,v_total_hours,v_classified_hours,v_measurable,v_units
+    (select coalesce(jsonb_agg(jsonb_build_object(
+      'unitOfMeasure',loss.uom,'events',loss.events,
+      'estimatedUnitsLost',round(loss.units::numeric,1)
+    ) order by loss.units desc),'[]'::jsonb)
+    from (
+      select d.uom,count(*) events,sum(d.down_hours*d.demonstrated_rate) units
+      from down_events d where d.demonstrated_rate is not null
+      group by d.uom
+    ) loss)
+  into v_events,v_total_events,v_total_hours,v_classified_hours,v_measurable,v_loss_by_unit
   from down_events e;
 
   with latest_review as (
@@ -369,7 +394,7 @@ begin
       'classificationCoveragePct',case when v_total_hours>0
         then round(100*v_classified_hours/v_total_hours,1) else null end,
       'measurableEvents',v_measurable,
-      'estimatedUnitsLost',round(v_units,1)
+      'lossByUnit',v_loss_by_unit
     ),
     'events',v_events,'eventsReturned',least(v_total_events,200),
     'eventsTruncated',v_total_events>200,

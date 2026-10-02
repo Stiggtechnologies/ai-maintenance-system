@@ -85,6 +85,8 @@ export function ProductionLossReconciliation() {
   };
 
   const summary = data.summary;
+  const onlyLossUnit =
+    summary.lossByUnit.length === 1 ? summary.lossByUnit[0] : null;
   const currentConstraints = data.constraints.filter((item) => item.current);
 
   return (
@@ -140,10 +142,14 @@ export function ProductionLossReconciliation() {
           ],
           [
             "Units at risk",
-            summary.measurableEvents > 0
-              ? summary.estimatedUnitsLost.toLocaleString()
-              : "Not measurable",
-            "demonstrated rate only",
+            onlyLossUnit
+              ? `${onlyLossUnit.estimatedUnitsLost.toLocaleString()} ${onlyLossUnit.unitOfMeasure}`
+              : summary.lossByUnit.length > 1
+                ? `${summary.lossByUnit.length} units`
+                : "Not measurable",
+            summary.lossByUnit.length > 1
+              ? "kept separate below"
+              : "demonstrated rate only",
           ],
         ].map(([label, value, note]) => (
           <div
@@ -158,6 +164,20 @@ export function ProductionLossReconciliation() {
           </div>
         ))}
       </div>
+
+      {summary.lossByUnit.length > 1 && (
+        <div className="flex flex-wrap gap-2" aria-label="Loss totals by unit">
+          {summary.lossByUnit.map((loss) => (
+            <span
+              key={loss.unitOfMeasure}
+              className="rounded-full border border-amber-500/20 bg-amber-500/5 px-2.5 py-1 font-mono text-xs text-amber-300"
+            >
+              {loss.estimatedUnitsLost.toLocaleString()} {loss.unitOfMeasure} ·{" "}
+              {loss.events} event{loss.events === 1 ? "" : "s"}
+            </span>
+          ))}
+        </div>
+      )}
 
       {data.categories.length > 0 && (
         <div className="flex flex-wrap gap-2" aria-label="Downtime categories">
@@ -219,6 +239,10 @@ export function ProductionLossReconciliation() {
                       <p className="mt-0.5 text-[11px] text-slate-500">
                         {new Date(event.startedAt).toLocaleString()}
                       </p>
+                      <p className="mt-0.5 text-[10px] text-slate-600">
+                        {event.sourceSystem ?? "source not recorded"}
+                        {event.externalId ? ` · ${event.externalId}` : ""}
+                      </p>
                     </td>
                     <td className="px-3 py-3">
                       <p className="font-mono text-slate-300">
@@ -259,10 +283,15 @@ export function ProductionLossReconciliation() {
                     </td>
                     <td className="px-3 py-3">
                       {event.estimatedUnitsLost === null ? (
-                        <span className="inline-flex items-center gap-1 text-amber-300">
-                          <TriangleAlert className="h-3 w-3" aria-hidden />
-                          Not measurable
-                        </span>
+                        <>
+                          <span className="inline-flex items-center gap-1 text-amber-300">
+                            <TriangleAlert className="h-3 w-3" aria-hidden />
+                            Not measurable
+                          </span>
+                          <p className="mt-1 max-w-52 text-[10px] leading-relaxed text-slate-600">
+                            {event.measurementRefusal}
+                          </p>
+                        </>
                       ) : (
                         <>
                           <p className="font-mono text-amber-300">
@@ -271,6 +300,14 @@ export function ProductionLossReconciliation() {
                           </p>
                           <p className="mt-0.5 text-[11px] text-slate-500">
                             {event.demonstratedRate} {event.unitOfMeasure}/h
+                          </p>
+                          <p className="mt-0.5 text-[10px] text-slate-600">
+                            {event.productionUnits?.toLocaleString()}{" "}
+                            {event.unitOfMeasure}
+                            {" / "}
+                            {event.runningHours} running h ·{" "}
+                            {event.productionRecordCount} production record
+                            {event.productionRecordCount === 1 ? "" : "s"}
                           </p>
                         </>
                       )}

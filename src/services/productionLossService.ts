@@ -37,6 +37,8 @@ export interface ProductionLossEvent {
   asset: string;
   state: "down_planned" | "down_unplanned" | "offline";
   reasonCode: string | null;
+  sourceSystem: string | null;
+  externalId: string | null;
   startedAt: string;
   endedAt: string | null;
   downHours: number;
@@ -61,7 +63,11 @@ export interface ProductionLossEvent {
   constraintValidUntil: string | null;
   constraintBasis: string | null;
   measurementState: "demonstrated_rate" | "not_measurable";
+  measurementRefusal: string | null;
   demonstratedRate: number | null;
+  runningHours: number | null;
+  productionUnits: number | null;
+  productionRecordCount: number | null;
   unitOfMeasure: string | null;
   estimatedUnitsLost: number | null;
 }
@@ -90,7 +96,11 @@ export interface ProductionLossPayload {
     unclassifiedDownHours: number;
     classificationCoveragePct: number | null;
     measurableEvents: number;
-    estimatedUnitsLost: number;
+    lossByUnit: Array<{
+      unitOfMeasure: string;
+      events: number;
+      estimatedUnitsLost: number;
+    }>;
   };
   events: ProductionLossEvent[];
   eventsReturned: number;
