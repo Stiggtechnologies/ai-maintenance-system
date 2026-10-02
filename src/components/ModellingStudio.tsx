@@ -4,9 +4,9 @@
  *  C7.12 cost forecasting, C7.13 shutdown critical path).
  *
  * Every figure on this page is produced by a pure engine in src/lib/modelling
- * that was validated against a closed-form answer. Nothing here is fitted in
- * the browser except the Weibull distributions, which come from the same MLE
- * the reliability page uses.
+ * that was validated against a closed-form answer. Trusted inputs are read and
+ * kernels execute inside calculation-service; the browser receives the result
+ * together with immutable run identities and performs no trusted calculation.
  *
  * The panel shows refusals as prominently as results. A fault tree with one
  * unassessed basic event shows its cut sets and NO top-event probability; a
