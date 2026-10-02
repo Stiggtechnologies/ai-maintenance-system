@@ -24,7 +24,7 @@ import {
   percentile,
   sampleLognormal,
   sampleWeibull,
-} from "./random";
+} from "./random.ts";
 
 export interface SimUnit {
   id: string;

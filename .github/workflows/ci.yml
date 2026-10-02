@@ -534,6 +534,9 @@ jobs:
       - name: Smoke — value calculations execute server-side with immutable lineage
         run: bash scripts/ci-value-calculation-lineage-smoke.sh
 
+      - name: Smoke — Modelling Studio calculations execute server-side with immutable lineage
+        run: bash scripts/ci-modelling-studio-lineage-smoke.sh
+
       - name: Smoke — Sync Develop nine-dimension portfolio frontier
         run: bash scripts/ci-develop-portfolio-frontier-smoke.sh
 
