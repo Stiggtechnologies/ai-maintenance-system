@@ -24,6 +24,7 @@ alter table public.connectors
     or
     (
       pagination_mode = 'next_url'
+      and pagination_next_path is not null
       and pagination_next_path ~ '^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$'
       and pagination_max_pages between 2 and 100
     )

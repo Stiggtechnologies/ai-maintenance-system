@@ -34,6 +34,7 @@ describe("CMMS paginated read contract", () => {
     expect(migration).toContain(
       "next_url pagination requires a safe dotted next-page path",
     );
+    expect(migration).toContain("pagination_next_path is not null");
     expect(migration).toMatch(/between 2 and 100/i);
     expect(migration).toContain(
       "'pagination_mode',v_connector.pagination_mode",
