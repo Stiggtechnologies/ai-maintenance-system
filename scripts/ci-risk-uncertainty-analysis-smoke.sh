@@ -35,8 +35,8 @@ values('$CRITERIA','$ORG','U18 governed uncertainty criteria',1,'adopted','{"esc
 on conflict(id) do nothing;
 insert into risks(id,organization_id,criteria_profile_id,title,status,value_currency,created_by)
 values
-('$RISK','$ORG','$CRITERIA','U18 loss of cooling uncertainty','analyzed','CAD','$AUTHOR_ID'),
-('$OTHER_RISK','$ORG','$CRITERIA','U18 unrelated risk','analyzed','CAD','$AUTHOR_ID')
+('$RISK','$ORG','$CRITERIA','U18 loss of cooling uncertainty','identified','CAD','$AUTHOR_ID'),
+('$OTHER_RISK','$ORG','$CRITERIA','U18 unrelated risk','identified','CAD','$AUTHOR_ID')
 on conflict(id) do nothing;
 insert into evidence_items(id,organization_id,risk_id,source_system,evidence_type,description,evidence_class,
   verification_status,verified_by,verified_at,verification_method,quality_grade,applicability_grade,revision)
