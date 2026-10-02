@@ -452,12 +452,7 @@ async function runCase(item: GoldenCase): Promise<ModelResult> {
     model,
     instructions,
     input: item.question,
-    // The accepted floor contains long, multi-part professional work products.
-    // Two otherwise strong v4 candidates hit the old 5,600-token ceiling and
-    // ended before required sections. Keep the methodology's completeness-first
-    // instruction as the primary control and leave enough output headroom for
-    // every named section to be completed.
-    maxTokens: deliverable(item.question) ? 8000 : 3200,
+    maxTokens: deliverable(item.question) ? 5600 : 2600,
   });
 }
 
