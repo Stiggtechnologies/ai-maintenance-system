@@ -15,6 +15,10 @@ const component = readFileSync(
 );
 const missionControl = readFileSync("src/pages/MissionControl.tsx", "utf8");
 const workflow = readFileSync(".github/workflows/ci.yml", "utf8");
+const documentation = readFileSync(
+  "docs/recommendation-evidence-provenance.md",
+  "utf8",
+);
 
 const levels = [
   "verified_measurement",
@@ -105,5 +109,6 @@ describe("U17.01/U17.02 governed recommendation evidence contract", () => {
     expect(workflow).toContain(
       "ci-recommendation-evidence-provenance-smoke.sh",
     );
+    expect(documentation).toContain("Authors cannot independently review");
   });
 });
