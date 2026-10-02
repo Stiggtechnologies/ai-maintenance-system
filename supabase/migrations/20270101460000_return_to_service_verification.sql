@@ -45,6 +45,18 @@ alter table public.equipment_releases
     )
   );
 
+alter table public.equipment_releases
+  drop constraint if exists equipment_releases_rts_status_coherent;
+alter table public.equipment_releases
+  add constraint equipment_releases_rts_status_coherent check (
+    (status = 'accepted' and rts_verification_status in ('verified','legacy_unverified'))
+    or (status <> 'accepted' and rts_verification_status = 'pending')
+  );
+
+create unique index if not exists idx_equipment_release_one_use_rts_test
+  on public.equipment_releases(acceptance_test_id)
+  where acceptance_test_id is not null;
+
 create or replace function public.enforce_equipment_release_rts_provenance()
 returns trigger
 language plpgsql
@@ -53,14 +65,14 @@ set search_path = public
 as $$
 begin
   if new.status = 'accepted'
-     and old.status is distinct from new.status
+     and (tg_op = 'INSERT' or old.status is distinct from new.status)
      and coalesce(current_setting('app.return_to_service_write', true), '') <> 'allowed' then
     raise exception 'return-to-service acceptance must use verify_and_accept_equipment'
       using errcode = '42501';
   end if;
 
   if new.status = 'accepted'
-     and old.status is distinct from new.status
+     and (tg_op = 'INSERT' or old.status is distinct from new.status)
      and (
        new.rts_verification_status <> 'verified'
        or new.acceptance_test_id is null
@@ -72,7 +84,7 @@ begin
       using errcode = '23514';
   end if;
 
-  if old.status = 'accepted' and (
+  if tg_op = 'UPDATE' and old.status = 'accepted' and (
        new.status is distinct from old.status
        or new.acceptance_test_id is distinct from old.acceptance_test_id
        or new.accepted_by is distinct from old.accepted_by
@@ -94,9 +106,7 @@ $$;
 drop trigger if exists trg_equipment_release_rts_provenance
   on public.equipment_releases;
 create trigger trg_equipment_release_rts_provenance
-before update of status, acceptance_test_id, accepted_by, accepted_at,
-  acceptance_note, rts_verification_status, verified_by, verified_at,
-  verification_sha256
+before insert or update
 on public.equipment_releases
 for each row execute function public.enforce_equipment_release_rts_provenance();
 
@@ -159,7 +169,12 @@ begin
   if v_role not in ('operator','executive','admin') then
     return jsonb_build_object('error','releasing equipment is a named-human operations act');
   end if;
-  if not exists(select 1 from public.assets where id=p_asset_id and organization_id=v_org) then
+  -- Locking the canonical asset serializes the check-and-insert sequence, so
+  -- two simultaneous operations calls cannot mint competing open releases.
+  perform 1 from public.assets
+  where id=p_asset_id and organization_id=v_org
+  for update;
+  if not found then
     return jsonb_build_object('error','same-tenant asset not found');
   end if;
   if p_work_order_id is not null and not exists(
@@ -349,14 +364,20 @@ begin
   end if;
 
   select * into t
-  from public.acceptance_tests
-  where id = p_acceptance_test_id
-    and organization_id = v_org
-    and asset_id = r.asset_id
-    and test_stage = 'return_to_service'
-    and release_status = 'released'
-    and outcome = 'pass'
-    and punch_items_open = 0;
+  from public.acceptance_tests candidate
+  where candidate.id = p_acceptance_test_id
+    and candidate.organization_id = v_org
+    and candidate.asset_id = r.asset_id
+    and candidate.test_stage = 'return_to_service'
+    and candidate.release_status = 'released'
+    and candidate.outcome = 'pass'
+    and candidate.punch_items_open = 0
+    and candidate.performed_on >= r.released_at::date
+    and candidate.released_at >= r.returned_at
+    and not exists(
+      select 1 from public.equipment_releases used
+      where used.acceptance_test_id = candidate.id
+    );
 
   if not found then
     return jsonb_build_object(
@@ -393,11 +414,17 @@ begin
      or coalesce(v_releaser_role,'') = 'ai_admin' then
     return jsonb_build_object('error','the acceptance test requires a named-human independent releaser');
   end if;
+  if not public.quality_control_role(v_releaser_role) then
+    return jsonb_build_object('error','the acceptance test releaser must hold quality-control authority');
+  end if;
   if t.performed_by = t.released_by then
     return jsonb_build_object('error','acceptance-test performance and release must be independent');
   end if;
   if t.performed_by = v_actor then
     return jsonb_build_object('error','operations acceptance must be independent of test performance');
+  end if;
+  if t.released_by = v_actor then
+    return jsonb_build_object('error','operations acceptance must be independent of quality release');
   end if;
 
   v_sha := encode(digest(jsonb_build_object(
@@ -512,7 +539,13 @@ begin
          and t.release_status = 'released'
          and t.outcome = 'pass'
          and t.punch_items_open = 0
+         and t.performed_on >= r.released_at::date
+         and t.released_at >= r.returned_at
          and (r.work_order_id is null or t.work_order_id = r.work_order_id)
+         and not exists(
+           select 1 from public.equipment_releases used
+           where used.acceptance_test_id = t.id
+         )
         join public.evidence_items e
           on e.id = t.evidence_item_id
          and e.organization_id = r.organization_id
@@ -526,6 +559,7 @@ begin
           on releaser.id = t.released_by
          and releaser.organization_id = r.organization_id
          and releaser.role <> 'ai_admin'
+         and public.quality_control_role(releaser.role)
         where r.id = (item.value->>'release_id')::uuid
           and r.organization_id = v_org
           and r.status = 'returned'

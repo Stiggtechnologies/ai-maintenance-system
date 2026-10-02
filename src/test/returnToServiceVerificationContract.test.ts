@@ -30,6 +30,8 @@ describe("C5.21 governed return-to-service verification", () => {
     expect(sql).toContain("punch_items_open = 0");
     expect(sql).toContain("verification_status = 'verified'");
     expect(sql).toContain("e.asset_id = r.asset_id");
+    expect(sql).toContain("candidate.released_at >= r.returned_at");
+    expect(sql).toContain("idx_equipment_release_one_use_rts_test");
   });
 
   it("keeps return-to-service a named-human operations act with separation of duties", () => {
@@ -37,6 +39,8 @@ describe("C5.21 governed return-to-service verification", () => {
     expect(sql).toContain("('operator','executive','admin')");
     expect(sql).toContain("r.returned_by = v_actor");
     expect(sql).toContain("t.performed_by = v_actor");
+    expect(sql).toContain("t.released_by = v_actor");
+    expect(sql).toContain("quality_control_role(v_releaser_role)");
     expect(sql).toContain("accepted_by = v_actor");
     expect(sql).toContain("verified_by = v_actor");
   });
@@ -63,6 +67,7 @@ describe("C5.21 governed return-to-service verification", () => {
     expect(sql).toMatch(
       /create\s+trigger\s+trg_equipment_release_rts_provenance/i,
     );
+    expect(sql).toMatch(/before\s+insert\s+or\s+update/i);
     expect(sql).toContain("revoke all on function public.accept_equipment");
     expect(sql).toContain("insert into public.audit_events");
     expect(sql).toContain("verification_sha256");
