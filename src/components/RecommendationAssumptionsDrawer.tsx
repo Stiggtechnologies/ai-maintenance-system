@@ -159,6 +159,16 @@ export function RecommendationAssumptionsDrawer({
             <div className="mt-4 rounded-xl border border-white/8 bg-white/[0.025] p-4">
               {data.packet ? (
                 <>
+                  {!data.valid && (
+                    <div className="mb-3 flex gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 p-3 text-xs leading-5 text-amber-200">
+                      <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" />
+                      <p>
+                        The recommendation or its evidence changed after this
+                        assessment. The packet is stale and remains
+                        release-blocking until a named human reassesses it.
+                      </p>
+                    </div>
+                  )}
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <span className="rounded-full border border-teal-500/30 bg-teal-500/10 px-2 py-1 text-[11px] font-semibold text-teal-300">
                       {data.packet.disposition === "recorded"

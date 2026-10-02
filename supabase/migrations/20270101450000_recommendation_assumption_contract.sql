@@ -19,7 +19,8 @@ alter table public.recommendations
   add column if not exists assumption_packet jsonb,
   -- Deliberately no FK: audit attribution must survive identity off-boarding.
   add column if not exists assumptions_recorded_by uuid,
-  add column if not exists assumptions_recorded_at timestamptz;
+  add column if not exists assumptions_recorded_at timestamptz,
+  add column if not exists assumption_context_digest text;
 
 -- One definition is shared by the writer, the persistence constraint, the
 -- approval preflight, the trigger path and the posture report.
@@ -75,17 +76,67 @@ $$;
 comment on function public.recommendation_assumption_packet_valid(jsonb) is
   'C5.24 single packet predicate used by every recommendation release surface. A blank is not a none-identified assessment.';
 
+-- Bind the human judgement to the exact recommendation and the current
+-- evidence packet. A later edit or evidence change does not silently inherit
+-- an answer made about an older decision basis: the stored digest goes stale
+-- and every release surface blocks until the packet is reassessed.
+create or replace function public.recommendation_assumption_context_digest(
+  p_organization_id uuid,
+  p_recommendation_id uuid
+)
+returns text
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  r public.recommendations%rowtype;
+  v_payload jsonb;
+begin
+  select * into r from public.recommendations
+  where id = p_recommendation_id and organization_id = p_organization_id;
+  if not found then return null; end if;
+
+  v_payload := jsonb_build_object(
+    'recommendationId', r.id,
+    'assetId', r.asset_id,
+    'riskId', r.risk_id,
+    'title', r.title,
+    'issue', r.issue,
+    'action', r.action,
+    'impact', r.impact,
+    'confidence', r.confidence,
+    'rationale', r.rationale,
+    'consequenceSummary', r.consequence_summary,
+    'alternativesConsidered', r.alternatives_considered,
+    'requiredCompletionDate', r.required_completion_date,
+    'requiredApproverRole', r.required_approver_role,
+    'verificationMethod', r.verification_method,
+    'evidencePacketDigest', public.recommendation_evidence_packet_digest(
+      r.organization_id, r.id
+    )
+  );
+  return encode(extensions.digest(v_payload::text, 'sha256'), 'hex');
+end
+$$;
+
+revoke all on function public.recommendation_assumption_context_digest(uuid, uuid)
+  from public, anon, authenticated, service_role;
+
 alter table public.recommendations
   drop constraint if exists recommendations_assumption_packet_shape_check;
 alter table public.recommendations
   add constraint recommendations_assumption_packet_shape_check check (
     (assumption_packet is null
       and assumptions_recorded_by is null
-      and assumptions_recorded_at is null)
+      and assumptions_recorded_at is null
+      and assumption_context_digest is null)
     or
     (public.recommendation_assumption_packet_valid(assumption_packet)
       and assumptions_recorded_by is not null
-      and assumptions_recorded_at is not null)
+      and assumptions_recorded_at is not null
+      and assumption_context_digest ~ '^[0-9a-f]{64}$')
   );
 
 -- Provenance is written only by the governed RPC below. This blocks a direct
@@ -103,7 +154,8 @@ begin
   if tg_op = 'INSERT' then
     if new.assumption_packet is not null
        or new.assumptions_recorded_by is not null
-       or new.assumptions_recorded_at is not null then
+       or new.assumptions_recorded_at is not null
+       or new.assumption_context_digest is not null then
       raise exception
         'recommendation assumptions and their provenance are written only through record_recommendation_assumptions()'
         using errcode = '42501';
@@ -113,7 +165,8 @@ begin
 
   if new.assumption_packet is distinct from old.assumption_packet
      or new.assumptions_recorded_by is distinct from old.assumptions_recorded_by
-     or new.assumptions_recorded_at is distinct from old.assumptions_recorded_at then
+     or new.assumptions_recorded_at is distinct from old.assumptions_recorded_at
+     or new.assumption_context_digest is distinct from old.assumption_context_digest then
     raise exception
       'recommendation assumptions and their provenance are written only through record_recommendation_assumptions()'
       using errcode = '42501';
@@ -126,7 +179,7 @@ drop trigger if exists trg_recommendation_assumption_provenance
   on public.recommendations;
 create trigger trg_recommendation_assumption_provenance
   before insert or update of assumption_packet, assumptions_recorded_by,
-    assumptions_recorded_at
+    assumptions_recorded_at, assumption_context_digest
   on public.recommendations
   for each row execute function public.enforce_recommendation_assumption_provenance();
 
@@ -146,6 +199,7 @@ declare
   v_rec public.recommendations%rowtype;
   v_previous jsonb;
   v_digest text;
+  v_context_digest text;
 begin
   if v_org is null then
     return jsonb_build_object('error', 'forbidden');
@@ -187,12 +241,16 @@ begin
 
   v_previous := v_rec.assumption_packet;
   v_digest := encode(extensions.digest(p_packet::text, 'sha256'), 'hex');
+  v_context_digest := public.recommendation_assumption_context_digest(
+    v_org, p_recommendation_id
+  );
 
   perform set_config('app.recommendation_assumption_write', 'granted', true);
   update public.recommendations
   set assumption_packet = p_packet,
       assumptions_recorded_by = auth.uid(),
       assumptions_recorded_at = now(),
+      assumption_context_digest = v_context_digest,
       updated_at = now()
   where id = p_recommendation_id and organization_id = v_org;
   perform set_config('app.recommendation_assumption_write', '', true);
@@ -207,6 +265,7 @@ begin
       'recommendation_id', p_recommendation_id,
       'disposition', p_packet->>'disposition',
       'packet_sha256', v_digest,
+      'context_sha256', v_context_digest,
       'note', btrim(p_note)
     ),
     v_previous,
@@ -217,6 +276,7 @@ begin
     'recommendationId', p_recommendation_id,
     'disposition', p_packet->>'disposition',
     'packetSha256', v_digest,
+    'contextSha256', v_context_digest,
     'recordedBy', auth.uid(),
     'recordedAt', now()
   );
@@ -244,6 +304,7 @@ declare
   v_org uuid := public.app_current_org();
   v_rec public.recommendations%rowtype;
   v_name text;
+  v_current_context_digest text;
 begin
   if v_org is null then
     return jsonb_build_object('error', 'forbidden');
@@ -256,6 +317,9 @@ begin
   end if;
   select coalesce(full_name, email) into v_name
   from public.user_profiles where id = v_rec.assumptions_recorded_by;
+  v_current_context_digest := public.recommendation_assumption_context_digest(
+    v_org, v_rec.id
+  );
 
   return jsonb_build_object(
     'recommendationId', v_rec.id,
@@ -265,7 +329,10 @@ begin
     'recordedBy', v_rec.assumptions_recorded_by,
     'recordedByName', v_name,
     'recordedAt', v_rec.assumptions_recorded_at,
-    'valid', public.recommendation_assumption_packet_valid(v_rec.assumption_packet),
+    'storedContextDigest', v_rec.assumption_context_digest,
+    'currentContextDigest', v_current_context_digest,
+    'valid', public.recommendation_assumption_packet_valid(v_rec.assumption_packet)
+      and v_rec.assumption_context_digest = v_current_context_digest,
     'boundary', 'Assumption assessment does not approve the recommendation, accept risk, release work or prove an outcome.',
     'operationalAuthorization', false
   );
@@ -324,7 +391,10 @@ begin
     else v_missing := array_append(v_missing, 'current condition or problem (C8.12)'); end if;
   if not public.contract_field_blank(r.rationale) then v_present := v_present + 1;
     else v_missing := array_append(v_missing, 'evidence used (C8.13)'); end if;
-  if public.recommendation_assumption_packet_valid(r.assumption_packet) then
+  if public.recommendation_assumption_packet_valid(r.assumption_packet)
+     and r.assumption_context_digest = public.recommendation_assumption_context_digest(
+       r.organization_id, r.id
+     ) then
     v_present := v_present + 1;
     else v_missing := array_append(v_missing, 'Assumptions and validation plan (C5.24): a blank is not an assessment; record explicit assumptions or a justified none-identified disposition'); end if;
   if not public.contract_field_blank(r.action) then v_present := v_present + 1;
@@ -384,6 +454,8 @@ as $$
     case when public.contract_field_blank(r.rationale)
       then 'evidence used (C8.13)' end,
     case when not public.recommendation_assumption_packet_valid(r.assumption_packet)
+      or r.assumption_context_digest is distinct from
+        public.recommendation_assumption_context_digest(r.organization_id, r.id)
       then 'Assumptions and validation plan (C5.24): a blank is not an assessment; record explicit assumptions or a justified none-identified disposition' end,
     case when public.contract_field_blank(r.action)
       then 'recommended action (C8.16)' end,
@@ -448,7 +520,11 @@ as $$
     ('C8.13','Evidence used', true,
       (select count(*) from r where not public.contract_field_blank(rationale))),
     ('C5.24','Assumptions and validation plan', true,
-      (select count(*) from r where public.recommendation_assumption_packet_valid(assumption_packet))),
+      (select count(*) from r
+       where public.recommendation_assumption_packet_valid(assumption_packet)
+         and assumption_context_digest = public.recommendation_assumption_context_digest(
+           organization_id, id
+         ))),
     ('C8.15','Consequence: safety, environmental, production, financial', true,
       (select count(*) from r where not public.contract_narrative_blank(consequence_summary))),
     ('C8.16','Recommended action', true,

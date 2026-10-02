@@ -18,6 +18,8 @@ describe("C5.24 governed recommendation assumptions", () => {
   it("extends the canonical recommendation instead of creating a parallel model", () => {
     expect(sql).toContain("alter table public.recommendations");
     expect(sql).toContain("assumption_packet jsonb");
+    expect(sql).toContain("recommendation_assumption_context_digest");
+    expect(sql).toContain("recommendation_evidence_packet_digest");
     expect(sql).not.toMatch(
       /create\s+table[^;]+(recommendation|approval|evidence|audit)/i,
     );
@@ -55,6 +57,9 @@ describe("C5.24 governed recommendation assumptions", () => {
       "create or replace function public.get_recommendation_contract_posture",
     );
     expect(sql).toContain("recommendation_assumption_packet_valid");
+    expect(sql).toContain(
+      "r.assumption_context_digest = public.recommendation_assumption_context_digest",
+    );
     expect(sql).toContain("Assumptions and validation plan (C5.24)");
   });
 

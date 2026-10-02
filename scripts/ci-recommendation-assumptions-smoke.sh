@@ -116,7 +116,15 @@ PACKET=$(rpc "$RE" get_recommendation_assumption_packet "{\"p_recommendation_id\
 test "$(printf '%s' "$PACKET" | field valid)" = 'True'
 grep -q 'operationalAuthorization":false' <<<"$PACKET"
 
+echo '— a later recommendation or evidence change makes the packet stale —'
+psqlc "update recommendations set impact='The decision consequence changed after the human assumption assessment.' where id='$REC2';" >/dev/null
+STALE=$(rpc "$RE" get_recommendation_assumption_packet "{\"p_recommendation_id\":\"$REC2\"}")
+test "$(printf '%s' "$STALE" | field valid)" = 'False'
+STALE_GATE=$(rpc "$RE" check_recommendation_contract "{\"p_recommendation_id\":\"$REC2\"}")
+grep -q '"releasable":false' <<<"$STALE_GATE"
+grep -q 'Assumptions and validation plan (C5.24)' <<<"$STALE_GATE"
+
 test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='recommendation_assumptions' and (event_data->>'recommendation_id')::uuid in ('$REC','$REC2');")" = '2'
 test "$(psqlc "select count(*) from recommendations where id in ('$REC','$REC2') and assumptions_recorded_by is not null and assumptions_recorded_at is not null;")" = '2'
 
-echo 'Recommendation assumptions smoke passed: tenant wall, role and AI refusals, provenance guard, packet shape, audit and binary release gate.'
+echo 'Recommendation assumptions smoke passed: tenant wall, role and AI refusals, provenance guard, packet shape, context/evidence staleness, audit and binary release gate.'

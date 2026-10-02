@@ -24,6 +24,8 @@ export interface RecommendationAssumptionWorkspace {
   recordedBy: string | null;
   recordedByName: string | null;
   recordedAt: string | null;
+  storedContextDigest: string | null;
+  currentContextDigest: string;
   valid: boolean;
   boundary: string;
   operationalAuthorization: false;
@@ -64,6 +66,7 @@ export async function recordRecommendationAssumptions(input: {
   recommendationId: string;
   disposition: RecommendationAssumptionDisposition;
   packetSha256: string;
+  contextSha256: string;
   recordedBy: string;
   recordedAt: string;
 }> {
@@ -81,6 +84,7 @@ export async function recordRecommendationAssumptions(input: {
           recommendationId: string;
           disposition: RecommendationAssumptionDisposition;
           packetSha256: string;
+          contextSha256: string;
           recordedBy: string;
           recordedAt: string;
         }

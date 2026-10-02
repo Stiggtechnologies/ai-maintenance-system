@@ -278,6 +278,7 @@ describe("the release gate is stronger than the producers, not weaker", () => {
     expect(gate?.body).toContain(
       "recommendation_assumption_packet_valid(r.assumption_packet)",
     );
+    expect(gate?.body).toContain("recommendation_assumption_context_digest");
     expect(gate?.body).toContain("r.required_completion_date is not null");
   });
 
@@ -334,6 +335,7 @@ describe("the release gate is stronger than the producers, not weaker", () => {
     expect(gaps?.body).toContain(
       "recommendation_assumption_packet_valid(r.assumption_packet)",
     );
+    expect(gaps?.body).toContain("recommendation_assumption_context_digest");
     // And no survivor of the old predicate, which is what let 'TBD' through.
     expect(gaps?.body).not.toMatch(/coalesce\s*\(\s*btrim/i);
 
