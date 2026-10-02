@@ -45,8 +45,6 @@ const VENDOR_FILE = "20261209090300_develop_vendor_quality_thread.sql";
 const READ_FILE = "20261209090400_develop_commercial_read.sql";
 const CONNECTOR_FILE =
   "20261209090500_develop_procurement_status_connector.sql";
-const COST_ACTUAL_CONNECTOR_FILE =
-  "20270101370000_develop_cost_actual_connector.sql";
 const CURRENT_CONNECTOR_ROUTES_FILE =
   "20270101490000_process_event_ingest.sql";
 const SLICE_FILES = [
