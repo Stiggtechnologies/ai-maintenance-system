@@ -148,6 +148,19 @@ begin
          where r.id=new.recommendation_id and r.organization_id=new.organization_id) then
       raise exception 'recommendation evidence must link to a recommendation in the same organization';
     end if;
+    -- The recommendation row is the packet's concurrency lock. Evidence
+    -- mutation and exact-digest submission/review therefore serialize: a
+    -- concurrent item is either included in the reviewed digest or makes the
+    -- stored digest visibly stale after the review commits.
+    if new.recommendation_id is not null then
+      perform 1 from public.recommendations r
+      where r.id=new.recommendation_id and r.organization_id=new.organization_id
+      for update;
+    end if;
+  elsif old.recommendation_id is not null then
+    perform 1 from public.recommendations r
+    where r.id=old.recommendation_id and r.organization_id=old.organization_id
+    for update;
   end if;
   if tg_op='INSERT' then
     if (

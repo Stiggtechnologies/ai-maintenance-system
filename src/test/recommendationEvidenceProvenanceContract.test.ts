@@ -97,6 +97,9 @@ describe("U17.01/U17.02 governed recommendation evidence contract", () => {
     expect(migration).toContain(
       "recommendation evidence must link to a recommendation in the same organization",
     );
+    expect(migration).toContain(
+      "The recommendation row is the packet's concurrency lock",
+    );
   });
 
   it("is customer reachable from Mission Control and CI runtime validated", () => {
