@@ -78,14 +78,17 @@ test("planner records execution and a separate human adopts the learning revisio
 });
 
 // CI seeds this chain through authenticated RPCs, not client response mocks.
-test("planner inspects completed project closure and its screening provenance", async ({ page }, testInfo) => {
+test("planner inspects an applicable completed-project closure and its screening provenance", async ({ page }, testInfo) => {
   await page.goto("/signin");
   await page.getByRole("textbox", { name: /work email/i }).fill("planner@syncai.ca");
   await page.locator('input[type="password"]').fill("Planner123!@#");
   await page.getByRole("button", { name: /access syncai/i }).click();
   await expect(page.getByRole("heading", { name: "Operational Briefing", exact: true }))
     .toBeVisible({ timeout: 30_000 });
-  await page.goto("/develop/cases/98550000-0000-4000-8000-000000000001#realize");
+  // Inspect the completed source lesson from the separate matching target
+  // case. A case never recommends its own lesson back to itself.
+  await page.goto("/develop/cases/98550000-0000-4000-8000-000000000002#realize");
+  await expect(page.getByRole("heading", { name: "New compressor modernization", exact: true })).toBeVisible();
   const lessonTitle = page.locator("#engine-realize").getByRole("heading", {
     name: "Seal failure at first start",
     exact: true,
