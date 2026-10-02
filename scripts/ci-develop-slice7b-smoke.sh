@@ -141,7 +141,9 @@ OPS=$(token 'executive@syncai.ca' 'Exec123!@#')
 test -n "$PLANNER"; test -n "$MANAGER"; test -n "$TECH"; test -n "$OPS"
 
 PLANNER_ID=$(psqlc "select id from user_profiles where organization_id='$ORG' and email='planner@syncai.ca'")
-test -n "$PLANNER_ID"
+MANAGER_ID=$(psqlc "select id from user_profiles where organization_id='$ORG' and email='manager@syncai.ca'")
+TECH_ID=$(psqlc "select id from user_profiles where organization_id='$ORG' and email='technician@syncai.ca'")
+test -n "$PLANNER_ID"; test -n "$MANAGER_ID"; test -n "$TECH_ID"
 
 # The AI-operator identity, seeded exactly as the sibling transcripts seed it,
 # so the smokes share one fixture in CI and each still stands alone.
@@ -882,7 +884,14 @@ psqlc "update work_orders set job_plan_id='$JP' where id='$W1';" >/dev/null
 # through the product's own doors, so both jobs have a confirmed isolation.
 R=$(rpc "$TECH" return_equipment "{\"p_asset_id\":\"$ASSET\",\"p_note\":\"S7B probe work complete; guards restored and equipment offered back\"}")
 noerr "$R"
-R=$(rpc "$OPS" accept_equipment "{\"p_asset_id\":\"$ASSET\",\"p_note\":\"S7B operations accepts the equipment back before the package isolation\"}")
+S7B_RELEASE_ID=$(printf '%s' "$R" | field releaseId)
+test -n "$S7B_RELEASE_ID"
+S7B_RTS_EVIDENCE=$(psqlc "insert into evidence_items(organization_id,asset_id,source_system,evidence_type,description,data_quality,verification_status,verified_by,verified_at,verification_method)
+values('$ORG','$ASSET','develop-slice7b-smoke','return_to_service_test','Signed S7B functional, guard and protection-restoration check','high','verified','$MANAGER_ID',now(),'Independent maintenance-manager evidence review') returning id")
+S7B_RTS_TEST=$(psqlc "insert into acceptance_tests(organization_id,test_ref,test_stage,scheduled_on,performed_on,outcome,punch_items_raised,punch_items_open,witnessed_by_owner,asset_id,acceptance_criteria,test_procedure_reference,tested_samples,passed_samples,evidence_item_id,performed_by,release_status,released_by,released_at,release_note)
+values('$ORG','RTS-'||'$S7B_RELEASE_ID','return_to_service',current_date,current_date,'pass',0,0,true,'$ASSET','All approved S7B functional, guarding and protection-restoration criteria pass','S7B-RTS-PROCEDURE',1,1,'$S7B_RTS_EVIDENCE','$TECH_ID','released','$MANAGER_ID',now(),'Independent review confirmed pass evidence and zero open punch items') returning id")
+test -n "$S7B_RTS_EVIDENCE"; test -n "$S7B_RTS_TEST"
+R=$(rpc "$OPS" verify_and_accept_equipment "{\"p_release_id\":\"$S7B_RELEASE_ID\",\"p_acceptance_test_id\":$S7B_RTS_TEST,\"p_note\":\"S7B operations reviewed the released test and confirmed the asset condition\"}")
 noerr "$R"
 R=$(rpc "$OPS" release_equipment "{\"p_asset_id\":\"$ASSET\",\"p_work_order_id\":null,\"p_isolation_confirmed\":true,\"p_isolation_note\":\"S7B asset isolated for the whole drive-train package, LOTO applied at MCC-3\"}")
 noerr "$R"

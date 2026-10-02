@@ -486,6 +486,9 @@ jobs:
       - name: Smoke — governed recommendation assumptions and release gate
         run: bash scripts/ci-recommendation-assumptions-smoke.sh
 
+      - name: Smoke — governed return-to-service verification
+        run: bash scripts/ci-return-to-service-verification-smoke.sh
+
       - name: Smoke — governed uncertainty-aware risk analysis
         run: bash scripts/ci-risk-uncertainty-analysis-smoke.sh
 

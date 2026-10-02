@@ -20,7 +20,8 @@ const releasedTest = {
   test_ref: "RTS-P101-042",
   performed_on: "2026-10-01",
   acceptance_criteria: "All approved return-to-service criteria satisfied",
-  evidence_description: "Signed functional-test and protection-restoration record",
+  evidence_description:
+    "Signed functional-test and protection-restoration record",
   released_at: "2026-10-02T00:00:00Z",
 };
 
@@ -65,7 +66,9 @@ describe("OpsCoordination governed return to service", () => {
   it("binds operations acceptance to the selected independently released RTS test", async () => {
     render(<OpsCoordination />);
 
-    expect(await screen.findByText("RTS-P101-042")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("option", { name: /RTS-P101-042/i }),
+    ).toBeInTheDocument();
     fireEvent.click(
       screen.getByRole("button", { name: /accept back into service/i }),
     );

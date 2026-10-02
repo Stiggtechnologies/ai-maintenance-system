@@ -41,6 +41,23 @@ describe("C5.21 governed return-to-service verification", () => {
     expect(sql).toContain("verified_by = v_actor");
   });
 
+  it("hardens both custody handoffs without granting AI or cross-tenant authority", () => {
+    expect(sql).toContain(
+      "create or replace function public.release_equipment",
+    );
+    expect(sql).toContain("create or replace function public.return_equipment");
+    expect(sql).toContain("same-tenant asset not found");
+    expect(sql).toContain(
+      "the work order must belong to this tenant and asset",
+    );
+    expect(sql).toContain(
+      "the AI-operator identity cannot release equipment custody",
+    );
+    expect(sql).toContain(
+      "the AI-operator identity cannot attest a maintenance handback",
+    );
+  });
+
   it("closes the legacy and direct-write bypasses and writes canonical audit provenance", () => {
     expect(sql).toContain("app.return_to_service_write");
     expect(sql).toMatch(
