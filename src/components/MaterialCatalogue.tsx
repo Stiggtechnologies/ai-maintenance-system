@@ -73,7 +73,7 @@ export function MaterialCatalogue({ onCreated }: { onCreated?: () => void }) {
         basis: String(values.get("basis") ?? ""),
       });
       setSaved(
-        `${result.materialCode} ${editing ? "revised" : "created"} at master version ${result.masterVersion}.`,
+        `Material ${result.materialCode} ${editing ? "revised" : "created"}. Master version ${result.masterVersion} recorded.`,
       );
       resetForm();
       await load();

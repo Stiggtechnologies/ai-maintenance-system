@@ -47,6 +47,9 @@ describe("C2.07 governed materials and serialized repairable history", () => {
     expect(migration).toContain(
       "repairable classification is explicitly unknown",
     );
+    expect(migration).toContain(
+      "new.repairable_classification='unknown' and new.repairable",
+    );
   });
 
   it("tracks one serialized rotable across installation, removal, repair and return", () => {
@@ -105,6 +108,7 @@ describe("C2.07 governed materials and serialized repairable history", () => {
       "named_human_only=true",
       "tenant_wall=true",
       "optimistic_catalogue=true",
+      "legacy_repairable_compat=true",
       "direct_write_locked=true",
       "trigger_execute_locked=true",
       "serial_unique=true",

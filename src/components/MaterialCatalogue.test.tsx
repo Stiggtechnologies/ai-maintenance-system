@@ -84,6 +84,9 @@ describe("MaterialCatalogue", () => {
       basis: "Approved catalogue page four source.",
     });
     expect(screen.getByRole("status")).toHaveTextContent(
+      "Material SEAL-1 created. Master version 1 recorded.",
+    );
+    expect(screen.getByRole("status")).toHaveTextContent(
       "Stock and supplier qualification remain separate",
     );
     expect(screen.getByLabelText("Material code")).toHaveValue("");

@@ -38,6 +38,12 @@ UNKNOWN=$(rpc "$ENGINEER" upsert_catalogue_material "{\"p_material_id\":null,\"p
 noerr "$UNKNOWN"; UNKNOWN_MATERIAL=$(field "$UNKNOWN" materialId); test -n "$UNKNOWN_MATERIAL"
 test "$(psqlc "select repairable_classification||'|'||coalesce(lead_time_days::text,'unknown') from public.materials where id='$UNKNOWN_MATERIAL';")" = 'unknown|unknown'
 
+# Existing connector/import writers still send the canonical legacy boolean.
+# A positive claim remains repairable; false is deliberately not promoted to
+# consumable because that richer classification needs explicit evidence.
+LEGACY_MATERIAL=$(psqlc "insert into public.materials(organization_id,material_code,description,unit_of_measure,repairable,is_template,basis,source_system) values('$ORG','C207-LEGACY-$SUFFIX','Legacy source repairable','each',true,false,'Legacy source record with a positive repairable classification.','C207-LEGACY') returning id;")
+test "$(psqlc "select repairable_classification||'|'||repairable::text from public.materials where id='$LEGACY_MATERIAL';")" = 'repairable|true'
+
 CREATED=$(rpc "$ENGINEER" upsert_catalogue_material "{\"p_material_id\":null,\"p_material_code\":\"C207-FD-$SUFFIX\",\"p_description\":\"C2.07 serialized final drive\",\"p_category\":\"Powertrain\",\"p_unit_of_measure\":\"each\",\"p_unit_cost_usd\":125000,\"p_lead_time_days\":120,\"p_min_qty\":1,\"p_max_qty\":2,\"p_repairable_classification\":\"rotable\",\"p_criticality\":\"critical\",\"p_source_system\":\"C207-SMOKE\",\"p_basis\":\"Approved customer material master and stocking policy record.\",\"p_expected_version\":null}")
 noerr "$CREATED"; MATERIAL=$(field "$CREATED" materialId); test -n "$MATERIAL"
 test "$(field "$CREATED" masterVersion)" = '1'
@@ -91,4 +97,4 @@ case "$DIRECT_EVENT" in 401|403) ;; *) false ;; esac
 test "$(psqlc "select has_function_privilege('anon','public.capture_material_master_revision()','EXECUTE');")" = 'f'
 test "$(psqlc "select has_function_privilege('anon','public.append_material_master_revision()','EXECUTE');")" = 'f'
 
-echo 'C2.07 material-catalogue and repairable-history smoke passed: named_human_only=true tenant_wall=true optimistic_catalogue=true direct_write_locked=true trigger_execute_locked=true serial_unique=true transition_order=true event_history=true turnaround_evidence=true unknown_visible=true'
+echo 'C2.07 material-catalogue and repairable-history smoke passed: named_human_only=true tenant_wall=true optimistic_catalogue=true legacy_repairable_compat=true direct_write_locked=true trigger_execute_locked=true serial_unique=true transition_order=true event_history=true turnaround_evidence=true unknown_visible=true'

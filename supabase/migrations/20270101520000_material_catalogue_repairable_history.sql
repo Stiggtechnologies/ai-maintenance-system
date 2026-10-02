@@ -109,6 +109,14 @@ create or replace function public.capture_material_master_revision()
 returns trigger language plpgsql security definer set search_path=public as $$
 declare v_action text;
 begin
+  -- The legacy repairable boolean remains an admitted source/import contract.
+  -- Preserve its only positive claim when an older writer has not supplied the
+  -- richer classification yet; false stays unknown because it does not prove
+  -- that the material is consumable. Explicit governed classifications always
+  -- win, including rotable.
+  if new.repairable_classification='unknown' and new.repairable then
+    new.repairable_classification:='repairable';
+  end if;
   if tg_op='UPDATE' then
     if row(
       new.material_code,new.description,new.category,new.unit_of_measure,
