@@ -12,6 +12,7 @@ ASSET2='c5210000-0000-4000-8000-000000000003'
 TECH_UID='00000000-0000-0000-0000-000000000005'
 MANAGER_UID='00000000-0000-0000-0000-000000000003'
 OPS_UID='00000000-0000-0000-0000-000000000002'
+PLANNER_UID='00000000-0000-0000-0000-000000000004'
 
 token(){ local r; r=$(curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}"); printf '%s' "$r" | python3 -c "import json,sys; print(json.load(sys.stdin).get('access_token',''))"; }
 rpc(){ curl -sS -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d "$3"; }
@@ -99,7 +100,7 @@ values('$ORG','C521-UNVERIFIED-'||'$RELEASE_ID','return_to_service',current_date
 STALE_TEST=$(psqlc "insert into acceptance_tests(organization_id,test_ref,test_stage,scheduled_on,performed_on,outcome,punch_items_raised,punch_items_open,witnessed_by_owner,asset_id,acceptance_criteria,test_procedure_reference,tested_samples,passed_samples,evidence_item_id,performed_by,release_status,released_by,released_at,release_note)
 values('$ORG','C521-STALE-'||'$RELEASE_ID','return_to_service',current_date,current_date,'pass',0,0,true,'$ASSET','A prior cycle result must never authorize this return','C521-RTS-PROCEDURE',1,1,'$VERIFIED_EVIDENCE','$TECH_UID','released','$MANAGER_UID',(select returned_at-interval '1 second' from equipment_releases where id='$RELEASE_ID'),'Predates this maintenance handback and is therefore inadmissible') returning id")
 NONQUALITY_TEST=$(psqlc "insert into acceptance_tests(organization_id,test_ref,test_stage,scheduled_on,performed_on,outcome,punch_items_raised,punch_items_open,witnessed_by_owner,asset_id,acceptance_criteria,test_procedure_reference,tested_samples,passed_samples,evidence_item_id,performed_by,release_status,released_by,released_at,release_note)
-values('$ORG','C521-NONQUALITY-'||'$RELEASE_ID','return_to_service',current_date,current_date,'pass',0,0,true,'$ASSET','Only an authorized quality release can support RTS','C521-RTS-PROCEDURE',1,1,'$VERIFIED_EVIDENCE','$TECH_UID','released','$OPS_UID',now(),'An operations actor cannot forge the independent quality release') returning id")
+values('$ORG','C521-NONQUALITY-'||'$RELEASE_ID','return_to_service',current_date,current_date,'pass',0,0,true,'$ASSET','Only an authorized quality release can support RTS','C521-RTS-PROCEDURE',1,1,'$VERIFIED_EVIDENCE','$TECH_UID','released','$PLANNER_UID',now(),'A planning actor cannot forge the independent quality release') returning id")
 FOREIGN_TEST=$(psqlc "insert into acceptance_tests(organization_id,test_ref,test_stage,scheduled_on,performed_on,outcome,punch_items_raised,punch_items_open,witnessed_by_owner,asset_id,acceptance_criteria,test_procedure_reference,tested_samples,passed_samples,evidence_item_id,performed_by,release_status,released_by,released_at,release_note)
 values('$ORG2','C521-FOREIGN-'||'$RELEASE_ID','return_to_service',current_date,current_date,'pass',0,0,true,'$ASSET2','Foreign tenant criterion','C521-X-PROCEDURE',1,1,'$FOREIGN_EVIDENCE','$TECH_UID','released','$MANAGER_UID',now(),'Foreign fixture only; never admissible to the current tenant') returning id")
 
