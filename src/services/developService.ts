@@ -25,6 +25,7 @@ import type {
   CalculationRun,
   CaseControls,
   CostReconciliation,
+  ScheduleLogicEdge,
   ScopeGrowth,
 } from "../lib/develop/controls";
 import type {
@@ -3199,10 +3200,35 @@ export async function setAssuranceClaimPosition(input: {
  */
 
 export async function getCaseControls(caseId: string): Promise<CaseControls> {
-  const { data, error } = await supabase.rpc("get_case_controls", {
-    p_case_id: caseId,
-  });
-  return unwrap(data, error);
+  const [controlsResult, graphResult] = await Promise.all([
+    supabase.rpc("get_case_controls", { p_case_id: caseId }),
+    supabase.rpc("get_case_schedule_activity_graph", { p_case_id: caseId }),
+  ]);
+  const controls = unwrap<CaseControls>(
+    controlsResult.data,
+    controlsResult.error,
+  );
+  const graph = unwrap<{
+    activities: Array<{
+      activityId: number;
+      predecessors: ScheduleLogicEdge[];
+      successors: ScheduleLogicEdge[];
+    }>;
+  }>(graphResult.data, graphResult.error);
+  const byId = new Map(
+    (graph.activities ?? []).map((activity) => [activity.activityId, activity]),
+  );
+  return {
+    ...controls,
+    scheduleActivities: controls.scheduleActivities.map((activity) => {
+      const logic = byId.get(activity.id);
+      return {
+        ...activity,
+        predecessors: logic?.predecessors ?? [],
+        successors: logic?.successors ?? [],
+      };
+    }),
+  };
 }
 
 export async function recordScopeNeed(input: {
@@ -3898,6 +3924,58 @@ export async function recordLocalScheduleRelationship(input: {
         link_type: input.linkType ?? "",
         lag_hours: input.lagHours ?? "",
       },
+    },
+  );
+  return unwrap(data, error);
+}
+
+export interface ScheduleImportRevisionChange {
+  taskId: number;
+  eventId: string;
+  caseId: string;
+  activityKey: string;
+  stagingRowId: number;
+  fields: Record<string, { from: unknown; to: unknown }>;
+}
+
+export interface ScheduleImportRevisionResult {
+  answered: boolean;
+  refusal?: string;
+  revisionId?: string;
+  status?: "pending" | "approved" | "rejected";
+  changeCount?: number;
+  changes?: ScheduleImportRevisionChange[];
+  applied?: boolean;
+  note?: string;
+}
+
+/**
+ * D5.28: turns changed duplicate rows from a completed P6 re-export into a
+ * pending immutable review. Identical replays return an honest refusal and
+ * create no ledger noise.
+ */
+export async function proposeScheduleImportRevision(
+  runId: string,
+): Promise<ScheduleImportRevisionResult> {
+  const { data, error } = await supabase.rpc(
+    "propose_schedule_import_revision",
+    { p_run_id: runId },
+  );
+  return unwrap(data, error);
+}
+
+/** §70: only a named human may accept or reject the P6 change set. */
+export async function decideScheduleImportRevision(input: {
+  revisionId: string;
+  decision: "approved" | "rejected";
+  note: string;
+}): Promise<ScheduleImportRevisionResult> {
+  const { data, error } = await supabase.rpc(
+    "decide_schedule_import_revision",
+    {
+      p_revision_id: input.revisionId,
+      p_decision: input.decision,
+      p_note: input.note,
     },
   );
   return unwrap(data, error);

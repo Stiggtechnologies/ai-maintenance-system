@@ -525,6 +525,9 @@ jobs:
       - name: Smoke — governed enterprise portfolio optimization
         run: bash scripts/ci-enterprise-portfolio-optimization-smoke.sh
 
+      - name: Smoke — governed cost/ERP actuals import
+        run: bash scripts/ci-develop-cost-actual-connector-smoke.sh
+
       - name: Smoke — value calculations execute server-side with immutable lineage
         run: bash scripts/ci-value-calculation-lineage-smoke.sh
 
