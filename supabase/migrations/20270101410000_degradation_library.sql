@@ -170,48 +170,33 @@ begin
   if tg_op='DELETE' then
     raise exception 'degradation profile history is immutable';
   end if;
+  if old.status='reference_draft' then
+    raise exception 'platform degradation reference profiles are immutable';
+  end if;
   if old.status in ('rejected','superseded') then
     raise exception 'reviewed degradation profile history is immutable';
   end if;
   if old.status='approved' then
-    if new.status<>'superseded'
-       or new.id<>old.id
-       or new.organization_id<>old.organization_id
-       or new.mechanism_id<>old.mechanism_id
-       or new.family_key<>old.family_key
-       or new.version<>old.version
-       or new.title<>old.title
-       or new.description<>old.description
-       or new.stressor_requirements<>old.stressor_requirements
-       or new.damage_state_requirements<>old.damage_state_requirements
-       or new.observation_requirements<>old.observation_requirements
-       or new.candidate_model_kinds<>old.candidate_model_kinds
-       or new.applicability_questions<>old.applicability_questions
-       or new.limitations<>old.limitations
-       or new.source_evidence_item_id<>old.source_evidence_item_id
-       or new.author_id<>old.author_id
-       or new.reviewed_by<>old.reviewed_by
-       or new.reviewed_at<>old.reviewed_at
-       or new.review_note<>old.review_note
-       or new.approval_id<>old.approval_id then
+    if auth.uid() is null
+       or new.status<>'superseded'
+       or (to_jsonb(new)-'status') is distinct from (to_jsonb(old)-'status') then
       raise exception 'approved degradation profiles may only be superseded intact';
     end if;
+    return new;
   end if;
-  if old.status='reference_draft' and (
-    new.id<>old.id or new.organization_id<>old.organization_id
-    or new.mechanism_id<>old.mechanism_id or new.family_key<>old.family_key
-    or new.version<>old.version or new.title<>old.title
-    or new.description<>old.description
-    or new.stressor_requirements<>old.stressor_requirements
-    or new.damage_state_requirements<>old.damage_state_requirements
-    or new.observation_requirements<>old.observation_requirements
-    or new.candidate_model_kinds<>old.candidate_model_kinds
-    or new.applicability_questions<>old.applicability_questions
-    or new.limitations<>old.limitations
-  ) then
-    raise exception 'platform degradation reference profiles are immutable';
+  if old.status='pending_review' then
+    if auth.uid() is null
+       or new.status not in ('approved','rejected')
+       or new.reviewed_by is distinct from auth.uid()
+       or new.reviewed_by=old.author_id
+       or (to_jsonb(new)-array['status','reviewed_by','reviewed_at','review_note','approval_id']::text[])
+          is distinct from
+          (to_jsonb(old)-array['status','reviewed_by','reviewed_at','review_note','approval_id']::text[]) then
+      raise exception 'pending degradation profiles move only through independent review';
+    end if;
+    return new;
   end if;
-  return new;
+  raise exception 'unsupported degradation profile history transition';
 end $$;
 
 drop trigger if exists trg_degradation_profile_history on public.degradation_profiles;

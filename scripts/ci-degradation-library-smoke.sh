@@ -42,6 +42,17 @@ PROPOSED=$(rpc "$AUTHOR" propose_degradation_profile_revision "$(payload "$EVIDE
 ok "$PROPOSED"
 PROFILE_ID=$(BODY="$(body "$PROPOSED")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x['familyKey']=='corrosion' and x['version']==2 and x['status']=='pending_review' and x['operationalAuthorization'] is False;print(x['profileId'])")
 
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 <<SQL
+do \$\$ begin
+  begin
+    update degradation_profiles set title='Owner-mutated pending profile' where id='$PROFILE_ID';
+    raise exception 'pending profile owner mutation was incorrectly allowed';
+  exception when others then
+    if sqlerrm not like '%pending degradation profiles move only through independent review%' then raise; end if;
+  end;
+end \$\$;
+SQL
+
 SELF=$(rpc "$AUTHOR" review_degradation_profile "{\"p_profile_id\":\"$PROFILE_ID\",\"p_decision\":\"approved\",\"p_review_note\":\"The author must never approve their own degradation profile revision.\"}")
 err "$SELF" 'profile author cannot independently review'
 APPROVED=$(rpc "$REVIEWER" review_degradation_profile "{\"p_profile_id\":\"$PROFILE_ID\",\"p_decision\":\"approved\",\"p_review_note\":\"Independent engineering review confirms the exact evidence profile is bounded and suitable.\"}")
@@ -87,6 +98,18 @@ do \$\$ begin
     if sqlerrm not like '%approved degradation profiles may only be superseded intact%' then raise; end if;
   end;
   begin
+    update degradation_profiles set created_at=created_at+interval '1 second' where id='$PROFILE_ID';
+    raise exception 'approved profile metadata mutation was incorrectly allowed';
+  exception when others then
+    if sqlerrm not like '%approved degradation profiles may only be superseded intact%' then raise; end if;
+  end;
+  begin
+    update degradation_profiles set status='superseded' where id='$PROFILE_ID';
+    raise exception 'approved profile owner supersession was incorrectly allowed';
+  exception when others then
+    if sqlerrm not like '%approved degradation profiles may only be superseded intact%' then raise; end if;
+  end;
+  begin
     truncate table degradation_profiles;
     raise exception 'degradation profile truncate was incorrectly allowed';
   exception when others then
@@ -98,4 +121,4 @@ SQL
 COUNTS=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -F '|' -v ON_ERROR_STOP=1 -c "select (select count(*) from degradation_profiles where organization_id='$ORG' and id='$PROFILE_ID' and status='approved' and reviewed_by='$REVIEWER_ID' and source_evidence_item_id='$EVIDENCE' and not operational_authorization),(select count(*) from approvals where organization_id='$ORG' and approver_user_id='$REVIEWER_ID' and approval_scope->>'kind'='degradation_profile' and approval_scope->>'operationalAuthorization'='false'),(select count(*) from audit_events where organization_id='$ORG' and entity_type in ('degradation_profile_revision_proposed','degradation_profile_reviewed'));")
 echo "U14.01 ledger counts approved_profile|canonical_approval|audit=$COUNTS"
 test "$COUNTS" = '1|1|2'
-echo 'U14.01 degradation-library smoke passed: families=16 canonical_mechanisms=true canonical_models=true verified_evidence=true independent_review=true tenant_wall=true future_tenant_seed=true service_role_mutation_refused=true owner_mutation_refused=true owner_truncate_refused=true authority_unchanged=true'
+echo 'U14.01 degradation-library smoke passed: families=16 canonical_mechanisms=true canonical_models=true verified_evidence=true independent_review=true tenant_wall=true future_tenant_seed=true service_role_mutation_refused=true pending_owner_mutation_refused=true approved_owner_content_metadata_supersession_refused=true owner_truncate_refused=true authority_unchanged=true'

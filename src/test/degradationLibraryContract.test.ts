@@ -64,6 +64,8 @@ describe("U14.01 governed degradation library contract", () => {
     );
     expect(migration).toContain("from public,anon,authenticated,service_role");
     expect(migration).toContain("degradation profile history is immutable");
+    expect(migration).toContain("pending degradation profiles move only through independent review");
+    expect(migration).toContain("(to_jsonb(new)-'status') is distinct from");
     expect(migration).toContain("before truncate on public.degradation_profiles");
     expect(migration).toContain("pg_advisory_xact_lock");
   });
