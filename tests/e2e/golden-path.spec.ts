@@ -81,8 +81,52 @@ test.describe("Golden path: the buyer-value loop", () => {
   }) => {
     await login(page);
 
-    // Approve the critical C-22 recommendation
+    // The release gate refuses a blank assumption basis. Exercise the same
+    // named-human workflow a customer uses before approving the recommendation.
     await page.getByText(C22_REC_TITLE).click();
+    await page.getByRole("button", { name: "Assumptions", exact: true }).click();
+    await expect(
+      page.getByRole("heading", { name: "Recommendation assumptions" }),
+    ).toBeVisible({ timeout: 15_000 });
+    await page
+      .getByLabel("Overall assessment basis", { exact: true })
+      .fill(
+        "The assessment covers the short-horizon condition forecast, operating exposure, and proposed intervention timing.",
+      );
+    await page
+      .getByLabel("Assumption", { exact: true })
+      .fill(
+        "The observed bearing degradation rate remains comparable through the proposed Day 3 intervention.",
+      );
+    await page
+      .getByLabel("Evidence or reasoning basis", { exact: true })
+      .fill(
+        "Six days of vibration trend and matched temperature evidence support a short-horizon extrapolation.",
+      );
+    await page
+      .getByLabel("Consequence if wrong", { exact: true })
+      .fill(
+        "If degradation accelerates, the conveyor could fail before the planned intervention and expose the site to an outage.",
+      );
+    await page
+      .getByLabel("Validation method", { exact: true })
+      .fill(
+        "Operations will review daily vibration and temperature readings until isolation and stop earlier if thresholds are breached.",
+      );
+    await page
+      .getByLabel("Review note", { exact: true })
+      .fill(
+        "Named-human assessment recorded through the governed UI before release; approval remains a separate act.",
+      );
+    await page
+      .getByRole("button", { name: "Record assumption assessment" })
+      .click();
+    await expect(
+      page.getByText(/Assumption assessment recorded/),
+    ).toBeVisible({ timeout: 20_000 });
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+
+    // Approve only after the governed decision basis is complete.
     await page.getByRole("button", { name: "Approve", exact: true }).click();
     await expect(
       page.getByText(/Approved Reschedule PM on Conveyor C-22/),
