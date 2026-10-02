@@ -33,10 +33,13 @@ insert into risk_criteria_profiles(id,organization_id,name,version,status,decisi
 values('$CRITERIA','$ORG','U18 governed uncertainty criteria',1,'adopted','{"escalateAbove":16,"stopAbove":24}',
   'Adopted acceptance fixture for exact threshold provenance.','$REVIEWER_ID',now())
 on conflict(id) do nothing;
+-- These acceptance risks intentionally omit the full ISO 31000 identification
+-- contract, so they must remain draft fixtures. The U18 workflow independently
+-- refuses archived risks and does not promote canonical risk lifecycle state.
 insert into risks(id,organization_id,criteria_profile_id,title,status,value_currency,created_by)
 values
-('$RISK','$ORG','$CRITERIA','U18 loss of cooling uncertainty','identified','CAD','$AUTHOR_ID'),
-('$OTHER_RISK','$ORG','$CRITERIA','U18 unrelated risk','identified','CAD','$AUTHOR_ID')
+('$RISK','$ORG','$CRITERIA','U18 loss of cooling uncertainty','draft','CAD','$AUTHOR_ID'),
+('$OTHER_RISK','$ORG','$CRITERIA','U18 unrelated risk','draft','CAD','$AUTHOR_ID')
 on conflict(id) do nothing;
 insert into evidence_items(id,organization_id,risk_id,source_system,evidence_type,description,evidence_class,
   verification_status,verified_by,verified_at,verification_method,quality_grade,applicability_grade,revision)
