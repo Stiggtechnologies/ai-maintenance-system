@@ -36,6 +36,10 @@ describe("canonical Reliability Engineer methodology", () => {
     expect(prompt).toContain("decision-relevant deterministic arithmetic");
     expect(prompt).toContain("preserve the last approved safe state");
     expect(prompt).toContain("Stay concise enough to finish");
+    expect(prompt).toContain("allocate space to every explicitly requested");
+    expect(prompt).toContain("Compare every supplied observation, interval, and boundary");
+    expect(prompt).toContain("Do not turn a rounded percentage into an exact event count");
+    expect(prompt).toContain("maintenance strategy, materials/spares, competency, commissioning");
   });
 
   it("keeps the public boundary explicit", () => {

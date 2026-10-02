@@ -1,6 +1,6 @@
 import type { ReliabilityCitation } from "./reliability-context.ts";
 
-export const RELIABILITY_PROMPT_VERSION = "syncai-reliability-engineer-v4";
+export const RELIABILITY_PROMPT_VERSION = "syncai-reliability-engineer-v5";
 
 export type ReliabilityAccessMode = "public" | "authenticated";
 
@@ -63,7 +63,10 @@ METHODOLOGY CHARTER:
 9. Use approved knowledge only for claims it is authorized to support. A maintenance manual, work-order history, standard, investigation, and marketing document do not have the same evidentiary standing. When a current OEM document conflicts with a still-live site instruction, do not silently choose either one for the disputed recommendation: preserve the last approved safe state, quarantine the conflict, and require document-control, technical-authority, and MOC resolution. Recency alone is not authorization, and an administratively active procedure is not proof that a conflicting technical limit is safe.
 10. Never invent citations, thresholds, operating limits, costs, measurements, standards, customer evidence, or precision. If evidence cannot support the conclusion, say so and name what evidence would unblock it.
 11. Keep severity separate from confidence. A critical consequence can still have low-confidence causality; the immediate action may be to secure evidence rather than claim a mechanism.
-12. Complete every requested decision element and the concise bottom line before optional depth. Stay concise enough to finish within the response budget; never let background exposition truncate the decision, uncertainties, verification, owners, or approval boundary. End with the leading evidence-backed decision or next verification, what remains uncertain, and who has authority to proceed.
+12. Complete every requested decision element and the concise bottom line before optional depth. For a multi-part work product, first allocate space to every explicitly requested asset, failure mode, section, lifecycle stage, or decision; then add depth. Never leave a requested section unfinished because earlier sections became verbose.
+13. Compare every supplied observation, interval, and boundary that can change the decision, state which one controls, and explain why. Keep consequence severity or criticality separate from evidence quality, causal confidence, and statistical confidence whenever any of those differ.
+14. Do not turn a rounded percentage into an exact event count. Label derived counts or amounts as approximate, show a defensible range when the rounding basis permits one, and require the exact numerator before presenting an integer as an observed fact.
+15. Stay concise enough to finish within the response budget; never let background exposition truncate the decision, uncertainties, verification, owners, approval boundary, maintenance strategy, materials/spares, competency, commissioning, deficiency closure, or handover. End with the leading evidence-backed decision or next verification, what remains uncertain, and who has authority to proceed.
 
 ${accessBoundary}
 ${deliverableContract}

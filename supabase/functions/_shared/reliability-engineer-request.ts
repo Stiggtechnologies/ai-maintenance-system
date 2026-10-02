@@ -50,6 +50,13 @@ function requestDepth(value: string): "standard" | "deliverable" {
     : "standard";
 }
 
+function responseBudget(depth: "standard" | "deliverable"): number {
+  // Keep the production path aligned with the qualification harness. The
+  // accepted floor includes long FMEAs and onboarding packs that must finish
+  // every named section before optional depth.
+  return depth === "deliverable" ? 8000 : 5600;
+}
+
 function onboardingSuccessContract(value: string): string {
   if (!ASSET_ONBOARDING_PATTERN.test(value)) return "";
   return [
@@ -72,13 +79,14 @@ export function buildReliabilityEngineerRequest(
     const conversation = recentSubjectConversation(context.recentMessages);
     const combinedRequest = `${conversation}\n${normalizedQuestion}`;
     const specialists = selectReliabilitySpecialists(combinedRequest);
+    const depth = requestDepth(combinedRequest);
     return {
       agentType: "ReliabilityAgent",
       industry: context.industry || "asset-intensive reliability engineering",
-      depth: requestDepth(combinedRequest),
+      depth,
       requiresApproval: true,
       publicOnly: true,
-      maxOutputTokens: 5600,
+      maxOutputTokens: responseBudget(depth),
       query: [
         "COWORK RELIABILITY ENGINEER REQUEST",
         "Question scope: PROVISIONAL NEW SUBJECT",
@@ -100,13 +108,14 @@ export function buildReliabilityEngineerRequest(
   const specialists = selectReliabilitySpecialists(
     `${normalizedQuestion} ${context.objective}`,
   );
+  const depth = requestDepth(normalizedQuestion);
   return {
     agentType: "ReliabilityAgent",
     industry: context.industry || "asset-intensive reliability engineering",
-    depth: requestDepth(normalizedQuestion),
+    depth,
     requiresApproval: true,
     publicOnly: true,
-    maxOutputTokens: 5600,
+    maxOutputTokens: responseBudget(depth),
     query: [
       "COWORK RELIABILITY ENGINEER REQUEST",
       prompts.userContent,
