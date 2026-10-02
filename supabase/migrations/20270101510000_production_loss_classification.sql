@@ -21,6 +21,7 @@ create table if not exists public.downtime_classification_reviews (
   work_order_id uuid references public.work_orders(id) on delete restrict,
   constraint_signal_id uuid references public.operational_constraint_signals(id) on delete restrict,
   basis text not null check (length(btrim(basis)) >= 20),
+  evidence_snapshot jsonb not null,
   supersedes_id bigint references public.downtime_classification_reviews(id) on delete restrict,
   classified_by uuid not null references auth.users(id),
   classified_at timestamptz not null default now(),
@@ -165,10 +166,32 @@ begin
 
   insert into public.downtime_classification_reviews(
     organization_id,operating_state_id,classification,work_order_id,
-    constraint_signal_id,basis,supersedes_id,classified_by
+    constraint_signal_id,basis,evidence_snapshot,supersedes_id,classified_by
   ) values(
     v_org,v_state.id,p_classification,p_work_order_id,
-    p_constraint_signal_id,btrim(p_basis),v_previous,auth.uid()
+    p_constraint_signal_id,btrim(p_basis),jsonb_build_object(
+      'sourceEvent',jsonb_build_object(
+        'id',v_state.id,'assetId',v_state.asset_id,'state',v_state.state,
+        'startedAt',v_state.started_at,'endedAt',v_state.ended_at,
+        'reasonCode',v_state.reason_code,'sourceSystem',v_state.source_system,
+        'externalId',v_state.external_id
+      ),
+      'workOrder',(
+        select jsonb_build_object(
+          'id',w.id,'woNumber',w.wo_number,'title',w.title,'status',w.status,
+          'createdAt',w.created_at,'completedAt',w.completed_at
+        ) from public.work_orders w
+        where w.id=p_work_order_id and w.organization_id=v_org
+      ),
+      'constraintSignal',(
+        select jsonb_build_object(
+          'id',s.id,'kind',s.signal_kind,'key',s.signal_key,'state',s.state,
+          'observedAt',s.observed_at,'validUntil',s.valid_until,
+          'sourceSystem',s.source_system,'sourceRef',s.source_ref,'basis',s.basis
+        ) from public.operational_constraint_signals s
+        where s.id=p_constraint_signal_id and s.organization_id=v_org
+      )
+    ),v_previous,auth.uid()
   ) returning id into v_id;
 
   insert into public.audit_events(organization_id,entity_type,actor,event_data)
@@ -244,6 +267,7 @@ begin
         least(coalesce(s.ended_at,now()),now())-greatest(s.started_at,v_from)
       ))/3600.0 down_hours,
       coalesce(d.classification,'unclassified') classification,d.basis,
+      d.evidence_snapshot,
       d.id classification_review_id,d.supersedes_id,d.classified_at,
       up.full_name classified_by_name,w.wo_number,
       d.work_order_id,
@@ -287,6 +311,7 @@ begin
       'startedAt',e.started_at,'endedAt',e.ended_at,
       'downHours',round(e.down_hours::numeric,1),
       'classification',e.classification,'classificationBasis',e.basis,
+      'classificationEvidenceSnapshot',e.evidence_snapshot,
       'classificationReviewId',e.classification_review_id,
       'supersedesId',e.supersedes_id,'classifiedAt',e.classified_at,
       'classifiedBy',e.classified_by_name,'workOrder',e.wo_number,

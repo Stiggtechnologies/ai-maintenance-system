@@ -46,6 +46,7 @@ SECOND=$(rpc "$ENGINEER" classify_downtime_event "{\"p_operating_state_id\":$MEA
 noerr "$SECOND"; SECOND_ID=$(field "$SECOND" classificationReviewId); test -n "$SECOND_ID"
 test "$(field "$SECOND" supersedesId)" = "$FIRST_ID"
 test "$(psqlc "select count(*) from public.downtime_classification_reviews where operating_state_id=$MEASURED_STATE;")" = '2'
+test "$(psqlc "select evidence_snapshot->'sourceEvent'->>'externalId' from public.downtime_classification_reviews where id=$SECOND_ID;")" = "C206-DOWN-$SUFFIX"
 
 DIRECT_CODE=$(curl -sS -o /tmp/c206-direct-classification.txt -w '%{http_code}' -X POST \
   "$API_URL/rest/v1/downtime_classification_reviews" \

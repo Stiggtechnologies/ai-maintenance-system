@@ -41,6 +41,8 @@ describe("C2.06 governed production-loss reconciliation", () => {
     );
     expect(migration).toContain("for update");
     expect(migration).toContain("downtime classifications are append-only");
+    expect(migration).toContain("evidence_snapshot jsonb not null");
+    expect(migration).toContain("'sourceevent',jsonb_build_object");
     expect(migration).toContain("insert into public.audit_events");
   });
 

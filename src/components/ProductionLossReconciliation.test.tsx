@@ -44,6 +44,7 @@ const payload = {
       downHours: 4,
       classification: "unclassified",
       classificationBasis: null,
+      classificationEvidenceSnapshot: null,
       classificationReviewId: null,
       supersedesId: null,
       classifiedAt: null,

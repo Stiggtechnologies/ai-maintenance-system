@@ -44,6 +44,7 @@ export interface ProductionLossEvent {
   downHours: number;
   classification: DowntimeClassification | "unclassified";
   classificationBasis: string | null;
+  classificationEvidenceSnapshot: Record<string, unknown> | null;
   classificationReviewId: number | null;
   supersedesId: number | null;
   classifiedAt: string | null;
