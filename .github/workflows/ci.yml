@@ -483,6 +483,9 @@ jobs:
       - name: Smoke — governed recommendation evidence provenance
         run: bash scripts/ci-recommendation-evidence-provenance-smoke.sh
 
+      - name: Smoke — governed uncertainty-aware risk analysis
+        run: bash scripts/ci-risk-uncertainty-analysis-smoke.sh
+
       - name: Smoke — exact-version model performance, drift and cohort screening
         run: bash scripts/ci-model-performance-governance-smoke.sh
 
