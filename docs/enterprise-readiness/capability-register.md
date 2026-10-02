@@ -577,7 +577,7 @@ with the PR that changes an item's status._
 
 | ID     | Capability                                                                                                                                                                                      | Status |
 | ------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| U14.01 | Degradation library: corrosion, fatigue, creep, erosion, wear, embrittlement, chemical, concrete, timber, insulation ageing, battery, cable, semiconductor, lubricant, coating, soil/foundation | 🟡     |
+| U14.01 | Degradation library: corrosion, fatigue, creep, erosion, wear, embrittlement, chemical, concrete, timber, insulation ageing, battery, cable, semiconductor, lubricant, coating, soil/foundation | ✅ The governed degradation library covers exactly all sixteen named families by classifying canonical `damage_mechanisms`, adding versioned `degradation_profiles`, and linking exact versions from canonical `model_register` through `engineering_model_mechanisms`. A customer-reachable Engineering Model Registry panel exposes stressor, damage-state, observation and applicability evidence without supplying degradation rates, engineering limits, remaining life, inspection intervals or operating authority. Same-tenant verified `evidence_items`, named-human author/reviewer separation, canonical `approvals` and `audit_events`, immutable reviewed versions, revoked direct writes and future-tenant provisioning preserve provenance, tenant isolation and human authority. Static/UI tests plus the fresh-chain `ci-degradation-library-smoke.sh` prove all 16 families, evidence refusal, independent review, exact-version linkage, cross-role immutability, service-role/owner mutation and truncate refusal, future-tenant seeding and unchanged operational authorization. |
 
 ### U15 — Natural-hazard and climate resilience
 
@@ -776,6 +776,6 @@ record-scoped._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 348 · 🟡 118 · ❌ 0. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main. U22.01 closed by the evidence-backed organizational maturity workflow and governed runtime acceptance smoke.)_
+never changed, only the count of it). Current tally: ✅ 349 · 🟡 117 · ❌ 0. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main. U22.01 closed by the evidence-backed organizational maturity workflow and governed runtime acceptance smoke.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
