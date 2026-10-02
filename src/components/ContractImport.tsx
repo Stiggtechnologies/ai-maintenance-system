@@ -7,7 +7,7 @@
  * named plan fields one by one. Everything else about it — batching, the run
  * lifecycle, the summary, the rendered rejects — was already entity-agnostic.
  *
- * WHY IT CARRIES EIGHT TYPES NOW. begin_manual_import named three, and four
+ * WHY IT CARRIES TEN TYPES NOW. begin_manual_import named three, and four
  * more were fully validated and unreachable: condition_reading and
  * material_stock in ingest_batch, operating_state and production_record in
  * ingest_context_batch. The second function had never had a caller at all.
@@ -15,9 +15,11 @@
  * and this screen is what a customer walks through to reach it. The eighth,
  * schedule_activity (20261112090000), is the P6 import half of D5.28: same
  * door, same route table, a third validator — P6 stays system-of-record and
- * Sync never writes back.
+ * Sync never writes back. Procurement status is the ninth and governed
+ * cost/ERP actuals the tenth; both resolve existing governed objects and call
+ * their canonical writers rather than creating parallel stores.
  *
- * WHY THERE IS ONE SCREEN AND NOT SEVEN. The parts that differ between entity
+ * WHY THERE IS ONE SCREEN AND NOT TEN. The parts that differ between entity
  * types are DATA — required columns, the dedupe key, what a re-upload does —
  * and they live in src/lib/ingest-entities.ts beside the reasons a person needs
  * them. A second importer component would be a fourth CSV path in this product,
@@ -25,8 +27,8 @@
  * disagreed with the other two about what a re-upload means.
  *
  * WHAT IS SAID BEFORE THE UPLOAD, NOT AFTER. The shipped screen told everybody
- * "a re-upload updates rather than duplicates" — true of three of the seven
- * types, false of the other four, which skip a re-upload as a duplicate. Every
+ * "a re-upload updates rather than duplicates" — true of three of the ten
+ * types, false of the other seven, which skip a re-upload as a duplicate. Every
  * sentence about identity, de-duplication and prerequisites is now per entity
  * and shown before the file is sent, because none of it is guessable from a
  * reject reason.
