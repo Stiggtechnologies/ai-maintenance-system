@@ -275,7 +275,7 @@ create policy maintenance_executive_dispositions_read on public.maintenance_exec
   );
 revoke insert,update,delete,truncate on public.maintenance_executive_briefs,
   public.maintenance_executive_review_assignments,public.maintenance_executive_dispositions
-  from public,anon,authenticated;
+  from public,anon,authenticated,service_role;
 grant select on public.maintenance_executive_briefs,
   public.maintenance_executive_review_assignments,public.maintenance_executive_dispositions
   to authenticated;
@@ -318,6 +318,9 @@ create policy audit_events_org_read on public.audit_events
 create or replace function public.protect_maintenance_executive_records()
 returns trigger language plpgsql security definer set search_path=public as $$
 begin
+  if tg_op='TRUNCATE' then
+    raise exception 'maintenance-executive briefs, assignments and dispositions are immutable evidence and cannot be truncated';
+  end if;
   if tg_op in ('UPDATE','DELETE') then
     raise exception 'maintenance-executive briefs, assignments and dispositions are append-only';
   end if;
@@ -330,12 +333,21 @@ revoke all on function public.protect_maintenance_executive_records() from publi
 drop trigger if exists trg_protect_maintenance_executive_briefs on public.maintenance_executive_briefs;
 create trigger trg_protect_maintenance_executive_briefs before insert or update or delete
   on public.maintenance_executive_briefs for each row execute function public.protect_maintenance_executive_records();
+drop trigger if exists trg_protect_maintenance_executive_briefs_no_truncate on public.maintenance_executive_briefs;
+create trigger trg_protect_maintenance_executive_briefs_no_truncate before truncate
+  on public.maintenance_executive_briefs for each statement execute function public.protect_maintenance_executive_records();
 drop trigger if exists trg_protect_maintenance_executive_reviews on public.maintenance_executive_review_assignments;
 create trigger trg_protect_maintenance_executive_reviews before insert or update or delete
   on public.maintenance_executive_review_assignments for each row execute function public.protect_maintenance_executive_records();
+drop trigger if exists trg_protect_maintenance_executive_reviews_no_truncate on public.maintenance_executive_review_assignments;
+create trigger trg_protect_maintenance_executive_reviews_no_truncate before truncate
+  on public.maintenance_executive_review_assignments for each statement execute function public.protect_maintenance_executive_records();
 drop trigger if exists trg_protect_maintenance_executive_dispositions on public.maintenance_executive_dispositions;
 create trigger trg_protect_maintenance_executive_dispositions before insert or update or delete
   on public.maintenance_executive_dispositions for each row execute function public.protect_maintenance_executive_records();
+drop trigger if exists trg_protect_maintenance_executive_dispositions_no_truncate on public.maintenance_executive_dispositions;
+create trigger trg_protect_maintenance_executive_dispositions_no_truncate before truncate
+  on public.maintenance_executive_dispositions for each statement execute function public.protect_maintenance_executive_records();
 
 -- Preserve every established retained-run writer while adding an explicit
 -- organization scope and the executive specialist's marker.

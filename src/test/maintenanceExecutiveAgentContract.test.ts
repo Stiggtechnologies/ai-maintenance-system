@@ -139,6 +139,24 @@ describe("governed Maintenance Executive Specialist execution", () => {
     expect(migration).toContain(
       "this named human is not assigned to review the brief",
     );
+    expect(migration).toContain(
+      "revoke insert,update,delete,truncate on public.maintenance_executive_briefs",
+    );
+    expect(migration).toContain(
+      "from public,anon,authenticated,service_role",
+    );
+    for (const table of [
+      "maintenance_executive_briefs",
+      "maintenance_executive_review_assignments",
+      "maintenance_executive_dispositions",
+    ]) {
+      expect(migration).toMatch(
+        new RegExp(`before truncate\\s+on public\\.${table}`),
+      );
+    }
+    expect(migration).toContain("if tg_op='truncate'");
+    expect(smoke).toContain("service_role_mutation_refused=true");
+    expect(smoke).toContain("owner_truncate_refused=true");
   });
 
   it("is customer-operable from the canonical executive surface", () => {

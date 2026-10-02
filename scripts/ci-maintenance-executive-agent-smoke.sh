@@ -13,6 +13,17 @@ psqlc() {
     -v ON_ERROR_STOP=1 -qAt -c "$1"
 }
 
+psql_refused() {
+  local statement="$1"
+  local expected="$2"
+  local output
+  if output=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres \
+    -v ON_ERROR_STOP=1 -qAt -c "$statement" 2>&1); then
+    return 1
+  fi
+  grep -qi "$expected" <<<"$output"
+}
+
 token() {
   curl -sS "$API_URL/auth/v1/token?grant_type=password" \
     -H "apikey: $ANON_KEY" -H 'content-type: application/json' \
@@ -153,8 +164,18 @@ PATCH=$(curl -sS -o /tmp/c101-patch.txt -w '%{http_code}' -X PATCH \
   -d '{"priorities":[]}')
 case "$PATCH" in 401|403) ;; 200) test "$(cat /tmp/c101-patch.txt)" = '[]' ;; *) false ;; esac
 test "$(psqlc "select jsonb_array_length(priorities) from public.maintenance_executive_briefs where id='$BRIEF'")" -gt 0
+
+# The API wall is backed by database immutability. service_role has no direct
+# mutation grant, and even the owner cannot bypass retained evidence with a
+# statement-level TRUNCATE.
+psql_refused "set role service_role; delete from public.maintenance_executive_dispositions where brief_id='$BRIEF'" \
+  'permission denied'
+psql_refused "truncate table public.maintenance_executive_review_assignments, public.maintenance_executive_dispositions, public.maintenance_executive_briefs" \
+  'immutable evidence and cannot be truncated'
+test "$(psqlc "select count(*) from public.maintenance_executive_briefs where id='$BRIEF'")" = '1'
+test "$(psqlc "select count(*) from public.maintenance_executive_dispositions where brief_id='$BRIEF'")" = '1'
 test "$(psqlc "select count(*) from public.approvals where organization_id='$ORG'")" = "$BEFORE_APPROVALS"
 test "$(psqlc "select count(*) from public.recommendations where organization_id='$ORG'")" = "$BEFORE_RECS"
 test "$(psqlc "select recommendations_generated from public.ai_agents where organization_id='$ORG' and key='maintenance_executive'")" = "$BEFORE_AGENT_RECS"
 
-echo 'Maintenance Executive Specialist smoke passed: canonical_kpis=true kpi_audience_preserved=true canonical_budgets=true budget_amounts_not_mixed_without_currency=true canonical_risks=true risk_sensitivity_preserved=true canonical_strategy=true canonical_governance=true verified_value_statuses_and_units_separated=true exact_source_fingerprints=true organization_scope=true role_scoped_read=true immutable_brief=true no_invented_confidence=true no_shadow_recommendations=true sod_review=true no_agent_approval=true no_risk_acceptance=true no_spend_commitment=true no_work_release=true no_strategy_mutation=true no_operational_authority=true'
+echo 'Maintenance Executive Specialist smoke passed: canonical_kpis=true kpi_audience_preserved=true canonical_budgets=true budget_amounts_not_mixed_without_currency=true canonical_risks=true risk_sensitivity_preserved=true canonical_strategy=true canonical_governance=true verified_value_statuses_and_units_separated=true exact_source_fingerprints=true organization_scope=true role_scoped_read=true immutable_brief=true service_role_mutation_refused=true owner_truncate_refused=true no_invented_confidence=true no_shadow_recommendations=true sod_review=true no_agent_approval=true no_risk_acceptance=true no_spend_commitment=true no_work_release=true no_strategy_mutation=true no_operational_authority=true'
