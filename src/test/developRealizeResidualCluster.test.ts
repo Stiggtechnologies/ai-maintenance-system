@@ -197,7 +197,7 @@ describe("register flips only the rows this cluster closed", () => {
     // provisioning seeding. This older residual test must not pin later
     // delivered work red.
     expect(row("D3.02")).toMatch(/^\| D3\.02 \|[^|]*\|[^|]*\| ✅/);
-    expect(row("D11.27")).toMatch(/^\| D11\.27 \|[^|]*\|[^|]*\| 🟡/);
+    expect(row("D11.27")).toMatch(/^\| D11\.27 \|[^|]*\|[^|]*\| ✅/);
     // D1.03 was subsequently closed by the reachable Hybrid Development
     // workstream slice; this older cluster must not pin a shipped row red.
     expect(row("D1.03")).toMatch(
