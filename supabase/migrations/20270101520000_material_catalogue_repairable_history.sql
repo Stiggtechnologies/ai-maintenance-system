@@ -141,6 +141,8 @@ begin
   perform set_config('app.material_revision_action',v_action,true);
   return new;
 end $$;
+revoke all on function public.capture_material_master_revision()
+  from public,anon,authenticated,service_role;
 
 create or replace function public.append_material_master_revision()
 returns trigger language plpgsql security definer set search_path=public as $$
@@ -157,6 +159,8 @@ begin
   ) on conflict(material_id,version) do nothing;
   return new;
 end $$;
+revoke all on function public.append_material_master_revision()
+  from public,anon,authenticated,service_role;
 
 drop trigger if exists trg_material_master_version on public.materials;
 create trigger trg_material_master_version before insert or update on public.materials

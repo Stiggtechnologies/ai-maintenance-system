@@ -88,5 +88,7 @@ DIRECT_MATERIAL=$(curl -sS -o /tmp/c207-direct-material.txt -w '%{http_code}' -X
 DIRECT_EVENT=$(curl -sS -o /tmp/c207-direct-event.txt -w '%{http_code}' -X PATCH "$API_URL/rest/v1/repairable_unit_events?repairable_unit_id=eq.$UNIT" -H "apikey: $ANON_KEY" -H "authorization: Bearer $ENGINEER" -H 'content-type: application/json' -d '{"basis":"Direct history rewrite must remain locked."}')
 case "$DIRECT_MATERIAL" in 401|403) ;; *) false ;; esac
 case "$DIRECT_EVENT" in 401|403) ;; *) false ;; esac
+test "$(psqlc "select has_function_privilege('anon','public.capture_material_master_revision()','EXECUTE');")" = 'f'
+test "$(psqlc "select has_function_privilege('anon','public.append_material_master_revision()','EXECUTE');")" = 'f'
 
-echo 'C2.07 material-catalogue and repairable-history smoke passed: named_human_only=true tenant_wall=true optimistic_catalogue=true direct_write_locked=true serial_unique=true transition_order=true event_history=true turnaround_evidence=true unknown_visible=true'
+echo 'C2.07 material-catalogue and repairable-history smoke passed: named_human_only=true tenant_wall=true optimistic_catalogue=true direct_write_locked=true trigger_execute_locked=true serial_unique=true transition_order=true event_history=true turnaround_evidence=true unknown_visible=true'

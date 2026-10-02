@@ -76,6 +76,12 @@ describe("C2.07 governed materials and serialized repairable history", () => {
 
   it("locks direct writes while retaining immutable receipts and audit evidence", () => {
     expect(migration).toContain(
+      "revoke all on function public.capture_material_master_revision()",
+    );
+    expect(migration).toContain(
+      "revoke all on function public.append_material_master_revision()",
+    );
+    expect(migration).toContain(
       "revoke insert,update,delete,truncate on public.materials",
     );
     expect(migration).toContain(
@@ -100,6 +106,7 @@ describe("C2.07 governed materials and serialized repairable history", () => {
       "tenant_wall=true",
       "optimistic_catalogue=true",
       "direct_write_locked=true",
+      "trigger_execute_locked=true",
       "serial_unique=true",
       "transition_order=true",
       "event_history=true",
