@@ -462,10 +462,10 @@
     "backticked": 4
   },
   "C5.14": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 3,
-    "backticked": 0
+    "citations": 7,
+    "backticked": 7
   },
   "C5.15": {
     "status": "✅",

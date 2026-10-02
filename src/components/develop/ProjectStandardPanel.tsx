@@ -24,6 +24,7 @@ export function ProjectStandardPanel({
   const [content, setContent] = useState("");
   const [summary, setSummary] = useState("");
   const [basis, setBasis] = useState("");
+  const [safetyCritical, setSafetyCritical] = useState(false);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [more, setMore] = useState(true);
@@ -60,6 +61,7 @@ export function ProjectStandardPanel({
     setItems((old) => [...old.filter((item) => item.id !== id), row].sort((a, b) => a.id - b.id));
     setSelectedId(String(id));
     setLanguage(row.procedures[0]?.language_code ?? "");
+    setSafetyCritical(row.safety_critical);
     // Keep the sequential page cursor: a newly inserted high ID must not make
     // Load more skip the intervening standards that have not been fetched.
   };
@@ -112,6 +114,7 @@ export function ProjectStandardPanel({
           disabled={busy}
           onChange={(e) => {
             setSelectedId(e.target.value);
+            setSafetyCritical(items.find((row) => String(row.id) === e.target.value)?.safety_critical ?? false);
             setLanguage("");
             setContent("");
             setSummary("");
@@ -153,6 +156,9 @@ export function ProjectStandardPanel({
       {selected && (
         <>
           <p>Source basis: {selected.basis ?? "Not recorded"}</p>
+          {selected.safety_critical && (
+            <p><strong>Safety-critical procedure.</strong> Designated safety authority: {selected.approval?.owner_role ?? "admin"}.</p>
+          )}
           <label className="block">
             Procedure language
             <select
@@ -201,9 +207,12 @@ export function ProjectStandardPanel({
                       content,
                       changeSummary: summary,
                       basis,
+                      safetyCritical: selected.safety_critical || safetyCritical,
                     });
                     await refreshStandard(receipt.revisionId);
-                    return `Draft revision ${receipt.revisionId} requested; approval ${receipt.approvalId} is pending.`;
+                    return receipt.safetyCritical
+                      ? `Draft revision ${receipt.revisionId} requested. A different designated safety authority (${receipt.requiredAuthority}) must decide adoption.`
+                      : `Draft revision ${receipt.revisionId} requested; approval ${receipt.approvalId} is pending.`;
                   });
                 }}
               >
@@ -235,6 +244,16 @@ export function ProjectStandardPanel({
                     className="block w-full bg-slate-900 p-2"
                   />
                 </label>
+                <label className="block">
+                  <input
+                    type="checkbox"
+                    checked={selected.safety_critical || safetyCritical}
+                    disabled={selected.safety_critical}
+                    onChange={(e) => setSafetyCritical(e.target.checked)}
+                  />{" "}
+                  Safety-critical procedure
+                </label>
+                <p>Safety-critical alterations require a different named Designated safety authority and cannot be downgraded later.</p>
                 <button
                   disabled={
                     busy ||
@@ -264,7 +283,9 @@ export function ProjectStandardPanel({
                   <>
                     <p>
                       Review the exact procedure above. The requester cannot
-                      decide their own adoption.
+                      decide their own adoption. {selected.safety_critical
+                        ? "The server requires the Designated safety authority."
+                        : ""}
                     </p>
                     <label>
                       Decision basis
