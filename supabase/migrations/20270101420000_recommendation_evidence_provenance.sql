@@ -142,6 +142,13 @@ create or replace function public.enforce_recommendation_evidence_provenance()
 returns trigger language plpgsql set search_path=public as $$
 declare v_marker text:=coalesce(current_setting('app.recommendation_evidence_write',true),'');
 begin
+  if tg_op<>'DELETE' then
+    if new.recommendation_id is not null
+       and not exists(select 1 from public.recommendations r
+         where r.id=new.recommendation_id and r.organization_id=new.organization_id) then
+      raise exception 'recommendation evidence must link to a recommendation in the same organization';
+    end if;
+  end if;
   if tg_op='INSERT' then
     if (
       new.recommendation_evidence_level is not null
@@ -306,6 +313,10 @@ begin
   select * into e from public.evidence_items
   where id=p_evidence_id and organization_id=v_org for update;
   if not found or e.recommendation_id is null then
+    return jsonb_build_object('error','same-tenant recommendation-linked evidence item not found');
+  end if;
+  if not exists(select 1 from public.recommendations r
+    where r.id=e.recommendation_id and r.organization_id=v_org) then
     return jsonb_build_object('error','same-tenant recommendation-linked evidence item not found');
   end if;
   if e.recommendation_provenance_status<>'unclassified' then

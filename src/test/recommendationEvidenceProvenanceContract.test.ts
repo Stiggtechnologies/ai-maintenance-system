@@ -94,6 +94,9 @@ describe("U17.01/U17.02 governed recommendation evidence contract", () => {
     expect(migration).toContain(
       "r.id=p_recommendation_id and r.organization_id=p_organization_id",
     );
+    expect(migration).toContain(
+      "recommendation evidence must link to a recommendation in the same organization",
+    );
   });
 
   it("is customer reachable from Mission Control and CI runtime validated", () => {

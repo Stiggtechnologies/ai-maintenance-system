@@ -8,6 +8,7 @@ eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL|SERVICE_ROLE_KEY)='
 ORG='11111111-1111-1111-1111-111111111111'
 FOREIGN_ORG='27170000-0000-4000-8000-000000000001'
 FOREIGN_ID='27170000-0000-4000-8000-000000000002'
+FOREIGN_RECOMMENDATION='27170000-0000-4000-8000-000000000003'
 
 token(){ curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}" | python3 -c "import json,sys;print(json.load(sys.stdin).get('access_token',''))"; }
 rpc(){ curl -sS -w '\n%{http_code}' -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "authorization: Bearer $1" -H 'content-type: application/json' -d "$3"; }
@@ -98,12 +99,27 @@ begin
     values(gen_random_uuid(),'$FOREIGN_ID','$FOREIGN_ID',jsonb_build_object('sub','$FOREIGN_ID','email','u17-foreign@syncai.ca'),'email',now(),now(),now());
   end if;
   insert into user_profiles(id,organization_id,email,role) values('$FOREIGN_ID','$FOREIGN_ORG','u17-foreign@syncai.ca','reliability_engineer') on conflict(id) do update set organization_id=excluded.organization_id,role=excluded.role;
+  insert into recommendations(id,organization_id,title,status)
+  values('$FOREIGN_RECOMMENDATION','$FOREIGN_ORG','U17 foreign recommendation fixture','pending')
+  on conflict(id) do nothing;
 end \$seed\$;
 SQL
 FOREIGN=$(token 'u17-foreign@syncai.ca' 'Foreign123!@#')
 test -n "$FOREIGN"
 CROSS=$(rpc "$FOREIGN" get_recommendation_evidence_workspace "{\"p_recommendation_id\":\"$RECOMMENDATION_ID\"}")
 err "$CROSS" 'recommendation not found in this organization'
+
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 <<SQL
+do \$\$ begin
+  begin
+    insert into evidence_items(organization_id,recommendation_id,source_system,description)
+    values('$ORG','$FOREIGN_RECOMMENDATION','U17-CI','Cross-tenant recommendation binding must be refused.');
+    raise exception 'cross-tenant recommendation evidence binding was incorrectly allowed';
+  exception when others then
+    if sqlerrm not like '%recommendation in the same organization%' then raise; end if;
+  end;
+end \$\$;
+SQL
 
 # Obtain a fresh linked item to prove exact-digest staleness without mutating history.
 NEW_EVIDENCE=$(python3 -c 'import uuid;print(uuid.uuid4())')
