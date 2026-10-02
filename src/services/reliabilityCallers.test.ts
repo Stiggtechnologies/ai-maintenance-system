@@ -16,6 +16,7 @@ import {
   deriveObservedPf,
   getOperatingContext,
   getOperatingRegime,
+  getProcessEventContext,
   linkAlertToWork,
   listOpenWorkOrders,
   proposeTaxonomyRevision,
@@ -92,6 +93,28 @@ describe("operating-context readers", () => {
     });
     expect(result.regime).toBe("Unknown duty");
     expect(result.basis).toMatch(/load_pct was not recorded/);
+  });
+
+  it("calls get_process_event_context without conflating process and condition alerts", async () => {
+    rpc.mockResolvedValue({
+      data: {
+        asset_id: "a1",
+        window_days: 30,
+        total_in_window: 1,
+        records_total: 1,
+        data_span_from: "2026-08-01T00:00:00Z",
+        data_span_to: "2026-08-01T00:00:00Z",
+        events: [{ id: 1, event_type: "alarm", severity: null }],
+        basis: "1 process event falls inside the requested window.",
+      },
+      error: null,
+    });
+    const result = await getProcessEventContext("a1", 30);
+    expect(rpc).toHaveBeenCalledWith("get_process_event_context", {
+      p_asset_id: "a1",
+      p_window_days: 30,
+    });
+    expect(result.events[0].event_type).toBe("alarm");
   });
 
   it("does not invent a running state when the regime RPC returns nothing", async () => {

@@ -36,6 +36,7 @@ const CONTEXT_FIX =
   "20261004090200_operating_context_rows_survive_a_bad_cell.sql";
 const SCHEDULE_IMPORT = "20261112090000_p6_schedule_import.sql";
 const COST_ACTUAL_IMPORT = "20270101370000_develop_cost_actual_connector.sql";
+const PROCESS_EVENT_IMPORT = "20270101490000_process_event_ingest.sql";
 /**
  * Where the schedule validator's CURRENT body lives.
  *
@@ -141,12 +142,12 @@ describe("the route table is the single source of truth", () => {
   it("the parser actually found the table", () => {
     // Without this, every comparison below passes vacuously the day the regex
     // stops matching.
-    // 9 -> 10 with D11.33's final cost_actual connector. The count is pinned
+    // 10 -> 11 with C2.04's process-event connector. The count is pinned
     // so a route silently disappearing fails here.
-    expect(Object.keys(routes).length).toBe(10);
+    expect(Object.keys(routes).length).toBe(11);
   });
 
-  it("the route table's live definition is the cost-actual migration", () => {
+  it("the route table's live definition is the process-event migration", () => {
     // create-or-replace resolves to the LAST file; if a later migration
     // redefines the table without carrying every route, this names it. Slice
     // 6B re-issued the table in full to add procurement_status, so the home
@@ -154,7 +155,7 @@ describe("the route table is the single source of truth", () => {
     // survived that move by the descriptor-pairing case below, which compares
     // the SQL routes against INGEST_ENTITIES key for key.
     expect(defs.get("ingest_entity_routes")?.file).toBe(
-      "20270101370000_develop_cost_actual_connector.sql",
+      PROCESS_EVENT_IMPORT,
     );
     expect(sqlRoutes().schedule_activity).toBe("ingest_schedule_batch");
     expect(sqlRoutes().procurement_status).toBe(
@@ -629,6 +630,7 @@ describe("every enumerated CHECK the surface exposes is in the descriptor", () =
     condition_reading: "condition_readings",
     material_stock: "material_stock",
     operating_state: "operating_states",
+    process_event: "process_events",
     production_record: "production_records",
     schedule_activity: "shutdown_tasks",
     procurement_status: "contract_packages",
