@@ -45,6 +45,7 @@ describe("D11.29 Modelling Studio calculation lineage", () => {
     expect(service).toContain('action: "modelling_studio"');
     expect(component).toContain("runModellingStudio");
     expect(component).toContain("data.lineage");
+    expect(component).not.toContain("runId.slice");
     expect(component).not.toContain("supabase.rpc");
     expect(component).not.toContain("analyseFaultTree");
     expect(component).not.toContain("simulateProduction");

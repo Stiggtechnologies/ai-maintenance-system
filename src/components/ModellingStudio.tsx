@@ -109,11 +109,13 @@ export function ModellingStudio() {
                         : "s"}
                     </span>
                   )}
-                  <span className="font-mono text-[10px] text-slate-600">
+                  <span className="break-all font-mono text-[10px] text-slate-600">
                     run{" "}
-                    {data.lineage.trees
-                      .find((entry) => entry.subjectId === tree.id)
-                      ?.runId.slice(0, 8)}
+                    {
+                      data.lineage.trees.find(
+                        (entry) => entry.subjectId === tree.id,
+                      )?.runId
+                    }
                   </span>
                 </div>
                 <p className="text-xs leading-relaxed text-slate-500">
@@ -178,11 +180,13 @@ export function ModellingStudio() {
                       plan
                     </span>
                   )}
-                  <span className="font-mono text-[10px] text-slate-600">
+                  <span className="break-all font-mono text-[10px] text-slate-600">
                     run{" "}
-                    {data.lineage.schedules
-                      .find((entry) => entry.subjectId === schedule.id)
-                      ?.runId.slice(0, 8)}
+                    {
+                      data.lineage.schedules.find(
+                        (entry) => entry.subjectId === schedule.id,
+                      )?.runId
+                    }
                   </span>
                 </div>
                 <p className="text-xs leading-relaxed text-slate-500">
@@ -227,8 +231,8 @@ export function ModellingStudio() {
               compiled from the recorded dependency graph, {rbd.blockCount}{" "}
               block{rbd.blockCount === 1 ? "" : "s"}
             </span>
-            <span className="font-mono text-[10px] font-normal text-slate-600">
-              run {data.lineage.rbdRunId.slice(0, 8)}
+            <span className="break-all font-mono text-[10px] font-normal text-slate-600">
+              run {data.lineage.rbdRunId}
             </span>
           </h3>
           <p className="mt-1 text-xs leading-relaxed text-slate-400">
@@ -254,8 +258,8 @@ export function ModellingStudio() {
         <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
           <Activity className="h-4 w-4 text-signal-cyan" aria-hidden />
           Monte Carlo availability simulation
-          <span className="font-mono text-[10px] font-normal text-slate-600">
-            run {data.lineage.simulationRunId.slice(0, 8)}
+          <span className="break-all font-mono text-[10px] font-normal text-slate-600">
+            run {data.lineage.simulationRunId}
           </span>
         </h3>
         <p className="mt-1 text-xs leading-relaxed text-slate-400">
@@ -296,8 +300,8 @@ export function ModellingStudio() {
         <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
           <TrendingUp className="h-4 w-4 text-amber-400" aria-hidden />
           Maintenance-cost forecast
-          <span className="font-mono text-[10px] font-normal text-slate-600">
-            run {data.lineage.forecastRunId.slice(0, 8)}
+          <span className="break-all font-mono text-[10px] font-normal text-slate-600">
+            run {data.lineage.forecastRunId}
           </span>
         </h3>
         {data.posture && typeof data.posture.basis === "string" && (
