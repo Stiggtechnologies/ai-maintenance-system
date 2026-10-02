@@ -176,11 +176,11 @@ export interface HazardousInventoryInput extends CommonEvidenceInput {
     | "other";
   quantity?: number | null;
   unit?: string | null;
-  location?: string | null;
+  location: string;
   handlingRequirements: string;
-  emergencyResponseReference?: string | null;
-  regulatoryReference?: string | null;
-  disposalRouteRequired?: string | null;
+  emergencyResponseReference: string;
+  regulatoryReference: string;
+  disposalRouteRequired: string;
   endOfLifePlanned: boolean;
 }
 
@@ -363,16 +363,27 @@ export async function recordEnvironmentalEvidence<
         substance: textValue(input.substance, "Substance", 2),
         quantity,
         unit: input.unit?.trim() || null,
-        location: input.location?.trim() || null,
+        location: textValue(input.location, "Controlled location", 2),
         handlingRequirements: textValue(
           input.handlingRequirements,
           "Handling requirements",
           20,
         ),
-        emergencyResponseReference:
-          input.emergencyResponseReference?.trim() || null,
-        regulatoryReference: input.regulatoryReference?.trim() || null,
-        disposalRouteRequired: input.disposalRouteRequired?.trim() || null,
+        emergencyResponseReference: textValue(
+          input.emergencyResponseReference,
+          "Emergency-response reference",
+          2,
+        ),
+        regulatoryReference: textValue(
+          input.regulatoryReference,
+          "Regulatory reference",
+          2,
+        ),
+        disposalRouteRequired: textValue(
+          input.disposalRouteRequired,
+          "Required disposal route",
+          10,
+        ),
       };
       break;
     }

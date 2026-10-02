@@ -174,13 +174,14 @@ export function EnvironmentalEvidenceManagement() {
           ) as HazardousInventoryInput["category"],
           quantity: numberValue(form, "quantity"),
           unit: textValue(form, "unit") || null,
-          location: textValue(form, "location") || null,
+          location: textValue(form, "location"),
           handlingRequirements: textValue(form, "handlingRequirements"),
-          emergencyResponseReference:
-            textValue(form, "emergencyResponseReference") || null,
-          regulatoryReference: textValue(form, "regulatoryReference") || null,
-          disposalRouteRequired:
-            textValue(form, "disposalRouteRequired") || null,
+          emergencyResponseReference: textValue(
+            form,
+            "emergencyResponseReference",
+          ),
+          regulatoryReference: textValue(form, "regulatoryReference"),
+          disposalRouteRequired: textValue(form, "disposalRouteRequired"),
           endOfLifePlanned: form.get("endOfLifePlanned") === "on",
           basis,
           sourceReference,
@@ -501,7 +502,8 @@ export function EnvironmentalEvidenceManagement() {
                   <TextField name="unit" label="Unit (with quantity)" />
                   <TextField
                     name="location"
-                    label="Controlled location (optional)"
+                    label="Controlled location"
+                    required
                   />
                   <TextField
                     name="handlingRequirements"
@@ -510,15 +512,18 @@ export function EnvironmentalEvidenceManagement() {
                   />
                   <TextField
                     name="emergencyResponseReference"
-                    label="Emergency-response reference (optional)"
+                    label="Emergency-response reference"
+                    required
                   />
                   <TextField
                     name="regulatoryReference"
-                    label="Regulatory reference (optional)"
+                    label="Regulatory reference"
+                    required
                   />
                   <TextField
                     name="disposalRouteRequired"
-                    label="Required disposal route (optional)"
+                    label="Required disposal route"
+                    required
                   />
                   <label className="flex items-center gap-2 text-xs text-slate-400">
                     <input type="checkbox" name="endOfLifePlanned" />

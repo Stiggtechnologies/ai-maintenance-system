@@ -48,6 +48,7 @@ describe("E10 governed environmental evidence workflow", () => {
     expect(migration).toContain("public.app_actor_has_verified_mfa(v_actor)");
     expect(migration).toContain("e.verification_status='verified'");
     expect(migration).toContain("e.verified_by<>v_actor");
+    expect(migration).toContain("verifier.role<>'ai_admin'");
     expect(migration).toContain("v_role not in");
     expect(migration).toContain("ai_admin and read-only roles are refused");
   });
@@ -62,6 +63,38 @@ describe("E10 governed environmental evidence workflow", () => {
     expect(migration).toContain(
       "revoke insert,update,delete,truncate on public.environmental_activities",
     );
+    expect(migration).toContain(
+      "Environmental evidence is retained and cannot be truncated",
+    );
+    expect(migration).toContain(
+      "not exists(select 1 from public.organizations where id=v_org)",
+    );
+  });
+
+  it("refuses dimensionally invalid emissions and retroactive factor selection", () => {
+    expect(migration).toContain(
+      "lower(btrim(f.activity_unit))=lower(btrim(p_record->>'unit'))",
+    );
+    expect(migration).toContain("ef.valid_from<=a.period_end");
+    expect(migration).toContain(
+      "lower(btrim(ef.activity_unit))=lower(btrim(a.unit))",
+    );
+  });
+
+  it("requires the controls claimed for hazardous materials", () => {
+    for (const control of [
+      "location",
+      "handlingRequirements",
+      "emergencyResponseReference",
+      "regulatoryReference",
+      "disposalRouteRequired",
+    ]) {
+      expect(service).toContain(control);
+      expect(management).toContain(control);
+    }
+    expect(migration).toContain("controlled location");
+    expect(migration).toContain("emergency and regulatory references");
+    expect(migration).toContain("disposal route are required");
   });
 
   it("keeps environmental evidence separate from compliance and operational authority", () => {

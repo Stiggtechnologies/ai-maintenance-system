@@ -82,11 +82,57 @@ language plpgsql
 security definer
 set search_path=public,pg_temp
 as $$
+declare
+  v_old jsonb:=case when tg_op in ('UPDATE','DELETE') then to_jsonb(old) else null end;
+  v_new jsonb:=case when tg_op in ('INSERT','UPDATE') then to_jsonb(new) else null end;
+  v_org uuid;
+  v_asset uuid;
+  v_site uuid;
 begin
-  -- Preserve FK cascade/set-null behavior owned by the canonical parent rows.
-  if pg_trigger_depth()>1 and tg_op in ('UPDATE','DELETE') then
-    if tg_op='DELETE' then return old; end if;
-    return new;
+  if tg_op='TRUNCATE' then
+    raise exception 'Environmental evidence is retained and cannot be truncated';
+  end if;
+  -- Preserve only the exact FK cascade/set-null transitions owned by a
+  -- canonical parent. Trigger nesting alone is not authority: an unrelated
+  -- nested trigger must not become a generic bypass around this write wall.
+  if pg_trigger_depth()>1 and tg_op='DELETE' then
+    v_org:=nullif(v_old->>'organization_id','')::uuid;
+    if not exists(select 1 from public.organizations where id=v_org) then
+      return old;
+    end if;
+    if tg_table_name='efficiency_baselines'
+       and not exists(select 1 from public.assets where id=(v_old->>'asset_id')::uuid) then
+      return old;
+    end if;
+    if tg_table_name='efficiency_readings'
+       and not exists(select 1 from public.efficiency_baselines where id=(v_old->>'baseline_id')::bigint) then
+      return old;
+    end if;
+  end if;
+  if pg_trigger_depth()>1 and tg_op='UPDATE' then
+    if tg_table_name='environmental_activities'
+       and (v_new-array['asset_id','site_id'])=(v_old-array['asset_id','site_id']) then
+      v_asset:=nullif(v_old->>'asset_id','')::uuid;
+      v_site:=nullif(v_old->>'site_id','')::uuid;
+      if (v_new->>'asset_id') is null and v_asset is not null
+         and not exists(select 1 from public.assets where id=v_asset)
+         and v_new->>'site_id' is not distinct from v_old->>'site_id' then
+        return new;
+      end if;
+      if (v_new->>'site_id') is null and v_site is not null
+         and not exists(select 1 from public.sites where id=v_site)
+         and v_new->>'asset_id' is not distinct from v_old->>'asset_id' then
+        return new;
+      end if;
+    end if;
+    if tg_table_name='hazardous_inventory'
+       and (v_new-'asset_id')=(v_old-'asset_id')
+       and (v_new->>'asset_id') is null then
+      v_asset:=nullif(v_old->>'asset_id','')::uuid;
+      if v_asset is not null and not exists(select 1 from public.assets where id=v_asset) then
+        return new;
+      end if;
+    end if;
   end if;
   if coalesce(current_setting('app.environmental_evidence_writer',true),'')<>'governed' then
     raise exception 'Environmental evidence can change only through the governed E10 writer';
@@ -110,22 +156,42 @@ drop trigger if exists trg_guard_emission_factor_write on public.emission_factor
 create trigger trg_guard_emission_factor_write
   before insert or update or delete on public.emission_factors
   for each row execute function public.guard_environmental_evidence_write();
+drop trigger if exists trg_guard_emission_factor_truncate on public.emission_factors;
+create trigger trg_guard_emission_factor_truncate
+  before truncate on public.emission_factors
+  for each statement execute function public.guard_environmental_evidence_write();
 drop trigger if exists trg_guard_environmental_activity_write on public.environmental_activities;
 create trigger trg_guard_environmental_activity_write
   before insert or update or delete on public.environmental_activities
   for each row execute function public.guard_environmental_evidence_write();
+drop trigger if exists trg_guard_environmental_activity_truncate on public.environmental_activities;
+create trigger trg_guard_environmental_activity_truncate
+  before truncate on public.environmental_activities
+  for each statement execute function public.guard_environmental_evidence_write();
 drop trigger if exists trg_guard_efficiency_baseline_write on public.efficiency_baselines;
 create trigger trg_guard_efficiency_baseline_write
   before insert or update or delete on public.efficiency_baselines
   for each row execute function public.guard_environmental_evidence_write();
+drop trigger if exists trg_guard_efficiency_baseline_truncate on public.efficiency_baselines;
+create trigger trg_guard_efficiency_baseline_truncate
+  before truncate on public.efficiency_baselines
+  for each statement execute function public.guard_environmental_evidence_write();
 drop trigger if exists trg_guard_efficiency_reading_write on public.efficiency_readings;
 create trigger trg_guard_efficiency_reading_write
   before insert or update or delete on public.efficiency_readings
   for each row execute function public.guard_environmental_evidence_write();
+drop trigger if exists trg_guard_efficiency_reading_truncate on public.efficiency_readings;
+create trigger trg_guard_efficiency_reading_truncate
+  before truncate on public.efficiency_readings
+  for each statement execute function public.guard_environmental_evidence_write();
 drop trigger if exists trg_guard_hazardous_inventory_write on public.hazardous_inventory;
 create trigger trg_guard_hazardous_inventory_write
   before insert or update or delete on public.hazardous_inventory
   for each row execute function public.guard_environmental_evidence_write();
+drop trigger if exists trg_guard_hazardous_inventory_truncate on public.hazardous_inventory;
+create trigger trg_guard_hazardous_inventory_truncate
+  before truncate on public.hazardous_inventory
+  for each statement execute function public.guard_environmental_evidence_write();
 
 revoke all on function public.guard_environmental_evidence_write()
   from public,anon,authenticated,service_role;
@@ -191,6 +257,9 @@ begin
   end if;
   if v_evidence is null or not exists(
     select 1 from public.evidence_items e
+    join public.user_profiles verifier on verifier.id=e.verified_by
+      and verifier.organization_id=e.organization_id
+      and verifier.role<>'ai_admin'
     where e.id=v_evidence and e.organization_id=v_org
       and e.verification_status='verified'
       and e.verified_by is not null and e.verified_at is not null
@@ -358,7 +427,8 @@ begin
     if v_factor_key is not null and not exists(
       select 1 from public.emission_factors f where f.organization_id=v_org
         and f.factor_key=v_factor_key and f.valid_from<=v_date2
-    ) then return jsonb_build_object('error','No applicable same-tenant emission factor exists for this activity period'); end if;
+        and lower(btrim(f.activity_unit))=lower(btrim(p_record->>'unit'))
+    ) then return jsonb_build_object('error','No applicable same-tenant emission factor with the same activity unit exists for this activity period'); end if;
     if v_site is not null and not exists(select 1 from public.sites s where s.id=v_site and s.organization_id=v_org) then
       return jsonb_build_object('error','site is outside the active tenant');
     end if;
@@ -402,8 +472,12 @@ begin
        or v_category not in ('battery','refrigerant','solvent','lubricant','reagent','radioactive_source','asbestos','other')
        or (v_number is not null and v_number<=0)
        or ((v_number is null)<>(nullif(btrim(p_record->>'unit'),'') is null))
-       or length(btrim(coalesce(p_record->>'handlingRequirements','')))<20 then
-      return jsonb_build_object('error','Inventory reference, substance, category, paired positive quantity/unit and substantive handling requirements are required');
+       or length(btrim(coalesce(p_record->>'location','')))<2
+       or length(btrim(coalesce(p_record->>'handlingRequirements','')))<20
+       or length(btrim(coalesce(p_record->>'emergencyResponseReference','')))<2
+       or length(btrim(coalesce(p_record->>'regulatoryReference','')))<2
+       or length(btrim(coalesce(p_record->>'disposalRouteRequired','')))<10 then
+      return jsonb_build_object('error','Inventory reference, substance, category, paired positive quantity/unit, controlled location, handling requirements, emergency and regulatory references, and disposal route are required');
     end if;
     if v_asset is not null and not exists(select 1 from public.assets a where a.id=v_asset and a.organization_id=v_org) then
       return jsonb_build_object('error','asset is outside the active tenant');
@@ -505,6 +579,44 @@ revoke all on function public.get_environmental_loss_records()
 grant execute on function public.get_environmental_loss_records()
   to authenticated;
 
+-- Replace the original activity projection so a later factor version cannot
+-- be applied retroactively and a factor whose activity unit differs from the
+-- recorded activity is returned as absent instead of producing false CO2e.
+create or replace function public.get_environmental_activities(p_limit int default 50)
+returns jsonb
+language sql
+stable
+security invoker
+set search_path=public,pg_temp
+as $$
+  select coalesce(jsonb_agg(x.row),'[]'::jsonb)
+  from (
+    select jsonb_build_object(
+      'activityLabel',a.activity_kind||coalesce(' — '||ast.name,''),
+      'activityQuantity',a.quantity,'activityUnit',a.unit,
+      'factor',f.factor,'factorUnit',f.factor_unit,'factorSource',f.source,
+      'gwp',f.gwp,'scope',a.scope,
+      'maintenanceAttributable',a.maintenance_attributable) row
+    from public.environmental_activities a
+    left join public.assets ast
+      on ast.id=a.asset_id and ast.organization_id=a.organization_id
+    left join lateral (
+      select ef.* from public.emission_factors ef
+      where ef.organization_id=a.organization_id
+        and ef.factor_key=a.factor_key
+        and ef.valid_from<=a.period_end
+        and lower(btrim(ef.activity_unit))=lower(btrim(a.unit))
+      order by ef.valid_from desc,ef.id desc limit 1
+    ) f on true
+    where a.organization_id=public.app_current_org()
+    order by a.period_end desc,a.id desc
+    limit greatest(1,least(p_limit,500))
+  ) x
+$$;
+
+grant execute on function public.get_environmental_activities(int)
+  to authenticated;
+
 create or replace function public.get_environmental_evidence_workspace()
 returns jsonb
 language sql
@@ -534,7 +646,11 @@ as $$
       'id',e.id,'description',e.description,'sourceSystem',e.source_system,
       'assetId',e.asset_id,'verifiedBy',e.verified_by,'verifiedAt',e.verified_at)
       order by e.verified_at desc)
-      from public.evidence_items e,context c where e.organization_id=c.org
+      from public.evidence_items e join public.user_profiles verifier
+        on verifier.id=e.verified_by and verifier.organization_id=e.organization_id
+        and verifier.role<>'ai_admin'
+      join context c on e.organization_id=c.org
+      where e.verified_by<>(select actor from context)
         and e.verification_status='verified' and e.verified_by is not null
         and e.verified_at is not null),'[]'::jsonb),
     'emissionFactors',coalesce((select jsonb_agg(jsonb_build_object(
@@ -550,7 +666,8 @@ as $$
       'evidenceItemId',b.evidence_item_id,'basis',b.basis,
       'sourceReference',b.source_reference,'version',b.version)
       order by a.name,b.metric)
-      from public.efficiency_baselines b join public.assets a on a.id=b.asset_id
+      from public.efficiency_baselines b join public.assets a
+        on a.id=b.asset_id and a.organization_id=b.organization_id
       join context c on b.organization_id=c.org),'[]'::jsonb),
     'hazardousInventory',coalesce((select jsonb_agg(jsonb_build_object(
       'id',h.id,'inventoryRef',coalesce(h.inventory_ref,'legacy-'||h.id::text),
@@ -565,7 +682,9 @@ as $$
       'evidenceItemId',h.evidence_item_id,'basis',h.basis,
       'sourceReference',h.source_reference,'recordedAt',h.recorded_at)
       order by h.substance,h.inventory_ref)
-      from hazard_ranked h left join public.assets a on a.id=h.asset_id where h.rn=1),'[]'::jsonb),
+      from hazard_ranked h left join public.assets a
+        on a.id=h.asset_id and a.organization_id=h.organization_id
+      where h.rn=1),'[]'::jsonb),
     'decisionBoundary','These records are governed environmental evidence. They do not certify compliance, create a reportable inventory, authorize work, accept risk, change an operating limit or return equipment to service.'
   )
 $$;

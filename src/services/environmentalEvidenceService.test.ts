@@ -113,4 +113,27 @@ describe("environmentalEvidenceService", () => {
       }),
     ).rejects.toThrow(/verified environmental evidence/i);
   });
+
+  it("refuses an incomplete hazardous-material control record before the RPC", async () => {
+    await expect(
+      recordEnvironmentalEvidence("hazardous_inventory", {
+        inventoryRef: "BAT-001",
+        expectedVersion: 0,
+        substance: "Lithium battery",
+        category: "battery",
+        location: "",
+        handlingRequirements:
+          "Isolate terminals and follow the controlled handling procedure.",
+        emergencyResponseReference: "",
+        regulatoryReference: "",
+        disposalRouteRequired: "",
+        endOfLifePlanned: false,
+        basis:
+          "Deliberately incomplete hazardous-material record for refusal proof.",
+        sourceReference: "BAT-REGISTER-2026",
+        evidenceItemId: "evidence-1",
+      }),
+    ).rejects.toThrow(/Controlled location/i);
+    expect(rpc).not.toHaveBeenCalled();
+  });
 });

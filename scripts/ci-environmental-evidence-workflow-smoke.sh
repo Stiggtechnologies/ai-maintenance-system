@@ -66,6 +66,7 @@ FOREIGN_AAL2=$(jwt "$FOREIGN" aal2 "e10-foreign-$FOREIGN@invalid.syncai.ca")
 GLOBAL_EVIDENCE=$(psqlc "insert into evidence_items(organization_id,source_system,evidence_type,description,evidence_class,verification_status,verified_by,verified_at,verification_method) values('$ORG','REGULATOR-2026','environmental_factor','Published stationary-diesel factor reviewed for exact units and period.','DOCUMENTED','verified','$VERIFIER',now(),'Independent environmental review') returning id;")
 ASSET_EVIDENCE=$(psqlc "insert into evidence_items(organization_id,asset_id,source_system,evidence_type,description,evidence_class,verification_status,verified_by,verified_at,verification_method) values('$ORG','$ASSET','FIELD-SHEET-2026','environmental_measurement','Verified clean test, meter reading and seal-loss field sheet.','OBSERVED','verified','$VERIFIER',now(),'Independent field-sheet review') returning id;")
 SELF_EVIDENCE=$(psqlc "insert into evidence_items(organization_id,asset_id,source_system,evidence_type,description,evidence_class,verification_status,verified_by,verified_at,verification_method) values('$ORG','$ASSET','SELF','environmental_measurement','Self-verified environmental evidence.','OBSERVED','verified','$WRITER',now(),'Self review') returning id;")
+AI_VERIFIED_EVIDENCE=$(psqlc "insert into evidence_items(organization_id,asset_id,source_system,evidence_type,description,evidence_class,verification_status,verified_by,verified_at,verification_method) values('$ORG','$ASSET','AI-VERIFY','environmental_measurement','Evidence marked verified by the AI operator.','OBSERVED','verified','$AI',now(),'AI review must not grant authority') returning id;")
 FOREIGN_EVIDENCE=$(psqlc "insert into evidence_items(organization_id,asset_id,source_system,evidence_type,description,evidence_class,verification_status,verified_by,verified_at,verification_method) values('$FOREIGN_ORG','$FOREIGN_ASSET','FOREIGN','environmental_measurement','Foreign environmental evidence.','OBSERVED','verified','$FOREIGN',now(),'Foreign review') returning id;")
 
 BASELINE="{\"assetId\":\"$ASSET\",\"metric\":\"specific energy\",\"unit\":\"kWh/m3\",\"designValue\":1.2,\"establishedOn\":\"$YESTERDAY\",\"interventionCost\":5000,\"energyCostPerDay\":120,\"expectedVersion\":0,\"basis\":\"Verified clean-condition test at the approved stable production duty.\",\"sourceReference\":\"TEST-E10-001\",\"evidenceItemId\":\"$ASSET_EVIDENCE\"}"
@@ -77,6 +78,9 @@ expect_error "$AI_DENIED" 'ai_admin'
 SELF_PAYLOAD="${BASELINE//$ASSET_EVIDENCE/$SELF_EVIDENCE}"
 SELF_DENIED=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"efficiency_baseline\",\"p_record\":$SELF_PAYLOAD}")
 expect_error "$SELF_DENIED" 'independently verified'
+AI_VERIFIED_PAYLOAD="${BASELINE//$ASSET_EVIDENCE/$AI_VERIFIED_EVIDENCE}"
+AI_VERIFIER_DENIED=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"efficiency_baseline\",\"p_record\":$AI_VERIFIED_PAYLOAD}")
+expect_error "$AI_VERIFIER_DENIED" 'independently verified'
 FOREIGN_PAYLOAD="${BASELINE//$ASSET/$FOREIGN_ASSET}"
 FOREIGN_PAYLOAD="${FOREIGN_PAYLOAD//$ASSET_EVIDENCE/$FOREIGN_EVIDENCE}"
 FOREIGN_DENIED=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"efficiency_baseline\",\"p_record\":$FOREIGN_PAYLOAD}")
@@ -97,6 +101,10 @@ STALE=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"efficien
 expect_error "$STALE" 'changed after it was loaded'
 FACTOR_SCOPE=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"environmental_activity\",\"p_record\":{\"activityKind\":\"fuel_burn\",\"periodStart\":\"$TODAY\",\"periodEnd\":\"$TODAY\",\"quantity\":10,\"unit\":\"L\",\"factorKey\":\"diesel_stationary\",\"scope\":null,\"basis\":\"Verified fuel issue for the governed stationary equipment operating period.\",\"sourceReference\":\"FUEL-E10-001\",\"evidenceItemId\":\"$GLOBAL_EVIDENCE\"}}")
 expect_error "$FACTOR_SCOPE" 'explicit scope'
+FACTOR_UNIT=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"environmental_activity\",\"p_record\":{\"activityKind\":\"fuel_burn\",\"periodStart\":\"$TODAY\",\"periodEnd\":\"$TODAY\",\"quantity\":10,\"unit\":\"kg\",\"factorKey\":\"diesel_stationary\",\"scope\":\"scope_1\",\"basis\":\"Verified fuel issue deliberately expressed in a mismatched activity unit.\",\"sourceReference\":\"FUEL-E10-002\",\"evidenceItemId\":\"$GLOBAL_EVIDENCE\"}}")
+expect_error "$FACTOR_UNIT" 'same activity unit'
+INCOMPLETE_HAZARD=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"hazardous_inventory\",\"p_record\":{\"inventoryRef\":\"BAT-E10-002\",\"expectedVersion\":0,\"assetId\":\"$ASSET\",\"substance\":\"Lithium battery\",\"category\":\"battery\",\"quantity\":1,\"unit\":\"each\",\"location\":\"\",\"handlingRequirements\":\"Isolate terminals and follow the controlled handling procedure.\",\"emergencyResponseReference\":\"\",\"regulatoryReference\":\"\",\"disposalRouteRequired\":\"\",\"endOfLifePlanned\":false,\"basis\":\"Deliberately incomplete hazardous-material control record for refusal proof.\",\"sourceReference\":\"BAT-REGISTER-2026\",\"evidenceItemId\":\"$ASSET_EVIDENCE\"}}")
+expect_error "$INCOMPLETE_HAZARD" 'controlled location'
 
 WORKSPACE=$(rpc "$WRITER_AAL2" get_environmental_evidence_workspace '{}')
 noerr "$WORKSPACE"
@@ -116,6 +124,8 @@ OUT=$(sql_must_fail "insert into environmental_activities(organization_id,activi
 grep -qi 'governed E10 writer' <<<"$OUT"
 OUT=$(sql_must_fail "update efficiency_baselines set design_value=1 where id=$BASELINE_ID;")
 grep -qi 'governed E10 writer' <<<"$OUT"
+OUT=$(sql_must_fail "truncate environmental_activities;")
+grep -qi 'cannot be truncated' <<<"$OUT"
 test "$(psqlc "select has_function_privilege('authenticated','public.guard_environmental_evidence_write()','EXECUTE');")" = 'f'
 test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='environmental_evidence';")" = '5'
 
@@ -123,4 +133,4 @@ test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' an
 FOREIGN_RESULT=$(rpc "$FOREIGN_AAL2" get_environmental_evidence_workspace '{}')
 BODY="$FOREIGN_RESULT" FOREIGN_ASSET="$FOREIGN_ASSET" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert len(x['assets'])==1 and x['assets'][0]['id']==os.environ['FOREIGN_ASSET'],x"
 
-echo 'E10 environmental evidence smoke passed: canonical_tables=true tenant_wall=true aal2_required=true ai_operator_refused=true independent_evidence=true optimistic_version=true append_only_history=true direct_write_locked=true loss_summary_reachable=true compliance_certified=false reportable_inventory=false authority_granted=false'
+echo 'E10 environmental evidence smoke passed: canonical_tables=true tenant_wall=true aal2_required=true ai_operator_refused=true ai_verifier_refused=true independent_evidence=true factor_unit_locked=true hazardous_controls_complete=true optimistic_version=true append_only_history=true direct_write_locked=true loss_summary_reachable=true compliance_certified=false reportable_inventory=false authority_granted=false'
