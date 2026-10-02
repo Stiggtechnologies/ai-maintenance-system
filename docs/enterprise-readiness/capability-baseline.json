@@ -126,10 +126,10 @@
     "backticked": 8
   },
   "C2.06": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 14,
+    "backticked": 14
   },
   "C2.07": {
     "status": "🟡",
@@ -464,8 +464,8 @@
   "C5.14": {
     "status": "✅",
     "evidence": true,
-    "citations": 7,
-    "backticked": 7
+    "citations": 9,
+    "backticked": 8
   },
   "C5.15": {
     "status": "✅",
@@ -482,8 +482,8 @@
   "C5.17": {
     "status": "✅",
     "evidence": true,
-    "citations": 7,
-    "backticked": 7
+    "citations": 9,
+    "backticked": 9
   },
   "C5.18": {
     "status": "✅",
@@ -524,8 +524,8 @@
   "C5.24": {
     "status": "✅",
     "evidence": true,
-    "citations": 6,
-    "backticked": 6
+    "citations": 7,
+    "backticked": 7
   },
   "C6.01": {
     "status": "🟡",
