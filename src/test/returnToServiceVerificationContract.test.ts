@@ -41,6 +41,8 @@ describe("C5.21 governed return-to-service verification", () => {
     expect(sql).toContain("t.performed_by = v_actor");
     expect(sql).toContain("t.released_by = v_actor");
     expect(sql).toContain("quality_control_role(v_releaser_role)");
+    expect(sql).toContain("performer.id <> releaser.id");
+    expect(sql).toContain("releaser.id <> auth.uid()");
     expect(sql).toContain("accepted_by = v_actor");
     expect(sql).toContain("verified_by = v_actor");
   });

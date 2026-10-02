@@ -563,6 +563,9 @@ begin
         where r.id = (item.value->>'release_id')::uuid
           and r.organization_id = v_org
           and r.status = 'returned'
+          and performer.id <> releaser.id
+          and performer.id <> auth.uid()
+          and releaser.id <> auth.uid()
       ),'[]'::jsonb)
     )
     order by (item.value->>'released_at')::timestamptz
