@@ -32,7 +32,6 @@ import {
   type OpsCoordinationPayload,
 } from "../services/opsCoordinationService";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
-import { ProductionLossReconciliation } from "./ProductionLossReconciliation";
 
 export function OpsCoordination() {
   const { data, loading, error, refetch } =
@@ -297,10 +296,6 @@ export function OpsCoordination() {
           </table>
         </div>
       )}
-
-      <div className="border-t border-white/6 pt-5">
-        <ProductionLossReconciliation />
-      </div>
     </section>
   );
 }

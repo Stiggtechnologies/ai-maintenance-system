@@ -10,7 +10,7 @@ const panel = readFileSync(
   "src/components/ProductionLossReconciliation.tsx",
   "utf8",
 );
-const parent = readFileSync("src/components/OpsCoordination.tsx", "utf8");
+const parent = readFileSync("src/pages/HandoverPage.tsx", "utf8");
 const workflow = readFileSync(".github/workflows/ci.yml", "utf8");
 const smoke = readFileSync(
   "scripts/ci-production-loss-classification-smoke.sh",
@@ -71,6 +71,8 @@ describe("C2.06 governed production-loss reconciliation", () => {
     expect(service).toContain('"classify_downtime_event"');
     expect(panel).toContain("Production loss reconciliation");
     expect(parent).toContain("<ProductionLossReconciliation />");
+    expect(panel).toContain('to="/recovery"');
+    expect(panel).toContain('to="/integrations"');
   });
 
   it("has runtime tenant, human, provenance and calculation proof before claiming green", () => {

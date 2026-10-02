@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Gauge, Link2, ShieldCheck, TriangleAlert } from "lucide-react";
+import { Link } from "react-router-dom";
 import { useAsyncData } from "../hooks/useAsyncData";
 import {
   classifyDowntimeEvent,
@@ -450,9 +451,23 @@ export function ProductionLossReconciliation() {
             </li>
           ))}
           {data.constraints.length === 0 && (
-            <li className="text-slate-500">
+            <li className="text-slate-500 md:col-span-2">
               No constraint signals were recorded in this window. Constrained
-              loss classifications remain blocked until one is available.
+              loss classifications remain blocked until one is available.{" "}
+              <Link
+                to="/recovery"
+                className="text-cyan-300 hover:text-cyan-200"
+              >
+                Record governed evidence
+              </Link>{" "}
+              or{" "}
+              <Link
+                to="/integrations"
+                className="text-cyan-300 hover:text-cyan-200"
+              >
+                configure a read-only signal connector
+              </Link>
+              .
             </li>
           )}
         </ul>
