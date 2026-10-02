@@ -17,6 +17,8 @@ WORK_ESCALATE='c5110000-0000-4000-8000-000000000015'
 WORK_PLAN='c5110000-0000-4000-8000-000000000016'
 RISK='c5110000-0000-4000-8000-000000000021'
 RISK_NO_ACCEPT='c5110000-0000-4000-8000-000000000022'
+RISK_CONTEXT='c5110000-0000-4000-8000-000000000023'
+RISK_CRITERIA='c5110000-0000-4000-8000-000000000024'
 MANAGER_ID='00000000-0000-0000-0000-000000000003'
 
 token(){ local r; r=$(curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}"); printf '%s' "$r" | python3 -c "import json,sys; print(json.load(sys.stdin).get('access_token',''))"; }
@@ -86,9 +88,59 @@ insert into assets(id,organization_id,tag,name,asset_class,criticality,status)
 values('$ASSET','$ORG','C511-MCC','Governed maintenance-control asset','Process equipment','critical','healthy'),
       ('$ASSET2','$ORG2','C511-X','Foreign maintenance-control asset','Process equipment','critical','healthy')
 on conflict(id) do nothing;
-insert into risks(id,organization_id,asset_id,title,kind,current_risk_level,residual_risk_level,status,source_kind,created_by)
-values('$RISK','$ORG','$ASSET','Exposure while critical inspection is deferred','threat','High','High','evaluated','human','$MANAGER_ID'),
-      ('$RISK_NO_ACCEPT','$ORG','$ASSET','Unaccepted critical deferral exposure','threat','High','High','evaluated','human','$MANAGER_ID')
+insert into risk_context_nodes(id,organization_id,scope_kind,asset_id,name,mission_or_service,objectives,stakeholders,
+  safety_requirements,operating_limits,decision_authority,status,created_by,adopted_by,adopted_at)
+values('$RISK_CONTEXT','$ORG','asset','$ASSET','C5.11 critical-maintenance decision context',
+  'Preserve the pressure-protection function while governing any inspection deferral.',
+  '["Maintain the safety barrier within its approved inspection interval"]',
+  '["Operations","Maintenance","Process safety"]',
+  '["No deferral without explicit residual-risk acceptance"]',
+  '["Pressure safety valve remains available and inspected"]',
+  '{"defer_critical_work":"maintenance_manager"}','adopted','$MANAGER_ID','$MANAGER_ID',now())
+on conflict(id) do nothing;
+insert into risk_criteria_profiles(id,organization_id,context_id,name,version,status,consequence_dimensions,
+  likelihood_scale,thresholds,decision_thresholds,risk_capacity,tolerance_statements,basis,adopted_by,adopted_at)
+values('$RISK_CRITERIA','$ORG','$RISK_CONTEXT','C5.11 critical-maintenance criteria',1,'adopted',
+  '[{"name":"Safety","scale":"Very Low to Critical"}]',
+  '[{"label":"Possible","value":3}]','{"high":15,"critical":20}',
+  '{"escalateAbove":15,"stopAbove":20}','{"maximumAcceptedScore":19}',
+  '["Critical maintenance exposure requires a named accountable human acceptance"]',
+  'Adopted smoke fixture for governed critical-maintenance deferral decisions.','$MANAGER_ID',now())
+on conflict(id) do nothing;
+insert into risks(id,organization_id,context_id,criteria_profile_id,asset_id,title,kind,objective_at_risk,
+  risk_source,event_description,causes,consequences,likelihood,existing_controls_summary,analysis_level,
+  analysis_method,control_effectiveness,uncertainty,confidence,current_risk_score,current_risk_level,
+  residual_risk_level,decision_action,risk_owner_id,decision_owner_id,scope_decision,scope_expected_outcome,
+  scope_inclusions,scope_exclusions,time_horizon,location_scope,resource_scope,responsibility_scope,
+  relationship_scope,assumptions,bias_review_complete,method_limitations,data_quality,reporting_profile,
+  status,source_kind,created_by)
+values
+('$RISK','$ORG','$RISK_CONTEXT','$RISK_CRITERIA','$ASSET','Exposure while critical inspection is deferred','threat',
+ 'Maintain the pressure-protection function','Inspection deferral','Barrier degradation is not detected before demand',
+ '["Inspection occurs after the approved interval"]','{"safety":"Loss of pressure-protection assurance"}',3,
+ 'Daily operator check and immediate escalation on any barrier indication','semi_quantitative','Adopted risk matrix',
+ 60,25,75,18,'High','High','ACCEPT','$MANAGER_ID','$MANAGER_ID',
+ 'Whether to approve a bounded critical-inspection deferral','A time-bounded decision with compensating controls',
+ '["The identified pressure safety valve and exact work order"]','["Other assets and maintenance scopes"]',
+ 'Thirty days','C5.11 governed maintenance asset','["Qualified maintenance personnel"]',
+ '["Maintenance manager owns acceptance and review"]','["Work order, risk acceptance and schedule change"]',
+ '["Daily operator checks remain effective during the bounded interval"]',true,
+ '["The fixture does not model plant-wide common-cause exposure"]','Controlled smoke-test evidence',
+ '{"audiences":["Maintenance manager"],"frequency":"On change","method":"Governed record","timeliness":"Before deferral","cost_limit":"Test fixture"}',
+ 'evaluated','human','$MANAGER_ID'),
+('$RISK_NO_ACCEPT','$ORG','$RISK_CONTEXT','$RISK_CRITERIA','$ASSET','Unaccepted critical deferral exposure','threat',
+ 'Maintain the pressure-protection function','Inspection deferral','Barrier degradation is not detected before demand',
+ '["Inspection occurs after the approved interval"]','{"safety":"Loss of pressure-protection assurance"}',3,
+ 'No accepted compensating control exists for this decision','semi_quantitative','Adopted risk matrix',
+ 40,35,65,18,'High','High','ESCALATE','$MANAGER_ID','$MANAGER_ID',
+ 'Whether an unaccepted critical-inspection deferral may proceed','Refusal until a qualified human accepts the exposure',
+ '["The identified pressure safety valve and exact work order"]','["Other assets and maintenance scopes"]',
+ 'Thirty days','C5.11 governed maintenance asset','["Qualified maintenance personnel"]',
+ '["Maintenance manager owns acceptance and review"]','["Work order, risk acceptance and schedule change"]',
+ '["No residual-risk acceptance has been recorded"]',true,
+ '["The fixture does not model plant-wide common-cause exposure"]','Controlled smoke-test evidence',
+ '{"audiences":["Maintenance manager"],"frequency":"On change","method":"Governed record","timeliness":"Before deferral","cost_limit":"Test fixture"}',
+ 'evaluated','human','$MANAGER_ID')
 on conflict(id) do nothing;
 select set_config('app.maintenance_change_control_write','granted',false);
 insert into work_orders(id,organization_id,asset_id,wo_number,title,status,priority,type,scheduled_date,due_date,
