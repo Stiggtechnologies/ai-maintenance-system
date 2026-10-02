@@ -45,7 +45,7 @@ insert into evidence_items(id,organization_id,risk_id,source_system,evidence_typ
   verification_status,verified_by,verified_at,verification_method,quality_grade,applicability_grade,revision)
 values
 ('$VERIFIED','$ORG','$RISK','CMMS','inspection','Verified inspection and operating-history extract for the exact U18 risk.','INSPECTED','verified','$REVIEWER_ID',now(),'Independent inspection and lineage review','high','direct','R2'),
-('$UNVERIFIED','$ORG','$RISK','interview','recollection','Unverified recollection cannot enter a governed U18 packet.','EXPERT_JUDGEMENT','unverified',null,null,null,'moderate','partial','R1'),
+('$UNVERIFIED','$ORG','$RISK','interview','recollection','Unverified recollection cannot enter a governed U18 packet.','EXPERT_JUDGEMENT','unverified',null,null,null,'moderate','indirect','R1'),
 ('$WRONG_RISK','$ORG','$OTHER_RISK','CMMS','inspection','Verified evidence from another risk cannot enter this packet.','INSPECTED','verified','$REVIEWER_ID',now(),'Independent inspection and lineage review','high','direct','R1')
 on conflict(id) do nothing;
 SQL
