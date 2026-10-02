@@ -127,4 +127,25 @@ grep -q 'Assumptions and validation plan (C5.24)' <<<"$STALE_GATE"
 test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='recommendation_assumptions' and (event_data->>'recommendation_id')::uuid in ('$REC','$REC2');")" = '2'
 test "$(psqlc "select count(*) from recommendations where id in ('$REC','$REC2') and assumptions_recorded_by is not null and assumptions_recorded_at is not null;")" = '2'
 
-echo 'Recommendation assumptions smoke passed: tenant wall, role and AI refusals, provenance guard, packet shape, context/evidence staleness, audit and binary release gate.'
+echo '— approval is one atomic buyer-value transaction —'
+ATOMIC=$(rpc "$MANAGER" approve_operating_recommendation "{\"p_recommendation_id\":\"$REC\"}")
+noerr "$ATOMIC"
+test "$(printf '%s' "$ATOMIC" | field recommendationId)" = "$REC"
+test -n "$(printf '%s' "$ATOMIC" | field workOrderId)"
+test -n "$(printf '%s' "$ATOMIC" | field decisionId)"
+test "$(psqlc "select status from recommendations where id='$REC';")" = 'approved'
+test "$(psqlc "select count(*) from decisions where recommendation_id='$REC' and approval_status='approved' and outcome_status='open';")" = '1'
+test "$(psqlc "select count(*) from work_orders where recommendation_id='$REC';")" = '1'
+test "$(psqlc "select count(*) from learning_events where recommendation_id='$REC' and event_type='recommendation_approved';")" = '1'
+
+echo '— a downstream contract refusal rolls back the complete approval act —'
+STALE_APPROVAL=$(rpc "$RE" approve_operating_recommendation "{\"p_recommendation_id\":\"$REC2\"}")
+grep -q 'Assumptions and validation plan (C5.24)' <<<"$STALE_APPROVAL"
+test "$(psqlc "select status from recommendations where id='$REC2';")" = 'pending'
+test "$(psqlc "select count(*) from decisions where recommendation_id='$REC2';")" = '0'
+test "$(psqlc "select count(*) from work_orders where recommendation_id='$REC2';")" = '0'
+
+AI_APPROVAL=$(rpc "$AIBOT" approve_operating_recommendation "{\"p_recommendation_id\":\"$REC2\"}")
+expect_err "$AI_APPROVAL" 'named-human act'
+
+echo 'Recommendation assumptions smoke passed: tenant wall, role and AI refusals, provenance guard, packet shape, context/evidence staleness, audit, binary release gate and atomic approval rollback.'
