@@ -86,8 +86,12 @@ test("planner inspects completed project closure and its screening provenance", 
   await expect(page.getByRole("heading", { name: "Operational Briefing", exact: true }))
     .toBeVisible({ timeout: 30_000 });
   await page.goto("/develop/cases/98550000-0000-4000-8000-000000000001#realize");
-  await expect(page.locator("#realize").getByText("Seal failure at first start", { exact: true })).toBeVisible();
-  const failureLesson = page.locator("#realize").getByText("Seal failure at first start", { exact: true }).locator("..");
+  const lessonTitle = page.locator("#realize").getByRole("heading", {
+    name: "Seal failure at first start",
+    exact: true,
+  });
+  await expect(lessonTitle).toBeVisible({ timeout: 30_000 });
+  const failureLesson = lessonTitle.locator("..");
   await failureLesson.getByRole("button", { name: "Project closure", exact: true }).click();
   await expect(page.getByText(/Governed project workflow completed through/)).toBeVisible();
   await expect(page.getByText(/Effectiveness and failure prevention are not established/)).toBeVisible();
