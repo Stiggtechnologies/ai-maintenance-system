@@ -96,7 +96,7 @@ export function RiskUncertaintyPanel({
     emptySensitivity(),
   ]);
   const [voiAction, setVoiAction] = useState("");
-  const [voi, setVoi] = useState(["", "", ""]);
+  const [voi, setVoi] = useState(["", "", "", ""]);
   const [selectedEvidence, setSelectedEvidence] = useState<string[]>([]);
   const [reviewing, setReviewing] = useState<string | null>(null);
   const [reviewDecision, setReviewDecision] = useState<
@@ -113,9 +113,9 @@ export function RiskUncertaintyPanel({
       informationCost: number(voi[0]),
       decisionCostIfWrong: number(voi[1]),
       uncertaintyReduction: number(voi[2]),
-      probabilityDecisionChanges: number(probability[1]),
+      probabilityDecisionChanges: number(voi[3]),
     });
-  }, [voi, probability]);
+  }, [voi]);
 
   if (workspace.loading && !workspace.data) {
     return <LoadingState label="Loading governed uncertainty analysis…" />;
@@ -202,7 +202,7 @@ export function RiskUncertaintyPanel({
             voi_information_cost: number(voi[0]),
             voi_decision_cost_if_wrong: number(voi[1]),
             voi_uncertainty_reduction: number(voi[2]),
-            voi_probability_decision_changes: number(probability[1]),
+            voi_probability_decision_changes: number(voi[3]),
           },
           selectedEvidence,
         ),
@@ -375,8 +375,9 @@ export function RiskUncertaintyPanel({
               "Information cost",
               "Decision cost if wrong",
               "Uncertainty reduction (0–1)",
+              "Probability the decision changes (0–1)",
             ].map((label, index) => (
-              <input key={label} className={INPUT} type="number" step="any" min="0" max={index === 2 ? 1 : undefined} placeholder={label} value={voi[index]} onChange={(e) => updateRange(setVoi, index, e.target.value)} required />
+              <input key={label} className={INPUT} type="number" step="any" min="0" max={index >= 2 ? 1 : undefined} placeholder={label} value={voi[index]} onChange={(e) => updateRange(setVoi, index, e.target.value)} required />
             ))}
             {preview && (
               <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 text-xs text-violet-100/80">
