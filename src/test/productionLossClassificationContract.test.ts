@@ -5,10 +5,7 @@ const migration = readFileSync(
   "supabase/migrations/20270101510000_production_loss_classification.sql",
   "utf8",
 ).toLowerCase();
-const service = readFileSync(
-  "src/services/productionLossService.ts",
-  "utf8",
-);
+const service = readFileSync("src/services/productionLossService.ts", "utf8");
 const panel = readFileSync(
   "src/components/ProductionLossReconciliation.tsx",
   "utf8",
@@ -39,14 +36,19 @@ describe("C2.06 governed production-loss reconciliation", () => {
     expect(migration).toContain("coalesce(up.role,'')<>'ai_admin'");
     expect(migration).toContain("organization_id=v_org");
     expect(migration).toContain("supersedes_id");
+    expect(migration).toContain(
+      "v_previous is distinct from p_expected_review_id",
+    );
     expect(migration).toContain("downtime classifications are append-only");
     expect(migration).toContain("insert into public.audit_events");
   });
 
   it("requires evidence basis and a canonical constraint for constrained-loss claims", () => {
-    expect(migration).toContain("length(btrim(p_basis))<20");
+    expect(migration).toContain("coalesce(length(btrim(p_basis)),0)<20");
     expect(migration).toContain("a constraint signal is required");
-    expect(migration).toContain("constraint signal is outside the active tenant");
+    expect(migration).toContain(
+      "constraint signal is outside the active tenant",
+    );
     expect(migration).toContain("work order is outside the active tenant");
   });
 
@@ -54,7 +56,7 @@ describe("C2.06 governed production-loss reconciliation", () => {
     expect(migration).toContain("p.units/nullif(r.running_hours,0)");
     expect(migration).toContain("never nameplate");
     expect(migration).toContain("not_measurable");
-    expect(migration).toContain("unclassified_down_hours");
+    expect(migration).toContain("unclassifieddownhours");
     expect(panel).toContain("No nameplate assumptions");
   });
 

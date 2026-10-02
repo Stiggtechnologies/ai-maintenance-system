@@ -555,6 +555,9 @@ jobs:
       - name: Smoke — governed condition-sensor registry, ingest and diagnostic report
         run: bash scripts/ci-condition-sensor-registry-smoke.sh
 
+      - name: Smoke — governed production-loss, downtime and constraint reconciliation
+        run: bash scripts/ci-production-loss-classification-smoke.sh
+
       - name: Smoke — thirteen-dimension finance intelligence
         run: bash scripts/ci-develop-finance-intelligence-smoke.sh
 
