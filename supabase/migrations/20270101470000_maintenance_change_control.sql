@@ -90,7 +90,7 @@ as $$
 declare v_asset_critical boolean:=false;
 begin
   if p_work.asset_id is not null then
-    select coalesce(a.criticality,'') in ('critical','high')
+    select lower(coalesce(a.criticality,'')) in ('critical','high')
       into v_asset_critical
     from public.assets a
     where a.id=p_work.asset_id and a.organization_id=p_work.organization_id;
