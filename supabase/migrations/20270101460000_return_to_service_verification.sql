@@ -427,7 +427,7 @@ begin
     return jsonb_build_object('error','operations acceptance must be independent of quality release');
   end if;
 
-  v_sha := encode(digest(jsonb_build_object(
+  v_sha := encode(extensions.digest(jsonb_build_object(
     'release_id',r.id,
     'asset_id',r.asset_id,
     'work_order_id',r.work_order_id,
