@@ -19,6 +19,7 @@ ASSET=$(psqlc "select id from assets where organization_id='$ORG' order by creat
 test -n "$ASSET"
 
 psqlc "delete from connectors where organization_id='$ORG' and connector_key='manual-upload-process_event';" >/dev/null
+psqlc "delete from process_events where organization_id='$ORG' and external_id like 'C204-%';" >/dev/null
 ALERTS_BEFORE=$(psqlc "select count(*) from condition_alerts where organization_id='$ORG';")
 
 DENIED=$(rpc "$TECH" begin_manual_import '{"p_entity_type":"process_event","p_source_name":"Forbidden technician upload"}')
@@ -39,6 +40,7 @@ test "$(field "$BODY" read)" = '5'
 test "$(field "$BODY" accepted)" = '2'
 test "$(field "$BODY" duplicate)" = '0'
 test "$(field "$BODY" rejected)" = '3'
+rpc "$PLANNER" finish_connector_run "{\"p_run_id\":\"$RUN\",\"p_status\":\"partial\",\"p_error\":\"Three retained fixture refusals\"}" >/dev/null
 
 test "$(psqlc "select count(*) from process_events where organization_id='$ORG' and external_id like 'C204-%';")" = '2'
 test "$(psqlc "select count(*) from condition_alerts where organization_id='$ORG';")" = "$ALERTS_BEFORE"
@@ -49,6 +51,7 @@ noerr "$BODY"; RUN2=$(field "$BODY" run_id); test -n "$RUN2"
 REPLAY="[{\"asset_id\":\"$ASSET\",\"external_id\":\"C204-ALARM-1\",\"event_type\":\"alarm\",\"tag\":\"P101-HI\",\"occurred_at\":\"2026-08-01T14:02:11Z\"},{\"asset_id\":\"$ASSET\",\"external_id\":\"C204-TRIP-1\",\"event_type\":\"trip\",\"tag\":\"P101-TRIP\",\"occurred_at\":\"2026-08-01T14:03:02Z\"}]"
 BODY=$(rpc "$PLANNER" ingest_rows "{\"p_run_id\":\"$RUN2\",\"p_rows\":$REPLAY}")
 noerr "$BODY"; test "$(field "$BODY" duplicate)" = '2'; test "$(field "$BODY" accepted)" = '0'
+rpc "$PLANNER" finish_connector_run "{\"p_run_id\":\"$RUN2\",\"p_status\":\"success\",\"p_error\":null}" >/dev/null
 
 BODY=$(rpc "$PLANNER" get_process_event_context "{\"p_asset_id\":\"$ASSET\",\"p_window_days\":3650}")
 noerr "$BODY"; BODY="$BODY" python3 -c "import json,os,sys;x=json.loads(os.environ['BODY']);sys.exit(0 if x['total_in_window']>=2 and {e['event_type'] for e in x['events']} >= {'alarm','trip'} else 1)"
