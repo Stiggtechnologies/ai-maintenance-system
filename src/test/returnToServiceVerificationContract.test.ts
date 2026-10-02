@@ -73,6 +73,7 @@ describe("C5.21 governed return-to-service verification", () => {
     expect(sql).toContain("revoke all on function public.accept_equipment");
     expect(sql).toContain("insert into public.audit_events");
     expect(sql).toContain("verification_sha256");
+    expect(sql).toContain("extensions.digest(");
   });
 
   it("is reachable from the existing handover surface through one typed service", () => {

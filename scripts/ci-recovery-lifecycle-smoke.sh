@@ -27,8 +27,8 @@ assert_no_error() {
   BODY="$body" python3 - <<'PY'
 import json, os, sys
 body=json.loads(os.environ['BODY'])
-if isinstance(body, dict) and body.get('error'):
-    print('unexpected Recovery error:', body['error'])
+if isinstance(body, dict) and (body.get('error') or body.get('message') or body.get('code')):
+    print('unexpected Recovery error:', body)
     sys.exit(1)
 PY
 }
@@ -212,6 +212,8 @@ PY
 # Operations records the physical isolation. Both WOs share this asset release.
 ER=$(rpc "$OPS" release_equipment "{\"p_asset_id\":\"$ASSET\",\"p_work_order_id\":null,\"p_isolation_confirmed\":true,\"p_isolation_note\":\"CI operations isolation confirmed before maintenance starts\"}")
 assert_no_error "$ER"
+RELEASE_ID=$(printf '%s' "$ER" | json_field releaseId)
+test -n "$RELEASE_ID"
 
 # The first start MUST still fail while its canonical material demand is short.
 START_BLOCKED=$(rpc "$TECH" start_restoration_work "{\"p_event_work_id\":\"$EW1\"}")
@@ -233,8 +235,8 @@ assert_no_error "$C1"; assert_no_error "$C2"
 
 RET=$(rpc "$TECH" return_equipment "{\"p_asset_id\":\"$ASSET\",\"p_note\":\"Maintenance complete; guards restored and equipment offered back to operations\"}")
 assert_no_error "$RET"
-RELEASE_ID=$(printf '%s' "$RET" | json_field releaseId)
-test -n "$RELEASE_ID"
+RETURNED_RELEASE_ID=$(printf '%s' "$RET" | json_field releaseId)
+test "$RETURNED_RELEASE_ID" = "$RELEASE_ID"
 
 HANDOVER_CTX=$(rpc "$MANAGER" get_recovery_platform_context "{\"p_surface\":\"handover\",\"p_work_order_id\":null,\"p_asset_id\":\"$ASSET\"}")
 assert_no_error "$HANDOVER_CTX"
