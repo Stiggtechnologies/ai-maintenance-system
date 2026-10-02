@@ -886,10 +886,18 @@ R=$(rpc "$TECH" return_equipment "{\"p_asset_id\":\"$ASSET\",\"p_note\":\"S7B pr
 noerr "$R"
 S7B_RELEASE_ID=$(printf '%s' "$R" | field releaseId)
 test -n "$S7B_RELEASE_ID"
-S7B_RTS_EVIDENCE=$(psqlc "insert into evidence_items(organization_id,asset_id,source_system,evidence_type,description,data_quality,verification_status,verified_by,verified_at,verification_method)
-values('$ORG','$ASSET','develop-slice7b-smoke','return_to_service_test','Signed S7B functional, guard and protection-restoration check','high','verified','$MANAGER_ID',now(),'Independent maintenance-manager evidence review') returning id")
-S7B_RTS_TEST=$(psqlc "insert into acceptance_tests(organization_id,test_ref,test_stage,scheduled_on,performed_on,outcome,punch_items_raised,punch_items_open,witnessed_by_owner,asset_id,acceptance_criteria,test_procedure_reference,tested_samples,passed_samples,evidence_item_id,performed_by,release_status,released_by,released_at,release_note)
-values('$ORG','RTS-'||'$S7B_RELEASE_ID','return_to_service',current_date,current_date,'pass',0,0,true,'$ASSET','All approved S7B functional, guarding and protection-restoration criteria pass','S7B-RTS-PROCEDURE',1,1,'$S7B_RTS_EVIDENCE','$TECH_ID','released','$MANAGER_ID',now(),'Independent review confirmed pass evidence and zero open punch items') returning id")
+S7B_RTS_EVIDENCE=$(psqlc "with inserted as (
+  insert into evidence_items(organization_id,asset_id,source_system,evidence_type,description,data_quality,verification_status,verified_by,verified_at,verification_method)
+  values('$ORG','$ASSET','develop-slice7b-smoke','return_to_service_test','Signed S7B functional, guard and protection-restoration check','high','verified','$MANAGER_ID',now(),'Independent maintenance-manager evidence review')
+  returning id
+)
+select id from inserted")
+S7B_RTS_TEST=$(psqlc "with inserted as (
+  insert into acceptance_tests(organization_id,test_ref,test_stage,scheduled_on,performed_on,outcome,punch_items_raised,punch_items_open,witnessed_by_owner,asset_id,acceptance_criteria,test_procedure_reference,tested_samples,passed_samples,evidence_item_id,performed_by,release_status,released_by,released_at,release_note)
+  values('$ORG','RTS-'||'$S7B_RELEASE_ID','return_to_service',current_date,current_date,'pass',0,0,true,'$ASSET','All approved S7B functional, guarding and protection-restoration criteria pass','S7B-RTS-PROCEDURE',1,1,'$S7B_RTS_EVIDENCE','$TECH_ID','released','$MANAGER_ID',now(),'Independent review confirmed pass evidence and zero open punch items')
+  returning id
+)
+select id from inserted")
 test -n "$S7B_RTS_EVIDENCE"; test -n "$S7B_RTS_TEST"
 R=$(rpc "$OPS" verify_and_accept_equipment "{\"p_release_id\":\"$S7B_RELEASE_ID\",\"p_acceptance_test_id\":$S7B_RTS_TEST,\"p_note\":\"S7B operations reviewed the released test and confirmed the asset condition\"}")
 noerr "$R"
