@@ -33,6 +33,17 @@ async function loginAs(page: Page, emailAddress: string, password: string) {
   await email.fill(emailAddress);
   await page.locator('input[type="password"]').fill(password);
   await page.getByRole("button", { name: /access syncai/i }).click();
+
+  // Authentication restores the user's last workspace, so a manager who last
+  // reviewed work can legitimately land on the Work Action Board. Establish a
+  // deterministic golden-path start through the visible app navigation rather
+  // than treating a restored workspace as a failed login.
+  const missionControl = page.getByRole("button", {
+    name: "Mission Control",
+    exact: true,
+  });
+  await expect(missionControl).toBeVisible({ timeout: 30_000 });
+  await missionControl.click();
   await expect(
     page.getByRole("heading", { name: "Mission Control" }),
   ).toBeVisible({ timeout: 30_000 });
