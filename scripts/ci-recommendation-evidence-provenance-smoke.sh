@@ -76,7 +76,9 @@ do \$\$ begin
     if sqlerrm not like '%governed packet functions%' then raise; end if;
   end;
   begin
-    truncate table evidence_items;
+    -- CASCADE gets past PostgreSQL's existing value_metrics foreign-key
+    -- precheck so the BEFORE TRUNCATE refusal trigger itself is exercised.
+    truncate table evidence_items cascade;
     raise exception 'evidence history truncate was incorrectly allowed';
   exception when others then
     if sqlerrm not like '%truncate refused%' then raise; end if;
