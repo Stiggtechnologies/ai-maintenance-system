@@ -893,8 +893,8 @@ S7B_RTS_EVIDENCE=$(psqlc "with inserted as (
 )
 select id from inserted")
 S7B_RTS_TEST=$(psqlc "with inserted as (
-  insert into acceptance_tests(organization_id,test_ref,test_stage,scheduled_on,performed_on,outcome,punch_items_raised,punch_items_open,witnessed_by_owner,asset_id,acceptance_criteria,test_procedure_reference,tested_samples,passed_samples,evidence_item_id,performed_by,release_status,released_by,released_at,release_note)
-  values('$ORG','RTS-'||'$S7B_RELEASE_ID','return_to_service',current_date,current_date,'pass',0,0,true,'$ASSET','All approved S7B functional, guarding and protection-restoration criteria pass','S7B-RTS-PROCEDURE',1,1,'$S7B_RTS_EVIDENCE','$TECH_ID','released','$MANAGER_ID',now(),'Independent review confirmed pass evidence and zero open punch items')
+  insert into acceptance_tests(organization_id,test_ref,test_stage,scheduled_on,performed_on,outcome,punch_items_raised,punch_items_open,witnessed_by_owner,asset_id,work_order_id,acceptance_criteria,test_procedure_reference,tested_samples,passed_samples,evidence_item_id,performed_by,release_status,released_by,released_at,release_note)
+  values('$ORG','RTS-'||'$S7B_RELEASE_ID','return_to_service',current_date,current_date,'pass',0,0,true,'$ASSET','$W3','All approved S7B functional, guarding and protection-restoration criteria pass','S7B-RTS-PROCEDURE',1,1,'$S7B_RTS_EVIDENCE','$TECH_ID','released','$MANAGER_ID',now(),'Independent review confirmed pass evidence and zero open punch items')
   returning id
 )
 select id from inserted")
