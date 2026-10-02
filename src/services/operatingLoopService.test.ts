@@ -364,42 +364,47 @@ describe("getOpenObligationIdForRecommendation", () => {
 
 describe("approveRecommendation — approval is not achievement", () => {
   beforeEach(() => {
-    state.result = { data: null, error: null };
-    state.byTable = {
-      user_profiles: {
-        data: { organization_id: "org-1", role: "reliability_engineer" },
-        error: null,
+    state.result = {
+      data: {
+        recommendationId: "rec-1",
+        workOrderId: "wo-1",
+        decisionId: "dec-1",
+        outcomeVerified: false,
       },
-      decisions: { data: { id: "dec-1" }, error: null },
-      approvals: { data: null, error: null },
-      work_orders: { data: { id: "wo-1" }, error: null },
+      error: null,
     };
-    state.inserts = [];
-    clearOrgContextCache();
   });
 
-  it("does not write recommendation_accepted as if the outcome happened", async () => {
-    await approveRecommendation(rec);
-    const learning = state.inserts.find(
-      (row) => row.table === "learning_events",
+  it("uses the atomic governed approval RPC", async () => {
+    await expect(approveRecommendation(rec)).resolves.toEqual({
+      recommendationId: "rec-1",
+      workOrderId: "wo-1",
+      decisionId: "dec-1",
+    });
+    expect(state.rpcCalls).toContainEqual({
+      name: "approve_operating_recommendation",
+      args: { p_recommendation_id: "rec-1" },
+    });
+    expect(state.inserts).toEqual([]);
+  });
+
+  it("surfaces a governed refusal returned by the RPC", async () => {
+    state.result = {
+      data: { error: "recommendation approval authority denied" },
+      error: null,
+    };
+    await expect(approveRecommendation(rec)).rejects.toThrow(
+      /approval authority denied/,
     );
-    expect(learning).toBeDefined();
-    expect(learning?.payload.event_type).toBe("recommendation_approved");
-    expect(learning?.payload.event_type).not.toBe("recommendation_accepted");
-    expect(learning?.payload.detail).toMatch(/Outcome is not verified/);
   });
 
-  it("logs the decision as open, not executed", async () => {
-    await approveRecommendation(rec);
-    const decision = state.inserts.find((row) => row.table === "decisions");
-    expect(decision?.payload.outcome_status).toBe("open");
-    expect(decision?.payload.approval_status).toBe("approved");
-  });
-
-  it("projects value from approval and does not mark it verified", async () => {
-    await approveRecommendation(rec);
-    const metric = state.inserts.find((row) => row.table === "value_metrics");
-    expect(metric?.payload.status).toBe("projected");
-    expect(metric?.payload.status).not.toBe("verified");
+  it("rejects a malformed success response", async () => {
+    state.result = {
+      data: { recommendationId: "another-recommendation" },
+      error: null,
+    };
+    await expect(approveRecommendation(rec)).rejects.toThrow(
+      /Could not approve recommendation/,
+    );
   });
 });
