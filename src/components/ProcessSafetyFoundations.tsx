@@ -2,9 +2,8 @@ import { FormEvent, useState } from "react";
 import { Landmark, CheckCircle2, TriangleAlert } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
-type FoundationAction = "sce" | "hazard" | "link" | "window" | "exceedance" | "assessment";
+type FoundationAction = "hazard" | "link" | "window" | "exceedance" | "assessment";
 const actions: { value: FoundationAction; label: string }[] = [
-  { value: "sce", label: "Safety-critical element" },
   { value: "hazard", label: "Major hazard" },
   { value: "link", label: "Hazard-to-barrier link" },
   { value: "window", label: "Integrity operating window" },
@@ -14,7 +13,7 @@ const actions: { value: FoundationAction; label: string }[] = [
 const control = "mt-1 w-full rounded border border-white/10 bg-overlook-deep px-2 py-1.5 text-sm text-slate-100";
 
 export function ProcessSafetyFoundations() {
-  const [action, setAction] = useState<FoundationAction>("sce");
+  const [action, setAction] = useState<FoundationAction>("hazard");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -28,7 +27,7 @@ export function ProcessSafetyFoundations() {
       ? ["link_hazard_barrier", { p_hazard_id: Number(v("hazard_id")), p_sce_id: Number(v("sce_id")), p_relation: v("relation"), p_basis: v("evidence_basis") }]
       : action === "assessment"
         ? ["assess_integrity_exceedance", { p_exceedance_id: Number(v("exceedance_id")), p_note: v("evidence_basis") }]
-      : [{ sce: "record_safety_critical_element", hazard: "record_major_hazard", window: "record_integrity_window", exceedance: "record_integrity_exceedance" }[action], { p_record: record }];
+      : [{ hazard: "record_major_hazard", window: "record_integrity_window", exceedance: "record_integrity_exceedance" }[action], { p_record: record }];
     const result = await (supabase as unknown as { rpc: (name: string, args: Record<string, unknown>) => Promise<{ error: { message: string } | null }> }).rpc(call[0] as string, call[1] as Record<string, unknown>);
     setBusy(false);
     if (result.error) setError(result.error.message);
@@ -40,7 +39,6 @@ export function ProcessSafetyFoundations() {
     <p className="mt-1 text-xs text-slate-400">Establish the site’s barrier and hazard basis. Limits and standards must come from approved operator evidence.</p>
     <form onSubmit={submit} className="mt-3 space-y-3">
       <label className="block text-xs text-slate-300">Record type<select className={control} value={action} onChange={(e) => setAction(e.target.value as FoundationAction)}>{actions.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}</select></label>
-      {action === "sce" && <><Field name="asset_id" label="Asset ID (optional)" optional /><Field name="sce_ref" label="SCE reference" /><Field name="label" label="Barrier label" /><Choice name="barrier_kind" label="Barrier kind" values={["instrumented","mechanical","passive","procedural","human","structural","emergency_response"]} /><Choice name="barrier_role" label="Barrier role" values={["preventive","mitigative"]} /><Field name="performance_standard" label="Testable performance standard" area /><Field name="test_interval_months" label="Owner-approved test interval (months, optional)" type="number" optional /></>}
       {action === "hazard" && <><Field name="site_id" label="Site ID (optional)" optional /><Field name="hazard_ref" label="Hazard reference" /><Field name="title" label="Hazard title" /><Field name="top_event" label="Top event" area /><Field name="worst_credible_consequence" label="Worst credible consequence" area optional /><Choice name="consequence_class" label="Consequence class (optional)" optional values={["multiple_fatality","single_fatality","major_injury","major_environmental","major_asset_loss"]} /></>}
       {action === "link" && <><Field name="hazard_id" label="Major hazard ID" type="number" /><Field name="sce_id" label="Safety-critical element ID" type="number" /><Field name="relation" label="Threat or consequence controlled" area /></>}
       {action === "window" && <><Field name="asset_id" label="Asset ID" /><Field name="parameter" label="Operating parameter" /><Field name="unit" label="Unit" /><div className="grid gap-3 sm:grid-cols-2"><Field name="standard_low" label="Standard low" type="number" optional /><Field name="standard_high" label="Standard high" type="number" optional /><Field name="critical_low" label="Critical low" type="number" optional /><Field name="critical_high" label="Critical high" type="number" optional /></div><Field name="damage_mechanism" label="Damage mechanism" area /><Field name="consequence_of_exceedance" label="Consequence of exceedance" area /></>}
