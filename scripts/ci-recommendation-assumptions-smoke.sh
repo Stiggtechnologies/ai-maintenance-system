@@ -114,7 +114,7 @@ RECORDED=$(rpc "$RE" record_recommendation_assumptions "{\"p_recommendation_id\"
 noerr "$RECORDED"
 PACKET=$(rpc "$RE" get_recommendation_assumption_packet "{\"p_recommendation_id\":\"$REC2\"}")
 test "$(printf '%s' "$PACKET" | field valid)" = 'True'
-grep -q 'operationalAuthorization":false' <<<"$PACKET"
+test "$(printf '%s' "$PACKET" | field operationalAuthorization)" = 'False'
 
 echo '— a later recommendation or evidence change makes the packet stale —'
 psqlc "update recommendations set impact='The decision consequence changed after the human assumption assessment.' where id='$REC2';" >/dev/null
