@@ -818,6 +818,13 @@ export function ApplicableLessonsBanner({ caseId }: { caseId: string }) {
                 <div className="text-[11px] text-slate-500">
                   {lesson.applicability}
                 </div>
+                <a
+                  href={`/develop/cases/${lesson.sourceCaseId}#realize`}
+                  aria-label={`Open source project closure for ${lesson.title}`}
+                  className="mt-1 inline-flex text-[11px] font-semibold text-signal-cyan hover:underline"
+                >
+                  Open source project closure
+                </a>
               </li>
             ))}
           </ul>

@@ -89,7 +89,12 @@ test("planner inspects an applicable completed-project closure and its screening
   // case. A case never recommends its own lesson back to itself.
   await page.goto("/develop/cases/98550000-0000-4000-8000-000000000002#realize");
   await expect(page.getByRole("heading", { name: "New compressor modernization", exact: true })).toBeVisible();
-  const lessonTitle = page.locator("#engine-realize").getByRole("heading", {
+  await page.getByRole("link", {
+    name: "Open source project closure for Seal failure at first start",
+    exact: true,
+  }).click();
+  await expect(page).toHaveURL(/\/develop\/cases\/98550000-0000-4000-8000-000000000001#realize$/);
+  const lessonTitle = page.getByRole("heading", {
     name: "Seal failure at first start",
     exact: true,
   });
