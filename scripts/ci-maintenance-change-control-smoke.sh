@@ -27,7 +27,7 @@ psqlc(){ PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres 
 field(){ BODY="$1" KEY="$2" python3 - <<'PY'
 import json,os
 x=json.loads(os.environ['BODY']); v=x.get(os.environ['KEY']) if isinstance(x,dict) else None
-print('' if v is None else (json.dumps(v) if isinstance(v,(dict,list)) else v))
+print('' if v is None else (json.dumps(v) if isinstance(v,(dict,list,bool)) else v))
 PY
 }
 noerr(){ BODY="$1" python3 - <<'PY'
