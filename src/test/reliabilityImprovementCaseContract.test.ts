@@ -50,6 +50,9 @@ describe("Reliability Engineer composite improvement workflow", () => {
     expect(migration).toContain("assign a named human investigator");
     expect(migration).toContain("organization_id=v_org");
     expect(migration).toContain(
+      "where id=p_fracas_pack_id and organization_id=v_org\n  for update",
+    );
+    expect(migration).toContain(
       "reliability improvement links are append-only",
     );
     expect(migration).toContain("enable row level security");

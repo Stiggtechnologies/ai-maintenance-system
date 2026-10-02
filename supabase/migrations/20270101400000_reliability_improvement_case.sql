@@ -253,7 +253,8 @@ begin
     return jsonb_build_object('error','starting a reliability improvement case requires a named reliability engineer, maintenance manager or administrator');
   end if;
   select * into v_pack from public.fracas_investigation_packs
-  where id=p_fracas_pack_id and organization_id=v_org;
+  where id=p_fracas_pack_id and organization_id=v_org
+  for update;
   if not found then
     return jsonb_build_object('error','FRACAS investigation pack not found in this organization');
   end if;
