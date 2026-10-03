@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { stripComments } from "./support/migrationPolicies";
 
 const migrationPath =
-  "supabase/migrations/20270101380000_develop_finance_intelligence_completion.sql";
+  "supabase/migrations/20270101910000_develop_finance_intelligence_completion.sql";
 const rawMigration = readFileSync(migrationPath, "utf8");
 const migration = stripComments(rawMigration);
 const service = readFileSync("src/services/developService.ts", "utf8");

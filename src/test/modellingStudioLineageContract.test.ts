@@ -7,7 +7,7 @@ const read = (file: string) => fs.readFileSync(path.join(root, file), "utf8");
 
 describe("D11.29 Modelling Studio calculation lineage", () => {
   const migration = read(
-    "supabase/migrations/20270101390000_modelling_studio_calculation_lineage.sql",
+    "supabase/migrations/20270101920000_modelling_studio_calculation_lineage.sql",
   );
   const edge = read("supabase/functions/calculation-service/index.ts");
   const component = read("src/components/ModellingStudio.tsx");

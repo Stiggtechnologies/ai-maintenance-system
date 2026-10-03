@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270101290000_design_project_governance.sql",
+  "supabase/migrations/20270101820000_design_project_governance.sql",
   "utf8",
 ).toLowerCase();
 const service = readFileSync("src/services/syncTransitionService.ts", "utf8");
