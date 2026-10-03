@@ -58,7 +58,7 @@ Deno.serve(async (request) => {
   if (!binding || !timestamp || !signature)
     return json({ error: "signed_ingress_required" }, 401);
 
-  let body = "";
+  let body: string;
   try {
     body = await request.text();
   } catch {

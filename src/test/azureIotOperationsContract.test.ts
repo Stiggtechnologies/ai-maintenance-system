@@ -8,7 +8,9 @@ const migration = read(
 const edge = read("supabase/functions/azure-iot-operations-ingest/index.ts");
 const core = read("supabase/functions/_shared/azure-iot-operations-ingress.ts");
 const relay = read("infra/azure/iot-operations-relay/src/functions/relay.ts");
+const normalizer = read("infra/azure/iot-operations-relay/src/normalize.ts");
 const workflow = read(".github/workflows/deploy-migrations.yml");
+const ci = read(".github/workflows/ci.yml");
 const integrations = read("src/pages/IntegrationsPage.tsx");
 const boundary = JSON.parse(read("config/edge-function-boundary.json")) as {
   activeFunctions: string[];
@@ -61,11 +63,16 @@ describe("Azure IoT Operations governed ingress contract", () => {
     expect(core).toContain("FORBIDDEN_CONTROL_KEYS");
     expect(core).toContain("control_payload_refused");
     expect(relay).toContain("app.eventHub");
-    expect(relay).toContain("partition and offset metadata are required");
+    expect(normalizer).toContain(
+      "partition and one offset per event are required",
+    );
     expect(relay).toContain("Math.ceil(normalized.points.length / 500)");
     expect(relay).toContain(":chunk-${index + 1}-of-${deliveries}");
     expect(relay).not.toContain("app.mqtt");
     expect(relay).not.toContain("sendBatch");
+    expect(normalizer).toContain("configure Json or JsonGzip rather than UADP");
+    expect(normalizer).toContain('messageType === "ua-event"');
+    expect(normalizer).toContain('messageType === "ua-condition"');
   });
 
   it("preserves exact-request authentication, replay identity and provenance", () => {
@@ -82,6 +89,11 @@ describe("Azure IoT Operations governed ingress contract", () => {
     expect(migration).toContain("p_received_at < now()-interval '10 minutes'");
     expect(migration).toContain(
       "source timestamp is implausibly later than relay receipt",
+    );
+    expect(migration).toContain("'source_format',v_point->>'source_format'");
+    expect(migration).toContain("'publisher_id',v_point->>'publisher_id'");
+    expect(migration).toContain(
+      "'dataset_writer_name',v_point->>'dataset_writer_name'",
     );
   });
 
@@ -100,5 +112,7 @@ describe("Azure IoT Operations governed ingress contract", () => {
     expect(workflow).toContain(
       "supabase/functions/_shared/azure-iot-operations-ingress.ts",
     );
+    expect(ci).toContain("Build Azure IoT Operations relay");
+    expect(ci).toContain("infra/azure/iot-operations-relay");
   });
 });

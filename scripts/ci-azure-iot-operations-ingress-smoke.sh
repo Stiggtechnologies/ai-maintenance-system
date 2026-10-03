@@ -74,7 +74,7 @@ rpc_service() {
     -H 'Content-Type: application/json' -d "$1"
 }
 
-SUCCESS=$(rpc_service "{\"p_organization_id\":\"$ORG\",\"p_connector_key\":\"$CONNECTOR\",\"p_ingress_key_id\":\"$KEY_ID\",\"p_delivery_id\":\"$DELIVERY\",\"p_body_sha256\":\"$DIGEST\",\"p_received_at\":\"$RECEIVED_TS\",\"p_points\":[{\"external_id\":\"$EXTERNAL_ID\",\"tag\":\"$TAG\",\"value\":4.2,\"source_timestamp\":\"$SOURCE_TS\",\"quality\":\"good\",\"partition_id\":\"0\",\"offset\":\"100\",\"sequence_number\":\"100\"}]}")
+SUCCESS=$(rpc_service "{\"p_organization_id\":\"$ORG\",\"p_connector_key\":\"$CONNECTOR\",\"p_ingress_key_id\":\"$KEY_ID\",\"p_delivery_id\":\"$DELIVERY\",\"p_body_sha256\":\"$DIGEST\",\"p_received_at\":\"$RECEIVED_TS\",\"p_points\":[{\"external_id\":\"$EXTERNAL_ID\",\"tag\":\"$TAG\",\"value\":4.2,\"source_timestamp\":\"$SOURCE_TS\",\"quality\":\"good\",\"partition_id\":\"0\",\"offset\":\"100\",\"sequence_number\":\"100\",\"source_format\":\"opc-publisher-pubsub-json\",\"network_message_id\":\"27\",\"publisher_id\":\"opc.tcp://edge-source:50000\",\"writer_group\":\"mine-a\",\"dataset_writer_id\":\"7\",\"dataset_writer_name\":\"pump-101\",\"metadata_major_version\":\"3\",\"metadata_minor_version\":\"1\",\"dataset_message_type\":\"ua-deltaframe\",\"dataset_sequence_number\":\"12\",\"status_code_symbol\":\"Good\",\"status_code_code\":\"0\"}]}")
 test "${SUCCESS##*$'\n'}" = '200'
 BODY="${SUCCESS%$'\n'*}" python3 - <<'PY'
 import json, os
@@ -137,7 +137,7 @@ NOAUTH=$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
   -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' -d '{}')
 test "$NOAUTH" != '200'
 
-PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL | grep -qx '1|1|1|partial_coverage|1'
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL | grep -qx '1|1|1|partial_coverage|1|opc-publisher-pubsub-json|pump-101'
 select
   (select count(*) from public.condition_readings where organization_id='$ORG' and source_system='$CONNECTOR' and external_id='$EXTERNAL_ID'),
   (select count(*) from public.connector_runs where organization_id='$ORG' and source_delivery_id='$DELIVERY'),
@@ -145,7 +145,11 @@ select
     where s.organization_id='$ORG' and c.connector_key='$CONNECTOR'
       and s.status='rejected' and s.reject_reason like 'tag has no named-human%'),
   (select context_health_state from public.connectors where organization_id='$ORG' and connector_key='$CONNECTOR'),
-  (select count(*) from public.ingest_watermarks w join public.connectors c on c.id=w.connector_id where c.organization_id='$ORG' and c.connector_key='$CONNECTOR');
+  (select count(*) from public.ingest_watermarks w join public.connectors c on c.id=w.connector_id where c.organization_id='$ORG' and c.connector_key='$CONNECTOR'),
+  (select payload->>'source_format' from public.ingest_staging s join public.connectors c on c.id=s.connector_id
+    where s.organization_id='$ORG' and c.connector_key='$CONNECTOR' and s.external_id='$EXTERNAL_ID' and s.status='accepted'),
+  (select payload->>'dataset_writer_name' from public.ingest_staging s join public.connectors c on c.id=s.connector_id
+    where s.organization_id='$ORG' and c.connector_key='$CONNECTOR' and s.external_id='$EXTERNAL_ID' and s.status='accepted');
 SQL
 
-echo 'Azure IoT Operations ingress smoke passed: service_only=true tenant_wall=true human_mapping=true replay_safe=true rejects_retained=true watermark_fail_closed=true source_label=true simulator_yield=true read_only=true'
+echo 'Azure IoT Operations ingress smoke passed: service_only=true tenant_wall=true human_mapping=true replay_safe=true rejects_retained=true provenance_retained=true watermark_fail_closed=true source_label=true simulator_yield=true read_only=true'

@@ -6,8 +6,31 @@
 
 Azure IoT Operations owns edge discovery, OPC UA sessions, certificate trust,
 MQTT and data-flow delivery. SyncAI owns decision evidence after the cloud
-trust boundary. The `Azure/Industrial-IoT` repository is a compatibility and
-test reference, not a vendored SyncAI platform dependency.
+trust boundary. The MIT-licensed `Azure/Industrial-IoT` repository is a
+compatibility and test reference, not a vendored SyncAI platform dependency.
+SyncAI implements only the narrow receive boundary it needs and does not import
+the repository's write, method-call, capture, replay, key-management or MCP
+control surfaces.
+
+## OPC Publisher compatibility
+
+The relay accepts the existing Azure IoT Operations flattened JSON contract
+and OPC Publisher 2.9/3.0 PubSub JSON network messages. It handles Event Hubs
+wrappers, batched network/data-set messages, key and delta frames, reversible
+numeric scalar encoding, OPC status-code severity, and JSON+gzip. The normalizer
+preserves publisher, writer-group, data-set writer, metadata-version, message,
+transport and status-code identity in the protected staging evidence.
+When no explicit `_syncai_source` is supplied, the canonical tag includes a
+non-secret SHA-256 publisher fingerprint plus writer-group and writer identity;
+two publishers reusing the same writer names therefore cannot collapse onto
+one confirmed sensor mapping.
+
+Metadata and keepalive messages are counted but do not become condition
+readings. `ua-event` and `ua-condition` messages are counted and withheld from
+this scalar path so the governed process-event workstream can own their richer
+semantics. UADP, raw data sets without source timestamps, and messages without
+a stable data-set writer identity fail closed. Configure OPC Publisher with
+`Json` or `JsonGzip`; binary UADP requires a separately reviewed decoder.
 
 ## Control commitments
 
@@ -22,9 +45,10 @@ test reference, not a vendored SyncAI platform dependency.
 4. **Human-confirmed identity.** A tag lands only when the canonical
    `historian_tag_map` binds it to a same-tenant sensor and asset, with a named
    confirmer, timestamp, unit, measurement and basis.
-5. **Replay safety.** The relay external ID is Event Hubs
-   partition/offset/tag. Delivery receipts are unique per connector and every
-   condition reading remains unique on source/external ID.
+5. **Replay safety.** The relay external ID combines Event Hubs partition and
+   offset, nested message/data-set position, and a source/tag fingerprint.
+   Delivery receipts are unique per connector and every condition reading
+   remains unique on source/external ID.
 6. **Evidence preservation.** Run rows retain delivery ID, body SHA-256,
    receipt time and transport. Staging retains the normalized provenance and
    every refusal reason.
@@ -40,7 +64,9 @@ test reference, not a vendored SyncAI platform dependency.
 
 1. Deploy Azure IoT Operations on a Microsoft-supported production platform.
 2. Establish OPC UA mutual certificate trust and read-only node permissions.
-3. Add `_syncai_source` enrichment and route the data flow to Event Hubs.
+3. Route PubSub JSON/JSON+gzip to Event Hubs. For native messages, configure a
+   stable `DataSetWriterName` or ID; for flattened data flows, enrich each
+   message with `_syncai_source`.
 4. Create a dedicated SyncAI consumer group and deploy the relay with a
    receiver-only managed identity.
 5. Save the disabled connector from **Integrations** with customer data-rights

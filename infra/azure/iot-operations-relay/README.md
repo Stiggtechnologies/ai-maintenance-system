@@ -4,14 +4,28 @@ This Azure Functions v4 worker consumes an Azure Event Hubs consumer group and
 forwards only normalized OPC UA telemetry to SyncAI. It has no Event Hubs send
 role, MQTT publication, OPC UA write, method-call or plant-command code.
 
-## Required upstream shape
+## Supported upstream shapes
 
-The Azure IoT Operations data flow must enrich each OPC UA PubSub JSON message
-with `_syncai_source`, a stable asset/dataset identity. Native data points keep
-their `{ "SourceTimestamp": "...", "Value": 12.3, "StatusCode": "Good" }`
-shape. The relay turns each point into the stable tag
-`<source>/<field-name>`. A named SyncAI data steward must confirm that exact tag
-against a canonical sensor before any reading can land.
+The relay accepts:
+
+- Azure IoT Operations flattened JSON carrying `_syncai_source`; and
+- OPC Publisher 2.9/3.0 PubSub `Json` or `JsonGzip`, including Event Hubs
+  wrappers, arrays of network messages, key/delta frames and reversible
+  numeric scalar bodies.
+
+Native PubSub messages must carry a stable `DataSetWriterName` or
+`DataSetWriterId`; a writer group is included when available. The relay turns
+each scalar point into
+`opc/publisher-<fingerprint>/<writer-group>/<writer>/<field-name>` (or the
+explicit `_syncai_source/<field-name>`). The non-secret publisher fingerprint
+prevents identical writer names from different publishers colliding. A named
+SyncAI data steward must confirm that exact tag against a canonical sensor
+before any reading can land.
+
+Metadata and keepalive frames are counted and skipped. Events and conditions
+are deliberately withheld for the governed process-event path. UADP and raw
+data sets lacking stable identity/source time are refused; configure JSON or
+JSON+gzip rather than silently changing their meaning.
 
 ## Application settings
 

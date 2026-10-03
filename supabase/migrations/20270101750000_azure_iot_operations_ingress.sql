@@ -437,7 +437,20 @@ begin
         'source_tag',v_tag,'measurement',v_map.measurement,'unit',v_map.unit,
         'delivery_id',p_delivery_id,'body_sha256',p_body_sha256,
         'partition_id',v_point->>'partition_id','offset',v_point->>'offset',
-        'sequence_number',v_point->>'sequence_number'
+        'sequence_number',v_point->>'sequence_number',
+        'source_format',v_point->>'source_format',
+        'network_message_id',v_point->>'network_message_id',
+        'publisher_id',v_point->>'publisher_id',
+        'writer_group',v_point->>'writer_group',
+        'dataset_writer_id',v_point->>'dataset_writer_id',
+        'dataset_writer_name',v_point->>'dataset_writer_name',
+        'metadata_major_version',v_point->>'metadata_major_version',
+        'metadata_minor_version',v_point->>'metadata_minor_version',
+        'dataset_message_type',v_point->>'dataset_message_type',
+        'dataset_sequence_number',v_point->>'dataset_sequence_number',
+        'server_timestamp',v_point->>'server_timestamp',
+        'status_code_symbol',v_point->>'status_code_symbol',
+        'status_code_code',v_point->>'status_code_code'
       ));
     else
       v_rejected:=v_rejected+1;

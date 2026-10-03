@@ -38,6 +38,10 @@ jobs:
       - name: TypeScript
         run: npx tsc --noEmit -p tsconfig.app.json
 
+      - name: Build Azure IoT Operations relay
+        working-directory: infra/azure/iot-operations-relay
+        run: npm ci --no-audit --no-fund && npm run build
+
       # Both capability registers: derived tally + per-row anti-downgrade
       # ratchet, for docs/enterprise-readiness and docs/sync-develop alike.
       #

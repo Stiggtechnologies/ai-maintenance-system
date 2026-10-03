@@ -13,6 +13,19 @@ export interface AzureIotPoint {
   partition_id?: string;
   offset?: string;
   sequence_number?: string;
+  source_format?: "azure-iot-operations-flat" | "opc-publisher-pubsub-json";
+  network_message_id?: string;
+  publisher_id?: string;
+  writer_group?: string;
+  dataset_writer_id?: string;
+  dataset_writer_name?: string;
+  metadata_major_version?: string;
+  metadata_minor_version?: string;
+  dataset_message_type?: string;
+  dataset_sequence_number?: string;
+  server_timestamp?: string;
+  status_code_symbol?: string;
+  status_code_code?: string;
 }
 
 const UUID =
@@ -143,6 +156,21 @@ function assertReadOnlyShape(value: Record<string, unknown>): void {
   }
 }
 
+function optionalBoundedText(
+  value: unknown,
+  field: string,
+  pointIndex: number,
+  maxLength = 500,
+): string | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value !== "string" && typeof value !== "number")
+    throw new Error(`point_${pointIndex + 1}_${field}_invalid`);
+  const text = String(value).trim();
+  if (!text || text.length > maxLength)
+    throw new Error(`point_${pointIndex + 1}_${field}_invalid`);
+  return text;
+}
+
 export function parseAzureIotIngressEnvelope(body: string): {
   deliveryId: string;
   points: AzureIotPoint[];
@@ -197,6 +225,26 @@ export function parseAzureIotIngressEnvelope(body: string): {
     )
       ? (rawQuality as AzureIotPoint["quality"])
       : "unknown";
+    const sourceFormat = optionalBoundedText(
+      point.source_format,
+      "source_format",
+      index,
+      80,
+    );
+    if (
+      sourceFormat &&
+      sourceFormat !== "azure-iot-operations-flat" &&
+      sourceFormat !== "opc-publisher-pubsub-json"
+    )
+      throw new Error(`point_${index + 1}_source_format_invalid`);
+    const serverTimestamp = optionalBoundedText(
+      point.server_timestamp,
+      "server_timestamp",
+      index,
+      40,
+    );
+    if (serverTimestamp && Number.isNaN(Date.parse(serverTimestamp)))
+      throw new Error(`point_${index + 1}_server_timestamp_invalid`);
     return {
       external_id: externalId,
       tag,
@@ -212,6 +260,75 @@ export function parseAzureIotIngressEnvelope(body: string): {
           : typeof point.sequence_number === "number"
             ? String(point.sequence_number)
             : undefined,
+      source_format: sourceFormat as AzureIotPoint["source_format"],
+      network_message_id: optionalBoundedText(
+        point.network_message_id,
+        "network_message_id",
+        index,
+        200,
+      ),
+      publisher_id: optionalBoundedText(
+        point.publisher_id,
+        "publisher_id",
+        index,
+      ),
+      writer_group: optionalBoundedText(
+        point.writer_group,
+        "writer_group",
+        index,
+        200,
+      ),
+      dataset_writer_id: optionalBoundedText(
+        point.dataset_writer_id,
+        "dataset_writer_id",
+        index,
+        200,
+      ),
+      dataset_writer_name: optionalBoundedText(
+        point.dataset_writer_name,
+        "dataset_writer_name",
+        index,
+        200,
+      ),
+      metadata_major_version: optionalBoundedText(
+        point.metadata_major_version,
+        "metadata_major_version",
+        index,
+        40,
+      ),
+      metadata_minor_version: optionalBoundedText(
+        point.metadata_minor_version,
+        "metadata_minor_version",
+        index,
+        40,
+      ),
+      dataset_message_type: optionalBoundedText(
+        point.dataset_message_type,
+        "dataset_message_type",
+        index,
+        80,
+      ),
+      dataset_sequence_number: optionalBoundedText(
+        point.dataset_sequence_number,
+        "dataset_sequence_number",
+        index,
+        80,
+      ),
+      server_timestamp: serverTimestamp
+        ? new Date(serverTimestamp).toISOString()
+        : undefined,
+      status_code_symbol: optionalBoundedText(
+        point.status_code_symbol,
+        "status_code_symbol",
+        index,
+        160,
+      ),
+      status_code_code: optionalBoundedText(
+        point.status_code_code,
+        "status_code_code",
+        index,
+        80,
+      ),
     };
   });
   return { deliveryId, points };

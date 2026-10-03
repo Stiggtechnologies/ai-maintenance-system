@@ -1,22 +1,6 @@
 import { app, type InvocationContext } from "@azure/functions";
 import { createHmac } from "node:crypto";
-
-interface NativePoint {
-  SourceTimestamp?: unknown;
-  Value?: unknown;
-  StatusCode?: unknown;
-}
-
-interface NormalizedPoint {
-  external_id: string;
-  tag: string;
-  value: number | string;
-  source_timestamp: string;
-  quality: "good" | "bad" | "uncertain" | "unknown";
-  partition_id: string;
-  offset: string;
-  sequence_number: string;
-}
+import { normalizeEventHubMessages } from "../normalize.js";
 
 function record(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -30,15 +14,6 @@ function required(name: string): string {
   return value;
 }
 
-function quality(status: unknown): NormalizedPoint["quality"] {
-  const text = String(status ?? "").toLowerCase();
-  if (!text) return "unknown";
-  if (text.includes("good")) return "good";
-  if (text.includes("bad")) return "bad";
-  if (text.includes("uncertain")) return "uncertain";
-  return "unknown";
-}
-
 function metadataArray(
   context: InvocationContext,
   key: string,
@@ -49,10 +24,7 @@ function metadataArray(
   return Array.from({ length }, () => String(value ?? ""));
 }
 
-function normalize(
-  messages: unknown[],
-  context: InvocationContext,
-): { deliveryBase: string; points: NormalizedPoint[] } {
+function normalize(messages: unknown[], context: InvocationContext) {
   const offsets = metadataArray(context, "offsetArray", messages.length);
   const sequences = metadataArray(
     context,
@@ -63,59 +35,7 @@ function normalize(
   const partition = String(
     partitionContext?.partitionId ?? context.triggerMetadata?.partitionId ?? "",
   );
-  if (!partition || offsets.some((offset) => !offset))
-    throw new Error(
-      "Event Hubs partition and offset metadata are required for replay-safe identity",
-    );
-  const points: NormalizedPoint[] = [];
-
-  messages.forEach((rawMessage, messageIndex) => {
-    const message = record(rawMessage);
-    if (!message) throw new Error(`Event ${messageIndex + 1} is not JSON`);
-    const source =
-      typeof message._syncai_source === "string"
-        ? message._syncai_source.trim()
-        : "";
-    if (source.length < 2)
-      throw new Error(
-        `Event ${messageIndex + 1} lacks _syncai_source; enrich the Azure IoT Operations data flow with a stable asset/dataset identity`,
-      );
-    for (const [field, rawPoint] of Object.entries(message)) {
-      if (field.startsWith("_")) continue;
-      const point = record(rawPoint) as NativePoint | null;
-      if (!point || point.Value === undefined || !point.SourceTimestamp)
-        continue;
-      if (
-        (typeof point.Value !== "number" && typeof point.Value !== "string") ||
-        !Number.isFinite(Number(point.Value))
-      )
-        throw new Error(`Telemetry ${source}/${field} is not numeric`);
-      const sourceTimestamp = new Date(String(point.SourceTimestamp));
-      if (Number.isNaN(sourceTimestamp.valueOf()))
-        throw new Error(
-          `Telemetry ${source}/${field} has no valid source time`,
-        );
-      const offset = offsets[messageIndex];
-      points.push({
-        external_id: `${partition}:${offset}:${field}`,
-        tag: `${source}/${field}`,
-        value: point.Value,
-        source_timestamp: sourceTimestamp.toISOString(),
-        quality: quality(point.StatusCode),
-        partition_id: partition,
-        offset,
-        sequence_number: sequences[messageIndex] || "unknown",
-      });
-    }
-  });
-  if (points.length === 0)
-    throw new Error("Batch contains no OPC UA data points");
-  const first = offsets[0];
-  const last = offsets[offsets.length - 1];
-  return {
-    deliveryBase: `${partition}:${first}:${last}:${messages.length}`,
-    points,
-  };
+  return normalizeEventHubMessages(messages, { partition, offsets, sequences });
 }
 
 async function postWithRetry(body: string, context: InvocationContext) {
@@ -174,6 +94,7 @@ export async function relay(
     deliveryBase: normalized.deliveryBase,
     deliveries,
     points: normalized.points.length,
+    skipped: normalized.skipped,
   });
 }
 
