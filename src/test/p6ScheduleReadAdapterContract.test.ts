@@ -74,6 +74,8 @@ describe("Primavera P6 schedule read adapter contract", () => {
     expect(setup).toContain("Dry-run complete pull");
     expect(service).toContain("p6-schedule-read-pull");
     expect(integrations).toContain("P6ScheduleReadConnectorSetup");
+    expect(integrations).toContain("Review P6 changes");
+    expect(integrations).toContain("showNoChanges");
     expect(workflow).toContain("supabase/functions/p6-schedule-read-pull/**");
     expect(workflow).toContain(
       "supabase functions deploy p6-schedule-read-pull",

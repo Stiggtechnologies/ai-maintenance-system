@@ -10,7 +10,13 @@ function display(value: unknown): string {
   return typeof value === "string" ? value : JSON.stringify(value);
 }
 
-export function P6ScheduleRevisionReview({ runId }: { runId: string | null }) {
+export function P6ScheduleRevisionReview({
+  runId,
+  showNoChanges = false,
+}: {
+  runId: string | null;
+  showNoChanges?: boolean;
+}) {
   const [revision, setRevision] = useState<ScheduleImportRevisionResult | null>(
     null,
   );
@@ -28,9 +34,15 @@ export function P6ScheduleRevisionReview({ runId }: { runId: string | null }) {
     void proposeScheduleImportRevision(runId)
       .then((result) => {
         if (cancelled) return;
-        // An identical replay is intentionally silent on the surface. It is
-        // still counted as duplicate in the import summary immediately above.
+        // The inline post-import surface stays quiet for an identical replay.
+        // An explicit history review, however, must answer the operator rather
+        // than appearing broken when no changed duplicate exists.
         if (result.answered) setRevision(result);
+        else if (showNoChanges)
+          setMessage(
+            result.refusal ??
+              "No changed duplicate activity was found in this P6 run.",
+          );
       })
       .catch((error) => {
         if (!cancelled)
@@ -39,7 +51,7 @@ export function P6ScheduleRevisionReview({ runId }: { runId: string | null }) {
     return () => {
       cancelled = true;
     };
-  }, [runId]);
+  }, [runId, showNoChanges]);
 
   if (!revision && !message) return null;
 

@@ -16,6 +16,7 @@ import { RecoverySignalConnectorSetup } from "../components/RecoverySignalConnec
 import { PlantHistorianConnectorSetup } from "../components/PlantHistorianConnectorSetup";
 import { CmmsReadConnectorSetup } from "../components/CmmsReadConnectorSetup";
 import { P6ScheduleReadConnectorSetup } from "../components/P6ScheduleReadConnectorSetup";
+import { P6ScheduleRevisionReview } from "../components/P6ScheduleRevisionReview";
 
 interface Connector {
   id: string;
@@ -45,6 +46,7 @@ export function IntegrationsPage() {
   const [activeTab, setActiveTab] = useState<"connectors" | "history">(
     "connectors",
   );
+  const [reviewRunId, setReviewRunId] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -268,6 +270,7 @@ export function IntegrationsPage() {
                   <th className="pb-2">Records</th>
                   <th className="pb-2">Started</th>
                   <th className="pb-2">Duration</th>
+                  <th className="pb-2">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -293,7 +296,7 @@ export function IntegrationsPage() {
                       </td>
                       <td className="py-3">
                         <span
-                          className={`text-xs px-2 py-1 rounded-full ${run.status === "success" ? "bg-green-500/100/10 text-green-300" : run.status === "failure" ? "bg-red-500/10 text-red-300" : "bg-amber-500/10 text-amber-300"}`}
+                          className={`text-xs px-2 py-1 rounded-full ${run.status === "success" ? "bg-green-500/10 text-green-300" : run.status === "failure" ? "bg-red-500/10 text-red-300" : "bg-amber-500/10 text-amber-300"}`}
                         >
                           {run.status}
                         </span>
@@ -307,11 +310,34 @@ export function IntegrationsPage() {
                       <td className="py-3 text-sm text-slate-400">
                         {duration ? `${duration}s` : "-"}
                       </td>
+                      <td className="py-3 text-sm">
+                        {connector?.connector_type === "scheduling_read" &&
+                        run.status === "success" ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setReviewRunId((current) =>
+                                current === run.id ? null : run.id,
+                              )
+                            }
+                            className="text-xs font-medium text-signal-cyan hover:text-signal-cyan-soft"
+                          >
+                            {reviewRunId === run.id
+                              ? "Close P6 review"
+                              : "Review P6 changes"}
+                          </button>
+                        ) : (
+                          <span className="text-slate-500">—</span>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+          )}
+          {reviewRunId && (
+            <P6ScheduleRevisionReview runId={reviewRunId} showNoChanges />
           )}
         </div>
       )}
