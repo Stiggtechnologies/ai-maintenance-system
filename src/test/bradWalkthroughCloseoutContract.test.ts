@@ -45,7 +45,7 @@ describe("Brad first-customer walkthrough closeout contract", () => {
   });
 
   it("makes invitation mutation service-only and preserves tenant/AAL2 gates", () => {
-    expect(migration).toMatch(/request\.jwt\.claim\.role/);
+    expect(migration).toMatch(/auth\.role\(\)/);
     expect(migration).toMatch(/service_role/);
     expect(migration).toMatch(/organization_id = p_organization_id/);
     expect(migration).toMatch(

@@ -27,7 +27,7 @@ declare
   v_name text := trim(coalesce(p_name, ''));
   v_actor_label text;
 begin
-  if coalesce(current_setting('request.jwt.claim.role', true), '') <> 'service_role' then
+  if coalesce(auth.role(), '') <> 'service_role' then
     return jsonb_build_object('error', 'decision-case invitation registration is service-only');
   end if;
   if p_actor_id is null or p_organization_id is null then
