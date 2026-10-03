@@ -403,6 +403,9 @@ jobs:
       - name: Smoke — workforce training lifecycle and governed labour rules
         run: bash scripts/ci-workforce-governance-smoke.sh
 
+      - name: Smoke — governed crew, tools, knowledge and multilingual standard work
+        run: bash scripts/ci-workforce-execution-governance-smoke.sh
+
       - name: Smoke — Sync Develop Technical Debt (case origin, valuation, independent approval)
         run: bash scripts/ci-develop-technical-debt-smoke.sh
 
