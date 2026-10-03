@@ -4,8 +4,8 @@ This inventory is generated deterministically from `package-lock.json` by
 `scripts/compliance/generate-license-inventory.mjs`. It is technical
 diligence evidence, not a legal opinion.
 
-- Lockfile SHA-256: `3d2c1acd87bfbedb7696ebf7e66b4d9cc8427176098728d5958bb18b6f334a3f`
-- Package instances: **405**
+- Lockfile SHA-256: `edb34943133ea7b2a6bb6eb2cee684ca5c9079412ac265d3267b6eddb78094f2`
+- Package instances: **406**
 - Direct production dependencies: **14**
 - Direct development dependencies: **26**
 - Prohibited-license matches: **0**
@@ -25,7 +25,7 @@ patents, trademarks, or customer distribution obligations.
 | License | Package instances | Baseline treatment |
 | --- | ---: | --- |
 | 0BSD | 1 | Permitted by automated baseline |
-| Apache-2.0 | 25 | Permitted by automated baseline |
+| Apache-2.0 | 26 | Permitted by automated baseline |
 | BlueOak-1.0.0 | 2 | Permitted by automated baseline |
 | BSD-2-Clause | 10 | Permitted by automated baseline |
 | BSD-3-Clause | 4 | Permitted by automated baseline |
