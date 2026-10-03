@@ -3,6 +3,9 @@
 export const INVERTED_OPENING_HEADLINE =
   "Get one real engineering decision through Sync in 20 minutes";
 
+export const INVERTED_OPENING_SUB =
+  "Ask a real question. See the evidence. Make the decision. Verify the outcome.";
+
 export const INVERTED_OPENING_AUTHORITY =
   "Sync recommends. Humans authorize. No plant execute.";
 
@@ -21,6 +24,14 @@ export const INVERTED_EXAMPLE_PROMPTS = [
       "Which PM tasks on this line look like candidates to extend or eliminate, and what evidence would we need?",
   },
 ] as const;
+
+/** Exact example text is an affordance. It must not become a customer case. */
+export function isExamplePrompt(text: string): boolean {
+  const normalized = text.trim().replace(/\s+/g, " ");
+  return INVERTED_EXAMPLE_PROMPTS.some(
+    (example) => example.prompt.replace(/\s+/g, " ") === normalized,
+  );
+}
 
 export type InvertedIntentId = "solve" | "coordinate" | "connect";
 

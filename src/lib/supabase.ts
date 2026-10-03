@@ -29,5 +29,17 @@ function fetchWithTimeout(
 export const supabase = createClient(
   supabaseUrl || "https://placeholder.supabase.co",
   supabasePublicKey || "placeholder",
-  { global: { fetch: fetchWithTimeout } },
+  {
+    auth: {
+      // OAuth and recovery links use an authorization code whose verifier is
+      // retained by GoTrue in browser storage.  The dedicated Entra callback
+      // performs its own exchange so it can verify the resulting provider and
+      // user before routing into the application; other supported Auth links
+      // (for example password recovery) continue to be detected automatically.
+      flowType: "pkce",
+      detectSessionInUrl: (url) => url.pathname !== "/auth/callback/azure",
+      experimental: { appendPkceFlowIdToRedirects: true },
+    },
+    global: { fetch: fetchWithTimeout },
+  },
 );

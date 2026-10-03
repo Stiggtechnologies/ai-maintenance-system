@@ -107,6 +107,13 @@ print(eval(os.environ['EXPR'], {'x': x, 'json': json}))
 PY
 }
 
+# Freeze the hourly expiry cron before any overdue fixture is written.
+# The job is '7 * * * *'; #487 failed at 2026-09-16T11:07:00Z when cron
+# breached SMOKE3C-C42 first and expire_governance_instruments() returned
+# stakeholder_commitments_breached=0. CI also unschedules this in the
+# restore hook; do it here so a standalone replay is not a coin flip.
+psqlc "select cron.unschedule(jobid) from cron.job where jobname = 'expire-governance-instruments'" >/dev/null || true
+
 PLANNER=$(token 'planner@syncai.ca' 'Planner123!@#')
 MANAGER=$(token 'manager@syncai.ca' 'Manager123!@#')
 EXEC=$(token 'executive@syncai.ca' 'Exec123!@#')

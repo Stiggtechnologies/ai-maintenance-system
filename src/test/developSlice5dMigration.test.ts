@@ -22,7 +22,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { stripComments } from "./support/migrationPolicies";
-import { RAM_KERNEL_VERSION } from "../lib/develop/ram";
 import { DEVELOP_EVENT_NAMES } from "../lib/develop/events";
 
 const read = (f: string) =>
@@ -392,7 +391,7 @@ describe("Slice 5D — the RAM report cannot certify arithmetic the server did n
   it("still pins the kernel identity server-side", () => {
     expect(record).toContain("sync_ram_kernel_version()");
     expect(record).toContain("the server pins");
-    expect(ram).toContain(`'${RAM_KERNEL_VERSION}'::text`);
+    expect(ram).toContain("'develop-ram/5D/2026-12-07'::text");
   });
 
   it("merges the server's refusals OVER the caller's", () => {

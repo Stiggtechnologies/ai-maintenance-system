@@ -15,16 +15,30 @@
  * Optional env:
  *   APP_URL         (defaults to https://app.syncai.ca)
  *   RESEND_API_KEY  (when present, configures branded SyncAI SMTP via Resend)
+ *   ENTRA_SSO_CLIENT_ID / ENTRA_SSO_CLIENT_SECRET
+ *                   (both required together to enable Microsoft Entra SSO)
+ *   ENTRA_SSO_TENANT (defaults to common for Marketplace-compatible sign-in)
  */
 
 const token = (process.env.SUPABASE_ACCESS_TOKEN ?? "").trim();
 const projectRef = (process.env.SUPABASE_PROJECT_ID ?? "").trim();
 const appUrl = (process.env.APP_URL ?? "https://app.syncai.ca").replace(/\/+$/, "");
 const resendKey = (process.env.RESEND_API_KEY ?? "").trim();
+const entraClientId = (process.env.ENTRA_SSO_CLIENT_ID ?? "").trim();
+const entraClientSecret = (process.env.ENTRA_SSO_CLIENT_SECRET ?? "").trim();
+const entraTenant = (process.env.ENTRA_SSO_TENANT || "common").trim();
 
 if (!token) throw new Error("SUPABASE_ACCESS_TOKEN is required");
 if (!projectRef) throw new Error("SUPABASE_PROJECT_ID is required");
 if (!/^https:\/\//.test(appUrl)) throw new Error("APP_URL must be an https URL");
+if (Boolean(entraClientId) !== Boolean(entraClientSecret)) {
+  throw new Error(
+    "ENTRA_SSO_CLIENT_ID and ENTRA_SSO_CLIENT_SECRET must be configured together",
+  );
+}
+if (!/^(common|organizations|consumers|[0-9a-f-]{36})$/i.test(entraTenant)) {
+  throw new Error("ENTRA_SSO_TENANT must be common, organizations, consumers, or a tenant UUID");
+}
 
 const managementUrl = `https://api.supabase.com/v1/projects/${projectRef}/config/auth`;
 const recoveryUrl = `${appUrl}/signin?mode=recovery`;
@@ -104,6 +118,19 @@ if (resendKey) {
   );
 }
 
+if (entraClientId && entraClientSecret) {
+  Object.assign(patch, {
+    external_azure_enabled: true,
+    external_azure_client_id: entraClientId,
+    external_azure_secret: entraClientSecret,
+    external_azure_url: `https://login.microsoftonline.com/${entraTenant}`,
+  });
+} else {
+  console.warn(
+    "::warning title=Microsoft Entra SSO remains unchanged::ENTRA_SSO_CLIENT_ID and ENTRA_SSO_CLIENT_SECRET are not set. The deploy will not enable, disable, or alter the hosted Azure provider.",
+  );
+}
+
 await request("PATCH", patch);
 const verified = await request("GET");
 const verifiedAllowList = new Set(parseAllowList(verified.uri_allow_list));
@@ -117,6 +144,17 @@ if (verified.mailer_subjects_recovery !== "Reset your SyncAI password") {
 if (resendKey && verified.smtp_host !== "smtp.resend.com") {
   failures.push("custom SMTP not applied");
 }
+if (entraClientId) {
+  if (verified.external_azure_enabled !== true) {
+    failures.push("Microsoft Entra provider not enabled");
+  }
+  if (verified.external_azure_client_id !== entraClientId) {
+    failures.push("Microsoft Entra client id not applied");
+  }
+  if (verified.external_azure_url !== `https://login.microsoftonline.com/${entraTenant}`) {
+    failures.push("Microsoft Entra tenant URL not applied");
+  }
+}
 
 if (failures.length) {
   throw new Error(`Production Auth verification failed: ${failures.join("; ")}`);
@@ -125,3 +163,4 @@ if (failures.length) {
 console.log(`Production Auth verified: site_url=${appUrl}`);
 console.log(`Production Auth verified: recovery_redirect=${recoveryUrl}`);
 console.log(`Production Auth verified: custom_smtp=${resendKey ? "configured" : "not-configured"}`);
+console.log(`Production Auth verified: entra_sso=${entraClientId ? "configured" : "unchanged"}`);

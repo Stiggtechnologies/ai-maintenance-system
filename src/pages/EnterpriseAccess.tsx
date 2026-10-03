@@ -1,7 +1,12 @@
 import { AuthShell } from "../components/AuthShell";
 import { AuthTabs } from "../components/AuthTabs";
-import { ENTERPRISE_SSO_DISABLED_MESSAGE } from "../lib/azure-ad";
-import { ShieldAlert } from "lucide-react";
+import {
+  ENTERPRISE_SSO_UNAVAILABLE_MESSAGE,
+  isEnterpriseSsoAvailable,
+  signInWithAzureAD,
+} from "../lib/azure-ad";
+import { Building2, ShieldCheck } from "lucide-react";
+import { useEffect, useState } from "react";
 
 interface EnterpriseAccessProps {
   onSuccess: () => void;
@@ -11,44 +16,110 @@ interface EnterpriseAccessProps {
 }
 
 /**
- * Enterprise federation is intentionally unavailable until verified OIDC
- * identity exchange, tenant mapping, provisioning, and Supabase session
- * establishment are implemented end to end.
+ * Enterprise federation establishes identity only. Organization membership
+ * and Marketplace entitlement remain separate, server-governed controls.
  */
 export function EnterpriseAccess({ onTabChange }: EnterpriseAccessProps) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(
+    () => new URLSearchParams(window.location.search).get("error") ?? "",
+  );
+  const [availability, setAvailability] = useState<
+    "checking" | "available" | "unavailable"
+  >("checking");
+
+  useEffect(() => {
+    let active = true;
+    void isEnterpriseSsoAvailable().then((available) => {
+      if (active) setAvailability(available ? "available" : "unavailable");
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const handleMicrosoftSignIn = async () => {
+    setLoading(true);
+    setError("");
+    try {
+      await signInWithAzureAD();
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Microsoft Entra sign-in is temporarily unavailable.",
+      );
+      setLoading(false);
+    }
+  };
+
   return (
     <AuthShell>
       <div className="bg-industrial-slate rounded-xl p-8 border border-industrial-border backdrop-blur-xs">
         <AuthTabs activeTab="enterprise" onTabChange={onTabChange} />
 
         <div className="space-y-6">
-          <div className="flex items-start gap-3 rounded-lg border border-amber-500/30 bg-amber-500/10 p-4">
-            <ShieldAlert
-              className="mt-0.5 h-5 w-5 shrink-0 text-amber-400"
+          <div className="flex items-start gap-3 rounded-lg border border-signal-cyan/30 bg-signal-cyan/10 p-4">
+            <ShieldCheck
+              className="mt-0.5 h-5 w-5 shrink-0 text-signal-cyan"
               aria-hidden="true"
             />
             <div>
               <h2 className="font-semibold text-industrial-text">
-                Enterprise SSO is not enabled
+                Verified Microsoft work identity
               </h2>
               <p className="mt-1 text-sm text-industrial-muted">
-                {ENTERPRISE_SSO_DISABLED_MESSAGE}
+                Sign in through Microsoft Entra. Supabase validates the
+                provider response and establishes the SyncAI application
+                session.
               </p>
             </div>
           </div>
 
           <p className="text-sm text-industrial-muted">
-            This page does not accept company codes, employee identifiers, or
-            MFA codes. Those values are not a substitute for verified identity,
-            tenant assignment, and an authenticated Supabase session.
+            Signing in proves identity; it does not assign a customer tenant,
+            elevate a role, activate a Marketplace purchase, or authorize an
+            engineering decision. Those controls remain independently governed.
           </p>
+
+          {error && (
+            <div
+              role="alert"
+              className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300"
+            >
+              {error}
+            </div>
+          )}
+
+          {availability === "unavailable" && !error && (
+            <div
+              role="status"
+              className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200"
+            >
+              {ENTERPRISE_SSO_UNAVAILABLE_MESSAGE}
+            </div>
+          )}
+
+          <button
+            type="button"
+            onClick={handleMicrosoftSignIn}
+            disabled={loading || availability !== "available"}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#2f6fed] px-4 py-3 font-medium text-white transition-colors hover:bg-[#255fd2] disabled:cursor-wait disabled:opacity-70"
+          >
+            <Building2 className="h-5 w-5" aria-hidden="true" />
+            {loading
+              ? "Opening Microsoft…"
+              : availability === "checking"
+                ? "Checking Microsoft sign-in…"
+                : "Continue with Microsoft"}
+          </button>
 
           <button
             type="button"
             onClick={() => onTabChange("signin")}
-            className="w-full rounded-lg bg-teal-400 px-4 py-3 font-medium text-slate-950 transition-colors hover:bg-teal-300"
+            className="w-full rounded-lg border border-industrial-border px-4 py-3 font-medium text-industrial-text transition-colors hover:border-signal-cyan/40 hover:text-signal-cyan"
           >
-            Return to approved sign-in
+            Use email sign-in
           </button>
         </div>
 

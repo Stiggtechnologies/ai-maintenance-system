@@ -25,10 +25,22 @@ import {
   canKit,
   canReserve,
   describeReserveResult,
+  listLotFormOptions,
   listMaterialDemand,
+  listMaterialStockLots,
+  MATERIAL_LOT_CERTIFICATIONS,
+  MATERIAL_LOT_CONDITIONS,
+  MATERIAL_SUBSTITUTION_STATUSES,
+  MATERIAL_SUBSTITUTION_TYPES,
   recordMaterialEvent,
+  recordMaterialStockLot,
+  recordMaterialSubstitution,
   reserveWoMaterials,
   type MaterialDemandLine,
+  type MaterialLotCertification,
+  type MaterialLotCondition,
+  type MaterialSubstitutionStatus,
+  type MaterialSubstitutionType,
 } from "../services/materialsCallers";
 
 interface Shortage {
@@ -92,6 +104,25 @@ export function MaterialsReadiness() {
     () => listMaterialDemand(),
     [],
   );
+  const lots = useAsyncData(listMaterialStockLots, []);
+  const lotOptions = useAsyncData(listLotFormOptions, []);
+  const [lotMaterialId, setLotMaterialId] = useState("");
+  const [lotSiteId, setLotSiteId] = useState("");
+  const [lotRef, setLotRef] = useState("");
+  const [lotQty, setLotQty] = useState("");
+  const [lotCondition, setLotCondition] =
+    useState<MaterialLotCondition>("unknown");
+  const [lotCert, setLotCert] = useState<MaterialLotCertification>("unknown");
+  const [lotSource, setLotSource] = useState("");
+  const [lotBasis, setLotBasis] = useState("");
+  const [subMaterialId, setSubMaterialId] = useState("");
+  const [subSubstituteId, setSubSubstituteId] = useState("");
+  const [subType, setSubType] = useState<MaterialSubstitutionType>(
+    "approved_alternate",
+  );
+  const [subStatus, setSubStatus] =
+    useState<MaterialSubstitutionStatus>("pending");
+  const [subBasis, setSubBasis] = useState("");
 
   if (loading) return <LoadingState label="Loading materials position" />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
@@ -375,6 +406,317 @@ export function MaterialsReadiness() {
           </ul>
         </div>
       )}
+
+      <div className="rounded-xl border border-white/6 bg-white/2 p-4">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-400">
+          Lot condition and certification
+        </h3>
+        <p className="mt-1 text-xs leading-relaxed text-slate-500">
+          Recovery parts-risk reads material lot condition, certification and
+          staging. Recording a lot calls the existing stock-lot contract. It
+          does not invent a quantity, a limit, or a fitment approval.
+        </p>
+        {lots.loading ? (
+          <p className="mt-2 text-xs text-slate-500">Loading lots…</p>
+        ) : (lots.data ?? []).length === 0 ? (
+          <p className="mt-2 text-xs text-slate-500">
+            No lot condition is recorded. Aggregate on-hand stock is not a
+            condition or certification.
+          </p>
+        ) : (
+          <ul className="mt-2 space-y-1">
+            {(lots.data ?? []).map((lot) => (
+              <li key={lot.id} className="text-xs text-slate-300">
+                <span className="font-mono text-slate-400">
+                  {lot.material_code ?? "material"}
+                </span>{" "}
+                {lot.lot_ref} · qty {lot.qty} · {lot.condition} ·{" "}
+                {lot.certification_status}
+              </li>
+            ))}
+          </ul>
+        )}
+        {(lotOptions.data?.materials.length ?? 0) === 0 ? (
+          <p className="mt-3 text-xs text-slate-500">
+            No tenant catalogue material is available to attach a lot to. Load
+            the catalogue before recording condition. Nothing is invented here.
+          </p>
+        ) : (
+          <form
+            className="mt-3 grid gap-2 md:grid-cols-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const qty = Number(lotQty);
+              if (!lotMaterialId || !lotRef.trim() || !Number.isFinite(qty)) {
+                setFlash("A catalogue material, lot reference and quantity are required.");
+                return;
+              }
+              setBusy(true);
+              setFlash(null);
+              void recordMaterialStockLot({
+                materialId: lotMaterialId,
+                siteId: lotSiteId || null,
+                lotRef: lotRef.trim(),
+                qty,
+                condition: lotCondition,
+                certificationStatus: lotCert,
+                sourceSystem: lotSource.trim(),
+                basis: lotBasis.trim(),
+              })
+                .then(() => {
+                  setFlash("Lot condition recorded. It is not an approval to install.");
+                  setLotRef("");
+                  setLotQty("");
+                  setLotBasis("");
+                  return lots.refetch();
+                })
+                .catch((err: unknown) =>
+                  setFlash(err instanceof Error ? err.message : "Could not record the lot."),
+                )
+                .finally(() => setBusy(false));
+            }}
+          >
+            <label className="text-xs text-slate-400">
+              Material
+              <select
+                aria-label="Lot material"
+                className="mt-1 w-full rounded border border-white/10 bg-overlook-deep px-2 py-1 text-sm text-slate-200"
+                value={lotMaterialId}
+                onChange={(event) => setLotMaterialId(event.target.value)}
+              >
+                <option value="">Select…</option>
+                {lotOptions.data?.materials.map((material) => (
+                  <option key={material.id} value={material.id}>
+                    {material.material_code} — {material.description}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs text-slate-400">
+              Site
+              <select
+                aria-label="Lot site"
+                className="mt-1 w-full rounded border border-white/10 bg-overlook-deep px-2 py-1 text-sm text-slate-200"
+                value={lotSiteId}
+                onChange={(event) => setLotSiteId(event.target.value)}
+              >
+                <option value="">Unspecified site</option>
+                {lotOptions.data?.sites.map((site) => (
+                  <option key={site.id} value={site.id}>
+                    {site.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs text-slate-400">
+              Lot reference
+              <input
+                aria-label="Lot reference"
+                className="mt-1 w-full rounded border border-white/10 bg-overlook-deep px-2 py-1 text-sm text-slate-200"
+                value={lotRef}
+                onChange={(event) => setLotRef(event.target.value)}
+              />
+            </label>
+            <label className="text-xs text-slate-400">
+              Quantity
+              <input
+                aria-label="Lot quantity"
+                type="number"
+                min="0"
+                step="any"
+                className="mt-1 w-full rounded border border-white/10 bg-overlook-deep px-2 py-1 text-sm text-slate-200"
+                value={lotQty}
+                onChange={(event) => setLotQty(event.target.value)}
+              />
+            </label>
+            <label className="text-xs text-slate-400">
+              Condition
+              <select
+                aria-label="Lot condition"
+                className="mt-1 w-full rounded border border-white/10 bg-overlook-deep px-2 py-1 text-sm text-slate-200"
+                value={lotCondition}
+                onChange={(event) =>
+                  setLotCondition(event.target.value as MaterialLotCondition)
+                }
+              >
+                {MATERIAL_LOT_CONDITIONS.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs text-slate-400">
+              Certification
+              <select
+                aria-label="Lot certification"
+                className="mt-1 w-full rounded border border-white/10 bg-overlook-deep px-2 py-1 text-sm text-slate-200"
+                value={lotCert}
+                onChange={(event) =>
+                  setLotCert(event.target.value as MaterialLotCertification)
+                }
+              >
+                {MATERIAL_LOT_CERTIFICATIONS.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs text-slate-400">
+              Source system
+              <input
+                aria-label="Lot source system"
+                className="mt-1 w-full rounded border border-white/10 bg-overlook-deep px-2 py-1 text-sm text-slate-200"
+                value={lotSource}
+                onChange={(event) => setLotSource(event.target.value)}
+              />
+            </label>
+            <label className="text-xs text-slate-400 md:col-span-2">
+              Basis
+              <textarea
+                aria-label="Lot basis"
+                className="mt-1 w-full rounded border border-white/10 bg-overlook-deep px-2 py-1 text-sm text-slate-200"
+                value={lotBasis}
+                onChange={(event) => setLotBasis(event.target.value)}
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={busy}
+              className="md:col-span-2 w-fit rounded-lg border border-teal-500/40 bg-teal-500/10 px-3 py-1.5 text-xs text-teal-300 disabled:opacity-50"
+            >
+              Record lot condition
+            </button>
+          </form>
+        )}
+        {(lotOptions.data?.materials.length ?? 0) >= 2 && (
+          <form
+            className="mt-4 grid gap-2 border-t border-white/6 pt-3 md:grid-cols-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (
+                !subMaterialId ||
+                !subSubstituteId ||
+                subMaterialId === subSubstituteId
+              ) {
+                setFlash("A substitution needs two different catalogue materials.");
+                return;
+              }
+              setBusy(true);
+              setFlash(null);
+              void recordMaterialSubstitution({
+                materialId: subMaterialId,
+                substituteMaterialId: subSubstituteId,
+                type: subType,
+                status: subStatus,
+                basis: subBasis.trim(),
+              })
+                .then((result) => {
+                  setFlash(
+                    `Substitution recorded as ${result.status ?? subStatus}. Pending is not an approved fitment.`,
+                  );
+                  setSubBasis("");
+                })
+                .catch((err: unknown) =>
+                  setFlash(
+                    err instanceof Error
+                      ? err.message
+                      : "Could not record the substitution.",
+                  ),
+                )
+                .finally(() => setBusy(false));
+            }}
+          >
+            <p className="md:col-span-2 text-xs text-slate-500">
+              Substitution stays pending unless a role the contract already
+              allows records another status. This does not move a part.
+            </p>
+            <label className="text-xs text-slate-400">
+              Specified material
+              <select
+                aria-label="Specified material"
+                className="mt-1 w-full rounded border border-white/10 bg-overlook-deep px-2 py-1 text-sm text-slate-200"
+                value={subMaterialId}
+                onChange={(event) => setSubMaterialId(event.target.value)}
+              >
+                <option value="">Select…</option>
+                {lotOptions.data?.materials.map((material) => (
+                  <option key={material.id} value={material.id}>
+                    {material.material_code}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs text-slate-400">
+              Substitute
+              <select
+                aria-label="Substitute material"
+                className="mt-1 w-full rounded border border-white/10 bg-overlook-deep px-2 py-1 text-sm text-slate-200"
+                value={subSubstituteId}
+                onChange={(event) => setSubSubstituteId(event.target.value)}
+              >
+                <option value="">Select…</option>
+                {lotOptions.data?.materials.map((material) => (
+                  <option key={material.id} value={material.id}>
+                    {material.material_code}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs text-slate-400">
+              Type
+              <select
+                aria-label="Substitution type"
+                className="mt-1 w-full rounded border border-white/10 bg-overlook-deep px-2 py-1 text-sm text-slate-200"
+                value={subType}
+                onChange={(event) =>
+                  setSubType(event.target.value as MaterialSubstitutionType)
+                }
+              >
+                {MATERIAL_SUBSTITUTION_TYPES.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs text-slate-400">
+              Status
+              <select
+                aria-label="Substitution status"
+                className="mt-1 w-full rounded border border-white/10 bg-overlook-deep px-2 py-1 text-sm text-slate-200"
+                value={subStatus}
+                onChange={(event) =>
+                  setSubStatus(event.target.value as MaterialSubstitutionStatus)
+                }
+              >
+                {MATERIAL_SUBSTITUTION_STATUSES.map((value) => (
+                  <option key={value} value={value}>
+                    {value}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="text-xs text-slate-400 md:col-span-2">
+              Engineering basis
+              <textarea
+                aria-label="Substitution basis"
+                className="mt-1 w-full rounded border border-white/10 bg-overlook-deep px-2 py-1 text-sm text-slate-200"
+                value={subBasis}
+                onChange={(event) => setSubBasis(event.target.value)}
+              />
+            </label>
+            <button
+              type="submit"
+              disabled={busy}
+              className="md:col-span-2 w-fit rounded-lg border border-white/10 px-3 py-1.5 text-xs text-slate-300 disabled:opacity-50"
+            >
+              Record substitution
+            </button>
+          </form>
+        )}
+      </div>
 
       {repairables.length > 0 && (
         <div className="rounded-xl border border-white/6 bg-white/2 p-4">

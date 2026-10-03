@@ -117,6 +117,81 @@ export async function recordAssetConditionState(input: {
   );
 }
 
+export interface ConditionReadingRow {
+  id: number | string;
+  asset_id: string | null;
+  value: number;
+  quality: string;
+  taken_at: string;
+  source_system: string | null;
+  sensor_name: string | null;
+  signal_type: string | null;
+  unit: string | null;
+}
+
+interface ReadingQueryRow {
+  id: number | string;
+  asset_id: string | null;
+  value: number;
+  quality: string;
+  taken_at: string;
+  source_system: string | null;
+  sensors?:
+    | { name?: string | null; signal_type?: string | null; unit?: string | null }
+    | { name?: string | null; signal_type?: string | null; unit?: string | null }[]
+    | null;
+}
+
+function flattenReading(row: ReadingQueryRow): ConditionReadingRow {
+  const sensor = Array.isArray(row.sensors) ? row.sensors[0] : row.sensors;
+  return {
+    id: row.id,
+    asset_id: row.asset_id,
+    value: row.value,
+    quality: row.quality,
+    taken_at: row.taken_at,
+    source_system: row.source_system,
+    sensor_name: sensor?.name ?? null,
+    signal_type: sensor?.signal_type ?? null,
+    unit: sensor?.unit ?? null,
+  };
+}
+
+const READING_SELECT =
+  "id, asset_id, value, quality, taken_at, source_system, sensors(name, signal_type, unit)";
+
+/**
+ * Historian series for one asset. `condition_readings` is the live store
+ * written by manual entry, import, and plant-historian-pull. This does not
+ * read `asset_health_monitoring` and does not invent a health score.
+ */
+export async function listAssetConditionReadings(
+  assetId: string,
+  limit = 50,
+): Promise<ConditionReadingRow[]> {
+  const { data, error } = await supabase
+    .from("condition_readings")
+    .select(READING_SELECT)
+    .eq("asset_id", assetId)
+    .order("taken_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(`Could not load condition readings: ${error.message}`);
+  return ((data ?? []) as ReadingQueryRow[]).map(flattenReading);
+}
+
+/** Recent readings across the caller's organization (RLS scopes the rows). */
+export async function listRecentConditionReadings(
+  limit = 100,
+): Promise<ConditionReadingRow[]> {
+  const { data, error } = await supabase
+    .from("condition_readings")
+    .select(READING_SELECT)
+    .order("taken_at", { ascending: false })
+    .limit(limit);
+  if (error) throw new Error(`Could not load condition readings: ${error.message}`);
+  return ((data ?? []) as ReadingQueryRow[]).map(flattenReading);
+}
+
 export async function verifyAssetConditionState(
   assessmentId: string,
   decision: "verified" | "superseded",

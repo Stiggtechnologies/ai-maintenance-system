@@ -169,9 +169,11 @@ jobs:
       # after unscheduling-without-restore (flagged=2 created=0). Unscheduling
       # alone does not undo ticks that already landed during supabase start.
       # The restore script puts the three seeded breaches back, unschedules
-      # both crons, and clears boot-time Investigate recs so the smoke's
-      # run_agent_loop actually inserts. Thresholds stay: flagged >= 3 and
-      # created >= 3.
+      # both crons plus expire-governance-instruments (hourly at minute 7),
+      # and clears boot-time Investigate recs so the smoke's run_agent_loop
+      # actually inserts. Thresholds stay: flagged >= 3 and created >= 3.
+      # Leaving the expiry cron armed made slice 3C a coin flip on :07
+      # (#487, stakeholder_commitments_breached=0 after cron won the race).
       - name: Make the seeded fixture deterministic (restore agent-loop sensors)
         run: bash scripts/ci-restore-agent-loop-fixture.sh
 
@@ -236,6 +238,7 @@ jobs:
           FLAGGED=$(echo "$LOOP" | python3 -c "import sys,json;print(json.load(sys.stdin).get('sensors_flagged',-1))" 2>/dev/null || echo -1)
           echo "loop: flagged=$FLAGGED created=$CREATED"
           test "$FLAGGED" -ge 3
+
           test "$CREATED" -ge 3
           AGAIN=$(curl -s -X POST "$API_URL/rest/v1/rpc/run_agent_loop" \
             -H "apikey: $SERVICE_ROLE_KEY" -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
@@ -243,6 +246,18 @@ jobs:
           SECOND=$(echo "$AGAIN" | python3 -c "import sys,json;print(json.load(sys.stdin).get('recommendations_created',-1))" 2>/dev/null || echo -1)
           test "$SECOND" = "0"
           echo "Agent-loop smoke passed: flagged=$FLAGGED first=$CREATED second=$SECOND (idempotent)"
+
+      - name: Smoke — governed Planning & Scheduling agent
+        run: bash scripts/ci-planning-agent-smoke.sh
+
+      - name: Smoke — governed Site Maintenance Manager shift handover
+        run: bash scripts/ci-site-maintenance-handover-smoke.sh
+
+      - name: Smoke — governed Reliability Engineer life data
+        run: bash scripts/ci-reliability-life-data-agent-smoke.sh
+
+      - name: Smoke — governed RCA / FRACAS investigation
+        run: bash scripts/ci-fracas-rca-agent-smoke.sh
 
       # The Sync Develop transcripts run in CI against the same booted chain,
       # so the gate/sanction discipline and the value-spine refusals cannot
@@ -267,6 +282,12 @@ jobs:
 
       - name: Smoke — Sync Develop slice 3D (gate review workflow, three agents, assurance case)
         run: bash scripts/ci-develop-slice3d-smoke.sh
+
+      - name: Smoke — organization governance workspace (root seeding, scoped tree, human acts)
+        run: bash scripts/ci-organization-governance-workspace-smoke.sh
+
+      - name: Smoke — cross-node governance execution (ancestor definition, descendant acts)
+        run: bash scripts/ci-cross-node-governance-smoke.sh
 
       - name: Smoke — Sync Develop slice 4A (scope chain, P6 boundary, cost lines, controls baseline, lineage)
         run: bash scripts/ci-develop-slice4a-smoke.sh
@@ -307,8 +328,20 @@ jobs:
       - name: Smoke — Sync Develop slice 7C (resource demand/capacity, portfolio conflicts, competency when needed, workface metrics)
         run: bash scripts/ci-develop-slice7c-smoke.sh
 
+      - name: Smoke — Sync Develop field-readiness evidence (crew, access, predecessor graph)
+        run: bash scripts/ci-develop-field-readiness-evidence-smoke.sh
+
       - name: Smoke — sustainability and climate resilience in concept selection
         run: bash scripts/ci-climate-concept-selection-smoke.sh
+
+      - name: Smoke — brownfield operational disruption and SIMOPS value
+        run: bash scripts/ci-develop-operational-disruption-smoke.sh
+
+      - name: Smoke — contractor cross-project performance intelligence
+        run: bash scripts/ci-develop-contractor-intelligence-smoke.sh
+
+      - name: Smoke — authenticated material commercial relationships
+        run: bash scripts/ci-material-commercial-thread-smoke.sh
 
       - name: Smoke — value trajectory, leakage attribution and benefits screen
         run: bash scripts/ci-develop-value-leakage-smoke.sh
@@ -327,6 +360,21 @@ jobs:
 
       - name: Smoke — contextual condition monitoring (historian + exact-time duty)
         run: bash scripts/ci-contextual-condition-monitoring-smoke.sh
+
+      - name: Smoke — governed Condition Monitoring Analyst
+        run: bash scripts/ci-condition-monitoring-agent-smoke.sh
+
+      - name: Smoke — governed MRO Materials Specialist
+        run: bash scripts/ci-mro-materials-agent-smoke.sh
+
+      - name: Smoke — governed Shutdown / Turnaround Specialist
+        run: bash scripts/ci-shutdown-turnaround-agent-smoke.sh
+
+      - name: Smoke — governed Asset Strategy Specialist
+        run: bash scripts/ci-asset-strategy-agent-smoke.sh
+
+      - name: Smoke — governed Data Steward Specialist
+        run: bash scripts/ci-data-steward-agent-smoke.sh
 
       - name: Smoke — loss forecast, risk backlog and outage options
         run: bash scripts/ci-loss-forecast-backlog-outage-smoke.sh
@@ -379,6 +427,12 @@ jobs:
       - name: Smoke — Sync Develop per-system HandoverPackage (three dimensions, residual risk, human acceptance)
         run: bash scripts/ci-develop-system-handover-package-smoke.sh
 
+      - name: Smoke — physical and information readiness kept distinct
+        run: bash scripts/ci-physical-information-readiness-smoke.sh
+
+      - name: Smoke — Information Readiness Index with hard blockers
+        run: bash scripts/ci-information-readiness-index-smoke.sh
+
       - name: Smoke — Sync Develop design-origin operational readiness (requirement to canonical item to handover)
         run: bash scripts/ci-develop-design-origin-readiness-smoke.sh
       - name: Smoke — Sync Develop Operational Readiness Index (governed weights and hard conditions)
@@ -405,6 +459,33 @@ jobs:
       - name: Smoke — evidence-backed organizational maturity
         run: bash scripts/ci-organizational-maturity-smoke.sh
 
+      - name: Smoke — governed AI and calculation model registry
+        run: bash scripts/ci-governed-model-registry-smoke.sh
+
+      - name: Smoke — hardware-neutral governed Edge Evidence Contract
+        run: bash scripts/ci-edge-evidence-contract-smoke.sh
+
+      - name: Smoke — governed Azure Marketplace Fulfillment v2
+        run: bash scripts/ci-azure-marketplace-fulfillment-smoke.sh
+
+      - name: Smoke — authenticated Azure Marketplace lifecycle and entitlement
+        run: bash scripts/ci-azure-marketplace-lifecycle-smoke.sh
+
+      - name: Smoke — canonical hourly Azure Marketplace metering
+        run: bash scripts/ci-azure-marketplace-metering-smoke.sh
+
+      - name: Smoke — durable Azure Marketplace preview certification receipt
+        run: bash scripts/ci-azure-marketplace-preview-certification-smoke.sh
+
+      - name: Smoke — contract-strategy recommendation agent
+        run: bash scripts/ci-develop-contract-strategy-agent-smoke.sh
+
+      - name: Smoke — all seven overlays across all eight engines
+        run: bash scripts/ci-engine-overlays-smoke.sh
+
+      - name: Smoke — governed §34 core-graph closeout
+        run: bash scripts/ci-spec34-graph-completion-smoke.sh
+
       - name: Smoke — asset relationships and accountable party roles
         run: bash scripts/ci-asset-relationship-smoke.sh
 
@@ -414,17 +495,40 @@ jobs:
       - name: Smoke — governed geospatial operational intelligence
         run: bash scripts/ci-geospatial-operational-intelligence-smoke.sh
 
+      - name: Smoke — Sync Context canonical contracts and two-tenant isolation
+        run: bash scripts/ci-sync-context-contract-smoke.sh
+
       - name: Smoke — governed enterprise portfolio optimization
         run: bash scripts/ci-enterprise-portfolio-optimization-smoke.sh
 
+      - name: Smoke — value calculations execute server-side with immutable lineage
+        run: bash scripts/ci-value-calculation-lineage-smoke.sh
+
+      - name: Smoke — Sync Develop nine-dimension portfolio frontier
+        run: bash scripts/ci-develop-portfolio-frontier-smoke.sh
+
       - name: Smoke — project assurance, reference classes and normalized benchmarking
         run: bash scripts/ci-project-assurance-reference-class-smoke.sh
+
+      - name: Smoke — project-start knowledge retrieval
+        run: bash scripts/ci-project-start-knowledge-smoke.sh
+
+      - name: Smoke — governed project corrective-action closure
+        run: bash scripts/ci-project-fracas-smoke.sh
+
+      - name: Smoke — case RAM completion (RBD, growth, FMEA and PM strategy)
+        run: |
+          bash scripts/ci-develop-ram-case-completion-smoke.sh
+          bash scripts/ci-develop-ram-case-completion-smoke.sh
 
       - name: Smoke — methodology outcome learning and human-approved improvement
         run: bash scripts/ci-methodology-outcome-learning-smoke.sh
 
       - name: Smoke — Sync Portfolio programs, dependencies and benefit integrity
         run: bash scripts/ci-develop-program-portfolio-smoke.sh
+
+      - name: Smoke — eight-dimension lifecycle substrate
+        run: bash scripts/ci-stage-dimension-substrate-smoke.sh
 
       - name: Smoke — natural-hazard and climate exposure
         run: bash scripts/ci-climate-hazard-exposure-smoke.sh
@@ -437,6 +541,9 @@ jobs:
 
       - name: Smoke — governed knowledge re-review invalidation
         run: bash scripts/ci-governed-knowledge-review-invalidation-smoke.sh
+
+      - name: Smoke — architectural north-star traversal
+        run: bash scripts/ci-architectural-north-star-smoke.sh
 
       - name: Stop Supabase
         if: always()
@@ -513,11 +620,16 @@ jobs:
       - name: Install Playwright
         run: npx playwright install --with-deps chromium
 
+      - name: Project FRACAS authenticated fixtures for browser acceptance
+        run: |
+          bash scripts/ci-project-start-knowledge-smoke.sh
+          bash scripts/ci-project-fracas-smoke.sh
+
       - name: Golden-path E2E (login → evidence → scenarios → approve → verify)
-        run: npx playwright test tests/e2e/golden-path.spec.ts
+        run: npx playwright test tests/e2e/golden-path.spec.ts tests/e2e/material-commercial-thread.spec.ts tests/e2e/project-fracas.spec.ts
 
       - name: Upload Playwright artifacts
-        if: failure()
+        if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: playwright-artifacts

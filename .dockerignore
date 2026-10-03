@@ -9,5 +9,10 @@ dist
 docs
 help-articles
 schema-snapshots
-supabase
+supabase/**
+!supabase/functions/
+!supabase/functions/_shared/
+!supabase/functions/_shared/**
+!supabase/functions/agent-loop-enrich/
+!supabase/functions/agent-loop-enrich/**
 .bolt

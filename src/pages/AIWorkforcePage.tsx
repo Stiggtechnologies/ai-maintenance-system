@@ -16,6 +16,7 @@ import {
   Search,
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { Link } from "react-router-dom";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { getAgents } from "../services/operatingLoopService";
 import type { AgentRow } from "../types/operating";
@@ -42,6 +43,9 @@ interface Agent {
   confidence: number;
   supervisor: string;
   lastAction: string;
+  outputs: string[];
+  guardrails: string[];
+  routes: string[];
   icon: React.ElementType;
 }
 
@@ -72,12 +76,22 @@ const CATEGORY_ICON: Record<string, React.ElementType> = {
   quality: CheckCircle,
   intelligence: TrendingUp,
 };
+const AGENT_ROUTE_LABELS: Record<string, string> = {
+  "/job-plans": "planning",
+  "/scheduling": "scheduling",
+  "/briefing": "shift handovers",
+  "/handover": "release and return to service",
+  "/work": "work execution",
+  "/materials": "material readiness",
+};
 
 function agentRowToAgent(row: AgentRow): Agent {
   return {
     id: row.id,
     name: row.name,
-    purpose: `Specialized ${row.category ?? "M&R"} agent`,
+    purpose:
+      row.operating_charter?.purpose ??
+      `Specialized ${row.category ?? "M&R"} agent`,
     status: STATUS_MAP[row.status] ?? "idle",
     autonomyMode: AUTONOMY_MAP[row.autonomy_mode] ?? "Human-in-the-Loop",
     currentTask: row.current_task ?? "Idle",
@@ -87,6 +101,9 @@ function agentRowToAgent(row: AgentRow): Agent {
     confidence: row.confidence,
     supervisor: row.supervisor ?? "—",
     lastAction: row.last_action ?? "—",
+    outputs: row.operating_charter?.outputs ?? [],
+    guardrails: row.operating_charter?.guardrails ?? [],
+    routes: row.operating_charter?.routes ?? [],
     icon: CATEGORY_ICON[row.category ?? ""] ?? Bot,
   };
 }
@@ -146,8 +163,7 @@ function AgentCard({ agent }: { agent: Agent }) {
   return (
     <motion.div
       layout
-      className={`bg-[#0D1520] border border-white/6 rounded-xl overflow-hidden hover:border-white/12 transition-colors cursor-pointer`}
-      onClick={() => setExpanded(!expanded)}
+      className="overflow-hidden rounded-xl border border-white/6 bg-[#0D1520] transition-colors hover:border-white/12"
     >
       <div className="p-4">
         <div className="flex items-start gap-3">
@@ -173,6 +189,15 @@ function AgentCard({ agent }: { agent: Agent }) {
                   className={`w-1.5 h-1.5 rounded-full ${status.dot} ${agent.status === "processing" ? "animate-pulse" : ""}`}
                 />
                 <StatusIcon className={`w-3 h-3 ${status.color}`} />
+                <button
+                  type="button"
+                  aria-expanded={expanded}
+                  aria-label={`${expanded ? "Hide" : "Show"} ${agent.name} charter and controls`}
+                  onClick={() => setExpanded((value) => !value)}
+                  className="ml-1 rounded border border-white/10 px-2 py-1 text-[11px] text-slate-400 hover:text-slate-200"
+                >
+                  {expanded ? "Hide" : "Details"}
+                </button>
               </div>
             </div>
 
@@ -233,6 +258,24 @@ function AgentCard({ agent }: { agent: Agent }) {
               Approval required for next action
             </div>
           )}
+          {agent.outputs.length > 0 && (
+            <div className="text-xs text-slate-400">
+              <span className="text-slate-300">Produces: </span>
+              {agent.outputs.join(" · ")}
+            </div>
+          )}
+          {agent.guardrails.length > 0 && (
+            <div className="rounded-lg border border-amber-500/15 bg-amber-500/5 p-2 text-xs text-slate-400">
+              <p className="mb-1 font-medium text-amber-300">
+                Operating limits
+              </p>
+              <ul className="space-y-1">
+                {agent.guardrails.map((guardrail) => (
+                  <li key={guardrail}>• {guardrail}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           <AgentControlPanel agentId={agent.id} />
           <div className="flex gap-2 mt-3">
             <button className="flex items-center gap-1.5 px-3 py-1.5 bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs rounded-lg hover:bg-teal-500/20 transition-colors">
@@ -241,6 +284,16 @@ function AgentCard({ agent }: { agent: Agent }) {
             <span className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg">
               <Settings className="w-3 h-3" /> Controls above
             </span>
+            {agent.routes.map((route) => (
+              <Link
+                key={route}
+                to={route}
+                onClick={(event) => event.stopPropagation()}
+                className="flex items-center gap-1.5 rounded-lg border border-signal-cyan/20 bg-signal-cyan/10 px-3 py-1.5 text-xs text-signal-cyan"
+              >
+                Open {AGENT_ROUTE_LABELS[route] ?? "workspace"}
+              </Link>
+            ))}
           </div>
         </div>
       </motion.div>
@@ -297,9 +350,8 @@ export function AIWorkforce() {
             AI Workforce
           </h1>
           <p className="text-sm text-slate-400 mt-0.5">
-            {counts.total} specialized{" "}
-            {counts.total === 1 ? "agent" : "agents"} · Your digital M&R
-            department
+            {counts.total} specialized {counts.total === 1 ? "agent" : "agents"}{" "}
+            · Your digital M&R department
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -422,9 +474,9 @@ export function AIWorkforce() {
             <span className="text-slate-200 font-semibold">
               {counts.recommendations} recommendations
             </span>
-            {"."} Autonomous execution is not enabled: every action goes
-            through the Approval Queue and Decision Governance, so the
-            executed count is {counts.executed}.
+            {"."} Autonomous execution is not enabled: every action goes through
+            the Approval Queue and Decision Governance, so the executed count is{" "}
+            {counts.executed}.
           </p>
         </div>
       </div>

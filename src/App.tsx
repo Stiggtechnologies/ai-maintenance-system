@@ -83,6 +83,7 @@ import { ApprovalQueue } from "./components/ApprovalQueue";
 import { motion, AnimatePresence, MotionConfig } from "framer-motion";
 import { useAuth } from "./components/AuthProvider";
 import { getRoleHome } from "./lib/roleNavigation";
+import { hasWorkspaceMembership } from "./lib/auth";
 import { ReliabilityCopilotPage } from "./pages/ReliabilityCopilotPage";
 import { FirstCustomerPilotPage } from "./pages/FirstCustomerPilotPage";
 import { DecisionCaseWorkspacePage } from "./pages/DecisionCaseWorkspacePage";
@@ -104,16 +105,11 @@ import {
   writeDecisionCases,
 } from "./lib/decision-case";
 import { readStoredDecisionDrafts } from "./lib/decision-case-drafts";
-
-type Page =
-  | "demo"
-  | "signin"
-  | "signup"
-  | "enterprise"
-  | "app"
-  | "security"
-  | "privacy"
-  | "terms";
+import {
+  initialAuthPage,
+  pageAfterWorkspaceAuthorization,
+  type AuthPage as Page,
+} from "./lib/auth-page";
 
 function PublicCopilotExperience() {
   useEffect(() => {
@@ -160,14 +156,9 @@ function AuthenticatedSignInTransition({
 }
 
 function App() {
-  const [currentPage, setCurrentPage] = useState<Page>(() => {
-    const requested = new URLSearchParams(window.location.search).get("view");
-    return requested === "signin" ||
-      requested === "signup" ||
-      requested === "enterprise"
-      ? requested
-      : "demo";
-  });
+  const [currentPage, setCurrentPage] = useState<Page>(() =>
+    initialAuthPage(window.location.search),
+  );
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [signInApproved, setSignInApproved] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -179,9 +170,12 @@ function App() {
   useEffect(() => {
     supabase.auth
       .getSession()
-      .then(({ data: { session } }) => {
-        setIsAuthenticated(!!session);
-        if (session) {
+      .then(async ({ data: { session } }) => {
+        const workspaceAuthorized = session
+          ? await hasWorkspaceMembership(session.user.id)
+          : false;
+        setIsAuthenticated(workspaceAuthorized);
+        if (workspaceAuthorized) {
           setCurrentPage("app");
           setSignInApproved(true);
         }
@@ -194,18 +188,33 @@ function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setIsAuthenticated(!!session);
-      if (session) setCurrentPage("app");
-      else {
-        setCurrentPage("demo");
-        setSignInApproved(false);
-      }
+      void (async () => {
+        const workspaceAuthorized = session
+          ? await hasWorkspaceMembership(session.user.id)
+          : false;
+        setIsAuthenticated(workspaceAuthorized);
+        setCurrentPage((page) =>
+          pageAfterWorkspaceAuthorization(page, workspaceAuthorized),
+        );
+        if (!workspaceAuthorized) {
+          setSignInApproved(false);
+        }
+      })();
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const handleAuthSuccess = () => {
+  const handleAuthSuccess = async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session || !(await hasWorkspaceMembership(session.user.id))) {
+      await supabase.auth.signOut();
+      throw new Error(
+        "Your identity is verified, but it has not been provisioned into a SyncAI organization.",
+      );
+    }
     setIsAuthenticated(true);
     setSignInApproved(true);
     setCurrentPage("app");
@@ -261,6 +270,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/marketplace/signup" element={<MarketplaceSignup />} />
+          <Route path="/marketplace/activate" element={<MarketplaceSignup />} />
           <Route
             path="/marketplace/aws/signup"
             element={<AwsMarketplaceSignup />}

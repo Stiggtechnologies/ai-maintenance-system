@@ -1170,6 +1170,65 @@ export interface CaseOptionComparison {
   decisionBoundary: string;
 }
 
+export interface OperationalDisruptionOutageWindow {
+  id: string;
+  windowKey: string;
+  title: string;
+  kind: string;
+  startsAt: string;
+  endsAt: string;
+  status: string;
+}
+
+export interface OperationalDisruptionValueEvaluation {
+  id: string;
+  projectValue: number;
+  basis: string;
+  uncertaintyLevel: string;
+  evaluatedAt: string;
+  engineVersion: string;
+}
+
+export interface OperationalDisruptionAssessment {
+  id: string;
+  revision: number;
+  valueEvaluationId: string;
+  projectValue: number;
+  constructionDisruption: number;
+  constructionDisruptionBasis: string;
+  constructionDisruptionEvidenceItemId: string;
+  productionLoss: number;
+  productionLossBasis: string;
+  productionLossEvidenceItemId: string;
+  simopsRisk: number;
+  simopsRiskBasis: string;
+  simopsRiskEvidenceItemId: string;
+  netOptionValue: number;
+  outageScopeBasis: string;
+  recordedBy: string;
+  recordedAt: string;
+  outages: OperationalDisruptionOutageWindow[];
+}
+
+export interface CaseOperationalDisruption {
+  caseId: string;
+  available: boolean;
+  reason?: string;
+  currency?: string;
+  formula: string;
+  availableOutageWindows?: OperationalDisruptionOutageWindow[];
+  options: Array<{
+    id: number;
+    label: string;
+    isDoNothing: boolean;
+    valueEvaluations: OperationalDisruptionValueEvaluation[];
+    assessment: OperationalDisruptionAssessment | null;
+    missing: string[];
+  }>;
+  comparisonComplete?: boolean;
+  decisionBoundary?: string;
+}
+
 export interface TrajectoryPoint {
   evaluationId: string;
   expectedValue: number;

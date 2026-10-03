@@ -11,6 +11,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { MfaManager } from "../components/MfaManager";
+import { OrganizationGovernanceWorkspace } from "../components/OrganizationGovernanceWorkspace";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../components/AuthProvider";
 import {
@@ -311,56 +312,61 @@ function OrganizationTab({ profile }: { profile: any }) {
     );
   }
 
-  const isAdmin = isSyncAdmin(profile?.role);
+  const canManageGovernance =
+    profile?.role === "admin" || profile?.role === "executive";
 
   return (
-    <div className="glass border border-white/6 rounded-xl p-6 max-w-2xl">
-      <h2 className="text-lg font-semibold text-industrial-text mb-4">
-        Organization Details
-      </h2>
-      {!isAdmin && (
-        <p className="text-xs text-slate-400 mb-4">
-          Contact an admin to update organization settings.
-        </p>
-      )}
+    <div className="space-y-5">
+      <div className="glass border border-white/6 rounded-xl p-6 max-w-2xl">
+        <h2 className="text-lg font-semibold text-industrial-text mb-4">
+          Organization Details
+        </h2>
+        {!canManageGovernance && (
+          <p className="text-xs text-slate-400 mb-4">
+            Governance changes require an administrator or executive.
+          </p>
+        )}
 
-      <div className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1">
-            Organization Name
-          </label>
-          <input
-            type="text"
-            value={org.name || ""}
-            readOnly
-            className="w-full px-3 py-2 border border-industrial-border rounded-lg text-sm bg-industrial-black text-slate-400 cursor-not-allowed"
-          />
-        </div>
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1">
+              Organization Name
+            </label>
+            <input
+              type="text"
+              value={org.name || ""}
+              readOnly
+              className="w-full px-3 py-2 border border-industrial-border rounded-lg text-sm bg-industrial-black text-slate-400 cursor-not-allowed"
+            />
+          </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1">
-            Industry
-          </label>
-          <input
-            type="text"
-            value={org.industry || "Not specified"}
-            readOnly
-            className="w-full px-3 py-2 border border-industrial-border rounded-lg text-sm bg-industrial-black text-slate-400 cursor-not-allowed"
-          />
-        </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1">
+              Industry
+            </label>
+            <input
+              type="text"
+              value={org.industry || "Not specified"}
+              readOnly
+              className="w-full px-3 py-2 border border-industrial-border rounded-lg text-sm bg-industrial-black text-slate-400 cursor-not-allowed"
+            />
+          </div>
 
-        <div>
-          <label className="block text-sm font-medium text-slate-300 mb-1">
-            Timezone
-          </label>
-          <input
-            type="text"
-            value={org.timezone || "Not specified"}
-            readOnly
-            className="w-full px-3 py-2 border border-industrial-border rounded-lg text-sm bg-industrial-black text-slate-400 cursor-not-allowed"
-          />
+          <div>
+            <label className="block text-sm font-medium text-slate-300 mb-1">
+              Timezone
+            </label>
+            <input
+              type="text"
+              value={org.timezone || "Not specified"}
+              readOnly
+              className="w-full px-3 py-2 border border-industrial-border rounded-lg text-sm bg-industrial-black text-slate-400 cursor-not-allowed"
+            />
+          </div>
         </div>
       </div>
+
+      <OrganizationGovernanceWorkspace />
     </div>
   );
 }

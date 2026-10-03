@@ -12,6 +12,7 @@ import { supabase } from "../lib/supabase";
 import type {
   CaseWorkspace,
   CaseOptionComparison,
+  CaseOperationalDisruption,
   GateReadinessResult,
   OperationalReadinessResult,
   OperationalReadinessIndexFactor,
@@ -1265,6 +1266,58 @@ export async function getCaseOptionComparison(
     p_case_id: caseId,
   });
   return unwrapRpc(data, error, "Could not load the option comparison");
+}
+
+export async function getCaseOperationalDisruption(
+  caseId: string,
+): Promise<CaseOperationalDisruption> {
+  const { data, error } = await supabase.rpc("get_case_operational_disruption", {
+    p_case_id: caseId,
+  });
+  return unwrapRpc(data, error, "Could not load operational disruption");
+}
+
+export async function recordOptionOperationalDisruption(input: {
+  optionId: number;
+  valueEvaluationId: string;
+  constructionDisruptionCost: number;
+  constructionDisruptionBasis: string;
+  constructionDisruptionEvidenceItemId: string;
+  productionLossCost: number;
+  productionLossBasis: string;
+  productionLossEvidenceItemId: string;
+  simopsRiskCost: number;
+  simopsRiskBasis: string;
+  simopsRiskEvidenceItemId: string;
+  outageWindowIds: string[];
+  outageScopeBasis: string;
+}): Promise<{
+  assessmentId: string;
+  revision: number;
+  projectValue: number;
+  netOptionValue: number;
+  outageCount: number;
+}> {
+  const { data, error } = await supabase.rpc(
+    "record_option_operational_disruption_assessment",
+    {
+      p_option_id: input.optionId,
+      p_value_evaluation_id: input.valueEvaluationId,
+      p_construction_disruption_cost: input.constructionDisruptionCost,
+      p_construction_disruption_basis: input.constructionDisruptionBasis,
+      p_construction_disruption_evidence_item_id:
+        input.constructionDisruptionEvidenceItemId,
+      p_production_loss_cost: input.productionLossCost,
+      p_production_loss_basis: input.productionLossBasis,
+      p_production_loss_evidence_item_id: input.productionLossEvidenceItemId,
+      p_simops_risk_cost: input.simopsRiskCost,
+      p_simops_risk_basis: input.simopsRiskBasis,
+      p_simops_risk_evidence_item_id: input.simopsRiskEvidenceItemId,
+      p_outage_window_ids: input.outageWindowIds,
+      p_outage_scope_basis: input.outageScopeBasis,
+    },
+  );
+  return unwrapRpc(data, error, "Could not record operational disruption");
 }
 
 export async function recordOptionSustainabilityObservation(input: {
@@ -4699,14 +4752,21 @@ export async function listCommissioningTests(): Promise<
  * only non-null writer in the repository was a smoke script. A parameter with
  * no writer is a capability the register cannot claim.
  */
-export async function listOrgEvidenceItems(): Promise<
+export async function listOrgEvidenceItems(search?: string): Promise<
   { id: string; description: string; evidence_class: string | null }[]
 > {
-  const { data, error } = await supabase
+  let query = supabase
     .from("evidence_items")
     .select("id, description, evidence_class")
     .order("created_at", { ascending: false })
     .limit(200);
+  if (search?.trim()) {
+    const term = search.trim();
+    query = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(term)
+      ? query.eq("id", term)
+      : query.ilike("description", `%${term.replace(/[\\%_]/g, "\\$&")}%`);
+  }
+  const { data, error } = await query;
   if (error) throw new Error(error.message);
   return (data ?? []) as {
     id: string;
@@ -5408,11 +5468,11 @@ export async function getCaseRamScope(
 /**
  * Run the shipped RAM kernel over one case's scope and record the reading.
  *
- * THE ARITHMETIC IS THE KERNEL'S. `computeCaseRamProfile` composes
- * `allocateAvailability` and `selectWeibullMethod` — nothing is re-derived
- * here — and the RPC re-reads the scope and the refusals server-side, so the
- * lineage row cannot claim a clean profile over a scope the database says is
- * short of inputs.
+ * THE ARITHMETIC IS THE KERNEL'S. `computeCaseRamProfile` composes the shipped
+ * allocation, Weibull, repairable-summary, Crow–AMSAA and RBD functions —
+ * nothing is re-derived here. The RPC re-reads the scope and exact canonical
+ * row identities server-side, so the lineage row cannot claim a clean profile
+ * over a different case population or topology.
  */
 export async function runCaseRamAgent(caseId: string): Promise<{
   scope: RamScopePayload;
@@ -5549,6 +5609,66 @@ export interface ProcurementPackageRow {
    * commercial life to be at zero.
    */
   commercial: CommercialSummary;
+}
+
+export type ContractStrategyFactorLevel = "low" | "medium" | "high";
+export type ContractStrategyDimension =
+  | "definition_maturity"
+  | "uncertainty"
+  | "market_conditions"
+  | "owner_capability"
+  | "interface_complexity"
+  | "risk_allocation";
+export type ContractStrategyAssessmentInput = Record<
+  ContractStrategyDimension,
+  { level: ContractStrategyFactorLevel; basis: string; evidenceItemId: string }
+>;
+export interface ContractStrategyAgentResult {
+  advisory: true;
+  caseId: string;
+  model?: string | null;
+  advice: {
+    recommendedStrategy: string;
+    rationale: string;
+    limitations: string;
+    evaluations: { strategy: string; fit: string; reason: string }[];
+  } | null;
+  refusal?: string;
+  recorded: {
+    recommendationId: string;
+    strategy: string;
+    status: string;
+  } | null;
+  recordNote?: string | null;
+  disclaimer: string;
+}
+
+export async function runContractStrategyAgent(input: {
+  caseId: string;
+  assessment: ContractStrategyAssessmentInput;
+  record?: boolean;
+}): Promise<ContractStrategyAgentResult> {
+  const { data, error } = await supabase.functions.invoke(
+    "develop-contract-strategy-agent",
+    {
+      body: {
+        case_id: input.caseId,
+        assessment: input.assessment,
+        record: input.record ?? false,
+      },
+    },
+  );
+  if (error) throw new Error(error.message);
+  const payload = data as ContractStrategyAgentResult | { error?: string };
+  if (
+    payload &&
+    typeof payload === "object" &&
+    "error" in payload &&
+    payload.error
+  ) {
+    throw new Error(payload.error);
+  }
+  return payload as ContractStrategyAgentResult;
 }
 
 export type CommercialSummary =
@@ -6598,6 +6718,99 @@ export async function recordContractPerformancePeriod(
   return unwrapRpc(data, error, "Could not record the performance period");
 }
 
+export interface ContractorPerformanceDimension {
+  answered: boolean;
+  value: number | null;
+  unit: string | null;
+  numerator: number | null;
+  denominator: number | null;
+  formula: string;
+  projectCount: number;
+  firstObservedAt: string | null;
+  lastObservedAt: string | null;
+  refusal: string | null;
+  claimCount?: number;
+  recoveredValue?: number | null;
+}
+
+export interface ContractorPerformanceEvidence {
+  supplierId: number;
+  supplier: string;
+  supplierCode: string;
+  dimensions: {
+    scheduleReliability: ContractorPerformanceDimension;
+    ncrRate: ContractorPerformanceDimension;
+    engineeringResponse: ContractorPerformanceDimension;
+    reworkRate: ContractorPerformanceDimension;
+    warrantyClaims: ContractorPerformanceDimension;
+  };
+  basis: string;
+}
+
+export interface PackageContractorIntelligence {
+  packageId: number;
+  answered: boolean;
+  refusal?: string | null;
+  basis?: string | null;
+  suppliers: {
+    bidId: number;
+    supplierId: number;
+    supplier: string;
+    supplierCode: string;
+    evidence: ContractorPerformanceEvidence;
+  }[];
+}
+
+/** D6.02: five independent historical dimensions beside opened bids. */
+export async function getPackageContractorIntelligence(
+  packageId: number,
+): Promise<PackageContractorIntelligence> {
+  const { data, error } = await supabase.rpc(
+    "get_package_contractor_intelligence",
+    { p_package_id: packageId },
+  );
+  return unwrapRpc(
+    data,
+    error,
+    "Could not read contractor performance evidence",
+  );
+}
+
+export interface ContractorEngineeringResponseInput {
+  responseRef: string;
+  requestedAt: string;
+  respondedAt: string;
+  requestSummary: string;
+  responseSummary: string;
+  basis: string;
+  requestEvidenceItemId: string;
+  responseEvidenceItemId: string;
+}
+
+/** D6.02: one immutable, evidence-backed request-to-response measurement. */
+export async function recordContractorEngineeringResponse(
+  packageId: number,
+  supplierId: number,
+  input: ContractorEngineeringResponseInput,
+): Promise<{
+  measurementId: number;
+  supplierId: number;
+  packageId: number;
+  developmentCaseId: string;
+  elapsedHours: number;
+  immutable: true;
+}> {
+  const { data, error } = await supabase.rpc(
+    "record_contractor_engineering_response",
+    {
+      p_package_id: packageId,
+      p_supplier_id: supplierId,
+      p_measurement: input,
+    },
+  );
+  return unwrapRpc(data, error, "Could not record the engineering response");
+}
+
 /** One contract's whole commercial life, every figure from its own predicate. */
 export interface ContractCommercial {
   packageId: number;
@@ -6818,6 +7031,17 @@ export interface SpecificationFailureThread {
   vendors?: { supplierId: number; supplier: string; approvedVendor: boolean }[];
   materials?: number;
   installedAssets?: number;
+  bomAssets?: number;
+  historyScope?: string;
+  componentLinks?: {
+    bomLineId: string;
+    materialId: string;
+    componentId: string;
+    componentName: string;
+    assetId: string;
+    quantity: number;
+    positionNote: string | null;
+  }[];
   failures?: {
     failureMode: string;
     occurrences: number;
@@ -7380,6 +7604,240 @@ export async function assessPackageFieldReadiness(
 ): Promise<FieldReadinessAssessment> {
   const { data, error } = await supabase.rpc("assess_package_field_readiness", {
     p_package_id: packageId,
+  });
+  return unwrap(data, error);
+}
+
+export interface FieldReadinessEvidenceOptions {
+  members: { id: number; label: string; craft: string | null }[];
+  evidence: { id: string; label: string }[];
+  accessRoutes: { id: string; label: string }[];
+  workOrders: { id: string; label: string; status: string | null }[];
+}
+
+/**
+ * D7.12 authoring choices. Every query is still RLS-scoped; these lists are
+ * presentation only and the RPC/database walls revalidate tenant and status.
+ */
+export async function listFieldReadinessEvidenceOptions(): Promise<FieldReadinessEvidenceOptions> {
+  const [members, evidence, routes, work] = await Promise.all([
+    supabase
+      .from("workforce_members")
+      .select("id, display_name, craft")
+      .eq("active", true)
+      .order("display_name"),
+    supabase
+      .from("evidence_items")
+      .select("id, description, source_system")
+      .eq("verification_status", "verified")
+      .order("created_at", { ascending: false })
+      .limit(100),
+    supabase
+      .from("geospatial_operational_assessments")
+      .select("id, title")
+      .eq("assessment_type", "access_route")
+      .eq("status", "verified")
+      .order("recorded_at", { ascending: false })
+      .limit(100),
+    supabase
+      .from("work_orders")
+      .select("id, wo_number, title, status")
+      .order("wo_number", { nullsFirst: false })
+      .limit(300),
+  ]);
+  for (const result of [members, evidence, routes, work]) {
+    if (result.error) throw new Error(result.error.message);
+  }
+  return {
+    members: (members.data ?? []).map((row) => ({
+      id: Number(row.id),
+      label: String(row.display_name),
+      craft: row.craft ? String(row.craft) : null,
+    })),
+    evidence: (evidence.data ?? []).map((row) => ({
+      id: String(row.id),
+      label: `${String(row.description ?? "Verified evidence")} · ${String(row.source_system ?? "source not named")}`,
+    })),
+    accessRoutes: (routes.data ?? []).map((row) => ({
+      id: String(row.id),
+      label: String(row.title),
+    })),
+    workOrders: (work.data ?? []).map((row) => ({
+      id: String(row.id),
+      label: `${String(row.wo_number ?? "—")} · ${String(row.title)}`,
+      status: row.status ? String(row.status) : null,
+    })),
+  };
+}
+
+export interface FieldReadinessEvidencePosition {
+  crew: {
+    id: number;
+    memberId: number;
+    startsAt: string;
+    endsAt: string;
+    basis: string;
+  }[];
+  access: {
+    id: number;
+    state: "clear" | "blocked";
+    validFrom: string;
+    validUntil: string | null;
+    basis: string;
+  } | null;
+  predecessors: {
+    id: number;
+    predecessorWorkOrderId: string | null;
+    kind: "finish_to_start" | "explicit_none";
+    basis: string;
+  }[];
+}
+
+/** Current canonical evidence behind the final three element positions. */
+export async function getFieldReadinessEvidencePosition(
+  workOrderId: string,
+): Promise<FieldReadinessEvidencePosition> {
+  const [crew, access, predecessors] = await Promise.all([
+    supabase
+      .from("work_order_crew_assignments")
+      .select("id, member_id, starts_at, ends_at, assignment_basis")
+      .eq("work_order_id", workOrderId)
+      .is("withdrawn_at", null)
+      .order("starts_at"),
+    supabase
+      .from("work_face_access_evidence")
+      .select("id, access_state, valid_from, valid_until, basis")
+      .eq("work_order_id", workOrderId)
+      .is("superseded_at", null)
+      .maybeSingle(),
+    supabase
+      .from("work_order_predecessor_evidence")
+      .select("id, predecessor_work_order_id, dependency_kind, basis")
+      .eq("successor_work_order_id", workOrderId)
+      .is("withdrawn_at", null)
+      .order("recorded_at"),
+  ]);
+  for (const result of [crew, access, predecessors]) {
+    if (result.error) throw new Error(result.error.message);
+  }
+  return {
+    crew: (crew.data ?? []).map((row) => ({
+      id: Number(row.id),
+      memberId: Number(row.member_id),
+      startsAt: String(row.starts_at),
+      endsAt: String(row.ends_at),
+      basis: String(row.assignment_basis),
+    })),
+    access: access.data
+      ? {
+          id: Number(access.data.id),
+          state: access.data.access_state as "clear" | "blocked",
+          validFrom: String(access.data.valid_from),
+          validUntil: access.data.valid_until
+            ? String(access.data.valid_until)
+            : null,
+          basis: String(access.data.basis),
+        }
+      : null,
+    predecessors: (predecessors.data ?? []).map((row) => ({
+      id: Number(row.id),
+      predecessorWorkOrderId: row.predecessor_work_order_id
+        ? String(row.predecessor_work_order_id)
+        : null,
+      kind: row.dependency_kind as "finish_to_start" | "explicit_none",
+      basis: String(row.basis),
+    })),
+  };
+}
+
+export interface FieldReadinessEvidenceWriteResult {
+  answered?: boolean;
+  error?: string;
+  assignmentId?: number;
+  accessEvidenceId?: number;
+  predecessorEvidenceId?: number;
+  status?: string;
+  state?: string;
+  kind?: string;
+}
+
+export async function assignWorkOrderCrew(payload: {
+  workOrderId: string;
+  memberId: number;
+  startsAt: string;
+  endsAt: string;
+  basis: string;
+}): Promise<FieldReadinessEvidenceWriteResult> {
+  const { data, error } = await supabase.rpc("assign_work_order_crew", {
+    p_payload: {
+      work_order_id: payload.workOrderId,
+      member_id: payload.memberId,
+      starts_at: payload.startsAt,
+      ends_at: payload.endsAt,
+      basis: payload.basis,
+    },
+  });
+  return unwrap(data, error);
+}
+
+export async function withdrawWorkOrderCrewAssignment(
+  assignmentId: number,
+  reason: string,
+): Promise<FieldReadinessEvidenceWriteResult> {
+  const { data, error } = await supabase.rpc(
+    "withdraw_work_order_crew_assignment",
+    { p_assignment_id: assignmentId, p_reason: reason },
+  );
+  return unwrap(data, error);
+}
+
+export async function recordWorkFaceAccess(payload: {
+  workOrderId: string;
+  accessState: "clear" | "blocked";
+  validFrom: string;
+  validUntil?: string;
+  evidenceItemId?: string;
+  geospatialAssessmentId?: string;
+  basis: string;
+}): Promise<FieldReadinessEvidenceWriteResult> {
+  const { data, error } = await supabase.rpc("record_work_face_access", {
+    p_payload: {
+      work_order_id: payload.workOrderId,
+      access_state: payload.accessState,
+      valid_from: payload.validFrom,
+      valid_until: payload.validUntil || null,
+      evidence_item_id: payload.evidenceItemId || null,
+      geospatial_assessment_id: payload.geospatialAssessmentId || null,
+      basis: payload.basis,
+    },
+  });
+  return unwrap(data, error);
+}
+
+export async function recordWorkOrderPredecessor(payload: {
+  successorWorkOrderId: string;
+  predecessorWorkOrderId?: string;
+  evidenceItemId: string;
+  basis: string;
+}): Promise<FieldReadinessEvidenceWriteResult> {
+  const { data, error } = await supabase.rpc("record_work_order_predecessor", {
+    p_payload: {
+      successor_work_order_id: payload.successorWorkOrderId,
+      predecessor_work_order_id: payload.predecessorWorkOrderId || null,
+      evidence_item_id: payload.evidenceItemId,
+      basis: payload.basis,
+    },
+  });
+  return unwrap(data, error);
+}
+
+export async function withdrawWorkOrderPredecessor(
+  evidenceId: number,
+  reason: string,
+): Promise<FieldReadinessEvidenceWriteResult> {
+  const { data, error } = await supabase.rpc("withdraw_work_order_predecessor", {
+    p_evidence_id: evidenceId,
+    p_reason: reason,
   });
   return unwrap(data, error);
 }
@@ -8448,6 +8906,174 @@ export async function recordCheckpointObservation(input: {
   return unwrapRpc(data, error, "Could not record the observation");
 }
 
+export interface ProjectCaVerification {
+  id: string;
+  status?: "open" | "closed_project_workflow";
+  project_lesson_id: string;
+  project_started_by: string;
+  project_start_basis: string;
+  physical_verified_at: string | null;
+  physical_verified_by: string | null;
+  physical_note: string | null;
+  project_implementation_evidence_id: string | null;
+  causal_addressed_at: string | null;
+  causal_addressed_by: string | null;
+  causal_note: string | null;
+  project_causal_evidence_id: string | null;
+  project_adopted_standard_id?: number | null;
+  project_screening_receipt?: ProjectScreeningReceipt | null;
+}
+
+export interface ProjectScreeningReceipt {
+  screenedAt: string;
+  actorId: string;
+  basis: string;
+  lessonId: string;
+  standardRevisionId: number;
+  sourceLifecycleType?: string;
+  applicability?: string;
+  population: string[];
+  matches: string[];
+  populationCount: number;
+  matchCount: number;
+  scope: string;
+  limitation: string;
+}
+
+export interface ProjectStandardWorkOption {
+  id: number;
+  work_key: string;
+  title: string;
+  version: number;
+  basis: string | null;
+  source_project_ca_id: string | null;
+  previous_standard_work_id: number | null;
+  change_summary: string | null;
+  revision_requested_by: string | null;
+  revision_approval_id: string | null;
+  procedures: { id: number; language_code: string; content: string; translation_status: string; verified_by: string | null; verified_at: string | null }[];
+  approval: { status: string; approver_user_id: string | null; decided_at: string | null } | null;
+}
+
+export async function listProjectStandardWork(afterId?: number, exactId?: number, observationId?: string): Promise<ProjectStandardWorkOption[]> {
+  let query = supabase.from("standard_work")
+    .select("id, work_key, title, version, basis, source_project_ca_id, previous_standard_work_id, change_summary, revision_requested_by, revision_approval_id, procedures:procedure_translations!procedure_translations_standard_work_id_fkey(id, language_code, content, translation_status, verified_by, verified_at), approval:approvals!standard_work_revision_approval_id_fkey(status, approver_user_id, decided_at)")
+    .order("id", { ascending: true }).limit(100);
+  if (afterId !== undefined) query = query.gt("id", afterId);
+  if (exactId !== undefined) query = query.eq("id", exactId);
+  if (observationId !== undefined) query = query.eq("source_learning_observation_id", observationId);
+  const { data, error } = await query;
+  if (error) throw new Error(`Could not load standard work: ${error.message}`);
+  return (data ?? []) as unknown as ProjectStandardWorkOption[];
+}
+
+export async function registerStandardWorkBaseline(input: {
+  workKey: string; title: string; language: string; content: string; basis: string; evidenceId: string;
+}): Promise<{ standardWorkId: number; status: "human_verified" }> {
+  const { data, error } = await supabase.rpc("register_standard_work_baseline", {
+    p_work_key: input.workKey, p_title: input.title, p_language: input.language,
+    p_content: input.content, p_basis: input.basis, p_evidence_id: input.evidenceId,
+  });
+  const result = unwrapRpc<{ standardWorkId?: number; status?: string }>(data, error, "Could not register the existing procedure");
+  if (!Number.isSafeInteger(result.standardWorkId) || result.status !== "human_verified") {
+    throw new Error("Procedure registration did not return a verified baseline receipt");
+  }
+  return { standardWorkId: result.standardWorkId!, status: "human_verified" };
+}
+
+export async function requestProjectStandardRevision(input: {
+  verificationId: string; previousId: number; language: string;
+  content: string; changeSummary: string; basis: string;
+}): Promise<{ revisionId: number; approvalId: string; status: "draft" }> {
+  const { data, error } = await supabase.rpc("request_project_standard_revision", {
+    p_verification_id: input.verificationId, p_previous_id: input.previousId,
+    p_language: input.language, p_content: input.content,
+    p_change_summary: input.changeSummary, p_basis: input.basis,
+  });
+  const result = unwrapRpc<{ revisionId?: number; approvalId?: string; status?: string }>(data, error, "Could not request standard revision");
+  if (!Number.isSafeInteger(result.revisionId) || !result.approvalId || result.status !== "draft") {
+    throw new Error("Standard revision did not return a draft approval receipt");
+  }
+  return { revisionId: result.revisionId!, approvalId: result.approvalId, status: "draft" };
+}
+
+export async function decideProjectStandardRevision(
+  revisionId: number, outcome: "approved" | "rejected", note: string,
+): Promise<{ revisionId: number; status: "approved" | "rejected"; detail: string }> {
+  const { data, error } = await supabase.rpc("decide_project_standard_revision", {
+    p_revision_id: revisionId, p_outcome: outcome, p_note: note,
+  });
+  const result = unwrapRpc<{ revisionId?: number; status?: string; detail?: string }>(data, error, "Could not decide standard revision");
+  if (result.revisionId !== revisionId || result.status !== outcome || !result.detail) {
+    throw new Error("Standard decision did not return a matching receipt");
+  }
+  return { revisionId, status: outcome, detail: result.detail };
+}
+
+export async function screenProjectCaExposure(verificationId: string, basis: string): Promise<ProjectScreeningReceipt> {
+  const { data, error } = await supabase.rpc("screen_project_ca_exposure", {
+    p_verification_id: verificationId, p_basis: basis,
+  });
+  const result = unwrapRpc<ProjectScreeningReceipt>(data, error, "Could not screen project exposure");
+  if (!result.screenedAt || !result.actorId || !result.limitation ||
+      !Array.isArray(result.population) || !Array.isArray(result.matches) ||
+      result.populationCount !== result.population.length || result.matchCount !== result.matches.length ||
+      result.matches.some((id) => !result.population.includes(id))) {
+    throw new Error("Project screening did not return a consistent population receipt");
+  }
+  return result;
+}
+
+export async function getProjectCaVerification(
+  lessonId: string,
+): Promise<ProjectCaVerification | null> {
+  const { data, error } = await supabase
+    .from("ca_verifications")
+    .select("id, status, project_lesson_id, project_started_by, project_start_basis, physical_verified_at, physical_verified_by, physical_note, project_implementation_evidence_id, causal_addressed_at, causal_addressed_by, causal_note, project_causal_evidence_id, project_adopted_standard_id, project_screening_receipt")
+    .eq("project_lesson_id", lessonId)
+    .maybeSingle();
+  if (error) throw new Error(`Could not load project closure: ${error.message}`);
+  return data as ProjectCaVerification | null;
+}
+
+export async function startProjectCaVerification(
+  lessonId: string,
+  basis: string,
+): Promise<{ id: string; status: "open"; detail: string }> {
+  const { data, error } = await supabase.rpc("start_project_ca_verification", {
+    p_lesson_id: lessonId,
+    p_basis: basis,
+  });
+  const result = unwrapRpc<{ id?: string; status?: string; detail?: string }>(
+    data, error, "Could not start project closure",
+  );
+  if (!result.id || result.status !== "open" || !result.detail) {
+    throw new Error("Project closure did not return a valid start receipt");
+  }
+  return { id: result.id, status: "open", detail: result.detail };
+}
+
+export async function attestProjectCaStage(input: {
+  verificationId: string;
+  stage: "implementation" | "causal";
+  note: string;
+  evidenceId: string;
+}): Promise<{ ok: true; stage: "implementation" | "causal"; detail: string }> {
+  const { data, error } = await supabase.rpc("attest_project_ca_stage", {
+    p_verification_id: input.verificationId,
+    p_stage: input.stage,
+    p_note: input.note,
+    p_evidence_id: input.evidenceId,
+  });
+  const result = unwrapRpc<{ ok?: boolean; stage?: string; detail?: string }>(
+    data, error, "Could not attest project closure stage",
+  );
+  if (result.ok !== true || result.stage !== input.stage || !result.detail) {
+    throw new Error("Project attestation did not return a matching receipt");
+  }
+  return { ok: true, stage: input.stage, detail: result.detail };
+}
+
 export async function recordProjectLesson(input: {
   caseId: string;
   failureModeKey: string;
@@ -8476,6 +9102,16 @@ export async function recordProjectLesson(input: {
 // ---------------------------------------------------------------------------
 
 export interface ApplicableProjectLesson {
+  adoptedStandard?: {
+    id: number;
+    workKey: string;
+    version: number;
+    title: string;
+    changeSummary: string;
+    approvalId: string;
+    adoptedAt: string;
+    adoptedBy: string;
+  } | null;
   id: string;
   title: string;
   failureModeKey: string;
@@ -8495,6 +9131,65 @@ export interface ApplicableProjectLessons {
   lessons: ApplicableProjectLesson[];
   emptyReason?: string | null;
   basis?: string;
+}
+
+export interface ProjectStartKnowledge {
+  caseId: string;
+  lifecycleType: string;
+  lessons: ApplicableProjectLessons;
+  historicalEstimates: {
+    count: number;
+    emptyReason?: string | null;
+    items: Array<{
+      learningEventId: string;
+      sourceCaseId: string;
+      sourceCaseTitle: string;
+      baselineCost: number;
+      actualCost: number;
+      baselineDurationDays: number;
+      actualDurationDays: number;
+      currency: string;
+      estimateClass?: string | null;
+      scopeMaturity?: string | null;
+      quotationSupport?: string | null;
+      outcomeEvidenceItemId: string;
+      sourceRefs: Array<{ table: string; id: string | number }>;
+      matchReason: string;
+    }>;
+  };
+  vendorPerformance: {
+    count: number;
+    emptyReason?: string | null;
+    items: Array<{
+      supplierId: number;
+      supplier: string;
+      sourceCaseIds: string[];
+      packageIds: number[];
+      performancePeriodIds: number[];
+      record: Record<string, unknown>;
+      sourceRefs: Array<{ table: string; id: string | number }>;
+      matchReason: string;
+    }>;
+  };
+  startupProblems: {
+    count: number;
+    emptyReason?: string | null;
+    items: Array<{
+      learningEventId: string;
+      sourceCaseId: string;
+      sourceCaseTitle: string;
+      title: string;
+      cause: string;
+      correctiveAction: string;
+      applicability: string;
+      sourceRefs: Array<{ table: string; id: string | number }>;
+      matchReason: string;
+    }>;
+  };
+  method: string;
+  recommendationOnly: true;
+  authorization: false;
+  decisionBoundary: string;
 }
 
 export interface LessonsAgentResult {
@@ -8715,6 +9410,15 @@ export async function screenApplicableProjectLessons(
   return unwrapRpc(data, error, "Could not screen applicable project lessons");
 }
 
+export async function getProjectStartKnowledge(
+  caseId: string,
+): Promise<ProjectStartKnowledge> {
+  const { data, error } = await supabase.rpc("get_project_start_knowledge", {
+    p_case_id: caseId,
+  });
+  return unwrapRpc(data, error, "Could not retrieve project-start knowledge");
+}
+
 export async function runLessonsAgent(
   caseId: string,
 ): Promise<LessonsAgentResult> {
@@ -8823,6 +9527,130 @@ export async function getCaseProjectSuccess(
     p_case_id: caseId,
   });
   return unwrapRpc(data, error, "Could not load the project success score");
+}
+
+export interface StandardWorkObservation {
+  id: string;
+  title: string;
+  detail: string;
+  applicability: string;
+  standard_procedure_id: number;
+  standard_execution_work_order_id: string;
+  standard_execution_evidence_id: string;
+  standard_outcome_evidence_id: string;
+  standard_execution_observed_at: string;
+  standard_execution_recorded_by: string;
+  standard_execution_description: string;
+  standard_variation_kind: "conforming" | "varied" | "undetermined";
+  standard_variation_basis: string;
+  standard_outcome_description: string;
+  standard_outcome_kind: "qualitative" | "quantitative";
+  standard_outcome_value: number | null;
+  standard_outcome_unit: string | null;
+  standard_outcome_attribution_limit: string;
+}
+
+/** Case-scoped, RLS-protected history. UUID keyset paging avoids timestamp ties. */
+export async function listStandardWorkObservations(
+  caseId: string,
+  afterId?: string,
+): Promise<StandardWorkObservation[]> {
+  let query = supabase.from("learning_events").select(
+    "id,title,detail,applicability,standard_procedure_id,standard_execution_work_order_id,standard_execution_evidence_id,standard_outcome_evidence_id,standard_execution_observed_at,standard_execution_recorded_by,standard_execution_description,standard_variation_kind,standard_variation_basis,standard_outcome_description,standard_outcome_kind,standard_outcome_value,standard_outcome_unit,standard_outcome_attribution_limit",
+  ).eq("development_case_id", caseId).eq("event_type", "standard_work_observation")
+    .order("id", { ascending: true }).limit(100);
+  if (afterId) query = query.gt("id", afterId);
+  const { data, error } = await query;
+  if (error) throw error;
+  return (data ?? []) as StandardWorkObservation[];
+}
+
+export async function getObservedProcedure(procedureId: number): Promise<{ id: number; language_code: string; content: string }> {
+  const { data, error } = await supabase.from("procedure_translations")
+    .select("id,language_code,content").eq("id", procedureId).single();
+  if (error) throw error;
+  if (!data) throw new Error("Observed procedure unavailable");
+  return data as { id: number; language_code: string; content: string };
+}
+
+export async function requestLearningStandardRevision(input: {
+  observationId: string; content: string; changeSummary: string; basis: string;
+}): Promise<{ revisionId: number; approvalId: string; status: "draft" }> {
+  const { data, error } = await supabase.rpc("request_learning_standard_revision", {
+    p_observation_id: input.observationId, p_content: input.content,
+    p_change_summary: input.changeSummary, p_basis: input.basis,
+  });
+  const result = unwrapRpc<{ revisionId?: number; approvalId?: string; status?: string }>(
+    data, error, "Could not request learning revision",
+  );
+  if (!result || !Number.isSafeInteger(result.revisionId) || result.revisionId! <= 0
+    || typeof result.approvalId !== "string" || !result.approvalId.trim() || result.status !== "draft") {
+    throw new Error("Invalid learning revision receipt; reload before retrying");
+  }
+  return { revisionId: result.revisionId!, approvalId: result.approvalId, status: "draft" };
+}
+
+export async function decideLearningStandardRevision(
+  revisionId: number, outcome: "approved" | "rejected", note: string,
+): Promise<{ revisionId: number; status: "approved" | "rejected"; detail: string }> {
+  const { data, error } = await supabase.rpc("decide_learning_standard_revision", {
+    p_revision_id: revisionId, p_outcome: outcome, p_note: note,
+  });
+  const result = unwrapRpc<{ revisionId?: number; status?: string; detail?: string }>(
+    data, error, "Could not decide learning revision",
+  );
+  if (!result || result.revisionId !== revisionId || result.status !== outcome
+    || typeof result.detail !== "string" || !result.detail.trim()) {
+    throw new Error("Invalid learning decision receipt; reload before retrying");
+  }
+  return { revisionId, status: outcome, detail: result.detail };
+}
+
+export interface StandardWorkObservationInput {
+  caseId: string;
+  procedureId: number;
+  workOrderId: string;
+  executionEvidenceId: string;
+  outcomeEvidenceId: string;
+  observedAt: string;
+  title: string;
+  execution: string;
+  variationKind: "conforming" | "varied" | "undetermined";
+  variationBasis: string;
+  outcome: string;
+  outcomeKind: "qualitative" | "quantitative";
+  outcomeValue?: number;
+  outcomeUnit?: string;
+  attributionLimit: string;
+  learning: string;
+  applicability: string;
+}
+
+export async function recordStandardWorkObservation(
+  input: StandardWorkObservationInput,
+): Promise<{ id: string; status: "observed" }> {
+  const { data, error } = await supabase.rpc("record_standard_work_observation", {
+    p_case_id: input.caseId,
+    p_procedure_id: input.procedureId,
+    p_work_order_id: input.workOrderId,
+    p_execution_evidence_id: input.executionEvidenceId,
+    p_outcome_evidence_id: input.outcomeEvidenceId,
+    p_observed_at: input.observedAt,
+    p_observation: {
+      title: input.title, execution: input.execution, variationKind: input.variationKind,
+      variationBasis: input.variationBasis, outcome: input.outcome,
+      outcomeKind: input.outcomeKind, outcomeValue: input.outcomeValue ?? null,
+      outcomeUnit: input.outcomeUnit ?? null, attributionLimit: input.attributionLimit,
+      learning: input.learning, applicability: input.applicability,
+    },
+  });
+  const result = unwrapRpc<{ id?: unknown; status?: unknown }>(
+    data, error, "Could not record standard-work observation",
+  );
+  if (!result || typeof result.id !== "string" || !result.id.trim() || result.status !== "observed") {
+    throw new Error("Invalid standard-work observation receipt; reload before retrying");
+  }
+  return { id: result.id, status: "observed" };
 }
 
 export async function getCaseLifecycleSuccess(

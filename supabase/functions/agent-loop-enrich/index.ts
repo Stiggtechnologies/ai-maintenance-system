@@ -31,9 +31,24 @@ import {
   callWithResilience,
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
+import {
+  adaptAzureOpenAiFetch,
+  buildAzureOpenAiProvider,
+  resolveAzureOpenAiEndpoint,
+} from "../_shared/azure-openai-provider.ts";
+import { getAzureManagedIdentityAccessToken } from "../_shared/azure-managed-identity.ts";
 const LLM_MODEL =
   Deno.env.get("ENRICH_LLM_MODEL") ?? Deno.env.get("LLM_MODEL") ?? "stigg/fast";
 const ENRICH_SHARED_SECRET = Deno.env.get("ENRICH_SHARED_SECRET") ?? "";
+const AZURE_OPENAI_ENDPOINT = Deno.env.get("AZURE_OPENAI_ENDPOINT") ?? "";
+const AZURE_OPENAI_DEPLOYMENT = Deno.env.get("AZURE_OPENAI_DEPLOYMENT") ?? "";
+const AZURE_OPENAI_API_VERSION =
+  Deno.env.get("AZURE_OPENAI_API_VERSION") ?? "2024-10-21";
+const AZURE_CLIENT_ID = Deno.env.get("AZURE_CLIENT_ID") ?? "";
+const IDENTITY_ENDPOINT = Deno.env.get("IDENTITY_ENDPOINT") ?? "";
+const IDENTITY_HEADER = Deno.env.get("IDENTITY_HEADER") ?? "";
+const AZURE_EDITION_STRICT =
+  (Deno.env.get("AZURE_EDITION_STRICT") ?? "").toLowerCase() === "true";
 
 const BATCH_LIMIT = 5;
 const corsHeaders = {
@@ -69,6 +84,30 @@ function safeEqual(a: string, b: string): boolean {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS")
     return new Response(null, { status: 204, headers: corsHeaders });
+  const path = new URL(req.url).pathname;
+  const azureConfigured = Boolean(
+    resolveAzureOpenAiEndpoint(AZURE_OPENAI_ENDPOINT) &&
+    AZURE_OPENAI_DEPLOYMENT &&
+    AZURE_CLIENT_ID &&
+    IDENTITY_ENDPOINT &&
+    IDENTITY_HEADER,
+  );
+  if (
+    AZURE_EDITION_STRICT &&
+    req.method === "GET" &&
+    path.endsWith("/health")
+  ) {
+    const healthy = azureConfigured;
+    return json(
+      {
+        status: healthy ? "healthy" : "misconfigured",
+        plane: "azure-intelligence",
+        azureOpenAIConfigured: azureConfigured,
+        operationalAuthorization: false,
+      },
+      healthy ? 200 : 503,
+    );
+  }
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
@@ -86,24 +125,90 @@ Deno.serve(async (req) => {
     (sharedToken !== "" && safeEqual(auth, sharedToken));
   if (!authorized) return json({ error: "unauthorized" }, 401);
 
-  // Gateway first when configured; direct OpenAI as fallback. An empty chain
-  // is reported as configuration, not silently skipped.
+  let azureAccessToken = "";
+  if (AZURE_OPENAI_ENDPOINT || AZURE_EDITION_STRICT) {
+    if (!azureConfigured) {
+      if (AZURE_EDITION_STRICT)
+        return json({ error: "azure_intelligence_not_configured" }, 503);
+    } else {
+      try {
+        azureAccessToken = await getAzureManagedIdentityAccessToken(fetch, {
+          identityEndpoint: IDENTITY_ENDPOINT,
+          identityHeader: IDENTITY_HEADER,
+          clientId: AZURE_CLIENT_ID,
+        });
+      } catch (error) {
+        console.error("agent-loop-enrich Azure managed identity unavailable", {
+          error: error instanceof Error ? error.message : "unknown",
+        });
+        if (AZURE_EDITION_STRICT)
+          return json({ error: "azure_intelligence_unavailable" }, 503);
+      }
+    }
+  }
+
+  // Azure leads when configured. The Azure edition is fail-closed: it never
+  // silently shifts its scaling inference workload to a non-Azure provider.
+  // Existing non-Azure deployments keep the gateway/OpenAI resilience chain.
   const gatewayUrl = resolveExternalGatewayUrl(LLM_BASE_URL);
-  const providers = buildProviderChain({
-    gatewayUrl,
-    gatewayKey: gatewayUrl ? LLM_API_KEY : undefined,
-    gatewayModel: LLM_MODEL,
-    openaiKey: OPENAI_API_KEY,
-    // Enrichment output is read and signed by an engineer, so the direct
-    // fallback is an `agent`-class model, not the cheapest thing available.
-    // gpt-4o-mini stays as the safety net beneath it: if this key lacks
-    // 5.6 access the 404 is fatal and the chain drops instantly rather than
-    // going dark, and llm_provider_events records which one answered.
-    openaiModel: Deno.env.get("OPENAI_FALLBACK_MODEL") ?? "gpt-5.6-terra",
-    openaiSafetyModel: "gpt-4o-mini",
+  const azureProvider = buildAzureOpenAiProvider({
+    endpoint: AZURE_OPENAI_ENDPOINT,
+    accessToken: azureAccessToken,
+    deployment: AZURE_OPENAI_DEPLOYMENT,
+    apiVersion: AZURE_OPENAI_API_VERSION,
   });
+  if (AZURE_EDITION_STRICT && !azureProvider) {
+    return json({ error: "azure_intelligence_not_configured" }, 503);
+  }
+  const providers = [
+    ...(azureProvider ? [azureProvider] : []),
+    ...buildProviderChain({
+      gatewayUrl: AZURE_EDITION_STRICT ? undefined : gatewayUrl,
+      gatewayKey: !AZURE_EDITION_STRICT && gatewayUrl ? LLM_API_KEY : undefined,
+      gatewayModel: LLM_MODEL,
+      openaiKey: AZURE_EDITION_STRICT ? undefined : OPENAI_API_KEY,
+      // Enrichment output is read and signed by an engineer, so the direct
+      // fallback is an `agent`-class model, not the cheapest thing available.
+      // gpt-4o-mini stays as the safety net beneath it: if this key lacks
+      // 5.6 access the 404 is fatal and the chain drops instantly rather than
+      // going dark, and llm_provider_events records which one answered.
+      openaiModel: Deno.env.get("OPENAI_FALLBACK_MODEL") ?? "gpt-5.6-terra",
+      openaiSafetyModel: "gpt-4o-mini",
+    }),
+  ];
   if (providers.length === 0) {
     return json({ enriched: 0, skipped: "llm_not_configured" });
+  }
+  const providerFetch = azureProvider
+    ? adaptAzureOpenAiFetch(fetch, {
+        endpoint: AZURE_OPENAI_ENDPOINT,
+        accessToken: azureAccessToken,
+        deployment: AZURE_OPENAI_DEPLOYMENT,
+        apiVersion: AZURE_OPENAI_API_VERSION,
+      })
+    : fetch;
+  if (path.endsWith("/probe")) {
+    const probe = await callWithResilience(providerFetch, [providers[0]], {
+      systemPrompt:
+        "Return the single word ready. This is a deployment connectivity probe; do not provide engineering advice.",
+      userContent: "ready",
+      maxTokens: 16,
+      attemptsPerProvider: 1,
+      timeoutMs: 30_000,
+    });
+    if (!probe.ok) {
+      console.error("agent-loop-enrich provider probe failed", {
+        provider: providers[0].name,
+        events: probe.events,
+      });
+      return json({ error: "intelligence_provider_probe_failed" }, 503);
+    }
+    return json({
+      status: "ready",
+      provider: probe.provider,
+      model: probe.model,
+      operationalAuthorization: false,
+    });
   }
 
   const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
@@ -133,7 +238,7 @@ Deno.serve(async (req) => {
 
   for (const rec of recs) {
     try {
-      const result = await callWithResilience(fetch, providers, {
+      const result = await callWithResilience(providerFetch, providers, {
         systemPrompt:
           "You are a senior reliability engineer for asset-intensive industry. " +
           "Given a condition-monitoring finding, return strict JSON: " +
