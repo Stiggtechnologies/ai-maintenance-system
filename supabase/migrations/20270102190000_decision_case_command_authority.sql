@@ -180,7 +180,11 @@ begin
   if p_expected_version is null or p_expected_version<0 then
     raise exception using errcode='22023',message='Expected Decision Case version is required'; end if;
   if v_workspace.case_version<>p_expected_version then
-    raise exception using errcode='40001',message=format(
+    -- This is an application-level optimistic concurrency refusal, not a
+    -- PostgreSQL serialization failure. 40001 is retryable and the local
+    -- PostgREST/Supavisor path will keep retrying it until the gateway times
+    -- out. PT409 produces the intended immediate HTTP 409 response.
+    raise exception using errcode='PT409',message=format(
       'Decision Case conflict: expected version %s but current version is %s',p_expected_version,v_workspace.case_version); end if;
   if p_command is null or p_command not in ('initialize','record_conversation','add_evidence','record_disposition',
     'define_verification','record_required_person','record_source_check','record_approval') then

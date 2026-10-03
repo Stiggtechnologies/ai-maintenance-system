@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 trap 'echo "Decision Case command authority smoke FAILED at line $LINENO"' ERR
 psqlc(){ PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "$1"; }
 eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL)=')"; : "${API_URL:?}" "${ANON_KEY:?}"
@@ -7,10 +7,25 @@ ORG='11111111-1111-1111-1111-111111111111'; OTHER_ORG='99999999-9999-4999-8999-9
 APPROVER='99999999-9999-4999-8999-999999999941'; SPONSOR='99999999-9999-4999-8999-999999999942'; AI_USER='99999999-9999-4999-8999-999999999943'; FOREIGN_USER='99999999-9999-4999-8999-999999999944'
 WORKSPACE='99999999-9999-4999-8999-999999999951'; SPONSOR_WORKSPACE='99999999-9999-4999-8999-999999999952'; AI_WORKSPACE='99999999-9999-4999-8999-999999999953'; LEGACY_WORKSPACE='99999999-9999-4999-8999-999999999954'; FORGE_WORKSPACE='99999999-9999-4999-8999-999999999955'
 token(){ curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}" | python3 -c "import json,sys;print(json.load(sys.stdin).get('access_token',''))"; }
-rpc(){ curl -sS -w '\n%{http_code}' -X POST "$API_URL/rest/v1/rpc/apply_decision_case_command" -H "apikey: $ANON_KEY" -H "authorization: Bearer $1" -H 'content-type: application/json' -d "$2"; }
+rpc(){
+  local command
+  command="$(PAYLOAD="$2" python3 -c "import json,os; print(json.loads(os.environ['PAYLOAD']).get('p_command','unknown'))")"
+  printf 'Decision Case command request: %s\n' "$command" >&2
+  curl -sS -w '\n%{http_code}' -X POST "$API_URL/rest/v1/rpc/apply_decision_case_command" -H "apikey: $ANON_KEY" -H "authorization: Bearer $1" -H 'content-type: application/json' -d "$2"
+}
 body(){ printf '%s' "${1%$'\n'*}"; }; status(){ printf '%s' "${1##*$'\n'}"; }
-ok(){ test "$(status "$1")" = 200; BODY="$(body "$1")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x.get('version',0)>0,x"; }
-refused(){ test "$(status "$1")" != 200; BODY="$(body "$1")" NEEDLE="$2" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert os.environ['NEEDLE'].lower() in x.get('message','').lower(),x"; }
+ok(){
+  local code response
+  code="$(status "$1")"; response="$(body "$1")"
+  test "$code" = 200 || { echo "expected HTTP 200, got $code: $response" >&2; return 1; }
+  BODY="$response" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x.get('version',0)>0,x"
+}
+refused(){
+  local code response
+  code="$(status "$1")"; response="$(body "$1")"
+  test "$code" != 200 || { echo "expected governed refusal, got HTTP 200: $response" >&2; return 1; }
+  BODY="$response" NEEDLE="$2" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert os.environ['NEEDLE'].lower() in x.get('message','').lower(),x"
+}
 
 PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -q -v ON_ERROR_STOP=1 <<SQL
 insert into organizations(id,name,industry) values('$OTHER_ORG','Decision Case foreign tenant','utilities') on conflict(id) do nothing;
@@ -39,6 +54,7 @@ SQL
 DEMO=$(token 'demo@syncai.ca' 'Demo123!@#'); ADMIN=$(token 'admin@syncai.ca' 'Admin123!@#'); APPROVER_TOKEN=$(token 'dc-approver@syncai.ca' 'Decision123!@#'); SPONSOR_TOKEN=$(token 'dc-sponsor@syncai.ca' 'Decision123!@#'); AI_TOKEN=$(token 'dc-ai@syncai.ca' 'Decision123!@#'); FOREIGN_TOKEN=$(token 'dc-foreign@syncai.ca' 'Decision123!@#')
 test -n "$DEMO" && test -n "$ADMIN" && test -n "$APPROVER_TOKEN" && test -n "$SPONSOR_TOKEN" && test -n "$AI_TOKEN" && test -n "$FOREIGN_TOKEN"
 ADMIN_ID=$(psqlc "select id from user_profiles where organization_id='$ORG' and email='admin@syncai.ca'")
+ADMIN_NAME=$(psqlc "select full_name from user_profiles where id='$ADMIN_ID' and organization_id='$ORG'")
 BASE="{\"id\":\"$WORKSPACE\",\"caseNumber\":\"DC-SMOKE\",\"objective\":\"Should the bounded inspection recommendation proceed?\",\"recommendation\":\"Hold the reviewed inspection basis\",\"recommendationDetail\":\"No plant execute is authorized.\",\"workPackage\":{\"status\":\"locked\"},\"evidence\":[],\"messages\":[{\"id\":\"ask-1\",\"role\":\"user\",\"author\":\"Customer\",\"text\":\"Review the inspection basis.\",\"createdAt\":\"2026-10-03T12:00:00Z\"}],\"comments\":[{\"id\":\"engineering-note\",\"author\":\"Engineering note\",\"text\":\"Existing bounded note must survive verification.\",\"createdAt\":\"2026-10-03T12:00:00Z\"}],\"approvals\":[],\"valueMetrics\":[{\"id\":\"downtime-hours\",\"label\":\"Downtime\",\"detail\":\"Customer supplied baseline\",\"baseline\":\"12 h\",\"target\":\"8 h\",\"verifiedActual\":\"Pending\"}],\"tokensUsed\":0,\"stage\":\"intent\",\"statusLabel\":\"Governed smoke\"}"
 INIT=$(rpc "$DEMO" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":0,\"p_command\":\"initialize\",\"p_case_state\":$BASE}"); ok "$INIT"
 SPONSOR_RESULT=$(rpc "$SPONSOR_TOKEN" "{\"p_workspace_id\":\"$SPONSOR_WORKSPACE\",\"p_expected_version\":0,\"p_command\":\"initialize\",\"p_case_state\":{\"id\":\"$SPONSOR_WORKSPACE\",\"workPackage\":{\"status\":\"locked\"},\"evidence\":[]}}"); refused "$SPONSOR_RESULT" 'authorized internal human'
@@ -51,14 +67,14 @@ ADD_EVIDENCE=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_ver
 VERSION=$(psqlc "select case_version from cowork_workspaces where id='$WORKSPACE'")
 DISPOSITION=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"record_disposition\",\"p_case_state\":{\"humanDecision\":{\"disposition\":\"accept\",\"rationale\":\"The supplied condition remains inside the reviewed basis.\",\"counterfactual\":\"A contradictory inspection finding.\"},\"people\":{\"decisionOwner\":\"Ada Owner\",\"recommendationAuthor\":\"Riley Author\",\"verificationOwner\":\"Vera Owner\"}}}"); ok "$DISPOSITION"
 VERSION=$(psqlc "select case_version from cowork_workspaces where id='$WORKSPACE'")
-CANONICAL_RETURN=$(psqlc "select (case_state->>'objective')||'|'||(case_state#>>'{evidence,0,id}')||'|'||(case_state#>>'{humanDecision,rationale}')||'|'||(select string_agg(c->>'author'||'='||c->>'text',',' order by ordinality) from jsonb_array_elements(case_state->'comments') with ordinality x(c,ordinality) where c->>'author' in ('Decision Owner','Recommendation Author','Verification Owner')) from cowork_workspaces where id='$WORKSPACE'")
+CANONICAL_RETURN=$(psqlc "select (case_state->>'objective')||'|'||(case_state#>>'{evidence,0,id}')||'|'||(case_state#>>'{humanDecision,rationale}')||'|'||(select string_agg((c->>'author')||'='||(c->>'text'),',' order by ordinality) from jsonb_array_elements(case_state->'comments') with ordinality x(c,ordinality) where c->>'author' in ('Decision Owner','Recommendation Author','Verification Owner')) from cowork_workspaces where id='$WORKSPACE'")
 test "$CANONICAL_RETURN" = 'Should the bounded inspection recommendation proceed?|inspection-note|The supplied condition remains inside the reviewed basis.|Decision Owner=Ada Owner,Recommendation Author=Riley Author,Verification Owner=Vera Owner'
 SOURCE_EARLY=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"record_source_check\",\"p_case_state\":{\"sourceCheck\":{\"detail\":\"No source connected\"}}}"); refused "$SOURCE_EARLY" 'bound required person'
 MISSING_ID=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"record_required_person\",\"p_case_state\":{\"requiredPerson\":{}}}"); refused "$MISSING_ID" 'tenant user id'
 SELF_BIND=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"record_required_person\",\"p_case_state\":{\"requiredPerson\":{\"userId\":\"$ADMIN_ID\"}}}"); refused "$SELF_BIND" 'may not bind themselves'
 ROLE_SPOOF=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"record_required_person\",\"p_case_state\":{\"requiredPerson\":{\"userId\":\"$APPROVER\",\"authorityRole\":\"executive\"}}}"); refused "$ROLE_SPOOF" 'server-owned'
 for COMMAND in record_conversation add_evidence record_disposition define_verification record_required_person record_source_check record_approval; do SIDELOAD=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"$COMMAND\",\"p_case_state\":{\"learningRecord\":{\"status\":\"retained\"}}}"); refused "$SIDELOAD" 'unrelated decision case fields'; done
-psqlc "select set_config('syncai.decision_case_command','on',true); update cowork_workspaces set case_version=case_version+1,case_state=jsonb_set(jsonb_set(case_state,'{approvals}',(case_state->'approvals')||jsonb_build_array(jsonb_build_object('id','engineering-review','initials','ER','name','Engineering Review','role','engineering','responsibility','Independent review','status','complete')),true),'{revision}',to_jsonb(case_version+1),true) where id='$WORKSPACE'"
+psqlc "select set_config('syncai.decision_case_command','on',true); update cowork_workspaces set case_version=case_version+1,case_state=jsonb_set(jsonb_set(case_state,'{approvals}',(case_state->'approvals')||jsonb_build_array(jsonb_build_object('id','engineering-review','initials','ER','name','Engineering Review','role','engineering','responsibility','Independent review','status','complete')),true),'{revision}',to_jsonb(case_version+1),true) where id='$WORKSPACE'" >/dev/null
 VERSION=$(psqlc "select case_version from cowork_workspaces where id='$WORKSPACE'")
 BIND=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"record_required_person\",\"p_case_state\":{\"requiredPerson\":{\"userId\":\"$APPROVER\"}}}"); ok "$BIND"
 VERSION=$(psqlc "select case_version from cowork_workspaces where id='$WORKSPACE'")
@@ -90,7 +106,7 @@ LOCK_SOURCE=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_vers
 CONVERSATION_PAYLOAD=$(psqlc "select jsonb_build_object('messages',(case_state->'messages')||jsonb_build_array(jsonb_build_object('id','post-approval-note','role','user','author','Customer','text','Approval was acknowledged without changing its basis.','createdAt','2026-10-03T13:00:00Z')),'tokensUsed',coalesce((case_state->>'tokensUsed')::integer,0)) from cowork_workspaces where id='$WORKSPACE'")
 CONVERSATION=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"record_conversation\",\"p_case_state\":$CONVERSATION_PAYLOAD}"); ok "$CONVERSATION"
 VERSION=$(psqlc "select case_version from cowork_workspaces where id='$WORKSPACE'")
-OUTCOME_PAYLOAD='{\"verification\":{\"question\":\"Did the reading remain inside the reviewed range?\",\"expected\":\"Independent reading remains inside the reviewed range\",\"scheduledFor\":\"2026-10-10\",\"actual\":\"The independent reading remained inside range\",\"evidence\":\"Signed inspection result IR-42\",\"effectiveness\":\"effective\"}}'
+OUTCOME_PAYLOAD='{"verification":{"question":"Did the reading remain inside the reviewed range?","expected":"Independent reading remains inside the reviewed range","scheduledFor":"2026-10-10","actual":"The independent reading remained inside range","evidence":"Signed inspection result IR-42","effectiveness":"effective"}}'
 OUTCOME=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"define_verification\",\"p_case_state\":$OUTCOME_PAYLOAD}"); ok "$OUTCOME"
 VERSION=$(psqlc "select case_version from cowork_workspaces where id='$WORKSPACE'")
 test "$(psqlc "select count(*) from cowork_workspaces w,jsonb_array_elements(w.case_state->'valueMetrics') m where w.id='$WORKSPACE' and m->>'id'='downtime-hours' and m->>'baseline'='12 h'")" = 1
@@ -98,7 +114,7 @@ test "$(psqlc "select count(*) from cowork_workspaces w,jsonb_array_elements(w.c
 test "$(psqlc "select count(*) from cowork_workspaces w,jsonb_array_elements(w.case_state->'comments') c where w.id='$WORKSPACE' and c->>'id'='outcome-attribution' and c->>'actorId'='$ADMIN_ID'")" = 1
 test "$(psqlc "select count(*) from cowork_workspaces where id='$WORKSPACE' and case_state#>>'{learningRecord,status}'='candidate' and case_state#>>'{learningRecord,recordedBy,id}'='$ADMIN_ID'")" = 1
 PLAN_AFTER=$(psqlc "select (select m->>'baseline' from jsonb_array_elements(case_state->'valueMetrics') m where m->>'id'='verify-expected')||'|'||(select m->>'baseline' from jsonb_array_elements(case_state->'valueMetrics') m where m->>'id'='verify-evidence')||'|'||(select m->>'target' from jsonb_array_elements(case_state->'valueMetrics') m where m->>'id'='verify-evidence')||'|'||(select c->>'text' from jsonb_array_elements(case_state->'comments') c where c->>'author'='Verification Owner') from cowork_workspaces where id='$WORKSPACE'")
-test "$PLAN_AFTER" = 'Independent reading remains inside the reviewed range|2026-10-10|Did the reading remain inside the reviewed range?|Decision Administrator'
+test "$PLAN_AFTER" = "Independent reading remains inside the reviewed range|2026-10-10|Did the reading remain inside the reviewed range?|$ADMIN_NAME"
 test "$(psqlc "select (case_state#>>'{humanApproval,basisSha256}')=decision_case_approval_basis_sha256(case_state) from cowork_workspaces where id='$WORKSPACE'")" = t
 SECOND_OUTCOME=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"define_verification\",\"p_case_state\":$OUTCOME_PAYLOAD}"); refused "$SECOND_OUTCOME" 'one-time and already recorded'
 CROSS=$(rpc "$FOREIGN_TOKEN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"record_conversation\",\"p_case_state\":{\"messages\":[],\"tokensUsed\":0}}"); refused "$CROSS" 'not found in this tenant'
