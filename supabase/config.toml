@@ -476,3 +476,9 @@ verify_jwt = true
 # publisher tenant and Microsoft caller before any service-role persistence.
 [functions.marketplace-webhook]
 verify_jwt = false
+
+# Azure Event Hubs relays do not carry Supabase user JWTs. This one reviewed
+# exception authenticates the exact timestamped body with a tenant-bound HMAC
+# before the service-role RPC can resolve a connector or write any row.
+[functions.azure-iot-operations-ingest]
+verify_jwt = false
