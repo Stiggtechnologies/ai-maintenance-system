@@ -115,6 +115,14 @@ x=json.loads(os.environ['BODY'])
 assert x['ok'] is True and x['replayed'] is True, x
 PY
 
+COLLISION=$(rpc_service "{\"p_organization_id\":\"$ORG\",\"p_connector_key\":\"$CONNECTOR\",\"p_ingress_key_id\":\"$KEY_ID\",\"p_delivery_id\":\"$DELIVERY\",\"p_body_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"p_received_at\":\"$RECEIVED_TS\",\"p_points\":[{\"external_id\":\"$EXTERNAL_ID\",\"tag\":\"$TAG\",\"value\":99,\"source_timestamp\":\"$SOURCE_TS\"}]}")
+test "${COLLISION##*$'\n'}" = '200'
+BODY="${COLLISION%$'\n'*}" python3 - <<'PY'
+import json, os
+x=json.loads(os.environ['BODY'])
+assert x['error']=='delivery ID collision: body digest differs from recorded delivery', x
+PY
+
 PARTIAL=$(rpc_service "{\"p_organization_id\":\"$ORG\",\"p_connector_key\":\"$CONNECTOR\",\"p_ingress_key_id\":\"$KEY_ID\",\"p_delivery_id\":\"partition-0:offset-101:offset-101:1\",\"p_body_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"p_received_at\":\"$RECEIVED_TS\",\"p_points\":[{\"external_id\":\"0:101:unknown\",\"tag\":\"mine-a/pump-101/unapproved\",\"value\":9.9,\"source_timestamp\":\"$SOURCE_TS\"}]}")
 test "${PARTIAL##*$'\n'}" = '200'
 BODY="${PARTIAL%$'\n'*}" python3 - <<'PY'

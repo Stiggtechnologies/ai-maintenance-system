@@ -17,7 +17,8 @@ control surfaces.
 The relay accepts the existing Azure IoT Operations flattened JSON contract
 and OPC Publisher 2.9/3.0 PubSub JSON network messages. It handles Event Hubs
 wrappers, batched network/data-set messages, key and delta frames, reversible
-numeric scalar encoding, OPC status-code severity, and JSON+gzip. The normalizer
+numeric scalar encoding, standards-compliant `Status` and compatibility-mode
+`StatusCode` severity, and JSON+gzip. The normalizer
 preserves publisher, writer-group, data-set writer, metadata-version, message,
 transport and status-code identity in the protected staging evidence.
 When no explicit `_syncai_source` is supplied, the canonical tag includes a
@@ -64,7 +65,8 @@ a stable data-set writer identity fail closed. Configure OPC Publisher with
 
 1. Deploy Azure IoT Operations on a Microsoft-supported production platform.
 2. Establish OPC UA mutual certificate trust and read-only node permissions.
-3. Route PubSub JSON/JSON+gzip to Event Hubs. For native messages, configure a
+3. Enable OPC Publisher strict standards compliance where supported, then route
+   PubSub JSON/JSON+gzip to Event Hubs. For native messages, configure a
    stable `DataSetWriterName` or ID; for flattened data flows, enrich each
    message with `_syncai_source`.
 4. Create a dedicated SyncAI consumer group and deploy the relay with a

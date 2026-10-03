@@ -8,6 +8,7 @@ interface NativePoint {
   SourceTimestamp?: unknown;
   ServerTimestamp?: unknown;
   Value?: unknown;
+  Status?: unknown;
   StatusCode?: unknown;
 }
 
@@ -197,7 +198,8 @@ function provenance(
   point: NativePoint,
 ): Partial<NormalizedPoint> {
   const metadata = record(dataset.MetaDataVersion);
-  const status = record(point.StatusCode);
+  const rawStatus = point.Status ?? point.StatusCode;
+  const status = record(rawStatus);
   const serverTimestamp = optionalText(point.ServerTimestamp);
   return {
     network_message_id: optionalText(network.MessageId),
@@ -218,7 +220,7 @@ function provenance(
         ? new Date(serverTimestamp).toISOString()
         : undefined,
     status_code_symbol: optionalText(status?.Symbol),
-    status_code_code: optionalText(status?.Code ?? point.StatusCode),
+    status_code_code: optionalText(status?.Code ?? rawStatus),
   };
 }
 
@@ -287,7 +289,7 @@ export function normalizeEventHubMessages(
       tag,
       value,
       source_timestamp: sourceTimestamp,
-      quality: quality(input.point.StatusCode),
+      quality: quality(input.point.Status ?? input.point.StatusCode),
       partition_id: metadata.partition,
       offset,
       sequence_number: metadata.sequences[input.eventIndex] || "unknown",

@@ -118,6 +118,21 @@ describe("OPC Publisher 2.9/3.0 compatibility boundary", () => {
     });
   });
 
+  it("honors the standards-compliant strict-mode Status field", () => {
+    const message = structuredClone(nativeNetwork);
+    const point = message.Messages[0].Payload.DriveTemperature as {
+      Status?: number;
+      StatusCode?: unknown;
+    };
+    delete point.StatusCode;
+    point.Status = 0x80000000;
+    const normalized = normalizeEventHubMessages([message], metadata);
+    expect(normalized.points[0]).toMatchObject({
+      quality: "bad",
+      status_code_code: String(0x80000000),
+    });
+  });
+
   it("skips metadata, keepalives and events instead of treating them as telemetry", () => {
     const data = structuredClone(nativeNetwork);
     data.Messages.unshift(

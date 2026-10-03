@@ -84,6 +84,12 @@ describe("Azure IoT Operations governed ingress contract", () => {
     expect(migration).toContain("source_body_sha256");
     expect(migration).toContain("source_received_at");
     expect(migration).toContain("uq_connector_runs_source_delivery");
+    expect(migration).toContain(
+      "v_existing_body_sha256 is distinct from p_body_sha256",
+    );
+    expect(migration).toContain(
+      "delivery ID collision: body digest differs from recorded delivery",
+    );
     expect(migration).toContain("p_body_sha256 is null");
     expect(migration).toContain("p_points is null");
     expect(migration).toContain("p_received_at < now()-interval '10 minutes'");

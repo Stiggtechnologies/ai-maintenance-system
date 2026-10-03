@@ -337,6 +337,7 @@ declare
   v_status text;
   v_observed_at timestamptz;
   v_health_state text;
+  v_existing_body_sha256 text;
 begin
   if coalesce(auth.role(),'')<>'service_role' then
     return jsonb_build_object('error','service role required');
@@ -374,9 +375,14 @@ begin
     return jsonb_build_object('error','the named ingress authorization is no longer valid');
   end if;
 
-  select id into v_run from public.connector_runs
+  select id,source_body_sha256 into v_run,v_existing_body_sha256 from public.connector_runs
   where connector_id=v_connector.id and source_delivery_id=btrim(p_delivery_id);
   if v_run is not null then
+    if v_existing_body_sha256 is distinct from p_body_sha256 then
+      return jsonb_build_object(
+        'error','delivery ID collision: body digest differs from recorded delivery'
+      );
+    end if;
     return jsonb_build_object('ok',true,'replayed',true,'run_id',v_run,
       'note','delivery already recorded; no rows were written again');
   end if;
@@ -521,8 +527,11 @@ exception when unique_violation then
   perform set_config('app.sync_context_source_write','',true);
   perform set_config('request.jwt.claim.sub',coalesce(v_old_sub,''),true);
   perform set_config('request.jwt.claims',coalesce(v_old_claims,''),true);
-  select id into v_run from public.connector_runs
+  select id,source_body_sha256 into v_run,v_existing_body_sha256 from public.connector_runs
   where connector_id=v_connector.id and source_delivery_id=btrim(p_delivery_id);
+  if v_existing_body_sha256 is distinct from p_body_sha256 then
+    raise exception 'delivery ID collision: body digest differs from recorded delivery';
+  end if;
   return jsonb_build_object('ok',true,'replayed',true,'run_id',v_run,
     'note','delivery already recorded; no rows were written again');
 when others then
