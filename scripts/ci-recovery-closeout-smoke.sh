@@ -144,6 +144,58 @@ if r.get('ready_for_plan') is not True: print('evidence-complete CI plan unexpec
 PY
 
 FE=$(rpc "$TECH" add_recovery_field_evidence "{\"p_event_id\":\"$EVENT\",\"p_event_work_id\":\"$EW1\",\"p_kind\":\"note\",\"p_note\":\"CI point-of-work mobile evidence\",\"p_attachment_id\":null,\"p_metadata\":{\"client\":\"wearable-test\"},\"p_client_command_id\":\"ci-recovery-field-1\"}"); noerr "$FE"
+
+# Multimodal evidence reuses the canonical private Cowork attachment rail. The
+# capture workspace is one actor/event-scoped upload context, not another
+# evidence or file store. Metadata insertion runs as the technician so the RLS
+# path — not postgres ownership — proves the boundary.
+CAPTURE_CONTEXT=$(rpc "$TECH" get_or_create_recovery_evidence_workspace "{\"p_event_id\":\"$EVENT\"}"); noerr "$CAPTURE_CONTEXT"
+CAPTURE_WORKSPACE=$(BODY="$CAPTURE_CONTEXT" python3 -c "import json,os; print(json.loads(os.environ['BODY']))")
+TECH_ID=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "select id from auth.users where email='technician@syncai.ca'")
+test -n "$CAPTURE_WORKSPACE"; test -n "$TECH_ID"
+
+VIDEO_ATTACHMENT=$(curl -sS -X POST "$API_URL/rest/v1/cowork_attachments?select=id" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TECH" -H 'Content-Type: application/json' -H 'Prefer: return=representation' -d "{\"organization_id\":\"$ORG\",\"workspace_id\":\"$CAPTURE_WORKSPACE\",\"uploaded_by\":\"$TECH_ID\",\"file_name\":\"ci-walkdown.mp4\",\"mime_type\":\"video/mp4\",\"size_bytes\":1024,\"object_path\":\"$ORG/$TECH_ID/$CAPTURE_WORKSPACE/ci-walkdown.mp4\",\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"extraction_status\":\"unsupported\"}")
+VIDEO_ATTACHMENT_ID=$(BODY="$VIDEO_ATTACHMENT" python3 -c "import json,os; x=json.loads(os.environ['BODY']); print(x[0].get('id','') if isinstance(x,list) and x else '')")
+test -n "$VIDEO_ATTACHMENT_ID"
+
+IMAGE_ATTACHMENT=$(curl -sS -X POST "$API_URL/rest/v1/cowork_attachments?select=id" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TECH" -H 'Content-Type: application/json' -H 'Prefer: return=representation' -d "{\"organization_id\":\"$ORG\",\"workspace_id\":\"$CAPTURE_WORKSPACE\",\"uploaded_by\":\"$TECH_ID\",\"file_name\":\"ci-attestation.png\",\"mime_type\":\"image/png\",\"size_bytes\":512,\"object_path\":\"$ORG/$TECH_ID/$CAPTURE_WORKSPACE/ci-attestation.png\",\"content_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"extraction_status\":\"unsupported\"}")
+IMAGE_ATTACHMENT_ID=$(BODY="$IMAGE_ATTACHMENT" python3 -c "import json,os; x=json.loads(os.environ['BODY']); print(x[0].get('id','') if isinstance(x,list) and x else '')")
+test -n "$IMAGE_ATTACHMENT_ID"
+
+VIDEO_NO_FILE=$(rpc "$TECH" add_recovery_field_evidence "{\"p_event_id\":\"$EVENT\",\"p_event_work_id\":\"$EW1\",\"p_kind\":\"video\",\"p_note\":\"CI video without bytes must be refused\",\"p_attachment_id\":null,\"p_metadata\":{},\"p_client_command_id\":\"ci-recovery-video-no-file\"}")
+BODY="$VIDEO_NO_FILE" python3 - <<'PY'
+import json,os,sys
+x=json.loads(os.environ['BODY'])
+if 'requires a governed attachment' not in x.get('error',''): print('video without attachment was not refused',x); sys.exit(1)
+PY
+
+VIDEO_PAYLOAD="{\"p_event_id\":\"$EVENT\",\"p_event_work_id\":\"$EW1\",\"p_kind\":\"video\",\"p_note\":\"CI walkdown shows the coupling guard after reassembly\",\"p_attachment_id\":\"$VIDEO_ATTACHMENT_ID\",\"p_metadata\":{\"capture_method\":\"device_camera\"},\"p_client_command_id\":\"ci-recovery-video-1\"}"
+VIDEO=$(rpc "$TECH" add_recovery_field_evidence "$VIDEO_PAYLOAD"); noerr "$VIDEO"
+VIDEO_REPLAY=$(rpc "$TECH" add_recovery_field_evidence "$VIDEO_PAYLOAD"); noerr "$VIDEO_REPLAY"
+BODY="$VIDEO_REPLAY" python3 - <<'PY'
+import json,os,sys
+x=json.loads(os.environ['BODY'])
+if x.get('replayed') is not True or x.get('kind')!='video': print('video idempotent replay failed',x); sys.exit(1)
+PY
+VIDEO_COLLISION=$(rpc "$TECH" add_recovery_field_evidence "{\"p_event_id\":\"$EVENT\",\"p_event_work_id\":\"$EW1\",\"p_kind\":\"video\",\"p_note\":\"Different observation using the same command id\",\"p_attachment_id\":\"$VIDEO_ATTACHMENT_ID\",\"p_metadata\":{\"capture_method\":\"device_camera\"},\"p_client_command_id\":\"ci-recovery-video-1\"}")
+BODY="$VIDEO_COLLISION" python3 - <<'PY'
+import json,os,sys
+x=json.loads(os.environ['BODY'])
+if 'already bound to different' not in x.get('error',''): print('idempotency collision was not refused',x); sys.exit(1)
+PY
+
+for call in \
+  "measurement|CI measured coupling vibration at the bearing housing|{\"value\":\"12.4\",\"unit\":\"mm/s\",\"instrument\":\"CI-VIB-17\"}" \
+  "checklist|CI recorded post-reassembly walkdown observations|{\"items\":[{\"observation\":\"Guard fitted\"},{\"observation\":\"Fasteners witness-marked\"}]}" \
+  "scan|CI observed the installed component identifier|{\"code\":\"CI-BRG-009\",\"symbology\":\"data_matrix\"}" \
+  "location|CI captured the field observation location|{\"latitude\":56.726,\"longitude\":-111.379,\"accuracy_m\":8,\"capture_method\":\"device_geolocation\"}"; do
+    KIND=${call%%|*}; REST=${call#*|}; NOTE=${REST%%|*}; META=${REST#*|}
+    OUT=$(rpc "$TECH" add_recovery_field_evidence "{\"p_event_id\":\"$EVENT\",\"p_event_work_id\":\"$EW1\",\"p_kind\":\"$KIND\",\"p_note\":\"$NOTE\",\"p_attachment_id\":null,\"p_metadata\":$META,\"p_client_command_id\":\"ci-recovery-$KIND-1\"}"); noerr "$OUT"
+  done
+
+SIGNATURE=$(rpc "$TECH" add_recovery_field_evidence "{\"p_event_id\":\"$EVENT\",\"p_event_work_id\":\"$EW1\",\"p_kind\":\"signature\",\"p_note\":\"CI technician attestation retained as evidence only\",\"p_attachment_id\":\"$IMAGE_ATTACHMENT_ID\",\"p_metadata\":{},\"p_client_command_id\":\"ci-recovery-signature-1\"}"); noerr "$SIGNATURE"
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "select case when count(*)=1 and bool_and(metadata->>'authority_boundary'='evidence_only_not_approval_or_release') then 'ok' else 'bad' end from recovery_field_evidence where id=(('$SIGNATURE'::jsonb)->>'evidence_id')::uuid" | grep -qx ok
+
 EA=$(rpc "$PLANNER" set_recovery_economic_assumptions "{\"p_event_id\":\"$EVENT\",\"p_regular\":120,\"p_overtime\":180,\"p_overtime_share\":0.25,\"p_contractor\":500,\"p_logistics\":250,\"p_risk\":1000,\"p_life_cycle\":300,\"p_basis\":\"CI labour overtime contractor logistics risk and life-cycle assumptions\"}"); noerr "$EA"
 EC=$(rpc "$PLANNER" get_recovery_economics "{\"p_event_id\":\"$EVENT\"}"); noerr "$EC"
 BODY="$EC" python3 - <<'PY'
@@ -220,4 +272,4 @@ for call in \
     FN=${call%%|*}; PAY=${call#*|}; OUT=$(rpc "$PLANNER" "$FN" "$PAY"); noerr "$OUT"
 done
 
-echo "Recovery close-out runtime acceptance passed: event=$EVENT plan=$PLAN_ID readiness risk fleet energy escalation handoff cadence all green"
+echo "Recovery close-out runtime acceptance passed: event=$EVENT plan=$PLAN_ID readiness risk fleet energy multimodal-evidence escalation handoff cadence all green"
