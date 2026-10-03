@@ -1,0 +1,371 @@
+{
+  "schemaVersion": "1.0",
+  "artifact": "syncai-professional-services-private-offers",
+  "asOf": "2026-10-03",
+  "overallStatus": "controlled_draft",
+  "claims": {
+    "published": false,
+    "microsoftCertified": false,
+    "customerPurchaseProven": false,
+    "privateOfferAccepted": false,
+    "serviceDeliveryCompleted": false
+  },
+  "marketplaceContract": {
+    "sellerId": "94486950",
+    "sellerMarket": "Canada",
+    "transactionRoute": "isv_to_customer_private_offer",
+    "deliveryMode": "virtual_only",
+    "storefrontDiscovery": "direct_link_only",
+    "supportingSoftware": {
+      "name": "SyncAI",
+      "offerType": "SaaS",
+      "marketplaceListingUrl": "external_action_required",
+      "requiredBeforeServicePublication": true,
+      "status": "blocked"
+    },
+    "pricing": {
+      "privateOfferMethod": "absolute_price_new_plan",
+      "currencyAndBillingAccountMustMatch": true,
+      "finalPriceAuthority": "approved_order_and_private_offer",
+      "autoRenewal": false
+    }
+  },
+  "adoptionArchitecture": {
+    "horizontalDecisionLoop": [
+      "ask",
+      "understand",
+      "save",
+      "prove",
+      "recommend",
+      "decide",
+      "approve",
+      "verify",
+      "collaborate",
+      "learn"
+    ],
+    "verticalValueLadder": [
+      "first_decision",
+      "ria_when_needed",
+      "bounded_proof_of_concept",
+      "production_fleet_or_site",
+      "multi_site_or_network",
+      "enterprise_standard"
+    ],
+    "promotionRule": "No usage level, enthusiasm signal, or service activity promotes scope. A named customer authority records a canonical expansion decision of go, change, hold, or stop against accepted evidence and unresolved obligations.",
+    "riaIsMandatory": false,
+    "riaBypassCriteria": [
+      "validated_baseline_and_counterfactual",
+      "named_customer_sponsor_and_decision_owners",
+      "authorized_data_scope",
+      "agreed_acceptance_and_stop_criteria",
+      "approved_governance_and_security_boundary"
+    ]
+  },
+  "canonicalRecordReuse": [
+    "evidence_items",
+    "recommendations",
+    "decisions",
+    "approvals",
+    "verification_obligations",
+    "learning_events",
+    "value_metrics",
+    "audit_events"
+  ],
+  "customerAuthorityBoundary": {
+    "customerRetains": [
+      "engineering_authority",
+      "investment_authority",
+      "operating_authority",
+      "maintenance_authority",
+      "safety_and_regulatory_accountability",
+      "production_system_credentials_and_change_authority"
+    ],
+    "syncaiAndFdeNeverReceiveByDefault": [
+      "engineer_of_record_status",
+      "authority_to_approve_customer_recommendations",
+      "authority_to_change_operating_limits_or_protection_settings",
+      "authority_to_issue_or_close_customer_work_orders",
+      "authority_to_operate_or_isolate_equipment",
+      "authority_to_accept_risk_for_the_customer"
+    ]
+  },
+  "offers": [
+    {
+      "key": "ria_assessment",
+      "category": "Assessment",
+      "proposedOfferId": "syncai-reliability-intelligence-assessment",
+      "name": "Reliability Intelligence Assessment",
+      "searchSummary": "Evidence-grade reliability data, decisions and value opportunities before committing to a SyncAI rollout.",
+      "keywords": [
+        "asset reliability",
+        "maintenance assessment",
+        "industrial AI"
+      ],
+      "description": "<p>The Reliability Intelligence Assessment gives industrial maintenance, reliability and asset leaders a defensible view of what their current data proves, where decision evidence is weak, and which actions merit priority.</p><p>Over a normally 6–8 week virtual engagement, SyncAI works from customer-authorized exports. The team establishes the assessment scope and decision owners, grades evidence, examines representative decisions and workflows, identifies data and governance gaps, tests value hypotheses against an agreed baseline, and prepares a prioritized 90-day action plan.</p><p>Deliverables include an evidence and data-readiness inventory, supported and unsupported findings, a prioritized decision and opportunity register, value hypotheses with stated assumptions, control and adoption risks, a 90-day action plan, and an executive readout. The engagement closes with a customer-owned expansion decision: proceed to a bounded proof of concept, change the scope, hold, or stop.</p><p>SyncAI provides decision support. The customer retains engineering, investment, operating, safety and regulatory authority. The assessment does not guarantee savings, uptime, failure avoidance, accuracy or return on investment.</p>",
+      "timeline": "normally_6_to_8_weeks",
+      "pricing": {
+        "referenceAmountUsd": 35000,
+        "referenceType": "fixed_standard_scope",
+        "finalTerms": "approved_proposal_sow_and_private_offer"
+      },
+      "planTemplates": [
+        {
+          "planId": "standard-ria",
+          "planName": "Standard RIA",
+          "contractDuration": "owner_decision_required",
+          "billingFrequency": "one_time",
+          "priceVisibility": "hidden_contact_seller",
+          "markets": "legal_tax_and_commercial_approval_required",
+          "status": "blocked"
+        }
+      ],
+      "entryCriteria": [
+        "named_customer_sponsor",
+        "authorized_data_exports",
+        "agreed_scope_and_decision_questions",
+        "approved_data_handling_terms"
+      ],
+      "deliverables": [
+        {
+          "name": "Evidence and data-readiness inventory",
+          "acceptanceEvidence": "Customer confirms the authorized sources, provenance, material gaps and unsupported conclusions are represented accurately."
+        },
+        {
+          "name": "Prioritized decision and opportunity register",
+          "acceptanceEvidence": "Each priority identifies the evidence basis, uncertainty, consequence, owner and next decision."
+        },
+        {
+          "name": "Governed 90-day action plan",
+          "acceptanceEvidence": "The plan names accountable customer owners, sequencing, verification methods and approval dependencies."
+        },
+        {
+          "name": "Expansion decision pack",
+          "acceptanceEvidence": "A named customer authority records go, change, hold or stop; no service activity advances scope automatically."
+        }
+      ],
+      "excluded": [
+        "production_system_write_back",
+        "software_installation_unless_separately_agreed",
+        "unbounded_data_remediation",
+        "engineering_or_operating_approval",
+        "guaranteed_business_outcome"
+      ],
+      "exitDecision": "assessment_to_proof_of_concept"
+    },
+    {
+      "key": "bounded_proof_of_concept",
+      "category": "Proof of concept",
+      "proposedOfferId": "syncai-industrial-decision-proof-of-concept",
+      "name": "Industrial Decision Proof of Concept",
+      "searchSummary": "Prove SyncAI on a bounded industrial decision, fleet or site using agreed evidence, controls and acceptance criteria.",
+      "keywords": [
+        "reliability pilot",
+        "industrial AI",
+        "decision intelligence"
+      ],
+      "description": "<p>The Industrial Decision Proof of Concept tests SyncAI in a bounded customer environment before production-scale adoption. The engagement begins with named decision owners, authorized data, a baseline and counterfactual, measurable acceptance and stop criteria, and an approved security and governance boundary.</p><p>SyncAI configures a limited tenant scope, maps approved source data, and applies the governed Ask–Understand–Save–Prove–Recommend–Decide–Approve–Verify–Collaborate–Learn loop to agreed reliability or asset decisions. Consequential recommendations remain subject to the customer’s existing authority.</p><p>Deliverables include the configured proof environment, source and provenance map, representative governed decision cases, evidence and control-gap log, acceptance scorecard, verified or explicitly unverified value observations, operating runbook, and an expansion decision pack.</p><p>The proof closes with a customer-owned go, change, hold or stop decision for production deployment. It does not create an automatic subscription expansion, authorize operational write-back, or guarantee a quantified outcome.</p>",
+      "timeline": "bounded_up_to_90_days_unless_order_states_otherwise",
+      "pricing": {
+        "referenceAmountUsd": "customer_specific",
+        "referenceType": "absolute_price_private_offer",
+        "finalTerms": "approved_proposal_sow_and_private_offer"
+      },
+      "planTemplates": [
+        {
+          "planId": "bounded-decision-poc",
+          "planName": "Bounded Decision Proof",
+          "contractDuration": "owner_decision_required",
+          "billingFrequency": "one_time_or_flexible_schedule",
+          "priceVisibility": "hidden_contact_seller",
+          "markets": "legal_tax_and_commercial_approval_required",
+          "status": "blocked"
+        }
+      ],
+      "entryCriteria": [
+        "validated_baseline_and_counterfactual",
+        "named_customer_sponsor_and_decision_owners",
+        "authorized_data_scope",
+        "agreed_acceptance_and_stop_criteria",
+        "approved_governance_and_security_boundary"
+      ],
+      "deliverables": [
+        {
+          "name": "Configured bounded proof environment",
+          "acceptanceEvidence": "Tenant, roles, source scope, retention and prohibited actions match the approved proof boundary."
+        },
+        {
+          "name": "Governed representative decision cases",
+          "acceptanceEvidence": "Cases preserve source provenance, assumptions, recommendation rationale, named human approval and verification obligations."
+        },
+        {
+          "name": "Acceptance and value scorecard",
+          "acceptanceEvidence": "Each measure names its baseline, method, observation window, evidence and verification status; hypotheses are not reported as realized value."
+        },
+        {
+          "name": "Production expansion decision pack",
+          "acceptanceEvidence": "A named customer authority records go, change, hold or stop with unresolved obligations and risks."
+        }
+      ],
+      "excluded": [
+        "enterprise_wide_rollout",
+        "unapproved_production_write_back",
+        "customer_engineering_or_operating_authority",
+        "automatic_promotion_to_paid_scale",
+        "guaranteed_business_outcome"
+      ],
+      "exitDecision": "proof_of_concept_to_production_scope"
+    },
+    {
+      "key": "implementation_and_scale",
+      "category": "Implementation",
+      "proposedOfferId": "syncai-implementation-and-scale",
+      "name": "SyncAI Implementation and Scale",
+      "searchSummary": "Deploy governed SyncAI workflows, integrations and operating practices with a bounded Forward-Deployed Engineering team.",
+      "keywords": [
+        "implementation",
+        "forward deployed engineering",
+        "industrial AI"
+      ],
+      "description": "<p>SyncAI Implementation and Scale converts an accepted proof into a governed production operating capability. A bounded Forward-Deployed Engineering workstream embeds named SyncAI practitioners virtually with the customer’s product, reliability, maintenance, engineering, data and security owners.</p><p>The team configures the approved tenant and authority model, connects authorized data sources, operationalizes selected SyncAI workflows and specialist roles, establishes acceptance and verification measures, supports adoption, and transfers the runbook to named customer owners. FDE is outcome-scoped professional delivery, not open-ended staff augmentation.</p><p>Deliverables may include the approved solution boundary, integration and provenance map, configured workflows and roles, security and governance control evidence, migration or onboarding artifacts, acceptance scorecard, operational runbook, training and handover evidence, and a scale decision pack. Exact systems, sites, fleets, roles, deliverables and milestones are defined in the applicable order.</p><p>SyncAI and its FDE team do not become the customer’s engineer of record, investment approver, operating authority, maintenance authority, safety authority or risk acceptor. Production changes, work execution and consequential approvals remain with named customer authorities.</p>",
+      "timeline": "customer_specific_milestone_plan",
+      "pricing": {
+        "referenceAmountUsd": "customer_specific",
+        "referenceType": "absolute_price_private_offer",
+        "finalTerms": "approved_proposal_sow_and_private_offer"
+      },
+      "planTemplates": [
+        {
+          "planId": "fde-implementation",
+          "planName": "FDE Implementation",
+          "contractDuration": "owner_decision_required",
+          "billingFrequency": "one_time_or_flexible_schedule",
+          "priceVisibility": "hidden_contact_seller",
+          "markets": "legal_tax_and_commercial_approval_required",
+          "status": "blocked"
+        }
+      ],
+      "entryCriteria": [
+        "approved_production_expansion_decision",
+        "signed_scope_and_acceptance_plan",
+        "named_customer_product_data_security_and_operating_owners",
+        "authorized_source_and_environment_access",
+        "approved_change_and_release_controls",
+        "funded_saas_subscription_or_bundled_purchase_path"
+      ],
+      "deliverables": [
+        {
+          "name": "Production solution and authority boundary",
+          "acceptanceEvidence": "Customer product, security and operating owners approve the in-scope tenants, roles, data, actions, exclusions and release path."
+        },
+        {
+          "name": "Governed integrations and workflows",
+          "acceptanceEvidence": "Authorized sources preserve tenant isolation and provenance; specialist workflows use canonical evidence, recommendation, decision, approval and audit records."
+        },
+        {
+          "name": "Operational acceptance and handover",
+          "acceptanceEvidence": "Named customer owners accept the runbook, support route, training evidence, unresolved obligations and rollback or continuity procedures."
+        },
+        {
+          "name": "Scale decision pack",
+          "acceptanceEvidence": "A named customer authority records go, change, hold or stop for the next fleet, site, network or enterprise scope."
+        }
+      ],
+      "excluded": [
+        "open_ended_staff_augmentation",
+        "on_site_delivery_through_this_marketplace_offer",
+        "customer_engineering_or_operating_authority",
+        "unapproved_production_write_back",
+        "automatic_scope_expansion",
+        "guaranteed_business_outcome"
+      ],
+      "exitDecision": "production_scope_to_next_scale_scope"
+    }
+  ],
+  "forwardDeployedEngineering": {
+    "definition": "A bounded, outcome-scoped implementation workstream in which named SyncAI practitioners configure authorized data, governed workflows, specialist roles, acceptance evidence and operating handoff with named customer owners.",
+    "attachedOfferKey": "implementation_and_scale",
+    "isSeparateAdoptionRung": false,
+    "isOpenEndedStaffAugmentation": false,
+    "deliveryMode": "virtual_only",
+    "allowedWork": [
+      "solution_boundary_and_authority_mapping",
+      "authorized_data_integration_and_provenance_mapping",
+      "tenant_role_and_workflow_configuration",
+      "specialist_role_configuration",
+      "acceptance_measurement_and_verification_support",
+      "adoption_runbook_training_and_handover",
+      "expansion_decision_pack_preparation"
+    ],
+    "prohibitedWork": [
+      "approving_customer_recommendations",
+      "accepting_customer_risk",
+      "acting_as_engineer_of_record",
+      "changing_equipment_or_operating_limits",
+      "issuing_or_closing_customer_work",
+      "operating_or_isolating_customer_equipment",
+      "using_data_or_credentials_outside_authorized_scope"
+    ]
+  },
+  "supportingCollateral": {
+    "source": "docs/marketplace/professional-services-supporting-document-source.md",
+    "builder": "scripts/build-professional-services-pdf.py",
+    "renderedPdf": "output/pdf/syncai-professional-services-and-fde.pdf",
+    "pageCount": 4,
+    "visualQa": "passed_2026_10_03",
+    "textExtractionQa": "passed_2026_10_03",
+    "accessibilityTagReview": "blocked",
+    "brandApproval": "blocked",
+    "legalAndClaimsApproval": "blocked",
+    "partnerCenterUpload": "blocked",
+    "status": "rendered_unapproved"
+  },
+  "externalActions": [
+    {
+      "id": "PS-001",
+      "owner": "Marketplace release owner",
+      "action": "Publish the supporting SyncAI SaaS offer and record its Microsoft Marketplace listing URL before submitting any professional-service offer.",
+      "status": "blocked"
+    },
+    {
+      "id": "PS-002",
+      "owner": "Commercial, legal and tax owners",
+      "action": "Approve each offer's markets, immutable offer and plan IDs, contract duration, list-plan price, private-offer pricing authority, terms and tax treatment.",
+      "status": "blocked"
+    },
+    {
+      "id": "PS-003",
+      "owner": "Brand and claims owners",
+      "action": "Complete accessibility tagging review and brand/legal/claims approval for the rendered customer-facing PDF; approve a compliant square logo and at least one 1280 by 720 promotional image for each offer; then upload the reviewed assets.",
+      "status": "blocked"
+    },
+    {
+      "id": "PS-004",
+      "owner": "Marketplace operator",
+      "action": "Create and submit the Assessment, Proof of concept and Implementation offers in Partner Center as transactable professional services linked to the published SyncAI SaaS listing.",
+      "dependsOn": ["PS-001", "PS-002", "PS-003"],
+      "status": "blocked"
+    },
+    {
+      "id": "PS-005",
+      "owner": "Marketplace release owner",
+      "action": "After Microsoft publication, create a customer-specific private offer, witness acceptance and purchase, deliver against the acceptance record, and retain redacted completion evidence.",
+      "dependsOn": ["PS-004"],
+      "status": "blocked"
+    }
+  ],
+  "officialSources": [
+    "https://learn.microsoft.com/en-us/partner-center/marketplace-offers/plan-professional-service-offer",
+    "https://learn.microsoft.com/en-us/partner-center/marketplace-offers/create-professional-service-offer-listing",
+    "https://learn.microsoft.com/en-us/partner-center/marketplace-offers/create-professional-service-plans",
+    "https://learn.microsoft.com/en-us/partner-center/marketplace-offers/manage-isv-customer-private-offers",
+    "https://learn.microsoft.com/en-us/partner-center/marketplace-offers/isv-customer"
+  ],
+  "repositorySources": [
+    "marketplace/partner-center-manifest.json",
+    "docs/marketplace/professional-services-and-fde.md",
+    "docs/marketplace/professional-services-supporting-document-source.md",
+    "scripts/build-professional-services-pdf.py",
+    "output/pdf/syncai-professional-services-and-fde.pdf",
+    "src/pages/FirstCustomerPilotPage.tsx"
+  ]
+}
