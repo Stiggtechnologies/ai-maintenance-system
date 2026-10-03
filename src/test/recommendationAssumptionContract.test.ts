@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 const ROOT = process.cwd();
 const MIGRATION = join(
   ROOT,
-  "supabase/migrations/20270101450000_recommendation_assumption_contract.sql",
+  "supabase/migrations/20270101980000_recommendation_assumption_contract.sql",
 );
 
 function read(path: string) {

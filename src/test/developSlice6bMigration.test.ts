@@ -46,7 +46,7 @@ const READ_FILE = "20261209090400_develop_commercial_read.sql";
 const CONNECTOR_FILE =
   "20261209090500_develop_procurement_status_connector.sql";
 const CURRENT_CONNECTOR_ROUTES_FILE =
-  "20270101490000_process_event_ingest.sql";
+  "20270102040000_process_event_ingest.sql";
 const SLICE_FILES = [
   CHANGE_FILE,
   CLAIM_FILE,
