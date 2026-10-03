@@ -243,7 +243,11 @@ alter table public.geospatial_subject_links
   add column if not exists restoration_event_id uuid references public.restoration_events(id) on delete cascade,
   add column if not exists development_case_id uuid references public.development_cases(id) on delete cascade,
   add column if not exists capital_project_id bigint references public.capital_projects(id) on delete cascade,
-  add column if not exists audit_event_id uuid references public.audit_events(id) on delete restrict;
+  -- audit_events is an append-only ledger with its own UPDATE/DELETE/TRUNCATE
+  -- refusal contract. A foreign key into it changes TRUNCATE into a generic FK
+  -- error before that contract can run. The trigger below performs the
+  -- same-tenant existence check without weakening the ledger invariant.
+  add column if not exists audit_event_id uuid;
 alter table public.geospatial_subject_links drop constraint if exists geospatial_subject_links_check;
 alter table public.geospatial_subject_links add constraint geospatial_subject_links_check check (
   num_nonnulls(asset_id,site_id,linear_route_id,linear_segment_id,work_order_id,evidence_item_id,
