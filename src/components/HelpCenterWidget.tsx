@@ -2,19 +2,156 @@ import { useState } from "react";
 import { ChevronRight, HelpCircle, Search, X } from "lucide-react";
 import { BrandWordmark } from "./BrandWordmark";
 
-type HelpArticle = { id: string; title: string; category: string; summary: string; content: string };
+type HelpArticle = {
+  id: string;
+  title: string;
+  category: string;
+  summary: string;
+  content: string;
+};
 
 const helpArticles: HelpArticle[] = [
-  { id: "start", title: "Getting started", category: "Product", summary: "Understand the governed decision workflow", content: "Start with Reliability Engineer or a Decision Case. Ground the question in asset context and evidence, separate facts from hypotheses, route consequential recommendations through the named authority, and define how the outcome will be verified." },
-  { id: "assessment", title: "Reliability Intelligence Assessment", category: "Commercial", summary: "What the paid assessment includes", content: "The Standard Reliability Intelligence Assessment is a bounded US$35,000, 6–8 week product using customer-provided exports. Findings are graded Supported, Partially Supported, or Unsupported. The applicable proposal/SOW controls final scope and data handling. Strategic-pilot and enterprise deployment pricing is available on request and is governed by the applicable commercial agreement." },
-  { id: "security", title: "Security and assurance", category: "Trust", summary: "Current security representation rules", content: "SyncAI uses tenant-scoped access controls and governed human approval boundaries. Do not infer SOC 2, ISO 27001, HIPAA, SSO, data-residency or other certification/capability from historical roadmap material; deployment-specific claims require current evidence." },
-  { id: "public-data", title: "Public Reliability Engineer data", category: "Privacy", summary: "What to submit in the public experience", content: "The public experience is for evaluation. Browser-side file profiling does not mean every AI input stays local. Prompts, text and extracted/sample context used for analysis may be transmitted to configured processing services. Do not submit production credentials or confidential operational records." },
+  {
+    id: "start",
+    title: "Getting started",
+    category: "Product",
+    summary: "Understand the governed decision workflow",
+    content:
+      "Start with Reliability Engineer or a Decision Case. Ground the question in asset context and evidence, separate facts from hypotheses, route consequential recommendations through the named authority, and define how the outcome will be verified.",
+  },
+  {
+    id: "assessment",
+    title: "Reliability Intelligence Assessment",
+    category: "Commercial",
+    summary: "What the paid assessment includes",
+    content:
+      "The Standard Reliability Intelligence Assessment is a bounded US$35,000, 6–8 week product using customer-provided exports. Findings are graded Supported, Partially Supported, or Unsupported. The applicable proposal/SOW controls final scope and data handling. Strategic-pilot and enterprise deployment pricing is available on request and is governed by the applicable commercial agreement.",
+  },
+  {
+    id: "fde",
+    title: "Forward-Deployed Engineering",
+    category: "Commercial",
+    summary: "How SyncAI moves from proof to production",
+    content:
+      "Forward-Deployed Engineering is a bounded implementation workstream, not open-ended staff augmentation. Named SyncAI practitioners work virtually with customer product, reliability, maintenance, engineering, data and security owners to connect authorized data, configure governed workflows and specialist roles, prove acceptance criteria, support adoption and transfer the operating runbook. The customer retains engineering, investment, operating, maintenance, safety, regulatory and risk-acceptance authority. Scope and pricing are controlled by the applicable order and customer-specific private offer.",
+  },
+  {
+    id: "security",
+    title: "Security and assurance",
+    category: "Trust",
+    summary: "Current security representation rules",
+    content:
+      "SyncAI uses tenant-scoped access controls and governed human approval boundaries. Do not infer SOC 2, ISO 27001, HIPAA, SSO, data-residency or other certification/capability from historical roadmap material; deployment-specific claims require current evidence.",
+  },
+  {
+    id: "public-data",
+    title: "Public Reliability Engineer data",
+    category: "Privacy",
+    summary: "What to submit in the public experience",
+    content:
+      "The public experience is for evaluation. Browser-side file profiling does not mean every AI input stays local. Prompts, text and extracted/sample context used for analysis may be transmitted to configured processing services. Do not submit production credentials or confidential operational records.",
+  },
 ];
 
 export function HelpCenterWidget() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [selected, setSelected] = useState<HelpArticle | null>(null);
-  const filtered = helpArticles.filter((article) => `${article.title} ${article.summary} ${article.category}`.toLowerCase().includes(query.toLowerCase()));
-  return <>{!open && <button onClick={() => setOpen(true)} aria-label="Open help" className="fixed bottom-24 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-teal-600 text-white shadow-xl md:bottom-6 md:right-24"><HelpCircle className="h-6 w-6" /></button>}{open && <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"><div className="flex h-[70vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-industrial-border bg-industrial-graphite"><div className="border-b border-industrial-border p-5"><div className="flex items-center justify-between"><div className="flex items-center gap-2 text-industrial-text"><BrandWordmark className="h-7" /><strong>Help</strong></div><button aria-label="Close help" onClick={() => { setOpen(false); setSelected(null); }}><X className="h-5 w-5 text-slate-400" /></button></div><div className="relative mt-4"><Search className="absolute left-3 top-3 h-4 w-4 text-slate-500" /><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search help" className="w-full rounded-lg border border-industrial-border bg-industrial-black py-2.5 pl-10 pr-3 text-sm text-industrial-text" /></div></div><div className="flex-1 overflow-y-auto p-6">{selected ? <div><button onClick={() => setSelected(null)} className="mb-5 text-sm text-teal-400">← Back</button><p className="text-xs uppercase tracking-wider text-slate-500">{selected.category}</p><h2 className="mt-2 text-2xl font-semibold text-industrial-text">{selected.title}</h2><p className="mt-4 leading-7 text-slate-300">{selected.content}</p></div> : <div className="space-y-3">{filtered.map((article) => <button key={article.id} onClick={() => setSelected(article)} className="flex w-full items-center justify-between rounded-xl border border-industrial-border p-4 text-left hover:border-teal-400/40"><div><p className="font-semibold text-industrial-text">{article.title}</p><p className="mt-1 text-sm text-slate-400">{article.summary}</p></div><ChevronRight className="h-5 w-5 text-slate-500" /></button>)}</div>}</div><div className="border-t border-industrial-border p-4 text-sm text-slate-400">Need help? <a className="text-teal-400" href="mailto:support@syncai.ca">support@syncai.ca</a></div></div></div>}</>;
+  const filtered = helpArticles.filter((article) =>
+    `${article.title} ${article.summary} ${article.category}`
+      .toLowerCase()
+      .includes(query.toLowerCase()),
+  );
+  return (
+    <>
+      {!open && (
+        <button
+          onClick={() => setOpen(true)}
+          aria-label="Open help"
+          className="fixed bottom-24 right-6 z-40 flex h-14 w-14 items-center justify-center rounded-full bg-teal-600 text-white shadow-xl md:bottom-6 md:right-24"
+        >
+          <HelpCircle className="h-6 w-6" />
+        </button>
+      )}
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+          <div className="flex h-[70vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-industrial-border bg-industrial-graphite">
+            <div className="border-b border-industrial-border p-5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2 text-industrial-text">
+                  <BrandWordmark className="h-7" />
+                  <strong>Help</strong>
+                </div>
+                <button
+                  aria-label="Close help"
+                  onClick={() => {
+                    setOpen(false);
+                    setSelected(null);
+                  }}
+                >
+                  <X className="h-5 w-5 text-slate-400" />
+                </button>
+              </div>
+              <div className="relative mt-4">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-slate-500" />
+                <input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search help"
+                  className="w-full rounded-lg border border-industrial-border bg-industrial-black py-2.5 pl-10 pr-3 text-sm text-industrial-text"
+                />
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              {selected ? (
+                <div>
+                  <button
+                    onClick={() => setSelected(null)}
+                    className="mb-5 text-sm text-teal-400"
+                  >
+                    ← Back
+                  </button>
+                  <p className="text-xs uppercase tracking-wider text-slate-500">
+                    {selected.category}
+                  </p>
+                  <h2 className="mt-2 text-2xl font-semibold text-industrial-text">
+                    {selected.title}
+                  </h2>
+                  <p className="mt-4 leading-7 text-slate-300">
+                    {selected.content}
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {filtered.map((article) => (
+                    <button
+                      key={article.id}
+                      onClick={() => setSelected(article)}
+                      className="flex w-full items-center justify-between rounded-xl border border-industrial-border p-4 text-left hover:border-teal-400/40"
+                    >
+                      <div>
+                        <p className="font-semibold text-industrial-text">
+                          {article.title}
+                        </p>
+                        <p className="mt-1 text-sm text-slate-400">
+                          {article.summary}
+                        </p>
+                      </div>
+                      <ChevronRight className="h-5 w-5 text-slate-500" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="border-t border-industrial-border p-4 text-sm text-slate-400">
+              Need help?{" "}
+              <a className="text-teal-400" href="mailto:support@syncai.ca">
+                support@syncai.ca
+              </a>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
 }
