@@ -35,6 +35,45 @@ export interface LinearRouteOption {
   evidence_item_id: string | null;
 }
 
+export interface PopulationSiteOption {
+  id: string;
+  name: string;
+}
+
+export interface AssetPopulationOption {
+  id: number;
+  site_id: string | null;
+  population_code: string;
+  description: string;
+  unit_count: number;
+  members_individually_tracked: boolean;
+  install_period_start: string | null;
+  install_period_end: string | null;
+  basis: string | null;
+  evidence_item_id: string | null;
+}
+
+export interface PopulationObservationPeriod {
+  id: number;
+  population_id: number;
+  observed_from: string;
+  observed_to: string;
+  units_exposed: number;
+  basis: string;
+  evidence_item_id: string;
+}
+
+export interface PopulationFailureEvent {
+  id: number;
+  population_id: number;
+  observation_period_id: number | null;
+  occurred_at: string;
+  failure_count: number;
+  failure_mode: string | null;
+  note: string | null;
+  evidence_item_id: string | null;
+}
+
 interface AssetRow {
   id: string;
   name: string;
@@ -261,6 +300,172 @@ export async function recordLinearDefect(input: {
       p_detected_at: input.detectedAt
         ? new Date(input.detectedAt).toISOString()
         : null,
+      p_evidence_item_id: input.evidenceItemId,
+    }),
+  );
+}
+
+export async function listPopulationSites(): Promise<PopulationSiteOption[]> {
+  const { data, error } = await supabase
+    .from("sites")
+    .select("id,name")
+    .order("name")
+    .returns<PopulationSiteOption[]>();
+  if (error) throw new Error(`Could not load sites: ${error.message}`);
+  return data ?? [];
+}
+
+export async function listPopulationEvidence(): Promise<
+  OntologyEvidenceOption[]
+> {
+  const { data, error } = await supabase
+    .from("evidence_items")
+    .select(
+      "id,asset_id,description,evidence_class,source_system,ts,verification_status",
+    )
+    .eq("verification_status", "verified")
+    .is("asset_id", null)
+    .in("evidence_class", [
+      "MEASURED",
+      "INSPECTED",
+      "DOCUMENTED",
+      "HISTORICAL",
+      "EXPERT_JUDGEMENT",
+    ])
+    .order("ts", { ascending: false })
+    .limit(50)
+    .returns<
+      (OntologyEvidenceOption & { verification_status: "verified" })[]
+    >();
+  if (error) {
+    throw new Error(`Could not load population evidence: ${error.message}`);
+  }
+  return (data ?? []) as OntologyEvidenceOption[];
+}
+
+export async function listAssetPopulations(): Promise<AssetPopulationOption[]> {
+  const { data, error } = await supabase
+    .from("asset_populations")
+    .select(
+      "id,site_id,population_code,description,unit_count,members_individually_tracked,install_period_start,install_period_end,basis,evidence_item_id",
+    )
+    .order("population_code")
+    .returns<AssetPopulationOption[]>();
+  if (error) {
+    throw new Error(`Could not load asset populations: ${error.message}`);
+  }
+  return (data ?? []).map((population) => ({
+    ...population,
+    unit_count: Number(population.unit_count),
+  }));
+}
+
+export async function listPopulationObservationPeriods(
+  populationId: number,
+): Promise<PopulationObservationPeriod[]> {
+  const { data, error } = await supabase
+    .from("population_observation_periods")
+    .select(
+      "id,population_id,observed_from,observed_to,units_exposed,basis,evidence_item_id",
+    )
+    .eq("population_id", populationId)
+    .order("observed_from")
+    .returns<PopulationObservationPeriod[]>();
+  if (error) {
+    throw new Error(`Could not load population exposure: ${error.message}`);
+  }
+  return (data ?? []).map((period) => ({
+    ...period,
+    units_exposed: Number(period.units_exposed),
+  }));
+}
+
+export async function listPopulationFailureEvents(
+  populationId: number,
+): Promise<PopulationFailureEvent[]> {
+  const { data, error } = await supabase
+    .from("population_failure_events")
+    .select(
+      "id,population_id,observation_period_id,occurred_at,failure_count,failure_mode,note,evidence_item_id",
+    )
+    .eq("population_id", populationId)
+    .order("occurred_at")
+    .returns<PopulationFailureEvent[]>();
+  if (error) {
+    throw new Error(`Could not load population failures: ${error.message}`);
+  }
+  return (data ?? []).map((event) => ({
+    ...event,
+    failure_count: Number(event.failure_count),
+  }));
+}
+
+export async function recordAssetPopulation(input: {
+  siteId: string | null;
+  populationCode: string;
+  description: string;
+  unitCount: number;
+  membersIndividuallyTracked: boolean;
+  installPeriodStart: string | null;
+  installPeriodEnd: string | null;
+  basis: string;
+  evidenceItemId: string;
+}): Promise<RpcResult> {
+  return requireRpcResult(
+    "Could not record asset population",
+    await supabase.rpc("record_asset_population", {
+      p_site_id: input.siteId,
+      p_population_code: input.populationCode,
+      p_description: input.description,
+      p_unit_count: input.unitCount,
+      p_members_individually_tracked: input.membersIndividuallyTracked,
+      p_install_period_start: input.installPeriodStart,
+      p_install_period_end: input.installPeriodEnd,
+      p_basis: input.basis,
+      p_evidence_item_id: input.evidenceItemId,
+    }),
+  );
+}
+
+export async function recordPopulationObservationPeriod(input: {
+  populationId: number;
+  observedFrom: string;
+  observedTo: string;
+  unitsExposed: number;
+  basis: string;
+  evidenceItemId: string;
+}): Promise<RpcResult> {
+  return requireRpcResult(
+    "Could not record population exposure",
+    await supabase.rpc("record_population_observation_period", {
+      p_population_id: input.populationId,
+      p_observed_from: new Date(input.observedFrom).toISOString(),
+      p_observed_to: new Date(input.observedTo).toISOString(),
+      p_units_exposed: input.unitsExposed,
+      p_basis: input.basis,
+      p_evidence_item_id: input.evidenceItemId,
+    }),
+  );
+}
+
+export async function recordPopulationFailureEvent(input: {
+  populationId: number;
+  observationPeriodId: number;
+  occurredAt: string;
+  failureCount: number;
+  failureMode: string;
+  note: string;
+  evidenceItemId: string;
+}): Promise<RpcResult> {
+  return requireRpcResult(
+    "Could not record population failure",
+    await supabase.rpc("record_population_failure_event", {
+      p_population_id: input.populationId,
+      p_observation_period_id: input.observationPeriodId,
+      p_occurred_at: new Date(input.occurredAt).toISOString(),
+      p_failure_count: input.failureCount,
+      p_failure_mode: input.failureMode,
+      p_note: input.note,
       p_evidence_item_id: input.evidenceItemId,
     }),
   );

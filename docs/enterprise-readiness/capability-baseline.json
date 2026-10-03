@@ -1932,10 +1932,10 @@
     "backticked": 10
   },
   "U3.04": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 10,
+    "backticked": 10
   },
   "U3.05": {
     "status": "✅",

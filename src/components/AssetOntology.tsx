@@ -24,6 +24,7 @@ import { GeospatialOperationalIntelligencePanel } from "./GeospatialOperationalI
 import { ClimateHazardExposurePanel } from "./ClimateHazardExposurePanel";
 import { AssetClassGovernancePanel } from "./AssetClassGovernancePanel";
 import { LinearAssetGovernancePanel } from "./LinearAssetGovernancePanel";
+import { PopulationGovernancePanel } from "./PopulationGovernancePanel";
 
 interface Coverage {
   assets_total: number;
@@ -177,6 +178,14 @@ export function AssetOntology() {
       />
 
       <LinearAssetGovernancePanel
+        revision={governanceRevision}
+        onRecorded={() => {
+          setGovernanceRevision((current) => current + 1);
+          void refetch();
+        }}
+      />
+
+      <PopulationGovernancePanel
         revision={governanceRevision}
         onRecorded={() => {
           setGovernanceRevision((current) => current + 1);
