@@ -15,6 +15,8 @@ import { test, expect, type Page } from "@playwright/test";
 
 const DEMO_EMAIL = "demo@syncai.ca";
 const DEMO_PASSWORD = "Demo123!@#";
+const MANAGER_EMAIL = "manager@syncai.ca";
+const MANAGER_PASSWORD = "Manager123!@#";
 
 const C22_REC_TITLE = "Reschedule PM on Conveyor C-22";
 const C22_REC_ACTION = "Advance PM from Day 14 to Day 3 — bearing replacement";
@@ -24,16 +26,31 @@ async function openLogin(page: Page) {
   await page.goto("/signin");
 }
 
-async function login(page: Page) {
+async function loginAs(page: Page, emailAddress: string, password: string) {
   await openLogin(page);
   const email = page.getByRole("textbox", { name: /work email/i });
   await expect(email).toBeVisible({ timeout: 20_000 });
-  await email.fill(DEMO_EMAIL);
-  await page.locator('input[type="password"]').fill(DEMO_PASSWORD);
+  await email.fill(emailAddress);
+  await page.locator('input[type="password"]').fill(password);
   await page.getByRole("button", { name: /access syncai/i }).click();
+
+  // Authentication restores the user's last workspace, so a manager who last
+  // reviewed work can legitimately land on the Work Action Board. Establish a
+  // deterministic golden-path start through the visible app navigation rather
+  // than treating a restored workspace as a failed login.
+  const missionControl = page.getByRole("button", {
+    name: "Mission Control",
+    exact: true,
+  });
+  await expect(missionControl).toBeVisible({ timeout: 30_000 });
+  await missionControl.click();
   await expect(
     page.getByRole("heading", { name: "Mission Control" }),
   ).toBeVisible({ timeout: 30_000 });
+}
+
+async function login(page: Page) {
+  await loginAs(page, DEMO_EMAIL, DEMO_PASSWORD);
 }
 
 test.describe("Golden path: the buyer-value loop", () => {
@@ -43,7 +60,9 @@ test.describe("Golden path: the buyer-value loop", () => {
     await login(page);
 
     // Readiness hero + live stats render from Supabase
-    await expect(page.getByText("MISSION READINESS", { exact: false })).toBeVisible();
+    await expect(
+      page.getByText("MISSION READINESS", { exact: false }),
+    ).toBeVisible();
     await expect(page.getByText("Top AI Recommendations")).toBeVisible();
     await expect(page.getByText(C22_REC_TITLE)).toBeVisible();
     await expect(page.getByText("Value Created")).toBeVisible();
@@ -84,7 +103,9 @@ test.describe("Golden path: the buyer-value loop", () => {
     // The release gate refuses a blank assumption basis. Exercise the same
     // named-human workflow a customer uses before approving the recommendation.
     await page.getByText(C22_REC_TITLE).click();
-    await page.getByRole("button", { name: "Assumptions", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Assumptions", exact: true })
+      .click();
     await expect(
       page.getByRole("heading", { name: "Recommendation assumptions" }),
     ).toBeVisible({ timeout: 15_000 });
@@ -121,9 +142,9 @@ test.describe("Golden path: the buyer-value loop", () => {
     await page
       .getByRole("button", { name: "Record assumption assessment" })
       .click();
-    await expect(
-      page.getByText(/Assumption assessment recorded/),
-    ).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/Assumption assessment recorded/)).toBeVisible({
+      timeout: 20_000,
+    });
     await page.getByRole("button", { name: "Close", exact: true }).click();
 
     // Approve only after the governed decision basis is complete.
@@ -137,9 +158,7 @@ test.describe("Golden path: the buyer-value loop", () => {
     await expect(page.getByText(C22_REC_ACTION).first()).toBeVisible({
       timeout: 20_000,
     });
-    await expect(
-      page.getByText("Awaiting Approval").first(),
-    ).toBeVisible();
+    await expect(page.getByText("Awaiting Approval").first()).toBeVisible();
 
     // Decision Governance: the human decision is logged
     await page.goto("/governance");
@@ -155,7 +174,10 @@ test.describe("Golden path: the buyer-value loop", () => {
     await expect(page.getByText(C22_VALUE_LABEL).first()).toBeVisible();
 
     // Operator verifies — value becomes real and feeds the Learning Loop
-    await page.getByRole("button", { name: "Verify", exact: true }).first().click();
+    await page
+      .getByRole("button", { name: "Verify", exact: true })
+      .first()
+      .click();
     await expect(page.getByText(/Verified \$2\.4M/)).toBeVisible({
       timeout: 20_000,
     });
@@ -178,22 +200,50 @@ test.describe("Golden path: the buyer-value loop", () => {
 });
 
 test.describe("Wired controls: no dead buttons on the core loop", () => {
-  test("4 — work order approve + assign + new WO all write to the database", async ({
+  test("4 — an independent manager schedules safety work, then creates ordinary work", async ({
     page,
   }) => {
-    await login(page);
-    await page.goto("/work");
+    await loginAs(page, MANAGER_EMAIL, MANAGER_PASSWORD);
+    await page.goto("/governance");
 
-    // The WO created by test 3's approval is approval-gated — approve it here.
-    await page.getByText(C22_REC_ACTION).first().click();
-    await page.getByRole("button", { name: "Approve", exact: true }).first().click();
-    await expect(page.getByText(/now scheduled/i)).toBeVisible({ timeout: 15_000 });
+    // Recommendation approval created an inert safety-critical draft and a
+    // separate C5.17 request. A different named manager supplies the decision
+    // basis and schedules it through the canonical change-control function.
+    const request = page
+      .locator("article")
+      .filter({ hasText: C22_REC_ACTION })
+      .filter({ hasText: "Create safety-critical work" })
+      .first();
+    await expect(request).toBeVisible({ timeout: 20_000 });
+    await request
+      .getByLabel(`Decision basis for ${C22_REC_ACTION}`)
+      .fill(
+        "Approved after reviewing the condition evidence, completion date, consequence, and stated post-work verification method.",
+      );
+    await request.getByRole("button", { name: "Approve request" }).click();
+    await expect(
+      page.getByText(
+        /Request approved\. The canonical work record is the source of truth\./,
+      ),
+    ).toBeVisible({ timeout: 20_000 });
+
+    await page.goto("/work");
+    const scheduled = page
+      .getByTestId("work-card")
+      .filter({ hasText: C22_REC_ACTION })
+      .first();
+    await expect(scheduled).toBeVisible({ timeout: 20_000 });
+    await expect(
+      scheduled.getByText("Scheduled", { exact: true }),
+    ).toBeVisible();
 
     // New Work Order modal creates a real row
     await page.getByRole("button", { name: /New Work Order/i }).click();
     await page.getByLabel("Title").fill("E2E inspection — HX-08 bypass valve");
     await page.getByRole("button", { name: "Create", exact: true }).click();
-    await expect(page.getByText(/Work order created/i)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/Work order created/i)).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(
       page.getByText("E2E inspection — HX-08 bypass valve").first(),
     ).toBeVisible({ timeout: 15_000 });
@@ -217,7 +267,9 @@ test.describe("Wired controls: no dead buttons on the core loop", () => {
     // The modal sits in a continuously-animating framer-motion wrapper which
     // never passes Playwright's stability check — force skips only that.
     await submit.click({ force: true });
-    await expect(page.getByText(/logged|Challenge Logged/i).first()).toBeVisible({
+    await expect(
+      page.getByText(/logged|Challenge Logged/i).first(),
+    ).toBeVisible({
       timeout: 15_000,
     });
 
@@ -250,7 +302,9 @@ test.describe("Autonomous asset onboarding: RAM checklist + HITL + go-live gate"
     // Go-live gate reports autonomous progress against Section-21 requirements
     const gate = page.getByTestId("golive-gate");
     await expect(gate).toBeVisible();
-    await expect(gate.getByText(/of \d+ go-live requirements satisfied/)).toBeVisible({
+    await expect(
+      gate.getByText(/of \d+ go-live requirements satisfied/),
+    ).toBeVisible({
       timeout: 20_000,
     });
 
@@ -315,9 +369,9 @@ test.describe("Autonomous asset onboarding: RAM checklist + HITL + go-live gate"
       .getByRole("button", { name: "Start Work" })
       .click({ timeout: 10_000 })
       .catch(() => {});
-    await expect(page.getByRole("button", { name: "Mark Completed" })).toBeVisible(
-      { timeout: 15_000 },
-    );
+    await expect(
+      page.getByRole("button", { name: "Mark Completed" }),
+    ).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "Mark Completed" }).click();
     await expect(page.getByText("Close out work order")).toBeVisible();
 
@@ -362,7 +416,9 @@ test.describe("ISO 55000 KPI service: access-controlled executive intelligence",
     await expect(
       dash.getByText("Overall Equipment Effectiveness").first(),
     ).toBeVisible();
-    await expect(dash.getByText(/visible to the reliability engineer role/)).toBeVisible();
+    await expect(
+      dash.getByText(/visible to the reliability engineer role/),
+    ).toBeVisible();
     await expect(dash.getByText("Asset Value Realization")).toHaveCount(0);
 
     // Executive: board-tier KPIs appear.
@@ -379,9 +435,9 @@ test.describe("ISO 55000 KPI service: access-controlled executive intelligence",
     await expect(
       page.getByRole("heading", { name: "Executive Asset Intelligence" }),
     ).toBeVisible({ timeout: 30_000 });
-    await expect(
-      page.getByText("Asset Value Realization").first(),
-    ).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText("Asset Value Realization").first()).toBeVisible(
+      { timeout: 20_000 },
+    );
     await expect(page.getByText(/visible to the executive role/)).toBeVisible();
     // Role-trimmed navigation: executives see governance, not the setup wizard.
     await expect(
@@ -428,9 +484,13 @@ test.describe("Role-aware copilot dock", () => {
     await expect(page.getByTestId("copilot-suggestions")).toBeVisible();
 
     // Asking works end-to-end and degrades gracefully without an LLM locally.
-    await dock.getByRole("button", { name: /Which assets are trending/ }).click();
+    await dock
+      .getByRole("button", { name: /Which assets are trending/ })
+      .click();
     await expect(
-      dock.getByText(/unavailable right now|failure|vibration|monitor/i).first(),
+      dock
+        .getByText(/unavailable right now|failure|vibration|monitor/i)
+        .first(),
     ).toBeVisible({ timeout: 30_000 });
 
     // Technician persona differs.
@@ -452,40 +512,40 @@ test.describe("Role-aware copilot dock", () => {
   });
 });
 
-  test("11 — security audit log is admin-only and records sign-ins", async ({
-    page,
-  }) => {
-    // Admin (seeded by migration 19) sees the log — including their own
-    // sign-in event, recorded moments ago by the AuthProvider hook.
-    await openLogin(page);
-    const email = page.getByRole("textbox", { name: /work email/i });
-    await expect(email).toBeVisible({ timeout: 20_000 });
-    await email.fill("admin@syncai.ca");
-    await page.locator('input[type="password"]').fill("Admin123!@#");
-    await page.getByRole("button", { name: /access syncai/i }).click();
-    await page.waitForTimeout(1500); // let the sign_in event record
-    await page.goto("/security-log");
-    await expect(
-      page.getByRole("heading", { name: "Security Audit Log" }),
-    ).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText("sign in").first()).toBeVisible({
-      timeout: 15_000,
-    });
-
-    // Technician is bounced by the AdminGate and never sees the page.
-    await page.goto("/");
-    await page.evaluate(() => window.localStorage.clear());
-    await openLogin(page);
-    const email2 = page.getByRole("textbox", { name: /work email/i });
-    await expect(email2).toBeVisible({ timeout: 20_000 });
-    await email2.fill("technician@syncai.ca");
-    await page.locator('input[type="password"]').fill("Tech123!@#");
-    await page.getByRole("button", { name: /access syncai/i }).click();
-    await expect(
-      page.getByRole("heading", { name: "Work Action Board" }),
-    ).toBeVisible({ timeout: 30_000 });
-    await page.goto("/security-log");
-    await expect(
-      page.getByRole("heading", { name: "Security Audit Log" }),
-    ).not.toBeVisible({ timeout: 10_000 });
+test("11 — security audit log is admin-only and records sign-ins", async ({
+  page,
+}) => {
+  // Admin (seeded by migration 19) sees the log — including their own
+  // sign-in event, recorded moments ago by the AuthProvider hook.
+  await openLogin(page);
+  const email = page.getByRole("textbox", { name: /work email/i });
+  await expect(email).toBeVisible({ timeout: 20_000 });
+  await email.fill("admin@syncai.ca");
+  await page.locator('input[type="password"]').fill("Admin123!@#");
+  await page.getByRole("button", { name: /access syncai/i }).click();
+  await page.waitForTimeout(1500); // let the sign_in event record
+  await page.goto("/security-log");
+  await expect(
+    page.getByRole("heading", { name: "Security Audit Log" }),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("sign in").first()).toBeVisible({
+    timeout: 15_000,
   });
+
+  // Technician is bounced by the AdminGate and never sees the page.
+  await page.goto("/");
+  await page.evaluate(() => window.localStorage.clear());
+  await openLogin(page);
+  const email2 = page.getByRole("textbox", { name: /work email/i });
+  await expect(email2).toBeVisible({ timeout: 20_000 });
+  await email2.fill("technician@syncai.ca");
+  await page.locator('input[type="password"]').fill("Tech123!@#");
+  await page.getByRole("button", { name: /access syncai/i }).click();
+  await expect(
+    page.getByRole("heading", { name: "Work Action Board" }),
+  ).toBeVisible({ timeout: 30_000 });
+  await page.goto("/security-log");
+  await expect(
+    page.getByRole("heading", { name: "Security Audit Log" }),
+  ).not.toBeVisible({ timeout: 10_000 });
+});
