@@ -97,7 +97,6 @@ const severityConfig: Record<
   },
 };
 
-
 export function EmergencyMode() {
   const { data: alerts, loading } = useAsyncData<CriticalAlert[]>(
     () => getActiveCriticalAlerts(),
@@ -108,7 +107,7 @@ export function EmergencyMode() {
 
   if (!alerts || alerts.length === 0) {
     return (
-      <div className="p-6">
+      <div className="space-y-6 p-6">
         <h1 className="text-2xl font-bold text-white tracking-tight">
           Emergency Mode
         </h1>
@@ -126,6 +125,7 @@ export function EmergencyMode() {
             affected assets, and recovery tracking.
           </p>
         </div>
+        <ResiliencePanel />
       </div>
     );
   }
@@ -163,7 +163,8 @@ export function EmergencyMode() {
                 {activeIncident.title}
               </h1>
               <p className="text-sm text-slate-300 mt-1">
-                {alerts[0].description ?? "No description recorded on this alert."}
+                {alerts[0].description ??
+                  "No description recorded on this alert."}
               </p>
               <div className="flex items-center gap-4 mt-3 text-xs text-slate-400">
                 <span className="flex items-center gap-1">
@@ -228,11 +229,10 @@ export function EmergencyMode() {
             ))}
           </div>
           <p className="mt-4 pt-3 border-t border-white/6 text-xs text-slate-500">
-            This panel was a scripted &ldquo;Live Event Timeline&rdquo; —
-            ten hand-written entries including an AI failure confirmation at
-            97% confidence and a work order created automatically, neither of
-            which happened. It now shows the alerts the platform actually
-            holds.
+            This panel was a scripted &ldquo;Live Event Timeline&rdquo; — ten
+            hand-written entries including an AI failure confirmation at 97%
+            confidence and a work order created automatically, neither of which
+            happened. It now shows the alerts the platform actually holds.
           </p>
         </div>
 
@@ -266,8 +266,8 @@ export function EmergencyMode() {
               No recovery plan is modelled.
             </p>
             <p className="text-xs text-slate-400 mt-2">
-              The five steps and the 08:45 UTC return-to-service shown here
-              were fixed text, not a schedule anyone had committed to.
+              The five steps and the 08:45 UTC return-to-service shown here were
+              fixed text, not a schedule anyone had committed to.
             </p>
           </div>
         </div>

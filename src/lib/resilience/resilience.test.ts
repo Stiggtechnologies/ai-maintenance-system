@@ -36,6 +36,20 @@ const GRAPH: DependencyGraph = {
 };
 
 describe("assessScenario", () => {
+  it("models smoke as its own exposure rather than hiding it under wildfire", () => {
+    const r = assessScenario(
+      {
+        scenarioKey: "smoke",
+        title: "Regional smoke event",
+        threatKind: "smoke",
+        directlyAffected: ["sub"],
+      },
+      GRAPH,
+    );
+    expect(r.threatKind).toBe("smoke");
+    expect(r.totalLost).toBe(4);
+  });
+
   it("carries a grid loss through the graph and names the service", () => {
     const s: Scenario = {
       scenarioKey: "grid",

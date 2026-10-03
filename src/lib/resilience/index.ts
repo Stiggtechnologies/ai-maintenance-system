@@ -38,6 +38,7 @@ import {
 
 export type ThreatKind =
   | "wildfire"
+  | "smoke"
   | "flood"
   | "extreme_cold"
   | "grid_interruption"
