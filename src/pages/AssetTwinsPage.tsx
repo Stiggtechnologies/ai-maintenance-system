@@ -7,6 +7,7 @@
  * here unmodified (navigation-lifecycle-ia.md §2 Group 2).
  */
 import { AssetTwinCoverage } from "../components/AssetTwinCoverage";
+import { AssetMasterGovernanceWorkbench } from "../components/AssetMasterGovernanceWorkbench";
 
 export function AssetTwinsPage() {
   return (
@@ -19,6 +20,7 @@ export function AssetTwinsPage() {
           Which assets carry an evidence-backed twin, and which are shells
         </p>
       </div>
+      <AssetMasterGovernanceWorkbench />
       <AssetTwinCoverage />
     </div>
   );

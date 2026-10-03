@@ -1764,16 +1764,16 @@
     "backticked": 1
   },
   "E12.01": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 5,
+    "citations": 4,
     "backticked": 4
   },
   "E12.02": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 3,
-    "backticked": 2
+    "citations": 4,
+    "backticked": 4
   },
   "E12.03": {
     "status": "✅",
