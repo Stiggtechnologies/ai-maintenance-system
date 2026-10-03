@@ -4,7 +4,7 @@ import { stripComments } from "./support/migrationPolicies";
 
 const migration = stripComments(
   readFileSync(
-    "supabase/migrations/20270101440000_lifecycle_decision_authority.sql",
+    "supabase/migrations/20270101970000_lifecycle_decision_authority.sql",
     "utf8",
   ),
 );
