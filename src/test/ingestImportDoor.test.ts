@@ -35,7 +35,7 @@ const ORIGINAL_DOOR = "20260907090000_manual_import.sql";
 const CONTEXT_FIX =
   "20261004090200_operating_context_rows_survive_a_bad_cell.sql";
 const SCHEDULE_IMPORT = "20261112090000_p6_schedule_import.sql";
-const COST_ACTUAL_IMPORT = "20270101370000_develop_cost_actual_connector.sql";
+const COST_ACTUAL_IMPORT = "20270101900000_develop_cost_actual_connector.sql";
 /**
  * Where the schedule validator's CURRENT body lives.
  *
@@ -154,7 +154,7 @@ describe("the route table is the single source of truth", () => {
     // survived that move by the descriptor-pairing case below, which compares
     // the SQL routes against INGEST_ENTITIES key for key.
     expect(defs.get("ingest_entity_routes")?.file).toBe(
-      "20270101370000_develop_cost_actual_connector.sql",
+      "20270101900000_develop_cost_actual_connector.sql",
     );
     expect(sqlRoutes().schedule_activity).toBe("ingest_schedule_batch");
     expect(sqlRoutes().procurement_status).toBe(
