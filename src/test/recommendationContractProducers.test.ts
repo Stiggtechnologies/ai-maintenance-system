@@ -263,7 +263,7 @@ describe("the release gate is stronger than the producers, not weaker", () => {
 
   it("checks every contract field through the blank helpers, not btrim", () => {
     expect(gate?.source).toBe(
-      "20270101450000_recommendation_assumption_contract.sql",
+      "20270101980000_recommendation_assumption_contract.sql",
     );
     for (const column of [
       "consequence_summary",
@@ -315,7 +315,7 @@ describe("the release gate is stronger than the producers, not weaker", () => {
   it("puts the blank helpers in the path that ENFORCES, not only the preflight", () => {
     const gaps = finalFunctions.get("recommendation_contract_gaps");
     expect(gaps?.source).toBe(
-      "20270101450000_recommendation_assumption_contract.sql",
+      "20270101980000_recommendation_assumption_contract.sql",
     );
     for (const column of [
       "consequence_summary",
@@ -394,13 +394,13 @@ describe("the release gate is stronger than the producers, not weaker", () => {
 
   it("is the last writer of all three, so nothing downstream reverts it again", () => {
     expect(gate?.source).toBe(
-      "20270101450000_recommendation_assumption_contract.sql",
+      "20270101980000_recommendation_assumption_contract.sql",
     );
     expect(
       finalFunctions.get("get_recommendation_contract_posture")?.source,
-    ).toBe("20270101450000_recommendation_assumption_contract.sql");
+    ).toBe("20270101980000_recommendation_assumption_contract.sql");
     expect(finalFunctions.get("recommendation_contract_gaps")?.source).toBe(
-      "20270101450000_recommendation_assumption_contract.sql",
+      "20270101980000_recommendation_assumption_contract.sql",
     );
   });
 
