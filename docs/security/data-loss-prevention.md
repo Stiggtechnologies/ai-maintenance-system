@@ -27,16 +27,16 @@ The shipped runtime declares the most conservative class it can defend for
 each path. A rule may permit or deny an exact combination; `redaction required`
 denies until that caller explicitly proves redaction was applied.
 
-| Runtime path | Data class | Purpose |
-| --- | --- | --- |
-| Sync investigation, general agents | `security_sensitive` | `model_inference` |
-| Sync attachment extraction | `security_sensitive` | `document_extraction` |
-| Sync realtime voice | `security_sensitive` | `realtime_voice` |
-| Sync speech | `security_sensitive` | `speech_synthesis` |
-| Gate, evidence, risk and change-impact agents | `safety_critical` | `model_inference` |
-| Contract, methodology and requirements agents | `commercial` | `model_inference` |
-| Asset onboarding | `operational` | `onboarding_enrichment` |
-| Condition-loop enrichment | `operational` | `agent_enrichment` |
+| Runtime path                                  | Data class           | Purpose                 |
+| --------------------------------------------- | -------------------- | ----------------------- |
+| Sync investigation, general agents            | `security_sensitive` | `model_inference`       |
+| Sync attachment extraction                    | `security_sensitive` | `document_extraction`   |
+| Sync realtime voice                           | `security_sensitive` | `realtime_voice`        |
+| Sync speech                                   | `security_sensitive` | `speech_synthesis`      |
+| Gate, evidence, risk and change-impact agents | `safety_critical`    | `model_inference`       |
+| Contract, methodology and requirements agents | `commercial`         | `model_inference`       |
+| Asset onboarding                              | `operational`        | `onboarding_enrichment` |
+| Condition-loop enrichment                     | `operational`        | `agent_enrichment`      |
 
 Public reference-case inference contains no tenant data and remains outside
 this tenant-DLP claim. Marketplace lifecycle traffic and inbound CMMS,

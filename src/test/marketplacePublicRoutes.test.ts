@@ -62,15 +62,12 @@ describe("Marketplace app-domain routes", () => {
     });
     expect(manifest.technicalConfiguration.landingPage).toMatchObject({
       controlledReplacement: "https://app.syncai.ca/marketplace/activate",
-      implementationMergeCommit:
-        "a0c4186efd1d449fbd80d67d5150d63f18684875",
+      implementationMergeCommit: "a0c4186efd1d449fbd80d67d5150d63f18684875",
       replacementProbe: { httpStatus: 200 },
     });
     expect(manifest.technicalConfiguration.connectionWebhook).toMatchObject({
-      controlledReplacement:
-        "https://app.syncai.ca/api/marketplace/webhook",
-      implementationMergeCommit:
-        "a0c4186efd1d449fbd80d67d5150d63f18684875",
+      controlledReplacement: "https://app.syncai.ca/api/marketplace/webhook",
+      implementationMergeCommit: "a0c4186efd1d449fbd80d67d5150d63f18684875",
       unconfirmedHistoricalDirectCandidate: {
         permittedAsFallback: false,
         status: "blocked",
