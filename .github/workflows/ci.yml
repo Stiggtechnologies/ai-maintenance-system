@@ -480,6 +480,9 @@ jobs:
       - name: Smoke — tenant MFA and privileged-access assurance
         run: bash scripts/ci-privileged-access-mfa-smoke.sh
 
+      - name: Smoke — quarantined knowledge and independent AAL2 release
+        run: bash scripts/ci-kb-document-security-smoke.sh
+
       - name: Smoke — hardware-neutral governed Edge Evidence Contract
         run: bash scripts/ci-edge-evidence-contract-smoke.sh
 
