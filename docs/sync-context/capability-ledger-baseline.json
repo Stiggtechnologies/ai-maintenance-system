@@ -1,0 +1,19 @@
+{
+  "schemaVersion": 1,
+  "ledgerId": "sync-context-godseye-integration-contract",
+  "acceptedCapabilityCount": 132,
+  "acceptedContractDigest": "fcea704526d47809d330afe14db2823446499b3afdb84196c1aba57b21dc374a",
+  "acceptedCapabilityDigest": "7ab2245ae149715ccb188ae9b9377d93df8f99cdd46b7af783baf37eb4504d77",
+  "acceptedIdDigest": "d604212f4b52722516d4791d063f4611565ef75ab23f09704a606dd615a98139",
+  "statusCounts": {
+    "existing_foundation": 43,
+    "external_dependency": 25,
+    "missing": 21,
+    "prototype_only": 43
+  },
+  "completionCounts": {
+    "complete": 0,
+    "not_started": 64,
+    "partial": 68
+  }
+}
