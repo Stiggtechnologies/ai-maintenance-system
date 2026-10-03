@@ -89,6 +89,8 @@ import {
   ScheduleSection,
 } from "../components/develop/ReadinessPanels";
 import { GovernancePanel } from "../components/develop/GovernancePanel";
+import { EngineOverlayPanel } from "../components/develop/EngineOverlayPanel";
+import { StageDimensionSubstratePanel } from "../components/develop/StageDimensionSubstratePanel";
 import {
   BenefitsSection,
   BusinessCaseSection,
@@ -116,7 +118,11 @@ import { ProjectFlowEfficiencyPanel } from "../components/develop/ProjectFlowEff
 import { TechnicalDebtPanel } from "../components/develop/TechnicalDebtPanel";
 import { OperationalDebtPanel } from "../components/develop/OperationalDebtPanel";
 import { OperatingModelReadinessPanel } from "../components/develop/OperatingModelReadinessPanel";
+import { PhysicalInformationReadinessPanel } from "../components/develop/PhysicalInformationReadinessPanel";
+import { InformationReadinessIndexPanel } from "../components/develop/InformationReadinessIndexPanel";
 import { DigitalThreadPanel } from "../components/develop/DigitalThreadPanels";
+import { CoreGraphRelationshipsPanel } from "../components/develop/CoreGraphRelationshipsPanel";
+import { ArchitecturalNorthStarPanel } from "../components/develop/ArchitecturalNorthStarPanel";
 import {
   CaseRamPanel,
   ChangeImpactAgentPanel,
@@ -2467,6 +2473,7 @@ export function DevelopmentCaseWorkspacePage() {
   const canReview =
     profile?.role != null && REVIEW_ROLES.includes(profile.role);
   const canPlan = profile?.role != null && PLAN_ROLES.includes(profile.role);
+  const canLinkCoreGraph = canPlan && String(profile?.role) !== "ai_admin";
   const canFrontline =
     profile?.role != null && FRONTLINE_ROLES.includes(profile.role);
   const canDesignPlan =
@@ -2828,14 +2835,18 @@ export function DevelopmentCaseWorkspacePage() {
           decisions, deliverables, schedule, cost, actions. Each renders
           exactly what is persisted, with an honest empty state that says
           what to do; no placeholder numbers anywhere. */}
-      <GovernancePanel
-        caseId={workspace.id}
-        canReview={canReview}
-        canAdmin={canAdmin}
-        stageKeys={workspace.stages.map((s) => s.stageKey)}
-        evidence={workspace.evidence}
-        onChanged={() => void load()}
-      />
+      <div id="governance" className="scroll-mt-6">
+        <GovernancePanel
+          caseId={workspace.id}
+          canReview={canReview}
+          canAdmin={canAdmin}
+          stageKeys={workspace.stages.map((s) => s.stageKey)}
+          evidence={workspace.evidence}
+          onChanged={() => void load()}
+        />
+      </div>
+      <EngineOverlayPanel caseId={workspace.id} />
+      <StageDimensionSubstratePanel caseId={workspace.id} />
       <ObjectiveSection workspace={workspace} />
       <SuccessContractSection
         workspace={workspace}
@@ -2887,11 +2898,13 @@ export function DevelopmentCaseWorkspacePage() {
         canPlan={canDesignPlan}
         canAcknowledge={canAcknowledgeOperationalDebt}
       />
-      <RealizeCluster
-        caseId={workspace.id}
-        canRealize={canRealize}
-        evidence={workspace.evidence}
-      />
+      <div id="realize" className="scroll-mt-6">
+        <RealizeCluster
+          caseId={workspace.id}
+          canRealize={canRealize}
+          evidence={workspace.evidence}
+        />
+      </div>
       <DeliverablesSection
         workspace={workspace}
         members={members}
@@ -2955,27 +2968,29 @@ export function DevelopmentCaseWorkspacePage() {
           integrity cross-check, and the §51 forecast presentation whose
           P50/P80 columns say they are absent rather than manufacturing a
           spread. */}
-      <PerformancePanel
-        caseId={workspace.id}
-        canPlan={canPlan}
-        canReview={canReview}
-        reloadKey={chainsKey}
-        renderScheduleAssurance={(performance, onChanged) => (
-          /* §44 Schedule assurance (Slice 4C): the nine II.6 defect classes,
+      <div id="performance" className="scroll-mt-6">
+        <PerformancePanel
+          caseId={workspace.id}
+          canPlan={canPlan}
+          canReview={canReview}
+          reloadKey={chainsKey}
+          renderScheduleAssurance={(performance, onChanged) => (
+            /* §44 Schedule assurance (Slice 4C): the nine II.6 defect classes,
              the §50 quality score and the distinct schedule confidence, the
              risk→activity→money chain, and the seeded Monte Carlo that
              REFUSES to run on a schedule failing its diagnostics. It renders
              inside the Performance panel because it consumes the same one
              read — a second fetch would let the gate on screen disagree with
              the gate the percentiles were computed under. */
-          <ScheduleAssurancePanel
-            caseId={workspace.id}
-            performance={performance}
-            canPlan={canPlan}
-            onChanged={onChanged}
-          />
-        )}
-      />
+            <ScheduleAssurancePanel
+              caseId={workspace.id}
+              performance={performance}
+              canPlan={canPlan}
+              onChanged={onChanged}
+            />
+          )}
+        />
+      </div>
       {/* §44 Integrated Controls + change control (Slice 4D): the six control
           dimensions composed from RECORDED RUNS (nothing recomputed here), the
           contingency ledger whose drawdowns are authority-gated and attributed
@@ -3054,6 +3069,15 @@ export function DevelopmentCaseWorkspacePage() {
         canPlan={canPlan}
         reloadKey={chainsKey}
       />
+      <CoreGraphRelationshipsPanel
+        caseId={workspace.id}
+        canLink={canLinkCoreGraph}
+        evidence={workspace.evidence}
+      />
+      <ArchitecturalNorthStarPanel
+        caseId={workspace.id}
+        canLink={canLinkCoreGraph}
+      />
       {/* The event bus and the two agents (Slice 5D): spec §71-78's five named
           events, emitted by the acts that cause them and CONSUMED — an
           unanswered blocking consequence stops a gate review at the database,
@@ -3091,6 +3115,7 @@ export function DevelopmentCaseWorkspacePage() {
         canPlan={canProcure}
         canAward={canAwardContract}
         currentUserEmail={profile?.email ?? null}
+        evidence={workspace.evidence}
         reloadKey={chainsKey}
       />
       {/* Advanced Work Packaging (Slice 7A): spec II.4's typed EWP → PWP →
@@ -3127,6 +3152,8 @@ export function DevelopmentCaseWorkspacePage() {
         reloadKey={chainsKey}
       />
       <InformationEnginePanel caseId={workspace.id} reloadKey={chainsKey} />
+      <PhysicalInformationReadinessPanel caseId={workspace.id} />
+      <InformationReadinessIndexPanel caseId={workspace.id} />
       <OperationalReadinessSection caseId={workspace.id} canPlan={canPlan} />
 
       {/* Sanction */}

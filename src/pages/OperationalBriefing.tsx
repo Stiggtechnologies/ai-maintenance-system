@@ -28,6 +28,7 @@ import {
   ErrorState,
   EmptyState,
 } from "../components/ui/AsyncStates";
+import { ShiftHandoverAgentPanel } from "../components/ShiftHandoverAgentPanel";
 
 type BriefingType = "shift" | "daily" | "weekly" | "executive";
 
@@ -614,7 +615,8 @@ export function OperationalBriefing() {
   }
   if (!data || !data.hasAnyData) {
     return (
-      <div className="p-6">
+      <div className="space-y-6 p-6">
+        <ShiftHandoverAgentPanel />
         <EmptyState message="No operating data yet — briefings connect once recommendations, work orders and decisions start flowing." />
       </div>
     );
@@ -646,6 +648,8 @@ export function OperationalBriefing() {
           </div>
         </div>
       </div>
+
+      <ShiftHandoverAgentPanel />
 
       {/* Filters */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1">

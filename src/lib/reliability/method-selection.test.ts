@@ -67,6 +67,14 @@ describe("selectWeibullMethod — the rule decides, not the analyst", () => {
     expect(r.reason).toMatch(/bound life from below/);
   });
 
+  it("refuses duplicate failure exposures because shape is not identifiable", () => {
+    const r = selectWeibullMethod([2500, 2500], [3000, 3500]);
+    expect(r.method).toBe("none");
+    expect(r.beta).toBeNull();
+    expect(r.ruleApplied).toMatch(/distinct failure times/);
+    expect(r.reason).toMatch(/2 failure\(s\) at 1 distinct exposure time/);
+  });
+
   it("gives one answer, never a menu", () => {
     const r = selectWeibullMethod(engineFailures, engineSuspensions);
     expect(typeof r.beta).toBe("number");

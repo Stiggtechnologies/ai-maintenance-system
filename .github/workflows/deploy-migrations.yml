@@ -12,12 +12,17 @@ on:
     paths:
       - ".github/workflows/deploy-migrations.yml"
       - "scripts/configure-production-auth.mjs"
+      - "scripts/audit-material-production.mjs"
+      - "scripts/audit-material-relationship-history.sql"
       - "supabase/migrations/**"
       - "supabase/functions/agent-loop-enrich/**"
       - "supabase/functions/cmms-read-pull/**"
       - "supabase/functions/ai-agent-processor/**"
       - "supabase/functions/autonomous-orchestrator/**"
+      - "supabase/functions/calculation-service/**"
+      - "src/lib/value/**"
       - "supabase/functions/domain-specialist-run/**"
+      - "supabase/functions/edge-evidence-ingest/**"
       - "src/lib/domain-specialists/**"
       - "supabase/functions/engineering-model-supply-chain/**"
       - "src/lib/engineering-models/**"
@@ -28,6 +33,7 @@ on:
       - "supabase/functions/develop-operational-readiness-agent/**"
       - "supabase/functions/develop-methodology-agent/**"
       - "supabase/functions/develop-change-impact-agent/**"
+      - "supabase/functions/develop-contract-strategy-agent/**"
       - "supabase/functions/develop-requirements-agent/**"
       - "supabase/functions/develop-risk-agent/**"
       - "supabase/functions/develop-benefits-agent/**"
@@ -35,6 +41,9 @@ on:
       - "supabase/functions/develop-governance-agent/**"
       - "supabase/functions/develop-hop-agent/**"
       - "supabase/functions/lead-notify/**"
+      - "supabase/functions/marketplace-fulfillment/**"
+      - "supabase/functions/marketplace-metering/**"
+      - "supabase/functions/marketplace-webhook/**"
       - "supabase/functions/onboarding-enrich/**"
       - "supabase/functions/plant-historian-pull/**"
       - "supabase/functions/public-reliability-agent/**"
@@ -58,8 +67,23 @@ env:
   APP_URL: https://app.syncai.ca
 
 jobs:
+  material-history-preflight:
+    name: Read-only material production history audit
+    if: github.event_name == 'workflow_dispatch' && github.ref != 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Audit production history without deployment
+        run: node scripts/audit-material-production.mjs
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
   push-migrations:
     name: supabase db push and edge deploy
+    # A manual non-main run is audit-only. Never deploy an unmerged branch.
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
@@ -82,9 +106,51 @@ jobs:
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
           RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ENTRA_SSO_CLIENT_ID: ${{ secrets.ENTRA_SSO_CLIENT_ID }}
+          ENTRA_SSO_CLIENT_SECRET: ${{ secrets.ENTRA_SSO_CLIENT_SECRET }}
+          ENTRA_SSO_TENANT: ${{ vars.ENTRA_SSO_TENANT }}
+
+      - name: Configure Azure Marketplace publisher service
+        env:
+          AZURE_MARKETPLACE_CLIENT_ID: ${{ secrets.AZURE_MARKETPLACE_CLIENT_ID }}
+          AZURE_MARKETPLACE_CLIENT_SECRET: ${{ secrets.AZURE_MARKETPLACE_CLIENT_SECRET }}
+          AZURE_MARKETPLACE_TENANT_ID: ${{ secrets.AZURE_MARKETPLACE_TENANT_ID }}
+          AZURE_MARKETPLACE_PUBLISHER_ID: ${{ secrets.AZURE_MARKETPLACE_PUBLISHER_ID }}
+          AZURE_MARKETPLACE_OFFER_ID: ${{ secrets.AZURE_MARKETPLACE_OFFER_ID }}
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          set -euo pipefail
+          present=0
+          for name in AZURE_MARKETPLACE_CLIENT_ID AZURE_MARKETPLACE_CLIENT_SECRET AZURE_MARKETPLACE_TENANT_ID AZURE_MARKETPLACE_PUBLISHER_ID AZURE_MARKETPLACE_OFFER_ID; do
+            if [ -n "${!name:-}" ]; then present=$((present + 1)); fi
+          done
+          if [ "$present" -eq 0 ]; then
+            echo "::warning title=Azure Marketplace configuration unchanged::No publisher inputs were supplied by GitHub; the workflow is not changing any existing runtime secrets and this run is not end-to-end commerce evidence."
+            exit 0
+          fi
+          if [ "$present" -ne 5 ]; then
+            echo "::error title=Incomplete Azure Marketplace configuration::All five publisher and offer values must be supplied together."
+            exit 1
+          fi
+          supabase secrets set --project-ref "$SUPABASE_PROJECT_ID" \
+            AZURE_MARKETPLACE_CLIENT_ID="$AZURE_MARKETPLACE_CLIENT_ID" \
+            AZURE_MARKETPLACE_CLIENT_SECRET="$AZURE_MARKETPLACE_CLIENT_SECRET" \
+            AZURE_MARKETPLACE_TENANT_ID="$AZURE_MARKETPLACE_TENANT_ID" \
+            AZURE_MARKETPLACE_PUBLISHER_ID="$AZURE_MARKETPLACE_PUBLISHER_ID" \
+            AZURE_MARKETPLACE_OFFER_ID="$AZURE_MARKETPLACE_OFFER_ID"
+
+      - name: Read-only material history preflight
+        run: node scripts/audit-material-production.mjs
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
       - name: Push migrations
         run: supabase db push --include-all
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Read-only material history post-migration audit
+        run: node scripts/audit-material-production.mjs
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
 
@@ -93,8 +159,10 @@ jobs:
           supabase functions deploy agent-loop-enrich --no-verify-jwt
           supabase functions deploy ai-agent-processor
           supabase functions deploy autonomous-orchestrator
+          supabase functions deploy calculation-service
           supabase functions deploy cmms-read-pull
           supabase functions deploy domain-specialist-run
+          supabase functions deploy edge-evidence-ingest --no-verify-jwt
           supabase functions deploy engineering-model-supply-chain
           supabase functions deploy develop-evidence-agent
           supabase functions deploy develop-gate-agent
@@ -102,6 +170,7 @@ jobs:
           supabase functions deploy develop-operational-readiness-agent
           supabase functions deploy develop-methodology-agent
           supabase functions deploy develop-change-impact-agent
+          supabase functions deploy develop-contract-strategy-agent
           supabase functions deploy develop-requirements-agent
           supabase functions deploy develop-risk-agent
           supabase functions deploy develop-benefits-agent
@@ -109,6 +178,9 @@ jobs:
           supabase functions deploy develop-governance-agent
           supabase functions deploy develop-hop-agent
           supabase functions deploy lead-notify
+          supabase functions deploy marketplace-fulfillment --no-verify-jwt
+          supabase functions deploy marketplace-metering
+          supabase functions deploy marketplace-webhook --no-verify-jwt
           supabase functions deploy onboarding-enrich --no-verify-jwt
           supabase functions deploy plant-historian-pull
           supabase functions deploy public-reliability-agent
@@ -119,6 +191,45 @@ jobs:
           supabase functions deploy sync-tts
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+
+      - name: Configure Azure Marketplace metering
+        env:
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          MARKETPLACE_METER_PLAN_ID: ${{ vars.AZURE_MARKETPLACE_METER_PLAN_ID }}
+          MARKETPLACE_METER_DIMENSION: ${{ vars.AZURE_MARKETPLACE_METER_DIMENSION }}
+          MARKETPLACE_METER_UNIT_SIZE: ${{ vars.AZURE_MARKETPLACE_METER_UNIT_SIZE }}
+          MARKETPLACE_METER_INCLUDED_QUANTITY: ${{ vars.AZURE_MARKETPLACE_METER_INCLUDED_QUANTITY }}
+          MARKETPLACE_METER_QUANTITY_SCALE: ${{ vars.AZURE_MARKETPLACE_METER_QUANTITY_SCALE }}
+        run: |
+          set -euo pipefail
+          present=0
+          for name in MARKETPLACE_METER_PLAN_ID MARKETPLACE_METER_DIMENSION MARKETPLACE_METER_UNIT_SIZE MARKETPLACE_METER_INCLUDED_QUANTITY MARKETPLACE_METER_QUANTITY_SCALE; do
+            if [ -n "${!name:-}" ]; then present=$((present + 1)); fi
+          done
+          if [ "$present" -eq 0 ]; then
+            echo "::warning title=Azure Marketplace metering disabled::No protected metering configuration was supplied. Hourly dispatch remains unconfigured and no usage will be submitted."
+            exit 0
+          fi
+          if [ "$present" -ne 5 ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
+            echo "::error title=Incomplete Azure Marketplace metering configuration::The service role and all five plan-meter values must be supplied together."
+            exit 1
+          fi
+          api="https://${SUPABASE_PROJECT_ID}.supabase.co/rest/v1/rpc"
+          auth=(--header "apikey: ${SUPABASE_SERVICE_ROLE_KEY}" --header "authorization: Bearer ${SUPABASE_SERVICE_ROLE_KEY}" --header 'Content-Type: application/json')
+          dimension_payload=$(jq -n \
+            --arg plan "$MARKETPLACE_METER_PLAN_ID" \
+            --arg dimension "$MARKETPLACE_METER_DIMENSION" \
+            --argjson unit "$MARKETPLACE_METER_UNIT_SIZE" \
+            --argjson included "$MARKETPLACE_METER_INCLUDED_QUANTITY" \
+            --argjson scale "$MARKETPLACE_METER_QUANTITY_SCALE" \
+            '{p_plan_id:$plan,p_dimension:$dimension,p_unit_size:$unit,p_included_quantity:$included,p_quantity_scale:$scale,p_active:true}')
+          curl --fail-with-body --silent --show-error --request POST "${api}/configure_marketplace_meter_dimension" "${auth[@]}" --data "$dimension_payload"
+          dispatch_payload=$(jq -n \
+            --arg url "https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/marketplace-metering" \
+            --arg key "$SUPABASE_SERVICE_ROLE_KEY" \
+            '{p_function_url:$url,p_service_key:$key}')
+          curl --fail-with-body --silent --show-error --request POST "${api}/configure_marketplace_metering_dispatch" "${auth[@]}" --data "$dispatch_payload"
+          echo "Azure Marketplace metering is configured for protected hourly dispatch."
 
       - name: Prove production migrations converged
         env:
@@ -148,6 +259,74 @@ jobs:
             exit 1
           fi
           echo "Sync Investigation Runtime is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove Calculation Service is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/calculation-service"
+          status=$(curl --silent --show-error --output /tmp/calculation-service-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"action":"value_management","budget":0}' \
+            "$endpoint")
+          cat /tmp/calculation-service-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=Calculation Service boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Calculation Service is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove Azure Marketplace Fulfillment is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/marketplace-fulfillment"
+          status=$(curl --silent --show-error --output /tmp/marketplace-fulfillment-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"action":"activate","resolutionId":"11111111-1111-4111-8111-111111111111","activationToken":"unauthenticated-boundary-probe-00000000"}' \
+            "$endpoint")
+          cat /tmp/marketplace-fulfillment-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=Azure Marketplace Fulfillment boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Azure Marketplace Fulfillment is deployed; activation and status custom-auth refuse unauthenticated callers (HTTP 401)."
+
+      - name: Prove Azure Marketplace Webhook is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/marketplace-webhook"
+          status=$(curl --silent --show-error --output /tmp/marketplace-webhook-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{}' \
+            "$endpoint")
+          cat /tmp/marketplace-webhook-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=Azure Marketplace Webhook boundary probe failed::Expected custom Microsoft JWT verification to return HTTP 401 without a bearer token; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Azure Marketplace Webhook is deployed and refuses unsigned lifecycle events (HTTP 401)."
+
+      - name: Prove Azure Marketplace Metering is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/marketplace-metering"
+          status=$(curl --silent --show-error --output /tmp/marketplace-metering-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{}' \
+            "$endpoint")
+          cat /tmp/marketplace-metering-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=Azure Marketplace Metering boundary probe failed::Expected the service-only function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Azure Marketplace Metering is deployed and refuses unauthenticated usage submission (HTTP 401)."
 
       - name: Prove Sync Realtime Voice is deployed
         run: |
@@ -199,6 +378,23 @@ jobs:
             exit 1
           fi
           echo "Domain Specialist executor is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove Edge Evidence custom-auth boundary is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/edge-evidence-ingest"
+          status=$(curl --silent --show-error --output /tmp/edge-evidence-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{}' \
+            "$endpoint")
+          cat /tmp/edge-evidence-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=Edge Evidence boundary probe failed::Expected custom device authentication to return HTTP 401 without a signature; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Edge Evidence endpoint is deployed and refuses unsigned requests (HTTP 401)."
 
       - name: Prove HOP Agent is deployed
         run: |

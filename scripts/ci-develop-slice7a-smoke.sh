@@ -32,7 +32,11 @@
 #      client can update, delete or truncate.
 #   8  D7.06/D7.17 × §70 — the release: refused over an unassessed package, an
 #      empty one, an unreleased parent and open hard constraints (named);
-#      refused for the AI identity; granted; then frozen for every writer.
+#      refused when constraints are cleared but nobody walked the package
+#      (field_unassessed); a computed package_field_readiness assessment is
+#      completed and its missing canonical crew/access/predecessor evidence
+#      supplied; refused for the AI
+#      identity; granted; then frozen for every writer.
 #   9  cross-tenant: a foreign member sees no package, no membership and no
 #      constraint.
 #  10  the ledgers are untruncatable, the §34 edge is closed at the column the
@@ -40,7 +44,8 @@
 #  11  the repair pass: a LAPSED forecast is not a clearance and produces no
 #      date in the past; the blocking impact is the impact of what BLOCKS; ONE
 #      verdict — the screen's readiness sentence is compared, character for
-#      character, with the door's refusal for the same package in five states;
+#      character, with the door's refusal for the same package across the
+#      refusing states, and ready_for_human only after a computed field walk;
 #      the chain validated DOWNWARD; a package code already used on another
 #      case refused rather than MOVING that package; one job refused in two
 #      same-level packages; the cancellation the refusals name; a released
@@ -236,6 +241,16 @@ psqlc "delete from development_cases where organization_id='$ORG' and title like
 psqlc "delete from development_cases where organization_id='$ORG2' and title like 'S7A %';" >/dev/null
 psqlc "delete from work_orders where organization_id='$ORG' and wo_number like 'S7A-%';" >/dev/null
 psqlc "delete from work_orders where organization_id='$ORG2' and wo_number like 'S7A-%';" >/dev/null
+psqlc "delete from member_competencies where organization_id='$ORG' and member_id in
+         (select id from workforce_members where organization_id='$ORG' and display_name='Slice 7A commissioned-work crew member');
+       delete from shift_assignments where organization_id='$ORG' and member_id in
+         (select id from workforce_members where organization_id='$ORG' and display_name='Slice 7A commissioned-work crew member');
+       update competency_requirements
+          set retired_by='$PLANNER_ID', retired_at=now(),
+              retirement_reason='Retired while resetting the repeatable Slice 7A acceptance fixture.'
+        where organization_id='$ORG' and craft='S7A-millwright' and retired_at is null;
+       delete from workforce_members where organization_id='$ORG' and display_name='Slice 7A commissioned-work crew member';" >/dev/null
+psqlc "delete from job_plans where organization_id='$ORG' and plan_key like 'S7A-%';" >/dev/null
 psqlc "delete from work_packages where organization_id='$ORG' and package_code like 'S7A-%';" >/dev/null
 test "$(psqlc "select count(*) from work_packages where organization_id='$ORG' and package_code like 'S7A-%'")" = "0"
 test "$(psqlc "select count(*) from work_orders where organization_id='$ORG' and wo_number like 'S7A-%'")" = "0"
@@ -630,6 +645,23 @@ noerr "$R"
 R=$(rpc "$PLANNER" assign_work_to_package "{\"p_package_id\":$P1,\"p_work_order_id\":\"$W4\",\"p_basis\":\"The same work order appears one level down: that is the AWP thread, not a duplicate\"}")
 noerr "$R"
 
+# D7.06 now requires a COMPUTED field-readiness walk before a package can be
+# released. Give this work order the smallest truthful canonical plan: adopted
+# scope plus one procedure step. Zero material, special-tool, permit and
+# acceptance-check rows are explicit NOT APPLICABLE findings from their owning
+# stores, never invented clearances. The three elements that still require
+# human evidence are raised by the assessor and cleared below by the planner.
+JP7A=$(psqlc "with ins as (
+  insert into job_plans (organization_id, plan_key, title, scope, status, version, basis)
+  values ('$ORG','S7A-JP1','Commissioning procedure','Commission the mill drive to the issued engineering package','adopted',1,
+          'Minimal canonical plan used by the Slice 7A release transcript')
+  returning id) select id from ins")
+test -n "$JP7A"
+psqlc "insert into job_plan_steps
+        (organization_id, job_plan_id, step_number, description, craft, crew_size, estimated_hours)
+  values ('$ORG','$JP7A',1,'Execute the issued commissioning procedure','S7A-millwright',1,1);
+       update work_orders set job_plan_id='$JP7A' where id='$W4';" >/dev/null
+
 # OPEN HARD CONSTRAINTS refuse, and are NAMED rather than counted.
 R=$(rpc "$MANAGER" release_work_package "{\"p_package_id\":$E1,\"p_note\":\"Releasing engineering with its predecessor constraint still unknown\"}")
 expect_err "$R" "NOT READY"
@@ -642,6 +674,68 @@ for PKG_ID in $E1 $P1 $C1; do
   noerr "$R"
 done
 
+# CLEARED CONSTRAINTS ARE NOT A FIELD WALK. Before 20261220130000 this package
+# reached ready_for_human here. The ONE verdict now refuses it as
+# field_unassessed until a computed package_field_readiness run exists.
+test "$(psqlc "select count(*) from calculation_runs where calculation_key='package_field_readiness' and status='computed' and (inputs->>'workPackageId')='$E1'")" = "0"
+R=$(rpc "$MANAGER" release_work_package "{\"p_package_id\":$E1,\"p_note\":\"Trying to release after clearing the predecessor note without walking the package\"}")
+expect_err "$R" "no field-readiness assessment has been completed"
+test "$(printf '%s' "$R" | field verdict)" = "field_unassessed"
+
+# The assessment is evidence gathering and may create only OPEN constraints.
+# Missing canonical evidence must be fixed at its owning store; a derived row
+# can no longer be hand-cleared as a substitute for crew, access or sequencing.
+R=$(rpc "$PLANNER" assess_package_field_readiness "{\"p_package_id\":$E1}")
+noerr "$R"
+test -n "$(printf '%s' "$R" | field calculationRunId)"
+test "$(jqp "$R" "x['derivedBlockersRecorded']")" = "0"
+test "$(psqlc "select count(*) from calculation_runs where calculation_key='package_field_readiness' and status='computed' and (inputs->>'workPackageId')='$E1'")" = "1"
+test "$(psqlc "select count(*) from restoration_constraints where work_package_id=$E1 and is_hard and state in ('unknown','blocked')")" != "0"
+R=$(rpc "$MANAGER" release_work_package "{\"p_package_id\":$E1,\"p_note\":\"Trying to release after assessment while declared questions are still open\"}")
+expect_err "$R" "NOT READY"
+
+S7A_MEMBER=$(psqlc "with ins as (
+  insert into workforce_members(organization_id,employee_ref,display_name,craft)
+  values('$ORG','S7A-'||gen_random_uuid()::text,'Slice 7A commissioned-work crew member','S7A-millwright')
+  returning id) select id from ins")
+S7A_EVIDENCE=$(psqlc "with ins as (
+  insert into evidence_items(organization_id,source_system,evidence_type,description,evidence_class,
+    verification_status,verified_by,verified_at,verification_method)
+  values('$ORG','Slice 7A smoke','inspection','Verified work-face access and execution-sequence review for the commissioning procedure.','INSPECTED',
+    'verified','$PLANNER_ID',now(),'Named planner field walk with independently verified evidence')
+  returning id) select id from ins")
+S7A_COMPETENCY=$(psqlc "with existing as (
+  select id from competencies where organization_id='$ORG' and competency_key='S7A-COMMISSIONING'
+), ins as (
+  insert into competencies(organization_id,competency_key,title,kind,is_statutory)
+  select '$ORG','S7A-COMMISSIONING','Slice 7A commissioning qualification','certification',true
+   where not exists(select 1 from existing)
+  returning id)
+select id from existing union all select id from ins limit 1")
+test -n "$S7A_MEMBER"; test -n "$S7A_EVIDENCE"; test -n "$S7A_COMPETENCY"
+psqlc "insert into member_competencies(organization_id,member_id,competency_id,granted_on,expires_on,verified_by,evidence_reference)
+  values('$ORG',$S7A_MEMBER,$S7A_COMPETENCY,current_date-30,current_date+30,'$PLANNER_ID','Verified commissioning qualification for the Slice 7A transcript');
+insert into competency_requirements(organization_id,competency_id,craft,min_holders,basis,recorded_by)
+  values('$ORG',$S7A_COMPETENCY,'S7A-millwright',1,
+    'The commissioned work requires one currently qualified millwright for its complete execution window.','$PLANNER_ID');
+insert into shift_assignments(organization_id,member_id,starts_at,ends_at,shift_kind,assigned_by)
+  values('$ORG',$S7A_MEMBER,now()-interval '2 hours',now()+interval '2 days','day','$PLANNER_ID');
+insert into work_order_crew_assignments(organization_id,work_order_id,member_id,starts_at,ends_at,assignment_basis,assigned_by)
+  values('$ORG','$W4',$S7A_MEMBER,now()-interval '1 hour',now()+interval '1 day',
+    'Assigned against the adopted commissioning plan and verified roster for the complete work window.','$PLANNER_ID');
+insert into work_face_access_evidence(organization_id,work_order_id,access_state,valid_from,valid_until,evidence_item_id,basis,recorded_by)
+  values('$ORG','$W4','clear',now()-interval '1 hour',now()+interval '1 day','$S7A_EVIDENCE',
+    'The inspected route and commissioning work face are clear for the assigned crew window.','$PLANNER_ID');
+insert into work_order_predecessor_evidence(organization_id,successor_work_order_id,dependency_kind,evidence_item_id,basis,recorded_by)
+  values('$ORG','$W4','explicit_none','$S7A_EVIDENCE',
+    'The planner reviewed the commissioning sequence and confirmed this job has no predecessor.','$PLANNER_ID');" >/dev/null
+
+R=$(rpc "$PLANNER" assess_package_field_readiness "{\"p_package_id\":$E1}")
+noerr "$R"
+test "$(jqp "$R" "x['unverifiableElements']")" = "0"
+test "$(jqp "$R" "x['derivedBlockersRecorded']")" = "0"
+test "$(psqlc "select count(*) from restoration_constraints where work_package_id=$E1 and state='unknown'")" = "0"
+
 # THE AI IDENTITY CANNOT RELEASE, at the door and past it.
 R=$(rpc "$AIBOT" release_work_package "{\"p_package_id\":$E1,\"p_note\":\"An AI operator declaring that this work is safe for a crew to start\"}")
 expect_err "$R" "supervisory, management or governance role"
@@ -652,7 +746,7 @@ expect_text "$OUT" "AI-operator identity cannot release a work package"
 R=$(rpc "$MANAGER" release_work_package "{\"p_package_id\":$E1,\"p_note\":\"ok\"}")
 expect_err "$R" "say what you are releasing"
 
-R=$(rpc "$MANAGER" release_work_package "{\"p_package_id\":$E1,\"p_note\":\"Engineering is issued for construction and its predecessor position is cleared\"}")
+R=$(rpc "$MANAGER" release_work_package "{\"p_package_id\":$E1,\"p_note\":\"Engineering is issued for construction; field readiness walked and cleared\"}")
 noerr "$R"
 test "$(printf '%s' "$R" | field status)" = "released"
 test "$(psqlc "select released_by from work_packages where id=$E1")" = "$MANAGER_ID"
@@ -701,20 +795,20 @@ done
 
 # §34: the edge sync_spec34_absent_edge_audit() said would close at
 # restoration_constraints.work_order_id is closed, and the ledger agrees.
-# TWO remaining after D9 realize (20261218090001) also closed Lesson
-# APPLIES_TO AssetClass at learning_events.applicability — the other column
-# this audit named. The count goes DOWN when an endpoint is built.
-test "$(psqlc "select sync_spec34_absent_edge_audit()->>'absentEdgeCount'")" = "2"
+# D9 realize (20261218090001) then closed Lesson APPLIES_TO AssetClass at
+# learning_events.applicability, and D11.21 (20261220070000) closed the last
+# two homes. The count goes DOWN when an endpoint is built.
+test "$(psqlc "select sync_spec34_absent_edge_audit()->>'absentEdgeCount'")" = "0"
 # The audit ACTED ON rather than left alarming: each closed edge is out of its
-# list, so `newlyClosableCount` is zero again and its note says TWO.
+# list, so `newlyClosableCount` is zero again and its note states the closeout.
 test "$(psqlc "select sync_spec34_absent_edge_audit()->>'newlyClosableCount'")" = "0"
-test "$(psqlc "select jsonb_array_length(sync_spec34_absent_edge_audit()->'edges')")" = "2"
+test "$(psqlc "select jsonb_array_length(sync_spec34_absent_edge_audit()->'edges')")" = "0"
 AUDIT=$(psqlc "select sync_spec34_absent_edge_audit()->>'note'")
-expect_text "$AUDIT" "states TWO of"
-expect_text "$AUDIT" "20261210090100 closed WorkPackage DEPENDS_ON Constraint"
-expect_text "$AUDIT" "20261218090001 closed Lesson APPLIES_TO AssetClass"
+expect_text "$AUDIT" "All nineteen"
+expect_text "$AUDIT" "contract_asset_links"
+expect_text "$AUDIT" "asset_objective_links"
 EDGES=$(psqlc "select count(*) from jsonb_array_elements(sync_spec34_edges()) x where x->>'status'='absent'")
-test "$EDGES" = "2"
+test "$EDGES" = "0"
 LEDGER=$(psqlc "select x->>'note' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='WorkPackage DEPENDS_ON Constraint'")
 expect_text "$LEDGER" "CORRECTED 20261210090100"
 LESSON=$(psqlc "select x->>'note' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Lesson APPLIES_TO AssetClass'")
@@ -888,6 +982,29 @@ expect_text "$OUT" "which is at the same AWP level"
 
 R=$(rpc "$PLANNER" assign_work_to_package "{\"p_package_id\":$E2X,\"p_work_order_id\":\"$W6\",\"p_basis\":\"Setting out the foundation is the work the neighbouring engineering package releases\"}")
 noerr "$R"
+
+# FIELD-UNASSESSED — constraints cleared and work assigned is still not a walk
+# of the ten elements. Screen and door must say the same sentence.
+verdict_agrees "$CASE2" "$E2X" S7A-E2X field_unassessed
+
+# The same one-time assessment obligation applies to the parity fixture. Reuse
+# the canonical plan and the evidence-backed crew, access and sequencing facts;
+# then assess through the public door. Derived findings are never hand-cleared.
+psqlc "update work_orders set job_plan_id='$JP7A' where id='$W6';" >/dev/null
+psqlc "insert into work_order_crew_assignments(organization_id,work_order_id,member_id,starts_at,ends_at,assignment_basis,assigned_by)
+  values('$ORG','$W6',$S7A_MEMBER,now()-interval '1 hour',now()+interval '1 day',
+    'Assigned against the adopted neighbouring-foundation plan and verified roster.','$PLANNER_ID');
+insert into work_face_access_evidence(organization_id,work_order_id,access_state,valid_from,valid_until,evidence_item_id,basis,recorded_by)
+  values('$ORG','$W6','clear',now()-interval '1 hour',now()+interval '1 day','$S7A_EVIDENCE',
+    'The inspected route and neighbouring foundation work face are clear for this work window.','$PLANNER_ID');
+insert into work_order_predecessor_evidence(organization_id,successor_work_order_id,dependency_kind,evidence_item_id,basis,recorded_by)
+  values('$ORG','$W6','explicit_none','$S7A_EVIDENCE',
+    'The planner reviewed the neighbouring foundation sequence and confirmed no predecessor.','$PLANNER_ID');" >/dev/null
+R=$(rpc "$PLANNER" assess_package_field_readiness "{\"p_package_id\":$E2X}")
+noerr "$R"
+test -n "$(printf '%s' "$R" | field calculationRunId)"
+test "$(jqp "$R" "x['derivedBlockersRecorded']")" = "0"
+test "$(psqlc "select count(*) from restoration_constraints where work_package_id=$E2X and is_hard and state in ('unknown','blocked')")" = "0"
 
 # READY FOR A PERSON — and the screen says so in the same words, with
 # canRelease TRUE rather than a sentence the door would contradict.

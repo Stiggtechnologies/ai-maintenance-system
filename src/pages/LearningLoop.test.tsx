@@ -1,6 +1,8 @@
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
+const learningRows = vi.hoisted(() => ({ rows: [] as Record<string, unknown>[] }));
+
 vi.mock("../hooks/useOnboardingOperatingLoop", () => ({
   useOnboardingOperatingLoop: () => ({ learningEvents: [] }),
 }));
@@ -11,7 +13,7 @@ vi.mock("../services/operatingLoopService", async () => {
   >("../services/operatingLoopService");
   return {
     ...actual,
-    getLearningEvents: () => Promise.resolve([]),
+    getLearningEvents: () => Promise.resolve(learningRows.rows),
   };
 });
 
@@ -61,6 +63,16 @@ vi.mock("../lib/supabase", () => ({
 import { LearningLoop } from "./LearningLoop";
 
 describe("LearningLoop — verification write path is on the page", () => {
+  it("labels standard-work observations without claiming verified savings", async () => {
+    learningRows.rows = [{ id: "observation", event_type: "standard_work_observation",
+      title: "Observed installation sequence", detail: "Evidence-backed execution record",
+      created_at: "2026-09-29T00:00:00Z", verified_value: 100, model_confidence: null }];
+    render(<LearningLoop />);
+    expect(await screen.findByText("Standard Work Observation")).toBeTruthy();
+    expect(screen.getByText("Recorded observation — improvement not established")).toBeTruthy();
+    expect(screen.queryByText(/Verified value \$/)).toBeNull();
+    learningRows.rows = [];
+  });
   it("mounts the named-human recorder so record_verification_result is reachable", async () => {
     render(<LearningLoop />);
     expect(await screen.findByText("Inspect coupling on C-22")).toBeTruthy();

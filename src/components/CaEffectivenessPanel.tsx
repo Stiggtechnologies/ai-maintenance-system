@@ -64,6 +64,8 @@ async function getPanelData(): Promise<{
       .select(
         "id, failure_mode, physical_verified_at, causal_addressed_at, strategy_updated_at, observation_days, effectiveness, status, similar_exposure, work_orders!ca_verifications_work_order_id_fkey(wo_number, title), assets(tag)",
       )
+      .not("work_order_id", "is", null)
+      .not("asset_id", "is", null)
       .order("created_at", { ascending: false })
       .limit(12),
     supabase

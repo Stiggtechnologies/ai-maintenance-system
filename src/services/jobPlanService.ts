@@ -13,9 +13,15 @@
  *   - only an ADOPTED plan may be applied to real work;
  *   - adoption records auth.uid() — it is a named-human act.
  *
- * Known residual: upsert_job_plan silently drops material lines whose
- * material_code does not resolve. Callers must only send catalogue codes
- * and must tell the operator when the catalogue is empty.
+ * An unresolved material code refuses the save. upsert_job_plan returns
+ * that refusal before it writes, and upsertJobPlan throws the same sentence
+ * when the loaded catalogue does not contain the code. Neither path creates
+ * a catalogue row, and neither path reports the draft as saved.
+ *
+ * An adopted plan is not edited in place. as_new_version asks the database
+ * to insert the next version as a draft. That draft has no execution
+ * authority; adopt_job_plan is still the named-human act, and the adopted
+ * row stays the one apply_job_plan can use until that adoption.
  */
 import { supabase } from "../lib/supabase";
 
@@ -29,8 +35,7 @@ export const JOB_PLAN_AUTHOR_ROLES = [
 
 export function canAuthorJobPlans(role: string | null | undefined): boolean {
   return (
-    role != null &&
-    (JOB_PLAN_AUTHOR_ROLES as readonly string[]).includes(role)
+    role != null && (JOB_PLAN_AUTHOR_ROLES as readonly string[]).includes(role)
   );
 }
 
@@ -47,8 +52,11 @@ export interface JobPlanSummary {
   materials: number;
   tools: number;
   permits: number;
+  documents: number;
   checks: number;
   applied_to_work_orders: number;
+  draft_origin: "human" | "agent";
+  agent_run_id: string | null;
 }
 
 export interface PlanningAccuracy {
@@ -92,6 +100,12 @@ export interface JobPlanCheck {
   is_hold_point: boolean;
 }
 
+export interface JobPlanDocumentLine {
+  document_id: string;
+  title: string;
+  purpose: string;
+}
+
 export interface JobPlanDetail {
   id: string;
   plan_key: string;
@@ -106,6 +120,7 @@ export interface JobPlanDetail {
   materials: JobPlanMaterialLine[];
   tools: JobPlanTool[];
   permits: JobPlanPermit[];
+  documents: JobPlanDocumentLine[];
   checks: JobPlanCheck[];
 }
 
@@ -120,6 +135,7 @@ export interface JobPlanDraft {
   materials: JobPlanMaterialLine[];
   tools: JobPlanTool[];
   permits: JobPlanPermit[];
+  documents: JobPlanDocumentLine[];
   checks: JobPlanCheck[];
 }
 
@@ -128,6 +144,50 @@ export interface MaterialOption {
   material_code: string;
   description: string;
   unit_of_measure: string;
+}
+
+export interface DocumentOption {
+  id: string;
+  title: string;
+  document_class: string;
+  document_type: string | null;
+}
+
+export interface PlanningAgentGap {
+  code: string;
+  severity: "blocker" | "attention";
+  label: string;
+  detail: string;
+}
+
+export interface PlanningAgentMaterialStatus {
+  materialId: string;
+  materialCode: string;
+  description: string;
+  quantity: number;
+  workOrderStatus: string;
+  quantityReserved: number;
+  quantityRequired: number;
+  ready: boolean;
+}
+
+export interface PlanningAgentResult {
+  run_id: string;
+  agent_id: string;
+  agent_key: string;
+  work_order_id: string;
+  job_plan_id: string;
+  draft_created: boolean;
+  draft_origin: "human" | "agent";
+  reference_plan_id: string | null;
+  gaps: PlanningAgentGap[];
+  materials: PlanningAgentMaterialStatus[];
+  human_approval_required: true;
+  required_human_approver_role: string;
+  may_adopt: false;
+  may_apply: false;
+  may_release_schedule: false;
+  basis: string;
 }
 
 export interface WorkOrderOption {
@@ -146,6 +206,7 @@ export interface JobPlanList {
 export interface UpsertJobPlanResult {
   job_plan_id: string;
   plan_key: string;
+  version?: number;
   steps: number;
   status: string;
 }
@@ -207,6 +268,16 @@ export async function listMaterials(): Promise<MaterialOption[]> {
   return (data ?? []) as MaterialOption[];
 }
 
+export async function listJobPlanDocuments(): Promise<DocumentOption[]> {
+  const { data, error } = await supabase
+    .from("kb_intake_documents")
+    .select("id,title,document_class,document_type")
+    .eq("status", "indexed")
+    .order("title");
+  if (error) throw new Error(error.message);
+  return (data ?? []) as DocumentOption[];
+}
+
 export async function listOpenWorkOrders(): Promise<WorkOrderOption[]> {
   const { data, error } = await supabase
     .from("work_orders")
@@ -221,37 +292,45 @@ export async function listOpenWorkOrders(): Promise<WorkOrderOption[]> {
 }
 
 export async function getJobPlanDetail(id: string): Promise<JobPlanDetail> {
-  const [planRes, stepsRes, materialsRes, toolsRes, permitsRes, checksRes] =
-    await Promise.all([
-      supabase
-        .from("job_plans")
-        .select(
-          "id,plan_key,title,scope,applies_to_asset_class,applies_to_system_group,basis,status,version",
-        )
-        .eq("id", id)
-        .maybeSingle(),
-      supabase
-        .from("job_plan_steps")
-        .select("step_number,description,craft,crew_size,estimated_hours")
-        .eq("job_plan_id", id)
-        .order("step_number"),
-      supabase
-        .from("job_plan_materials")
-        .select("qty,materials(material_code,description)")
-        .eq("job_plan_id", id),
-      supabase
-        .from("job_plan_tools")
-        .select("tool,note")
-        .eq("job_plan_id", id),
-      supabase
-        .from("job_plan_permits")
-        .select("permit_type,isolation_required,verification_note")
-        .eq("job_plan_id", id),
-      supabase
-        .from("job_plan_checks")
-        .select("check_description,acceptance_criterion,is_hold_point")
-        .eq("job_plan_id", id),
-    ]);
+  const [
+    planRes,
+    stepsRes,
+    materialsRes,
+    toolsRes,
+    permitsRes,
+    documentsRes,
+    checksRes,
+  ] = await Promise.all([
+    supabase
+      .from("job_plans")
+      .select(
+        "id,plan_key,title,scope,applies_to_asset_class,applies_to_system_group,basis,status,version",
+      )
+      .eq("id", id)
+      .maybeSingle(),
+    supabase
+      .from("job_plan_steps")
+      .select("step_number,description,craft,crew_size,estimated_hours")
+      .eq("job_plan_id", id)
+      .order("step_number"),
+    supabase
+      .from("job_plan_materials")
+      .select("qty,materials(material_code,description)")
+      .eq("job_plan_id", id),
+    supabase.from("job_plan_tools").select("tool,note").eq("job_plan_id", id),
+    supabase
+      .from("job_plan_permits")
+      .select("permit_type,isolation_required,verification_note")
+      .eq("job_plan_id", id),
+    supabase
+      .from("job_plan_documents")
+      .select("document_id,purpose,kb_intake_documents(title)")
+      .eq("job_plan_id", id),
+    supabase
+      .from("job_plan_checks")
+      .select("check_description,acceptance_criterion,is_hold_point")
+      .eq("job_plan_id", id),
+  ]);
 
   for (const res of [
     planRes,
@@ -259,6 +338,7 @@ export async function getJobPlanDetail(id: string): Promise<JobPlanDetail> {
     materialsRes,
     toolsRes,
     permitsRes,
+    documentsRes,
     checksRes,
   ]) {
     if (res.error) throw new Error(res.error.message);
@@ -324,6 +404,18 @@ export async function getJobPlanDetail(id: string): Promise<JobPlanDetail> {
       isolation_required: perm.isolation_required ?? "",
       verification_note: perm.verification_note ?? "",
     })),
+    documents: (documentsRes.data ?? []).map((row) => {
+      const document = row.kb_intake_documents as
+        { title?: string | null } | Array<{ title?: string | null }> | null;
+      const title = Array.isArray(document)
+        ? document[0]?.title
+        : document?.title;
+      return {
+        document_id: String(row.document_id ?? ""),
+        title: title ?? "Indexed document",
+        purpose: String(row.purpose ?? ""),
+      };
+    }),
     checks: ((checksRes.data ?? []) as JobPlanCheck[]).map((c) => ({
       check_description: c.check_description ?? "",
       acceptance_criterion: c.acceptance_criterion ?? "",
@@ -337,27 +429,47 @@ function compactText(value: string | undefined): string | null {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+/** Sentence shared with upsert_job_plan. A save that hits it wrote nothing. */
+export function unresolvedMaterialRefusalMessage(codes: string[]): string {
+  return `unresolved material code(s) refused; nothing was saved: ${codes.join(", ")}. Add each code to the material catalogue first. This call does not create catalogue rows.`;
+}
+
+/**
+ * Non-blank material codes the loaded catalogue cannot resolve.
+ * Blank rows are empty form lines, not planner intent.
+ */
+export function unresolvedMaterialCodes(
+  materials: JobPlanMaterialLine[],
+  catalogue: MaterialOption[],
+): string[] {
+  const known = new Set(catalogue.map((m) => m.material_code));
+  const unresolved: string[] = [];
+  for (const line of materials) {
+    const code = line.material_code.trim();
+    if (!code || known.has(code) || unresolved.includes(code)) continue;
+    unresolved.push(code);
+  }
+  return unresolved;
+}
+
 /**
  * Build the jsonb payload upsert_job_plan expects. Empty rows are dropped
- * rather than sent as blanks. Materials whose code is not in `catalogue`
- * are omitted — the RPC would drop them silently, and a silent drop is
- * not a save.
+ * rather than sent as blanks. An unresolved material code throws: omitting
+ * it and continuing would save a draft the planner did not write.
  */
 export function buildUpsertPayload(
   draft: JobPlanDraft,
   catalogue: MaterialOption[],
-): { plan: Record<string, unknown>; droppedMaterialCodes: string[] } {
-  const known = new Set(catalogue.map((m) => m.material_code));
-  const droppedMaterialCodes: string[] = [];
-  const materials: Array<{ material_code: string; qty: number }> = [];
+): { plan: Record<string, unknown> } {
+  const unresolved = unresolvedMaterialCodes(draft.materials, catalogue);
+  if (unresolved.length > 0) {
+    throw new Error(unresolvedMaterialRefusalMessage(unresolved));
+  }
 
+  const materials: Array<{ material_code: string; qty: number }> = [];
   for (const line of draft.materials) {
     const code = line.material_code.trim();
     if (!code) continue;
-    if (!known.has(code)) {
-      droppedMaterialCodes.push(code);
-      continue;
-    }
     const qty = Number(line.qty);
     materials.push({
       material_code: code,
@@ -371,7 +483,8 @@ export function buildUpsertPayload(
       step_number: s.step_number || i + 1,
       description: s.description.trim(),
       craft: compactText(s.craft),
-      crew_size: Number.isFinite(s.crew_size) && s.crew_size > 0 ? s.crew_size : 1,
+      crew_size:
+        Number.isFinite(s.crew_size) && s.crew_size > 0 ? s.crew_size : 1,
       estimated_hours: Number(s.estimated_hours),
     }));
 
@@ -394,6 +507,16 @@ export function buildUpsertPayload(
         isolation_required: compactText(p.isolation_required),
         verification_note: compactText(p.verification_note),
       })),
+    documents: draft.documents
+      .filter(
+        (document) =>
+          document.document_id.trim().length > 0 &&
+          document.purpose.trim().length > 0,
+      )
+      .map((document) => ({
+        document_id: document.document_id.trim(),
+        purpose: document.purpose.trim(),
+      })),
     checks: draft.checks
       .filter(
         (c) =>
@@ -407,18 +530,21 @@ export function buildUpsertPayload(
       })),
   };
 
-  return { plan, droppedMaterialCodes };
+  return { plan };
 }
 
 export async function upsertJobPlan(
   draft: JobPlanDraft,
   catalogue: MaterialOption[],
-): Promise<UpsertJobPlanResult & { droppedMaterialCodes: string[] }> {
-  const { plan, droppedMaterialCodes } = buildUpsertPayload(draft, catalogue);
-  const result = await callRpc<UpsertJobPlanResult>("upsert_job_plan", {
+  options?: { asNewVersion?: boolean },
+): Promise<UpsertJobPlanResult> {
+  const { plan } = buildUpsertPayload(draft, catalogue);
+  if (options?.asNewVersion) {
+    plan.as_new_version = true;
+  }
+  return callRpc<UpsertJobPlanResult>("upsert_job_plan", {
     p_plan: plan,
   });
-  return { ...result, droppedMaterialCodes };
 }
 
 export async function adoptJobPlan(
@@ -441,6 +567,14 @@ export async function applyJobPlan(
   });
 }
 
+export async function runPlanningAgent(
+  workOrderId: string,
+): Promise<PlanningAgentResult> {
+  return callRpc<PlanningAgentResult>("run_planning_agent", {
+    p_work_order_id: workOrderId,
+  });
+}
+
 export function draftFromDetail(detail: JobPlanDetail): JobPlanDraft {
   return {
     plan_key: detail.plan_key,
@@ -453,6 +587,7 @@ export function draftFromDetail(detail: JobPlanDetail): JobPlanDraft {
     materials: detail.materials,
     tools: detail.tools,
     permits: detail.permits,
+    documents: detail.documents ?? [],
     checks: detail.checks.length > 0 ? detail.checks : [emptyCheck()],
   };
 }
@@ -469,6 +604,7 @@ export function emptyDraft(): JobPlanDraft {
     materials: [],
     tools: [],
     permits: [],
+    documents: [],
     checks: [emptyCheck()],
   };
 }
@@ -489,6 +625,10 @@ export function emptyCheck(): JobPlanCheck {
     acceptance_criterion: "",
     is_hold_point: false,
   };
+}
+
+export function emptyDocument(): JobPlanDocumentLine {
+  return { document_id: "", title: "", purpose: "" };
 }
 
 export function emptyTool(): JobPlanTool {

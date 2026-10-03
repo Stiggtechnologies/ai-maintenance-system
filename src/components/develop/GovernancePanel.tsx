@@ -571,7 +571,7 @@ export function GovernancePanel({
                   {gov.inheritedProfile.sourceNode?.orgLevel})
                   {gov.inheritedProfile.operableHere
                     ? " — new cases created without a framework inherit it."
-                    : " — owned by an ancestor node, not yet operable at this node (cross-node framework operation is named future work)."}
+                    : " — unavailable for execution here; an administrator must adopt and attach an eligible framework in this node's ancestry."}
                 </>
               ) : (
                 "No organization on this case's tree carries a governance profile — attach one (set_org_governance_profile) or select a framework explicitly at intake."

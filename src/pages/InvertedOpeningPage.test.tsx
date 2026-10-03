@@ -7,6 +7,8 @@ describe("InvertedOpeningPage", () => {
     const page = readFileSync("src/pages/InvertedOpeningPage.tsx", "utf8");
     expect(app).toMatch(/path="\/get-started"/);
     expect(page).toMatch(/Save this assessment and continue/);
+    expect(page).toMatch(/INVERTED_OPENING_SUB/);
+    expect(page).toMatch(/What are you here to accomplish/);
     expect(page).toMatch(/Never seed|never seed|Examples only|Example/i);
     expect(page).toMatch(/DecisionCaseSpine/);
     expect(page).not.toMatch(/CAD\s*\$?\s*7\.?5/i);

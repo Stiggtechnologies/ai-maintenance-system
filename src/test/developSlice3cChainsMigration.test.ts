@@ -391,6 +391,25 @@ describe("the ONE governance sweep, extended (ruling 15)", () => {
       "cron.schedule('expire-governance-instruments', '7 * * * *'",
     );
   });
+
+  it("CI and the live smoke freeze that minute-7 cron before the explicit sweep", () => {
+    // #487 failed at 2026-09-16T11:07:00Z: cron breached SMOKE3C-C42 first
+    // and expire_governance_instruments() returned
+    // stakeholder_commitments_breached=0. Unscheduling-without-restore is
+    // the same class of defect as the agent-loop walk.
+    const restore = readFileSync(
+      "scripts/ci-restore-agent-loop-fixture.sh",
+      "utf8",
+    );
+    const smoke = readFileSync("scripts/ci-develop-slice3c-smoke.sh", "utf8");
+    expect(restore).toContain(
+      "cron.unschedule('expire-governance-instruments')",
+    );
+    expect(smoke).toContain("expire-governance-instruments");
+    expect(smoke.indexOf("expire-governance-instruments")).toBeLessThan(
+      smoke.indexOf("record_stakeholder_commitment"),
+    );
+  });
 });
 
 describe("D3.16 AssuranceReview (spec II.15)", () => {

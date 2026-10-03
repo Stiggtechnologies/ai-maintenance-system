@@ -33,11 +33,12 @@
 #   9  the RAM kernel scoped to a case (D12.13): three refusals by name, the
 #      inputs when they are all there, the absent-RBD refusal carried, a wrong
 #      kernel version refused, and a lineage run recording the refusals.
-#  10  §34 (D11.21): nineteen edges, FOUR absent, and the absence claim now
-#      CHECKED against the catalogue — including the fifth, which was found
-#      already built and is closed.
-#  11  the composed Sync Information module (D11.09): no composite score, the
-#      asset-data leg named as missing.
+#  10  §34 (D11.21): nineteen edges, ZERO absent after 20261220070000 closed
+#      the last two homes, and the absence claim now CHECKED against the
+#      catalogue rather than restated as prose.
+#  11  the composed Sync Information module (D11.09): no composite score, all
+#      three legs live (digital thread, documentation, §47 readiness). Runtime
+#      complete is true after D11.21 reports zero absent relationships.
 #  12  cross-tenant: the foreign member sees none of it — INCLUDING
 #      case_event_consequence_obligations, which had no org filter at all.
 #  13  the bus ledger has ONE door and service_role is not it, and the org and
@@ -690,30 +691,31 @@ noerr "$R"
 test "$(printf '%s' "$R" | field refused)" = "True"
 grep -qi 'No asset is bound' <<<"$(printf '%s' "$R" | field refusal)"
 
-# (b) NO CAPITAL PROJECT. Bind an asset to the quiet case and the refusal moves
-#     on to the next missing input rather than producing a figure.
-psqlc "insert into development_case_assets (organization_id, development_case_id, asset_id)
-       values ('$ORG','$QUIET','$A2');" >/dev/null
-R=$(rpc "$PLANNER" get_case_ram_scope "{\"p_case_id\":\"$QUIET\"}")
-test "$(printf '%s' "$R" | field refused)" = "True"
-grep -qi 'references no capital project' <<<"$(printf '%s' "$R" | field refusal)"
-
-# (c) NO RECORDED TARGET. The bus case has assets and a project and still
-#     refuses, because "the target is 98%" with no recorded target is the
-#     sentence this product exists to refuse.
-R=$(rpc "$PLANNER" get_case_ram_scope "{\"p_case_id\":\"$CASE\"}")
-test "$(printf '%s' "$R" | field refused)" = "True"
-grep -qi 'No availability target is recorded' <<<"$(printf '%s' "$R" | field refusal)"
-
-# A REFUSED scope still records a run — a refusal with no lineage is a refusal
-# nobody can later prove happened.
-R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"develop-ram/5D/2026-12-07\"}")
+# A FATAL refusal still records a run. Slice 5E intentionally made the
+# project/target gaps leg-local so they do not suppress FMEA, PM strategy,
+# Weibull and observed availability; the no-asset boundary remains fatal.
+RAM_KERNEL=$(psqlc "select sync_ram_kernel_version()")
+R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$QUIET\",\"p_kernel_version\":\"$RAM_KERNEL\"}")
 noerr "$R"
 test "$(printf '%s' "$R" | field refused)" = "True"
 RUN=$(printf '%s' "$R" | field run_id); test -n "$RUN"
 test "$(psqlc "select status from calculation_runs where id='$RUN'")" = "refused"
 test "$(psqlc "select outputs is null from calculation_runs where id='$RUN'")" = "t"
 test "$(psqlc "select jsonb_array_length(refusals) > 0 from calculation_runs where id='$RUN'")" = "t"
+
+# (b) NO CAPITAL PROJECT. Bind an asset to the quiet case. This refuses the
+#     target/allocation leg by name but leaves the other RAM families usable.
+psqlc "insert into development_case_assets (organization_id, development_case_id, asset_id)
+       values ('$ORG','$QUIET','$A2');" >/dev/null
+R=$(rpc "$PLANNER" get_case_ram_scope "{\"p_case_id\":\"$QUIET\"}")
+test "$(printf '%s' "$R" | field refused)" = "False"
+grep -qi 'references no capital project' <<<"$(jqp "$R" "' '.join(x['refusals'])")"
+
+# (c) NO RECORDED TARGET. The target leg refuses without inventing 98%, while
+#     the asset-backed RAM families remain in scope.
+R=$(rpc "$PLANNER" get_case_ram_scope "{\"p_case_id\":\"$CASE\"}")
+test "$(printf '%s' "$R" | field refused)" = "False"
+grep -qi 'no ram_targets row' <<<"$(jqp "$R" "' '.join(x['refusals'])")"
 
 # (d) THE INPUTS, once they are all there.
 TGT=$(psqlc "with r as (insert into ram_targets (organization_id, project_id, system_label, target_availability, target_basis, configuration)
@@ -738,9 +740,34 @@ test "$(jqp "$R" "len(x['assets'][0]['failureTimes'])")" = "4"
 test "$(jqp "$R" "len(x['assets'][0]['suspensionTimes'])")" = "1"
 # THE ABSENT RBD IS A REFUSAL, not an omission (5D-R13).
 grep -qi 'RBD' <<<"$(jqp "$R" "' '.join(x['refusals'])")"
-grep -qi 'invented model' <<<"$(jqp "$R" "' '.join(x['refusals'])")"
+grep -qi 'declared case dependency graph' <<<"$(jqp "$R" "' '.join(x['refusals'])")"
+grep -qi 'empty graph is not a reliable system' <<<"$(jqp "$R" "' '.join(x['refusals'])")"
 # The read COMPUTES NOTHING: no fitted parameter appears in it.
 if grep -qi '"beta"' <<<"$R"; then echo "the scope read produced a fitted parameter"; exit 1; fi
+
+# Build the eventual success profile from the server scope this transcript just
+# read. The shared CI database may already contain canonical FMEA or strategy
+# rows that resolve to this asset; claiming an empty identity set would be the
+# exact caller-declaration hole record_ram_agent_report is supposed to refuse.
+PROFILE=$(BODY="$R" RAM_KERNEL="$RAM_KERNEL" python3 - <<'PY'
+import json, os
+x = json.loads(os.environ['BODY'])
+print(json.dumps({
+  'kernelVersion': os.environ['RAM_KERNEL'],
+  'targets': [
+    {'targetId': row['targetId'], 'systemLabel': row.get('systemLabel')}
+    for row in x.get('targets', [])
+  ],
+  'assets': [
+    {'assetId': row['assetId'], 'assetTag': row.get('assetTag')}
+    for row in x.get('assets', [])
+  ],
+  'rbd': None,
+  'fmea': [{'id': row['id']} for row in x.get('fmea', [])],
+  'pmStrategies': [{'id': row['id']} for row in x.get('pmStrategies', [])],
+}, separators=(',', ':')))
+PY
+)
 
 # (e) A WRONG KERNEL VERSION IS REFUSED BY NAME. A lineage row whose kernel
 #     identity the caller chooses certifies nothing.
@@ -760,32 +787,32 @@ expect_err "$R" 'the server pins'
 # was never allocated, and the immutable lineage row certified it. That is the
 # D11.29 failure this row exists to close, arriving by the one route nothing
 # checked. Three refusals, each proven live.
-R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"develop-ram/5D/2026-12-07\",\"p_profile\":{\"targets\":[{\"targetId\":999999,\"systemLabel\":\"A system that was never allocated\",\"allocation\":{\"feasible\":true,\"achievable\":0.9999}}],\"assets\":[{\"assetId\":\"$A1\"}]},\"p_refusals\":[]}")
-expect_err "$R" 'not a target on this case'
-R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"develop-ram/5D/2026-12-07\",\"p_profile\":{\"targets\":[{\"targetId\":$TGT}],\"assets\":[{\"assetId\":\"$A2\",\"assetTag\":\"NEVER-IN-SCOPE\"}]},\"p_refusals\":[]}")
-expect_err "$R" 'not bound to this development case'
+R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"$RAM_KERNEL\",\"p_profile\":{\"targets\":[{\"targetId\":999999,\"systemLabel\":\"A system that was never allocated\",\"allocation\":{\"feasible\":true,\"achievable\":0.9999}}],\"assets\":[{\"assetId\":\"$A1\"}],\"fmea\":[],\"pmStrategies\":[]},\"p_refusals\":[]}")
+expect_err "$R" 'profile target set does not match'
+R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"$RAM_KERNEL\",\"p_profile\":{\"targets\":[{\"targetId\":$TGT}],\"assets\":[{\"assetId\":\"$A2\",\"assetTag\":\"NEVER-IN-SCOPE\"}],\"fmea\":[],\"pmStrategies\":[]},\"p_refusals\":[]}")
+expect_err "$R" 'profile asset set does not match'
 # A profile over PART of the population, recorded under the whole population's
 # scope and the server's kernel version, reads as a reading of the whole — so
 # it is refused rather than trimmed. (This is the shape the first draft of this
 # very transcript posted and asserted as a success.)
-R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"develop-ram/5D/2026-12-07\",\"p_profile\":{\"kernelVersion\":\"develop-ram/5D/2026-12-07\",\"targets\":[],\"assets\":[]},\"p_refusals\":[]}")
-expect_err "$R" 'refused rather than trimmed'
+R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"$RAM_KERNEL\",\"p_profile\":{\"kernelVersion\":\"$RAM_KERNEL\",\"targets\":[],\"assets\":[],\"fmea\":[],\"pmStrategies\":[]},\"p_refusals\":[]}")
+expect_err "$R" 'profile target set does not match'
 # An over-long model label is refused rather than made permanent in an
 # immutable, org-readable, undeletable row.
 BIGMODEL=$(python3 -c "print('m'*250)")
-R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"develop-ram/5D/2026-12-07\",\"p_model\":\"$BIGMODEL\"}")
+R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"$RAM_KERNEL\",\"p_model\":\"$BIGMODEL\"}")
 expect_err "$R" 'longer than 200 characters'
 
 # (g) THE RUN, with a profile that DOES tie to the scope, and the server's
 #     refusals merged OVER the caller's — a client cannot record a clean
 #     profile over a scope short of inputs.
-R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"develop-ram/5D/2026-12-07\",\"p_profile\":{\"kernelVersion\":\"develop-ram/5D/2026-12-07\",\"targets\":[{\"targetId\":$TGT,\"systemLabel\":\"S5D underflow train\"}],\"assets\":[{\"assetId\":\"$A1\",\"assetTag\":\"S5D-A1\"}]},\"p_refusals\":[]}")
+R=$(rpc "$PLANNER" record_ram_agent_report "{\"p_case_id\":\"$CASE\",\"p_kernel_version\":\"$RAM_KERNEL\",\"p_profile\":$PROFILE,\"p_refusals\":[]}")
 noerr "$R"
 test "$(printf '%s' "$R" | field refused)" = "False"
 test "$(printf '%s' "$R" | field refusalCount)" -ge "1"
 RUN=$(printf '%s' "$R" | field run_id)
 test "$(psqlc "select status from calculation_runs where id='$RUN'")" = "computed_with_refusals"
-test "$(psqlc "select code_version from calculation_runs where id='$RUN'")" = "develop-ram/5D/2026-12-07"
+test "$(psqlc "select code_version from calculation_runs where id='$RUN'")" = "$RAM_KERNEL"
 test "$(psqlc "select calculation_key from calculation_runs where id='$RUN'")" = "case_ram_profile"
 # The kernel version on the row is the SERVER's, never the caller's.
 test "$(psqlc "select kernel_version from ram_agent_reports order by id desc limit 1")" = "$(psqlc "select sync_ram_kernel_version()")"
@@ -800,55 +827,78 @@ grep -qi 'not truncatable' <<<"$OUT"
 echo "── 10. §34's nineteen edges, and the absence claim CHECKED (D11.21) ─────"
 
 test "$(psqlc "select jsonb_array_length(sync_spec34_edges())")" = "19"
-# TWO since 2026-09-06. This file's own audit said what to do when an
+# ZERO since 2026-09-21. This file's own audit said what to do when an
 # endpoint gets built — "`newlyClosableCount` above zero means the endpoint got
-# built and the ledger's prose is stale" — and Slice 7A (20261210090100) then
-# D9 realize (20261218090001) are that happening: first
-# `restoration_constraints.work_order_id`, then `learning_events.applicability`,
-# the columns THIS audit named as the closing conditions. Each edge moved out
-# of `absent` and out of the audit's list, so the count goes down and
+# built and the ledger's prose is stale" — and Slice 7A, D9 realize, then
+# D11.21 graph completion (20261220070000) are that happening. Each edge moved
+# out of `absent` and out of the audit's list, so the count goes down and
 # `newlyClosableCount` returns to zero rather than alarming forever.
-test "$(psqlc "select count(*) from jsonb_array_elements(sync_spec34_edges()) x where x->>'status'='absent'")" = "2"
-test "$(psqlc "select (sync_spec34_absent_edge_audit()->>'absentEdgeCount')")" = "2"
-# ZERO newly closable: every REMAINING absence claim still holds against the
+test "$(psqlc "select count(*) from jsonb_array_elements(sync_spec34_edges()) x where x->>'status'='absent'")" = "0"
+test "$(psqlc "select (sync_spec34_absent_edge_audit()->>'absentEdgeCount')")" = "0"
+test "$(psqlc "select (sync_spec34_absent_edge_audit()->>'implementedEdgeCount')")" = "19"
+# ZERO newly closable: there is no remaining absence claim to hold against the
 # catalogue.
 test "$(psqlc "select (sync_spec34_absent_edge_audit()->>'newlyClosableCount')")" = "0"
-# THE THREE THAT CLOSED. 5C recorded them as absent from prose nothing checked.
+# THE FIVE THAT CLOSED. 5C recorded them as absent from prose nothing checked.
 test "$(psqlc "select x->>'status' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Benefit MEASURES Objective'")" = "live_elsewhere"
 test "$(psqlc "select x->>'home' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Benefit MEASURES Objective'" | grep -c 'value_metrics.objective_id')" = "1"
 test "$(psqlc "select x->>'status' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='WorkPackage DEPENDS_ON Constraint'")" = "live_elsewhere"
 test "$(psqlc "select x->>'home' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='WorkPackage DEPENDS_ON Constraint'" | grep -c 'restoration_constraints.work_package_id')" = "1"
 test "$(psqlc "select x->>'status' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Lesson APPLIES_TO AssetClass'")" = "live_elsewhere"
 test "$(psqlc "select x->>'home' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Lesson APPLIES_TO AssetClass'" | grep -c 'learning_events.applicability')" = "1"
-# ...and the columns they name really are there, which is what made them closable.
+test "$(psqlc "select x->>'status' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Contract PROVIDES Asset'")" = "live_elsewhere"
+test "$(psqlc "select x->>'home' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Contract PROVIDES Asset'" | grep -c 'contract_asset_links')" = "1"
+test "$(psqlc "select x->>'status' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Asset SUPPORTS Objective'")" = "live_elsewhere"
+test "$(psqlc "select x->>'home' from jsonb_array_elements(sync_spec34_edges()) x where x->>'edge'='Asset SUPPORTS Objective'" | grep -c 'asset_objective_links')" = "1"
+# ...and the columns / tables they name really are there, which is what made them closable.
 test "$(psqlc "select count(*) from information_schema.columns where table_schema='public' and table_name='value_metrics' and column_name='objective_id'")" = "1"
 test "$(psqlc "select count(*) from information_schema.columns where table_schema='public' and table_name='restoration_constraints' and column_name='work_order_id'")" = "1"
 test "$(psqlc "select count(*) from information_schema.columns where table_schema='public' and table_name='learning_events' and column_name='applicability'")" = "1"
-# The two that did not close each name the column that would close them.
-test "$(psqlc "select count(*) from jsonb_array_elements(sync_spec34_absent_edge_audit()->'edges') x where x->>'closesWhen' is not null")" = "2"
+test "$(psqlc "select count(*) from information_schema.tables where table_schema='public' and table_name='contract_asset_links'")" = "1"
+test "$(psqlc "select count(*) from information_schema.tables where table_schema='public' and table_name='asset_objective_links'")" = "1"
+# No remaining absence claim names a closing column.
+test "$(psqlc "select count(*) from jsonb_array_elements(sync_spec34_absent_edge_audit()->'edges') x where x->>'closesWhen' is not null")" = "0"
 
 echo "── 11. the Sync Information module, composed (D11.09) ───────────────────"
 
 R=$(rpc "$PLANNER" get_case_information_engine "{\"p_case_id\":\"$CASE\"}")
 noerr "$R"
-# NO COMPOSITE SCORE. Averaging the legs that exist over the one that does not
-# is how a partial module reads as a finished one.
-test "$(printf '%s' "$R" | field complete)" = "False"
+# NO COMPOSITE SCORE. Thread continuity, released-document coverage and the
+# §47 ratio are unlike evidence states and are not averaged into false
+# precision. Runtime complete is true after D11.21 reports zero absent edges.
+# D11.23 composed the readiness leg: built is true, the canonical formula and
+# decision boundary are present, and the old "NOT COMPUTED" refusal is gone.
+# This case has no scoped information objects, so the project position is
+# NOT_ASSESSED rather than a fabricated 0 or 100.
+test "$(printf '%s' "$R" | field complete)" = "True"
+HEADLINE=$(printf '%s' "$R" | field headline)
+grep -q 'No composite score' <<<"$HEADLINE"
+grep -q '0 of §34' <<<"$HEADLINE"
 test "$(jqp "$R" "x['legs']['digitalThread']['built']")" = "True"
 test "$(jqp "$R" "x['legs']['documentation']['built']")" = "True"
-test "$(jqp "$R" "x['legs']['assetDataReadiness']['built']")" = "False"
+test "$(jqp "$R" "x['legs']['assetDataReadiness']['built']")" = "True"
 grep -q 'D11.08' <<<"$(jqp "$R" "' '.join(x['legs']['assetDataReadiness']['registerRows'])")"
-grep -qi 'ASSET-DATA READINESS IS NOT COMPUTED' <<<"$(jqp "$R" "' '.join(x['refusals'])")"
-test "$(jqp "$R" "x['graph']['absentEdgeCount']")" = "2"
+grep -q 'D11.23' <<<"$(jqp "$R" "' '.join(x['legs']['assetDataReadiness']['registerRows'])")"
+test "$(jqp "$R" "x['legs']['assetDataReadiness']['project']['status']")" = "NOT_ASSESSED"
+grep -q 'Accepted evidence-backed' <<<"$(jqp "$R" "x['legs']['assetDataReadiness']['formula']")"
+grep -qi 'regulatory certification' <<<"$(jqp "$R" "x['legs']['assetDataReadiness']['decisionBoundary']")"
+if grep -qi 'ASSET-DATA READINESS IS NOT COMPUTED' <<<"$(jqp "$R" "' '.join(x['refusals'])")"; then
+  echo "readiness is composed but the engine still claims it is not computed"; exit 1
+fi
+test "$(jqp "$R" "x['graph']['absentEdgeCount']")" = "0"
+test "$(jqp "$R" "x['graph']['liveEdgeCount']")" = "19"
 if grep -qi '"score"' <<<"$R"; then echo "the composed module produced a score"; exit 1; fi
 # THE SENTENCE COUNTS WITH A VARIABLE, NOT A SPELLED NUMBER. The first draft
 # of this refusal was parameterised on the count and then hard-coded "The five
 # are named" beside it, so the shipped payload read "4 of ... The five are
 # named" — a self-contradiction on screen, in the very file whose thesis is
-# that unchecked prose survives a slice. The absent count is asserted above;
-# this asserts the sentence cannot drift from it again.
+# that unchecked prose survives a slice. With zero absent edges the computed
+# absence refusal must not fire at all; a leftover "0 of spec" or a spelled
+# historical count would be the same drift this step exists to catch.
 ENG_REF=$(jqp "$R" "' '.join(x['refusals'])")
-grep -q '2 of spec' <<<"$ENG_REF"
+if grep -qi 'of spec §34' <<<"$ENG_REF"; then
+  echo "information engine still claims a §34 absence after D11.21 closeout: $ENG_REF"; exit 1
+fi
 if grep -qi 'the five are named' <<<"$ENG_REF"; then
   echo "the engine refusal states a count in prose that its own variable contradicts"; exit 1
 fi
@@ -1083,5 +1133,5 @@ echo "Develop slice-5D smoke PASSED — five named events emitted by their acts 
 echo "consumed, the consumer's blocking consequences stopping a gate review at the"
 echo "wall, the Change Impact Agent refusing over a gapped thread on 5C's ONE"
 echo "traversal, the RAM kernel scoped to a case with every missing input named,"
-echo "two of §34's five absent edges honestly closed — each at the column the audit"
-echo "itself named — and the three that remain named, not merely counted."
+echo "all five once-absent §34 edges honestly closed — each at the home the audit"
+echo "or D11.21 closeout named — and zero remaining, not merely counted."

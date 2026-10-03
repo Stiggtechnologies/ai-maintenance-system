@@ -13,6 +13,7 @@ import { ArrowLeft } from "lucide-react";
 import { useAuth } from "../components/AuthProvider";
 import {
   createDevelopmentCase,
+  getProjectStartKnowledge,
   listAdoptedFrameworks,
   screenApplicableProjectLessons,
   type FrameworkOption,
@@ -83,9 +84,13 @@ export function DevelopIntakePage() {
       });
       // D9.12: screen at creation, before the first workspace dollar.
       // Failures do not block intake — the workspace banner re-reads.
-      const screened = await screenApplicableProjectLessons(
-        result.case_id,
-      ).catch(() => null);
+      // D12.05 composes the canonical D9.12 lesson screen with estimate
+      // outcomes, measured vendor records and startup problems before the new
+      // case workspace opens. It is read-only; failure never authorizes work.
+      const [screened] = await Promise.all([
+        screenApplicableProjectLessons(result.case_id).catch(() => null),
+        getProjectStartKnowledge(result.case_id).catch(() => null),
+      ]);
       navigate(`/develop/cases/${result.case_id}`, {
         state: { applicableLessonCount: screened?.count ?? 0 },
       });

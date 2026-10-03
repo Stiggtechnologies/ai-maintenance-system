@@ -29,8 +29,171 @@ async function callRpc<T>(
   return body;
 }
 
+export interface CreateCatalogueMaterialInput {
+  materialCode: string;
+  description: string;
+  unitOfMeasure: string;
+  basis: string;
+}
+
+export interface MaterialRelationshipAudit {
+  id: string;
+  entity_type: string;
+  event_time: string;
+  actor: string;
+  event_data: { actorId?: string; basis?: string; action?: string };
+  new_state: {
+    material_code?: string;
+    material_id?: string;
+    supplier_id?: number;
+    asset_id?: string;
+    asset_class?: string;
+    component_id?: string;
+  } | null;
+}
+
+export async function listMaterialRelationshipAudit(
+  page = 0,
+): Promise<MaterialRelationshipAudit[]> {
+  const { data, error } = await supabase
+    .from("audit_events")
+    .select("id, entity_type, event_time, actor, event_data, new_state")
+    .in("entity_type", [
+      "material_catalogue",
+      "material_supplier",
+      "material_bom",
+    ])
+    .order("event_time", { ascending: false })
+    .order("id")
+    .range(page * 25, page * 25 + 24);
+  if (error) throw new Error(error.message);
+  return (data ?? []) as MaterialRelationshipAudit[];
+}
+
+export async function linkCatalogueSupplier(input: {
+  materialId: string;
+  supplierId: number;
+  supplierPartNumber: string;
+  basis: string;
+}): Promise<{ linkId: number; approvedForThisMaterial: boolean }> {
+  return callRpc("link_catalogue_supplier", {
+    p_material_id: input.materialId,
+    p_supplier_id: input.supplierId,
+    p_supplier_part_number: input.supplierPartNumber.trim() || null,
+    p_basis: input.basis.trim(),
+  });
+}
+
+/** Keyset pages avoid silently losing identities beyond PostgREST's row cap. */
+async function readRelationshipOptions<T extends { id: string | number }>(
+  table: "materials" | "suppliers" | "assets" | "components",
+  columns: string,
+): Promise<T[]> {
+  const rows: T[] = [];
+  let cursor: string | number | null = null;
+  for (;;) {
+    let query = supabase.from(table).select(columns).order("id").limit(500);
+    if (cursor !== null) query = query.gt("id", cursor);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    const page = (data ?? []) as unknown as T[];
+    if (!page.length) return rows;
+    const next = page[page.length - 1].id;
+    if (next == null || next === cursor)
+      throw new Error("Catalogue pagination did not advance.");
+    rows.push(...page);
+    cursor = next;
+  }
+}
+
+/** RLS filters both selectors to the signed-in tenant. */
+export async function listMaterialSupplierOptions() {
+  const [materials, suppliers] = await Promise.all([
+    readRelationshipOptions<{
+      id: string;
+      material_code: string;
+      description: string;
+    }>("materials", "id, material_code, description"),
+    readRelationshipOptions<{
+      id: number;
+      supplier_code: string;
+      name: string;
+    }>("suppliers", "id, supplier_code, name"),
+  ]);
+  return {
+    materials: materials.sort((a, b) =>
+      a.material_code.localeCompare(b.material_code),
+    ),
+    suppliers: suppliers.sort((a, b) =>
+      a.supplier_code.localeCompare(b.supplier_code),
+    ),
+  };
+}
+
+/** Creates a canonical identity, never stock, supplier approval or a template. */
+export async function createCatalogueMaterial(
+  input: CreateCatalogueMaterialInput,
+): Promise<{ materialId: string; materialCode: string }> {
+  return callRpc("create_catalogue_material", {
+    p_material_code: input.materialCode.trim(),
+    p_description: input.description.trim(),
+    p_unit_of_measure: input.unitOfMeasure.trim(),
+    p_basis: input.basis.trim(),
+  });
+}
+
 export type MaterialLineStatus =
   "requested" | "reserved" | "kitted" | "issued" | "short" | "cancelled";
+
+export async function listMaterialBomOptions() {
+  const [materials, assets, components] = await Promise.all([
+    readRelationshipOptions<{
+      id: string;
+      material_code: string;
+      description: string;
+    }>("materials", "id, material_code, description"),
+    readRelationshipOptions<{
+      id: string;
+      tag: string | null;
+      name: string;
+      asset_class: string | null;
+    }>("assets", "id, tag, name, asset_class"),
+    readRelationshipOptions<{ id: string; asset_id: string; name: string }>(
+      "components",
+      "id, asset_id, name",
+    ),
+  ]);
+  return {
+    materials: materials.sort((a, b) =>
+      a.material_code.localeCompare(b.material_code),
+    ),
+    assets: assets.sort((a, b) => a.name.localeCompare(b.name)),
+    components: components.sort((a, b) => a.name.localeCompare(b.name)),
+  };
+}
+
+export async function linkCatalogueBom(input: {
+  materialId: string;
+  assetId: string | null;
+  assetClass: string | null;
+  componentId: string | null;
+  quantity: number;
+  positionNote: string;
+  basis: string;
+}): Promise<{ bomLineId: string }> {
+  if (!Number.isFinite(input.quantity) || input.quantity <= 0) {
+    throw new Error("Quantity must be finite and positive.");
+  }
+  return callRpc("link_catalogue_bom", {
+    p_material_id: input.materialId,
+    p_asset_id: input.assetId,
+    p_asset_class: input.assetClass,
+    p_component_id: input.componentId,
+    p_qty_per: input.quantity,
+    p_position_note: input.positionNote.trim() || null,
+    p_basis: input.basis.trim(),
+  });
+}
 
 export interface MaterialDemandLine {
   id: string;
@@ -157,4 +320,169 @@ export function canIssue(status: MaterialLineStatus): boolean {
 
 export function canReserve(status: MaterialLineStatus): boolean {
   return status === "requested" || status === "short";
+}
+
+/** Enums enforced by upsert_material_stock_lot. Not engineering limits. */
+export const MATERIAL_LOT_CONDITIONS = [
+  "serviceable",
+  "inspection_required",
+  "unserviceable",
+  "unknown",
+] as const;
+
+export const MATERIAL_LOT_CERTIFICATIONS = [
+  "not_required",
+  "valid",
+  "missing",
+  "expired",
+  "unknown",
+] as const;
+
+export const MATERIAL_SUBSTITUTION_TYPES = [
+  "approved_alternate",
+  "repairable_exchange",
+  "temporary_engineering_substitution",
+] as const;
+
+export const MATERIAL_SUBSTITUTION_STATUSES = [
+  "pending",
+  "approved",
+  "rejected",
+] as const;
+
+export type MaterialLotCondition = (typeof MATERIAL_LOT_CONDITIONS)[number];
+export type MaterialLotCertification =
+  (typeof MATERIAL_LOT_CERTIFICATIONS)[number];
+export type MaterialSubstitutionType =
+  (typeof MATERIAL_SUBSTITUTION_TYPES)[number];
+export type MaterialSubstitutionStatus =
+  (typeof MATERIAL_SUBSTITUTION_STATUSES)[number];
+
+export interface MaterialLotRow {
+  id: string;
+  lot_ref: string;
+  qty: number;
+  condition: string;
+  certification_status: string;
+  source_system: string;
+  basis: string;
+  material_code: string | null;
+  description: string | null;
+}
+
+export interface LotFormOptions {
+  materials: Array<{ id: string; material_code: string; description: string }>;
+  sites: Array<{ id: string; name: string }>;
+}
+
+/**
+ * Lot condition and certification already stored for this tenant.
+ * Writes stay on upsert_material_stock_lot; this is the read the kitting
+ * desk was missing while recovery parts-risk already joined the table.
+ */
+export async function listMaterialStockLots(): Promise<MaterialLotRow[]> {
+  const { data, error } = await supabase
+    .from("material_stock_lots")
+    .select(
+      "id, lot_ref, qty, condition, certification_status, source_system, basis, materials(material_code, description)",
+    )
+    .order("updated_at", { ascending: false })
+    .limit(50);
+  if (error) throw new Error(error.message);
+  return (
+    (data ?? []) as Array<{
+      id: string;
+      lot_ref: string;
+      qty: number;
+      condition: string;
+      certification_status: string;
+      source_system: string;
+      basis: string;
+      materials?:
+        | { material_code?: string; description?: string }
+        | { material_code?: string; description?: string }[]
+        | null;
+    }>
+  ).map((row) => {
+    const material = embedOne(row.materials);
+    return {
+      id: row.id,
+      lot_ref: row.lot_ref,
+      qty: row.qty,
+      condition: row.condition,
+      certification_status: row.certification_status,
+      source_system: row.source_system,
+      basis: row.basis,
+      material_code: material?.material_code ?? null,
+      description: material?.description ?? null,
+    };
+  });
+}
+
+export async function listLotFormOptions(): Promise<LotFormOptions> {
+  const [materials, sites] = await Promise.all([
+    supabase
+      .from("materials")
+      .select("id, material_code, description")
+      .eq("is_template", false)
+      .order("material_code")
+      .limit(200),
+    supabase.from("sites").select("id, name").order("name").limit(100),
+  ]);
+  if (materials.error) throw new Error(materials.error.message);
+  if (sites.error) throw new Error(sites.error.message);
+  return {
+    materials: (materials.data ?? []) as LotFormOptions["materials"],
+    sites: (sites.data ?? []) as LotFormOptions["sites"],
+  };
+}
+
+export async function recordMaterialStockLot(input: {
+  materialId: string;
+  siteId: string | null;
+  lotRef: string;
+  qty: number;
+  condition: MaterialLotCondition;
+  certificationStatus: MaterialLotCertification;
+  sourceSystem: string;
+  basis: string;
+  certificationRef?: string | null;
+  location?: string | null;
+}): Promise<{ ok?: boolean; stock_lot_id?: string }> {
+  return callRpc("upsert_material_stock_lot", {
+    p_material_id: input.materialId,
+    p_site_id: input.siteId,
+    p_lot_ref: input.lotRef,
+    p_qty: input.qty,
+    p_condition: input.condition,
+    p_certification_status: input.certificationStatus,
+    p_source_system: input.sourceSystem,
+    p_basis: input.basis,
+    p_certification_ref: input.certificationRef ?? null,
+    p_staged_for_work_order_id: null,
+    p_location: input.location ?? null,
+    p_expires_at: null,
+  });
+}
+
+/**
+ * Records a substitution proposal. Default the caller to pending: an approved
+ * row is a named-role act inside the existing RPC, not an automatic fitment.
+ */
+export async function recordMaterialSubstitution(input: {
+  materialId: string;
+  substituteMaterialId: string;
+  type: MaterialSubstitutionType;
+  status: MaterialSubstitutionStatus;
+  basis: string;
+  validUntil?: string | null;
+}): Promise<{ ok?: boolean; substitution_id?: string; status?: string }> {
+  return callRpc("set_material_substitution", {
+    p_material_id: input.materialId,
+    p_substitute_material_id: input.substituteMaterialId,
+    p_type: input.type,
+    p_status: input.status,
+    p_basis: input.basis,
+    p_valid_until: input.validUntil ?? null,
+  });
 }

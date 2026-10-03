@@ -61,12 +61,14 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
         return;
       }
       await onSuccess();
-    } catch {
+    } catch (authError) {
       // Password authentication alone is not enough when assurance state cannot
       // be established. End the partial session rather than failing open.
       await supabase.auth.signOut();
       setError(
-        "Authentication assurance could not be verified. Please try again or contact your administrator.",
+        authError instanceof Error
+          ? authError.message
+          : "Authentication assurance could not be verified. Please try again or contact your administrator.",
       );
       setLoading(false);
     }

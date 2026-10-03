@@ -40,6 +40,15 @@ export interface AgentRow {
   supervisor: string | null;
   last_action: string | null;
   last_action_at: string | null;
+  operating_charter?: {
+    purpose?: string;
+    modes?: string[];
+    triggers?: string[];
+    inputs?: string[];
+    outputs?: string[];
+    guardrails?: string[];
+    routes?: string[];
+  } | null;
   created_at: string;
 }
 

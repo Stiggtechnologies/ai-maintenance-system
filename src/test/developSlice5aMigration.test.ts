@@ -420,6 +420,25 @@ describe("D4.17 — §70: no machine verifies anything", () => {
   });
 });
 
+describe("C4.08 — not_achieved writes learning_events.verification_failed", () => {
+  it("inserts verification_failed only for a recommendation obligation that was not achieved", () => {
+    // The live definition is the repair recreation. A later edit that drops
+    // the learning-event insert, or that writes one for achieved / inconclusive,
+    // would leave LEARN unable to see a failed outcome.
+    const rpc = body(repair, "record_verification_result");
+    const gate = rpc.indexOf(
+      "if p_result = 'not_achieved' and o.recommendation_id is not null then",
+    );
+    const insertAt = rpc.indexOf("insert into learning_events");
+    expect(gate).toBeGreaterThan(-1);
+    expect(insertAt).toBeGreaterThan(gate);
+    expect(rpc.slice(insertAt, insertAt + 500)).toContain(
+      "'verification_failed'",
+    );
+    expect(rpc.match(/insert into learning_events/g)).toHaveLength(1);
+  });
+});
+
 describe("D4.17 — the persistence wall and the ledger guards", () => {
   const fn = body(verification, "enforce_verification_result_provenance");
 

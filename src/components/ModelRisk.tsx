@@ -19,6 +19,7 @@ import {
   type ModelRecord,
 } from "../lib/model-risk";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
+import { ModelRegistryGovernancePanel } from "./ModelRegistryGovernancePanel";
 
 interface Posture {
   models_registered: number;
@@ -31,6 +32,7 @@ interface Posture {
 }
 
 interface RegisterRow {
+  id: number;
   modelKey: string;
   version: string;
   modelKind: string;
@@ -41,6 +43,14 @@ interface RegisterRow {
   humanInLoop: boolean;
   verificationReference: string | null;
   limitations: string | null;
+  trainingData: Record<string, unknown> | null;
+  validation: Record<string, unknown> | null;
+  applicability: Record<string, unknown> | null;
+  approvalStatus: string;
+  currentForDecisions: boolean;
+  decisionRelevant: boolean;
+  submittedBy: string | null;
+  supersedesModelId: number | null;
 }
 
 const CAL_MODEL = "health-score-as-probability";
@@ -183,6 +193,8 @@ export function ModelRisk() {
       </div>
 
       {/* The register. */}
+      <ModelRegistryGovernancePanel models={models} onChanged={refetch} />
+
       <div className="rounded-xl border border-white/6 p-4">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
           <ListChecks className="h-4 w-4 text-signal-cyan" aria-hidden />
@@ -219,10 +231,31 @@ export function ModelRisk() {
                       human in the loop
                     </span>
                   )}
+                  {m.currentForDecisions && (
+                    <span className="text-xs font-semibold text-emerald-300">
+                      exact current version
+                    </span>
+                  )}
                 </button>
                 {open && (
                   <div className="space-y-1 border-t border-white/6 p-2 text-xs">
                     <p className="text-slate-300">{m.purpose}</p>
+                    <p className="text-slate-400">
+                      Training data: {JSON.stringify(m.trainingData)}
+                    </p>
+                    <p className="text-slate-400">
+                      Validation: {JSON.stringify(m.validation)}
+                    </p>
+                    <p className="text-slate-400">
+                      Applicability: {JSON.stringify(m.applicability)}
+                    </p>
+                    <p className="text-slate-500">
+                      Approval: {m.approvalStatus.replace(/_/g, " ")} · decision
+                      relevant: {m.decisionRelevant ? "yes" : "no"}
+                      {m.supersedesModelId
+                        ? ` · supersedes registry row ${m.supersedesModelId}`
+                        : ""}
+                    </p>
                     {m.verificationReference && (
                       <p className="font-mono text-slate-500">
                         verified by {m.verificationReference}

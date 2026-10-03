@@ -25,6 +25,17 @@ Deno.serve(async (req: Request) => {
   const { createClient } = await import('npm:@supabase/supabase-js@2');
   const supabase = createClient(supabaseUrl, supabaseKey);
 
+  // Service role bypasses RLS. Condition, material, and evidence reads below
+  // are scoped to the caller's organization from user_profiles. The body is
+  // not a tenant.
+  const callerOrg = await callerOrganizationId(supabase, authHeader);
+  if (!callerOrg) {
+    return new Response(
+      JSON.stringify({ error: 'authentication required' }),
+      { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
   try {
     const { action, runbook_code, execution_id, trigger_data } = await req.json();
 
@@ -37,7 +48,7 @@ Deno.serve(async (req: Request) => {
     }
 
     if (action === 'execute_step') {
-      const result = await executeNextStep(supabase, execution_id);
+      const result = await executeNextStep(supabase, execution_id, callerOrg);
       return new Response(
         JSON.stringify(result),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -97,6 +108,20 @@ async function triggerRunbook(supabase: any, runbookCode: string, triggerData: a
   };
 }
 
+async function callerOrganizationId(supabase: any, authHeader: string): Promise<string | null> {
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7).trim() : '';
+  if (!token) return null;
+  const { data: userResult, error } = await supabase.auth.getUser(token);
+  if (error || !userResult?.user) return null;
+  const { data: profile, error: profileError } = await supabase
+    .from('user_profiles')
+    .select('organization_id')
+    .eq('id', userResult.user.id)
+    .maybeSingle();
+  if (profileError || !profile?.organization_id) return null;
+  return String(profile.organization_id);
+}
+
 async function enqueueExecution(supabase: any, executionId: string) {
   await supabase.rpc('enqueue_job', {
     p_job_type: 'runbook_execution',
@@ -105,7 +130,7 @@ async function enqueueExecution(supabase: any, executionId: string) {
   });
 }
 
-async function executeNextStep(supabase: any, executionId: string) {
+async function executeNextStep(supabase: any, executionId: string, callerOrg: string) {
   const { data: execution } = await supabase
     .from('runbook_executions')
     .select(`
@@ -171,7 +196,7 @@ async function executeNextStep(supabase: any, executionId: string) {
   let errorMessage = null;
 
   try {
-    result = await executeStep(supabase, step, execution.trigger_data);
+    result = await executeStep(supabase, step, execution.trigger_data, callerOrg);
   } catch (error) {
     stepStatus = 'failed';
     errorMessage = error.message;
@@ -232,14 +257,14 @@ async function executeNextStep(supabase: any, executionId: string) {
   return { status: 'step_completed', step: step.step_name, result };
 }
 
-async function executeStep(supabase: any, step: any, triggerData: any) {
+async function executeStep(supabase: any, step: any, triggerData: any, callerOrg: string) {
   const config = step.step_config;
 
   switch (step.step_type) {
     case 'query':
-      return await executeQuery(supabase, config, triggerData);
+      return await executeQuery(supabase, config, triggerData, callerOrg);
     case 'action':
-      return await executeAction(supabase, config, triggerData);
+      return await executeAction(supabase, config, triggerData, callerOrg);
     case 'notification':
       return await executeNotification(supabase, config, triggerData);
     case 'decision':
@@ -253,7 +278,7 @@ async function executeStep(supabase: any, step: any, triggerData: any) {
   }
 }
 
-async function executeQuery(supabase: any, config: any, triggerData: any) {
+async function executeQuery(supabase: any, config: any, triggerData: any, callerOrg: string) {
   const queryType = config.query_type;
 
   if (queryType === 'asset_lookup') {
@@ -271,15 +296,95 @@ async function executeQuery(supabase: any, config: any, triggerData: any) {
 
     const timeframeMinutes = config.timeframe_minutes || 30;
     const startTime = new Date(Date.now() - timeframeMinutes * 60 * 1000).toISOString();
+    const asset = await requireAssetOrg(supabase, assetId, callerOrg);
 
-    const { data } = await supabase
-      .from('asset_health_monitoring')
-      .select('*')
+    // Live historian series. asset_health_monitoring.recorded_at is not a
+    // column on the current table and is not the condition store.
+    const { data, error } = await supabase
+      .from('condition_readings')
+      .select('id, asset_id, sensor_id, value, quality, taken_at, source_system, sensors(name, signal_type, unit)')
+      .eq('organization_id', asset.organization_id)
       .eq('asset_id', assetId)
-      .gte('recorded_at', startTime)
-      .order('recorded_at', { ascending: false });
+      .gte('taken_at', startTime)
+      .order('taken_at', { ascending: false })
+      .limit(200);
+    if (error) throw new Error(error.message);
 
-    return { sensor_data: data || [] };
+    return { sensor_data: data || [], source: 'condition_readings' };
+  }
+
+  if (queryType === 'alert_history') {
+    const lookbackDays = Number(config.lookback_days) > 0 ? Number(config.lookback_days) : 7;
+    const since = new Date(Date.now() - lookbackDays * 24 * 60 * 60 * 1000).toISOString();
+    let assetId = triggerData.asset_id;
+    if (!assetId && triggerData.alert_id) {
+      const { data: alert, error } = await supabase
+        .from('condition_alerts')
+        .select('asset_id, organization_id')
+        .eq('id', triggerData.alert_id)
+        .eq('organization_id', callerOrg)
+        .maybeSingle();
+      if (error) throw new Error(error.message);
+      if (!alert?.asset_id) throw new Error('alert not found');
+      assetId = alert.asset_id;
+    }
+    if (!assetId) throw new Error('asset_id or alert_id required for alert_history');
+    await requireAssetOrg(supabase, assetId, callerOrg);
+    const { data, error } = await supabase
+      .from('condition_alerts')
+      .select('id, asset_id, sensor_id, severity, triggered_value, limit_value, triggered_at, cleared_at, work_order_id')
+      .eq('organization_id', callerOrg)
+      .eq('asset_id', assetId)
+      .gte('triggered_at', since)
+      .order('triggered_at', { ascending: false })
+      .limit(100);
+    if (error) throw new Error(error.message);
+    return { alerts: data || [], source: 'condition_alerts', lookback_days: lookbackDays };
+  }
+
+  if (queryType === 'material_demand') {
+    const workOrderId = triggerData.work_order_id;
+    if (!workOrderId) throw new Error('work_order_id required for material_demand');
+    const { data: order, error: orderError } = await supabase
+      .from('work_orders')
+      .select('id, organization_id, asset_id')
+      .eq('id', workOrderId)
+      .maybeSingle();
+    if (orderError) throw new Error(orderError.message);
+    if (!order || order.organization_id !== callerOrg) throw new Error('work order not found');
+    const { data: lines, error } = await supabase
+      .from('work_order_materials')
+      .select('id, material_id, qty_required, qty_reserved, qty_issued, status, materials(material_code, description)')
+      .eq('organization_id', order.organization_id)
+      .eq('work_order_id', workOrderId);
+    if (error) throw new Error(error.message);
+    const materialIds = (lines || []).map((line: { material_id: string }) => line.material_id);
+    let stock: unknown[] = [];
+    if (materialIds.length > 0) {
+      const { data: stockRows, error: stockError } = await supabase
+        .from('material_stock')
+        .select('material_id, site_id, qty_on_hand, qty_reserved, qty_on_order')
+        .eq('organization_id', order.organization_id)
+        .in('material_id', materialIds);
+      if (stockError) throw new Error(stockError.message);
+      stock = stockRows || [];
+    }
+    let lots: unknown[] = [];
+    if (materialIds.length > 0) {
+      const { data: lotRows, error: lotError } = await supabase
+        .from('material_stock_lots')
+        .select('material_id, lot_ref, qty, condition, certification_status')
+        .eq('organization_id', order.organization_id)
+        .in('material_id', materialIds);
+      if (lotError) throw new Error(lotError.message);
+      lots = lotRows || [];
+    }
+    return {
+      demand: lines || [],
+      stock,
+      lots,
+      source: 'work_order_materials',
+    };
   }
 
   if (queryType === 'alert_details') {
@@ -306,10 +411,28 @@ async function executeQuery(supabase: any, config: any, triggerData: any) {
     return { work_orders: data || [] };
   }
 
-  return { query_type: queryType, message: 'Query executed' };
+  // Previously this returned message "Query executed" for every unknown
+  // type, including ones that read nothing. That claim is retired.
+  return {
+    query_type: queryType,
+    executed: false,
+    reason: 'not_implemented',
+    message: 'This runbook query is not implemented. Nothing was read.',
+  };
 }
 
-async function executeAction(supabase: any, config: any, triggerData: any) {
+async function requireAssetOrg(supabase: any, assetId: string, callerOrg: string) {
+  const { data, error } = await supabase
+    .from('assets')
+    .select('id, organization_id')
+    .eq('id', assetId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data?.organization_id || data.organization_id !== callerOrg) throw new Error('asset not found');
+  return data as { id: string; organization_id: string };
+}
+
+async function executeAction(supabase: any, config: any, triggerData: any, callerOrg: string) {
   const actionType = config.action_type;
 
   if (actionType === 'create_work_order') {
@@ -347,20 +470,86 @@ async function executeAction(supabase: any, config: any, triggerData: any) {
   }
 
   if (actionType === 'store_evidence') {
-    // Same class as ai_analysis above: it reported `stored: true` for evidence
-    // it never wrote anywhere. A step that stores nothing does not report a
-    // successful store — evidence provenance is the one thing that must not be
-    // asserted on faith.
-    return {
-      action: 'store_evidence',
-      evidence_types: config.include,
-      executed: false,
-      reason: 'not_implemented',
-      detail: 'Runbook evidence capture is not implemented. Nothing was stored.'
-    };
+    return await storeRunbookEvidence(supabase, config, triggerData, callerOrg);
   }
 
-  return { action: actionType, executed: true };
+  return {
+    action: actionType,
+    executed: false,
+    reason: 'not_implemented',
+    detail: 'This runbook action is not implemented. Nothing was changed.',
+  };
+}
+
+async function storeRunbookEvidence(supabase: any, config: any, triggerData: any, callerOrg: string) {
+  const assetId = triggerData?.asset_id;
+  if (!assetId) {
+    throw new Error('asset_id required to store evidence. Nothing was stored.');
+  }
+  const asset = await requireAssetOrg(supabase, assetId, callerOrg);
+  const include = Array.isArray(config?.include) ? config.include.map(String) : [];
+  const wantsSensors = include.length === 0 || include.includes('sensor_data');
+  let readings: Array<Record<string, unknown>> = [];
+  if (wantsSensors) {
+    const { data, error } = await supabase
+      .from('condition_readings')
+      .select('id, value, quality, taken_at, source_system, sensors(name, unit)')
+      .eq('organization_id', asset.organization_id)
+      .eq('asset_id', assetId)
+      .order('taken_at', { ascending: false })
+      .limit(20);
+    if (error) throw new Error(error.message);
+    readings = data || [];
+  }
+
+  const lines = [
+    'Runbook evidence capture. Unverified. This row cites records already stored; it does not add a measurement.',
+  ];
+  if (wantsSensors) {
+    lines.push(
+      readings.length === 0
+        ? 'Condition readings: none on file for this asset.'
+        : `Condition readings cited: ${readings.length}. Newest taken_at ${String(readings[0].taken_at)}.`,
+    );
+    for (const reading of readings.slice(0, 10)) {
+      const sensor = Array.isArray(reading.sensors) ? reading.sensors[0] : reading.sensors;
+      const name = sensor && typeof sensor === 'object' ? String((sensor as { name?: string }).name ?? 'sensor') : 'sensor';
+      const unit = sensor && typeof sensor === 'object' ? String((sensor as { unit?: string }).unit ?? '') : '';
+      lines.push(
+        `${name}: ${reading.value}${unit ? ' ' + unit : ''} quality ${reading.quality} at ${reading.taken_at}` +
+          (reading.source_system ? ` source ${reading.source_system}` : ''),
+      );
+    }
+  }
+  if (include.includes('ai_analysis')) {
+    lines.push('AI analysis was not performed. No root cause and no confidence are recorded.');
+  }
+  if (include.includes('timeline')) {
+    lines.push('No separate timeline was reconstructed. The cited reading timestamps are the history.');
+  }
+
+  const { data, error } = await supabase
+    .from('evidence_items')
+    .insert({
+      organization_id: asset.organization_id,
+      asset_id: assetId,
+      source_system: 'runbook-executor',
+      evidence_type: 'condition_history',
+      evidence_class: readings.length > 0 ? 'MEASURED' : 'HISTORICAL',
+      description: lines.join('\n').slice(0, 4000),
+      data_quality: 'unknown',
+      confidence_contribution: 0,
+    })
+    .select('id')
+    .single();
+  if (error) throw new Error(error.message);
+  return {
+    action: 'store_evidence',
+    executed: true,
+    evidence_item_id: data?.id ?? null,
+    readings_cited: readings.length,
+    verification_status: 'unverified',
+  };
 }
 
 async function executeNotification(supabase: any, config: any, triggerData: any) {

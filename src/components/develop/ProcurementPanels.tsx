@@ -25,6 +25,8 @@ import type { ReactNode } from "react";
 import { Package } from "lucide-react";
 
 import { CommercialPanel } from "./CommercialPanels";
+import { ContractStrategyAgentPanel } from "./ContractStrategyAgentPanel";
+import type { WorkspaceEvidence } from "../../lib/develop";
 
 import {
   BID_EVALUATION_KINDS,
@@ -45,6 +47,7 @@ import {
   awardContract,
   computeCaseProcurementPosition,
   getCaseProcurement,
+  getPackageContractorIntelligence,
   getPackageTender,
   invitePackageBidder,
   listCaseCostItemRefs,
@@ -60,6 +63,7 @@ import {
   submitSealedBid,
   withdrawSealedBid,
   type CaseProcurement,
+  type PackageContractorIntelligence,
   type PackageTender,
   type ProcurementPackageRow,
 } from "../../services/developService";
@@ -68,6 +72,14 @@ const inputClass =
   "w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-signal-cyan/50 focus:outline-none";
 const btnClass =
   "rounded-lg bg-signal-cyan/15 px-3 py-1.5 text-xs font-semibold text-signal-cyan hover:bg-signal-cyan/25 disabled:opacity-40";
+
+const contractorDimensionLabels = [
+  ["scheduleReliability", "Schedule reliability"],
+  ["ncrRate", "NCR rate"],
+  ["engineeringResponse", "Engineering response"],
+  ["reworkRate", "Rework rate"],
+  ["warrantyClaims", "Warranty claims"],
+] as const;
 
 function Section({
   icon,
@@ -359,6 +371,8 @@ function TenderPanel({
   onChanged: () => void;
 }) {
   const [tender, setTender] = useState<PackageTender | null>(null);
+  const [contractorIntelligence, setContractorIntelligence] =
+    useState<PackageContractorIntelligence | null>(null);
   const [suppliers, setSuppliers] = useState<
     { id: number; name: string; supplierCode: string }[]
   >([]);
@@ -397,12 +411,14 @@ function TenderPanel({
 
   const load = useCallback(async () => {
     try {
-      const [t, s] = await Promise.all([
+      const [t, s, ci] = await Promise.all([
         getPackageTender(pkg.packageId),
         listOrgSuppliers(),
+        getPackageContractorIntelligence(pkg.packageId),
       ]);
       setTender(t);
       setSuppliers(s);
+      setContractorIntelligence(ci);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
@@ -721,6 +737,70 @@ function TenderPanel({
           >
             Open the bids
           </button>
+        </div>
+      )}
+
+      {/* D6.02 — historical evidence appears only after the open act. The
+          server returns five independent dimensions, never a blended vendor
+          score or recommendation. A missing denominator stays a refusal. */}
+      {contractorIntelligence && (
+        <div className="space-y-2 rounded border border-signal-cyan/20 bg-signal-cyan/[0.03] p-2.5">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-signal-cyan">
+            Cross-project contractor evidence — five dimensions
+          </div>
+          {!contractorIntelligence.answered ? (
+            <Refusal text={contractorIntelligence.refusal} />
+          ) : contractorIntelligence.suppliers.length === 0 ? (
+            <Refusal text="No live opened bid has a contractor evidence record to display. This is not evidence that contractor performance is acceptable." />
+          ) : (
+            contractorIntelligence.suppliers.map((supplier) => (
+              <div
+                key={supplier.bidId}
+                className="rounded border border-white/8 bg-black/10 p-2"
+              >
+                <div className="text-xs font-semibold text-slate-100">
+                  {supplier.supplier} ({supplier.supplierCode})
+                </div>
+                <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-5">
+                  {contractorDimensionLabels.map(([key, label]) => {
+                    const dimension = supplier.evidence.dimensions[key];
+                    return (
+                      <div
+                        key={key}
+                        className="rounded border border-white/6 bg-white/[0.02] p-2 text-[11px] text-slate-300"
+                      >
+                        <div className="font-semibold text-slate-100">
+                          {label}
+                        </div>
+                        {dimension.answered ? (
+                          <>
+                            <div className="mt-1 text-sm text-signal-cyan">
+                              {dimension.value?.toLocaleString() ?? "—"}{" "}
+                              {dimension.unit}
+                            </div>
+                            <div className="mt-1 text-slate-500">
+                              {dimension.numerator?.toLocaleString() ?? "—"} /{" "}
+                              {dimension.denominator?.toLocaleString() ?? "—"} ·{" "}
+                              {dimension.projectCount} project(s)
+                            </div>
+                          </>
+                        ) : (
+                          <Refusal text={dimension.refusal} />
+                        )}
+                        <div className="mt-1 text-slate-500">
+                          {dimension.formula}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))
+          )}
+          <p className="text-[11px] text-slate-500">
+            {contractorIntelligence.basis ??
+              "Historical evidence only. A named evaluator remains accountable for the technical and commercial judgement, and a named authority remains accountable for award."}
+          </p>
         </div>
       )}
 
@@ -1061,6 +1141,7 @@ export function ProcurementPanel({
   canPlan,
   canAward,
   currentUserEmail,
+  evidence = [],
   reloadKey,
 }: {
   caseId: string;
@@ -1068,6 +1149,7 @@ export function ProcurementPanel({
   canAward: boolean;
   /** The signed-in person's email, for the separation-of-duties pre-empt. */
   currentUserEmail?: string | null;
+  evidence?: WorkspaceEvidence[];
   reloadKey?: number;
 }) {
   const [payload, setPayload] = useState<CaseProcurement | null>(null);
@@ -1156,6 +1238,12 @@ export function ProcurementPanel({
       subtitle="A package carries all four §25 status dimensions; a mandatory long-lead package that cannot arrive when the project needs it BLOCKS the gate through the same predicate a breached permit condition rides. Bids are sealed until the envelopes are opened, an evaluation is frozen once recorded, and the person who evaluates cannot be the person who awards — enforced at the database, not on this screen."
     >
       <ErrorLine error={error} />
+
+      <ContractStrategyAgentPanel
+        caseId={caseId}
+        evidence={evidence}
+        canPlan={canPlan}
+      />
 
       {payload && !payload.answered && <Refusal text={payload.refusal} />}
       {payload?.assessabilityNote && (
@@ -1344,6 +1432,7 @@ export function ProcurementPanel({
                     packageId={p.packageId}
                     canPlan={canPlan}
                     canApprove={canAward}
+                    evidence={evidence}
                     onChanged={() => void load()}
                   />
                 </div>

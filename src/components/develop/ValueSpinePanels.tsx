@@ -33,6 +33,7 @@ import type { ReactNode } from "react";
 import {
   SUCCESS_DIMENSIONS,
   type CaseFinanceModel,
+  type CaseOperationalDisruption,
   type CaseOptionComparison,
   type CaseValueTrajectory,
   type CaseWorkspace,
@@ -45,6 +46,7 @@ import {
   createCaseBusinessCase,
   draftSuccessContract,
   getCaseFinanceModel,
+  getCaseOperationalDisruption,
   getCaseOptionComparison,
   getCaseValueTrajectory,
   getSinceSanctionDelta,
@@ -63,6 +65,7 @@ import {
   type OrgMember,
 } from "../../services/developService";
 import { ConceptSelectionPanel } from "./ConceptSelectionPanel";
+import { OperationalDisruptionPanel } from "./OperationalDisruptionPanel";
 
 const inputClass =
   "w-full rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-signal-cyan/50 focus:outline-none";
@@ -468,6 +471,8 @@ export function BusinessCaseSection({
 }) {
   const [model, setModel] = useState<CaseFinanceModel | null>(null);
   const [comparison, setComparison] = useState<CaseOptionComparison | null>(null);
+  const [operationalDisruption, setOperationalDisruption] =
+    useState<CaseOperationalDisruption | null>(null);
   const [trajectory, setTrajectory] = useState<CaseValueTrajectory | null>(
     null,
   );
@@ -478,14 +483,16 @@ export function BusinessCaseSection({
 
   const load = useCallback(async () => {
     try {
-      const [m, optionComparison, t, d] = await Promise.all([
+      const [m, optionComparison, disruption, t, d] = await Promise.all([
         getCaseFinanceModel(workspace.id),
         getCaseOptionComparison(workspace.id),
+        getCaseOperationalDisruption(workspace.id),
         getCaseValueTrajectory(workspace.id),
         getSinceSanctionDelta(workspace.id),
       ]);
       setModel(m);
       setComparison(optionComparison);
+      setOperationalDisruption(disruption);
       setTrajectory(t);
       setDelta(d);
     } catch (e) {
@@ -591,6 +598,13 @@ export function BusinessCaseSection({
             evidence={workspace.evidence}
             canPlan={canPlan}
             canReview={canReview}
+            busy={busy}
+            run={run}
+          />
+          <OperationalDisruptionPanel
+            model={operationalDisruption}
+            evidence={workspace.evidence}
+            canPlan={canPlan}
             busy={busy}
             run={run}
           />

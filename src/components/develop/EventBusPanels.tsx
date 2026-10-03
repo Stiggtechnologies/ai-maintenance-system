@@ -12,8 +12,8 @@
  *   D12.13  the RAM kernel scoped to this case's asset set. Every figure is
  *           the shipped kernel's; every leg that could not be computed is
  *           named rather than omitted.
- *   D11.09  the Sync Information module, composed — with the leg it does not
- *           have named and NO composite score over the ones it does.
+ *   D11.09  the Sync Information module, composed from the canonical thread,
+ *           documentation and §47 readiness reads, with NO composite score.
  *
  * THE SURFACE CONVENTION, unchanged from 5A/5B/5C: a REFUSAL is an answer and
  * is rendered as prose, never as an error and never as a zero.
@@ -529,7 +529,7 @@ export function CaseRamPanel({
     <Section
       icon={<Activity className="h-4 w-4 text-signal-cyan" />}
       title="RAM for this case (spec §63)"
-      subtitle="The shipped reliability kernel, scoped to the assets bound to this case and the availability targets recorded on its capital project. No arithmetic is re-implemented here, and every leg that cannot be computed is named."
+      subtitle="The shipped kernel composes Weibull, observed availability, Crow–AMSAA growth and the confirmed case RBD, beside existing FMEA and PM-strategy rows. Every denominator, topology gap and human decision boundary is named."
     >
       <ErrorLine error={error} />
       {canPlan && (
@@ -589,6 +589,14 @@ interface EngineLeg {
   built: boolean;
   reason?: string;
   registerRows?: string[];
+  project?: {
+    index?: number | null;
+    status?: string;
+    accepted?: number;
+    required?: number;
+    hardBlockerCount?: number;
+  };
+  decisionBoundary?: string;
 }
 
 export function InformationEnginePanel({
@@ -602,14 +610,18 @@ export function InformationEnginePanel({
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
+    setEngine(null);
+    setError(null);
     void (async () => {
       try {
-        setEngine(await getCaseInformationEngine(caseId));
-        setError(null);
+        const result = await getCaseInformationEngine(caseId);
+        if (active) setEngine(result);
       } catch (e) {
-        setError(e instanceof Error ? e.message : String(e));
+        if (active) setError(e instanceof Error ? e.message : String(e));
       }
     })();
+    return () => { active = false; };
   }, [caseId, reloadKey]);
 
   const legs = (engine?.legs ?? {}) as Record<string, EngineLeg>;
@@ -620,9 +632,10 @@ export function InformationEnginePanel({
     <Section
       icon={<Library className="h-4 w-4 text-signal-cyan" />}
       title="Sync Information (module)"
-      subtitle="Digital thread, documentation, asset-data readiness — composed from the reads that exist. There is deliberately NO composite score: averaging the legs that are built over the one that is not is how a partial module reads as a finished one."
+      subtitle="Digital thread, controlled documentation and the governed §47 Information Readiness Index. There is deliberately no composite score: unlike evidence states are not averaged into false precision."
     >
       <ErrorLine error={error} />
+      {!engine && !error && <p role="status">Loading information evidence…</p>}
       {engine && (
         <>
           <p className="text-xs text-slate-300">{String(engine.headline)}</p>
@@ -635,15 +648,24 @@ export function InformationEnginePanel({
                 {key}: {leg.built ? "built" : "NOT BUILT"}
                 {leg.reason ? ` — ${leg.reason}` : ""}
                 {leg.registerRows ? ` (${leg.registerRows.join(", ")})` : ""}
+                {leg.project
+                  ? ` — ${leg.project.status?.replaceAll("_", " ") ?? "status unavailable"}; ${leg.project.index == null ? "not assessed" : `${leg.project.index}%`}; ${leg.project.accepted ?? 0}/${leg.project.required ?? 0} accepted; ${leg.project.hardBlockerCount ?? 0} hard blocker(s)`
+                  : ""}
               </p>
             ))}
           </div>
-          {typeof graph.absentEdgeCount === "number" && (
+          {legs.assetDataReadiness?.decisionBoundary && (
             <p className="text-[11px] text-slate-500">
-              §34: {graph.absentEdgeCount} of nineteen relationships are absent
-              because an endpoint object is unbuilt.
+              {legs.assetDataReadiness.decisionBoundary}
             </p>
           )}
+          {typeof graph.absentEdgeCount === "number" &&
+            graph.absentEdgeCount > 0 && (
+              <p className="text-[11px] text-slate-500">
+                §34: {graph.absentEdgeCount} of nineteen relationships are
+                absent because an endpoint object is unbuilt.
+              </p>
+            )}
           {refusals.map((r, i) => (
             <Refusal key={i} text={r} />
           ))}

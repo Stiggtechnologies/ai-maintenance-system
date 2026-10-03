@@ -11,6 +11,7 @@
  * This file is retained for backward compatibility with useDashboardData hooks.
  */
 import { supabase } from "../lib/supabase";
+import { listRecentConditionReadings } from "./conditionStateService";
 
 export interface KPI {
   kpi_id: string;
@@ -211,15 +212,14 @@ export async function getPendingDecisions(
   return data || [];
 }
 
+/**
+ * Recent condition history from `condition_readings` (historian / import /
+ * manual entry). The previous read ordered `asset_health_monitoring` by
+ * `recorded_at`, a column the live table does not have, so the call failed
+ * closed. This does not invent a health score from those rows.
+ */
 export async function getAssetHealthMetrics() {
-  const { data, error } = await supabase
-    .from("asset_health_monitoring")
-    .select("*")
-    .order("recorded_at", { ascending: false })
-    .limit(100);
-
-  if (error) throw error;
-  return data || [];
+  return listRecentConditionReadings(100);
 }
 
 export async function getKPIMeasurements(kpiId: string, days: number = 30) {

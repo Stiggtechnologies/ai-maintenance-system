@@ -10,6 +10,9 @@ import {
 import { EnterprisePortfolioOptimizationPanel } from "../components/EnterprisePortfolioOptimizationPanel";
 import { ProjectAssurancePanel } from "../components/ProjectAssurancePanel";
 import { ProgramPortfolioPanel } from "../components/develop/ProgramPortfolioPanel";
+import { ScopeCreepDetectionPanel } from "../components/develop/ScopeCreepDetectionPanel";
+import { ProjectControlsAgentPanel } from "../components/develop/ProjectControlsAgentPanel";
+import { SyncPmoWorkspacePanel } from "../components/develop/SyncPmoWorkspacePanel";
 
 function number(value: number | null, suffix = ""): string {
   return value == null
@@ -84,13 +87,22 @@ export function DevelopmentPortfolioPage() {
         </p>
       </header>
 
+      <SyncPmoWorkspacePanel rows={data.rows} />
+
+      <ScopeCreepDetectionPanel />
+
+      <ProjectControlsAgentPanel />
+
       <EnterprisePortfolioOptimizationPanel />
 
       <ProgramPortfolioPanel portfolioRows={data.rows} />
 
       <ProjectAssurancePanel />
 
-      <div className="overflow-x-auto rounded-xl border border-white/8">
+      <div
+        id="portfolio-health"
+        className="overflow-x-auto rounded-xl border border-white/8"
+      >
         <table className="min-w-[118rem] text-left text-xs">
           <thead className="border-b border-white/8 bg-white/[0.03] uppercase tracking-wide text-slate-400">
             <tr>

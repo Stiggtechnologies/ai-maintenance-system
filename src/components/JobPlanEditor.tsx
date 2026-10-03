@@ -2,34 +2,34 @@
  * JobPlanEditor — draft authoring form for C8.07.
  *
  * Saving writes a draft through upsert_job_plan. It does not authorize work.
- * Adoption is a separate named-human act on the library.
+ * An unresolved material code refuses that save; the draft is not written
+ * and no catalogue row is created. Adoption is a separate named-human act
+ * on the library.
  */
 import type { ReactNode } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import type {
+  DocumentOption,
   JobPlanDraft,
   JobPlanMaterialLine,
   MaterialOption,
 } from "../services/jobPlanService";
 import {
   emptyCheck,
+  emptyDocument,
   emptyMaterial,
   emptyPermit,
   emptyStep,
   emptyTool,
+  unresolvedMaterialCodes,
+  unresolvedMaterialRefusalMessage,
 } from "../services/jobPlanService";
 
 const fieldClass =
   "w-full rounded-lg border border-white/10 bg-industrial-black px-3 py-2 text-sm text-slate-200 placeholder:text-slate-600";
 const labelClass = "mb-1 block text-xs font-medium text-slate-400";
 
-function Field({
-  label,
-  children,
-}: {
-  label: string;
-  children: ReactNode;
-}) {
+function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
     <label className="block">
       <span className={labelClass}>{label}</span>
@@ -41,21 +41,28 @@ function Field({
 export function JobPlanEditor({
   draft,
   catalogue,
+  documents,
   busy,
   planKeyLocked,
+  revising = false,
   onChange,
   onCancel,
   onSave,
 }: {
   draft: JobPlanDraft;
   catalogue: MaterialOption[];
+  documents: DocumentOption[];
   busy: boolean;
   planKeyLocked: boolean;
+  /** True when this save must insert the next version rather than edit the adopted row. */
+  revising?: boolean;
   onChange: (next: JobPlanDraft) => void;
   onCancel: () => void;
   onSave: () => void;
 }) {
-  const set = (patch: Partial<JobPlanDraft>) => onChange({ ...draft, ...patch });
+  const set = (patch: Partial<JobPlanDraft>) =>
+    onChange({ ...draft, ...patch });
+  const unresolved = unresolvedMaterialCodes(draft.materials, catalogue);
 
   const saveDisabled =
     busy ||
@@ -73,10 +80,26 @@ export function JobPlanEditor({
       }}
     >
       <p className="text-xs text-slate-500">
-        Saving writes a draft. A draft has no execution authority. Adoption is
-        a named-human act and is refused without at least one step and one
-        quality check that states an acceptance criterion.
+        Saving writes a draft. A draft has no execution authority. Adoption is a
+        named-human act and is refused without at least one step and one quality
+        check that states an acceptance criterion. A material code that is not
+        in the catalogue refuses the save; nothing is written.
       </p>
+      {revising && (
+        <p
+          data-testid="job-plan-revision"
+          className="text-xs text-amber-200/90"
+        >
+          This save writes the next version as a draft. The adopted plan stays
+          the one that may be applied until a named person adopts this draft.
+          The adopted row is not edited.
+        </p>
+      )}
+      {unresolved.length > 0 && (
+        <p role="alert" className="text-sm text-red-300">
+          {unresolvedMaterialRefusalMessage(unresolved)}
+        </p>
+      )}
 
       <div className="grid gap-3 md:grid-cols-2">
         <Field label="Plan key *">
@@ -221,8 +244,8 @@ export function JobPlanEditor({
         title="Materials"
         hint={
           catalogue.length === 0
-            ? "The materials catalogue is empty. Lines whose code does not resolve are dropped by the database — none can be attached until a catalogue exists."
-            : "Only catalogue codes are sent. The database silently drops any other code; this form will not offer one."
+            ? "The materials catalogue is empty, so a material line cannot be saved. This form does not invent catalogue rows."
+            : "Only catalogue codes can be saved. An unresolved code refuses the whole draft; the database does not drop the line and does not create a catalogue row."
         }
         onAdd={
           catalogue.length === 0
@@ -257,7 +280,10 @@ export function JobPlanEditor({
         addLabel="Add tool"
       >
         {draft.tools.map((tool, i) => (
-          <div key={`tool-${i}`} className="grid gap-2 md:grid-cols-[1fr_1fr_2rem]">
+          <div
+            key={`tool-${i}`}
+            className="grid gap-2 md:grid-cols-[1fr_1fr_2rem]"
+          >
             <input
               aria-label={`Tool ${i + 1}`}
               value={tool.tool}
@@ -344,6 +370,76 @@ export function JobPlanEditor({
               label={`Remove permit ${i + 1}`}
               onClick={() =>
                 set({ permits: draft.permits.filter((_, j) => j !== i) })
+              }
+            />
+          </div>
+        ))}
+      </LineSection>
+
+      <LineSection
+        title="Controlled documents"
+        hint={
+          documents.length === 0
+            ? "No indexed tenant documents are available. The plan may still be saved as a draft, but document readiness remains open."
+            : "Link only current documents already indexed in this tenant. State why each procedure, drawing, manual or standard controls the work."
+        }
+        onAdd={
+          documents.length === 0
+            ? undefined
+            : () => set({ documents: [...draft.documents, emptyDocument()] })
+        }
+        addLabel="Link document"
+      >
+        {draft.documents.map((line, i) => (
+          <div
+            key={`document-${i}`}
+            className="grid gap-2 md:grid-cols-[1fr_1fr_2rem]"
+          >
+            <select
+              aria-label={`Document ${i + 1}`}
+              value={line.document_id}
+              onChange={(e) => {
+                const picked = documents.find((d) => d.id === e.target.value);
+                const next = [...draft.documents];
+                next[i] = {
+                  ...line,
+                  document_id: e.target.value,
+                  title: picked?.title ?? "",
+                };
+                set({ documents: next });
+              }}
+              className={fieldClass}
+            >
+              <option value="">Select indexed document…</option>
+              {line.document_id &&
+                !documents.some((d) => d.id === line.document_id) && (
+                  <option value={line.document_id}>
+                    {line.title || line.document_id} (unavailable)
+                  </option>
+                )}
+              {documents.map((document) => (
+                <option key={document.id} value={document.id}>
+                  {document.title} · {document.document_class}
+                </option>
+              ))}
+            </select>
+            <input
+              aria-label={`Document ${i + 1} purpose`}
+              value={line.purpose}
+              onChange={(e) => {
+                const next = [...draft.documents];
+                next[i] = { ...line, purpose: e.target.value };
+                set({ documents: next });
+              }}
+              placeholder="Why this document controls the work"
+              className={fieldClass}
+            />
+            <IconButton
+              label={`Remove document ${i + 1}`}
+              onClick={() =>
+                set({
+                  documents: draft.documents.filter((_, j) => j !== i),
+                })
               }
             />
           </div>
@@ -483,7 +579,9 @@ function MaterialRow({
         aria-label={`Material ${index + 1} code`}
         value={line.material_code}
         onChange={(e) => {
-          const picked = catalogue.find((m) => m.material_code === e.target.value);
+          const picked = catalogue.find(
+            (m) => m.material_code === e.target.value,
+          );
           onChange({
             ...line,
             material_code: e.target.value,
@@ -493,6 +591,12 @@ function MaterialRow({
         className={fieldClass}
       >
         <option value="">Select catalogue code…</option>
+        {line.material_code &&
+          !catalogue.some((m) => m.material_code === line.material_code) && (
+            <option value={line.material_code}>
+              {line.material_code} (not in catalogue)
+            </option>
+          )}
         {catalogue.map((m) => (
           <option key={m.id} value={m.material_code}>
             {m.material_code}

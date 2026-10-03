@@ -1,0 +1,333 @@
+name: Deploy Azure Edition foundation
+
+on:
+  workflow_dispatch:
+    inputs:
+      resourceGroup:
+        description: Azure resource group for the production stamp
+        required: true
+        default: rg-syncai-production
+        type: string
+      location:
+        description: Azure region approved for the production stamp
+        required: true
+        default: canadacentral
+        type: string
+      aiLocation:
+        description: Azure OpenAI region approved for the intelligence workload
+        required: true
+        default: canadacentral
+        type: string
+      openAiModelName:
+        description: Authorized Azure OpenAI model name available in the selected region
+        required: true
+        default: gpt-4o-mini
+        type: string
+      openAiModelVersion:
+        description: Exact authorized Azure OpenAI model version
+        required: true
+        default: 2024-07-18
+        type: string
+      openAiDeploymentSku:
+        description: Azure OpenAI deployment SKU (Standard preserves regional processing; GlobalStandard requires separate approval)
+        required: true
+        default: Standard
+        type: choice
+        options:
+          - Standard
+          - GlobalStandard
+      appUrl:
+        description: Public application URL compiled into the web bundle
+        required: true
+        default: https://app.syncai.ca
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: azure-edition-production
+  cancel-in-progress: false
+
+jobs:
+  authorize-release:
+    name: Authorize protected main release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Refuse a non-main production release
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "$GITHUB_REF" != 'refs/heads/main' ]; then
+            echo "::error title=Unmerged Azure release refused::Azure production deploys only from protected main; selected ref was ${GITHUB_REF}."
+            exit 1
+          fi
+
+  deploy:
+    name: Build, deploy, and prove Azure web and intelligence planes
+    needs: authorize-release
+    runs-on: ubuntu-latest
+    environment: azure-production
+    env:
+      AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      AZURE_DEPLOYMENT_PRINCIPAL_OBJECT_ID: ${{ secrets.AZURE_DEPLOYMENT_PRINCIPAL_OBJECT_ID }}
+      VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      ENRICH_SHARED_SECRET: ${{ secrets.ENRICH_SHARED_SECRET }}
+      RESOURCE_GROUP: ${{ inputs.resourceGroup }}
+      LOCATION: ${{ inputs.location }}
+      AI_LOCATION: ${{ inputs.aiLocation }}
+      OPENAI_MODEL_NAME: ${{ inputs.openAiModelName }}
+      OPENAI_MODEL_VERSION: ${{ inputs.openAiModelVersion }}
+      OPENAI_DEPLOYMENT_SKU: ${{ inputs.openAiDeploymentSku }}
+      APP_URL: ${{ inputs.appUrl }}
+      DEPLOYMENT_NAME: syncai-azure-${{ github.run_id }}-${{ github.run_attempt }}
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Refuse an unconfigured release
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=()
+          for name in AZURE_CLIENT_ID AZURE_TENANT_ID AZURE_SUBSCRIPTION_ID AZURE_DEPLOYMENT_PRINCIPAL_OBJECT_ID VITE_SUPABASE_URL VITE_SUPABASE_PUBLISHABLE_KEY SUPABASE_SERVICE_ROLE_KEY ENRICH_SHARED_SECRET; do
+            if [ -z "${!name:-}" ]; then missing+=("$name"); fi
+          done
+          if [ "${#missing[@]}" -ne 0 ]; then
+            echo "::error title=Azure deployment prerequisites are missing::Configure the azure-production environment secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Refuse malformed deployment inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          uuid='^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+          [[ "$AZURE_CLIENT_ID" =~ $uuid ]] || { echo '::error title=Invalid Azure client ID::Expected a UUID.'; exit 1; }
+          [[ "$AZURE_TENANT_ID" =~ $uuid ]] || { echo '::error title=Invalid Azure tenant ID::Expected a UUID.'; exit 1; }
+          [[ "$AZURE_SUBSCRIPTION_ID" =~ $uuid ]] || { echo '::error title=Invalid Azure subscription ID::Expected a UUID.'; exit 1; }
+          [[ "$AZURE_DEPLOYMENT_PRINCIPAL_OBJECT_ID" =~ $uuid ]] || { echo '::error title=Invalid deployment principal object ID::Expected a UUID.'; exit 1; }
+          [[ "$RESOURCE_GROUP" =~ ^[A-Za-z0-9._()-]{1,90}$ ]] || { echo '::error title=Invalid resource group::Use only Azure resource-group name characters.'; exit 1; }
+          [[ "$LOCATION" =~ ^[a-z0-9]{2,32}$ ]] || { echo '::error title=Invalid Azure region::Use the canonical lowercase Azure region name.'; exit 1; }
+          [[ "$AI_LOCATION" =~ ^[a-z0-9]{2,32}$ ]] || { echo '::error title=Invalid Azure AI region::Use the canonical lowercase Azure region name.'; exit 1; }
+          [[ "$OPENAI_MODEL_NAME" =~ ^[A-Za-z0-9._-]{1,80}$ ]] || { echo '::error title=Invalid model name::Model input contains unsupported characters.'; exit 1; }
+          [[ "$OPENAI_MODEL_VERSION" =~ ^[A-Za-z0-9._-]{1,80}$ ]] || { echo '::error title=Invalid model version::Model input contains unsupported characters.'; exit 1; }
+          [[ "$APP_URL" =~ ^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?(/.*)?$ ]] || { echo '::error title=Invalid application URL::Azure production requires an HTTPS application URL.'; exit 1; }
+
+      - name: Sign in to Azure with GitHub OIDC
+        uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Create or converge the resource group
+        shell: bash
+        run: |
+          set -euo pipefail
+          az group create --name "$RESOURCE_GROUP" --location "$LOCATION" --tags product=SyncAI edition=azure environment=production >/dev/null
+
+      - name: Deploy the Azure foundation
+        id: foundation
+        shell: bash
+        run: |
+          set -euo pipefail
+          az deployment group create \
+            --name "${DEPLOYMENT_NAME}-foundation" \
+            --resource-group "$RESOURCE_GROUP" \
+            --template-file infra/azure/foundation.bicep \
+            --parameters prefix=syncai environmentName=production location="$LOCATION" deploymentPrincipalObjectId="$AZURE_DEPLOYMENT_PRINCIPAL_OBJECT_ID" \
+            --only-show-errors >/dev/null
+
+          deployment="${DEPLOYMENT_NAME}-foundation"
+          echo "registry=$(az deployment group show --resource-group "$RESOURCE_GROUP" --name "$deployment" --query properties.outputs.registryName.value -o tsv)" >> "$GITHUB_OUTPUT"
+          echo "environment=$(az deployment group show --resource-group "$RESOURCE_GROUP" --name "$deployment" --query properties.outputs.containerEnvironmentName.value -o tsv)" >> "$GITHUB_OUTPUT"
+          echo "identity=$(az deployment group show --resource-group "$RESOURCE_GROUP" --name "$deployment" --query properties.outputs.workloadIdentityName.value -o tsv)" >> "$GITHUB_OUTPUT"
+          echo "vault=$(az deployment group show --resource-group "$RESOURCE_GROUP" --name "$deployment" --query properties.outputs.keyVaultName.value -o tsv)" >> "$GITHUB_OUTPUT"
+
+      - name: Build the immutable web image in Azure Container Registry
+        id: image
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_SHA}"
+          image="syncai-web:${tag}"
+          az acr build \
+            --registry "${{ steps.foundation.outputs.registry }}" \
+            --image "$image" \
+            --build-arg VITE_SUPABASE_URL="$VITE_SUPABASE_URL" \
+            --build-arg VITE_SUPABASE_PUBLISHABLE_KEY="$VITE_SUPABASE_PUBLISHABLE_KEY" \
+            --build-arg VITE_APP_URL="$APP_URL" \
+            --build-arg VITE_ENVIRONMENT=production \
+            --file Dockerfile . \
+            --only-show-errors >/dev/null
+          digest=$(az acr repository show --name "${{ steps.foundation.outputs.registry }}" --image "$image" --query digest -o tsv)
+          test -n "$digest"
+          echo "reference=${{ steps.foundation.outputs.registry }}.azurecr.io/syncai-web@${digest}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy the web workload
+        id: app
+        shell: bash
+        run: |
+          set -euo pipefail
+          az deployment group create \
+            --name "${DEPLOYMENT_NAME}-app" \
+            --resource-group "$RESOURCE_GROUP" \
+            --template-file infra/azure/app.bicep \
+            --parameters \
+              prefix=syncai \
+              environmentName=production \
+              location="$LOCATION" \
+              registryName="${{ steps.foundation.outputs.registry }}" \
+              containerEnvironmentName="${{ steps.foundation.outputs.environment }}" \
+              workloadIdentityName="${{ steps.foundation.outputs.identity }}" \
+              containerImage="${{ steps.image.outputs.reference }}" \
+            --only-show-errors >/dev/null
+          deployment="${DEPLOYMENT_NAME}-app"
+          echo "fqdn=$(az deployment group show --resource-group "$RESOURCE_GROUP" --name "$deployment" --query properties.outputs.fqdn.value -o tsv)" >> "$GITHUB_OUTPUT"
+
+      - name: Prove the deployed revision is healthy
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint="https://${{ steps.app.outputs.fqdn }}/health"
+          for attempt in $(seq 1 18); do
+            status=$(curl --silent --show-error --output /tmp/azure-health.json --write-out '%{http_code}' "$endpoint" || true)
+            if [ "$status" = '200' ] && grep -q '"status":"healthy"' /tmp/azure-health.json; then
+              echo "Azure Edition web foundation is healthy at $endpoint"
+              exit 0
+            fi
+            sleep 10
+          done
+          cat /tmp/azure-health.json || true
+          echo "::error title=Azure health proof failed::The deployed revision did not return the expected health contract."
+          exit 1
+
+      - name: Store intelligence runtime secrets in Key Vault
+        shell: bash
+        run: |
+          set -euo pipefail
+          set_secret() {
+            local name="$1" value="$2"
+            for attempt in $(seq 1 12); do
+              if az keyvault secret set \
+                --vault-name "${{ steps.foundation.outputs.vault }}" \
+                --name "$name" \
+                --value "$value" \
+                --only-show-errors --output none; then
+                return 0
+              fi
+              sleep 10
+            done
+            echo "::error title=Key Vault secret write failed::RBAC did not converge for $name."
+            return 1
+          }
+          set_secret supabase-service "$SUPABASE_SERVICE_ROLE_KEY"
+          set_secret enrich-auth "$ENRICH_SHARED_SECRET"
+
+      - name: Build the immutable Azure Intelligence image
+        id: intelligence-image
+        shell: bash
+        run: |
+          set -euo pipefail
+          tag="${GITHUB_SHA}"
+          image="syncai-intelligence:${tag}"
+          az acr build \
+            --registry "${{ steps.foundation.outputs.registry }}" \
+            --image "$image" \
+            --file Dockerfile.azure-intelligence . \
+            --only-show-errors >/dev/null
+          digest=$(az acr repository show --name "${{ steps.foundation.outputs.registry }}" --image "$image" --query digest -o tsv)
+          test -n "$digest"
+          echo "reference=${{ steps.foundation.outputs.registry }}.azurecr.io/syncai-intelligence@${digest}" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy the Azure Intelligence plane
+        id: intelligence
+        shell: bash
+        run: |
+          set -euo pipefail
+          az deployment group create \
+            --name "${DEPLOYMENT_NAME}-intelligence" \
+            --resource-group "$RESOURCE_GROUP" \
+            --template-file infra/azure/intelligence.bicep \
+            --parameters \
+              prefix=syncai \
+              environmentName=production \
+              location="$LOCATION" \
+              aiLocation="$AI_LOCATION" \
+              registryName="${{ steps.foundation.outputs.registry }}" \
+              containerEnvironmentName="${{ steps.foundation.outputs.environment }}" \
+              workloadIdentityName="${{ steps.foundation.outputs.identity }}" \
+              keyVaultName="${{ steps.foundation.outputs.vault }}" \
+              containerImage="${{ steps.intelligence-image.outputs.reference }}" \
+              supabaseUrl="$VITE_SUPABASE_URL" \
+              openAiModelName="$OPENAI_MODEL_NAME" \
+              openAiModelVersion="$OPENAI_MODEL_VERSION" \
+              openAiDeploymentSku="$OPENAI_DEPLOYMENT_SKU" \
+            --only-show-errors >/dev/null
+          deployment="${DEPLOYMENT_NAME}-intelligence"
+          echo "fqdn=$(az deployment group show --resource-group "$RESOURCE_GROUP" --name "$deployment" --query properties.outputs.intelligenceFqdn.value -o tsv)" >> "$GITHUB_OUTPUT"
+          echo "account=$(az deployment group show --resource-group "$RESOURCE_GROUP" --name "$deployment" --query properties.outputs.openAiAccountName.value -o tsv)" >> "$GITHUB_OUTPUT"
+          echo "model=$(az deployment group show --resource-group "$RESOURCE_GROUP" --name "$deployment" --query properties.outputs.openAiModel.value -o tsv)" >> "$GITHUB_OUTPUT"
+
+      - name: Prove the Azure Intelligence identity and refusal boundaries
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint="https://${{ steps.intelligence.outputs.fqdn }}"
+          for attempt in $(seq 1 18); do
+            status=$(curl --silent --show-error --output /tmp/azure-intelligence-health.json --write-out '%{http_code}' "$endpoint/health" || true)
+            if [ "$status" = '200' ] && grep -q '"azureOpenAIConfigured":true' /tmp/azure-intelligence-health.json; then
+              break
+            fi
+            sleep 10
+          done
+          test "$status" = '200'
+          unauthenticated=$(curl --silent --show-error --output /tmp/azure-intelligence-unauth.json --write-out '%{http_code}' --request POST "$endpoint" --header 'content-type: application/json' --data '{}')
+          test "$unauthenticated" = '401'
+          probe=$(curl --fail --silent --show-error --request POST "$endpoint/probe" \
+            --header "authorization: Bearer $ENRICH_SHARED_SECRET" \
+            --header 'content-type: application/json' --data '{}')
+          PROBE="$probe" node -e 'const p=JSON.parse(process.env.PROBE); if(p.status!=="ready"||p.provider!=="azure-openai"||p.operationalAuthorization!==false) process.exit(1)'
+          az cognitiveservices account deployment show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "${{ steps.intelligence.outputs.account }}" \
+            --deployment-name syncai-reasoning \
+            --only-show-errors --output none
+
+      - name: Route the canonical enrichment cron to Azure
+        shell: bash
+        run: |
+          set -euo pipefail
+          endpoint="https://${{ steps.intelligence.outputs.fqdn }}"
+          payload=$(jq -cn --arg url "$endpoint" --arg key "$ENRICH_SHARED_SECRET" '{p_function_url:$url,p_service_key:$key}')
+          response=$(curl --fail --silent --show-error --request POST \
+            "$VITE_SUPABASE_URL/rest/v1/rpc/configure_agent_enrichment" \
+            --header "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            --header "authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            --header 'content-type: application/json' \
+            --data "$payload")
+          RESPONSE="$response" ENDPOINT="$endpoint" node -e 'const r=JSON.parse(process.env.RESPONSE); if(r.configured!==true||r.function_url!==process.env.ENDPOINT) process.exit(1)'
+
+      - name: Publish deployment evidence
+        shell: bash
+        run: |
+          {
+            echo '## SyncAI Azure Edition web and intelligence planes'
+            echo
+            echo "- Resource group: \`$RESOURCE_GROUP\`"
+            echo "- Region: \`$LOCATION\`"
+            echo "- Image: \`${{ steps.image.outputs.reference }}\`"
+            echo "- Health: https://${{ steps.app.outputs.fqdn }}/health"
+            echo "- Intelligence image: \`${{ steps.intelligence-image.outputs.reference }}\`"
+            echo "- Intelligence health: https://${{ steps.intelligence.outputs.fqdn }}/health"
+            echo "- Azure OpenAI account: \`${{ steps.intelligence.outputs.account }}\`"
+            echo "- Authorized model: \`${{ steps.intelligence.outputs.model }}\`"
+            echo '- Canonical enrichment cron: routed to the Azure Intelligence plane after identity/refusal proof'
+            echo '- Identity: GitHub OIDC to Azure; no client secret'
+          } >> "$GITHUB_STEP_SUMMARY"

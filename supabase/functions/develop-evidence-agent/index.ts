@@ -207,9 +207,10 @@ Deno.serve(async (req: Request) => {
 
   const admin = serviceClient();
 
-  // The case and the criterion, both pinned to the CALLER's organization —
-  // and the criterion's gate pinned to the case's framework, the same rule
-  // create_case_deliverable enforces.
+  // The case is pinned to the CALLER's organization. The criterion may be
+  // owned by an ancestor node, but its gate must still be pinned to this
+  // case's governing framework. This is the D11.14 execution boundary:
+  // definitions flow down the org tree; evidence remains case-tenant-owned.
   const { data: caseRow, error: caseError } = await admin
     .from("development_cases")
     .select("id, title, framework_id")
@@ -223,7 +224,6 @@ Deno.serve(async (req: Request) => {
     .from("stage_gate_criteria")
     .select("id, criterion, guidance, gate_id, is_mandatory, evidence_type")
     .eq("id", criterionId)
-    .eq("organization_id", auth.organizationId)
     .maybeSingle();
   if (criterionError || !criterion) {
     return json({ error: "gate requirement not found" }, 404);
@@ -233,7 +233,6 @@ Deno.serve(async (req: Request) => {
       .from("stage_gates")
       .select("id, framework_id")
       .eq("id", criterion.gate_id)
-      .eq("organization_id", auth.organizationId)
       .maybeSingle();
     if (!gate || gate.framework_id !== caseRow.framework_id) {
       return json(

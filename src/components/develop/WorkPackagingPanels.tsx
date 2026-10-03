@@ -17,11 +17,10 @@
  *
  * Slice 7B adds the FIELD-READY half on the same one engine (RULING 22):
  *
- *   D7.12 (II.5) the ten field-ready elements per work order, SEVEN derived
- *                from canonical stores and THREE reported `unverifiable`
- *                because no store answers them. The panel renders the third
- *                answer in its own register — an element nobody can check is
- *                never shown the way a cleared one is.
+ *   D7.12 (II.5) the ten field-ready elements per work order, all derived
+ *                from canonical stores. Missing crew/competency/roster,
+ *                evidence-backed access or reviewed predecessor evidence is
+ *                rendered as blocked/unverifiable, never as clearance.
  *   D7.11 (II.4) WHICH element blocks, beside the constraint holding it, not
  *                a count of how many do.
  *   D7.05 (I.27) the assessment itself: `assess_package_field_readiness`
@@ -61,6 +60,7 @@ import {
 } from "../../lib/develop/fieldReadiness";
 import {
   assessPackageFieldReadiness,
+  assignWorkOrderCrew,
   assignWorkToPackage,
   cancelWorkPackage,
   clearPackageConstraint,
@@ -69,17 +69,25 @@ import {
   getCaseWorkPackages,
   getPackageBurndownHistory,
   getPackageFieldReadiness,
+  getFieldReadinessEvidencePosition,
+  listFieldReadinessEvidenceOptions,
   listCaseWorkOrderOptions,
   recordPackageConstraint,
+  recordWorkFaceAccess,
+  recordWorkOrderPredecessor,
   recordWorkPackage,
   releaseWorkPackage,
   type CaseWorkPackages,
   type FieldReadinessAssessment,
+  type FieldReadinessEvidenceOptions,
+  type FieldReadinessEvidencePosition,
   type FieldReadyElementRow,
   type PackageBurndown,
   type PackageBurndownHistory,
   type PackageFieldReadiness,
   type WorkPackageRow,
+  withdrawWorkOrderCrewAssignment,
+  withdrawWorkOrderPredecessor,
 } from "../../services/developService";
 
 const inputClass =
@@ -189,6 +197,182 @@ function ElementRow({ element }: { element: FieldReadyElementRow }) {
   );
 }
 
+function FieldReadinessEvidenceEditor({
+  workOrders,
+  canPlan,
+}: {
+  workOrders: { workOrderId: string; woNumber: string | null; title: string }[];
+  canPlan: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [workOrderId, setWorkOrderId] = useState("");
+  const [options, setOptions] = useState<FieldReadinessEvidenceOptions | null>(
+    null,
+  );
+  const [position, setPosition] =
+    useState<FieldReadinessEvidencePosition | null>(null);
+  const [memberId, setMemberId] = useState("");
+  const [startsAt, setStartsAt] = useState("");
+  const [endsAt, setEndsAt] = useState("");
+  const [crewBasis, setCrewBasis] = useState("");
+  const [accessState, setAccessState] = useState<"clear" | "blocked">("clear");
+  const [accessSource, setAccessSource] = useState("");
+  const [validFrom, setValidFrom] = useState("");
+  const [validUntil, setValidUntil] = useState("");
+  const [accessBasis, setAccessBasis] = useState("");
+  const [predecessorId, setPredecessorId] = useState("");
+  const [predecessorEvidenceId, setPredecessorEvidenceId] = useState("");
+  const [predecessorBasis, setPredecessorBasis] = useState("");
+  const [withdrawalReason, setWithdrawalReason] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+
+  const refresh = useCallback(async (id: string) => {
+    if (!id) return setPosition(null);
+    setPosition(await getFieldReadinessEvidencePosition(id));
+  }, []);
+
+  useEffect(() => {
+    if (!open) return;
+    let active = true;
+    void (async () => {
+      setBusy(true);
+      setError(null);
+      try {
+        const next = await listFieldReadinessEvidenceOptions();
+        if (!active) return;
+        setOptions(next);
+        const id = workOrderId || workOrders[0]?.workOrderId || "";
+        setWorkOrderId(id);
+        await refresh(id);
+      } catch (e) {
+        if (active) setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        if (active) setBusy(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [open, refresh, workOrderId, workOrders]);
+
+  const act = useCallback(
+    async (operation: () => Promise<{ error?: string }>, success: string) => {
+      setBusy(true);
+      setError(null);
+      setNotice(null);
+      try {
+        const result = await operation();
+        if (result.error) throw new Error(result.error);
+        await refresh(workOrderId);
+        setNotice(`${success} Reassess the package to refresh its governed constraint set.`);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setBusy(false);
+      }
+    },
+    [refresh, workOrderId],
+  );
+
+  if (!canPlan || workOrders.length === 0) return null;
+  return (
+    <div className="mt-3 rounded-lg border border-signal-cyan/15 bg-signal-cyan/[0.03] p-3">
+      <button className={btnClass} onClick={() => setOpen((value) => !value)}>
+        {open ? "Close evidence controls" : "Record crew, access and predecessor evidence"}
+      </button>
+      {open && (
+        <div className="mt-3 space-y-3">
+          <label className="block text-[11px] text-slate-400">
+            Work order
+            <select
+              className={`${inputClass} mt-1`}
+              value={workOrderId}
+              onChange={(event) => {
+                const id = event.target.value;
+                setWorkOrderId(id);
+                void refresh(id);
+              }}
+            >
+              {workOrders.map((work) => (
+                <option key={work.workOrderId} value={work.workOrderId}>
+                  {work.woNumber ?? "—"} · {work.title}
+                </option>
+              ))}
+            </select>
+          </label>
+          <ErrorLine error={error} />
+          {notice && <p className="text-[11px] text-emerald-300">{notice}</p>}
+
+          <div className="grid gap-3 xl:grid-cols-3">
+            <div className="space-y-2 rounded border border-white/6 p-3">
+              <p className="text-xs font-semibold text-slate-200">Crew assignment</p>
+              <select className={inputClass} value={memberId} onChange={(e) => setMemberId(e.target.value)}>
+                <option value="">Select active workforce member</option>
+                {(options?.members ?? []).map((member) => (
+                  <option key={member.id} value={member.id}>
+                    {member.label}{member.craft ? ` · ${member.craft}` : ""}
+                  </option>
+                ))}
+              </select>
+              <input className={inputClass} type="datetime-local" value={startsAt} onChange={(e) => setStartsAt(e.target.value)} />
+              <input className={inputClass} type="datetime-local" value={endsAt} onChange={(e) => setEndsAt(e.target.value)} />
+              <textarea className={inputClass} value={crewBasis} onChange={(e) => setCrewBasis(e.target.value)} placeholder="Assignment basis (20+ characters)" />
+              <button className={btnClass} disabled={busy || !memberId || !startsAt || !endsAt} onClick={() => void act(() => assignWorkOrderCrew({ workOrderId, memberId: Number(memberId), startsAt, endsAt, basis: crewBasis }), "Crew assignment recorded.")}>Assign crew member</button>
+              {(position?.crew ?? []).map((assignment) => (
+                <p key={assignment.id} className="text-[10px] text-slate-400">
+                  Member {assignment.memberId} · {assignment.startsAt.slice(0, 16)}–{assignment.endsAt.slice(0, 16)}
+                  <button className="ml-2 text-red-300" disabled={busy || withdrawalReason.trim().length < 20} onClick={() => void act(() => withdrawWorkOrderCrewAssignment(assignment.id, withdrawalReason), "Crew assignment withdrawn.")}>Withdraw</button>
+                </p>
+              ))}
+            </div>
+
+            <div className="space-y-2 rounded border border-white/6 p-3">
+              <p className="text-xs font-semibold text-slate-200">Work-face access</p>
+              <select className={inputClass} value={accessState} onChange={(e) => setAccessState(e.target.value as "clear" | "blocked")}>
+                <option value="clear">Clear</option><option value="blocked">Blocked</option>
+              </select>
+              <select className={inputClass} value={accessSource} onChange={(e) => setAccessSource(e.target.value)}>
+                <option value="">Select verified provenance</option>
+                {(options?.evidence ?? []).map((item) => <option key={`e:${item.id}`} value={`e:${item.id}`}>Evidence · {item.label}</option>)}
+                {(options?.accessRoutes ?? []).map((item) => <option key={`g:${item.id}`} value={`g:${item.id}`}>Access route · {item.label}</option>)}
+              </select>
+              <input className={inputClass} type="datetime-local" value={validFrom} onChange={(e) => setValidFrom(e.target.value)} />
+              <input className={inputClass} type="datetime-local" value={validUntil} onChange={(e) => setValidUntil(e.target.value)} />
+              <textarea className={inputClass} value={accessBasis} onChange={(e) => setAccessBasis(e.target.value)} placeholder="Access finding and basis (20+ characters)" />
+              <button className={btnClass} disabled={busy || !accessSource || !validFrom} onClick={() => void act(() => recordWorkFaceAccess({ workOrderId, accessState, validFrom, validUntil: validUntil || undefined, evidenceItemId: accessSource.startsWith("e:") ? accessSource.slice(2) : undefined, geospatialAssessmentId: accessSource.startsWith("g:") ? accessSource.slice(2) : undefined, basis: accessBasis }), "Access evidence recorded.")}>Record access position</button>
+              {position?.access && <p className="text-[10px] text-slate-400">Current: {position.access.state} from {position.access.validFrom.slice(0, 16)}</p>}
+            </div>
+
+            <div className="space-y-2 rounded border border-white/6 p-3">
+              <p className="text-xs font-semibold text-slate-200">Predecessor review</p>
+              <select className={inputClass} value={predecessorId} onChange={(e) => setPredecessorId(e.target.value)}>
+                <option value="">Reviewed: no predecessor</option>
+                {(options?.workOrders ?? []).filter((work) => work.id !== workOrderId).map((work) => <option key={work.id} value={work.id}>{work.label} · {work.status ?? "status unknown"}</option>)}
+              </select>
+              <select className={inputClass} value={predecessorEvidenceId} onChange={(e) => setPredecessorEvidenceId(e.target.value)}>
+                <option value="">Select verified evidence</option>
+                {(options?.evidence ?? []).map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+              </select>
+              <textarea className={inputClass} value={predecessorBasis} onChange={(e) => setPredecessorBasis(e.target.value)} placeholder="Sequence review basis (20+ characters)" />
+              <button className={btnClass} disabled={busy || !predecessorEvidenceId} onClick={() => void act(() => recordWorkOrderPredecessor({ successorWorkOrderId: workOrderId, predecessorWorkOrderId: predecessorId || undefined, evidenceItemId: predecessorEvidenceId, basis: predecessorBasis }), predecessorId ? "Predecessor recorded." : "Reviewed no-predecessor position recorded.")}>Record sequence position</button>
+              {(position?.predecessors ?? []).map((edge) => (
+                <p key={edge.id} className="text-[10px] text-slate-400">
+                  {edge.predecessorWorkOrderId ? `Predecessor ${edge.predecessorWorkOrderId.slice(0, 8)}` : "Reviewed: none"}
+                  <button className="ml-2 text-red-300" disabled={busy || withdrawalReason.trim().length < 20} onClick={() => void act(() => withdrawWorkOrderPredecessor(edge.id, withdrawalReason), "Predecessor position withdrawn.")}>Withdraw</button>
+                </p>
+              ))}
+            </div>
+          </div>
+          <input className={inputClass} value={withdrawalReason} onChange={(e) => setWithdrawalReason(e.target.value)} placeholder="Reason for withdrawing an existing crew or predecessor record (20+ characters)" />
+          <p className="text-[10px] text-slate-500">These controls record evidence only. They do not clear a constraint or release work; reassessment reads the canonical stores and the existing human release door remains authoritative.</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function FieldReadinessPanel({
   pkg,
   canPlan,
@@ -243,11 +427,9 @@ function FieldReadinessPanel({
           Field readiness (spec II.5) — the ten elements, per job
         </span>
         <span className="text-[10px] text-slate-500">
-          {/* DERIVED FROM THE VOCABULARY, not counted inline beside it. D7.12's
-              row claims "7 of 10"; `fieldReadyCoverage` IS that claim, and an
-              eleventh element or a new store moves this sentence with it. */}
+          {/* DERIVED FROM THE VOCABULARY, not counted inline beside it. */}
           {coverage.derived} of {coverage.total} read from a canonical store;
-          the other {coverage.declared} have none and are declared by a person
+          missing evidence stays blocked or unverifiable
         </span>
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -274,9 +456,8 @@ function FieldReadinessPanel({
       {assessment?.answered && (
         <p className="mt-2 text-[11px] text-slate-300">
           {num(assessment.derivedBlockersRecorded)} derived blocker(s) recorded,{" "}
-          {num(assessment.derivedQuestionsRaised)} element(s) no store could
-          answer and {num(assessment.declaredQuestionsRaised)} question(s)
-          raised that no store can answer at all, over{" "}
+          {num(assessment.derivedQuestionsRaised)} canonical evidence gap(s)
+          recorded as unknown, over{" "}
           {num(assessment.workOrders)} work order(s). {assessment.note}
         </p>
       )}
@@ -293,6 +474,10 @@ function FieldReadinessPanel({
           {/* The readiness sentence is the SERVER'S, verbatim — the same one
               release_work_package refuses with. Never restated here. */}
           <p className="text-[11px] text-slate-300">{view.readiness}</p>
+          <FieldReadinessEvidenceEditor
+            workOrders={view.items ?? []}
+            canPlan={canPlan && pkg.releasedAt === null}
+          />
           {/* WHERE THE RECORDED ASSESSMENT NO LONGER DESCRIBES THE WORK. The
               server itemizes these behind its own `stale` verdict; this list
               is that array, not a client-side comparison. */}

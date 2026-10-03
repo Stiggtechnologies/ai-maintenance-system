@@ -1,0 +1,16 @@
+FROM denoland/deno:alpine-2.5.2
+
+WORKDIR /app/supabase/functions
+
+# Copy only the governed intelligence worker and its shared runtime. No browser
+# bundle, repository history, local credentials, or unrelated legacy function
+# enters this image.
+COPY --chown=deno:deno supabase/functions/_shared ./_shared
+COPY --chown=deno:deno supabase/functions/agent-loop-enrich ./agent-loop-enrich
+
+USER deno
+RUN deno cache agent-loop-enrich/index.ts
+
+EXPOSE 8000
+
+CMD ["run", "--cached-only", "--allow-env", "--allow-net", "agent-loop-enrich/index.ts"]

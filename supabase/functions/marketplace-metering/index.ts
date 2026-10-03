@@ -1,445 +1,280 @@
-import { createClient } from 'npm:@supabase/supabase-js@2';
+import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  buildMeteringBatchRequest,
+  isRetryableMeteringHttpStatus,
+  marketplaceMeteringBatchUrl,
+  MARKETPLACE_TOKEN_SCOPE,
+  normalizeMeteringBatchResponse,
+  normalizeMeteringClaim,
+  type MeteringClaim,
+} from "./core.ts";
 
-// CORS headers matching existing pattern
-const corsHeaders = {
-  'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || 'https://app.syncai.ca',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-};
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const MAX_RESPONSE_BYTES = 128 * 1024;
 
-// Types
-interface UsageEvent {
-  subscriptionId: string;
-  dimension: string;
-  quantity: number;
-  effectiveStartTime: string;
-  planId?: string;
+interface MarketplaceConfig {
+  clientId: string;
+  clientSecret: string;
+  tenantId: string;
 }
 
-interface BatchUsageEvent {
-  subscriptionId: string;
-  dimension: string;
-  quantity: number;
-  effectiveStartTime: string;
-  planId?: string;
-  usageEventId?: string;
-}
-
-interface AzureAccessToken {
-  access_token: string;
-  token_type: string;
-  expires_in: number;
-}
-
-interface AzureMeteringResponse {
-  usageEventId: string;
-  dimension: string;
-  effectiveStartTime: string;
-  quantity: number;
-  status: 'Accepted' | 'Duplicate' | 'BadArgument' | 'BadArgument_Conflict' | 'NotFound' | 'Conflict' | 'Gone';
-  messageTime?: string;
-  statusCode: number;
-}
-
-// Helper: Get Azure AD access token
-async function getMarketplaceAccessToken(): Promise<string> {
-  const clientId = Deno.env.get('AZURE_AD_CLIENT_ID');
-  const clientSecret = Deno.env.get('AZURE_AD_CLIENT_SECRET');
-  const tenantId = Deno.env.get('AZURE_AD_TENANT_ID');
-
-  if (!clientId || !clientSecret || !tenantId) {
-    throw new Error('Missing Azure AD credentials');
+class MeteringError extends Error {
+  constructor(
+    readonly code: string,
+    readonly status: number,
+  ) {
+    super(code);
   }
-
-  const tokenUrl = `https://login.microsoftonline.com/${tenantId}/oauth2/v2.0/token`;
-
-  const body = new URLSearchParams({
-    client_id: clientId,
-    client_secret: clientSecret,
-    scope: '20e940b3-4c77-4b0b-9a53-9e16a1b010a7/.default',
-    grant_type: 'client_credentials',
-  });
-
-  const response = await fetch(tokenUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: body.toString(),
-  });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Failed to get Azure AD token: ${response.status} ${error}`);
-  }
-
-  const data: AzureAccessToken = await response.json();
-  return data.access_token;
 }
 
-// Helper: Submit single usage event to Azure
-async function submitUsageEvent(
-  accessToken: string,
-  event: UsageEvent
-): Promise<AzureMeteringResponse> {
-  const meteringUrl = 'https://marketplaceapi.microsoft.com/api/usageEvents?api-version=2018-08-31';
-
-  const payload = {
-    subscriptionId: event.subscriptionId,
-    dimension: event.dimension,
-    quantity: event.quantity,
-    effectiveStartTime: event.effectiveStartTime,
-    ...(event.planId && { planId: event.planId }),
-  };
-
-  const response = await fetch(meteringUrl, {
-    method: 'POST',
+function json(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
     headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
     },
-    body: JSON.stringify(payload),
   });
+}
 
-  const data = await response.json() as AzureMeteringResponse;
-  data.statusCode = response.status;
+function record(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
 
-  if (!response.ok) {
-    console.error(`Usage event submission failed: ${response.status}`, data);
+function constantTimeEqual(left: string, right: string): boolean {
+  const encoder = new TextEncoder();
+  const a = encoder.encode(left);
+  const b = encoder.encode(right);
+  const length = Math.max(a.length, b.length);
+  let difference = a.length ^ b.length;
+  for (let index = 0; index < length; index += 1) {
+    difference |= (a[index] ?? 0) ^ (b[index] ?? 0);
   }
+  return difference === 0;
+}
 
+function authorize(request: Request): void {
+  const authorization = request.headers.get("authorization") ?? "";
+  const expected = `Bearer ${SERVICE_ROLE_KEY}`;
+  if (
+    SERVICE_ROLE_KEY.length < 32 ||
+    !constantTimeEqual(authorization, expected)
+  ) {
+    throw new MeteringError("marketplace_metering_unauthorized", 401);
+  }
+}
+
+function marketplaceConfig(): MarketplaceConfig {
+  const config = {
+    clientId: Deno.env.get("AZURE_MARKETPLACE_CLIENT_ID")?.trim() ?? "",
+    clientSecret: Deno.env.get("AZURE_MARKETPLACE_CLIENT_SECRET")?.trim() ?? "",
+    tenantId: Deno.env.get("AZURE_MARKETPLACE_TENANT_ID")?.trim() ?? "",
+  };
+  if (!Object.values(config).every(Boolean))
+    throw new MeteringError("marketplace_not_configured", 503);
+  return config;
+}
+
+let cachedPublisherToken: { value: string; expiresAt: number } | null = null;
+
+async function publisherToken(config: MarketplaceConfig): Promise<string> {
+  if (
+    cachedPublisherToken &&
+    cachedPublisherToken.expiresAt > Date.now() + 60_000
+  ) {
+    return cachedPublisherToken.value;
+  }
+  const response = await fetch(
+    `https://login.microsoftonline.com/${config.tenantId}/oauth2/v2.0/token`,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: config.clientId,
+        client_secret: config.clientSecret,
+        scope: MARKETPLACE_TOKEN_SCOPE,
+        grant_type: "client_credentials",
+      }),
+      signal: AbortSignal.timeout(15_000),
+    },
+  );
+  if (!response.ok) {
+    console.error("Marketplace metering publisher authentication failed", {
+      status: response.status,
+    });
+    throw new MeteringError("publisher_auth_failed", 503);
+  }
+  const body = record(await response.json());
+  const token = typeof body?.access_token === "string" ? body.access_token : "";
+  if (token.length < 32)
+    throw new MeteringError("publisher_auth_invalid_response", 503);
+  const seconds =
+    typeof body?.expires_in === "number" && Number.isFinite(body.expires_in)
+      ? Math.max(60, Math.min(body.expires_in, 3600))
+      : 300;
+  cachedPublisherToken = {
+    value: token,
+    expiresAt: Date.now() + seconds * 1000,
+  };
+  return token;
+}
+
+const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
+
+async function rpc(name: string, args: Record<string, unknown> = {}) {
+  const { data, error } = await supabase.rpc(name, args);
+  if (error) {
+    console.error("Marketplace metering RPC failed", {
+      rpc: name,
+      code: error.code,
+    });
+    throw new MeteringError("marketplace_metering_persistence_failed", 503);
+  }
   return data;
 }
 
-// Helper: Submit batch usage events to Azure
-async function submitBatchUsageEvents(
-  accessToken: string,
-  events: BatchUsageEvent[]
-): Promise<AzureMeteringResponse[]> {
-  const batchUrl = 'https://marketplaceapi.microsoft.com/api/batchUsageEvents?api-version=2018-08-31';
+async function readBoundedJson(response: Response): Promise<unknown> {
+  const text = await response.text();
+  if (new TextEncoder().encode(text).byteLength > MAX_RESPONSE_BYTES)
+    throw new MeteringError("marketplace_metering_response_too_large", 503);
+  if (!text) return null;
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new MeteringError("marketplace_metering_invalid_json", 503);
+  }
+}
 
-  const payload = {
-    request: events.map((e) => ({
-      subscriptionId: e.subscriptionId,
-      dimension: e.dimension,
-      quantity: e.quantity,
-      effectiveStartTime: e.effectiveStartTime,
-      ...(e.planId && { planId: e.planId }),
-    })),
-  };
-
-  const response = await fetch(batchUrl, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
+async function failClaim(
+  claim: MeteringClaim,
+  code: string,
+  retryable: boolean,
+  httpStatus: number | null,
+  response: unknown = null,
+): Promise<void> {
+  await rpc("fail_marketplace_metering_batch", {
+    p_claim_token: claim.claimToken,
+    p_error_code: code.slice(0, 100),
+    p_retryable: retryable,
+    p_http_status: httpStatus,
+    p_response: record(response),
   });
-
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Batch submission failed: ${response.status} ${error}`);
-  }
-
-  const data = await response.json();
-
-  // Azure returns array of responses
-  return data.result || data || [];
 }
 
-// Handler: Submit single usage event
-async function handleSingleUsageEvent(
-  supabase: any,
-  event: UsageEvent
-): Promise<{ success: boolean; data?: any; error?: string }> {
+async function runMetering(): Promise<Record<string, unknown>> {
+  // Validate publisher configuration before creating a durable claim. A missing
+  // secret must not strand otherwise deliverable usage until the stale-claim
+  // recovery window elapses.
+  const config = marketplaceConfig();
+  const prepared = await rpc("prepare_marketplace_metering", {});
+  const rawClaim = await rpc("claim_marketplace_metering_batch", {
+    p_limit: 25,
+  });
+  const claim = normalizeMeteringClaim(rawClaim);
+  if (record(rawClaim)?.empty === true) {
+    return { prepared, submitted: 0 };
+  }
+  if (!claim)
+    throw new MeteringError("marketplace_metering_invalid_claim", 503);
+
+  const requestId = crypto.randomUUID();
+  const correlationId = crypto.randomUUID();
+  let response: Response;
   try {
-    console.log(`[SingleUsage] Submitting usage: ${event.subscriptionId} / ${event.dimension} / ${event.quantity}`);
-
-    const accessToken = await getMarketplaceAccessToken();
-
-    // Submit to Azure
-    const azureResponse = await submitUsageEvent(accessToken, event);
-
-    console.log(`[SingleUsage] Azure response status: ${azureResponse.status}`);
-
-    // Store in database
-    const recordStatus =
-      azureResponse.status === 'Accepted' ? 'accepted' :
-      azureResponse.status === 'Duplicate' ? 'duplicate' :
-      azureResponse.status === 'BadArgument' || azureResponse.status === 'BadArgument_Conflict' ? 'rejected' :
-      'submitted';
-
-    const { data: record, error: dbError } = await supabase
-      .from('marketplace_metering_records')
-      .insert({
-        marketplace_subscription_id: event.subscriptionId,
-        dimension: event.dimension,
-        quantity: event.quantity,
-        effective_start_time: event.effectiveStartTime,
-        plan_id: event.planId,
-        status: recordStatus,
-        usage_event_id: azureResponse.usageEventId,
-        submitted_at: new Date().toISOString(),
-      })
-      .select()
-      .single();
-
-    if (dbError) {
-      throw new Error(`Failed to store metering record: ${dbError.message}`);
-    }
-
-    return {
-      success: azureResponse.status === 'Accepted' || azureResponse.status === 'Duplicate',
-      data: {
-        usageEventId: azureResponse.usageEventId,
-        status: azureResponse.status,
-        recordId: record.id,
-        dimension: event.dimension,
-        quantity: event.quantity,
+    response = await fetch(marketplaceMeteringBatchUrl(), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${await publisherToken(config)}`,
+        "Content-Type": "application/json",
+        "x-ms-requestid": requestId,
+        "x-ms-correlationid": correlationId,
       },
-    };
-  } catch (error) {
-    console.error(`[SingleUsage] Error: ${error.message}`);
-
-    return { success: false, error: error.message };
-  }
-}
-
-// Handler: Submit batch usage events
-async function handleBatchUsageEvents(
-  supabase: any,
-  events: BatchUsageEvent[]
-): Promise<{ success: boolean; data?: any; error?: string }> {
-  try {
-    console.log(`[BatchUsage] Submitting ${events.length} usage events`);
-
-    const accessToken = await getMarketplaceAccessToken();
-
-    // Submit to Azure
-    const azureResponses = await submitBatchUsageEvents(accessToken, events);
-
-    console.log(`[BatchUsage] Received ${azureResponses.length} responses from Azure`);
-
-    // Store results in database
-    const recordsToInsert = azureResponses.map((response, idx) => {
-      const event = events[idx] || events[0];
-      const recordStatus =
-        response.status === 'Accepted' ? 'accepted' :
-        response.status === 'Duplicate' ? 'duplicate' :
-        response.status === 'BadArgument' || response.status === 'BadArgument_Conflict' ? 'rejected' :
-        'submitted';
-
-      return {
-        marketplace_subscription_id: event.subscriptionId,
-        dimension: event.dimension,
-        quantity: event.quantity,
-        effective_start_time: event.effectiveStartTime,
-        plan_id: event.planId,
-        status: recordStatus,
-        usage_event_id: response.usageEventId,
-        submitted_at: new Date().toISOString(),
-      };
+      body: JSON.stringify(buildMeteringBatchRequest(claim)),
+      signal: AbortSignal.timeout(20_000),
     });
-
-    const { data: records, error: dbError } = await supabase
-      .from('marketplace_metering_records')
-      .insert(recordsToInsert)
-      .select();
-
-    if (dbError) {
-      console.error(`Failed to store metering records: ${dbError.message}`);
-      // Don't fail - Azure accepted them
-    }
-
-    const acceptedCount = azureResponses.filter((r) => r.status === 'Accepted').length;
-    const duplicateCount = azureResponses.filter((r) => r.status === 'Duplicate').length;
-
-    return {
-      success: true,
-      data: {
-        submitted: azureResponses.length,
-        accepted: acceptedCount,
-        duplicate: duplicateCount,
-        responses: azureResponses.map((r) => ({
-          usageEventId: r.usageEventId,
-          status: r.status,
-        })),
-      },
-    };
   } catch (error) {
-    console.error(`[BatchUsage] Error: ${error.message}`);
-
-    return { success: false, error: error.message };
+    console.error("Marketplace metering transport failed", {
+      type: error instanceof Error ? error.name : "unknown",
+    });
+    await failClaim(claim, "transport_error", true, null);
+    throw new MeteringError("marketplace_metering_transport_failed", 503);
   }
-}
 
-// Handler: Process pending metering records
-async function handleProcessPendingMetering(
-  supabase: any
-): Promise<{ success: boolean; data?: any; error?: string }> {
+  let body: unknown;
   try {
-    console.log('[ProcessPending] Fetching pending metering records');
-
-    // Get pending records
-    const { data: pendingRecords, error: fetchError } = await supabase
-      .from('marketplace_metering_records')
-      .select('id, marketplace_subscription_id, dimension, quantity, effective_start_time, plan_id')
-      .eq('status', 'pending')
-      .order('created_at', { ascending: true })
-      .limit(100);
-
-    if (fetchError) {
-      throw new Error(`Failed to fetch pending records: ${fetchError.message}`);
-    }
-
-    if (!pendingRecords || pendingRecords.length === 0) {
-      console.log('[ProcessPending] No pending records found');
-      return {
-        success: true,
-        data: { submitted: 0, processed: 0 },
-      };
-    }
-
-    console.log(`[ProcessPending] Found ${pendingRecords.length} pending records`);
-
-    const accessToken = await getMarketplaceAccessToken();
-
-    // Convert to batch format
-    const batchEvents: BatchUsageEvent[] = pendingRecords.map((r) => ({
-      subscriptionId: r.marketplace_subscription_id,
-      dimension: r.dimension,
-      quantity: r.quantity,
-      effectiveStartTime: r.effective_start_time,
-      planId: r.plan_id,
-      usageEventId: r.id,
-    }));
-
-    // Submit batch
-    const azureResponses = await submitBatchUsageEvents(accessToken, batchEvents);
-
-    console.log(`[ProcessPending] Received ${azureResponses.length} responses from Azure`);
-
-    // Update database with results
-    let successCount = 0;
-    let duplicateCount = 0;
-    let failureCount = 0;
-
-    for (let i = 0; i < azureResponses.length; i++) {
-      const response = azureResponses[i];
-      const record = pendingRecords[i];
-
-      let newStatus = 'submitted';
-      if (response.status === 'Accepted') {
-        newStatus = 'accepted';
-        successCount++;
-      } else if (response.status === 'Duplicate') {
-        newStatus = 'duplicate';
-        duplicateCount++;
-      } else if (response.status === 'BadArgument' || response.status === 'BadArgument_Conflict') {
-        newStatus = 'rejected';
-        failureCount++;
-      } else {
-        failureCount++;
-      }
-
-      const { error: updateError } = await supabase
-        .from('marketplace_metering_records')
-        .update({
-          status: newStatus,
-          usage_event_id: response.usageEventId,
-          submitted_at: new Date().toISOString(),
-        })
-        .eq('id', record.id);
-
-      if (updateError) {
-        console.warn(`Failed to update record ${record.id}: ${updateError.message}`);
-      }
-    }
-
-    return {
-      success: true,
-      data: {
-        processed: pendingRecords.length,
-        accepted: successCount,
-        duplicate: duplicateCount,
-        rejected: failureCount,
-      },
-    };
+    body = await readBoundedJson(response);
   } catch (error) {
-    console.error(`[ProcessPending] Error: ${error.message}`);
-
-    return { success: false, error: error.message };
-  }
-}
-
-// Main handler
-Deno.serve(async (req: Request) => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 200, headers: corsHeaders });
-  }
-
-  try {
-    const url = new URL(req.url);
-    const pathname = url.pathname;
-
-    // Initialize Supabase client
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
-
-    let result: { success: boolean; data?: any; error?: string };
-
-    if (req.method === 'POST') {
-      const body = await req.json();
-
-      if (pathname.includes('/batch')) {
-        // Batch submission
-        if (!Array.isArray(body.events)) {
-          return new Response(
-            JSON.stringify({ error: 'Expected events array' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        result = await handleBatchUsageEvents(supabase, body.events);
-      } else {
-        // Single event submission
-        if (!body.subscriptionId || !body.dimension || body.quantity === undefined || !body.effectiveStartTime) {
-          return new Response(
-            JSON.stringify({ error: 'Missing required fields: subscriptionId, dimension, quantity, effectiveStartTime' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-
-        result = await handleSingleUsageEvent(supabase, body as UsageEvent);
-      }
-    } else if (req.method === 'GET') {
-      // Process pending records
-      result = await handleProcessPendingMetering(supabase);
-    } else {
-      return new Response(
-        JSON.stringify({ error: 'Method not allowed' }),
-        { status: 405, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    if (result.success) {
-      return new Response(
-        JSON.stringify({ success: true, data: result.data }),
-        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    } else {
-      return new Response(
-        JSON.stringify({ success: false, error: result.error }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-  } catch (error) {
-    console.error('Handler error:', error);
-
-    return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    await failClaim(
+      claim,
+      error instanceof MeteringError
+        ? error.code
+        : "invalid_marketplace_response",
+      true,
+      response.status,
     );
+    throw error;
+  }
+  if (!response.ok) {
+    const retryable = isRetryableMeteringHttpStatus(response.status);
+    await failClaim(
+      claim,
+      `marketplace_http_${response.status}`,
+      retryable,
+      response.status,
+      body,
+    );
+    console.error("Marketplace metering batch rejected", {
+      status: response.status,
+      retryable,
+      requestId,
+      correlationId,
+    });
+    throw new MeteringError(
+      retryable
+        ? "marketplace_metering_temporarily_unavailable"
+        : "marketplace_metering_rejected",
+      retryable ? 503 : 502,
+    );
+  }
+
+  const results = normalizeMeteringBatchResponse(body, claim);
+  if (!results) {
+    await failClaim(claim, "invalid_marketplace_response", true, 200, body);
+    throw new MeteringError("marketplace_metering_invalid_response", 503);
+  }
+  const completed = await rpc("complete_marketplace_metering_batch", {
+    p_claim_token: claim.claimToken,
+    p_request_id: requestId,
+    p_correlation_id: correlationId,
+    p_results: results,
+  });
+  return { prepared, submitted: claim.events.length, completed };
+}
+
+Deno.serve(async (request: Request) => {
+  try {
+    if (request.method !== "POST")
+      return json({ error: "method_not_allowed" }, 405);
+    authorize(request);
+    const contentLength = request.headers.get("content-length");
+    if (contentLength) {
+      const length = Number(contentLength);
+      if (!Number.isFinite(length) || length > 1024)
+        return json({ error: "request_too_large" }, 413);
+    }
+    return json({ ok: true, ...(await runMetering()) });
+  } catch (error) {
+    if (error instanceof MeteringError)
+      return json({ error: error.code }, error.status);
+    console.error("Marketplace metering handler failed", {
+      type: error instanceof Error ? error.name : "unknown",
+    });
+    return json({ error: "marketplace_metering_failed" }, 500);
   }
 });

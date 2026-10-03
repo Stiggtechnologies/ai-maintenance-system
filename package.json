@@ -24,13 +24,18 @@
     "register:tally": "node scripts/register-tally.mjs --write",
     "register:check": "node scripts/register-tally.mjs --check && node scripts/register-baseline.mjs --check",
     "register:accept": "node scripts/register-tally.mjs --write && node scripts/register-baseline.mjs --write",
+    "sync-context:check": "node scripts/check-sync-context-ledger.mjs",
+    "sync-context:accept": "node scripts/check-sync-context-ledger.mjs --write",
+    "sync-context:contracts": "vitest run src/lib/sync-context/contracts.test.ts src/test/syncContextCanonicalContracts.test.ts src/test/syncContextAdapterConformance.test.ts src/test/syncContextCapabilityLedger.test.ts",
     "industry-packs:generate": "tsx scripts/generate-industry-pack-membership.ts",
     "industry-packs:check": "tsx scripts/generate-industry-pack-membership.ts --check",
     "reliability:requalify": "node scripts/reliability-requalify.mjs",
     "compliance:licenses": "node scripts/compliance/generate-license-inventory.mjs --check",
     "compliance:licenses:write": "node scripts/compliance/generate-license-inventory.mjs --write",
     "compliance:sbom": "npm sbom --sbom-format cyclonedx",
-    "compliance:check": "npm run compliance:governance && npm run compliance:licenses"
+    "compliance:check": "npm run compliance:governance && npm run compliance:licenses",
+    "marketplace:certify-preview": "tsx scripts/azure-marketplace-preview-certification.ts",
+    "marketplace:smoke-public": "node scripts/marketplace-public-route-smoke.mjs"
   },
   "lint-staged": {
     "src/**/*.{ts,tsx}": [
