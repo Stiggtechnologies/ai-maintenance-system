@@ -156,6 +156,18 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     expect(screen.queryByText(/Fort McMurray|P-101/)).toBeNull();
   });
 
+  it("does not earn the workspace audit gate from a session-only save", () => {
+    renderOpening();
+    openSpine();
+    fireEvent.click(screen.getByTestId("spine-save-workspace"));
+    expect(
+      screen.getByText(/Sign in to create the evaluation workspace/i),
+    ).toBeTruthy();
+    expect(screen.getByTestId("spine-gate-audit_trail").textContent).toMatch(
+      /Open/i,
+    );
+  });
+
   it("adds type-first evidence, records a disposition, and shows verification on accept", () => {
     renderOpening();
     openSpine();

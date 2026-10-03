@@ -212,7 +212,6 @@ describe("P0.2 Decision Case spine", () => {
         scheduledFor: "2026-09-14",
         effectiveness: "",
       },
-      manualEvidencePath: true,
     });
     expect(
       notReady.gates.find((gate) => gate.id === "invitation_delivery")?.met,
@@ -237,11 +236,24 @@ describe("P0.2 Decision Case spine", () => {
         scheduledFor: "2026-09-14",
         effectiveness: "",
       },
-      manualEvidencePath: true,
     });
     expect(ready.metCount).toBe(ready.total);
     expect(invited.messages.at(-1)?.text).toMatch(/not yet confirmed/i);
     expect(lineageFromCase(built).honesty).toBe(noConnectedDataHonesty());
+  });
+
+  it("refuses an empty manual evidence shortcut and persists an explicit deferral", () => {
+    const built = buildSpineDecisionCase({ question, intent: "solve" });
+    expect(() =>
+      attachSpineEvidence(built, "documents", "manual", "   "),
+    ).toThrow(/needs content/i);
+
+    const deferred = attachSpineEvidence(built, "documents", "ask_admin", "");
+    const readiness = readinessFromCase(deferred, { saved: false });
+    expect(
+      readiness.gates.find((gate) => gate.id === "evidence_path")?.met,
+    ).toBe(true);
+    expect(deferred.messages.at(-1)?.meta).toBe("Connection fallback");
   });
 
   it("attaches governed receipts without treating quarantine or ingestion as approval", () => {

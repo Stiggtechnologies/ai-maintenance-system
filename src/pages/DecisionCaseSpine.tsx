@@ -162,7 +162,6 @@ export function DecisionCaseSpine({
   );
   const [evidenceBusy, setEvidenceBusy] = useState(false);
   const [evidenceNotice, setEvidenceNotice] = useState<string | null>(null);
-  const [manualPath, setManualPath] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lineageOpen, setLineageOpen] = useState(true);
 
@@ -212,9 +211,8 @@ export function DecisionCaseSpine({
           verification.scheduledFor || verification.effectiveness
             ? verification
             : null,
-        manualEvidencePath: manualPath,
       }),
-    [decisionCase, saved, disposition, verification, manualPath],
+    [decisionCase, saved, disposition, verification],
   );
   const nextAction = useMemo(
     () => nextWalkthroughAction(readiness),
@@ -255,7 +253,6 @@ export function DecisionCaseSpine({
       return;
     }
     if (!auth?.user) {
-      setSaved(true);
       setSaveNotice(
         "Assessment kept in this session. Sign in to create the evaluation workspace — not before Ask.",
       );
@@ -275,7 +272,6 @@ export function DecisionCaseSpine({
         "Decision Case saved on your evaluation workspace. Reload the audit trail on this page.",
       );
     } catch {
-      setSaved(true);
       setSaveNotice(
         "Case is provisional in this browser. Workspace save did not complete — the loop stays available.",
       );
@@ -806,9 +802,6 @@ export function DecisionCaseSpine({
                       onClick={() => {
                         setMethod(id);
                         setConnectResult(null);
-                        if (id === "manual" || id === "ask_admin") {
-                          setManualPath(true);
-                        }
                       }}
                       className="rounded-lg bg-white/10 px-2 py-1 text-xs text-slate-100"
                     >
@@ -898,7 +891,6 @@ export function DecisionCaseSpine({
                     evidenceBody,
                   );
                   commit(next);
-                  setManualPath(true);
                   setEvidenceBody("");
                   setSelectedEvidenceFile(null);
                   setEvidenceNotice(

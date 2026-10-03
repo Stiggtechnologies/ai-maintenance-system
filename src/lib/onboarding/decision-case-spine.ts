@@ -501,7 +501,11 @@ export function attachSpineEvidence(
   body: string,
 ): DecisionCase {
   const text = body.trim();
-  if (!text && method !== "ask_admin") return decisionCase;
+  if (!text && method !== "ask_admin") {
+    throw new Error(
+      "Manual evidence needs content. Add a note or explicitly ask an administrator later.",
+    );
+  }
   const kindMeta = EVIDENCE_KINDS.find((item) => item.id === kind);
   const now = new Date().toISOString();
   if (method === "ask_admin") {
@@ -1047,7 +1051,6 @@ export function readinessFromCase(
     saved: boolean;
     disposition?: SpineDisposition | "";
     verification?: VerificationPlan | null;
-    manualEvidencePath?: boolean;
   },
 ): SpineReadiness {
   const lineage = lineageFromCase(decisionCase, extras.verification);
@@ -1064,8 +1067,10 @@ export function readinessFromCase(
       invitationStatus,
     ),
   );
-  const evidencePath =
-    lineage.evidenceCount > 0 || Boolean(extras.manualEvidencePath);
+  const explicitlyDeferredEvidence = decisionCase.messages.some(
+    (item) => item.meta === "Connection fallback",
+  );
+  const evidencePath = lineage.evidenceCount > 0 || explicitlyDeferredEvidence;
   const loopDemonstrated = Boolean(extras.disposition);
   const gates: LoopGate[] = [
     {
