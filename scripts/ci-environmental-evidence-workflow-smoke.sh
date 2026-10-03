@@ -81,10 +81,12 @@ expect_error "$SELF_DENIED" 'independently verified'
 AI_VERIFIED_PAYLOAD="${BASELINE//$ASSET_EVIDENCE/$AI_VERIFIED_EVIDENCE}"
 AI_VERIFIER_DENIED=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"efficiency_baseline\",\"p_record\":$AI_VERIFIED_PAYLOAD}")
 expect_error "$AI_VERIFIER_DENIED" 'independently verified'
-FOREIGN_PAYLOAD="${BASELINE//$ASSET/$FOREIGN_ASSET}"
-FOREIGN_PAYLOAD="${FOREIGN_PAYLOAD//$ASSET_EVIDENCE/$FOREIGN_EVIDENCE}"
-FOREIGN_DENIED=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"efficiency_baseline\",\"p_record\":$FOREIGN_PAYLOAD}")
-expect_error "$FOREIGN_DENIED" 'outside the active tenant'
+FOREIGN_EVIDENCE_PAYLOAD="${BASELINE//$ASSET_EVIDENCE/$FOREIGN_EVIDENCE}"
+FOREIGN_EVIDENCE_DENIED=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"efficiency_baseline\",\"p_record\":$FOREIGN_EVIDENCE_PAYLOAD}")
+expect_error "$FOREIGN_EVIDENCE_DENIED" 'same-tenant independently verified environmental evidence'
+FOREIGN_ASSET_PAYLOAD="${BASELINE//$ASSET/$FOREIGN_ASSET}"
+FOREIGN_ASSET_DENIED=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"efficiency_baseline\",\"p_record\":$FOREIGN_ASSET_PAYLOAD}")
+expect_error "$FOREIGN_ASSET_DENIED" 'asset is outside the active tenant'
 
 FACTOR=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"emission_factor\",\"p_record\":{\"factorKey\":\"diesel_stationary\",\"label\":\"Stationary diesel combustion\",\"activityUnit\":\"L\",\"factor\":2.7,\"factorUnit\":\"kg CO2e/L\",\"validFrom\":\"$YESTERDAY\",\"gwp\":null,\"basis\":\"Published factor transcribed exactly for the governed reporting period.\",\"sourceReference\":\"REGULATOR-2026\",\"evidenceItemId\":\"$GLOBAL_EVIDENCE\"}}")
 noerr "$FACTOR"
@@ -133,4 +135,4 @@ test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' an
 FOREIGN_RESULT=$(rpc "$FOREIGN_AAL2" get_environmental_evidence_workspace '{}')
 BODY="$FOREIGN_RESULT" FOREIGN_ASSET="$FOREIGN_ASSET" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert len(x['assets'])==1 and x['assets'][0]['id']==os.environ['FOREIGN_ASSET'],x"
 
-echo 'E10 environmental evidence smoke passed: canonical_tables=true tenant_wall=true aal2_required=true ai_operator_refused=true ai_verifier_refused=true independent_evidence=true factor_unit_locked=true hazardous_controls_complete=true optimistic_version=true append_only_history=true direct_write_locked=true loss_summary_reachable=true compliance_certified=false reportable_inventory=false authority_granted=false'
+echo 'E10 environmental evidence smoke passed: canonical_tables=true tenant_wall=true foreign_evidence_refused=true foreign_asset_refused=true aal2_required=true ai_operator_refused=true ai_verifier_refused=true independent_evidence=true factor_unit_locked=true hazardous_controls_complete=true optimistic_version=true append_only_history=true direct_write_locked=true loss_summary_reachable=true compliance_certified=false reportable_inventory=false authority_granted=false'

@@ -129,8 +129,14 @@ describe("E10 governed environmental evidence workflow", () => {
     );
     expect(smoke).toContain("'MEASURED'");
     expect(smoke).not.toContain("'OBSERVED'");
+    expect(smoke).toContain(
+      "'same-tenant independently verified environmental evidence'",
+    );
+    expect(smoke).toContain("'asset is outside the active tenant'");
     for (const proof of [
       "tenant_wall=true",
+      "foreign_evidence_refused=true",
+      "foreign_asset_refused=true",
       "aal2_required=true",
       "independent_evidence=true",
       "direct_write_locked=true",
