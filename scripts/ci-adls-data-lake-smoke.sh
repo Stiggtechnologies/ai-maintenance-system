@@ -87,12 +87,19 @@ grep -qi 'service-attested transport evidence' <<<"$DIRECT_INSERT"
 
 CURSOR_ONE='{"last_modified":"2026-09-01T12:00:00Z","path":"recovery/sites/sites-1.csv"}'
 MANIFEST_ONE='[{"transport":"adls_gen2","path":"recovery/sites/sites-1.csv","etag":"etag-1","last_modified":"2026-09-01T12:00:00Z","content_length":120,"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","row_count":2}]'
+SOURCE_ONE='{"transport":"adls_gen2","path":"recovery/sites/sites-1.csv","etag":"etag-1","last_modified":"2026-09-01T12:00:00Z","content_length":120,"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}'
 BEGIN_ONE=$(service_rpc begin_data_lake_read_run "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$PLANNER\",\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_entity_type\":\"site\",\"p_manifest\":$MANIFEST_ONE,\"p_cursor_to\":$CURSOR_ONE,\"p_source_bytes\":120}")
 noerr "$BEGIN_ONE"; RUN_ONE=$(field "$BEGIN_ONE" run_id)
 INGEST_ONE=$(rpc "$PLANNER_JWT" ingest_recovery_activation_batch "{\"p_run_id\":\"$RUN_ONE\",\"p_rows\":[{\"external_id\":\"SITE-1\",\"name\":\"ADLS Site One\",\"code\":\"S1\",\"_sync_source\":{\"path\":\"recovery/sites/sites-1.csv\",\"sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}},{\"external_id\":\"SITE-BAD\"}]}" )
 expect_error "$INGEST_ONE" 'attested ingest'
-INGEST_ONE=$(rpc "$PLANNER_JWT" ingest_data_lake_read_batch "{\"p_run_id\":\"$RUN_ONE\",\"p_rows\":[{\"external_id\":\"SITE-1\",\"name\":\"ADLS Site One\",\"code\":\"S1\",\"_sync_source\":{\"path\":\"recovery/sites/sites-1.csv\",\"sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}},{\"external_id\":\"SITE-BAD\"}]}" )
+MISSING_SOURCE=$(rpc "$PLANNER_JWT" ingest_data_lake_read_batch "{\"p_run_id\":\"$RUN_ONE\",\"p_rows\":[{\"external_id\":\"SITE-1\",\"name\":\"ADLS Site One\"}]}" )
+expect_error "$MISSING_SOURCE" 'requires immutable source provenance'
+WRONG_SOURCE='{"transport":"adls_gen2","path":"recovery/sites/sites-1.csv","etag":"etag-1","last_modified":"2026-09-01T12:00:00Z","content_length":120,"sha256":"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"}'
+MISMATCHED_SOURCE=$(rpc "$PLANNER_JWT" ingest_data_lake_read_batch "{\"p_run_id\":\"$RUN_ONE\",\"p_rows\":[{\"external_id\":\"SITE-1\",\"name\":\"ADLS Site One\",\"_sync_source\":$WRONG_SOURCE}]}" )
+expect_error "$MISMATCHED_SOURCE" 'does not match the immutable run manifest'
+INGEST_ONE=$(rpc "$PLANNER_JWT" ingest_data_lake_read_batch "{\"p_run_id\":\"$RUN_ONE\",\"p_rows\":[{\"external_id\":\"SITE-1\",\"name\":\"ADLS Site One\",\"code\":\"S1\",\"_sync_source\":$SOURCE_ONE},{\"external_id\":\"SITE-BAD\",\"_sync_source\":$SOURCE_ONE}]}" )
 noerr "$INGEST_ONE"; test "$(field "$INGEST_ONE" accepted)" = '1'; test "$(field "$INGEST_ONE" rejected)" = '1'
+test "$(psqlc "select count(*) from ingest_staging where run_id='$RUN_ONE' and jsonb_typeof(payload->'_sync_source')='object' and payload->'_sync_source'->>'path'='recovery/sites/sites-1.csv' and payload->'_sync_source'->>'sha256'=repeat('a',64);")" = '2'
 GENERIC_FINISH=$(rpc "$PLANNER_JWT" finish_connector_run "{\"p_run_id\":\"$RUN_ONE\",\"p_status\":\"partial\",\"p_error\":null}")
 expect_error "$GENERIC_FINISH" 'service-only clean-finish contract'
 test "$(psqlc "select has_function_privilege('authenticated','public.finish_data_lake_read_run(uuid,uuid,text,text)','EXECUTE');")" = 'f'
@@ -103,9 +110,10 @@ test "$(psqlc "select count(*) from ingest_watermarks where organization_id='$OR
 
 CURSOR_TWO='{"last_modified":"2026-09-02T12:00:00Z","path":"recovery/sites/sites-2.csv"}'
 MANIFEST_TWO='[{"transport":"adls_gen2","path":"recovery/sites/sites-2.csv","etag":"etag-2","last_modified":"2026-09-02T12:00:00Z","content_length":90,"sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","row_count":2}]'
+SOURCE_TWO='{"transport":"adls_gen2","path":"recovery/sites/sites-2.csv","etag":"etag-2","last_modified":"2026-09-02T12:00:00Z","content_length":90,"sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}'
 BEGIN_TWO=$(service_rpc begin_data_lake_read_run "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$PLANNER\",\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_entity_type\":\"site\",\"p_manifest\":$MANIFEST_TWO,\"p_cursor_to\":$CURSOR_TWO,\"p_source_bytes\":90}")
 noerr "$BEGIN_TWO"; RUN_TWO=$(field "$BEGIN_TWO" run_id)
-INGEST_TWO=$(rpc "$PLANNER_JWT" ingest_data_lake_read_batch "{\"p_run_id\":\"$RUN_TWO\",\"p_rows\":[{\"external_id\":\"SITE-1\",\"name\":\"ADLS Site One\"},{\"external_id\":\"SITE-2\",\"name\":\"ADLS Site Two\"}]}" )
+INGEST_TWO=$(rpc "$PLANNER_JWT" ingest_data_lake_read_batch "{\"p_run_id\":\"$RUN_TWO\",\"p_rows\":[{\"external_id\":\"SITE-1\",\"name\":\"ADLS Site One\",\"_sync_source\":$SOURCE_TWO},{\"external_id\":\"SITE-2\",\"name\":\"ADLS Site Two\",\"_sync_source\":$SOURCE_TWO}]}" )
 noerr "$INGEST_TWO"; test "$(field "$INGEST_TWO" duplicate)" = '1'; test "$(field "$INGEST_TWO" accepted)" = '1'
 FINISH_TWO=$(service_rpc finish_data_lake_read_run "{\"p_organization_id\":\"$ORG\",\"p_run_id\":\"$RUN_TWO\",\"p_status\":\"success\",\"p_error\":null}")
 noerr "$FINISH_TWO"; test "$(field "$FINISH_TWO" cursor_advanced)" = 'true'
@@ -117,20 +125,32 @@ test "$(psqlc "select count(*) from decisions where organization_id='$ORG' and d
 STALE_BEGIN=$(service_rpc begin_data_lake_read_run "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$PLANNER\",\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_entity_type\":\"site\",\"p_manifest\":$MANIFEST_ONE,\"p_cursor_to\":$CURSOR_ONE,\"p_source_bytes\":120}")
 expect_error "$STALE_BEGIN" 'does not advance'
 
+CURSOR_GAP='{"last_modified":"2026-09-02T18:00:00Z","path":"recovery/sites/sites-gap.csv"}'
+MANIFEST_GAP='[{"transport":"adls_gen2","path":"recovery/sites/sites-gap.csv","etag":"etag-gap","last_modified":"2026-09-02T18:00:00Z","content_length":70,"sha256":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee","row_count":2}]'
+SOURCE_GAP='{"transport":"adls_gen2","path":"recovery/sites/sites-gap.csv","etag":"etag-gap","last_modified":"2026-09-02T18:00:00Z","content_length":70,"sha256":"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee"}'
+BEGIN_GAP=$(service_rpc begin_data_lake_read_run "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$PLANNER\",\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_entity_type\":\"site\",\"p_manifest\":$MANIFEST_GAP,\"p_cursor_to\":$CURSOR_GAP,\"p_source_bytes\":70}")
+noerr "$BEGIN_GAP"; RUN_GAP=$(field "$BEGIN_GAP" run_id)
+noerr "$(rpc "$PLANNER_JWT" ingest_data_lake_read_batch "{\"p_run_id\":\"$RUN_GAP\",\"p_rows\":[{\"external_id\":\"SITE-GAP\",\"name\":\"ADLS Gap Site\",\"_sync_source\":$SOURCE_GAP}]}" )"
+GAP_FINISH=$(service_rpc finish_data_lake_read_run "{\"p_organization_id\":\"$ORG\",\"p_run_id\":\"$RUN_GAP\",\"p_status\":\"success\",\"p_error\":null}")
+expect_error "$GAP_FINISH" 'row counts do not reconcile'
+noerr "$(service_rpc finish_data_lake_read_run "{\"p_organization_id\":\"$ORG\",\"p_run_id\":\"$RUN_GAP\",\"p_status\":\"failed\",\"p_error\":\"Transport row-count mismatch proven by C2.14 smoke.\"}")"
+
 CURSOR_THREE='{"last_modified":"2026-09-03T12:00:00Z","path":"recovery/sites/sites-3.csv"}'
 MANIFEST_THREE='[{"transport":"adls_gen2","path":"recovery/sites/sites-3.csv","etag":"etag-3","last_modified":"2026-09-03T12:00:00Z","content_length":80,"sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","row_count":1}]'
+SOURCE_THREE='{"transport":"adls_gen2","path":"recovery/sites/sites-3.csv","etag":"etag-3","last_modified":"2026-09-03T12:00:00Z","content_length":80,"sha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"}'
 CURSOR_FOUR='{"last_modified":"2026-09-04T12:00:00Z","path":"recovery/sites/sites-4.csv"}'
 MANIFEST_FOUR='[{"transport":"adls_gen2","path":"recovery/sites/sites-4.csv","etag":"etag-4","last_modified":"2026-09-04T12:00:00Z","content_length":80,"sha256":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd","row_count":1}]'
+SOURCE_FOUR='{"transport":"adls_gen2","path":"recovery/sites/sites-4.csv","etag":"etag-4","last_modified":"2026-09-04T12:00:00Z","content_length":80,"sha256":"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"}'
 BEGIN_THREE=$(service_rpc begin_data_lake_read_run "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$PLANNER\",\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_entity_type\":\"site\",\"p_manifest\":$MANIFEST_THREE,\"p_cursor_to\":$CURSOR_THREE,\"p_source_bytes\":80}")
 BEGIN_FOUR=$(service_rpc begin_data_lake_read_run "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$PLANNER\",\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_entity_type\":\"site\",\"p_manifest\":$MANIFEST_FOUR,\"p_cursor_to\":$CURSOR_FOUR,\"p_source_bytes\":80}")
 noerr "$BEGIN_THREE"; RUN_THREE=$(field "$BEGIN_THREE" run_id)
 noerr "$BEGIN_FOUR"; RUN_FOUR=$(field "$BEGIN_FOUR" run_id)
-noerr "$(rpc "$PLANNER_JWT" ingest_data_lake_read_batch "{\"p_run_id\":\"$RUN_THREE\",\"p_rows\":[{\"external_id\":\"SITE-3\",\"name\":\"ADLS Site Three\"}]}")"
-noerr "$(rpc "$PLANNER_JWT" ingest_data_lake_read_batch "{\"p_run_id\":\"$RUN_FOUR\",\"p_rows\":[{\"external_id\":\"SITE-4\",\"name\":\"ADLS Site Four\"}]}")"
+noerr "$(rpc "$PLANNER_JWT" ingest_data_lake_read_batch "{\"p_run_id\":\"$RUN_THREE\",\"p_rows\":[{\"external_id\":\"SITE-3\",\"name\":\"ADLS Site Three\",\"_sync_source\":$SOURCE_THREE}]}")"
+noerr "$(rpc "$PLANNER_JWT" ingest_data_lake_read_batch "{\"p_run_id\":\"$RUN_FOUR\",\"p_rows\":[{\"external_id\":\"SITE-4\",\"name\":\"ADLS Site Four\",\"_sync_source\":$SOURCE_FOUR}]}")"
 FINISH_FOUR=$(service_rpc finish_data_lake_read_run "{\"p_organization_id\":\"$ORG\",\"p_run_id\":\"$RUN_FOUR\",\"p_status\":\"success\",\"p_error\":null}")
 noerr "$FINISH_FOUR"; test "$(field "$FINISH_FOUR" cursor_advanced)" = 'true'
 FINISH_THREE=$(service_rpc finish_data_lake_read_run "{\"p_organization_id\":\"$ORG\",\"p_run_id\":\"$RUN_THREE\",\"p_status\":\"success\",\"p_error\":null}")
 noerr "$FINISH_THREE"; test "$(field "$FINISH_THREE" cursor_advanced)" = 'false'
 test "$(psqlc "select last_cursor->>'path' from ingest_watermarks where organization_id='$ORG' and connector_id=(select id from connectors where connector_key='$CONNECTOR_KEY');")" = 'recovery/sites/sites-4.csv'
 
-echo 'C2.14 ADLS data-lake smoke passed: canonical_connector=true canonical_runs=true canonical_staging=true tenant_wall=true administrator_profile=true service_attestation=true dedicated_ingest=true immutable_manifest=true retained_rejects=true idempotent_replay=true monotonic_clean_cursor=true source_write_back=false'
+echo 'C2.14 ADLS data-lake smoke passed: canonical_connector=true canonical_runs=true canonical_staging=true tenant_wall=true administrator_profile=true service_attestation=true dedicated_ingest=true immutable_manifest=true row_receipt_match=true retained_provenance=true row_reconciliation=true retained_rejects=true idempotent_replay=true monotonic_clean_cursor=true source_write_back=false'
