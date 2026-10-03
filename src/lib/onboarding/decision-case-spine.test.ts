@@ -13,7 +13,6 @@ import {
   applyInvite,
   applyInvitationDelivery,
   applyVerificationPlan,
-  attachGovernedSpineEvidence,
   attachSpineEvidence,
   buildProofSummary,
   buildSpineDecisionCase,
