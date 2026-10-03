@@ -15,7 +15,8 @@ describe("Decision Case command authority contract", () => {
       /where id=p_workspace_id and organization_id=v_org and workspace_kind<>'sync' for update/,
     );
     expect(migration).toContain("v_workspace.case_version<>p_expected_version");
-    expect(migration).toContain("errcode='40001'");
+    expect(migration).toContain("errcode='pt409'");
+    expect(migration).not.toContain("errcode='40001'");
     expect(migration).toContain(
       "decision case state must be changed through apply_decision_case_command",
     );
