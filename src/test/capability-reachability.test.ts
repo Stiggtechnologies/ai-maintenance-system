@@ -1018,13 +1018,13 @@ describe("the reachability judges", () => {
    * them look like documentation.
    */
   it("is not fooled by a comment, a getter, or a file that merely exists", () => {
-    // 1. A COMMENT IS NOT A CALLER. `get_recommendation_contract_posture`
-    //    appears in production comments but has no customer-reachable caller.
-    //    The first version of the gate would have passed it on that prose.
+    // 1. A COMMENT IS NOT A CALLER. `advance_lifecycle_stage` is declared but
+    //    has no customer-reachable caller. The first version of the gate would
+    //    have passed it on prose naming the missing path.
     const commentOnly = judge({
       id: "Z9.97",
-      raw: "get_recommendation_contract_posture",
-      name: "get_recommendation_contract_posture",
+      raw: "advance_lifecycle_stage",
+      name: "advance_lifecycle_stage",
       kind: "sql-function",
     });
     expect(commentOnly.ok, commentOnly.detail).toBe(false);
@@ -1069,6 +1069,19 @@ describe("the reachability judges", () => {
     expect(verdict.ok, verdict.detail).toBe(true);
     expect(verdict.detail).toMatch(
       /invoked from src\/components\/LifecycleDecisions\.tsx/,
+    );
+  });
+
+  it("recognizes recommendation contract posture as customer-reachable", () => {
+    const verdict = judge({
+      id: "C8.21",
+      raw: "get_recommendation_contract_posture",
+      name: "get_recommendation_contract_posture",
+      kind: "sql-function",
+    });
+    expect(verdict.ok, verdict.detail).toBe(true);
+    expect(verdict.detail).toMatch(
+      /invoked from src\/services\/operatingLoopService\.ts/,
     );
   });
 
