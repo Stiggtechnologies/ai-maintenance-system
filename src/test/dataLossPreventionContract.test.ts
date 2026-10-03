@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migrationPath =
-  "supabase/migrations/20270101330000_data_loss_prevention.sql";
+  "supabase/migrations/20270101860000_data_loss_prevention.sql";
 const migration = readFileSync(migrationPath, "utf8").toLowerCase();
 const guard = readFileSync(
   "supabase/functions/_shared/data-egress-guard.ts",
