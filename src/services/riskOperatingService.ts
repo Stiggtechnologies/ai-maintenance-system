@@ -10,6 +10,123 @@ import type {
 
 type RpcResult = Record<string, unknown> & { error?: string };
 
+export interface RiskUncertaintyEvidence {
+  id: string;
+  description: string;
+  sourceSystem: string;
+  sourceReference: string | null;
+  verificationStatus: string;
+  verifiedBy: string | null;
+  verifiedAt: string | null;
+  evidenceClass: string | null;
+  qualityGrade: string | null;
+  applicabilityGrade: string | null;
+}
+
+export interface RiskUncertaintySensitivityInput {
+  name: string;
+  basis: string;
+  low_input: number;
+  base_input: number;
+  high_input: number;
+  low_output: number;
+  base_output: number;
+  high_output: number;
+}
+
+export interface RiskUncertaintySensitivityResult {
+  name: string;
+  basis: string;
+  lowInput: number;
+  baseInput: number;
+  highInput: number;
+  lowOutput: number;
+  baseOutput: number;
+  highOutput: number;
+  swing: number;
+}
+
+export interface RiskUncertaintyAnalysis {
+  id: string;
+  version: number;
+  validationStatus: "pending_review" | "validated" | "rejected" | "stale";
+  method: string;
+  basis: string;
+  probability: { lower: number; central: number; upper: number };
+  confidence: { level: number; lower: number; upper: number };
+  lossCases: {
+    best: number;
+    expected: number;
+    worst: number;
+    currency: string;
+  };
+  sensitivityInputs: RiskUncertaintySensitivityInput[];
+  sensitivityResults: RiskUncertaintySensitivityResult[];
+  thresholdProfileId: string;
+  decisionThresholds: Record<string, unknown>;
+  reassessmentTriggers: string[];
+  reviewDueAt: string;
+  valueOfInformation: {
+    action: string;
+    informationCost: number;
+    decisionCostIfWrong: number;
+    uncertaintyReduction: number;
+    probabilityDecisionChanges: number;
+    expectedValue: number;
+    netValue: number;
+    recommendation: "GATHER_INFORMATION" | "DECIDE_WITH_CURRENT_INFORMATION";
+  };
+  analysisDigest: string;
+  currentDigest: string;
+  authorId: string;
+  createdAt: string;
+  reviewerId: string | null;
+  reviewedAt: string | null;
+  reviewNote: string | null;
+  approvalId: string | null;
+  derivedEvidenceItemId: string | null;
+  evidenceItemIds: string[];
+  operationalAuthorization: false;
+}
+
+export interface RiskUncertaintyWorkspace {
+  risk: { id: string; title: string; status: string; currency: string };
+  criteria: {
+    id: string;
+    name: string;
+    version: number;
+    status: string;
+    decisionThresholds: Record<string, unknown>;
+  } | null;
+  evidence: RiskUncertaintyEvidence[];
+  analyses: RiskUncertaintyAnalysis[];
+  boundary: string;
+  operationalAuthorization: false;
+}
+
+export interface RiskUncertaintySubmission {
+  method: string;
+  basis: string;
+  probability_lower: number;
+  probability_central: number;
+  probability_upper: number;
+  confidence_level: number;
+  confidence_interval_lower: number;
+  confidence_interval_upper: number;
+  best_case_loss: number;
+  expected_case_loss: number;
+  worst_case_loss: number;
+  currency: string;
+  sensitivity: RiskUncertaintySensitivityInput[];
+  reassessment_triggers: string[];
+  review_due_at: string;
+  voi_action: string;
+  voi_information_cost: number;
+  voi_decision_cost_if_wrong: number;
+  voi_uncertainty_reduction: number;
+  voi_probability_decision_changes: number;
+}
+
 function fail(message: string, error?: { message: string } | null): never {
   throw new Error(error ? `${message}: ${error.message}` : message);
 }
@@ -32,6 +149,60 @@ export async function getRiskOperatingCockpit(): Promise<RiskCockpit> {
   );
   if (error) fail("Could not load the risk operating cockpit", error);
   return data as RiskCockpit;
+}
+
+export async function getRiskUncertaintyWorkspace(
+  riskId: string,
+): Promise<RiskUncertaintyWorkspace> {
+  const { data, error } = await supabase.rpc(
+    "get_risk_uncertainty_workspace",
+    { p_risk_id: riskId },
+  );
+  return unwrap(
+    data as (RiskUncertaintyWorkspace & RpcResult) | null,
+    error,
+    "Could not load the governed uncertainty workspace",
+  );
+}
+
+export async function submitRiskUncertaintyAnalysis(
+  riskId: string,
+  analysis: RiskUncertaintySubmission,
+  evidenceItemIds: string[],
+): Promise<RpcResult> {
+  const { data, error } = await supabase.rpc(
+    "submit_risk_uncertainty_analysis",
+    {
+      p_risk_id: riskId,
+      p_analysis: analysis,
+      p_evidence_item_ids: evidenceItemIds,
+    },
+  );
+  return unwrap(
+    data as RpcResult | null,
+    error,
+    "Could not submit the uncertainty analysis",
+  );
+}
+
+export async function reviewRiskUncertaintyAnalysis(
+  analysisId: string,
+  decision: "validated" | "rejected",
+  note: string,
+): Promise<RpcResult> {
+  const { data, error } = await supabase.rpc(
+    "review_risk_uncertainty_analysis",
+    {
+      p_analysis_id: analysisId,
+      p_decision: decision,
+      p_review_note: note,
+    },
+  );
+  return unwrap(
+    data as RpcResult | null,
+    error,
+    "Could not review the uncertainty analysis",
+  );
 }
 
 export async function getIso31000ImplementationState(): Promise<RiskImplementationState | null> {
