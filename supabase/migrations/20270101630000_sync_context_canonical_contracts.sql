@@ -353,6 +353,35 @@ begin
   if num_nonnulls(v_asset,v_site,v_route,v_segment,v_work,v_evidence_subject,v_recommendation,v_decision,
       v_approval,v_risk,v_recovery,v_case,v_project,v_audit)<1 then
     return jsonb_build_object('error','link at least one canonical Context subject'); end if;
+  if v_asset is not null and not exists(select 1 from public.assets x where x.id=v_asset and x.organization_id=v_org) then
+    return jsonb_build_object('error','asset not found in this organization'); end if;
+  if v_site is not null and not exists(select 1 from public.sites x where x.id=v_site and x.organization_id=v_org) then
+    return jsonb_build_object('error','site not found in this organization'); end if;
+  if v_route is not null and not exists(select 1 from public.linear_asset_routes x where x.id=v_route and x.organization_id=v_org) then
+    return jsonb_build_object('error','linear route not found in this organization'); end if;
+  if v_segment is not null and not exists(select 1 from public.linear_segments x where x.id=v_segment and x.organization_id=v_org
+      and (v_route is null or x.route_id=v_route)) then
+    return jsonb_build_object('error','linear segment not found in this organization'); end if;
+  if v_work is not null and not exists(select 1 from public.work_orders x where x.id=v_work and x.organization_id=v_org) then
+    return jsonb_build_object('error','work order not found in this organization'); end if;
+  if v_evidence_subject is not null and not exists(select 1 from public.evidence_items x where x.id=v_evidence_subject and x.organization_id=v_org) then
+    return jsonb_build_object('error','evidence item not found in this organization'); end if;
+  if v_recommendation is not null and not exists(select 1 from public.recommendations x where x.id=v_recommendation and x.organization_id=v_org) then
+    return jsonb_build_object('error','recommendation not found in this organization'); end if;
+  if v_decision is not null and not exists(select 1 from public.decisions x where x.id=v_decision and x.organization_id=v_org) then
+    return jsonb_build_object('error','decision not found in this organization'); end if;
+  if v_approval is not null and not exists(select 1 from public.approvals x where x.id=v_approval and x.organization_id=v_org) then
+    return jsonb_build_object('error','approval not found in this organization'); end if;
+  if v_risk is not null and not exists(select 1 from public.risks x where x.id=v_risk and x.organization_id=v_org) then
+    return jsonb_build_object('error','risk not found in this organization'); end if;
+  if v_recovery is not null and not exists(select 1 from public.restoration_events x where x.id=v_recovery and x.organization_id=v_org) then
+    return jsonb_build_object('error','recovery event not found in this organization'); end if;
+  if v_case is not null and not exists(select 1 from public.development_cases x where x.id=v_case and x.organization_id=v_org) then
+    return jsonb_build_object('error','development case not found in this organization'); end if;
+  if v_project is not null and not exists(select 1 from public.capital_projects x where x.id=v_project and x.organization_id=v_org) then
+    return jsonb_build_object('error','capital project not found in this organization'); end if;
+  if v_audit is not null and not exists(select 1 from public.audit_events x where x.id=v_audit and x.organization_id=v_org) then
+    return jsonb_build_object('error','audit event not found in this organization'); end if;
   if exists(select 1 from unnest(v_evidence) x(id) left join public.evidence_items e on e.id=x.id and e.organization_id=v_org where e.id is null) then
     return jsonb_build_object('error','link evidence must belong to this organization'); end if;
   if v_work is not null and v_recommendation is not null and not exists(

@@ -62,6 +62,24 @@ describe("SC-01 canonical Sync Context contracts", () => {
       "context source governance fields are writable only through governed rpcs",
     );
     expect(sql).toContain("link at least one canonical context subject");
+    for (const subject of [
+      "asset",
+      "site",
+      "linear route",
+      "linear segment",
+      "work order",
+      "evidence item",
+      "recommendation",
+      "decision",
+      "approval",
+      "risk",
+      "recovery event",
+      "development case",
+      "capital project",
+      "audit event",
+    ]) {
+      expect(sql).toContain(`${subject} not found in this organization`);
+    }
     expect(sql).toContain("v_recommendation");
     expect(sql).toContain("approval does not govern the linked work order");
     expect(sql).toContain(
