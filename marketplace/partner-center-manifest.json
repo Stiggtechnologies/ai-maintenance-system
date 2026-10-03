@@ -1,0 +1,318 @@
+{
+  "schemaVersion": "1.0",
+  "artifact": "syncai-partner-center-publication",
+  "asOf": "2026-10-03",
+  "overallStatus": "blocked",
+  "statusVocabulary": [
+    "verified",
+    "draft",
+    "owner_decision_required",
+    "external_action_required",
+    "blocked"
+  ],
+  "claims": {
+    "published": false,
+    "microsoftCertified": false,
+    "transactableBuyerProven": false,
+    "primarilyPlatformedOnAzureProven": false,
+    "maccEligible": false,
+    "coSellReady": false
+  },
+  "technicalConfiguration": {
+    "status": "blocked",
+    "deploymentEvidence": {
+      "mergeCommit": "a0c4186efd1d449fbd80d67d5150d63f18684875",
+      "mergeCommitUrl": "https://github.com/Stiggtechnologies/ai-maintenance-system/commit/a0c4186efd1d449fbd80d67d5150d63f18684875",
+      "relatedPullRequest": "https://github.com/Stiggtechnologies/ai-maintenance-system/pull/602",
+      "statusCommit": "a0c4186efd1d449fbd80d67d5150d63f18684875",
+      "statusContexts": [
+        {
+          "context": "Vercel – ai-maintenance-system",
+          "project": "ai-maintenance-system",
+          "deploymentId": "2fyc2u4isGgjpBwRCWueNvPf9V54",
+          "deploymentUrl": "https://vercel.com/stiggtechnologies-projects/ai-maintenance-system/2fyc2u4isGgjpBwRCWueNvPf9V54",
+          "recordedAt": "2026-10-03T06:47:21Z",
+          "result": "success"
+        },
+        {
+          "context": "Vercel – repo",
+          "project": "repo",
+          "deploymentId": "3Re57JFiNpHEe77ac7mZMajSYKKu",
+          "deploymentUrl": "https://vercel.com/stiggtechnologies-projects/repo/3Re57JFiNpHEe77ac7mZMajSYKKu",
+          "recordedAt": "2026-10-03T06:47:18Z",
+          "result": "success"
+        },
+        {
+          "context": "Vercel – syncai-github",
+          "project": "syncai-github",
+          "deploymentId": "DqYhNWUvqzpMb9aE9pzY1EdWzpr3",
+          "deploymentUrl": "https://vercel.com/stiggtechnologies-projects/syncai-github/DqYhNWUvqzpMb9aE9pzY1EdWzpr3",
+          "recordedAt": "2026-10-03T06:47:13Z",
+          "result": "success"
+        }
+      ],
+      "statusEvidenceScope": "The Vercel status contexts are immutable successful deployment records attached to merge commit a0c4186efd1d449fbd80d67d5150d63f18684875. They do not prove that app.syncai.ca aliases any listed deployment or source commit.",
+      "customDomainAliasToMergeCommit": "blocked"
+    },
+    "landingPage": {
+      "configuredUrl": "https://syncai.ca/marketplace/activate",
+      "configuredUrlProbe": {
+        "date": "2026-10-03",
+        "method": "GET",
+        "httpStatus": 404
+      },
+      "controlledReplacement": "https://app.syncai.ca/marketplace/activate",
+      "historicalAlias": "https://app.syncai.ca/marketplace/signup",
+      "implementationMergeCommit": "a0c4186efd1d449fbd80d67d5150d63f18684875",
+      "replacementProbe": {
+        "date": "2026-10-03",
+        "method": "GET",
+        "httpStatus": 200,
+        "browserWitness": "Marketplace activation UI rendered the bounded no-token state"
+      },
+      "status": "external_action_required"
+    },
+    "connectionWebhook": {
+      "configuredUrl": "https://syncai.ca/api/marketplace/webhook",
+      "configuredUrlProbe": {
+        "date": "2026-10-03",
+        "method": "GET",
+        "httpStatus": 404
+      },
+      "controlledReplacement": "https://app.syncai.ca/api/marketplace/webhook",
+      "unconfirmedHistoricalDirectCandidate": {
+        "url": "https://pjvoswbwomesuwhygpby.supabase.co/functions/v1/marketplace-webhook",
+        "permittedAsFallback": false,
+        "status": "blocked"
+      },
+      "implementationMergeCommit": "a0c4186efd1d449fbd80d67d5150d63f18684875",
+      "replacementProbe": {
+        "date": "2026-10-03",
+        "get": {
+          "httpStatus": 405,
+          "allow": "POST"
+        },
+        "unsignedJsonPost": {
+          "httpStatus": 401,
+          "error": "marketplace_webhook_token_required"
+        },
+        "headers": [
+          "Cache-Control: no-store",
+          "X-Content-Type-Options: nosniff"
+        ]
+      },
+      "productionProjectConfirmation": {
+        "requiredBeforePartnerCenterUpdate": true,
+        "intendedSupabaseProject": "owner_decision_required",
+        "authoritativeEvidence": "blocked",
+        "status": "blocked"
+      },
+      "authenticatedUpstreamLifecycleWitness": "blocked",
+      "status": "blocked"
+    },
+    "autoActivation": {
+      "controlledValue": false,
+      "reason": "Current implementation requires manual activation by an administrator of an existing matching organization.",
+      "status": "verified"
+    }
+  },
+  "plans": [
+    {
+      "name": "Starter",
+      "proposedPlanId": "starter",
+      "listingCopy": "draft",
+      "featureBoundary": "owner_decision_required",
+      "price": "owner_decision_required",
+      "billingTerm": "owner_decision_required",
+      "markets": "owner_decision_required",
+      "quantitySemantics": "owner_decision_required",
+      "includedUsage": "owner_decision_required",
+      "metering": "owner_decision_required",
+      "supportLevel": "owner_decision_required",
+      "status": "blocked"
+    },
+    {
+      "name": "Professional",
+      "proposedPlanId": "professional",
+      "listingCopy": "draft",
+      "featureBoundary": "owner_decision_required",
+      "price": "owner_decision_required",
+      "billingTerm": "owner_decision_required",
+      "markets": "owner_decision_required",
+      "quantitySemantics": "owner_decision_required",
+      "includedUsage": "owner_decision_required",
+      "metering": "owner_decision_required",
+      "supportLevel": "owner_decision_required",
+      "status": "blocked"
+    },
+    {
+      "name": "Enterprise",
+      "proposedPlanId": "enterprise",
+      "listingCopy": "draft",
+      "featureBoundary": "owner_decision_required",
+      "price": "owner_decision_required",
+      "billingTerm": "owner_decision_required",
+      "markets": "owner_decision_required",
+      "quantitySemantics": "owner_decision_required",
+      "includedUsage": "owner_decision_required",
+      "metering": "owner_decision_required",
+      "supportLevel": "owner_decision_required",
+      "status": "blocked"
+    }
+  ],
+  "legacyPricing": {
+    "permittedForPublication": false,
+    "disallowedMonthlyCadValues": [4000, 9000, 18000],
+    "reason": "Repository history identifies these values and their limits as commercially unconfirmed and superseded."
+  },
+  "cspResale": {
+    "recommendedInitialSelection": "no_partners",
+    "nextControlledSelection": "specific_partners",
+    "unrestrictedAnyPartnerApproved": false,
+    "channelSupportEvidencePresent": false,
+    "status": "external_action_required"
+  },
+  "taxAndPayout": {
+    "publisherSubmission": "external_action_required",
+    "partnerCenterTaxValidationOrAssignment": "blocked",
+    "partnerCenterPayoutProfile": "blocked",
+    "taxRemittedMarketSelection": "owner_decision_required",
+    "submissionImpliesPartnerCenterCompletion": false,
+    "status": "blocked"
+  },
+  "supplementalContent": {
+    "narrative": "draft",
+    "azureSubscriptionId": "owner_decision_required",
+    "deployedAzureResourceEvidence": "blocked",
+    "azureConsumptionEvidence": "blocked",
+    "architectureDiagram": "blocked",
+    "externalDependenciesDisclosed": true,
+    "status": "blocked"
+  },
+  "listing": {
+    "offerCopy": "draft",
+    "gettingStarted": "draft",
+    "keywords": "draft",
+    "privacyPolicyUrl": "blocked",
+    "termsOrContract": "owner_decision_required",
+    "supportEmail": "support@syncai.ca",
+    "engineeringContact": "owner_decision_required",
+    "marketingPdf": "blocked",
+    "logo": "blocked",
+    "status": "blocked"
+  },
+  "previewAndCertification": {
+    "previewAudience": "external_action_required",
+    "realPreviewPurchasesRequired": 2,
+    "realPreviewPurchasesObserved": 0,
+    "repositoryHarness": "implemented_not_run",
+    "authenticatedLifecycleWitness": "blocked",
+    "acceptedMeteringWitness": "blocked",
+    "partnerCenterCertification": "blocked",
+    "status": "blocked"
+  },
+  "professionalServices": {
+    "controlRecord": "marketplace/professional-services-offers.json",
+    "offers": [
+      "Reliability Intelligence Assessment",
+      "Industrial Decision Proof of Concept",
+      "SyncAI Implementation and Scale"
+    ],
+    "forwardDeployedEngineering": "bounded_implementation_workstream",
+    "supportingCollateral": {
+      "renderedPdf": "output/pdf/syncai-professional-services-and-fde.pdf",
+      "status": "rendered_unapproved"
+    },
+    "supportingSoftwareMarketplaceUrl": "blocked",
+    "published": false,
+    "status": "draft"
+  },
+  "blockingActions": [
+    {
+      "id": "PC-000",
+      "owner": "Production deployment owner",
+      "action": "Authoritatively confirm and record that the app.syncai.ca Vercel production proxy resolves to the intended production Supabase project. Public 405/401 probes and deployment status contexts are insufficient.",
+      "status": "blocked"
+    },
+    {
+      "id": "PC-001",
+      "owner": "Partner Center operator",
+      "action": "After PC-000 is verified, replace the two 404 Partner Center values with the controlled app.syncai.ca activation and webhook URLs, then save an export or screenshot.",
+      "dependsOn": ["PC-000"],
+      "status": "blocked"
+    },
+    {
+      "id": "PC-002",
+      "owner": "Commercial owner",
+      "action": "Approve the feature boundary, pricing model, price, term, markets, quantities, metering and support terms for all three plans.",
+      "status": "blocked"
+    },
+    {
+      "id": "PC-003",
+      "owner": "Product and engineering owners",
+      "action": "Prove the deployed runtime can enforce every approved plan and meter boundary.",
+      "status": "blocked"
+    },
+    {
+      "id": "PC-004",
+      "owner": "Legal/privacy owner",
+      "action": "Publish and witness a directly addressable HTTPS privacy policy and approve the contract/EULA posture.",
+      "status": "blocked"
+    },
+    {
+      "id": "PC-005",
+      "owner": "Azure subscription owner",
+      "action": "Supply production Azure subscription, resource, architecture and commensurate-consumption evidence for Supplemental content.",
+      "status": "blocked"
+    },
+    {
+      "id": "PC-006",
+      "owner": "Brand and claims owners",
+      "action": "Produce and approve the required accessible marketing PDF and logo.",
+      "status": "blocked"
+    },
+    {
+      "id": "PC-007",
+      "owner": "Marketplace release owner",
+      "action": "Run two real preview purchases through activation, lifecycle, refusal and metering witnesses, then run the protected preview-certification harness.",
+      "status": "blocked"
+    },
+    {
+      "id": "PC-008",
+      "owner": "Microsoft and Marketplace release owner",
+      "action": "Complete Partner Center validation, Microsoft certification, certified preview and explicit go-live.",
+      "status": "blocked"
+    },
+    {
+      "id": "PC-009",
+      "owner": "Partner Center account owner",
+      "action": "Verify Microsoft's current tax validation/assignment and payout-profile statuses separately from any publisher-submitted tax information.",
+      "status": "blocked"
+    }
+  ],
+  "sources": [
+    "README.md",
+    "docs/azure-marketplace.md",
+    "docs/enterprise-readiness/claims-and-evidence-register.md",
+    "docs/archive/STRIPE-INTEGRATION-GUIDE.md",
+    "src/App.tsx",
+    "src/lib/auth-page.ts",
+    "src/pages/MarketplaceSignup.tsx",
+    "src/pages/Privacy.tsx",
+    "src/pages/Terms.tsx",
+    ".github/workflows/deploy-migrations.yml",
+    ".github/workflows/azure-marketplace-preview-certification.yml",
+    "scripts/azure-marketplace-preview-certification.ts",
+    "scripts/marketplace-public-route-smoke.mjs"
+  ],
+  "documents": [
+    "docs/marketplace/README.md",
+    "docs/marketplace/partner-center-fields.md",
+    "docs/marketplace/supplemental-content.md",
+    "docs/marketplace/supporting-document-source.md",
+    "docs/marketplace/preview-and-certification.md",
+    "docs/marketplace/professional-services-and-fde.md",
+    "docs/marketplace/professional-services-supporting-document-source.md",
+    "output/pdf/syncai-professional-services-and-fde.pdf"
+  ]
+}
