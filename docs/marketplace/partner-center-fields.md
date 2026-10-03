@@ -83,8 +83,8 @@ Length: 81 characters.
 
 | Field | Controlled value | Status and operator note |
 | --- | --- | --- |
-| Landing page URL | `https://app.syncai.ca/marketplace/signup` | HTTP 200 verified 2026-10-03; use no fragment; test first purchase and returning manage flow |
-| Connection webhook | `https://pjvoswbwomesuwhygpby.supabase.co/functions/v1/marketplace-webhook` | Unsigned POST returns expected 401; confirm this production project before saving |
+| Landing page URL | `https://app.syncai.ca/marketplace/activate` | Production HTTP 200 and signed-out activation UI verified on SHA `a0c4186`; use no fragment; first purchase and returning manage flow remain preview tests |
+| Connection webhook | `https://app.syncai.ca/api/marketplace/webhook` | Production `GET` returns `405` with `Allow: POST`; unsigned JSON `POST` returns the proxy's expected `401` on SHA `a0c4186` |
 | Microsoft Entra tenant ID | `[OWNER VERIFY: exact publisher tenant GUID already configured]` | Must match server secret and webhook token validation |
 | Microsoft Entra application ID | `[OWNER VERIFY: exact Marketplace publisher application GUID already configured]` | Must match webhook audience and publisher credentials |
 | Auto activation | `No / Off` | Required by the current manual-activation contract |
@@ -93,20 +93,19 @@ Do not place secrets, SAS tokens, keys, or authorization material in either
 URL. The webhook authenticates the Microsoft bearer token sent in the
 `Authorization` header.
 
-### Pending app-domain aliases
+### Production app-domain route witness
 
-Commit `50a2452` implements these preferred same-origin candidates:
+Merged PR #602 deploys these controlled same-origin values:
 
 - `https://app.syncai.ca/marketplace/activate`
 - `https://app.syncai.ca/api/marketplace/webhook`
 
-They remain **pending deployment verification**, not Partner Center values.
-Promote them only after the activation path visibly renders the Marketplace
-flow, webhook `GET` returns `405` with `Allow: POST`, and an unsigned JSON
-`POST` returns `401`. Before deployment the live app webhook returns `405` for
-unsigned POST for the wrong reason (the route is not live), so that observation
-is not a security-boundary witness. The direct Supabase webhook remains the
-honest fallback until the proxy is deployed and verified.
+Production verification passed on 2026-10-03 at SHA `a0c4186`: the activation
+path visibly rendered the bounded Marketplace no-token state, webhook `GET`
+returned `405` with `Allow: POST`, and an unsigned JSON `POST` returned the
+proxy's `401` token refusal. This authorizes entering these URLs in Partner
+Center. It does not authorize publishing and is not an authenticated purchase,
+lifecycle, or metering witness.
 
 ## Plans
 

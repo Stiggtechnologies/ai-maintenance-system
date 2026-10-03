@@ -27,14 +27,14 @@
         "method": "GET",
         "httpStatus": 404
       },
-      "controlledReplacement": "https://app.syncai.ca/marketplace/signup",
-      "preferredAfterDeploymentVerification": "https://app.syncai.ca/marketplace/activate",
-      "preferredCandidateSourceCommit": "50a2452",
-      "preferredCandidateStatus": "external_action_required",
+      "controlledReplacement": "https://app.syncai.ca/marketplace/activate",
+      "previousWorkingFallback": "https://app.syncai.ca/marketplace/signup",
+      "productionSourceCommit": "a0c4186",
       "replacementProbe": {
         "date": "2026-10-03",
         "method": "GET",
-        "httpStatus": 200
+        "httpStatus": 200,
+        "browserWitness": "Marketplace activation UI rendered the bounded no-token state"
       },
       "status": "external_action_required"
     },
@@ -45,18 +45,22 @@
         "method": "GET",
         "httpStatus": 404
       },
-      "controlledReplacement": "https://pjvoswbwomesuwhygpby.supabase.co/functions/v1/marketplace-webhook",
-      "preferredAfterDeploymentVerification": "https://app.syncai.ca/api/marketplace/webhook",
-      "preferredCandidateSourceCommit": "50a2452",
-      "preferredCandidateStatus": "external_action_required",
+      "controlledReplacement": "https://app.syncai.ca/api/marketplace/webhook",
+      "previousWorkingFallback": "https://pjvoswbwomesuwhygpby.supabase.co/functions/v1/marketplace-webhook",
+      "productionSourceCommit": "a0c4186",
       "replacementProbe": {
         "date": "2026-10-03",
-        "method": "POST",
-        "authentication": "none",
-        "httpStatus": 401,
-        "expectedBoundary": "custom Microsoft bearer-token verification"
+        "get": {
+          "httpStatus": 405,
+          "allow": "POST"
+        },
+        "unsignedJsonPost": {
+          "httpStatus": 401,
+          "error": "marketplace_webhook_token_required"
+        },
+        "headers": ["Cache-Control: no-store", "X-Content-Type-Options: nosniff"]
       },
-      "productionProjectConfirmation": "owner_decision_required",
+      "authenticatedUpstreamLifecycleWitness": "blocked",
       "status": "external_action_required"
     },
     "autoActivation": {
@@ -164,7 +168,7 @@
     {
       "id": "PC-001",
       "owner": "Partner Center operator",
-      "action": "Replace the 404 landing page and webhook values with the controlled candidates after confirming the production Supabase project.",
+      "action": "Replace the two 404 Partner Center values with the production-verified app.syncai.ca activation and webhook URLs, then save an export or screenshot.",
       "status": "external_action_required"
     },
     {

@@ -16,7 +16,7 @@ The machine-readable source of status is
 | Starter plan | Draft copy ready | Paste the controlled description | Owner must approve the boundary, Plan ID, price, term, markets, allowances, metered dimensions and support level |
 | Professional plan | Draft copy ready | Paste the controlled description | Same commercial decisions; no legacy `PRO` price or limits may be reused |
 | Enterprise plan | Draft copy ready | Paste the controlled description | Same commercial decisions; Enterprise does not imply SSO, private hosting, certifications or an SLA |
-| Technical configuration | Partially verified | Replace the two 404 URLs with the landing page and webhook candidates below | Confirm the webhook project is paired with the production offer and complete an authenticated preview lifecycle |
+| Technical configuration | Production routes verified; Partner Center change pending | Replace the two 404 values with the production app-domain URLs below | Save and export the Partner Center configuration, then complete an authenticated preview lifecycle |
 | CSP resale | Recommendation ready | Select **No partners in the CSP program** for first publication | Owner may later authorize named partners after channel support and commercial terms exist |
 | Supplemental content | Draft answers ready | Paste the architecture narrative | Owner must supply the Azure subscription ID and deployed consumption evidence; current Azure-primary posture is not proven |
 | Tax and payout profile | Externally unverified | Record any user-submitted tax form as a submission fact only | A Partner Center operator must separately capture Microsoft's current validation/assignment status and payout-profile readiness |
@@ -42,26 +42,19 @@ offer identity and saves a screenshot/export of the change:
 
 | Field | Current value | Controlled replacement | Evidence |
 | --- | --- | --- | --- |
-| Landing page URL | `https://syncai.ca/marketplace/activate` (404 on 2026-10-03) | `https://app.syncai.ca/marketplace/signup` | Live HTTP 200; application route is defined in `src/App.tsx` |
-| Connection webhook | `https://syncai.ca/api/marketplace/webhook` (404 on 2026-10-03) | `https://pjvoswbwomesuwhygpby.supabase.co/functions/v1/marketplace-webhook` | Live unsigned POST returns HTTP 401 as the function's custom Microsoft-JWT boundary requires |
+| Landing page URL | `https://syncai.ca/marketplace/activate` (404 on 2026-10-03) | `https://app.syncai.ca/marketplace/activate` | Production HTTP 200 and signed-out browser rendered the Marketplace activation refusal on merged SHA `a0c4186` |
+| Connection webhook | `https://syncai.ca/api/marketplace/webhook` (404 on 2026-10-03) | `https://app.syncai.ca/api/marketplace/webhook` | Production `GET` returns 405 with `Allow: POST`; unsigned JSON `POST` returns the proxy's 401 token refusal on merged SHA `a0c4186` |
 | Auto activation | Unknown | **Off** for every plan | The implemented offer contract is manual activation |
 
-The webhook host was identified by a live refusal probe and matches the
-repository's deployed Edge Function shape. Before saving it in the production
-offer, the operator must confirm that project `pjvoswbwomesuwhygpby` is the
-production project paired with `app.syncai.ca`; a 401 probe proves deployment
-and refusal, not correct publisher credentials or end-to-end commerce.
-
-Commit `50a2452` adds app-domain candidates
-`https://app.syncai.ca/marketplace/activate` and
-`https://app.syncai.ca/api/marketplace/webhook`. They are not yet the controlled
-production values: before deployment, the activation path returns the generic
-SPA shell and the webhook path does not expose the new POST proxy. After that
-commit is deployed, prefer the app-domain URLs only when a fresh signed-out
-browser reaches the Marketplace activation UI, `GET` on the webhook returns
-`405` with `Allow: POST`, and an unsigned JSON `POST` returns `401`. Until all
-three witnesses pass, retain the working signup URL and direct Supabase
-webhook above.
+The same-origin routes were deployed by merged PR #602 as SHA `a0c4186` and
+verified in production on 2026-10-03. A fresh signed-out browser reached the
+Marketplace activation UI and showed the bounded no-token message. The
+webhook returned `405` with `Allow: POST` for `GET` and the proxy's
+`marketplace_webhook_token_required` 401 for an unsigned JSON `POST`; both
+responses were `no-store` and `nosniff`. These witnesses prove the public route
+and unauthenticated refusal boundary. They do **not** prove Microsoft token
+validation, subscription resolution, activation, lifecycle processing,
+metering, or a Partner Center purchase. Those remain preview gates.
 
 ## Non-negotiable blockers
 

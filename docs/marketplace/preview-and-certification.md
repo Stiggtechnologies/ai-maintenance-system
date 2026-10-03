@@ -26,18 +26,17 @@ publishing while a blocking item remains open.**
 
 ## 2. Technical configuration
 
-- [ ] Replace `https://syncai.ca/marketplace/activate` with
-      `https://app.syncai.ca/marketplace/signup`.
-- [ ] After commit `50a2452` is deployed, verify the preferred app-domain
-      activation alias visibly renders the Marketplace flow; only then may the
-      landing page be changed to `https://app.syncai.ca/marketplace/activate`.
-- [ ] Confirm that Supabase project `pjvoswbwomesuwhygpby` is the production
-      project paired with the offer.
-- [ ] Replace `https://syncai.ca/api/marketplace/webhook` with
-      `https://pjvoswbwomesuwhygpby.supabase.co/functions/v1/marketplace-webhook`.
-- [ ] After commit `50a2452` is deployed, verify app-domain webhook `GET`
-      returns `405` with `Allow: POST` and unsigned JSON `POST` returns `401`;
-      only then may it replace the direct Supabase webhook.
+- [x] Verify on production SHA `a0c4186` that
+      `https://app.syncai.ca/marketplace/activate` visibly renders the bounded
+      Marketplace no-token state in a fresh signed-out browser.
+- [x] Verify on production SHA `a0c4186` that app-domain webhook `GET` returns
+      `405` with `Allow: POST` and unsigned JSON `POST` returns the proxy's
+      `401` token refusal.
+- [ ] Replace `https://syncai.ca/marketplace/activate` in Partner Center with
+      `https://app.syncai.ca/marketplace/activate`; save an export/screenshot.
+- [ ] Replace `https://syncai.ca/api/marketplace/webhook` in Partner Center
+      with `https://app.syncai.ca/api/marketplace/webhook`; save an
+      export/screenshot.
 - [ ] Keep auto activation off on every plan.
 - [ ] Confirm the configured Partner Center publisher/offer IDs exactly match
       the server secrets.

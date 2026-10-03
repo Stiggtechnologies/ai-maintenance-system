@@ -14,6 +14,41 @@ afterEach(() => {
 });
 
 describe("Marketplace app-domain routes", () => {
+  it("pins the production-verified app-domain values without overstating commerce", () => {
+    const manifest = JSON.parse(
+      read("marketplace/partner-center-manifest.json"),
+    ) as {
+      claims: Record<string, boolean>;
+      technicalConfiguration: {
+        landingPage: Record<string, unknown>;
+        connectionWebhook: Record<string, unknown>;
+      };
+    };
+    expect(manifest.technicalConfiguration.landingPage).toMatchObject({
+      controlledReplacement: "https://app.syncai.ca/marketplace/activate",
+      productionSourceCommit: "a0c4186",
+      replacementProbe: { httpStatus: 200 },
+    });
+    expect(manifest.technicalConfiguration.connectionWebhook).toMatchObject({
+      controlledReplacement:
+        "https://app.syncai.ca/api/marketplace/webhook",
+      productionSourceCommit: "a0c4186",
+      replacementProbe: {
+        get: { httpStatus: 405, allow: "POST" },
+        unsignedJsonPost: {
+          httpStatus: 401,
+          error: "marketplace_webhook_token_required",
+        },
+      },
+      authenticatedUpstreamLifecycleWitness: "blocked",
+    });
+    expect(manifest.claims).toMatchObject({
+      published: false,
+      microsoftCertified: false,
+      transactableBuyerProven: false,
+    });
+  });
+
   it("serves the activation alias through the existing signup flow", () => {
     const app = read("src/App.tsx");
     expect(app).toMatch(
