@@ -456,6 +456,9 @@ jobs:
       - name: Smoke — governed civil/structural asset classification
         run: bash scripts/ci-asset-classification-smoke.sh
 
+      - name: Smoke — governed linear routes, sections and defects
+        run: bash scripts/ci-linear-asset-routing-smoke.sh
+
       - name: Smoke — independently reviewed model applicability envelopes
         run: bash scripts/ci-model-applicability-envelope-smoke.sh
 

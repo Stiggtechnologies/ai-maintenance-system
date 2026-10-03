@@ -23,6 +23,7 @@ import { AssetRelationshipPanel } from "./AssetRelationshipPanel";
 import { GeospatialOperationalIntelligencePanel } from "./GeospatialOperationalIntelligencePanel";
 import { ClimateHazardExposurePanel } from "./ClimateHazardExposurePanel";
 import { AssetClassGovernancePanel } from "./AssetClassGovernancePanel";
+import { LinearAssetGovernancePanel } from "./LinearAssetGovernancePanel";
 
 interface Coverage {
   assets_total: number;
@@ -63,6 +64,7 @@ const ANALYSIS_LABEL: Record<string, string> = {
 
 export function AssetOntology() {
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [governanceRevision, setGovernanceRevision] = useState(0);
 
   const { data, loading, error, refetch } = useAsyncData<{
     coverage: Coverage | null;
@@ -166,7 +168,21 @@ export function AssetOntology() {
         </div>
       )}
 
-      <AssetClassGovernancePanel profiles={profiles} onAssigned={refetch} />
+      <AssetClassGovernancePanel
+        profiles={profiles}
+        onAssigned={() => {
+          setGovernanceRevision((current) => current + 1);
+          void refetch();
+        }}
+      />
+
+      <LinearAssetGovernancePanel
+        revision={governanceRevision}
+        onRecorded={() => {
+          setGovernanceRevision((current) => current + 1);
+          void refetch();
+        }}
+      />
 
       <AssetRelationshipPanel />
 
