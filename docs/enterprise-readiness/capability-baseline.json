@@ -1470,10 +1470,10 @@
     "backticked": 1
   },
   "E8.01": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 3,
+    "backticked": 3
   },
   "E8.02": {
     "status": "✅",
@@ -1482,10 +1482,10 @@
     "backticked": 1
   },
   "E8.03": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 3,
+    "backticked": 3
   },
   "E8.04": {
     "status": "✅",
@@ -1500,10 +1500,10 @@
     "backticked": 2
   },
   "E8.06": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 2,
+    "backticked": 2
   },
   "E8.07": {
     "status": "✅",
@@ -1542,10 +1542,10 @@
     "backticked": 2
   },
   "E8.13": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 5,
+    "backticked": 5
   },
   "E8.14": {
     "status": "✅",

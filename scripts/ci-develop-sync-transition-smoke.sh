@@ -7,6 +7,7 @@ ORG='11111111-1111-1111-1111-111111111111'; CASE='80300000-0000-4000-8000-000000
 token(){ curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}" | python3 -c "import json,sys; print(json.load(sys.stdin).get('access_token',''))"; }
 rpc(){ curl -sS -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d "$3"; }
 psqlc(){ PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -tAc "$1"; }
+sql_must_fail(){ local out rc; set +e; out=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "$1" 2>&1); rc=$?; set -e; test "$rc" != 0; printf '%s' "$out"; }
 PLANNER=$(token 'planner@syncai.ca' 'Planner123!@#'); PLANNER_ID=$(psqlc "select id from user_profiles where organization_id='$ORG' and email='planner@syncai.ca'"); PROJECT=$(psqlc "select capital_project_id from development_cases where id='$CASE'")
 test -n "$PLANNER"; test -n "$PROJECT"
 
@@ -22,9 +23,8 @@ BODY="$FIRST" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); asse
 BAD=$(rpc "$PLANNER" get_case_sync_transition "{\"p_case_id\":\"$CASE\",\"p_stabilization_days\":0}")
 BODY="$BAD" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert "between 1 and 365" in (x.get("message") or x.get("error") or "")'
 
-psqlc "update early_life_failures set months_since_handover=2,attributed_to='design',fed_back_to_design=true where organization_id='$ORG' and asset_id='$ASSET';" >/dev/null
-CLOSED=$(rpc "$PLANNER" get_case_sync_transition "{\"p_case_id\":\"$CASE\",\"p_stabilization_days\":90}")
-BODY="$CLOSED" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); s=x["stabilization"]; assert s["status"]=="RECORDED_ACTIONS_CLOSED" and s["recordedInWindow"]==2 and s["notFedBackCount"]==0 and s["notDeterminedCount"]==0'
+OUT=$(sql_must_fail "update early_life_failures set months_since_handover=2,attributed_to='design',fed_back_to_design=true where organization_id='$ORG' and asset_id='$ASSET';")
+grep -qi 'governed named-human requirement link' <<<"$OUT"
 
 CROSS=$(rpc "$PLANNER" get_case_sync_transition '{"p_case_id":"00000000-0000-4000-8000-000000000099","p_stabilization_days":90}')
 BODY="$CROSS" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert "not found in this organization" in (x.get("message") or x.get("error") or "").lower()'
