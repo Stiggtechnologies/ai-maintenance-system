@@ -180,16 +180,17 @@ begin
       );
     end if;
 
-    if v_external_id is not null and exists(
-      select 1
+    if v_external_id is not null and (
+      select s.payload-'_sync_source'
       from public.ingest_staging s
       where s.organization_id=v_org
         and s.connector_id=v_run.connector_id
         and s.entity_type=v_run.entity_type
         and s.external_id=v_external_id
         and s.status='accepted'
-        and (s.payload-'_sync_source')=(v_row-'_sync_source')
-    ) then
+      order by s.received_at desc,s.id desc
+      limit 1
+    )=(v_row-'_sync_source') then
       insert into public.ingest_staging(
         organization_id,connector_id,run_id,entity_type,
         external_id,payload,status

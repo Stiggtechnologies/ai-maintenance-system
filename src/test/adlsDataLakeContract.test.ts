@@ -64,6 +64,7 @@ describe("C2.14 governed ADLS data-lake adapter", () => {
     expect(repair).toContain("does not match the immutable run manifest");
     expect(repair).toContain("restore_data_lake_staging_provenance");
     expect(repair).toContain("s.payload-'_sync_source'");
+    expect(repair).toContain("order by s.received_at desc,s.id desc");
     expect(repair).toContain("records_duplicate=records_duplicate+1");
     expect(repair).toContain("records_read=v_manifest_rows");
     expect(repair).toContain(

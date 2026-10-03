@@ -109,18 +109,18 @@ noerr "$FINISH_ONE"; test "$(field "$FINISH_ONE" cursor_advanced)" = 'false'
 test "$(psqlc "select count(*) from ingest_watermarks where organization_id='$ORG' and last_cursor is not null;")" = '0'
 
 CURSOR_TWO='{"last_modified":"2026-09-02T12:00:00Z","path":"recovery/sites/sites-2.csv"}'
-MANIFEST_TWO='[{"transport":"adls_gen2","path":"recovery/sites/sites-2.csv","etag":"etag-2","last_modified":"2026-09-02T12:00:00Z","content_length":90,"sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","row_count":3}]'
+MANIFEST_TWO='[{"transport":"adls_gen2","path":"recovery/sites/sites-2.csv","etag":"etag-2","last_modified":"2026-09-02T12:00:00Z","content_length":90,"sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","row_count":4}]'
 SOURCE_TWO='{"transport":"adls_gen2","path":"recovery/sites/sites-2.csv","etag":"etag-2","last_modified":"2026-09-02T12:00:00Z","content_length":90,"sha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"}'
 BEGIN_TWO=$(service_rpc begin_data_lake_read_run "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$PLANNER\",\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_entity_type\":\"site\",\"p_manifest\":$MANIFEST_TWO,\"p_cursor_to\":$CURSOR_TWO,\"p_source_bytes\":90}")
 noerr "$BEGIN_TWO"; RUN_TWO=$(field "$BEGIN_TWO" run_id)
-INGEST_TWO=$(rpc "$PLANNER_JWT" ingest_data_lake_read_batch "{\"p_run_id\":\"$RUN_TWO\",\"p_rows\":[{\"external_id\":\"SITE-1\",\"name\":\"ADLS Site One\",\"code\":\"S1\",\"_sync_source\":$SOURCE_TWO},{\"external_id\":\"SITE-1\",\"name\":\"ADLS Site One Revised\",\"code\":\"S1-REV\",\"_sync_source\":$SOURCE_TWO},{\"external_id\":\"SITE-2\",\"name\":\"ADLS Site Two\",\"_sync_source\":$SOURCE_TWO}]}" )
-noerr "$INGEST_TWO"; test "$(field "$INGEST_TWO" duplicate)" = '1'; test "$(field "$INGEST_TWO" accepted)" = '2'
+INGEST_TWO=$(rpc "$PLANNER_JWT" ingest_data_lake_read_batch "{\"p_run_id\":\"$RUN_TWO\",\"p_rows\":[{\"external_id\":\"SITE-1\",\"name\":\"ADLS Site One\",\"code\":\"S1\",\"_sync_source\":$SOURCE_TWO},{\"external_id\":\"SITE-1\",\"name\":\"ADLS Site One Revised\",\"code\":\"S1-REV\",\"_sync_source\":$SOURCE_TWO},{\"external_id\":\"SITE-1\",\"name\":\"ADLS Site One\",\"code\":\"S1\",\"_sync_source\":$SOURCE_TWO},{\"external_id\":\"SITE-2\",\"name\":\"ADLS Site Two\",\"_sync_source\":$SOURCE_TWO}]}" )
+noerr "$INGEST_TWO"; test "$(field "$INGEST_TWO" duplicate)" = '1'; test "$(field "$INGEST_TWO" accepted)" = '3'
 FINISH_TWO=$(service_rpc finish_data_lake_read_run "{\"p_organization_id\":\"$ORG\",\"p_run_id\":\"$RUN_TWO\",\"p_status\":\"success\",\"p_error\":null}")
 noerr "$FINISH_TWO"; test "$(field "$FINISH_TWO" cursor_advanced)" = 'true'
 test "$(psqlc "select last_cursor->>'path' from ingest_watermarks where organization_id='$ORG' and last_run_id='$RUN_TWO';")" = 'recovery/sites/sites-2.csv'
 test "$(psqlc "select count(*) from connector_runs where id='$RUN_TWO' and source_object_count=1 and source_bytes=90 and transport_manifest->0->>'sha256'=repeat('b',64);")" = '1'
 test "$(psqlc "select count(*) from sites where organization_id='$ORG' and source_system='$CONNECTOR_KEY';")" = '2'
-test "$(psqlc "select count(*) from sites where organization_id='$ORG' and source_system='$CONNECTOR_KEY' and external_id='SITE-1' and name='ADLS Site One Revised' and code='S1-REV';")" = '1'
+test "$(psqlc "select count(*) from sites where organization_id='$ORG' and source_system='$CONNECTOR_KEY' and external_id='SITE-1' and name='ADLS Site One' and code='S1';")" = '1'
 test "$(psqlc "select count(*) from decisions where organization_id='$ORG' and decision_type='data_lake_read_source';")" = '1'
 
 STALE_BEGIN=$(service_rpc begin_data_lake_read_run "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$PLANNER\",\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_entity_type\":\"site\",\"p_manifest\":$MANIFEST_ONE,\"p_cursor_to\":$CURSOR_ONE,\"p_source_bytes\":120}")
