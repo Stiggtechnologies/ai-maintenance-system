@@ -595,8 +595,8 @@ with the PR that changes an item's status._
 
 | ID     | Capability                                                                                                                                                                                              | Status |
 | ------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| U17.01 | Evidence levels: verified measurement, approved inspection, confirmed history, engineering calculation, OEM recommendation, industry reference, similar-asset inference, expert judgment, AI hypothesis | 🟡     |
-| U17.02 | Per-recommendation: source, revision, date, applicability, confidence, conflicting evidence, missing evidence, validation status                                                                        | 🟡     |
+| U17.01 | Evidence levels: verified measurement, approved inspection, confirmed history, engineering calculation, OEM recommendation, industry reference, similar-asset inference, expert judgment, AI hypothesis | ✅ canonical `evidence_items` now carries the nine non-ordinal recommendation-basis levels separately from evidence form, with governed proposal, independent classification review, immutable validated provenance, same-tenant recommendation binding, canonical approvals/audit and authenticated runtime acceptance (`20270101950000_recommendation_evidence_provenance.sql`). |
+| U17.02 | Per-recommendation: source, revision, date, applicability, confidence, conflicting evidence, missing evidence, validation status                                                                        | ✅ Mission Control exposes governed source/reference/revision/date/applicability, Q×A×F×V confidence or named refusal, supporting/contradicting/context evidence, explicit gaps and exact-digest packet review. Concurrent evidence mutation serializes on the recommendation and makes a reviewed packet visibly stale; no classification or packet review approves work, risk, spend or operation (`src/components/RecommendationEvidenceDrawer.tsx`, `src/services/recommendationEvidenceService.ts`, `scripts/ci-recommendation-evidence-provenance-smoke.sh`). |
 
 ### U18 — Uncertainty-aware decisions
 
@@ -776,6 +776,6 @@ record-scoped._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 350 · 🟡 116 · ❌ 0. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main. U22.01 closed by the evidence-backed organizational maturity workflow and governed runtime acceptance smoke.)_
+never changed, only the count of it). Current tally: ✅ 352 · 🟡 114 · ❌ 0. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main. U22.01 closed by the evidence-backed organizational maturity workflow and governed runtime acceptance smoke.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
