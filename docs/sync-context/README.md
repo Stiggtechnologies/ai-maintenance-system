@@ -15,7 +15,7 @@ The machine-readable ledger contains **132 requirements**:
 | Missing             |    21 | The review requires it and adequate implementation evidence is absent.                                                     |
 | External dependency |    25 | Delivery depends on a provider, customer system, credential, physical sensor, certified system or legal/customer approval. |
 
-Completion is tracked independently: **68 partial, 64 not started, 0 complete**. An existing foundation is deliberately not synonymous with a completed capability.
+Completion is tracked independently: **6 complete, 67 partial, 59 not started**. The six complete items are the reviewed SC-01 canonical-contract requirements; they do not establish the customer-reachable map, inspector, time navigation, spatial questions, Decision Case handoff or production lighthouse acceptance required by later slices. An existing foundation is deliberately not synonymous with a completed capability.
 
 The authoritative artifacts are:
 

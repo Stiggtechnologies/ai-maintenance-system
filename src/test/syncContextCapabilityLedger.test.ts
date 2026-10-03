@@ -37,7 +37,7 @@ describe("Sync Context governed capability ledger", () => {
       { encoding: "utf8" },
     );
     expect(output).toContain(
-      "Sync Context ledger verified: 132 capabilities; 0 complete.",
+      "Sync Context ledger verified: 132 capabilities; 6 complete.",
     );
   });
 
@@ -46,21 +46,29 @@ describe("Sync Context governed capability ledger", () => {
     expect(new Set(ids).size).toBe(132);
     expect(baseline.acceptedCapabilityCount).toBe(132);
     expect(baseline.statusCounts).toEqual({
-      existing_foundation: 43,
+      existing_foundation: 48,
       external_dependency: 25,
-      missing: 21,
-      prototype_only: 43,
+      missing: 20,
+      prototype_only: 39,
     });
     expect(baseline.completionCounts).toEqual({
-      complete: 0,
-      not_started: 64,
-      partial: 68,
+      complete: 6,
+      not_started: 59,
+      partial: 67,
     });
     expect(
-      ledger.capabilities.filter(
-        (item) => item.completion.state === "complete",
-      ),
-    ).toEqual([]);
+      ledger.capabilities
+        .filter((item) => item.completion.state === "complete")
+        .map((item) => item.id)
+        .sort(),
+    ).toEqual([
+      "SCX-GOV-005",
+      "SCX-MOD-001",
+      "SCX-MOD-003",
+      "SCX-MOD-004",
+      "SCX-MOD-005",
+      "SCX-MOD-007",
+    ]);
   });
 
   it("maps every requirement to a bounded implementation slice", () => {
