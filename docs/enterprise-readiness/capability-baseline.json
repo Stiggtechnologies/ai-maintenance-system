@@ -2304,10 +2304,10 @@
     "backticked": 9
   },
   "U18.02": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 4,
+    "backticked": 4
   },
   "U19.01": {
     "status": "✅",
@@ -2562,10 +2562,10 @@
     "backticked": 0
   },
   "R4.02": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 8,
+    "backticked": 8
   },
   "R4.03": {
     "status": "✅",
@@ -2616,10 +2616,10 @@
     "backticked": 0
   },
   "R5.03": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 5,
+    "backticked": 5
   },
   "R5.04": {
     "status": "✅",
