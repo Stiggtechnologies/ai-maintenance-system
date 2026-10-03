@@ -105,6 +105,7 @@ export async function getServiceContractReferences(): Promise<ServiceContractRef
     supabase
       .from("asset_service_levels")
       .select("asset_id,service_name")
+      .eq("status", "verified")
       .order("service_name"),
     supabase
       .from("contract_packages")

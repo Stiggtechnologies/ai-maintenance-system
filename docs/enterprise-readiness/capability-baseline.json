@@ -1902,10 +1902,10 @@
     "backticked": 1
   },
   "U2.08": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 4,
+    "backticked": 4
   },
   "U2.09": {
     "status": "✅",

@@ -462,6 +462,9 @@ jobs:
       - name: Smoke — governed distributed-network populations
         run: bash scripts/ci-asset-population-smoke.sh
 
+      - name: Smoke — governed service-level consequences
+        run: bash scripts/ci-asset-service-level-smoke.sh
+
       - name: Smoke — independently reviewed model applicability envelopes
         run: bash scripts/ci-model-applicability-envelope-smoke.sh
 
