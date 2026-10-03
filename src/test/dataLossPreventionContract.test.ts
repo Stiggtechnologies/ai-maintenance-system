@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migrationPath =
-  "supabase/migrations/20270101330000_data_loss_prevention.sql";
+  "supabase/migrations/20270101860000_data_loss_prevention.sql";
 const migration = readFileSync(migrationPath, "utf8").toLowerCase();
 const guard = readFileSync(
   "supabase/functions/_shared/data-egress-guard.ts",
@@ -105,7 +105,10 @@ describe("E5.07 governed data-loss prevention", () => {
     const discovered: string[] = [];
 
     for (const name of deploymentBoundary.activeFunctions) {
-      const source = readFileSync(`supabase/functions/${name}/index.ts`, "utf8");
+      const source = readFileSync(
+        `supabase/functions/${name}/index.ts`,
+        "utf8",
+      );
       if (!providerCallMarkers.some((marker) => marker.test(source))) continue;
 
       // This is the anonymous, public-reference rail: it has no tenant corpus
