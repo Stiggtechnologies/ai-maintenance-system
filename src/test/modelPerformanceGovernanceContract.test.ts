@@ -2,17 +2,14 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270101300000_model_performance_governance.sql",
+  "supabase/migrations/20270101830000_model_performance_governance.sql",
   "utf8",
 ).toLowerCase();
 const panel = readFileSync(
   "src/components/ModelPerformanceMonitoringPanel.tsx",
   "utf8",
 );
-const service = readFileSync(
-  "src/services/modelMonitoringService.ts",
-  "utf8",
-);
+const service = readFileSync("src/services/modelMonitoringService.ts", "utf8");
 const registryPage = readFileSync(
   "src/pages/EngineeringModelRegistryPage.tsx",
   "utf8",
@@ -44,9 +41,7 @@ describe("E5.08/E5.10/E5.11 model-performance governance", () => {
     expect(migration).toContain(
       "create policy model_monitoring_assessment_read",
     );
-    expect(migration).toContain(
-      "create policy model_monitoring_review_read",
-    );
+    expect(migration).toContain("create policy model_monitoring_review_read");
     expect(migration).toContain("organization_id=public.app_current_org()");
     expect(migration).toContain("app.model_monitoring_write");
     expect(migration).toContain("auth.uid() is null");

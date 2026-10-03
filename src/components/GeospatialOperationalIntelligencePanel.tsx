@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Map, MapPinned, Route, ShieldCheck } from "lucide-react";
+import { ContextProvenanceBadges } from "./sync-context/ContextProvenanceBadges";
 import {
-  getGeospatialOperationalWorkspace,
-  getGeospatialReferences,
   recordGeospatialFeature,
   recordGeospatialOperationalAssessment,
   verifyGeospatialFeature,
@@ -12,6 +11,8 @@ import {
   type GeospatialReferences,
   type GeospatialWorkspace,
 } from "../services/geospatialOperationalIntelligenceService";
+import { loadGeospatialPanelData } from "../services/geospatialPanelData";
+import type { SyncContextSnapshot } from "../lib/sync-context/contracts";
 
 const FEATURE_TYPES: GeospatialFeatureType[] = [
   "site",
@@ -41,6 +42,7 @@ const label = (value: string) => value.replaceAll("_", " ");
 export function GeospatialOperationalIntelligencePanel() {
   const [workspace, setWorkspace] = useState<GeospatialWorkspace | null>(null);
   const [refs, setRefs] = useState<GeospatialReferences | null>(null);
+  const [context, setContext] = useState<SyncContextSnapshot | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [featureType, setFeatureType] =
@@ -49,10 +51,13 @@ export function GeospatialOperationalIntelligencePanel() {
   const [featureName, setFeatureName] = useState("");
   const [geometryType, setGeometryType] = useState("LineString");
   const [coordinates, setCoordinates] = useState("[]");
-  const [sourceSystem, setSourceSystem] = useState("");
+  const [sourceConnectorId, setSourceConnectorId] = useState("");
   const [sourceReference, setSourceReference] = useState("");
   const [observedAt, setObservedAt] = useState("");
   const [validUntil, setValidUntil] = useState("");
+  const [validityKind, setValidityKind] = useState<"permanent" | "temporary">(
+    "permanent",
+  );
   const [featureEvidence, setFeatureEvidence] = useState("");
   const [featureMissing, setFeatureMissing] = useState("");
   const [assessmentType, setAssessmentType] =
@@ -76,19 +81,15 @@ export function GeospatialOperationalIntelligencePanel() {
   const [reviewNotes, setReviewNotes] = useState<Record<string, string>>({});
 
   const reload = useCallback(async () => {
-    try {
-      const [nextWorkspace, nextRefs] = await Promise.all([
-        getGeospatialOperationalWorkspace(),
-        getGeospatialReferences(),
-      ]);
-      setWorkspace(nextWorkspace);
-      setRefs(nextRefs);
-      setError("");
-    } catch (nextError) {
-      setError(
-        nextError instanceof Error ? nextError.message : String(nextError),
-      );
-    }
+    const loaded = await loadGeospatialPanelData();
+    if (loaded.workspace) setWorkspace(loaded.workspace);
+    if (loaded.references) setRefs(loaded.references);
+    if (loaded.context) setContext(loaded.context);
+    setError(
+      loaded.incomplete
+        ? "Some geospatial context is temporarily unavailable. Available canonical records remain visible."
+        : "",
+    );
   }, []);
   useEffect(() => {
     void reload();
@@ -100,9 +101,9 @@ export function GeospatialOperationalIntelligencePanel() {
     try {
       await action();
       await reload();
-    } catch (nextError) {
+    } catch {
       setError(
-        nextError instanceof Error ? nextError.message : String(nextError),
+        "The governed update could not be completed. No success state was assumed.",
       );
     } finally {
       setBusy(false);
@@ -165,12 +166,14 @@ export function GeospatialOperationalIntelligencePanel() {
                 name: featureName,
                 geometry_type: geometryType,
                 geometry: { type: geometryType, coordinates: parsed },
-                source_system: sourceSystem,
+                source_connector_id: sourceConnectorId,
                 source_reference: sourceReference,
                 observed_at: new Date(observedAt).toISOString(),
-                valid_until: validUntil
-                  ? new Date(validUntil).toISOString()
-                  : undefined,
+                validity_kind: validityKind,
+                valid_until:
+                  validityKind === "temporary" && validUntil
+                    ? new Date(validUntil).toISOString()
+                    : undefined,
                 data_quality: "good",
                 evidence_item_ids: featureEvidence ? [featureEvidence] : [],
                 missing_evidence: featureMissing ? [featureMissing] : [],
@@ -242,13 +245,20 @@ export function GeospatialOperationalIntelligencePanel() {
             className="min-h-20 w-full rounded-lg border border-white/10 bg-slate-900 p-2 font-mono text-xs text-white"
           />
           <div className="grid grid-cols-2 gap-2">
-            <input
+            <select
               required
-              value={sourceSystem}
-              onChange={(e) => setSourceSystem(e.target.value)}
-              placeholder="GIS/source system"
+              aria-label="Governed Context source"
+              value={sourceConnectorId}
+              onChange={(e) => setSourceConnectorId(e.target.value)}
               className="rounded-lg border border-white/10 bg-slate-900 p-2 text-sm text-white"
-            />
+            >
+              <option value="">Select governed source</option>
+              {context?.sources.map((source) => (
+                <option key={source.id} value={source.id}>
+                  {source.name} · {label(source.class)} · {label(source.state)}
+                </option>
+              ))}
+            </select>
             <input
               required
               value={sourceReference}
@@ -257,7 +267,7 @@ export function GeospatialOperationalIntelligencePanel() {
               className="rounded-lg border border-white/10 bg-slate-900 p-2 text-sm text-white"
             />
           </div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <label className="text-xs text-slate-400">
               Observed at
               <input
@@ -269,8 +279,25 @@ export function GeospatialOperationalIntelligencePanel() {
               />
             </label>
             <label className="text-xs text-slate-400">
+              Validity
+              <select
+                value={validityKind}
+                onChange={(e) => {
+                  const next = e.target.value as "permanent" | "temporary";
+                  setValidityKind(next);
+                  if (next === "permanent") setValidUntil("");
+                }}
+                className="mt-1 w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-sm text-white"
+              >
+                <option value="permanent">Permanent</option>
+                <option value="temporary">Temporary</option>
+              </select>
+            </label>
+            <label className="text-xs text-slate-400">
               Valid until
               <input
+                required={validityKind === "temporary"}
+                disabled={validityKind === "permanent"}
                 type="datetime-local"
                 value={validUntil}
                 onChange={(e) => setValidUntil(e.target.value)}
@@ -569,6 +596,24 @@ export function GeospatialOperationalIntelligencePanel() {
                 <p className="mt-1 text-xs text-slate-400">
                   {label(feature.feature_type)} · {feature.source_system} ·{" "}
                   {feature.source_reference}
+                </p>
+                {feature.source_connector_id &&
+                  context?.sources.find(
+                    (source) => source.id === feature.source_connector_id,
+                  ) && (
+                    <ContextProvenanceBadges
+                      source={context.sources.find(
+                        (source) => source.id === feature.source_connector_id,
+                      )!}
+                    />
+                  )}
+                <p className="mt-2 text-[11px] text-amber-200">
+                  {feature.status === "verified"
+                    ? "Verified evidence — no operational approval"
+                    : "Draft evidence — not approved"}
+                  {feature.validity_kind
+                    ? ` · ${label(feature.validity_kind)}`
+                    : " · legacy validity unclassified"}
                 </p>
                 {feature.status === "draft" && (
                   <div className="mt-2 flex gap-2">
