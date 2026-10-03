@@ -64,7 +64,7 @@ describe("RE-2026.08 protected expert baseline", () => {
   it("pins the exact expert stack that defines the accepted floor", () => {
     expect(manifest.baselineId).toBe("RE-2026.08");
     expect(manifest.qualificationLevel).toContain("RE-Q4");
-    expect(manifest.promptVersion).toBe("syncai-reliability-engineer-v4");
+    expect(manifest.promptVersion).toBe("syncai-reliability-engineer-v5");
     expect(manifest.protectedArtifacts.length).toBeGreaterThanOrEqual(7);
 
     for (const artifact of manifest.protectedArtifacts) {
@@ -183,8 +183,8 @@ describe("the frozen methodology still carries the expert contracts users are bu
   });
 
   it("keeps ReliabilityAgent on the deliverable model tier by default", () => {
-    expect(processor).toContain(
-      'const MODEL_RELIABILITY = Deno.env.get("MODEL_RELIABILITY") ?? MODEL_DELIVERABLE',
+    expect(processor).toMatch(
+      /const MODEL_RELIABILITY\s*=\s*Deno\.env\.get\("MODEL_RELIABILITY"\)\s*\?\?\s*MODEL_DELIVERABLE/,
     );
     expect(processor).toContain('"gpt-5.6-terra"');
   });

@@ -10,6 +10,7 @@
  */
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { withDataEgressGuard } from "../_shared/data-egress-guard.ts";
 import {
   DEFAULT_REALTIME_MODEL,
   MAX_REALTIME_BODY_BYTES,
@@ -231,7 +232,13 @@ Deno.serve(async (req: Request) => {
         }),
       ),
     );
-    const upstream = await fetch(OPENAI_REALTIME_CALLS_URL, {
+    const guardedFetch = withDataEgressGuard(fetch, adminClient(), {
+      organizationId: auth.organizationId,
+      dataClass: "security_sensitive",
+      purpose: "realtime_voice",
+      serviceLabel: "sync-realtime-session",
+    });
+    const upstream = await guardedFetch(OPENAI_REALTIME_CALLS_URL, {
       method: "POST",
       headers: { Authorization: `Bearer ${OPENAI_API_KEY}` },
       body: form,
