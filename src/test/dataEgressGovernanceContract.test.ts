@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270101330000_data_loss_prevention.sql",
+  "supabase/migrations/20270101860000_data_loss_prevention.sql",
   "utf8",
 ).toLowerCase();
 const panel = readFileSync(
@@ -18,7 +18,9 @@ describe("E5.07 data-egress governance control plane", () => {
   it("extends the canonical register without a parallel rule or audit store", () => {
     expect(migration).toContain("alter table public.data_egress_rules");
     expect(migration).not.toMatch(/create table[^;]+(dlp|egress)/);
-    expect(migration).not.toMatch(/create table[^;]+(decision|receipt|audit|event)/);
+    expect(migration).not.toMatch(
+      /create table[^;]+(decision|receipt|audit|event)/,
+    );
     expect(migration).toContain("insert into public.audit_events");
     expect(migration).toContain("insert into public.security_events");
   });

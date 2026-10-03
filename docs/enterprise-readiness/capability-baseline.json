@@ -524,8 +524,8 @@
   "C5.24": {
     "status": "✅",
     "evidence": true,
-    "citations": 6,
-    "backticked": 6
+    "citations": 7,
+    "backticked": 7
   },
   "C6.01": {
     "status": "🟡",
@@ -2346,10 +2346,10 @@
     "backticked": 3
   },
   "U25.01": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 3,
-    "backticked": 3
+    "citations": 5,
+    "backticked": 5
   },
   "U25.02": {
     "status": "✅",
