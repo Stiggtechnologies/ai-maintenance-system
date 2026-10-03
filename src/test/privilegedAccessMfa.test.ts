@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270101310000_privileged_access_mfa.sql",
+  "supabase/migrations/20270101840000_privileged_access_mfa.sql",
   "utf8",
 );
 const app = readFileSync("src/App.tsx", "utf8");
