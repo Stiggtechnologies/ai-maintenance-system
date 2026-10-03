@@ -2268,10 +2268,10 @@
     "backticked": 5
   },
   "U14.01": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 8,
+    "backticked": 8
   },
   "U15.01": {
     "status": "✅",

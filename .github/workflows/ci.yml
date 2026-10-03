@@ -477,6 +477,9 @@ jobs:
       - name: Smoke — governed AI and calculation model registry
         run: bash scripts/ci-governed-model-registry-smoke.sh
 
+      - name: Smoke — governed sixteen-family degradation library
+        run: bash scripts/ci-degradation-library-smoke.sh
+
       - name: Smoke — exact-version model performance, drift and cohort screening
         run: bash scripts/ci-model-performance-governance-smoke.sh
 
