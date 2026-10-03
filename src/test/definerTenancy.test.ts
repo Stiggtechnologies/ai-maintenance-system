@@ -179,7 +179,7 @@ describe("the resolver sees a real chain", () => {
       // Last definition moved with malicious-document containment. The
       // session, governed-source, claim-purpose and quarantine gates must all
       // hold on THIS file, not on an earlier hardened copy.
-      "20270101320000_kb_document_security.sql",
+      "20270101850000_kb_document_security.sql",
     );
 
     const latestKbBody = defs.get("retrieve_kb_context")?.body.toLowerCase();
