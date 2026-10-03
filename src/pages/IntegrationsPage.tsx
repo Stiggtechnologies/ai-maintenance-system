@@ -21,6 +21,7 @@ import { P6ScheduleRevisionReview } from "../components/P6ScheduleRevisionReview
 
 interface Connector {
   id: string;
+  connector_key: string | null;
   connector_type: string;
   name: string;
   status: string;
@@ -190,6 +191,7 @@ export function IntegrationsPage() {
                   </div>
                   <div className="text-xs text-slate-400 mb-3">
                     Type: {conn.connector_type}
+                    {conn.connector_key ? ` • Key: ${conn.connector_key}` : ""}
                   </div>
                   {conn.last_success_at && (
                     <div className="text-xs text-green-600">
