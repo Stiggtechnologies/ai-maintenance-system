@@ -17,6 +17,7 @@ import { MaterialSupplierLink } from "../components/MaterialSupplierLink";
 import { MaterialBomLink } from "../components/MaterialBomLink";
 import { MaterialRelationshipHistory } from "../components/MaterialRelationshipHistory";
 import { MroMaterialsAgentWorkbench } from "../components/MroMaterialsAgentWorkbench";
+import { SupplierGovernanceControls } from "../components/SupplierGovernanceControls";
 
 export function MaterialsPage() {
   const [catalogueVersion, setCatalogueVersion] = useState(0);
@@ -42,6 +43,7 @@ export function MaterialsPage() {
       <MaterialsReadiness />
       <SparesOptimization />
       <SupplyExposure />
+      <SupplierGovernanceControls />
     </div>
   );
 }
