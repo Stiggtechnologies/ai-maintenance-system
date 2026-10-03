@@ -92,6 +92,10 @@ describe("U15.01 governed natural-hazard and climate exposure", () => {
     expect(sql).toContain("missing_evidence");
     expect(smoke.toLowerCase()).toContain("foreign climate site");
     expect(smoke).toContain("author cannot perform the independent review");
+    expect(smoke).toContain("register_context_source");
+    expect(smoke).toContain("record_context_source_health");
+    expect(smoke).toContain('\\"source_connector_id\\":\\"$SOURCE\\"');
+    expect(smoke).toContain('\\"validity_kind\\":\\"temporary\\"');
   });
 
   it("retains human authority and is customer reachable", () => {
