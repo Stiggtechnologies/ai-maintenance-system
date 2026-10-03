@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270101580000_adls_data_lake_read.sql",
+  "supabase/migrations/20270102130000_adls_data_lake_read.sql",
   "utf8",
 ).toLowerCase();
 const edge = readFileSync(
@@ -55,7 +55,7 @@ describe("C2.14 governed ADLS data-lake adapter", () => {
 
   it("proves every row receipt and reconciles transport before watermarking", () => {
     const repair = readFileSync(
-      "supabase/migrations/20270101581000_adls_data_lake_provenance_reconciliation.sql",
+      "supabase/migrations/20270102140000_adls_data_lake_provenance_reconciliation.sql",
       "utf8",
     ).toLowerCase();
     expect(repair).toContain(

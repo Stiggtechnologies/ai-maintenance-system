@@ -1,4 +1,4 @@
--- Brad walkthrough closeout: governed workspace invitations for a persisted
+-- First Decision Journey closeout: governed workspace invitations for a persisted
 -- Decision Case. This extends the canonical identity (auth.users /
 -- user_profiles), Decision Case (cowork_workspaces), and audit_events models.
 -- It intentionally creates no parallel membership, approval, queue, or audit
