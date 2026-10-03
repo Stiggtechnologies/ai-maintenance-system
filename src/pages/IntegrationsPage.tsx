@@ -15,6 +15,7 @@ import { DataGovernance } from "../components/DataGovernance";
 import { RecoverySignalConnectorSetup } from "../components/RecoverySignalConnectorSetup";
 import { PlantHistorianConnectorSetup } from "../components/PlantHistorianConnectorSetup";
 import { CmmsReadConnectorSetup } from "../components/CmmsReadConnectorSetup";
+import { P6ScheduleReadConnectorSetup } from "../components/P6ScheduleReadConnectorSetup";
 
 interface Connector {
   id: string;
@@ -317,6 +318,7 @@ export function IntegrationsPage() {
 
       <PlantHistorianConnectorSetup onConfigured={loadData} />
       <CmmsReadConnectorSetup onConfigured={loadData} />
+      <P6ScheduleReadConnectorSetup onConfigured={loadData} />
       <RecoverySignalConnectorSetup onConfigured={loadData} />
       <ConnectorHealth />
       <DataGovernance />
