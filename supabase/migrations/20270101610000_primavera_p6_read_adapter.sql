@@ -268,7 +268,7 @@ declare
   v_activity_sha text;
   v_relationship_sha text;
 begin
-  if coalesce(current_setting('request.jwt.claim.role',true),'')<>'service_role' then
+  if coalesce(auth.role(),'')<>'service_role' then
     return jsonb_build_object('error','P6 transport attestation is service-only');
   end if;
   select role into v_role from public.user_profiles
@@ -396,7 +396,7 @@ declare
   v_already_read int;
   v_expected_rows int;
 begin
-  if coalesce(current_setting('request.jwt.claim.role',true),'')<>'service_role' then
+  if coalesce(auth.role(),'')<>'service_role' then
     return jsonb_build_object('error','P6 schedule ingestion is service-only');
   end if;
   if coalesce(p_actor_aal,'') not in ('aal1','aal2') then
@@ -500,7 +500,7 @@ declare
   v_rows int:=0;
   v_expected_rows int;
 begin
-  if coalesce(current_setting('request.jwt.claim.role',true),'')<>'service_role' then
+  if coalesce(auth.role(),'')<>'service_role' then
     return jsonb_build_object('error','P6 schedule finish is service-only');
   end if;
   if p_status not in ('success','partial','failed') then
