@@ -582,6 +582,9 @@ jobs:
       - name: Smoke — governed Primavera P6 schedule read and revision approval
         run: bash scripts/ci-p6-schedule-read-smoke.sh
 
+      - name: Smoke — governed SAP S/4HANA material stock read
+        run: bash scripts/ci-sap-s4-inventory-read-smoke.sh
+
       - name: Smoke — governed environmental evidence workflow
         run: bash scripts/ci-environmental-evidence-workflow-smoke.sh
 

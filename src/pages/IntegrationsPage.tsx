@@ -16,6 +16,7 @@ import { RecoverySignalConnectorSetup } from "../components/RecoverySignalConnec
 import { PlantHistorianConnectorSetup } from "../components/PlantHistorianConnectorSetup";
 import { CmmsReadConnectorSetup } from "../components/CmmsReadConnectorSetup";
 import { P6ScheduleReadConnectorSetup } from "../components/P6ScheduleReadConnectorSetup";
+import { SapS4InventoryReadConnectorSetup } from "../components/SapS4InventoryReadConnectorSetup";
 import { P6ScheduleRevisionReview } from "../components/P6ScheduleRevisionReview";
 
 interface Connector {
@@ -345,6 +346,7 @@ export function IntegrationsPage() {
       <PlantHistorianConnectorSetup onConfigured={loadData} />
       <CmmsReadConnectorSetup onConfigured={loadData} />
       <P6ScheduleReadConnectorSetup onConfigured={loadData} />
+      <SapS4InventoryReadConnectorSetup onConfigured={loadData} />
       <RecoverySignalConnectorSetup onConfigured={loadData} />
       <ConnectorHealth />
       <DataGovernance />
