@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -Eeuo pipefail
 trap 'echo "Decision Case command authority smoke FAILED at line $LINENO"' ERR
 psqlc(){ PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "$1"; }
 eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL)=')"; : "${API_URL:?}" "${ANON_KEY:?}"
@@ -7,7 +7,12 @@ ORG='11111111-1111-1111-1111-111111111111'; OTHER_ORG='99999999-9999-4999-8999-9
 APPROVER='99999999-9999-4999-8999-999999999941'; SPONSOR='99999999-9999-4999-8999-999999999942'; AI_USER='99999999-9999-4999-8999-999999999943'; FOREIGN_USER='99999999-9999-4999-8999-999999999944'
 WORKSPACE='99999999-9999-4999-8999-999999999951'; SPONSOR_WORKSPACE='99999999-9999-4999-8999-999999999952'; AI_WORKSPACE='99999999-9999-4999-8999-999999999953'; LEGACY_WORKSPACE='99999999-9999-4999-8999-999999999954'; FORGE_WORKSPACE='99999999-9999-4999-8999-999999999955'
 token(){ curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}" | python3 -c "import json,sys;print(json.load(sys.stdin).get('access_token',''))"; }
-rpc(){ curl -sS -w '\n%{http_code}' -X POST "$API_URL/rest/v1/rpc/apply_decision_case_command" -H "apikey: $ANON_KEY" -H "authorization: Bearer $1" -H 'content-type: application/json' -d "$2"; }
+rpc(){
+  local command
+  command="$(PAYLOAD="$2" python3 -c "import json,os; print(json.loads(os.environ['PAYLOAD']).get('p_command','unknown'))")"
+  printf 'Decision Case command request: %s\n' "$command" >&2
+  curl -sS -w '\n%{http_code}' -X POST "$API_URL/rest/v1/rpc/apply_decision_case_command" -H "apikey: $ANON_KEY" -H "authorization: Bearer $1" -H 'content-type: application/json' -d "$2"
+}
 body(){ printf '%s' "${1%$'\n'*}"; }; status(){ printf '%s' "${1##*$'\n'}"; }
 ok(){
   local code response
