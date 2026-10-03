@@ -2412,10 +2412,10 @@
     "backticked": 0
   },
   "U24.01": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 6,
+    "backticked": 6
   },
   "R1.01": {
     "status": "✅",
