@@ -5,6 +5,7 @@ import {
   parseDataLakeObject,
   selectAdlsObjects,
   sha256Hex,
+  withoutDataLakeProvenance,
 } from "../../supabase/functions/_shared/adls-data-lake";
 
 describe("ADLS data-lake transport core", () => {
@@ -122,6 +123,16 @@ describe("ADLS data-lake transport core", () => {
       site_external_id: "SITE-1",
       _sync_source: { path: "landing/a.json", sha256: "abc" },
     });
+  });
+
+  it("removes only the transport envelope for write-free canonical preview", () => {
+    expect(
+      withoutDataLakeProvenance({
+        external_id: "A-1",
+        name: "Asset one",
+        _sync_source: { path: "landing/a.json", sha256: "abc" },
+      }),
+    ).toEqual({ external_id: "A-1", name: "Asset one" });
   });
 
   it("encodes path segments, refuses traversal and hashes exact bytes", async () => {

@@ -285,6 +285,14 @@ export function applyDataLakeMapping(
   return result;
 }
 
+export function withoutDataLakeProvenance(
+  row: Record<string, unknown>,
+): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(row).filter(([field]) => field !== "_sync_source"),
+  );
+}
+
 export async function sha256Hex(bytes: Uint8Array): Promise<string> {
   const exact = Uint8Array.from(bytes);
   const digest = await crypto.subtle.digest("SHA-256", exact.buffer);
