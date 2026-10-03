@@ -459,6 +459,9 @@ jobs:
       - name: Smoke — evidence-backed organizational maturity
         run: bash scripts/ci-organizational-maturity-smoke.sh
 
+      - name: Smoke — governed implementation and adoption management
+        run: bash scripts/ci-adoption-management-smoke.sh
+
       - name: Smoke — governed AI and calculation model registry
         run: bash scripts/ci-governed-model-registry-smoke.sh
 

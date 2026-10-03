@@ -11,6 +11,10 @@ vi.mock("../components/AuthProvider", () => ({
   useAuth: () => ({ profile: { role } }),
 }));
 
+vi.mock("../components/AdoptionManagementPanel", () => ({
+  AdoptionManagementPanel: () => <div>Governed adoption workspace</div>,
+}));
+
 vi.mock("../services/organizationalMaturityService", async () => {
   const actual = await vi.importActual<
     typeof import("../services/organizationalMaturityService")
@@ -143,5 +147,12 @@ describe("OrganizationalMaturityPage", () => {
       await screen.findByText(/This is a read-only view for your role/),
     ).toBeTruthy();
     expect(screen.queryByText("Submit a complete assessment")).toBeNull();
+  });
+
+  it("opens the adoption workspace from the organizational capability tabs", async () => {
+    render(<OrganizationalMaturityPage />);
+    await screen.findByText("Assessment, not certification");
+    fireEvent.click(screen.getByRole("button", { name: "Adoption management" }));
+    expect(screen.getByText("Governed adoption workspace")).toBeTruthy();
   });
 });

@@ -2406,10 +2406,10 @@
     "backticked": 2
   },
   "U23.01": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 4,
+    "backticked": 4
   },
   "U24.01": {
     "status": "🟡",

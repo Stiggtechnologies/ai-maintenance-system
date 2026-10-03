@@ -9,6 +9,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { useAuth } from "../components/AuthProvider";
+import { AdoptionManagementPanel } from "../components/AdoptionManagementPanel";
 import { ErrorState, LoadingState } from "../components/ui/AsyncStates";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { supabase } from "../lib/supabase";
@@ -100,6 +101,7 @@ export function OrganizationalMaturityPage() {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<string | null>(null);
+  const [view, setView] = useState<"maturity" | "adoption">("maturity");
   const complete = useMemo(
     () =>
       title.trim().length >= 3 &&
@@ -148,8 +150,24 @@ export function OrganizationalMaturityPage() {
   if (!workspace.data)
     return <ErrorState message="No maturity workspace was returned." onRetry={workspace.refetch} />;
 
+  const viewTabs = (
+    <nav aria-label="Organizational capability views" className="flex w-fit rounded-xl border border-white/8 bg-black/20 p-1">
+      {(["maturity", "adoption"] as const).map((entry) => (
+        <button key={entry} onClick={() => setView(entry)} aria-pressed={view === entry}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold ${view === entry ? "bg-cyan-500/15 text-cyan-200" : "text-slate-400"}`}>
+          {entry === "maturity" ? "Maturity assessment" : "Adoption management"}
+        </button>
+      ))}
+    </nav>
+  );
+
+  if (view === "adoption") {
+    return <div className="space-y-6 p-6">{viewTabs}<AdoptionManagementPanel /></div>;
+  }
+
   return (
     <div className="space-y-6 p-6">
+      {viewTabs}
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.18em] text-cyan-300">

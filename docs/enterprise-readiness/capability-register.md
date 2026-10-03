@@ -658,7 +658,7 @@ record-scoped._
 
 | ID     | Capability                                                                                                                                                                                          | Status |
 | ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
-| U23.01 | Stakeholder mapping, role design, process ownership, training, field trials, change-impact, feedback, adoption metrics, procedure updates, incentives, communications, champions, benefits tracking | 🟡     |
+| U23.01 | Stakeholder mapping, role design, process ownership, training, field trials, change-impact, feedback, adoption metrics, procedure updates, incentives, communications, champions, benefits tracking | ✅ Governed adoption workspace beside `/organizational-maturity` makes all 13 disciplines explicit and refuses activation until each has a named same-tenant owner, plan, success measure and due date. Category gates require affected audiences, controlled procedure references, change-impact levels and incentive anti-gaming/safety guardrails. Completion requires independently verified canonical evidence; adoption and benefit items additionally require canonical baseline, target and actual `value_metrics`. Submission requires all 13 evidenced and every non-cancelled item closed; a different admin/executive independently reviews closeout, verifies observed value points, and records canonical approvals/audit events. Direct table writes are denied and the contract grants no plant, procedure, work-release, spending or risk-acceptance authority (`20270101670000_adoption_management.sql`; `ci-adoption-management-smoke.sh`). |
 
 ### U24 — Explicit ethical boundaries
 
@@ -776,6 +776,6 @@ record-scoped._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 319 · 🟡 147 · ❌ 0. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main. U22.01 closed by the evidence-backed organizational maturity workflow and governed runtime acceptance smoke.)_
+never changed, only the count of it). Current tally: ✅ 320 · 🟡 146 · ❌ 0. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main. U22.01 closed by the evidence-backed organizational maturity workflow and governed runtime acceptance smoke.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
