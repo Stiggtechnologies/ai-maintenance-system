@@ -25,5 +25,5 @@
   // installed locally or in CI, so this project is the only thing standing
   // between an edge function and shipping untypechecked. Only _shared is
   // included — the function entrypoints themselves do use Deno globals.
-  "include": ["src", "supabase/functions/_shared"]
+  "include": ["src", "api", "supabase/functions/_shared"]
 }
