@@ -498,6 +498,9 @@ jobs:
       - name: Smoke — Sync Context canonical contracts and two-tenant isolation
         run: bash scripts/ci-sync-context-contract-smoke.sh
 
+      - name: Smoke — Decision Case command authority
+        run: bash scripts/ci-decision-case-command-authority-smoke.sh
+
       - name: Smoke — governed enterprise portfolio optimization
         run: bash scripts/ci-enterprise-portfolio-optimization-smoke.sh
 
