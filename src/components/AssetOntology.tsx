@@ -25,6 +25,7 @@ import { ClimateHazardExposurePanel } from "./ClimateHazardExposurePanel";
 import { AssetClassGovernancePanel } from "./AssetClassGovernancePanel";
 import { LinearAssetGovernancePanel } from "./LinearAssetGovernancePanel";
 import { PopulationGovernancePanel } from "./PopulationGovernancePanel";
+import { AssetHierarchyPanel } from "./AssetHierarchyPanel";
 
 interface Coverage {
   assets_total: number;
@@ -192,6 +193,8 @@ export function AssetOntology() {
           void refetch();
         }}
       />
+
+      <AssetHierarchyPanel />
 
       <AssetRelationshipPanel />
 

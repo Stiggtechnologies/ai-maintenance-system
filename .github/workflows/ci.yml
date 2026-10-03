@@ -465,6 +465,9 @@ jobs:
       - name: Smoke — governed service-level consequences
         run: bash scripts/ci-asset-service-level-smoke.sh
 
+      - name: Smoke — canonical enterprise-to-failure-mode asset hierarchy
+        run: bash scripts/ci-canonical-asset-hierarchy-smoke.sh
+
       - name: Smoke — independently reviewed model applicability envelopes
         run: bash scripts/ci-model-applicability-envelope-smoke.sh
 
