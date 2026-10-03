@@ -6826,6 +6826,28 @@ export interface ContractCommercial {
   contractStartDate?: string | null;
   contractCompletionDate?: string | null;
   summary?: Record<string, unknown>;
+  legalCompliance?: {
+    packageId: number;
+    answered: boolean;
+    status: "unassessed" | "expired" | "compliant" | "not_compliant" | "not_a_contract";
+    compliant?: boolean;
+    determination?: "compliant" | "not_compliant";
+    version?: number;
+    jurisdiction?: string;
+    legalScope?: string;
+    basis?: string;
+    attestedBy?: string;
+    attestedAt?: string;
+    validUntil?: string;
+    evidence?: {
+      id: string;
+      description: string;
+      revision: string | null;
+      verifiedAt: string | null;
+      verifiedBy: string | null;
+    };
+    refusal?: string;
+  };
   commitment?: Record<string, unknown>;
   invoicePosition?: Record<string, unknown>;
   changeOrders?: {
@@ -6909,6 +6931,45 @@ export async function getContractCommercial(
     p_package_id: packageId,
   });
   return unwrap(data, error);
+}
+
+export interface ContractLegalComplianceInput {
+  determination: "compliant" | "not_compliant";
+  jurisdiction: string;
+  legalScope: string;
+  evidenceItemId: string;
+  basis: string;
+  validUntil: string;
+  supersessionReason?: string;
+}
+
+/** D11.24 / spec §70: named-human, MFA/AAL2 legal determination. */
+export async function recordContractLegalCompliance(
+  packageId: number,
+  input: ContractLegalComplianceInput,
+): Promise<{
+  attestationId: string;
+  version: number;
+  determination: "compliant" | "not_compliant";
+  validUntil: string;
+  position: NonNullable<ContractCommercial["legalCompliance"]>;
+}> {
+  const { data, error } = await supabase.rpc(
+    "record_contract_legal_compliance",
+    {
+      p_package_id: packageId,
+      p_attestation: {
+        determination: input.determination,
+        jurisdiction: input.jurisdiction,
+        legal_scope: input.legalScope,
+        evidence_item_id: input.evidenceItemId,
+        basis: input.basis,
+        valid_until: input.validUntil,
+        supersession_reason: input.supersessionReason ?? null,
+      },
+    },
+  );
+  return unwrapRpc(data, error, "Could not record legal compliance");
 }
 
 /** D6.01: accrued from acts, never stored. Refuses when no period is recorded. */
