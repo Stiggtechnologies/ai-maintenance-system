@@ -122,7 +122,8 @@ begin
   where r.id=p_run_id and r.organization_id=v_org and r.status='running'
     and c.connector_type='recovery_activation' and c.system_kind='data_lake'
     and c.register_ref='C2.14' and c.enabled and c.direction='read_only'
-    and not c.write_enabled;
+    and not c.write_enabled
+  for update of r;
   if not found then
     return jsonb_build_object('error','running governed ADLS run not found');
   end if;
@@ -265,7 +266,8 @@ begin
     on c.id=r.connector_id and c.organization_id=r.organization_id
   where r.id=p_run_id and r.organization_id=p_organization_id
     and r.status='running' and c.connector_type='recovery_activation'
-    and c.system_kind='data_lake' and c.register_ref='C2.14';
+    and c.system_kind='data_lake' and c.register_ref='C2.14'
+  for update of r;
   if not found then
     return jsonb_build_object('error','running governed ADLS run not found');
   end if;

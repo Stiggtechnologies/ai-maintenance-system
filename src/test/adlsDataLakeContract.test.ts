@@ -69,6 +69,7 @@ describe("C2.14 governed ADLS data-lake adapter", () => {
       "idx_ingest_staging_latest_accepted_identity",
     );
     expect(repair).toContain("pg_advisory_xact_lock");
+    expect(repair.match(/for update of r/g)).toHaveLength(2);
     expect(repair).toContain("records_duplicate=records_duplicate+1");
     expect(repair).toContain("records_read=v_manifest_rows");
     expect(repair).toContain(
