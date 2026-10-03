@@ -10,7 +10,7 @@ function read(path: string) {
 
 describe("C5.21 governed return-to-service verification", () => {
   const sql = read(
-    "supabase/migrations/20270101460000_return_to_service_verification.sql",
+    "supabase/migrations/20270102000000_return_to_service_verification.sql",
   );
 
   it("extends the canonical equipment handback and quality acceptance models", () => {

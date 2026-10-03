@@ -10,7 +10,7 @@ function read(path: string) {
 
 describe("C5.10/C5.11/C5.17 governed maintenance change control", () => {
   const sql = read(
-    "supabase/migrations/20270101470000_maintenance_change_control.sql",
+    "supabase/migrations/20270102010000_maintenance_change_control.sql",
   );
 
   it("extends the canonical work, approval, risk and audit models", () => {
