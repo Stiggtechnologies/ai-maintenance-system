@@ -270,6 +270,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/marketplace/signup" element={<MarketplaceSignup />} />
+          <Route path="/marketplace/activate" element={<MarketplaceSignup />} />
           <Route
             path="/marketplace/aws/signup"
             element={<AwsMarketplaceSignup />}

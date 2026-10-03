@@ -30,15 +30,15 @@ export interface GeospatialFeature {
   geometry_type: string;
   geometry: { type: string; coordinates: unknown[] };
   source_system: string;
+  source_connector_id: string | null;
   source_reference: string;
   observed_at: string;
   valid_until: string | null;
+  validity_kind: "permanent" | "temporary" | null;
   data_quality: string;
   evidence_item_ids: string[];
   missing_evidence: string[];
   status: "draft" | "verified";
-  recorded_by: string;
-  verified_by: string | null;
 }
 
 export interface GeospatialAssessment {
@@ -54,8 +54,6 @@ export interface GeospatialAssessment {
   evidence_item_ids: string[];
   missing_evidence: string[];
   status: "draft" | "verified";
-  recorded_by: string;
-  verified_by: string | null;
 }
 
 export interface RegionalStockContext {
@@ -94,7 +92,8 @@ export interface GeospatialReferences {
 
 function checked(data: unknown) {
   const value = data as Record<string, unknown> & { error?: string };
-  if (value?.error) throw new Error(value.error);
+  if (value?.error)
+    throw new Error("The governed geospatial request was refused.");
   return value;
 }
 
@@ -102,7 +101,8 @@ export async function getGeospatialOperationalWorkspace(): Promise<GeospatialWor
   const { data, error } = await supabase.rpc(
     "get_geospatial_operational_workspace",
   );
-  if (error) throw new Error(error.message);
+  if (error)
+    throw new Error("Geospatial workspace is temporarily unavailable.");
   return checked(data) as unknown as GeospatialWorkspace;
 }
 
@@ -137,7 +137,8 @@ export async function getGeospatialReferences(): Promise<GeospatialReferences> {
     materials,
     evidence,
   ]) {
-    if (result.error) throw new Error(result.error.message);
+    if (result.error)
+      throw new Error("Geospatial references are temporarily unavailable.");
   }
   return {
     assets: assets.data ?? [],
@@ -153,7 +154,7 @@ export async function recordGeospatialFeature(input: Record<string, unknown>) {
   const { data, error } = await supabase.rpc("record_geospatial_feature", {
     p_feature: input,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error("Unable to record the geospatial feature.");
   return checked(data);
 }
 
@@ -162,7 +163,7 @@ export async function verifyGeospatialFeature(id: string, note: string) {
     p_feature_id: id,
     p_note: note,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error("Unable to verify the geospatial feature.");
   return checked(data);
 }
 
@@ -170,7 +171,7 @@ export async function linkGeospatialSubject(input: Record<string, unknown>) {
   const { data, error } = await supabase.rpc("link_geospatial_subject", {
     p_link: input,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error("Unable to link geospatial context.");
   return checked(data);
 }
 
@@ -181,7 +182,7 @@ export async function recordGeospatialOperationalAssessment(
     "record_geospatial_operational_assessment",
     { p_assessment: input },
   );
-  if (error) throw new Error(error.message);
+  if (error) throw new Error("Unable to record the geospatial assessment.");
   return checked(data);
 }
 
@@ -193,6 +194,6 @@ export async function verifyGeospatialOperationalAssessment(
     "verify_geospatial_operational_assessment",
     { p_assessment_id: id, p_note: note },
   );
-  if (error) throw new Error(error.message);
+  if (error) throw new Error("Unable to verify the geospatial assessment.");
   return checked(data);
 }
