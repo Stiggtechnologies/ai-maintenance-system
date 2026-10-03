@@ -37,6 +37,9 @@ describe("Primavera P6 schedule read adapter contract", () => {
     expect(migration).toContain("P6 schedule ingestion is service-only");
     expect(migration).toContain("direction='read_only'");
     expect(migration).toContain("write_enabled=false");
+    expect(migration).toContain(
+      "watermark_to=(r.transport_cursor_to->>'fetched_at')::timestamptz",
+    );
     expect(edge).toContain("P6_READ_ALLOWED_HOSTS");
     expect(edge).toContain("P6_READ_CREDENTIALS_JSON");
     expect(edge).toContain('method: "GET"');

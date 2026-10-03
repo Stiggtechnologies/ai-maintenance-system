@@ -442,6 +442,15 @@ begin
   )::text,true);
   perform set_config('app.p6_read_ingest','granted',true);
   v_result:=public.ingest_schedule_batch(p_run_id,p_rows);
+  -- The canonical schedule importer records now() as its generic row
+  -- watermark. A service-attested P6 run advances on the immutable Oracle
+  -- fetch observation in transport_cursor_to. Restore that exact source
+  -- position after canonical promotion so the next Oracle snapshot is not
+  -- compared with the later database processing clock.
+  update public.connector_runs r set
+    watermark_to=(r.transport_cursor_to->>'fetched_at')::timestamptz
+  where r.id=p_run_id and r.organization_id=p_organization_id
+    and r.status='running';
   return v_result;
 end
 $$;
