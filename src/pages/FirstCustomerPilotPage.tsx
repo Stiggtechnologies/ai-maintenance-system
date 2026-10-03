@@ -1,12 +1,20 @@
 import { useEffect } from "react";
-import { ArrowUpRight, ClipboardCheck, ShieldCheck } from "lucide-react";
+import {
+  ArrowUpRight,
+  Building2,
+  ClipboardCheck,
+  Rocket,
+  ShieldCheck,
+  Workflow,
+} from "lucide-react";
 import { PublicProductHeader } from "../components/PublicProductHeader";
+import {
+  CANONICAL_RIA_LEDE,
+  COMMERCIAL_VALUE_LADDER,
+} from "../lib/commercial-value-ladder";
 import { RiaAssessmentWorkspacePage } from "./RiaAssessmentWorkspacePage";
 
 const ASSESSMENT_URL = "https://syncai.ca/reliability-assessment";
-
-export const CANONICAL_RIA_LEDE =
-  "SyncAI uses one bounded entry product: a 6–8 week Reliability Intelligence Assessment, built from customer-provided exports, with evidence-graded findings and a 90-day action plan.";
 
 export function FirstCustomerPilotPage() {
   const isAssessmentWorkspace =
@@ -50,7 +58,8 @@ export function FirstCustomerPilotPage() {
           data-testid="assessment-hero-price"
           className="mt-4 max-w-3xl text-sm font-semibold text-teal-200/90"
         >
-          Standard fee: US$35,000 fixed · normally 6–8 weeks · final terms in the proposal/SOW.
+          Standard fee: US$35,000 fixed · normally 6–8 weeks · final terms in
+          the proposal/SOW.
         </p>
         <div
           data-testid="assessment-hero-constraints"
@@ -82,6 +91,63 @@ export function FirstCustomerPilotPage() {
             Try Reliability Engineer
           </a>
         </div>
+
+        <section className="mt-14 border-t border-white/10 pt-10 sm:mt-20 sm:pt-14">
+          <div className="max-w-3xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-200">
+              From evidence to operating capability
+            </p>
+            <h2 className="mt-3 text-2xl font-semibold tracking-[-0.03em] text-white sm:text-3xl">
+              Start bounded. Expand only when the proof earns it.
+            </h2>
+            <p className="mt-4 text-sm leading-7 text-slate-300 sm:text-base">
+              The assessment is the entry product when the baseline is not yet
+              defensible. Each later scope closes with a customer-owned
+              expansion decision—never an automatic upgrade.
+            </p>
+          </div>
+
+          <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {COMMERCIAL_VALUE_LADDER.map((step, index) => {
+              const Icon = [ClipboardCheck, Workflow, Rocket, Building2][
+                index
+              ]!;
+              return (
+                <article
+                  key={step.title}
+                  className="rounded-xl border border-white/10 bg-white/[0.025] p-5"
+                >
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-teal-300/20 bg-teal-300/10 text-teal-200">
+                    <Icon size={17} aria-hidden />
+                  </div>
+                  <p className="mt-4 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+                    {String(index + 1).padStart(2, "0")}
+                  </p>
+                  <h3 className="mt-1 font-semibold text-white">
+                    {step.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-6 text-slate-400">
+                    {step.detail}
+                  </p>
+                </article>
+              );
+            })}
+          </div>
+
+          <div className="mt-6 rounded-xl border border-teal-300/20 bg-teal-300/[0.06] p-5 sm:p-6">
+            <h3 className="text-sm font-semibold text-teal-100">
+              Forward-Deployed Engineering
+            </h3>
+            <p className="mt-2 max-w-4xl text-sm leading-6 text-slate-300">
+              During implementation, named SyncAI practitioners work virtually
+              with your product, reliability, maintenance, engineering, data,
+              and security owners to configure the approved solution and
+              transfer the operating runbook. Your organization retains every
+              engineering, investment, operating, safety, and risk-acceptance
+              decision.
+            </p>
+          </div>
+        </section>
       </section>
     </main>
   );
