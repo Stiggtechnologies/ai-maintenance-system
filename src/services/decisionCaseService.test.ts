@@ -7,6 +7,8 @@ import { createHonestEmptyDecisionCase } from "../lib/decision-case-honesty";
 import {
   askDecisionCase,
   createPersistedDecisionCase,
+  listDecisionCaseAuthorityDirectory,
+  recordDecisionCaseApproval,
   savePersistedDecisionCase,
 } from "./decisionCaseService";
 import { runPublicDecisionCaseAgent } from "./publicReliabilityAgent";
@@ -18,11 +20,12 @@ const workspaceWrite = vi.hoisted(() => {
   const eq = vi.fn(() => ({ select }));
   const update = vi.fn(() => ({ eq }));
   const from = vi.fn(() => ({ update }));
-  return { from, update, eq, select, maybeSingle };
+  const rpc = vi.fn();
+  return { from, update, eq, select, maybeSingle, rpc };
 });
 
 vi.mock("../lib/supabase", () => ({
-  supabase: { from: workspaceWrite.from },
+  supabase: { from: workspaceWrite.from, rpc: workspaceWrite.rpc },
 }));
 
 vi.mock("./operatingLoopService", () => ({
@@ -47,6 +50,7 @@ describe("decisionCaseService", () => {
     workspaceWrite.eq.mockClear();
     workspaceWrite.select.mockClear();
     workspaceWrite.maybeSingle.mockReset();
+    workspaceWrite.rpc.mockReset();
   });
 
   it("requires a tenant-visible initialized row before reporting a case creation", async () => {
@@ -58,13 +62,32 @@ describe("decisionCaseService", () => {
       recommendationId: null,
     });
     workspaceWrite.maybeSingle.mockResolvedValueOnce({
-      data: { id: workspaceId },
+      data: { id: workspaceId, case_version: 0 },
       error: null,
     });
+    workspaceWrite.rpc.mockImplementationOnce((_name, input) => ({
+      data: {
+        caseState: { ...input.p_case_state, revision: 1 },
+        version: 1,
+      },
+      error: null,
+    }));
 
     await expect(createPersistedDecisionCase(seed, {})).resolves.toMatchObject({
       id: workspaceId,
+      revision: 1,
     });
+    expect(workspaceWrite.rpc).toHaveBeenCalledWith(
+      "apply_decision_case_command",
+      expect.objectContaining({
+        p_workspace_id: workspaceId,
+        p_expected_version: 0,
+        p_command: "initialize",
+      }),
+    );
+    expect(workspaceWrite.update).toHaveBeenCalledWith(
+      expect.not.objectContaining({ case_state: expect.anything() }),
+    );
 
     workspaceWrite.maybeSingle.mockResolvedValueOnce({
       data: null,
@@ -75,28 +98,308 @@ describe("decisionCaseService", () => {
     );
   });
 
-  it("requires a tenant-visible updated row before reporting a case save", async () => {
+  it("uses the versioned command RPC and returns the newer canonical case", async () => {
     const decisionCase = {
       ...createHonestEmptyDecisionCase("Reliability Engineer"),
       id: "11111111-1111-4111-8111-111111111111",
+      revision: 4,
+      comments: [
+        {
+          id: "decision-owner",
+          author: "Decision Owner",
+          text: "Ada Owner",
+          createdAt: "2026-10-03T12:00:00.000Z",
+        },
+        {
+          id: "recommendation-author",
+          author: "Recommendation Author",
+          text: "Riley Author",
+          createdAt: "2026-10-03T12:00:00.000Z",
+        },
+        {
+          id: "verification-owner",
+          author: "Verification Owner",
+          text: "Vera Owner",
+          createdAt: "2026-10-03T12:00:00.000Z",
+        },
+      ],
     };
-    workspaceWrite.maybeSingle.mockResolvedValueOnce({
-      data: { id: decisionCase.id },
+    workspaceWrite.rpc.mockResolvedValueOnce({
+      data: {
+        caseState: { ...decisionCase, revision: 5 },
+        version: 5,
+      },
       error: null,
     });
     await expect(
-      savePersistedDecisionCase(decisionCase),
-    ).resolves.toBeUndefined();
-    expect(workspaceWrite.from).toHaveBeenCalledWith("cowork_workspaces");
-    expect(workspaceWrite.eq).toHaveBeenCalledWith("id", decisionCase.id);
-    expect(workspaceWrite.select).toHaveBeenCalledWith("id");
+      savePersistedDecisionCase(decisionCase, "add_evidence"),
+    ).resolves.toMatchObject({ revision: 5 });
+    expect(workspaceWrite.rpc).toHaveBeenCalledWith(
+      "apply_decision_case_command",
+      expect.objectContaining({
+        p_workspace_id: decisionCase.id,
+        p_expected_version: 4,
+        p_command: "add_evidence",
+      }),
+    );
 
-    workspaceWrite.maybeSingle.mockResolvedValueOnce({
+    workspaceWrite.rpc.mockResolvedValueOnce({
       data: null,
+      error: { code: "40001", message: "Decision Case conflict" },
+    });
+    await expect(savePersistedDecisionCase(decisionCase)).rejects.toMatchObject(
+      {
+        name: "DecisionCaseConflictError",
+        message: expect.stringMatching(/Decision Case conflict/i),
+      },
+    );
+  });
+
+  it("sends only each command's bounded payload", async () => {
+    const decisionCase = {
+      ...createHonestEmptyDecisionCase("Reliability Engineer"),
+      id: "11111111-1111-4111-8111-111111111111",
+      revision: 4,
+      comments: [
+        {
+          id: "decision-owner",
+          author: "Decision Owner",
+          text: "Ada Owner",
+          createdAt: "2026-10-03T12:00:00.000Z",
+        },
+        {
+          id: "recommendation-author",
+          author: "Recommendation Author",
+          text: "Riley Author",
+          createdAt: "2026-10-03T12:00:00.000Z",
+        },
+        {
+          id: "verification-owner",
+          author: "Verification Owner",
+          text: "Vera Owner",
+          createdAt: "2026-10-03T12:00:00.000Z",
+        },
+      ],
+      requiredPerson: {
+        userId: "22222222-2222-4222-8222-222222222222",
+        name: "Kai",
+        authorityRole: "maintenance_manager",
+        invitationStatus: "not_sent" as const,
+        recordedAt: "2026-10-03T12:00:00.000Z",
+      },
+    };
+    const expectedKeys: Array<
+      [Parameters<typeof savePersistedDecisionCase>[1], string[]]
+    > = [
+      ["record_conversation", ["messages", "tokensUsed"]],
+      [
+        "add_evidence",
+        [
+          "decisionMetrics",
+          "evidence",
+          "evidenceScore",
+          "recommendation",
+          "recommendationDetail",
+          "stage",
+        ],
+      ],
+      ["record_disposition", ["humanDecision", "people"]],
+      ["define_verification", ["verification"]],
+      ["record_required_person", ["requiredPerson"]],
+      ["record_source_check", ["sourceCheck"]],
+    ];
+
+    for (const [command, keys] of expectedKeys) {
+      workspaceWrite.rpc.mockResolvedValueOnce({
+        data: { caseState: { ...decisionCase, revision: 5 }, version: 5 },
+        error: null,
+      });
+      await savePersistedDecisionCase(decisionCase, command);
+      const payload = workspaceWrite.rpc.mock.calls.at(-1)?.[1]
+        .p_case_state as Record<string, unknown>;
+      expect(Object.keys(payload).sort()).toEqual(keys.sort());
+      expect(payload).not.toHaveProperty("learningRecord");
+      expect(payload).not.toHaveProperty("workPackage");
+      expect(payload).not.toHaveProperty("humanApproval");
+      if (command === "record_disposition") {
+        expect(payload.people).toEqual({
+          decisionOwner: "Ada Owner",
+          recommendationAuthor: "Riley Author",
+          verificationOwner: "Vera Owner",
+        });
+        expect(payload.people).not.toHaveProperty("requiredApprover");
+      }
+    }
+  });
+
+  it("uses the canonical command return without dropping case context", async () => {
+    const decisionCase = {
+      ...createHonestEmptyDecisionCase("Reliability Engineer"),
+      id: "11111111-1111-4111-8111-111111111111",
+      revision: 7,
+      objective: "Should this inspection interval remain unchanged?",
+      evidence: [
+        {
+          id: "ev-1",
+          title: "Inspection note",
+          summary: "Customer note",
+          quality: "medium" as const,
+          state: "Supplied",
+          record: "note-1",
+          finding: "Observed condition is unchanged.",
+          lineage: "manual",
+          sourceSystem: "customer",
+          persistence: "embedded" as const,
+        },
+      ],
+      humanDecision: {
+        disposition: "accept" as const,
+        rationale: "The supplied condition remains inside the reviewed basis.",
+        counterfactual: "A contradictory inspection finding.",
+        recordedAt: "2026-10-03T12:00:00.000Z",
+      },
+    };
+    const canonical = {
+      ...decisionCase,
+      revision: 8,
+      comments: [
+        {
+          id: "people-decisionOwner-8",
+          author: "Decision Owner",
+          text: "Ada Owner",
+          createdAt: "2026-10-03T12:01:00.000Z",
+        },
+        {
+          id: "people-verificationOwner-8",
+          author: "Verification Owner",
+          text: "Vera Owner",
+          createdAt: "2026-10-03T12:01:00.000Z",
+        },
+      ],
+      valueMetrics: [
+        {
+          id: "verify-expected",
+          label: "Expected",
+          detail: "How we will know this worked",
+          baseline: "No adverse change",
+          target: "No adverse change",
+          verifiedActual: "Pending",
+        },
+        {
+          id: "verify-evidence",
+          label: "Verification evidence",
+          detail: "Not yet attached",
+          baseline: "2026-10-10",
+          target: "How will we know this worked?",
+          verifiedActual: "Scheduled",
+        },
+      ],
+    };
+    workspaceWrite.rpc.mockResolvedValueOnce({
+      data: { caseState: canonical, version: 8 },
       error: null,
     });
-    await expect(savePersistedDecisionCase(decisionCase)).rejects.toThrow(
-      /no tenant-visible workspace row was updated/i,
+
+    await expect(
+      savePersistedDecisionCase(decisionCase, "record_disposition"),
+    ).resolves.toMatchObject({
+      objective: "Should this inspection interval remain unchanged?",
+      evidence: [expect.objectContaining({ id: "ev-1" })],
+      humanDecision: expect.objectContaining({
+        rationale: "The supplied condition remains inside the reviewed basis.",
+      }),
+      comments: expect.arrayContaining([
+        expect.objectContaining({
+          author: "Decision Owner",
+          text: "Ada Owner",
+        }),
+        expect.objectContaining({
+          author: "Verification Owner",
+          text: "Vera Owner",
+        }),
+      ]),
+      valueMetrics: expect.arrayContaining([
+        expect.objectContaining({ id: "verify-expected" }),
+      ]),
+    });
+  });
+
+  it("records approval through the separate server-authoritative command", async () => {
+    const decisionCase = {
+      ...createHonestEmptyDecisionCase("Reliability Engineer"),
+      id: "11111111-1111-4111-8111-111111111111",
+      revision: 4,
+    };
+    workspaceWrite.rpc.mockImplementationOnce((_name, input) => ({
+      data: {
+        caseState: {
+          ...input.p_case_state,
+          humanApproval: {
+            decision: "approved",
+            recordedAt: "2026-10-03T12:00:00.000Z",
+            basisVersion: 4,
+            basisSha256: "a".repeat(64),
+            approvalVersion: 5,
+            actor: {
+              id: "22222222-2222-4222-8222-222222222222",
+              name: "Required Approver",
+              role: "maintenance_manager",
+            },
+          },
+          revision: 5,
+        },
+        version: 5,
+      },
+      error: null,
+    }));
+
+    await expect(
+      recordDecisionCaseApproval(
+        decisionCase,
+        "approved",
+        "Evidence and decision basis reviewed.",
+      ),
+    ).resolves.toMatchObject({
+      revision: 5,
+      humanApproval: {
+        decision: "approved",
+        actor: { id: "22222222-2222-4222-8222-222222222222" },
+      },
+    });
+    expect(workspaceWrite.rpc).toHaveBeenCalledWith(
+      "apply_decision_case_command",
+      expect.objectContaining({
+        p_workspace_id: decisionCase.id,
+        p_expected_version: 4,
+        p_command: "record_approval",
+        p_case_state: expect.objectContaining({
+          decision: "approved",
+          reason: "Evidence and decision basis reviewed.",
+        }),
+      }),
+    );
+  });
+
+  it("loads the server-filtered tenant authority directory", async () => {
+    workspaceWrite.rpc.mockResolvedValueOnce({
+      data: [
+        {
+          userId: "22222222-2222-4222-8222-222222222222",
+          name: "Kai Manager",
+          email: "kai@example.com",
+          role: "maintenance_manager",
+        },
+      ],
+      error: null,
+    });
+    await expect(listDecisionCaseAuthorityDirectory()).resolves.toEqual([
+      expect.objectContaining({
+        userId: "22222222-2222-4222-8222-222222222222",
+        role: "maintenance_manager",
+      }),
+    ]);
+    expect(workspaceWrite.rpc).toHaveBeenCalledWith(
+      "get_decision_case_authority_directory",
     );
   });
 

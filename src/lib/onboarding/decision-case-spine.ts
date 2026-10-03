@@ -12,7 +12,6 @@ import {
   isSeedDecisionCaseId,
 } from "../decision-case-honesty";
 import type {
-  DecisionApproval,
   DecisionCase,
   DecisionCaseStage,
   DecisionEvidence,
@@ -173,6 +172,18 @@ export const CONNECTION_FAILURE_FALLBACKS: readonly EvidenceMethod[] = [
   "ask_admin",
 ];
 
+export type EvidencePersistence = {
+  /** A durable governed object id may stand in for embedded content. */
+  durableReference?: string;
+  /** False means the browser saw a file but did not persist usable content. */
+  contentPersisted?: boolean;
+};
+
+export type UploadedEvidenceDraft = {
+  body: string;
+  contentPersisted: boolean;
+};
+
 export type SpineDisposition =
   "accept" | "reject" | "need_more_evidence" | "park" | "escalate";
 
@@ -315,7 +326,7 @@ export function policyAdvisory(requiredAuthority: string): string {
 }
 
 export function inviteCopy(authority: string): string {
-  return `This decision requires approval from someone with ${authority}. Invite them now.`;
+  return `This decision requires approval from someone with ${authority}. Record the required person; invitation delivery is a separate action.`;
 }
 
 export function spineAssumptions(hasSuppliedEvidence: boolean): string[] {
@@ -336,7 +347,9 @@ export function spineAssumptions(hasSuppliedEvidence: boolean): string[] {
 export function computeConfidencePct(evidence: DecisionEvidence[]): number {
   if (evidence.length === 0) return 8;
   const supplied = evidence.filter(
-    (item) => item.quality === "high" || item.quality === "medium",
+    (item) =>
+      (item.quality === "high" || item.quality === "medium") &&
+      item.persistence !== "pending",
   ).length;
   const missing = evidence.filter(
     (item) => item.quality === "missing" || item.quality === "conflict",
@@ -359,6 +372,7 @@ function missingSlots(): DecisionEvidence[] {
     finding: `Missing ${kind.title.toLowerCase()} — required before an asset-specific recommendation.`,
     lineage: `Ask-first spine · ${now} · type asked before system mapping`,
     sourceSystem: "Not connected",
+    persistence: "pending",
   }));
 }
 
@@ -454,6 +468,7 @@ export function attachSpineEvidence(
   kind: EvidenceKind,
   method: EvidenceMethod,
   body: string,
+  persistence: EvidencePersistence = {},
 ): DecisionCase {
   const text = body.trim();
   if (!text && method !== "ask_admin") return decisionCase;
@@ -476,6 +491,44 @@ export function attachSpineEvidence(
       ],
     };
   }
+  const durableReference = persistence.durableReference?.trim();
+  const contentPersisted = persistence.contentPersisted !== false;
+  const substantive = text.length >= 12;
+  if (!contentPersisted || (!substantive && !durableReference)) {
+    const pending: DecisionEvidence = {
+      id: `missing-${kind}`,
+      title: kindMeta?.title ?? kind,
+      summary: text.slice(0, 280) || "Content was not persisted.",
+      quality: "missing",
+      state: "Pending durable evidence",
+      record: `Spine ${method}`,
+      finding:
+        text.slice(0, 400) ||
+        "No extracted content or governed attachment reference was persisted.",
+      lineage: `Pending browser selection · ${method} · ${now}`,
+      sourceSystem: "Not persisted",
+      persistence: "pending",
+    };
+    return {
+      ...decisionCase,
+      updatedAt: now,
+      evidence: [
+        pending,
+        ...decisionCase.evidence.filter((item) => item.id !== pending.id),
+      ],
+      messages: [
+        ...decisionCase.messages,
+        {
+          id: `evidence-pending-${Date.now()}`,
+          role: "system",
+          author: "Evidence",
+          text: `${kindMeta?.title ?? kind} remains missing. The selected file did not yield persisted content or a governed attachment reference.`,
+          createdAt: now,
+          meta: "Evidence pending",
+        },
+      ],
+    };
+  }
   const nextItem: DecisionEvidence = {
     id: `ev-${kind}-${Date.now()}`,
     title: kindMeta?.title ?? kind,
@@ -487,6 +540,8 @@ export function attachSpineEvidence(
     lineage: `Customer-supplied · ${method} · ${now}`,
     sourceSystem:
       method === "connect_source" ? "Connection attempted" : "Manual / file",
+    persistence: durableReference ? "governed_reference" : "embedded",
+    durableReference: durableReference || undefined,
   };
   const evidence = [
     nextItem,
@@ -545,32 +600,18 @@ export function applyPeople(
   decisionCase: DecisionCase,
   people: CasePeople,
 ): DecisionCase {
-  const approvals: DecisionApproval[] = [];
-  if (people.requiredApprover.trim()) {
-    approvals.push({
-      id: "required-approver",
-      initials: initials(people.requiredApprover),
-      name: people.requiredApprover.trim(),
-      role: "Required Approver",
-      responsibility: inferRequiredAuthority(
-        decisionCase.objective,
-        (decisionCase.intakeRole as InvertedIntentId) || "",
-      ),
-      status: "reviewing",
-    });
-  }
   const now = new Date().toISOString();
   const rows: Array<[string, string]> = [
     ["Decision Owner", people.decisionOwner],
     ["Recommendation Author", people.recommendationAuthor],
-    ["Required Approver", people.requiredApprover],
     ["Verification Owner", people.verificationOwner],
   ];
   return {
     ...decisionCase,
     financeSponsor: people.decisionOwner.trim() || decisionCase.financeSponsor,
-    authorityRole: people.requiredApprover.trim() || decisionCase.authorityRole,
-    approvals,
+    // Naming people during disposition does not create or decide an approval.
+    // The required-person command owns that canonical transition.
+    approvals: decisionCase.approvals,
     comments: [
       ...decisionCase.comments.filter(
         (item) =>
@@ -624,16 +665,6 @@ export function applyDisposition(
   const now = new Date().toISOString();
   const option = SPINE_DISPOSITIONS.find((item) => item.id === disposition);
   const withPeople = applyPeople(decisionCase, people);
-  const status =
-    disposition === "accept"
-      ? ("approved" as const)
-      : disposition === "reject"
-        ? ("rejected" as const)
-        : disposition === "escalate"
-          ? ("delegated" as const)
-          : disposition === "need_more_evidence"
-            ? ("changes_requested" as const)
-            : ("reviewing" as const);
   const changeSentence = counterfactual
     ? `What would change this recommendation: ${counterfactual}`
     : "What would change this recommendation was not stated.";
@@ -673,13 +704,18 @@ export function applyDisposition(
   return {
     ...withPeople,
     updatedAt: now,
+    humanDecision: {
+      disposition,
+      rationale: reason,
+      counterfactual: counterfactual || undefined,
+      expiresOn: expiresOn || undefined,
+      recordedAt: now,
+    },
     stage: disposition === "accept" ? "outcomes" : "authority",
     statusLabel: `${option?.title ?? disposition} · not plant execute`,
-    approvals: withPeople.approvals.map((item) =>
-      item.id === "required-approver"
-        ? { ...item, status, decidedAt: now }
-        : item,
-    ),
+    // A disposition is not the required person's approval. Only the governed
+    // approval command may change approval status or decidedAt.
+    approvals: withPeople.approvals,
     comments: [
       ...withPeople.comments.filter(
         (item) =>
@@ -733,6 +769,10 @@ export function applyVerificationPlan(
       ? `Verification recorded · ${plan.effectiveness}`
       : `Verification scheduled · ${plan.scheduledFor}`,
     valueMetrics: [
+      ...decisionCase.valueMetrics.filter(
+        (item) =>
+          item.id !== "verify-expected" && item.id !== "verify-evidence",
+      ),
       {
         id: "verify-expected",
         label: "Expected",
@@ -798,13 +838,16 @@ export function applyVerificationPlan(
 
 export function applyInvite(
   decisionCase: DecisionCase,
-  input: { name: string; email: string; authority: string },
+  input: { userId: string; name: string; email: string; authority: string },
 ): DecisionCase {
+  const userId = input.userId.trim();
   const name = input.name.trim();
   const email = input.email.trim();
   const authority = input.authority.trim() || decisionCase.authorityRole;
-  if (!name && !email) {
-    throw new Error("Invite needs a name or work email.");
+  if (!userId || (!name && !email)) {
+    throw new Error(
+      "Required person must be selected from the tenant directory.",
+    );
   }
   const now = new Date().toISOString();
   const label = name || email;
@@ -814,10 +857,23 @@ export function applyInvite(
   return {
     ...decisionCase,
     updatedAt: now,
+    requiredPerson: {
+      userId,
+      name: label,
+      email: email || undefined,
+      authorityRole: authority,
+      invitationStatus: "not_sent",
+      recordedAt: now,
+    },
     approvals: existing
       ? decisionCase.approvals.map((item) =>
           item.id === "required-approver"
-            ? { ...item, name: label, role: authority }
+            ? {
+                ...item,
+                name: label,
+                role: authority,
+                responsibility: "Required person recorded; invitation not sent",
+              }
             : item,
         )
       : [
@@ -827,8 +883,8 @@ export function applyInvite(
             initials: initials(label),
             name: label,
             role: authority,
-            responsibility: `Invited to this Decision Case · ${email || "no email yet"}`,
-            status: "next",
+            responsibility: "Required person recorded; invitation not sent",
+            status: "reviewing",
           },
         ],
     messages: [
@@ -883,7 +939,9 @@ export function lineageFromCase(
     .filter((item) => item.quality === "missing" || item.quality === "conflict")
     .map((item) => item.title);
   const supplied = decisionCase.evidence.filter(
-    (item) => item.quality === "high" || item.quality === "medium",
+    (item) =>
+      (item.quality === "high" || item.quality === "medium") &&
+      item.persistence !== "pending",
   );
   const verificationStatus = verification?.effectiveness
     ? `Recorded · ${verification.effectiveness}`
@@ -924,13 +982,17 @@ export function readinessFromCase(
     persistedPeople.verificationOwner.trim(),
   );
   const namedApprover = Boolean(
+    decisionCase.requiredPerson?.userId &&
+    decisionCase.requiredPerson?.invitationStatus === "not_sent" &&
     decisionCase.approvals.some((item) => item.name.trim()) &&
     decisionCase.messages.some(
       (item) => item.meta === "Required person recorded",
     ),
   );
   const evidencePath = lineage.evidenceCount > 0;
-  const loopDemonstrated = Boolean(persistedDisposition);
+  const loopDemonstrated = extras.saved
+    ? Boolean(decisionCase.humanDecision?.actor && persistedDisposition)
+    : Boolean(persistedDisposition);
   const sourceChecked = decisionCase.messages.some(
     (item) => item.meta === "Source connection check",
   );
@@ -972,7 +1034,7 @@ export function readinessFromCase(
       title: "Required person recorded",
       met: namedApprover,
       evidence: namedApprover
-        ? `${decisionCase.authorityRole} · required person recorded; invitation not sent`
+        ? `${decisionCase.requiredPerson?.authorityRole} · required person recorded; invitation not sent`
         : "Record the required person after the decision; this does not claim an invitation was sent",
     },
     {
@@ -1084,13 +1146,19 @@ export function describeUploadedFile(input: {
   type: string;
   size: number;
   text: string | null;
-}): string {
+}): UploadedEvidenceDraft {
   const name = input.name.trim() || "unnamed file";
   const kind = input.type || "unknown type";
   if (input.text && input.text.trim()) {
-    return `File ${name} (${kind}, ${input.size} bytes):\n${input.text.trim().slice(0, 4000)}`;
+    return {
+      body: `File ${name} (${kind}, ${input.size} bytes):\n${input.text.trim().slice(0, 4000)}`,
+      contentPersisted: true,
+    };
   }
-  return `File ${name} attached (${kind}, ${input.size} bytes). Text was not extracted. Paste an excerpt if it should be in the case. No readings were invented from the file.`;
+  return {
+    body: `File ${name} selected (${kind}, ${input.size} bytes). Text was not extracted and the file was not uploaded. Paste an excerpt or attach it through a governed evidence store. No readings were invented from the file.`,
+    contentPersisted: false,
+  };
 }
 
 export type ConnectionAttempt =
@@ -1149,20 +1217,32 @@ function commentText(decisionCase: DecisionCase, id: string): string {
 }
 
 export function counterfactualFromCase(decisionCase: DecisionCase): string {
-  return commentText(decisionCase, "counterfactual");
+  return (
+    decisionCase.humanDecision?.counterfactual ??
+    commentText(decisionCase, "counterfactual")
+  );
 }
 
 export function expiryFromCase(decisionCase: DecisionCase): string {
-  return commentText(decisionCase, "decision-expiry");
+  return (
+    decisionCase.humanDecision?.expiresOn ??
+    commentText(decisionCase, "decision-expiry")
+  );
 }
 
 export function rationaleFromCase(decisionCase: DecisionCase): string {
-  return commentText(decisionCase, "disposition-rationale");
+  return (
+    decisionCase.humanDecision?.rationale ??
+    commentText(decisionCase, "disposition-rationale")
+  );
 }
 
 export function dispositionFromCase(
   decisionCase: DecisionCase,
 ): SpineDisposition | "" {
+  if (decisionCase.humanDecision?.disposition) {
+    return decisionCase.humanDecision.disposition;
+  }
   const stored = commentText(decisionCase, "disposition-id");
   if (SPINE_DISPOSITIONS.some((item) => item.id === stored)) {
     return stored as SpineDisposition;
@@ -1182,7 +1262,8 @@ export function peopleFromCase(decisionCase: DecisionCase): CasePeople {
   return {
     decisionOwner: text("Decision Owner"),
     recommendationAuthor: text("Recommendation Author") || "SyncAI",
-    requiredApprover: text("Required Approver"),
+    requiredApprover:
+      decisionCase.requiredPerson?.name || text("Required Approver"),
     verificationOwner: text("Verification Owner"),
   };
 }
