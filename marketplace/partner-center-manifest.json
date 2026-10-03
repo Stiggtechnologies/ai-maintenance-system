@@ -1,0 +1,240 @@
+{
+  "schemaVersion": "1.0",
+  "artifact": "syncai-partner-center-publication",
+  "asOf": "2026-10-03",
+  "overallStatus": "blocked",
+  "statusVocabulary": [
+    "verified",
+    "draft",
+    "owner_decision_required",
+    "external_action_required",
+    "blocked"
+  ],
+  "claims": {
+    "published": false,
+    "microsoftCertified": false,
+    "transactableBuyerProven": false,
+    "primarilyPlatformedOnAzureProven": false,
+    "maccEligible": false,
+    "coSellReady": false
+  },
+  "technicalConfiguration": {
+    "status": "external_action_required",
+    "landingPage": {
+      "configuredUrl": "https://syncai.ca/marketplace/activate",
+      "configuredUrlProbe": {
+        "date": "2026-10-03",
+        "method": "GET",
+        "httpStatus": 404
+      },
+      "controlledReplacement": "https://app.syncai.ca/marketplace/signup",
+      "preferredAfterDeploymentVerification": "https://app.syncai.ca/marketplace/activate",
+      "preferredCandidateSourceCommit": "50a2452",
+      "preferredCandidateStatus": "external_action_required",
+      "replacementProbe": {
+        "date": "2026-10-03",
+        "method": "GET",
+        "httpStatus": 200
+      },
+      "status": "external_action_required"
+    },
+    "connectionWebhook": {
+      "configuredUrl": "https://syncai.ca/api/marketplace/webhook",
+      "configuredUrlProbe": {
+        "date": "2026-10-03",
+        "method": "GET",
+        "httpStatus": 404
+      },
+      "controlledReplacement": "https://pjvoswbwomesuwhygpby.supabase.co/functions/v1/marketplace-webhook",
+      "preferredAfterDeploymentVerification": "https://app.syncai.ca/api/marketplace/webhook",
+      "preferredCandidateSourceCommit": "50a2452",
+      "preferredCandidateStatus": "external_action_required",
+      "replacementProbe": {
+        "date": "2026-10-03",
+        "method": "POST",
+        "authentication": "none",
+        "httpStatus": 401,
+        "expectedBoundary": "custom Microsoft bearer-token verification"
+      },
+      "productionProjectConfirmation": "owner_decision_required",
+      "status": "external_action_required"
+    },
+    "autoActivation": {
+      "controlledValue": false,
+      "reason": "Current implementation requires manual activation by an administrator of an existing matching organization.",
+      "status": "verified"
+    }
+  },
+  "plans": [
+    {
+      "name": "Starter",
+      "proposedPlanId": "starter",
+      "listingCopy": "draft",
+      "featureBoundary": "owner_decision_required",
+      "price": "owner_decision_required",
+      "billingTerm": "owner_decision_required",
+      "markets": "owner_decision_required",
+      "quantitySemantics": "owner_decision_required",
+      "includedUsage": "owner_decision_required",
+      "metering": "owner_decision_required",
+      "supportLevel": "owner_decision_required",
+      "status": "blocked"
+    },
+    {
+      "name": "Professional",
+      "proposedPlanId": "professional",
+      "listingCopy": "draft",
+      "featureBoundary": "owner_decision_required",
+      "price": "owner_decision_required",
+      "billingTerm": "owner_decision_required",
+      "markets": "owner_decision_required",
+      "quantitySemantics": "owner_decision_required",
+      "includedUsage": "owner_decision_required",
+      "metering": "owner_decision_required",
+      "supportLevel": "owner_decision_required",
+      "status": "blocked"
+    },
+    {
+      "name": "Enterprise",
+      "proposedPlanId": "enterprise",
+      "listingCopy": "draft",
+      "featureBoundary": "owner_decision_required",
+      "price": "owner_decision_required",
+      "billingTerm": "owner_decision_required",
+      "markets": "owner_decision_required",
+      "quantitySemantics": "owner_decision_required",
+      "includedUsage": "owner_decision_required",
+      "metering": "owner_decision_required",
+      "supportLevel": "owner_decision_required",
+      "status": "blocked"
+    }
+  ],
+  "legacyPricing": {
+    "permittedForPublication": false,
+    "disallowedMonthlyCadValues": [4000, 9000, 18000],
+    "reason": "Repository history identifies these values and their limits as commercially unconfirmed and superseded."
+  },
+  "cspResale": {
+    "recommendedInitialSelection": "no_partners",
+    "nextControlledSelection": "specific_partners",
+    "unrestrictedAnyPartnerApproved": false,
+    "channelSupportEvidencePresent": false,
+    "status": "external_action_required"
+  },
+  "taxAndPayout": {
+    "publisherSubmission": "external_action_required",
+    "partnerCenterTaxValidationOrAssignment": "blocked",
+    "partnerCenterPayoutProfile": "blocked",
+    "taxRemittedMarketSelection": "owner_decision_required",
+    "submissionImpliesPartnerCenterCompletion": false,
+    "status": "blocked"
+  },
+  "supplementalContent": {
+    "narrative": "draft",
+    "azureSubscriptionId": "owner_decision_required",
+    "deployedAzureResourceEvidence": "blocked",
+    "azureConsumptionEvidence": "blocked",
+    "architectureDiagram": "blocked",
+    "externalDependenciesDisclosed": true,
+    "status": "blocked"
+  },
+  "listing": {
+    "offerCopy": "draft",
+    "gettingStarted": "draft",
+    "keywords": "draft",
+    "privacyPolicyUrl": "blocked",
+    "termsOrContract": "owner_decision_required",
+    "supportEmail": "support@syncai.ca",
+    "engineeringContact": "owner_decision_required",
+    "marketingPdf": "blocked",
+    "logo": "blocked",
+    "status": "blocked"
+  },
+  "previewAndCertification": {
+    "previewAudience": "external_action_required",
+    "realPreviewPurchasesRequired": 2,
+    "realPreviewPurchasesObserved": 0,
+    "repositoryHarness": "implemented_not_run",
+    "authenticatedLifecycleWitness": "blocked",
+    "acceptedMeteringWitness": "blocked",
+    "partnerCenterCertification": "blocked",
+    "status": "blocked"
+  },
+  "blockingActions": [
+    {
+      "id": "PC-001",
+      "owner": "Partner Center operator",
+      "action": "Replace the 404 landing page and webhook values with the controlled candidates after confirming the production Supabase project.",
+      "status": "external_action_required"
+    },
+    {
+      "id": "PC-002",
+      "owner": "Commercial owner",
+      "action": "Approve the feature boundary, pricing model, price, term, markets, quantities, metering and support terms for all three plans.",
+      "status": "blocked"
+    },
+    {
+      "id": "PC-003",
+      "owner": "Product and engineering owners",
+      "action": "Prove the deployed runtime can enforce every approved plan and meter boundary.",
+      "status": "blocked"
+    },
+    {
+      "id": "PC-004",
+      "owner": "Legal/privacy owner",
+      "action": "Publish and witness a directly addressable HTTPS privacy policy and approve the contract/EULA posture.",
+      "status": "blocked"
+    },
+    {
+      "id": "PC-005",
+      "owner": "Azure subscription owner",
+      "action": "Supply production Azure subscription, resource, architecture and commensurate-consumption evidence for Supplemental content.",
+      "status": "blocked"
+    },
+    {
+      "id": "PC-006",
+      "owner": "Brand and claims owners",
+      "action": "Produce and approve the required accessible marketing PDF and logo.",
+      "status": "blocked"
+    },
+    {
+      "id": "PC-007",
+      "owner": "Marketplace release owner",
+      "action": "Run two real preview purchases through activation, lifecycle, refusal and metering witnesses, then run the protected preview-certification harness.",
+      "status": "blocked"
+    },
+    {
+      "id": "PC-008",
+      "owner": "Microsoft and Marketplace release owner",
+      "action": "Complete Partner Center validation, Microsoft certification, certified preview and explicit go-live.",
+      "status": "blocked"
+    },
+    {
+      "id": "PC-009",
+      "owner": "Partner Center account owner",
+      "action": "Verify Microsoft's current tax validation/assignment and payout-profile statuses separately from any publisher-submitted tax information.",
+      "status": "blocked"
+    }
+  ],
+  "sources": [
+    "README.md",
+    "docs/azure-marketplace.md",
+    "docs/enterprise-readiness/claims-and-evidence-register.md",
+    "docs/archive/STRIPE-INTEGRATION-GUIDE.md",
+    "src/App.tsx",
+    "src/lib/auth-page.ts",
+    "src/pages/MarketplaceSignup.tsx",
+    "src/pages/Privacy.tsx",
+    "src/pages/Terms.tsx",
+    ".github/workflows/deploy-migrations.yml",
+    ".github/workflows/azure-marketplace-preview-certification.yml",
+    "scripts/azure-marketplace-preview-certification.ts"
+  ],
+  "documents": [
+    "docs/marketplace/README.md",
+    "docs/marketplace/partner-center-fields.md",
+    "docs/marketplace/supplemental-content.md",
+    "docs/marketplace/supporting-document-source.md",
+    "docs/marketplace/preview-and-certification.md"
+  ]
+}
