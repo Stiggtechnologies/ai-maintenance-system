@@ -1256,6 +1256,20 @@ describe("the honest path is walkable (H5)", () => {
     expect(workflow).toContain("git push origin");
   });
 
+  it("lets a live evidence-producer run finish before applying the floor to its report", () => {
+    const workflow = readRepoFile(
+      ".github/workflows/reliability-qualification.yml",
+    );
+    expect(workflow).toContain(
+      "if: github.event_name != 'workflow_dispatch' || inputs.mode == 'dry-run'",
+    );
+    // Pull requests and pushes still enter the deterministic-floor job; only
+    // a live candidate/reference dispatch defers the gate to the report push.
+    expect(workflow).toContain("pull_request:");
+    expect(workflow).toContain("push:");
+    expect(workflow).toContain("mode:");
+  });
+
   it("names the blocker precisely, including what the fallback cannot do", () => {
     const gate = readRepoFile("scripts/check-reliability-baseline.mjs");
     expect(gate).toContain("XAI_API_KEY");

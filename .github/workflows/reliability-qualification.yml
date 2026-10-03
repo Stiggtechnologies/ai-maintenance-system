@@ -130,6 +130,13 @@ permissions:
 
 jobs:
   deterministic-floor:
+    # A live candidate/capture dispatch exists to PRODUCE the evidence that a
+    # protected-surface change does not have yet. Running the ordinary floor in
+    # that same dispatch makes the workflow conclusion fail before its own
+    # report can become verifiable provenance. Pull requests, pushes and
+    # explicit dry runs still execute the floor unchanged; only the evidence-
+    # producer dispatch defers it to the push created by the committed report.
+    if: github.event_name != 'workflow_dispatch' || inputs.mode == 'dry-run'
     name: RE-2026.08 deterministic floor
     runs-on: ubuntu-latest
     steps:
