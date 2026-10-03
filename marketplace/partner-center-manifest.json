@@ -19,7 +19,41 @@
     "coSellReady": false
   },
   "technicalConfiguration": {
-    "status": "external_action_required",
+    "status": "blocked",
+    "deploymentEvidence": {
+      "mergeCommit": "a0c4186efd1d449fbd80d67d5150d63f18684875",
+      "mergeCommitUrl": "https://github.com/Stiggtechnologies/ai-maintenance-system/commit/a0c4186efd1d449fbd80d67d5150d63f18684875",
+      "relatedPullRequest": "https://github.com/Stiggtechnologies/ai-maintenance-system/pull/602",
+      "statusCommit": "a0c4186efd1d449fbd80d67d5150d63f18684875",
+      "statusContexts": [
+        {
+          "context": "Vercel – ai-maintenance-system",
+          "project": "ai-maintenance-system",
+          "deploymentId": "2fyc2u4isGgjpBwRCWueNvPf9V54",
+          "deploymentUrl": "https://vercel.com/stiggtechnologies-projects/ai-maintenance-system/2fyc2u4isGgjpBwRCWueNvPf9V54",
+          "recordedAt": "2026-10-03T06:47:21Z",
+          "result": "success"
+        },
+        {
+          "context": "Vercel – repo",
+          "project": "repo",
+          "deploymentId": "3Re57JFiNpHEe77ac7mZMajSYKKu",
+          "deploymentUrl": "https://vercel.com/stiggtechnologies-projects/repo/3Re57JFiNpHEe77ac7mZMajSYKKu",
+          "recordedAt": "2026-10-03T06:47:18Z",
+          "result": "success"
+        },
+        {
+          "context": "Vercel – syncai-github",
+          "project": "syncai-github",
+          "deploymentId": "DqYhNWUvqzpMb9aE9pzY1EdWzpr3",
+          "deploymentUrl": "https://vercel.com/stiggtechnologies-projects/syncai-github/DqYhNWUvqzpMb9aE9pzY1EdWzpr3",
+          "recordedAt": "2026-10-03T06:47:13Z",
+          "result": "success"
+        }
+      ],
+      "statusEvidenceScope": "The Vercel status contexts are immutable successful deployment records attached to merge commit a0c4186efd1d449fbd80d67d5150d63f18684875. They do not prove that app.syncai.ca aliases any listed deployment or source commit.",
+      "customDomainAliasToMergeCommit": "blocked"
+    },
     "landingPage": {
       "configuredUrl": "https://syncai.ca/marketplace/activate",
       "configuredUrlProbe": {
@@ -28,8 +62,8 @@
         "httpStatus": 404
       },
       "controlledReplacement": "https://app.syncai.ca/marketplace/activate",
-      "previousWorkingFallback": "https://app.syncai.ca/marketplace/signup",
-      "productionSourceCommit": "a0c4186",
+      "historicalAlias": "https://app.syncai.ca/marketplace/signup",
+      "implementationMergeCommit": "a0c4186efd1d449fbd80d67d5150d63f18684875",
       "replacementProbe": {
         "date": "2026-10-03",
         "method": "GET",
@@ -46,8 +80,12 @@
         "httpStatus": 404
       },
       "controlledReplacement": "https://app.syncai.ca/api/marketplace/webhook",
-      "previousWorkingFallback": "https://pjvoswbwomesuwhygpby.supabase.co/functions/v1/marketplace-webhook",
-      "productionSourceCommit": "a0c4186",
+      "unconfirmedHistoricalDirectCandidate": {
+        "url": "https://pjvoswbwomesuwhygpby.supabase.co/functions/v1/marketplace-webhook",
+        "permittedAsFallback": false,
+        "status": "blocked"
+      },
+      "implementationMergeCommit": "a0c4186efd1d449fbd80d67d5150d63f18684875",
       "replacementProbe": {
         "date": "2026-10-03",
         "get": {
@@ -60,8 +98,14 @@
         },
         "headers": ["Cache-Control: no-store", "X-Content-Type-Options: nosniff"]
       },
+      "productionProjectConfirmation": {
+        "requiredBeforePartnerCenterUpdate": true,
+        "intendedSupabaseProject": "owner_decision_required",
+        "authoritativeEvidence": "blocked",
+        "status": "blocked"
+      },
       "authenticatedUpstreamLifecycleWitness": "blocked",
-      "status": "external_action_required"
+      "status": "blocked"
     },
     "autoActivation": {
       "controlledValue": false,
@@ -166,10 +210,17 @@
   },
   "blockingActions": [
     {
+      "id": "PC-000",
+      "owner": "Production deployment owner",
+      "action": "Authoritatively confirm and record that the app.syncai.ca Vercel production proxy resolves to the intended production Supabase project. Public 405/401 probes and deployment status contexts are insufficient.",
+      "status": "blocked"
+    },
+    {
       "id": "PC-001",
       "owner": "Partner Center operator",
-      "action": "Replace the two 404 Partner Center values with the production-verified app.syncai.ca activation and webhook URLs, then save an export or screenshot.",
-      "status": "external_action_required"
+      "action": "After PC-000 is verified, replace the two 404 Partner Center values with the controlled app.syncai.ca activation and webhook URLs, then save an export or screenshot.",
+      "dependsOn": ["PC-000"],
+      "status": "blocked"
     },
     {
       "id": "PC-002",
@@ -232,7 +283,8 @@
     "src/pages/Terms.tsx",
     ".github/workflows/deploy-migrations.yml",
     ".github/workflows/azure-marketplace-preview-certification.yml",
-    "scripts/azure-marketplace-preview-certification.ts"
+    "scripts/azure-marketplace-preview-certification.ts",
+    "scripts/marketplace-public-route-smoke.mjs"
   ],
   "documents": [
     "docs/marketplace/README.md",

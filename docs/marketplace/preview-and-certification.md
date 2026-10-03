@@ -26,26 +26,39 @@ publishing while a blocking item remains open.**
 
 ## 2. Technical configuration
 
-- [x] Verify on production SHA `a0c4186` that
+- [x] Observe on 2026-10-03 that
       `https://app.syncai.ca/marketplace/activate` visibly renders the bounded
-      Marketplace no-token state in a fresh signed-out browser.
-- [x] Verify on production SHA `a0c4186` that app-domain webhook `GET` returns
-      `405` with `Allow: POST` and unsigned JSON `POST` returns the proxy's
-      `401` token refusal.
+      Marketplace no-token state in a fresh signed-out browser. This does not
+      prove which deployment or source commit the custom domain aliases.
+- [x] Observe on 2026-10-03 that app-domain webhook `GET` returns `405` with
+      `Allow: POST` and unsigned JSON `POST` returns the proxy's `401` token
+      refusal. These requests return before upstream resolution.
+- [x] Record PR #602 merge commit
+      `a0c4186efd1d449fbd80d67d5150d63f18684875` and its available immutable
+      Vercel project/context/deployment status URLs attached to that commit in
+      the manifest, without treating them as custom-domain alias evidence.
+- [ ] Have the production deployment owner authoritatively confirm which
+      Supabase project the `app.syncai.ca` Vercel proxy resolves to and record
+      the evidence as PC-000. A route probe, public environment name, or
+      unsigned refusal is insufficient. Use a redacted production-config
+      export, checksum, or signed attestation that names the Vercel project and
+      Supabase project reference; do not commit a secret.
 - [ ] Replace `https://syncai.ca/marketplace/activate` in Partner Center with
       `https://app.syncai.ca/marketplace/activate`; save an export/screenshot.
-- [ ] Replace `https://syncai.ca/api/marketplace/webhook` in Partner Center
-      with `https://app.syncai.ca/api/marketplace/webhook`; save an
-      export/screenshot.
+- [ ] **Only after PC-000 is verified**, replace
+      `https://syncai.ca/api/marketplace/webhook` in Partner Center with
+      `https://app.syncai.ca/api/marketplace/webhook`; save an export/screenshot
+      and then mark dependent PC-001 ready for completion.
 - [ ] Keep auto activation off on every plan.
 - [ ] Confirm the configured Partner Center publisher/offer IDs exactly match
       the server secrets.
 - [ ] Confirm the configured Microsoft Entra tenant/application IDs exactly
       match webhook token validation and publisher credentials.
-- [ ] Probe the landing page with no token and verify it renders the controlled
-      Marketplace experience without leaking data.
-- [ ] Probe the webhook with an unsigned POST and verify HTTP 401. Do not treat
-      this as an authenticated lifecycle pass.
+- [ ] Immediately before the Partner Center change, run
+      `npm run marketplace:smoke-public` and separately render the landing page
+      in a fresh signed-out browser. Treat the command as a route/refusal check,
+      not upstream, alias-to-SHA, authenticated lifecycle, or certification
+      evidence.
 
 ## 3. CSP and supplemental content
 

@@ -83,8 +83,8 @@ Length: 81 characters.
 
 | Field | Controlled value | Status and operator note |
 | --- | --- | --- |
-| Landing page URL | `https://app.syncai.ca/marketplace/activate` | Production HTTP 200 and signed-out activation UI verified on SHA `a0c4186`; use no fragment; first purchase and returning manage flow remain preview tests |
-| Connection webhook | `https://app.syncai.ca/api/marketplace/webhook` | Production `GET` returns `405` with `Allow: POST`; unsigned JSON `POST` returns the proxy's expected `401` on SHA `a0c4186` |
+| Landing page URL | `https://app.syncai.ca/marketplace/activate` | Custom-domain HTTP 200 and signed-out activation UI observed; use no fragment; source-commit aliasing, first purchase, and returning manage flow remain unproven |
+| Connection webhook | `https://app.syncai.ca/api/marketplace/webhook` | **Blocked before entry by PC-000.** Custom-domain `GET` returns `405` with `Allow: POST` and unsigned JSON `POST` returns the proxy's expected `401`, but those paths do not resolve or confirm the upstream project |
 | Microsoft Entra tenant ID | `[OWNER VERIFY: exact publisher tenant GUID already configured]` | Must match server secret and webhook token validation |
 | Microsoft Entra application ID | `[OWNER VERIFY: exact Marketplace publisher application GUID already configured]` | Must match webhook audience and publisher credentials |
 | Auto activation | `No / Off` | Required by the current manual-activation contract |
@@ -93,19 +93,27 @@ Do not place secrets, SAS tokens, keys, or authorization material in either
 URL. The webhook authenticates the Microsoft bearer token sent in the
 `Authorization` header.
 
-### Production app-domain route witness
+### App-domain route witness and production gate
 
-Merged PR #602 deploys these controlled same-origin values:
+Merged PR #602 implements these controlled same-origin values:
 
 - `https://app.syncai.ca/marketplace/activate`
 - `https://app.syncai.ca/api/marketplace/webhook`
 
-Production verification passed on 2026-10-03 at SHA `a0c4186`: the activation
-path visibly rendered the bounded Marketplace no-token state, webhook `GET`
-returned `405` with `Allow: POST`, and an unsigned JSON `POST` returned the
-proxy's `401` token refusal. This authorizes entering these URLs in Partner
-Center. It does not authorize publishing and is not an authenticated purchase,
-lifecycle, or metering witness.
+Custom-domain route observations passed on 2026-10-03: the activation path
+visibly rendered the bounded Marketplace no-token state, webhook `GET` returned
+`405` with `Allow: POST`, and an unsigned JSON `POST` returned the proxy's `401`
+token refusal. Repository evidence records the full merge SHA and the immutable
+Vercel status URLs available for PR #602, but no authoritative evidence yet ties
+`app.syncai.ca` to a specific deployment or proves that the production proxy
+targets the intended Supabase project.
+
+The landing-page value may be prepared after offer-identity confirmation. Do
+not enter the webhook or complete PC-001 until a production deployment owner
+records authoritative upstream-project evidence and marks PC-000 verified. The
+direct Supabase URL previously probed is an unconfirmed historical candidate,
+not a permitted fallback. Even after PC-000, an authenticated purchase,
+lifecycle, metering, and certification witness remains separately blocked.
 
 ## Plans
 

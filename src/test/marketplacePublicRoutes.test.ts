@@ -14,25 +14,67 @@ afterEach(() => {
 });
 
 describe("Marketplace app-domain routes", () => {
-  it("pins the production-verified app-domain values without overstating commerce", () => {
+  it("guards manifest values and blocked evidence gates without acting as a runtime witness", () => {
     const manifest = JSON.parse(
       read("marketplace/partner-center-manifest.json"),
     ) as {
       claims: Record<string, boolean>;
+      overallStatus: string;
+      previewAndCertification: Record<string, unknown>;
+      blockingActions: Array<{
+        dependsOn?: string[];
+        id: string;
+        status: string;
+      }>;
       technicalConfiguration: {
+        deploymentEvidence: Record<string, unknown>;
         landingPage: Record<string, unknown>;
         connectionWebhook: Record<string, unknown>;
+        status: string;
       };
     };
+    expect(manifest.overallStatus).toBe("blocked");
+    expect(manifest.previewAndCertification).toMatchObject({
+      authenticatedLifecycleWitness: "blocked",
+      acceptedMeteringWitness: "blocked",
+      partnerCenterCertification: "blocked",
+      status: "blocked",
+    });
+    expect(manifest.technicalConfiguration.status).toBe("blocked");
+    expect(manifest.technicalConfiguration.deploymentEvidence).toMatchObject({
+      mergeCommit: "a0c4186efd1d449fbd80d67d5150d63f18684875",
+      statusCommit: "a0c4186efd1d449fbd80d67d5150d63f18684875",
+      statusContexts: expect.arrayContaining([
+        expect.objectContaining({
+          context: "Vercel – ai-maintenance-system",
+          deploymentId: "2fyc2u4isGgjpBwRCWueNvPf9V54",
+        }),
+        expect.objectContaining({
+          context: "Vercel – repo",
+          deploymentId: "3Re57JFiNpHEe77ac7mZMajSYKKu",
+        }),
+        expect.objectContaining({
+          context: "Vercel – syncai-github",
+          deploymentId: "DqYhNWUvqzpMb9aE9pzY1EdWzpr3",
+        }),
+      ]),
+      customDomainAliasToMergeCommit: "blocked",
+    });
     expect(manifest.technicalConfiguration.landingPage).toMatchObject({
       controlledReplacement: "https://app.syncai.ca/marketplace/activate",
-      productionSourceCommit: "a0c4186",
+      implementationMergeCommit:
+        "a0c4186efd1d449fbd80d67d5150d63f18684875",
       replacementProbe: { httpStatus: 200 },
     });
     expect(manifest.technicalConfiguration.connectionWebhook).toMatchObject({
       controlledReplacement:
         "https://app.syncai.ca/api/marketplace/webhook",
-      productionSourceCommit: "a0c4186",
+      implementationMergeCommit:
+        "a0c4186efd1d449fbd80d67d5150d63f18684875",
+      unconfirmedHistoricalDirectCandidate: {
+        permittedAsFallback: false,
+        status: "blocked",
+      },
       replacementProbe: {
         get: { httpStatus: 405, allow: "POST" },
         unsignedJsonPost: {
@@ -40,8 +82,24 @@ describe("Marketplace app-domain routes", () => {
           error: "marketplace_webhook_token_required",
         },
       },
+      productionProjectConfirmation: {
+        requiredBeforePartnerCenterUpdate: true,
+        authoritativeEvidence: "blocked",
+        status: "blocked",
+      },
       authenticatedUpstreamLifecycleWitness: "blocked",
+      status: "blocked",
     });
+    expect(manifest.blockingActions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: "PC-000", status: "blocked" }),
+        expect.objectContaining({
+          id: "PC-001",
+          dependsOn: ["PC-000"],
+          status: "blocked",
+        }),
+      ]),
+    );
     expect(manifest.claims).toMatchObject({
       published: false,
       microsoftCertified: false,
@@ -122,6 +180,11 @@ describe("Marketplace app-domain routes", () => {
       );
       expect(response.status).toBe(405);
       expect(response.headers.get("allow")).toBe("POST");
+      expect(response.headers.get("cache-control")).toBe("no-store");
+      expect(response.headers.get("x-content-type-options")).toBe("nosniff");
+      await expect(response.json()).resolves.toEqual({
+        error: "method_not_allowed",
+      });
       expect(fetchImpl).not.toHaveBeenCalled();
     },
   );
@@ -159,6 +222,11 @@ describe("Marketplace app-domain routes", () => {
       ),
     );
     expect(responses.map(({ status }) => status)).toEqual([401, 415, 413]);
+    expect(responses[0]!.headers.get("cache-control")).toBe("no-store");
+    expect(responses[0]!.headers.get("x-content-type-options")).toBe("nosniff");
+    await expect(responses[0]!.json()).resolves.toEqual({
+      error: "marketplace_webhook_token_required",
+    });
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
