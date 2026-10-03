@@ -24,6 +24,7 @@ import { migrationFiles, stripComments } from "./support/migrationPolicies";
 import {
   INGEST_ENTITIES,
   INGEST_ENTITY_ORDER,
+  preflight,
   type IngestEntityKey,
 } from "../lib/ingest-entities";
 
@@ -34,6 +35,7 @@ const ORIGINAL_DOOR = "20260907090000_manual_import.sql";
 const CONTEXT_FIX =
   "20261004090200_operating_context_rows_survive_a_bad_cell.sql";
 const SCHEDULE_IMPORT = "20261112090000_p6_schedule_import.sql";
+const COST_ACTUAL_IMPORT = "20270101900000_develop_cost_actual_connector.sql";
 /**
  * Where the schedule validator's CURRENT body lives.
  *
@@ -139,12 +141,12 @@ describe("the route table is the single source of truth", () => {
   it("the parser actually found the table", () => {
     // Without this, every comparison below passes vacuously the day the regex
     // stops matching.
-    // 8 -> 9 with Slice 6B's procurement_status (D11.33 / spec §78). The
-    // count is pinned so a route silently disappearing fails here.
-    expect(Object.keys(routes).length).toBe(9);
+    // 9 -> 10 with D11.33's final cost_actual connector. The count is pinned
+    // so a route silently disappearing fails here.
+    expect(Object.keys(routes).length).toBe(10);
   });
 
-  it("the route table's live definition is the procurement-status migration", () => {
+  it("the route table's live definition is the cost-actual migration", () => {
     // create-or-replace resolves to the LAST file; if a later migration
     // redefines the table without carrying every route, this names it. Slice
     // 6B re-issued the table in full to add procurement_status, so the home
@@ -152,9 +154,12 @@ describe("the route table is the single source of truth", () => {
     // survived that move by the descriptor-pairing case below, which compares
     // the SQL routes against INGEST_ENTITIES key for key.
     expect(defs.get("ingest_entity_routes")?.file).toBe(
-      "20261209090500_develop_procurement_status_connector.sql",
+      "20270101900000_develop_cost_actual_connector.sql",
     );
     expect(sqlRoutes().schedule_activity).toBe("ingest_schedule_batch");
+    expect(sqlRoutes().procurement_status).toBe(
+      "ingest_procurement_status_batch",
+    );
   });
 
   it("SQL and the surface descriptor table name the same entity types", () => {
@@ -254,13 +259,30 @@ describe("there is one door, and the misroute is unreachable", () => {
     expect(body).toMatch(/ingest_handler_for\s*\(\s*v_entity\s*\)/i);
   });
 
-  it("it dispatches to both validators, by explicit branch and not dynamic SQL", () => {
+  it("its original body dispatches explicitly and later transformations remain explicit", () => {
     const body = defs.get("ingest_rows")?.body ?? "";
     expect(body).toContain("return public.ingest_batch(p_run_id, p_rows)");
     expect(body).toContain(
       "return public.ingest_context_batch(p_run_id, p_rows)",
     );
+    expect(body).toContain(
+      "return public.ingest_schedule_batch(p_run_id, p_rows)",
+    );
     expect(body).not.toMatch(/execute\s+format/i);
+
+    // Procurement and cost actuals append their branches by transforming the
+    // live function in SQL, so the static create-or-replace parser above sees
+    // the original body. Pin both explicit branches in the latest migration.
+    const latest = stripComments(
+      readFileSync(`${DIR}/${COST_ACTUAL_IMPORT}`, "utf8"),
+    );
+    expect(latest).toContain(
+      "return public.ingest_procurement_status_batch(p_run_id, p_rows)",
+    );
+    expect(latest).toContain(
+      "return public.ingest_cost_actual_batch(p_run_id, p_rows)",
+    );
+    expect(latest).not.toMatch(/execute\s+format/i);
   });
 
   it("it fails fast on an unroutable run instead of refusing every row", () => {
@@ -348,9 +370,10 @@ describe("what the surface promises matches what the contract does", () => {
     "operating_state",
     "production_record",
     "schedule_activity",
+    "cost_actual",
   ];
 
-  it("the five types that SKIP a re-upload say so, and the three that UPDATE say so", () => {
+  it("the seven types that SKIP a re-upload say so, and the three that UPDATE say so", () => {
     // The shipped importer told every user "a re-upload updates rather than
     // duplicates". That is true of the three whose branch ends in `on conflict
     // ... do update` — maintenance_plan, maintenance_notification and
@@ -362,6 +385,10 @@ describe("what the surface promises matches what the contract does", () => {
       expect(INGEST_ENTITIES[key].reupload, key).toBe("skips");
       expect(INGEST_ENTITIES[key].reuploadSentence).toContain("DUPLICATE");
     }
+    expect(INGEST_ENTITIES.procurement_status.reupload).toBe("skips");
+    expect(INGEST_ENTITIES.procurement_status.reuploadSentence).toContain(
+      "DUPLICATE",
+    );
     expect(INGEST_ENTITIES.maintenance_notification.reupload).toBe("updates");
     expect(INGEST_ENTITIES.maintenance_plan.reupload).toBe("updates");
     expect(INGEST_ENTITIES.material_stock.reupload).toBe("updates");
@@ -428,13 +455,14 @@ describe("what the surface promises matches what the contract does", () => {
     }
   });
 
-  it("the two types with no customer-reachable prerequisite loader say so before upload", () => {
+  it("the types with prerequisites say so before upload", () => {
     // Nothing in src/ inserts a sensor or a material — they arrive by seed or
     // by service-role provisioning only. Widening the door for these two
     // without saying it produces a screen that refuses every row of a new
     // tenant's first file.
     expect(INGEST_ENTITIES.condition_reading.prerequisite).toContain("sensors");
     expect(INGEST_ENTITIES.material_stock.prerequisite).toContain("catalogue");
+    expect(INGEST_ENTITIES.cost_actual.prerequisite).toContain("cost line");
     for (const key of [
       "maintenance_plan",
       "work_order",
@@ -604,6 +632,7 @@ describe("every enumerated CHECK the surface exposes is in the descriptor", () =
     production_record: "production_records",
     schedule_activity: "shutdown_tasks",
     procurement_status: "contract_packages",
+    cost_actual: "project_cost_items",
   };
 
   it("the entity-to-table map matches what the validator actually inserts into", () => {
@@ -631,7 +660,11 @@ describe("every enumerated CHECK the surface exposes is in the descriptor", () =
         // a writer of that table, and both of these are one.
         (key === "procurement_status" &&
           own.includes("set_procurement_package_status(") &&
-          own.includes("record_package_delivery_forecast("));
+          own.includes("record_package_delivery_forecast(")) ||
+        // cost_actual mutates the amount only through record_cost_item; its
+        // direct update binds source_system/external_id provenance and no
+        // amount or coding field.
+        (key === "cost_actual" && own.includes("record_cost_item("));
       expect(writes, `${key} does not write ${table}`).toBe(true);
     }
   });
@@ -663,6 +696,71 @@ describe("every enumerated CHECK the surface exposes is in the descriptor", () =
       }
     });
   }
+});
+
+describe("cost actuals land on the canonical governed cost line", () => {
+  const body = defs.get("ingest_cost_actual_batch")?.body ?? "";
+
+  it("resolves an existing coded line and calls the one cost writer", () => {
+    expect(defs.get("ingest_cost_actual_batch")?.file).toBe(COST_ACTUAL_IMPORT);
+    expect(body).toMatch(
+      /from\s+project_cost_items[\s\S]{0,180}?development_case_id\s*=\s*v_case_id[\s\S]{0,100}?cost_item_ref\s*=\s*v_ref/i,
+    );
+    expect(body).toContain("v_result := record_cost_item(v_case_id");
+    expect(body).toContain("'baseline_cost', v_item.baseline_cost");
+    expect(body).toContain("'commitment', v_item.commitment");
+    expect(body).toContain("'forecast', v_item.forecast");
+    expect(body).toContain("'contingency', v_item.contingency");
+  });
+
+  it("the only direct cost-line update binds provenance, never money or coding", () => {
+    const direct = body.match(
+      /update\s+project_cost_items([\s\S]*?)where\s+id\s*=\s*v_item\.id/i,
+    )?.[1];
+    expect(direct).toBeDefined();
+    expect(direct).toContain("source_system = v_source");
+    expect(direct).toContain("external_id = v_ext");
+    expect(direct).not.toMatch(
+      /baseline_cost|commitment|actual\s*=|forecast|contingency|wbs_element_id|cbs_code_id/i,
+    );
+  });
+
+  it("refuses stale time, conflicting identity and mixed currency by name", () => {
+    expect(body).toContain("stale ERP data cannot move the canonical actual");
+    expect(body).toContain(
+      "source identity cannot be reused as an update command",
+    );
+    expect(body).toContain("their difference would be an exchange rate");
+    expect(body).toContain("a second ERP source cannot silently replace");
+  });
+
+  it("the surface requires cumulative actual-to-date and disclaims baseline authority", () => {
+    const entity = INGEST_ENTITIES.cost_actual;
+    expect(entity.columns.map((column) => column.name)).toContain(
+      "actual_to_date",
+    );
+    expect(entity.caution).toContain("ACTUAL TO DATE");
+    expect(entity.caution).toContain(
+      "does not approve or revise the cost baseline",
+    );
+    expect(entity.purpose).toContain("ERP remains the source");
+  });
+
+  it("preflight refuses an ambiguous source snapshot time", () => {
+    const entity = INGEST_ENTITIES.cost_actual;
+    const row = {
+      external_id: "ERP-1",
+      case_title: "Case A",
+      cost_item_ref: "CI-1",
+      actual_to_date: "42",
+      currency: "CAD",
+      as_of: "2027-04-01T09:00:00",
+    };
+    const blockers = preflight(entity, Object.keys(row), [row]);
+    expect(blockers.map((item) => item.message)).toContain(
+      "as_of must include Z or an explicit UTC offset so the source snapshot has one unambiguous instant",
+    );
+  });
 });
 
 /**
@@ -753,6 +851,21 @@ describe("who may call what is stated, not inherited", () => {
     );
     expect(home).not.toMatch(
       /grant execute on function public\.ingest_schedule_batch\(uuid, jsonb\) to authenticated/i,
+    );
+  });
+
+  it("the cost-actual validator is router-only and service-role explicit", () => {
+    const sql = stripComments(
+      readFileSync(`${DIR}/${COST_ACTUAL_IMPORT}`, "utf8"),
+    );
+    expect(sql).toMatch(
+      /revoke all on function public\.ingest_cost_actual_batch\(uuid, jsonb\)\s+from public, anon, authenticated;/i,
+    );
+    expect(sql).toMatch(
+      /grant execute on function public\.ingest_cost_actual_batch\(uuid, jsonb\)\s+to service_role;/i,
+    );
+    expect(sql).not.toMatch(
+      /grant execute on function public\.ingest_cost_actual_batch\(uuid, jsonb\)\s+to authenticated/i,
     );
   });
 
