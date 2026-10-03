@@ -3,8 +3,9 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import {
   CANONICAL_RIA_LEDE,
-  FirstCustomerPilotPage,
-} from "./FirstCustomerPilotPage";
+  COMMERCIAL_VALUE_LADDER,
+} from "../lib/commercial-value-ladder";
+import { FirstCustomerPilotPage } from "./FirstCustomerPilotPage";
 
 describe("FirstCustomerPilotPage", () => {
   it("states the canonical Reliability Intelligence Assessment lede", () => {
@@ -43,13 +44,38 @@ describe("FirstCustomerPilotPage", () => {
     }
   });
 
+  it("connects the assessment to bounded proof, FDE implementation and governed scale", () => {
+    render(<FirstCustomerPilotPage />);
+
+    expect(COMMERCIAL_VALUE_LADDER.map(({ title }) => title)).toEqual([
+      "Assess",
+      "Prove",
+      "Implement",
+      "Scale",
+    ]);
+    expect(
+      screen.getByRole("heading", { name: "Forward-Deployed Engineering" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/retains every engineering, investment, operating/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/never an automatic upgrade/i)).toBeInTheDocument();
+  });
+
   it("keeps the lede price-free and shows the canonical US$35,000 fee line", () => {
     const src = readFileSync("src/pages/FirstCustomerPilotPage.tsx", "utf8");
-    expect(src).toContain(CANONICAL_RIA_LEDE);
+    const commercialContract = readFileSync(
+      "src/lib/commercial-value-ladder.ts",
+      "utf8",
+    );
+    expect(src).toContain("CANONICAL_RIA_LEDE");
+    expect(commercialContract).toContain(CANONICAL_RIA_LEDE);
     expect(CANONICAL_RIA_LEDE).not.toMatch(/48-hour/);
     expect(CANONICAL_RIA_LEDE).not.toMatch(/US\$35,000/);
     expect(src).not.toMatch(/48-hour/);
-    expect(src).not.toMatch(/former 48-hour value-proof offer has been retired/);
+    expect(src).not.toMatch(
+      /former 48-hour value-proof offer has been retired/,
+    );
     expect(src).toMatch(/data-testid="assessment-hero-price"/);
     expect(src).toMatch(/US\$35,000/);
   });

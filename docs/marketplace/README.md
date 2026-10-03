@@ -9,20 +9,26 @@ copy-ready fields and keeps commercial or external decisions visibly blocked.
 The machine-readable source of status is
 [`../../marketplace/partner-center-manifest.json`](../../marketplace/partner-center-manifest.json).
 
+The adjacent professional-service package productizes the customer path from
+assessment through proof and implementation, including bounded
+Forward-Deployed Engineering. It remains a separate transaction family from
+the recurring SaaS plans and is controlled by
+[`../../marketplace/professional-services-offers.json`](../../marketplace/professional-services-offers.json).
+
 ## Current publication posture
 
-| Area | Status | What can be done now | Remaining authority or evidence |
-| --- | --- | --- | --- |
-| Starter plan | Draft copy ready | Paste the controlled description | Owner must approve the boundary, Plan ID, price, term, markets, allowances, metered dimensions and support level |
-| Professional plan | Draft copy ready | Paste the controlled description | Same commercial decisions; no legacy `PRO` price or limits may be reused |
-| Enterprise plan | Draft copy ready | Paste the controlled description | Same commercial decisions; Enterprise does not imply SSO, private hosting, certifications or an SLA |
+| Area                    | Status                                                  | What can be done now                                                        | Remaining authority or evidence                                                                                                                                                      |
+| ----------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Starter plan            | Draft copy ready                                        | Paste the controlled description                                            | Owner must approve the boundary, Plan ID, price, term, markets, allowances, metered dimensions and support level                                                                     |
+| Professional plan       | Draft copy ready                                        | Paste the controlled description                                            | Same commercial decisions; no legacy `PRO` price or limits may be reused                                                                                                             |
+| Enterprise plan         | Draft copy ready                                        | Paste the controlled description                                            | Same commercial decisions; Enterprise does not imply SSO, private hosting, certifications or an SLA                                                                                  |
 | Technical configuration | Public routes observed; production upstream unconfirmed | The landing-page value can be prepared; keep the webhook and PC-001 blocked | A production owner must prove the Vercel proxy targets the intended production Supabase project before either URL set is treated as complete; authenticated preview remains separate |
-| CSP resale | Recommendation ready | Select **No partners in the CSP program** for first publication | Owner may later authorize named partners after channel support and commercial terms exist |
-| Supplemental content | Draft answers ready | Paste the architecture narrative | Owner must supply the Azure subscription ID and deployed consumption evidence; current Azure-primary posture is not proven |
-| Tax and payout profile | Externally unverified | Record any user-submitted tax form as a submission fact only | A Partner Center operator must separately capture Microsoft's current validation/assignment status and payout-profile readiness |
-| Offer listing | Draft copy ready | Paste the listing text and contacts | Privacy policy must be reachable at a stable public URL; marketing PDF and media must be produced and reviewed |
-| Preview/certification | Checklist ready | Configure preview audience and execute the checklist | Requires Partner Center access, two real preview purchases and Microsoft-side evidence |
-| Publish control | Blocked | None | Partner Center sections must be complete and every blocking item below closed |
+| CSP resale              | Recommendation ready                                    | Select **No partners in the CSP program** for first publication             | Owner may later authorize named partners after channel support and commercial terms exist                                                                                            |
+| Supplemental content    | Draft answers ready                                     | Paste the architecture narrative                                            | Owner must supply the Azure subscription ID and deployed consumption evidence; current Azure-primary posture is not proven                                                           |
+| Tax and payout profile  | Externally unverified                                   | Record any user-submitted tax form as a submission fact only                | A Partner Center operator must separately capture Microsoft's current validation/assignment status and payout-profile readiness                                                      |
+| Offer listing           | Draft copy ready                                        | Paste the listing text and contacts                                         | Privacy policy must be reachable at a stable public URL; marketing PDF and media must be produced and reviewed                                                                       |
+| Preview/certification   | Checklist ready                                         | Configure preview audience and execute the checklist                        | Requires Partner Center access, two real preview purchases and Microsoft-side evidence                                                                                               |
+| Publish control         | Blocked                                                 | None                                                                        | Partner Center sections must be complete and every blocking item below closed                                                                                                        |
 
 ## Copy-ready artifacts
 
@@ -34,6 +40,14 @@ The machine-readable source of status is
   for the required customer-facing PDF; it is not itself an uploadable PDF.
 - [`preview-and-certification.md`](preview-and-certification.md) — external
   operator checklist and release gates.
+- [`professional-services-and-fde.md`](professional-services-and-fde.md) —
+  controlled Assessment, Proof of concept and Implementation listings, the
+  value ladder, FDE authority boundary, and private-offer operator sequence.
+- [`professional-services-supporting-document-source.md`](professional-services-supporting-document-source.md)
+  — customer-facing source for the required accessible offer collateral.
+- [`../../output/pdf/syncai-professional-services-and-fde.pdf`](../../output/pdf/syncai-professional-services-and-fde.pdf)
+  — rendered four-page collateral; visual and text-extraction QA passed, while
+  accessibility tagging and brand/legal/claims approvals remain blocked.
 
 ## Immediate corrections in Partner Center
 
@@ -41,11 +55,11 @@ The values below have field-specific gates. Confirm the offer identity and save
 a screenshot/export of every Partner Center change. Do not enter the webhook
 until a production owner closes PC-000 in the manifest.
 
-| Field | Current value | Controlled replacement | Evidence |
-| --- | --- | --- | --- |
-| Landing page URL | `https://syncai.ca/marketplace/activate` (404 on 2026-10-03) | `https://app.syncai.ca/marketplace/activate` | The custom domain returned HTTP 200 and a signed-out browser rendered the bounded Marketplace no-token state |
+| Field              | Current value                                                   | Controlled replacement                                           | Evidence                                                                                                                                                  |
+| ------------------ | --------------------------------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Landing page URL   | `https://syncai.ca/marketplace/activate` (404 on 2026-10-03)    | `https://app.syncai.ca/marketplace/activate`                     | The custom domain returned HTTP 200 and a signed-out browser rendered the bounded Marketplace no-token state                                              |
 | Connection webhook | `https://syncai.ca/api/marketplace/webhook` (404 on 2026-10-03) | `https://app.syncai.ca/api/marketplace/webhook` **after PC-000** | The custom domain returned 405/`Allow: POST` for `GET` and the expected unsigned 401; neither probe reaches or identifies the configured upstream project |
-| Auto activation | Unknown | **Off** for every plan | The implemented offer contract is manual activation |
+| Auto activation    | Unknown                                                         | **Off** for every plan                                           | The implemented offer contract is manual activation                                                                                                       |
 
 Merged PR #602 contains the same-origin route implementation at merge commit
 `a0c4186efd1d449fbd80d67d5150d63f18684875`. Its Vercel status records identify
