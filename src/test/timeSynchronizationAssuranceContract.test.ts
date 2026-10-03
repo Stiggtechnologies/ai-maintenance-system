@@ -1,0 +1,94 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+
+const migration = readFileSync(
+  "supabase/migrations/20270101760000_time_synchronization_assurance.sql",
+  "utf8",
+).toLowerCase();
+const service = readFileSync("src/services/timeSynchronization.ts", "utf8");
+const component = readFileSync(
+  "src/components/TimeSynchronizationAssurance.tsx",
+  "utf8",
+);
+const governance = readFileSync("src/components/DataGovernance.tsx", "utf8");
+
+describe("E12.07 governed time-synchronization assurance", () => {
+  it("extends the canonical connector instead of creating another source registry", () => {
+    expect(migration).toContain("alter table public.connectors");
+    expect(migration).toContain("public.connector_time_observations");
+    for (const forbidden of [
+      "create table public.connectors",
+      "create table public.time_sources",
+      "create table public.source_health",
+      "create table public.assets",
+    ]) {
+      expect(migration).not.toContain(forbidden);
+    }
+  });
+
+  it("keeps policy human-owned and observations service-only, immutable, and tenant-bound", () => {
+    expect(migration).toContain("named same-tenant human administrator");
+    expect(migration).toContain("coalesce(v_role,'')<>'admin'");
+    expect(migration).toContain("clock observations are service-only");
+    expect(migration).toContain("coalesce(auth.role(),'')<>'service_role'");
+    expect(migration).toContain("crosses the connector tenant boundary");
+    expect(migration).toContain(
+      "connector clock observations are immutable evidence",
+    );
+    expect(migration).toContain("organization_id=public.app_current_org()");
+    expect(migration).toContain(
+      "event-time assurance requires an authorized same-tenant user",
+    );
+    expect(migration).toContain(
+      "revoke all on table public.connector_time_observations",
+    );
+  });
+
+  it("computes offset server-side and does not understate transport uncertainty", () => {
+    expect(migration).toContain(
+      "extract(epoch from\n    (p_source_clock_at-p_reference_clock_at))*1000",
+    );
+    expect(migration).toContain(
+      "p_measurement_uncertainty_ms<p_round_trip_delay_ms/2",
+    );
+    expect(migration).toContain(
+      "abs(o.offset_ms)+o.measurement_uncertainty_ms<=c.time_tolerance_ms",
+    );
+    expect(migration).toContain("payload_sha256");
+    expect(migration).toContain("delivery identifier was already used");
+  });
+
+  it("invalidates old evidence on reconfiguration and fails closed for stale or absent evidence", () => {
+    expect(migration).toContain("v_revision:=c.time_assurance_revision+1");
+    expect(migration).toContain(
+      "x.configuration_revision=c.time_assurance_revision",
+    );
+    expect(migration).toContain(
+      "o.reference_clock_at + make_interval(mins=>c.time_observation_max_age_minutes)<clock_timestamp()",
+    );
+    expect(migration).toContain(
+      "delivery identifier belongs to a superseded clock-contract revision",
+    );
+    for (const state of [
+      "unconfigured",
+      "disabled",
+      "unproven",
+      "stale",
+      "synchronized",
+      "untrusted",
+    ]) {
+      expect(migration).toContain(`'${state}'`);
+    }
+    expect(migration).toContain("eligible_for_time_sensitive_evidence");
+  });
+
+  it("exposes a customer-reachable read and configuration surface without operational authority", () => {
+    expect(service).toContain('"get_connector_time_assurance"');
+    expect(service).toContain('"configure_connector_time_assurance"');
+    expect(component).toContain("Save clock contract");
+    expect(component).toContain("does not set plant clocks");
+    expect(governance).toContain("<TimeSynchronizationAssurance />");
+    expect(migration).toContain("'operationalauthority',false");
+    expect(migration).toContain("'setssourceclocks',false");
+  });
+});
