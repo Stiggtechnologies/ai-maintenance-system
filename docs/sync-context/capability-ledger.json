@@ -1,0 +1,3876 @@
+{
+  "schemaVersion": 1,
+  "ledgerId": "sync-context-godseye-integration-contract",
+  "asOf": "2026-10-03",
+  "scope": "Governed integration contract for every Sync Context capability discussed in the original God's Eye review and represented by the standalone prototype. This ledger does not import or approve upstream source code.",
+  "sourceCatalog": [
+    {
+      "id": "godseye-discussion",
+      "kind": "primary-review",
+      "locator": "Codex attachment 83187d62-e6a0-4cf9-b75c-deb9f89bec0e/pasted-text.txt",
+      "authority": "Original 1,074-line product and governance discussion"
+    },
+    {
+      "id": "standalone-readme",
+      "kind": "prototype-report",
+      "locator": "sync-context/README.md in the 2026-09-11 standalone checkout",
+      "authority": "Prototype author claims; not production proof"
+    },
+    {
+      "id": "standalone-blueprint",
+      "kind": "prototype-ledger",
+      "locator": "sync-context/docs/SYNC_FORK_BLUEPRINT.md in the 2026-09-11 standalone checkout",
+      "authority": "Prototype capability and production-boundary claims; not main-repository proof"
+    },
+    {
+      "id": "main-repository",
+      "kind": "implementation-evidence",
+      "locator": "This repository at the pinned commit under review",
+      "authority": "Canonical implementation and automated contract evidence"
+    }
+  ],
+  "provenanceAnchors": {
+    "AGENTS.md:definition-of-done": "AGENTS.md, Definition of done and Capability register sections",
+    "godseye-discussion:fork-strategy": "pasted-text.txt lines 1-119",
+    "godseye-discussion:industrial-look-and-feel": "pasted-text.txt lines 120-288",
+    "godseye-discussion:demo-feeds": "pasted-text.txt lines 289-588",
+    "godseye-discussion:cctv-investigation": "pasted-text.txt lines 589-742",
+    "godseye-discussion:safety-intelligence": "pasted-text.txt lines 743-897",
+    "godseye-discussion:safety-extensions": "pasted-text.txt lines 898-1074",
+    "godseye-discussion:production-hardening": "pasted-text.txt lines 70-115 and 520-581",
+    "standalone-readme:demo-disclosure": "README.md line 5",
+    "standalone-readme:what-is-playable-now": "README.md lines 7-34",
+    "standalone-readme:provisional-traffic-disclosure": "README.md lines 14 and 33",
+    "standalone-readme:run-locally": "README.md lines 35-58",
+    "standalone-readme:architecture": "README.md lines 59-71",
+    "standalone-readme:upstream-sync": "README.md lines 85-95",
+    "standalone-readme:security-and-governance": "README.md lines 96-105",
+    "standalone-readme:licensing-and-data-terms": "README.md lines 106-111",
+    "standalone-blueprint:experience-and-spatial-shell": "SYNC_FORK_BLUEPRINT.md lines 12-32",
+    "standalone-blueprint:voice-copilot": "SYNC_FORK_BLUEPRINT.md lines 33-47",
+    "standalone-blueprint:industrial-operating-model": "SYNC_FORK_BLUEPRINT.md lines 48-67",
+    "standalone-blueprint:demonstration-data-and-scenarios": "SYNC_FORK_BLUEPRINT.md lines 68-85",
+    "standalone-blueprint:safety-intelligence": "SYNC_FORK_BLUEPRINT.md lines 86-112",
+    "standalone-blueprint:investigation-rca-fracas-learn": "SYNC_FORK_BLUEPRINT.md lines 113-124",
+    "standalone-blueprint:source-and-connector-governance": "SYNC_FORK_BLUEPRINT.md lines 125-130",
+    "standalone-blueprint:production-platform-boundary": "SYNC_FORK_BLUEPRINT.md lines 131-147",
+    "standalone-blueprint:hard-governance-constraints": "SYNC_FORK_BLUEPRINT.md lines 148-157",
+    "standalone-blueprint:upstream-maintenance": "SYNC_FORK_BLUEPRINT.md lines 158-167"
+  },
+  "statusDefinitions": {
+    "existing_foundation": "Main contains a relevant canonical, tenant-scoped foundation, but this does not mean the full Sync Context capability is complete.",
+    "prototype_only": "The standalone prototype reports the capability as playable or contracted; main does not contain production-grade implementation evidence.",
+    "missing": "The review requires the capability and neither main nor the prototype provides adequate implementation evidence.",
+    "external_dependency": "Delivery depends on a provider, customer system, credential, legal approval, certified system, or physical sensor outside this repository."
+  },
+  "completionDefinitions": {
+    "not_started": "No main-repository implementation evidence for the complete requirement.",
+    "partial": "Some canonical foundation exists, but one or more acceptance conditions remain unproved.",
+    "complete": "Every acceptance condition has current main-repository evidence and named automated verification."
+  },
+  "implementationSequence": [
+    {
+      "id": "SC-00",
+      "title": "Governed scope contract",
+      "scope": "Land this ledger, provenance, explicit constraints, checker and accepted baseline only.",
+      "exitEvidence": [
+        "Ledger checker passes",
+        "No God's Eye source code is imported"
+      ]
+    },
+    {
+      "id": "SC-01",
+      "title": "Canonical context contracts",
+      "scope": "Extend canonical assets, evidence and events with source-independent spatial, temporal, health and licensing contracts; do not introduce parallel asset, evidence, recommendation, approval or audit stores.",
+      "exitEvidence": [
+        "Tenant and canonical-identity contract tests",
+        "Source classification and provenance tests"
+      ]
+    },
+    {
+      "id": "SC-02",
+      "title": "Governed 2D operating picture",
+      "scope": "Deliver the first customer-reachable 2D map over verified canonical geospatial features, source health and an industrial inspector.",
+      "exitEvidence": [
+        "Cross-tenant denial",
+        "No-invented-coordinate test",
+        "Browser journey"
+      ]
+    },
+    {
+      "id": "SC-03",
+      "title": "3D shell and layer runtime",
+      "scope": "Add the optional 3D globe, shared 2D/3D state, isolated layer failures, display modes and responsive operational shell.",
+      "exitEvidence": [
+        "Layer isolation tests",
+        "Accessibility and responsive tests",
+        "License inventory update"
+      ]
+    },
+    {
+      "id": "SC-04",
+      "title": "Honest deterministic demo",
+      "scope": "Add clearly labeled synthetic industrial objects and deterministic scenarios without random sales-critical values or claims of customer connectivity.",
+      "exitEvidence": [
+        "Determinism tests",
+        "Synthetic/live/customer labels in browser journey",
+        "No overwrite of connected customer telemetry"
+      ]
+    },
+    {
+      "id": "SC-05",
+      "title": "Approved external context",
+      "scope": "Add public context sources one provider at a time behind server-governed adapters after terms, attribution, caching, quota and production-use review.",
+      "exitEvidence": [
+        "Provider-specific legal record",
+        "Health and stale-state tests",
+        "Server-side credential boundary"
+      ]
+    },
+    {
+      "id": "SC-06",
+      "title": "Investigation evidence and replay",
+      "scope": "Extend canonical evidence with governed media metadata, clock integrity, bookmarks and synchronized replay; no parallel evidence store.",
+      "exitEvidence": [
+        "Chain-of-custody tests",
+        "Tenant/media authorization tests",
+        "RCA and FRACAS linkage tests"
+      ]
+    },
+    {
+      "id": "SC-07",
+      "title": "Spatial safety assurance",
+      "scope": "Combine canonical permits, barriers, work, temporary conditions and observations as decision support while certified systems and humans retain authority.",
+      "exitEvidence": [
+        "Safety abstention and authority tests",
+        "Independent human review tests",
+        "Non-surveillance tests"
+      ]
+    },
+    {
+      "id": "SC-08",
+      "title": "Context-aware voice controls",
+      "scope": "Extend the existing governed Realtime boundary with bounded map controls and audited tenant-scoped context; never expose arbitrary execution or approval.",
+      "exitEvidence": [
+        "Tool allowlist tests",
+        "Quota/auth/audit tests",
+        "Visible human confirmation tests"
+      ]
+    },
+    {
+      "id": "SC-09",
+      "title": "Customer operational connectors",
+      "scope": "Replace demo adapters with tenant-scoped historian, CMMS/EAM, fleet, GIS, VMS, permit, access and project connectors without changing UI contracts.",
+      "exitEvidence": [
+        "Connector conformance suite",
+        "Customer authorization",
+        "End-to-end provenance and isolation"
+      ]
+    },
+    {
+      "id": "SC-10",
+      "title": "Production hardening and learning",
+      "scope": "Complete PostGIS scale, durable replay, degraded/offline behavior, source conflict handling, recurring-condition analytics, retention and production verification.",
+      "exitEvidence": [
+        "Load/failure drills",
+        "Retention and privacy approvals",
+        "Production smoke and rollback evidence"
+      ]
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "SCX-GOV-001",
+      "category": "governance",
+      "title": "UI accelerator, not platform fork",
+      "requirement": "Treat the God's Eye work only as a visual and interaction reference; native Sync architecture owns backend, data, governance, permissions, evidence and decisions.",
+      "provenance": [
+        "godseye-discussion:fork-strategy",
+        "standalone-blueprint:production-platform-boundary"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "AGENTS.md",
+        "docs/architecture/governed-capability-pattern.md"
+      ],
+      "evidence": [
+        "AGENTS.md",
+        "docs/architecture/governed-capability-pattern.md"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "No God's Eye source is integrated in main; future UI work must conform to this ledger.",
+      "pr": "SC-00",
+      "acceptance": [
+        "No copied God's Eye implementation enters this contract PR",
+        "Every later slice reuses canonical main models"
+      ],
+      "constraints": ["canonical_identity", "no_parallel_store"],
+      "completion": {
+        "state": "partial",
+        "verifiedBy": ["src/test/syncContextCapabilityLedger.test.ts"]
+      }
+    },
+    {
+      "id": "SCX-GOV-002",
+      "category": "governance",
+      "title": "Preserve immediacy, replace semantics",
+      "requirement": "Preserve the fast operational command-center interaction model while replacing military, conflict and surveillance semantics with industrial operations.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "standalone-blueprint:experience-and-spatial-shell"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["src/components/AppShell.tsx"],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-readme:what-is-playable-now",
+        "standalone-blueprint:experience-and-spatial-shell"
+      ],
+      "externalDependencies": [],
+      "gap": "Main has an industrial shell but no equivalent spatial operating experience.",
+      "pr": "SC-03",
+      "acceptance": [
+        "Industrial terminology throughout reachable UI",
+        "Military and conflict layers disabled by construction"
+      ],
+      "constraints": ["non_surveillance"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-GOV-003",
+      "category": "governance",
+      "title": "Industrial control-room language",
+      "requirement": "Use graphite or dark-slate surfaces with restrained cyan, amber and red state cues, technical typography and restrained animation rather than tactical or sci-fi language.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "standalone-blueprint:experience-and-spatial-shell"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["src/index.css", "src/components/AppShell.tsx"],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-blueprint:industrial-control-room-visual-language"
+      ],
+      "externalDependencies": [],
+      "gap": "A main-product spatial design system and accessibility evidence are absent.",
+      "pr": "SC-03",
+      "acceptance": [
+        "Approved design tokens",
+        "WCAG contrast and reduced-motion checks"
+      ],
+      "constraints": ["accessibility"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-GOV-004",
+      "category": "governance",
+      "title": "No military or conflict defaults",
+      "requirement": "Military, tactical, conflict and war layers and branding must not be active Sync defaults or be restored by upstream changes.",
+      "provenance": [
+        "godseye-discussion:fork-strategy",
+        "godseye-discussion:demo-feeds",
+        "standalone-readme:upstream-sync"
+      ],
+      "status": "missing",
+      "canonicalReuse": ["config/feature-flags.json"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-readme:upstream-sync"],
+      "externalDependencies": [],
+      "gap": "Main has no upstream-sync guard because no fork is integrated; a future spatial runtime needs an explicit denylist contract.",
+      "pr": "SC-03",
+      "acceptance": [
+        "Automated denylist test covers names, defaults and routes",
+        "Upstream update checklist blocks reintroduction"
+      ],
+      "constraints": ["non_surveillance"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-GOV-005",
+      "category": "governance",
+      "title": "Canonical model reuse",
+      "requirement": "Extend canonical assets, sites, work, evidence, recommendations, decisions, approvals, risks, recovery, projects and audit instead of duplicating them for spatial context.",
+      "provenance": [
+        "godseye-discussion:fork-strategy",
+        "standalone-blueprint:production-platform-boundary"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "public.assets",
+        "public.sites",
+        "public.evidence_items",
+        "public.recommendations",
+        "public.decisions",
+        "public.audit_events"
+      ],
+      "evidence": [
+        "AGENTS.md",
+        "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql",
+        "src/test/geospatialOperationalIntelligenceContract.test.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "Future Context objects still require an explicit mapping to each canonical identity.",
+      "pr": "SC-01",
+      "acceptance": [
+        "Contract test forbids parallel asset, work, evidence, recommendation, approval and audit stores",
+        "Every spatial link carries tenant and canonical subject identity"
+      ],
+      "constraints": ["canonical_identity", "no_parallel_store"],
+      "completion": {
+        "state": "partial",
+        "verifiedBy": [
+          "src/test/geospatialOperationalIntelligenceContract.test.ts"
+        ]
+      }
+    },
+    {
+      "id": "SCX-GOV-006",
+      "category": "governance",
+      "title": "Tenant isolation",
+      "requirement": "Every persisted object, query, media reference, stream and tool call is organization-scoped and protected by server-authoritative tenant checks and RLS.",
+      "provenance": [
+        "godseye-discussion:production-hardening",
+        "standalone-readme:security-and-governance",
+        "standalone-blueprint:production-platform-boundary"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": ["public.app_current_org()", "public.organizations"],
+      "evidence": [
+        "AGENTS.md",
+        "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql",
+        "src/test/geospatialOperationalIntelligenceContract.test.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "No tenant-scoped Context media, feed or replay schema exists in main.",
+      "pr": "SC-01",
+      "acceptance": [
+        "Foreign-tenant reads and writes fail for every Context table and RPC",
+        "Service-role paths revalidate user and organization"
+      ],
+      "constraints": ["tenant_isolation"],
+      "completion": {
+        "state": "partial",
+        "verifiedBy": [
+          "src/test/geospatialOperationalIntelligenceContract.test.ts"
+        ]
+      }
+    },
+    {
+      "id": "SCX-GOV-007",
+      "category": "governance",
+      "title": "Canonical evidence provenance",
+      "requirement": "Every material observation, context assessment, recommendation and replay bookmark links to the one canonical evidence model with source, time, authority, quality and gaps.",
+      "provenance": [
+        "godseye-discussion:cctv-investigation",
+        "godseye-discussion:safety-intelligence",
+        "standalone-blueprint:investigation-rca-fracas-learn"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": ["public.evidence_items"],
+      "evidence": [
+        "AGENTS.md",
+        "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql",
+        "src/test/developSlice1EvidenceMigration.test.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "Media bookmarks and synchronized replay do not yet land on canonical evidence_items.",
+      "pr": "SC-06",
+      "acceptance": [
+        "No parallel evidence table",
+        "Every saved bookmark has source, timestamps and canonical evidence linkage"
+      ],
+      "constraints": ["evidence_provenance", "no_parallel_store"],
+      "completion": {
+        "state": "partial",
+        "verifiedBy": ["src/test/developSlice1EvidenceMigration.test.ts"]
+      }
+    },
+    {
+      "id": "SCX-GOV-008",
+      "category": "governance",
+      "title": "Human approval remains authoritative",
+      "requirement": "Context and AI may observe, summarize, flag, draft and recommend; only authorized humans and existing approval policy may authorize work, permits, safety decisions, corrective actions or operational changes.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "godseye-discussion:safety-intelligence",
+        "standalone-readme:security-and-governance"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "public.recommendations",
+        "public.decisions",
+        "existing approval plane"
+      ],
+      "evidence": [
+        "AGENTS.md",
+        "docs/architecture/governed-capability-pattern.md",
+        "src/lib/presence/sync-realtime-contract.test.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "Every future Context action still needs explicit handoff tests to canonical approval paths.",
+      "pr": "SC-01",
+      "acceptance": [
+        "No Context RPC can approve or release work",
+        "UI distinguishes draft, recommended, approved and executed"
+      ],
+      "constraints": ["human_approval"],
+      "completion": {
+        "state": "partial",
+        "verifiedBy": ["src/lib/presence/sync-realtime-contract.test.ts"]
+      }
+    },
+    {
+      "id": "SCX-GOV-009",
+      "category": "governance",
+      "title": "No invented operational data",
+      "requirement": "Never invent coordinates, telemetry, thresholds, limits, source health, customer connectivity, causality or approvals; missing or simulated values remain explicit.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "godseye-discussion:safety-intelligence",
+        "standalone-readme:demo-disclosure"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": ["public.geospatial_features", "public.evidence_items"],
+      "evidence": [
+        "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql",
+        "src/test/geospatialOperationalIntelligenceContract.test.ts",
+        "supabase/functions/_shared/sync-realtime-core.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "No common Context source-authority contract yet covers every object and event.",
+      "pr": "SC-01",
+      "acceptance": [
+        "Unknown is represented as unknown",
+        "Simulated values cannot be relabeled live or customer operational",
+        "Engineering limits require approved evidence"
+      ],
+      "constraints": ["no_invented_data", "evidence_provenance"],
+      "completion": {
+        "state": "partial",
+        "verifiedBy": [
+          "src/test/geospatialOperationalIntelligenceContract.test.ts"
+        ]
+      }
+    },
+    {
+      "id": "SCX-GOV-010",
+      "category": "governance",
+      "title": "Non-surveillance purpose",
+      "requirement": "Video and positioning support unsafe-condition understanding, prevention, response and learning; they do not become a worker-surveillance or blame product.",
+      "provenance": [
+        "godseye-discussion:cctv-investigation",
+        "godseye-discussion:safety-intelligence",
+        "standalone-blueprint:hard-governance-constraints"
+      ],
+      "status": "missing",
+      "canonicalReuse": ["public.evidence_items", "public.audit_events"],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-readme:security-and-governance",
+        "standalone-blueprint:hard-governance-constraints"
+      ],
+      "externalDependencies": ["Customer privacy and labor-relations approval"],
+      "gap": "Main has no video-purpose policy or enforcement surface.",
+      "pr": "SC-06",
+      "acceptance": [
+        "Purpose, access and retention are policy-enforced",
+        "Worker identity is excluded from default models and analytics"
+      ],
+      "constraints": ["non_surveillance", "privacy"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-GOV-011",
+      "category": "governance",
+      "title": "Computer vision creates observations, not verdicts",
+      "requirement": "Machine vision may draft a SafetyObservation with evidence and confidence but may not assert causality, guilt, permit cancellation or a safety verdict.",
+      "provenance": [
+        "godseye-discussion:safety-intelligence",
+        "standalone-readme:security-and-governance"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": [
+        "public.evidence_items",
+        "public.recommendations",
+        "existing approval plane"
+      ],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-readme:security-and-governance",
+        "standalone-blueprint:safety-intelligence"
+      ],
+      "externalDependencies": ["Approved vision model and site policy"],
+      "gap": "No canonical SafetyObservation workflow exists in main.",
+      "pr": "SC-07",
+      "acceptance": [
+        "Observation schema separates detected condition from human disposition",
+        "Automated tests reject verdict and authorization outputs"
+      ],
+      "constraints": ["human_approval", "non_surveillance"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-GOV-012",
+      "category": "governance",
+      "title": "No facial recognition",
+      "requirement": "Facial recognition is prohibited as a default Sync Context capability.",
+      "provenance": [
+        "godseye-discussion:cctv-investigation",
+        "godseye-discussion:safety-intelligence",
+        "standalone-blueprint:hard-governance-constraints"
+      ],
+      "status": "missing",
+      "canonicalReuse": ["policy and feature-control plane"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-blueprint:hard-governance-constraints"],
+      "externalDependencies": [],
+      "gap": "No automated Context feature denylist exists in main.",
+      "pr": "SC-06",
+      "acceptance": [
+        "Schema and API expose no biometric identity field or tool",
+        "Denylist contract fails on facial-recognition capability introduction"
+      ],
+      "constraints": ["non_surveillance", "privacy"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-GOV-013",
+      "category": "governance",
+      "title": "No individual productivity scoring",
+      "requirement": "Individual productivity tracking, continuous employee scoring and identity-based PPE enforcement are prohibited defaults.",
+      "provenance": [
+        "godseye-discussion:cctv-investigation",
+        "godseye-discussion:safety-intelligence",
+        "standalone-blueprint:hard-governance-constraints"
+      ],
+      "status": "missing",
+      "canonicalReuse": ["policy and feature-control plane"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-blueprint:hard-governance-constraints"],
+      "externalDependencies": [],
+      "gap": "No automated Context analytics denylist exists in main.",
+      "pr": "SC-06",
+      "acceptance": [
+        "Only aggregate or anonymous zone occupancy is allowed by default",
+        "Tests reject worker score and productivity fields"
+      ],
+      "constraints": ["non_surveillance", "privacy"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-GOV-014",
+      "category": "governance",
+      "title": "Third-party terms are independent",
+      "requirement": "Treat each external feed's access, attribution, commercial use, quota, caching and redistribution terms separately from the upstream Apache-2.0 code license.",
+      "provenance": [
+        "godseye-discussion:fork-strategy",
+        "godseye-discussion:demo-feeds",
+        "standalone-readme:licensing-and-data-terms"
+      ],
+      "status": "external_dependency",
+      "canonicalReuse": ["docs/investor-diligence/open-source-inventory.json"],
+      "evidence": [
+        "docs/investor-diligence/open-source-policy.md",
+        "docs/investor-diligence/open-source-inventory.json"
+      ],
+      "prototypeEvidence": [
+        "standalone-blueprint:source-and-connector-governance"
+      ],
+      "externalDependencies": ["Provider terms and legal approval"],
+      "gap": "The main inventory does not yet hold provider-by-provider data-rights decisions.",
+      "pr": "SC-05",
+      "acceptance": [
+        "Every enabled source has dated terms, attribution, cache, quota and production-use decisions",
+        "Unapproved sources fail closed"
+      ],
+      "constraints": ["licensing", "source_authority"],
+      "completion": {
+        "state": "partial",
+        "verifiedBy": ["npm run compliance:licenses"]
+      }
+    },
+    {
+      "id": "SCX-GOV-015",
+      "category": "governance",
+      "title": "Public media and customer VMS separation",
+      "requirement": "Public demo cameras and customer VMS footage are separate source classes, credentials, authorization paths, retention rules and UI labels.",
+      "provenance": [
+        "godseye-discussion:cctv-investigation",
+        "standalone-blueprint:hard-governance-constraints"
+      ],
+      "status": "external_dependency",
+      "canonicalReuse": ["tenant integration plane", "public.evidence_items"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-blueprint:hard-governance-constraints"],
+      "externalDependencies": [
+        "Customer VMS",
+        "Customer security and privacy policy",
+        "Public-camera provider terms"
+      ],
+      "gap": "No camera or VMS connector exists in main.",
+      "pr": "SC-09",
+      "acceptance": [
+        "Credentials and records cannot cross source classes",
+        "Customer footage requires tenant and source-level authorization"
+      ],
+      "constraints": ["tenant_isolation", "privacy", "licensing"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-MOD-001",
+      "category": "canonical-model",
+      "title": "SpatialObject contract",
+      "requirement": "Normalize fixed, mobile, human-zone and contextual objects through a source-independent SpatialObject linked to canonical Sync identities rather than copying them.",
+      "provenance": [
+        "godseye-discussion:fork-strategy",
+        "godseye-discussion:demo-feeds",
+        "standalone-blueprint:industrial-operating-model"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "public.geospatial_features",
+        "public.geospatial_subject_links",
+        "public.assets",
+        "public.sites"
+      ],
+      "evidence": [
+        "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql",
+        "src/services/geospatialOperationalIntelligenceService.ts"
+      ],
+      "prototypeEvidence": ["standalone-blueprint:industrial-operating-model"],
+      "externalDependencies": [],
+      "gap": "Main has governed features and links but no shared render-ready SpatialObject envelope.",
+      "pr": "SC-01",
+      "acceptance": [
+        "Object carries tenant, canonical subject, geometry, source class, authority, observed time, freshness and evidence",
+        "Adapters cannot invent canonical identities"
+      ],
+      "constraints": [
+        "canonical_identity",
+        "tenant_isolation",
+        "evidence_provenance"
+      ],
+      "completion": {
+        "state": "partial",
+        "verifiedBy": [
+          "src/test/geospatialOperationalIntelligenceContract.test.ts"
+        ]
+      }
+    },
+    {
+      "id": "SCX-MOD-002",
+      "category": "canonical-model",
+      "title": "ContextEvent contract",
+      "requirement": "Normalize failures, alarms, work, hazards, movements and external events through a source-independent ContextEvent linked to canonical records.",
+      "provenance": [
+        "godseye-discussion:fork-strategy",
+        "godseye-discussion:demo-feeds",
+        "standalone-readme:architecture"
+      ],
+      "status": "missing",
+      "canonicalReuse": [
+        "canonical event, work, recommendation and audit records"
+      ],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-readme:architecture"],
+      "externalDependencies": [],
+      "gap": "Main lacks a single render/replay ContextEvent projection over canonical records.",
+      "pr": "SC-01",
+      "acceptance": [
+        "Event is a projection, not a new system of record",
+        "Source and canonical record linkage are mandatory"
+      ],
+      "constraints": ["canonical_identity", "no_parallel_store"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-MOD-003",
+      "category": "canonical-model",
+      "title": "SpatialLayer contract",
+      "requirement": "Define governed layer identity, rendering mode, source dependencies, authorization, health and empty/degraded behavior.",
+      "provenance": [
+        "godseye-discussion:fork-strategy",
+        "standalone-blueprint:experience-and-spatial-shell"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["existing feature flags and permissions"],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-blueprint:experience-and-spatial-shell"
+      ],
+      "externalDependencies": [],
+      "gap": "Main has no spatial layer registry.",
+      "pr": "SC-01",
+      "acceptance": [
+        "Layer authorization is server-derived",
+        "One failed source cannot crash unrelated layers"
+      ],
+      "constraints": ["tenant_isolation", "source_health"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-MOD-004",
+      "category": "canonical-model",
+      "title": "Geofence contract",
+      "requirement": "Represent permanent and temporary geofences with source, validity window, canonical subject links, evidence and human-owned disposition.",
+      "provenance": [
+        "godseye-discussion:fork-strategy",
+        "godseye-discussion:safety-intelligence",
+        "standalone-blueprint:safety-intelligence"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "public.geospatial_features",
+        "public.geospatial_subject_links"
+      ],
+      "evidence": [
+        "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql",
+        "src/test/geospatialOperationalIntelligenceContract.test.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "Hazard polygons exist as features, but temporal geofence policy and events are not implemented.",
+      "pr": "SC-01",
+      "acceptance": [
+        "Validity and provenance are mandatory",
+        "Expired or unverified zones cannot support verified assessments"
+      ],
+      "constraints": ["evidence_provenance", "human_approval"],
+      "completion": {
+        "state": "partial",
+        "verifiedBy": [
+          "src/test/geospatialOperationalIntelligenceContract.test.ts"
+        ]
+      }
+    },
+    {
+      "id": "SCX-MOD-005",
+      "category": "canonical-model",
+      "title": "SourceHealth contract",
+      "requirement": "Represent connected, live, simulated, not connected, stale, unavailable, malformed, throttled, delayed, conflicting, partial-coverage and clock-skew source states.",
+      "provenance": [
+        "godseye-discussion:fork-strategy",
+        "godseye-discussion:demo-feeds",
+        "standalone-blueprint:source-and-connector-governance"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["existing integration health and audit"],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-blueprint:source-and-connector-governance"
+      ],
+      "externalDependencies": [],
+      "gap": "Main has connector-specific status but no common Context health contract.",
+      "pr": "SC-01",
+      "acceptance": [
+        "Every adapter reports normalized state and observed/check times",
+        "Stale and conflicting states are not displayed as live"
+      ],
+      "constraints": ["source_health", "no_invented_data"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-MOD-006",
+      "category": "canonical-model",
+      "title": "ContextSourceAdapter contract",
+      "requirement": "Provide connect or availability, objects, events and health interfaces so demo, public and customer sources can change without rewriting the UI.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-readme:architecture",
+        "standalone-blueprint:production-platform-boundary"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["existing integration and edge-function boundary"],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-readme:architecture",
+        "standalone-blueprint:source-and-connector-governance"
+      ],
+      "externalDependencies": [],
+      "gap": "Main has multiple read adapters but no shared spatial/context conformance interface.",
+      "pr": "SC-01",
+      "acceptance": [
+        "Demo, public and customer adapters pass one conformance suite",
+        "UI imports only normalized contracts"
+      ],
+      "constraints": ["source_authority", "tenant_isolation"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-MOD-007",
+      "category": "canonical-model",
+      "title": "Three source classes",
+      "requirement": "Every rendered object and event is exactly one of LIVE EXTERNAL, SIMULATED INDUSTRIAL or CUSTOMER OPERATIONAL.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-readme:demo-disclosure",
+        "standalone-blueprint:demonstration-data-and-scenarios"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["evidence source_system and integration identity"],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-readme:what-is-playable-now",
+        "standalone-blueprint:demonstration-data-and-scenarios"
+      ],
+      "externalDependencies": [],
+      "gap": "Main does not enforce the three-class taxonomy across spatial context.",
+      "pr": "SC-01",
+      "acceptance": [
+        "Class is required and immutable per source record",
+        "UI exposes class without relying on color alone"
+      ],
+      "constraints": ["source_authority", "no_invented_data"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-MOD-008",
+      "category": "canonical-model",
+      "title": "Source authority and confidence",
+      "requirement": "Object and event views show source system, source class, authority, data quality, confidence, observed time, freshness and named evidence gaps.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "godseye-discussion:demo-feeds",
+        "standalone-blueprint:industrial-operating-model"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": ["public.geospatial_features", "public.evidence_items"],
+      "evidence": [
+        "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql",
+        "src/services/geospatialOperationalIntelligenceService.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "The governed data exists for geospatial features, but no unified object inspector presents it.",
+      "pr": "SC-02",
+      "acceptance": [
+        "Inspector visibly distinguishes observed, simulated and inferred values",
+        "Missing evidence is never rendered as zero"
+      ],
+      "constraints": ["evidence_provenance", "no_invented_data"],
+      "completion": {
+        "state": "partial",
+        "verifiedBy": [
+          "src/test/geospatialOperationalIntelligenceContract.test.ts"
+        ]
+      }
+    },
+    {
+      "id": "SCX-MOD-009",
+      "category": "canonical-model",
+      "title": "Clock integrity metadata",
+      "requirement": "Every replay-capable source records its time source, estimated offset, synchronization quality and last synchronization check.",
+      "provenance": [
+        "godseye-discussion:safety-extensions",
+        "standalone-blueprint:investigation-rca-fracas-learn"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["public.evidence_items", "canonical audit"],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-readme:what-is-playable-now",
+        "standalone-blueprint:investigation-rca-fracas-learn"
+      ],
+      "externalDependencies": [
+        "Source clock metadata or measured synchronization"
+      ],
+      "gap": "Main has timestamps but no cross-source clock-integrity contract.",
+      "pr": "SC-06",
+      "acceptance": [
+        "Unknown offset remains unknown",
+        "Replay exposes sync quality and prevents unsupported sequence claims"
+      ],
+      "constraints": ["evidence_provenance", "no_invented_data"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-MOD-010",
+      "category": "canonical-model",
+      "title": "Camera contract",
+      "requirement": "Represent camera identity, location, coverage area, source, online state, last frame time, retention and access classification without worker identity fields.",
+      "provenance": [
+        "godseye-discussion:cctv-investigation",
+        "standalone-blueprint:safety-intelligence"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": [
+        "public.geospatial_features",
+        "tenant integration plane"
+      ],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-blueprint:safety-intelligence"],
+      "externalDependencies": ["Customer VMS or approved public camera source"],
+      "gap": "Main has camera upload controls, not a governed camera-source model.",
+      "pr": "SC-06",
+      "acceptance": [
+        "Coverage geometry is source-supplied",
+        "Authorization and retention are mandatory",
+        "No biometric identity field"
+      ],
+      "constraints": ["tenant_isolation", "privacy", "non_surveillance"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-MOD-011",
+      "category": "canonical-model",
+      "title": "VideoEvidence contract",
+      "requirement": "Represent camera/source, time interval, location, related canonical asset/event, retention expiry, access classification, integrity hash, bookmarks, notes and evidence status on the canonical evidence model.",
+      "provenance": [
+        "godseye-discussion:cctv-investigation",
+        "standalone-blueprint:investigation-rca-fracas-learn"
+      ],
+      "status": "missing",
+      "canonicalReuse": ["public.evidence_items", "canonical audit"],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-blueprint:investigation-rca-fracas-learn"
+      ],
+      "externalDependencies": ["Authorized video source and storage"],
+      "gap": "The prototype documents metadata, but main has no video-evidence extension on evidence_items.",
+      "pr": "SC-06",
+      "acceptance": [
+        "No parallel evidence table",
+        "Hash, source, timestamps, access, annotations and retention survive export"
+      ],
+      "constraints": ["evidence_provenance", "tenant_isolation", "privacy"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-UX-001",
+      "category": "spatial-shell",
+      "title": "Full-screen industrial operating picture",
+      "requirement": "Provide a customer-reachable full-screen spatial operating surface with industrial navigation and status language.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "standalone-readme:what-is-playable-now"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["src/components/AppShell.tsx"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": [],
+      "gap": "Main's geospatial panel is a governed record workspace, not a full-screen operating picture.",
+      "pr": "SC-02",
+      "acceptance": [
+        "Reachable from canonical navigation",
+        "Shows only role-visible tenant data"
+      ],
+      "constraints": ["tenant_isolation", "accessibility"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-UX-002",
+      "category": "spatial-shell",
+      "title": "Cesium 3D globe",
+      "requirement": "Support an optional performant 3D globe for site, regional and global context without making it the system of record.",
+      "provenance": [
+        "godseye-discussion:fork-strategy",
+        "standalone-blueprint:experience-and-spatial-shell"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": [
+        "normalized SpatialObject and ContextEvent projections"
+      ],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-blueprint:experience-and-spatial-shell"
+      ],
+      "externalDependencies": [
+        "Approved Cesium and basemap licensing/configuration"
+      ],
+      "gap": "Main has no Cesium dependency or 3D map runtime.",
+      "pr": "SC-03",
+      "acceptance": [
+        "Renderer consumes normalized projections only",
+        "No secret or unrestricted customer query runs in the browser"
+      ],
+      "constraints": ["licensing", "tenant_isolation"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-UX-003",
+      "category": "spatial-shell",
+      "title": "2D map",
+      "requirement": "Provide a 2D map view over the same authorized objects, layers, filters, selection and time state as the 3D globe.",
+      "provenance": [
+        "godseye-discussion:fork-strategy",
+        "standalone-readme:what-is-playable-now"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": [
+        "public.geospatial_features",
+        "normalized Context projections"
+      ],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": [
+        "Approved basemap provider or self-hosted tiles"
+      ],
+      "gap": "Main records GeoJSON but has no map renderer.",
+      "pr": "SC-02",
+      "acceptance": [
+        "Verified and draft data are distinguishable",
+        "Same filters and selection survive 2D/3D switching"
+      ],
+      "constraints": ["source_authority", "licensing"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-UX-004",
+      "category": "spatial-shell",
+      "title": "Shared 2D and 3D state",
+      "requirement": "Switch between 2D and 3D without losing active layers, selected object, time window, scenario or workspace.",
+      "provenance": [
+        "standalone-readme:what-is-playable-now",
+        "standalone-blueprint:experience-and-spatial-shell"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["shared application state"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": [],
+      "gap": "No spatial-view state exists in main.",
+      "pr": "SC-03",
+      "acceptance": [
+        "State preservation browser test",
+        "Deep links restore authorized selection and view"
+      ],
+      "constraints": ["accessibility"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-UX-005",
+      "category": "spatial-shell",
+      "title": "Independent layer toggles",
+      "requirement": "Toggle assets, work, reliability, risk, safety, recovery, project, logistics and external-context layers independently.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "standalone-readme:what-is-playable-now"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["SpatialLayer registry"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": [],
+      "gap": "Main has no map layer runtime.",
+      "pr": "SC-03",
+      "acceptance": [
+        "Layer visibility is keyboard accessible",
+        "Unauthorized layers never load data"
+      ],
+      "constraints": ["tenant_isolation", "accessibility"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-UX-006",
+      "category": "spatial-shell",
+      "title": "Per-layer failure isolation",
+      "requirement": "A missing key, unavailable feed, malformed response or failed layer must degrade that layer without taking down the operating picture.",
+      "provenance": [
+        "godseye-discussion:fork-strategy",
+        "godseye-discussion:demo-feeds",
+        "standalone-blueprint:experience-and-spatial-shell"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["SourceHealth contract"],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-blueprint:experience-and-spatial-shell"
+      ],
+      "externalDependencies": [],
+      "gap": "No layer runtime exists in main.",
+      "pr": "SC-03",
+      "acceptance": [
+        "Fault-injection test for every adapter class",
+        "Failed layer remains visible as degraded with last-good timestamp where permitted"
+      ],
+      "constraints": ["source_health", "no_invented_data"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-UX-007",
+      "category": "spatial-shell",
+      "title": "Industrial object inspector",
+      "requirement": "Selecting an object shows canonical identity, operating state, criticality, current event, open and opportunity work, RTS, risks, repeat failures, PoF/RUL context, source authority, confidence and missing evidence when available.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "standalone-blueprint:industrial-operating-model"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": [
+        "public.assets",
+        "public.work_orders",
+        "public.recommendations",
+        "Sync Recovery",
+        "canonical reliability models"
+      ],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-readme:what-is-playable-now",
+        "standalone-blueprint:industrial-operating-model"
+      ],
+      "externalDependencies": [],
+      "gap": "Main surfaces these domains separately, not in a spatial inspector.",
+      "pr": "SC-02",
+      "acceptance": [
+        "Every displayed claim links to canonical record or is marked unavailable",
+        "Risk-sensitive evidence obeys existing read policy"
+      ],
+      "constraints": [
+        "canonical_identity",
+        "evidence_provenance",
+        "tenant_isolation"
+      ],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-UX-008",
+      "category": "spatial-shell",
+      "title": "Inspector workflow handoffs",
+      "requirement": "Expose Open Asset, Assess and Create Decision actions as governed handoffs to canonical pages and draft workflows, never as direct map-side execution.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "standalone-blueprint:industrial-operating-model"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "canonical asset routes",
+        "Decision Case workspace",
+        "governed geospatial assessments"
+      ],
+      "evidence": [
+        "src/services/geospatialOperationalIntelligenceService.ts",
+        "src/pages/DecisionCaseWorkspacePage.tsx",
+        "src/lib/decision-case.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "No spatial inspector currently invokes these existing workflows.",
+      "pr": "SC-02",
+      "acceptance": [
+        "Actions navigate or create drafts only",
+        "Approval and execution stay outside renderer"
+      ],
+      "constraints": ["human_approval", "no_parallel_store"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-UX-009",
+      "category": "spatial-shell",
+      "title": "Live counters and freshness",
+      "requirement": "Show role-visible object/event counts with observed time, retrieved time, freshness and degraded-state meaning; never show dead or fabricated counters.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "standalone-blueprint:experience-and-spatial-shell"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": ["SourceHealth", "existing KPI honesty controls"],
+      "evidence": [
+        "supabase/migrations/20261005090200_refuse_unsourced_kpis_and_dead_counters.sql",
+        "src/test/geospatialOperationalIntelligenceContract.test.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "No Context aggregation endpoint or UI exists.",
+      "pr": "SC-02",
+      "acceptance": [
+        "Counts are query-derived",
+        "Unavailable sources show unavailable, not zero"
+      ],
+      "constraints": ["no_invented_data", "source_health"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-UX-010",
+      "category": "spatial-shell",
+      "title": "Source-health panel",
+      "requirement": "Show each source's class, normalized health, age, coverage, connection state and last successful check, including customer sources that are explicitly not connected.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-readme:what-is-playable-now"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["integration health", "SourceHealth"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": [],
+      "gap": "Main has no unified Context source panel.",
+      "pr": "SC-02",
+      "acceptance": [
+        "Not-connected sources cannot emit data",
+        "Health is not inferred from object count alone"
+      ],
+      "constraints": ["source_health", "no_invented_data"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-UX-011",
+      "category": "spatial-shell",
+      "title": "Responsive operating surface",
+      "requirement": "Support desktop panels and a usable mobile surface without hiding source, approval or safety state.",
+      "provenance": [
+        "godseye-discussion:fork-strategy",
+        "standalone-blueprint:experience-and-spatial-shell"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "src/components/AppShell.tsx",
+        "mobile field patterns"
+      ],
+      "evidence": [
+        "src/components/AppShell.tsx",
+        "src/pages/FieldPage.tsx",
+        "docs/enterprise-readiness/capability-register.md"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "The main shell is responsive, but no spatial surface has been verified across target sizes.",
+      "pr": "SC-03",
+      "acceptance": [
+        "Browser tests at desktop, tablet and 375x812",
+        "Controls remain keyboard and touch accessible"
+      ],
+      "constraints": ["accessibility"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-UX-012",
+      "category": "spatial-shell",
+      "title": "Command search and map presets",
+      "requirement": "Search authorized assets and use curated site, recovery, fire-watch and global presets without enabling arbitrary unsafe commands.",
+      "provenance": [
+        "standalone-readme:what-is-playable-now",
+        "standalone-blueprint:experience-and-spatial-shell"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["canonical asset search", "bounded navigation"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": [],
+      "gap": "Main has navigation and search foundations but no map presets.",
+      "pr": "SC-03",
+      "acceptance": [
+        "Search cannot disclose foreign-tenant objects",
+        "Presets are curated configuration with tests"
+      ],
+      "constraints": ["tenant_isolation"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-UX-013",
+      "category": "spatial-shell",
+      "title": "Nearby context and target cycling",
+      "requirement": "Show range-sorted nearby authorized objects within an explicit radius and provide previous/next target navigation.",
+      "provenance": [
+        "standalone-readme:what-is-playable-now",
+        "standalone-blueprint:experience-and-spatial-shell"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": [
+        "public.geospatial_features",
+        "PostGIS query boundary"
+      ],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": [],
+      "gap": "Main does not compute or render nearby context.",
+      "pr": "SC-02",
+      "acceptance": [
+        "Radius and units are explicit",
+        "Distances derive only from verified source geometry"
+      ],
+      "constraints": ["no_invented_data", "tenant_isolation"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-UX-014",
+      "category": "spatial-shell",
+      "title": "Timeline and deterministic replay controls",
+      "requirement": "Provide a time window, play/pause/scrub and event selection surface shared by scenarios and governed investigation replay.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "godseye-discussion:cctv-investigation",
+        "standalone-blueprint:experience-and-spatial-shell"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["ContextEvent projection", "canonical evidence"],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-blueprint:experience-and-spatial-shell"
+      ],
+      "externalDependencies": [],
+      "gap": "Main has no synchronized spatial timeline.",
+      "pr": "SC-04",
+      "acceptance": [
+        "Demo replay is deterministic",
+        "Investigation replay exposes missing data and clock quality"
+      ],
+      "constraints": ["evidence_provenance", "no_invented_data"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-UX-015",
+      "category": "spatial-shell",
+      "title": "Industrial display modes",
+      "requirement": "Support normal, low-light, thermal, high-contrast, all-context and safety display modes with industrial terms and explicit data semantics.",
+      "provenance": [
+        "godseye-discussion:fork-strategy",
+        "standalone-readme:what-is-playable-now",
+        "standalone-blueprint:experience-and-spatial-shell"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["shared layer state"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": [],
+      "gap": "Main has no spatial display modes; thermal data itself requires a real source.",
+      "pr": "SC-03",
+      "acceptance": [
+        "Mode names do not imply unconnected sensors",
+        "High-contrast and reduced-motion checks pass"
+      ],
+      "constraints": ["accessibility", "no_invented_data"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-UX-016",
+      "category": "spatial-shell",
+      "title": "Status visualization grammar",
+      "requirement": "Use documented non-color-only cues: pulse for active failure, amber zone for degradation, red polygon for hazard, dashed route for logistics, animated line for dependency, heatmap for repeated failures and halo for critical exposure.",
+      "provenance": ["godseye-discussion:industrial-look-and-feel"],
+      "status": "missing",
+      "canonicalReuse": ["canonical status and ContextEvent projections"],
+      "evidence": [],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "The discussion defines the grammar, but neither main evidence nor the prototype ledger proves the full set.",
+      "pr": "SC-03",
+      "acceptance": [
+        "Legend explains every cue",
+        "Text and shape alternatives cover color and motion limitations"
+      ],
+      "constraints": ["accessibility", "no_invented_data"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-OPS-001",
+      "category": "industrial-layers",
+      "title": "Fixed assets",
+      "requirement": "Render canonical fixed production, utility and infrastructure assets with verified source geometry and operating context.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "standalone-blueprint:industrial-operating-model"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": ["public.assets", "public.geospatial_subject_links"],
+      "evidence": [
+        "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql",
+        "src/services/geospatialOperationalIntelligenceService.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "Canonical data exists; map rendering and complete location coverage do not.",
+      "pr": "SC-02",
+      "acceptance": [
+        "Only verified linked geometry renders as customer operational",
+        "Missing geometry is disclosed"
+      ],
+      "constraints": ["canonical_identity", "no_invented_data"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-OPS-002",
+      "category": "industrial-layers",
+      "title": "Mobile fleet",
+      "requirement": "Render canonical mobile equipment positions, headings and state from an authorized fleet source or clearly labeled simulation.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "godseye-discussion:demo-feeds",
+        "standalone-blueprint:industrial-operating-model"
+      ],
+      "status": "external_dependency",
+      "canonicalReuse": ["public.assets", "fleet connector boundary"],
+      "evidence": [
+        "docs/roadmap/oem-integration.md",
+        "supabase/migrations/00000000000013_realtime_operating_picture.sql"
+      ],
+      "prototypeEvidence": ["standalone-blueprint:industrial-operating-model"],
+      "externalDependencies": ["Customer fleet system or OEM/dealer endpoint"],
+      "gap": "Main has assets and simulated sensor values, not authorized operational positions.",
+      "pr": "SC-09",
+      "acceptance": [
+        "Operational positions require authenticated source",
+        "Simulation cannot be mistaken for customer GPS"
+      ],
+      "constraints": ["source_authority", "tenant_isolation"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-OPS-003",
+      "category": "industrial-layers",
+      "title": "Field crew zones",
+      "requirement": "Represent crew or work-party zones only when authorized and purpose-limited, without individual tracking or productivity scoring.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "godseye-discussion:safety-intelligence",
+        "standalone-blueprint:industrial-operating-model"
+      ],
+      "status": "missing",
+      "canonicalReuse": ["public.crew_templates", "canonical work assignments"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": [
+        "Customer workforce/location policy and approved source"
+      ],
+      "gap": "Main has crew templates, not governed spatial crew-zone data.",
+      "pr": "SC-07",
+      "acceptance": [
+        "Zone data is minimized and purpose-bound",
+        "No individual productivity analytics"
+      ],
+      "constraints": ["privacy", "non_surveillance", "tenant_isolation"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-OPS-004",
+      "category": "industrial-layers",
+      "title": "Down equipment and recovery clocks",
+      "requirement": "Project canonical down-asset, recovery event, dependency and estimated return-to-service context into the operating picture.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "standalone-blueprint:industrial-operating-model"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "Sync Recovery",
+        "public.assets",
+        "public.work_orders"
+      ],
+      "evidence": [
+        "docs/sync-recovery/control-matrix.md",
+        "src/components/RecoveryControlCenter.tsx",
+        "src/services/recoveryPlatformContextService.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "Recovery is canonical but not spatially projected.",
+      "pr": "SC-02",
+      "acceptance": [
+        "RTS is sourced or explicitly estimated with basis",
+        "Map cannot release recovery work"
+      ],
+      "constraints": ["human_approval", "evidence_provenance"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-OPS-005",
+      "category": "industrial-layers",
+      "title": "Work and permit context",
+      "requirement": "Project open work, opportunity work, shutdown work, projects and permits through canonical work identities and authoritative permit state.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "standalone-blueprint:industrial-operating-model"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "public.work_orders",
+        "Sync Recovery",
+        "project controls",
+        "permit system references"
+      ],
+      "evidence": [
+        "src/pages/WorkDashboard.tsx",
+        "docs/sync-recovery/platform-integration.md",
+        "src/pages/EmergencyMode.tsx"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [
+        "Customer permit-to-work source for authoritative permit state"
+      ],
+      "gap": "Main does not provide a unified spatial projection or live permit connector.",
+      "pr": "SC-07",
+      "acceptance": [
+        "Permit status names its authoritative source",
+        "Spatial surface cannot approve, cancel or extend a permit"
+      ],
+      "constraints": ["human_approval", "source_authority"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-OPS-006",
+      "category": "industrial-layers",
+      "title": "Hazard and restricted zones",
+      "requirement": "Render verified hazard, exclusion, outage and restricted-workfront zones with validity, source and evidence.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "standalone-blueprint:industrial-operating-model"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "public.geospatial_features",
+        "canonical risks and process safety"
+      ],
+      "evidence": [
+        "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql",
+        "supabase/migrations/20260818140000_process_safety.sql"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "Hazard-zone records exist; outage and temporary restriction semantics need canonical projection and renderer.",
+      "pr": "SC-02",
+      "acceptance": [
+        "Unverified or expired zones are visibly non-authoritative",
+        "Risk-sensitive access is preserved"
+      ],
+      "constraints": ["evidence_provenance", "tenant_isolation"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-OPS-007",
+      "category": "industrial-layers",
+      "title": "Project, gate and commissioning context",
+      "requirement": "Render project systems, gates, commissioning status and operational-readiness context without creating parallel project records.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "standalone-blueprint:industrial-operating-model"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": ["Sync Develop projects, gates and commissioning"],
+      "evidence": [
+        "src/pages/SyncTransitionPage.tsx",
+        "src/components/develop/CommissioningPanel.tsx",
+        "docs/sync-develop/register.md"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "Main project data is not spatially projected.",
+      "pr": "SC-02",
+      "acceptance": [
+        "Projection links canonical case/project identities",
+        "No map-side gate approval"
+      ],
+      "constraints": ["canonical_identity", "human_approval"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-OPS-008",
+      "category": "industrial-layers",
+      "title": "Road, access and route context",
+      "requirement": "Render verified roads, access routes, closures and logistics routes, with source-supplied geometry and time validity.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "godseye-discussion:demo-feeds",
+        "standalone-blueprint:industrial-operating-model"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "public.geospatial_features",
+        "public.linear_asset_routes"
+      ],
+      "evidence": [
+        "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql",
+        "src/test/geospatialOperationalIntelligenceContract.test.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": ["Authoritative road/closure source"],
+      "gap": "Governed route records exist; live closure ingestion and renderer do not.",
+      "pr": "SC-02",
+      "acceptance": [
+        "No route or travel time is invented",
+        "Closure freshness and source are visible"
+      ],
+      "constraints": ["no_invented_data", "source_health"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-OPS-009",
+      "category": "industrial-layers",
+      "title": "Parts and logistics movement",
+      "requirement": "Project canonical material, stock, shipment and logistics context, including regional spares, without claiming movement from a simulated traffic feed.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "standalone-blueprint:industrial-operating-model"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "public.materials",
+        "public.material_stock",
+        "public.geospatial_operational_assessments"
+      ],
+      "evidence": [
+        "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql",
+        "src/services/geospatialOperationalIntelligenceService.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [
+        "Customer logistics or shipment source for live movement"
+      ],
+      "gap": "Regional stock context exists; live shipment movement does not.",
+      "pr": "SC-02",
+      "acceptance": [
+        "Stock and movement source classes are distinct",
+        "Availability and ETA require source evidence"
+      ],
+      "constraints": ["source_authority", "no_invented_data"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-OPS-010",
+      "category": "industrial-layers",
+      "title": "Reliability hotspots and condition alerts",
+      "requirement": "Project canonical bad actors, repeat failures, failure clusters, condition alerts and measured trends with evidence and model applicability.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "standalone-blueprint:industrial-operating-model"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "canonical reliability models",
+        "public.geospatial_features",
+        "condition monitoring"
+      ],
+      "evidence": [
+        "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql",
+        "supabase/migrations/20261219163000_contextual_condition_monitoring.sql",
+        "src/components/ConditionMonitoring.tsx"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "Canonical reliability data exists, but spatial clustering and visualization need evidence-backed projections.",
+      "pr": "SC-02",
+      "acceptance": [
+        "Cluster significance is not inferred without stated method and evidence",
+        "Alert timestamps and source are visible"
+      ],
+      "constraints": ["evidence_provenance", "no_invented_data"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-OPS-011",
+      "category": "industrial-layers",
+      "title": "PoF and RUL context",
+      "requirement": "Show probability-of-failure and remaining-useful-life outputs only from approved, applicable models with version, inputs, uncertainty and human decision boundary.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "standalone-blueprint:industrial-operating-model"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "engineering model registry and applicability envelopes"
+      ],
+      "evidence": [
+        "docs/model-applicability-envelopes.md",
+        "src/lib/engineering-models/implementation-control.ts",
+        "src/test/modelApplicabilityEnvelopeContract.test.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": ["Approved asset-specific model and evidence"],
+      "gap": "Model governance exists; spatial inspector projection is absent.",
+      "pr": "SC-02",
+      "acceptance": [
+        "No PoF/RUL when model is unavailable or out of envelope",
+        "Uncertainty and evidence gaps are visible"
+      ],
+      "constraints": ["no_invented_data", "human_approval"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-OPS-012",
+      "category": "industrial-layers",
+      "title": "Dependency and service-flow context",
+      "requirement": "Render canonical asset dependencies and service flows with evidence-backed direction and validity, not decorative invented links.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "standalone-blueprint:industrial-operating-model"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": ["canonical asset graph and relationships"],
+      "evidence": [
+        "docs/asset-twin-library.md",
+        "supabase/migrations/20261219340000_asset_relationship_accountability.sql"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "Relationship governance exists; spatial service-flow projection and completeness evidence are absent.",
+      "pr": "SC-02",
+      "acceptance": [
+        "Every edge links canonical assets and evidence",
+        "Unknown direction or completeness is disclosed"
+      ],
+      "constraints": ["canonical_identity", "evidence_provenance"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-OPS-013",
+      "category": "industrial-layers",
+      "title": "Environmental exposure overlays",
+      "requirement": "Combine verified weather, fire, seismic, air-quality and other external context with canonical assets while keeping proximity separate from assessed exposure or causality.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-blueprint:industrial-operating-model"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "public.geospatial_operational_assessments",
+        "climate hazard exposure"
+      ],
+      "evidence": [
+        "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql",
+        "src/services/climateHazardExposureService.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": ["Approved external data adapters"],
+      "gap": "Assessment and climate foundations exist; live overlays and adapter evidence do not.",
+      "pr": "SC-05",
+      "acceptance": [
+        "Proximity is labeled separately from exposure conclusion",
+        "Stale or partial coverage is visible"
+      ],
+      "constraints": ["source_authority", "no_invented_data"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-OPS-014",
+      "category": "industrial-layers",
+      "title": "Customer system normalization",
+      "requirement": "Normalize CMMS/EAM, historian, fleet, GIS, project-control and permit data behind the same Context contracts without changing renderer semantics.",
+      "provenance": [
+        "godseye-discussion:fork-strategy",
+        "godseye-discussion:demo-feeds",
+        "standalone-blueprint:industrial-operating-model"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "existing connector framework",
+        "ContextSourceAdapter"
+      ],
+      "evidence": [
+        "supabase/migrations/20261212090400_plant_historian_read_adapter.sql",
+        "src/pages/IntegrationsPage.tsx",
+        "config/edge-function-boundary.json"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": ["Customer systems and credentials"],
+      "gap": "Individual connector foundations exist, but Context conformance and the complete connector set do not.",
+      "pr": "SC-09",
+      "acceptance": [
+        "Adapters pass common conformance tests",
+        "Tenant, source, freshness and evidence survive normalization"
+      ],
+      "constraints": ["tenant_isolation", "source_authority"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-OPS-015",
+      "category": "industrial-layers",
+      "title": "AEMP 2.0 mixed-fleet lane",
+      "requirement": "Support ISO 15143-3/AEMP 2.0 as an authenticated mixed-fleet contract while showing Caterpillar, Komatsu or dealer sources as not connected until owner-authorized endpoints exist.",
+      "provenance": [
+        "standalone-readme:what-is-playable-now",
+        "standalone-blueprint:source-and-connector-governance"
+      ],
+      "status": "external_dependency",
+      "canonicalReuse": ["fleet connector boundary", "public.assets"],
+      "evidence": [
+        "docs/roadmap/oem-integration.md",
+        "supabase/migrations/20260831140000_terotechnology_standards.sql"
+      ],
+      "prototypeEvidence": [
+        "standalone-blueprint:source-and-connector-governance"
+      ],
+      "externalDependencies": [
+        "Asset-owner or dealer-enabled endpoint",
+        "OEM/dealer commercial terms"
+      ],
+      "gap": "Roadmap and standard identity exist; no connected AEMP adapter is proved.",
+      "pr": "SC-09",
+      "acceptance": [
+        "Endpoint authentication is server-side",
+        "Unconnected state is visible and cannot emit operational positions"
+      ],
+      "constraints": ["source_authority", "licensing", "tenant_isolation"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SRC-001",
+      "category": "external-source",
+      "title": "NASA EONET hazards",
+      "requirement": "Ingest approved NASA EONET natural-hazard context with provider attribution, timestamps, coverage and health.",
+      "provenance": ["godseye-discussion:demo-feeds"],
+      "status": "external_dependency",
+      "canonicalReuse": ["ContextSourceAdapter", "public.geospatial_features"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": ["NASA EONET availability and approved terms"],
+      "gap": "No EONET adapter exists in main.",
+      "pr": "SC-05",
+      "acceptance": [
+        "Terms record approved",
+        "Stale and partial coverage are visible",
+        "Raw event links to normalized object/event"
+      ],
+      "constraints": ["licensing", "source_health"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SRC-002",
+      "category": "external-source",
+      "title": "NASA FIRMS active fire",
+      "requirement": "Ingest approved NASA FIRMS fire/hotspot context with observed time, uncertainty, attribution, health and explicit distinction between hotspot proximity and asset exposure.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-readme:what-is-playable-now"
+      ],
+      "status": "external_dependency",
+      "canonicalReuse": [
+        "public.geospatial_operational_assessments",
+        "ContextSourceAdapter"
+      ],
+      "evidence": [
+        "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql"
+      ],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": [
+        "NASA FIRMS credential/access and approved terms"
+      ],
+      "gap": "Main can store hazard context but has no FIRMS adapter.",
+      "pr": "SC-05",
+      "acceptance": [
+        "Hotspot is not called a confirmed fire impact",
+        "Source health and last retrieval are visible"
+      ],
+      "constraints": ["licensing", "no_invented_data", "source_health"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SRC-003",
+      "category": "external-source",
+      "title": "USGS seismic",
+      "requirement": "Ingest approved USGS seismic events with source time, magnitude data as supplied, spatial uncertainty, attribution and health.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-readme:what-is-playable-now"
+      ],
+      "status": "external_dependency",
+      "canonicalReuse": ["ContextSourceAdapter", "public.geospatial_features"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": ["USGS service and approved terms"],
+      "gap": "No USGS adapter exists in main.",
+      "pr": "SC-05",
+      "acceptance": [
+        "Provider payload and normalized projection remain traceable",
+        "No unsupported asset-impact claim"
+      ],
+      "constraints": ["licensing", "source_health", "no_invented_data"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SRC-004",
+      "category": "external-source",
+      "title": "NOAA/NWS and Environment Canada alerts",
+      "requirement": "Ingest approved official weather alerts, including jurisdiction-appropriate fallback, with alert geometry, validity, attribution and source health.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-readme:what-is-playable-now"
+      ],
+      "status": "external_dependency",
+      "canonicalReuse": [
+        "public.operational_constraint_signals",
+        "public.geospatial_features"
+      ],
+      "evidence": [
+        "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql"
+      ],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": [
+        "NOAA/NWS or Environment Canada GeoMet availability and approved terms"
+      ],
+      "gap": "Main supports weather signals but not these live adapters.",
+      "pr": "SC-05",
+      "acceptance": [
+        "Jurisdiction and source are explicit",
+        "Expired alerts do not render as active"
+      ],
+      "constraints": ["licensing", "source_health"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SRC-005",
+      "category": "external-source",
+      "title": "Open-Meteo current weather",
+      "requirement": "Ingest current weather from an approved service with location, observed time, retrieval time, units, attribution and health; never synthesize a reading when unavailable.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-readme:what-is-playable-now"
+      ],
+      "status": "external_dependency",
+      "canonicalReuse": ["public.operational_constraint_signals"],
+      "evidence": [
+        "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql"
+      ],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": ["Open-Meteo availability and approved terms"],
+      "gap": "No Open-Meteo adapter exists in main.",
+      "pr": "SC-05",
+      "acceptance": [
+        "Units and observation time are preserved",
+        "Unavailability is explicit"
+      ],
+      "constraints": ["licensing", "source_health", "no_invented_data"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SRC-006",
+      "category": "external-source",
+      "title": "Air-quality context",
+      "requirement": "Ingest approved air-quality observations with pollutant, unit, station/model authority, time, coverage and health.",
+      "provenance": ["godseye-discussion:demo-feeds"],
+      "status": "external_dependency",
+      "canonicalReuse": ["ContextSourceAdapter", "public.geospatial_features"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": ["Approved air-quality provider"],
+      "gap": "No air-quality Context adapter exists in main.",
+      "pr": "SC-05",
+      "acceptance": [
+        "Measurement and forecast/model values are distinct",
+        "No health or exposure verdict is inferred"
+      ],
+      "constraints": ["source_authority", "no_invented_data"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SRC-007",
+      "category": "external-source",
+      "title": "Traffic and access context",
+      "requirement": "Use approved traffic/road sources for contextual access constraints while keeping public traffic motion and cameras separate from operational mine-fleet GPS.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-readme:provisional-traffic-disclosure"
+      ],
+      "status": "external_dependency",
+      "canonicalReuse": [
+        "public.geospatial_features",
+        "public.geospatial_operational_assessments"
+      ],
+      "evidence": [
+        "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql"
+      ],
+      "prototypeEvidence": ["standalone-readme:provisional-traffic-disclosure"],
+      "externalDependencies": ["Approved traffic/road provider and terms"],
+      "gap": "Main has access-route evidence but no traffic adapter.",
+      "pr": "SC-05",
+      "acceptance": [
+        "Traffic model, public camera and customer GPS have distinct source IDs/classes",
+        "No operational location claim from modelled traffic"
+      ],
+      "constraints": ["licensing", "source_authority"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SRC-008",
+      "category": "external-source",
+      "title": "Power-grid and infrastructure context",
+      "requirement": "Ingest approved public or customer infrastructure status as contextual dependency evidence without claiming control-system authority.",
+      "provenance": ["godseye-discussion:demo-feeds"],
+      "status": "external_dependency",
+      "canonicalReuse": [
+        "canonical asset dependencies",
+        "ContextSourceAdapter"
+      ],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": ["Approved grid/infrastructure source"],
+      "gap": "No public grid adapter is present in main.",
+      "pr": "SC-05",
+      "acceptance": [
+        "Context source is not represented as SCADA truth",
+        "Coverage and delay are visible"
+      ],
+      "constraints": ["source_authority", "licensing"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SRC-009",
+      "category": "external-source",
+      "title": "AIS maritime logistics",
+      "requirement": "Use approved AIS data for marine logistics, ports and offshore context with provider terms, position age, coverage and vessel-source caveats.",
+      "provenance": ["godseye-discussion:demo-feeds"],
+      "status": "external_dependency",
+      "canonicalReuse": ["ContextSourceAdapter"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": [
+        "AISstream or approved AIS provider credentials and terms"
+      ],
+      "gap": "No AIS adapter exists in main.",
+      "pr": "SC-05",
+      "acceptance": [
+        "Position age and terrestrial/satellite coverage are visible",
+        "AIS is not treated as verified asset custody"
+      ],
+      "constraints": ["licensing", "source_health"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SRC-010",
+      "category": "external-source",
+      "title": "Aircraft and airport logistics",
+      "requirement": "Use approved aircraft and airport sources for contextual logistics with source, position age, coverage and terms.",
+      "provenance": ["godseye-discussion:demo-feeds"],
+      "status": "external_dependency",
+      "canonicalReuse": ["ContextSourceAdapter"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": [
+        "OpenSky or approved aviation provider and terms"
+      ],
+      "gap": "No aviation adapter exists in main.",
+      "pr": "SC-05",
+      "acceptance": [
+        "Coverage gaps and delayed positions are visible",
+        "No customer shipment inference without customer linkage"
+      ],
+      "constraints": ["licensing", "source_health", "no_invented_data"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SRC-011",
+      "category": "external-source",
+      "title": "GDACS disaster context",
+      "requirement": "Ingest approved GDACS major-event context with provider attribution, event time, severity as supplied, geometry and health.",
+      "provenance": ["godseye-discussion:demo-feeds"],
+      "status": "external_dependency",
+      "canonicalReuse": ["ContextSourceAdapter", "public.geospatial_features"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": ["GDACS availability and approved terms"],
+      "gap": "No GDACS adapter exists in main.",
+      "pr": "SC-05",
+      "acceptance": [
+        "Provider severity is not rewritten as asset risk",
+        "Source record remains traceable"
+      ],
+      "constraints": ["licensing", "no_invented_data"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SRC-012",
+      "category": "external-source",
+      "title": "Public contextual cameras",
+      "requirement": "Display approved public camera media only as LIVE EXTERNAL context with provider terms, location, update state and explicit non-operational authority.",
+      "provenance": [
+        "godseye-discussion:cctv-investigation",
+        "standalone-readme:what-is-playable-now"
+      ],
+      "status": "external_dependency",
+      "canonicalReuse": ["Camera contract", "VideoEvidence contract"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": ["Public-camera provider availability and terms"],
+      "gap": "No public-camera adapter or media authorization model exists in main.",
+      "pr": "SC-05",
+      "acceptance": [
+        "Public camera cannot be linked as customer VMS evidence without governed ingestion",
+        "Attribution and update time are visible"
+      ],
+      "constraints": ["privacy", "licensing", "source_authority"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SRC-013",
+      "category": "external-source",
+      "title": "Refresh and cache policy",
+      "requirement": "Use source-appropriate direct refresh or governed caching with rate limits, attribution, allowed retention and stale behavior encoded per source.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-blueprint:source-and-connector-governance"
+      ],
+      "status": "missing",
+      "canonicalReuse": ["server connector boundary", "SourceHealth"],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-blueprint:source-and-connector-governance"
+      ],
+      "externalDependencies": ["Provider terms and quota"],
+      "gap": "No Context source registry exists in main.",
+      "pr": "SC-05",
+      "acceptance": [
+        "Policy is configuration reviewed per source",
+        "Cache never extends beyond approved retention or masks staleness"
+      ],
+      "constraints": ["licensing", "source_health"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SRC-014",
+      "category": "external-source",
+      "title": "Connector health audit",
+      "requirement": "Continuously test unavailable, stale, malformed, throttled, delayed, conflicting, partial-coverage and clock-skew behaviors and report record counts without treating counts as truth.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-blueprint:source-and-connector-governance"
+      ],
+      "status": "missing",
+      "canonicalReuse": ["SourceHealth", "canonical audit"],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-blueprint:source-and-connector-governance"
+      ],
+      "externalDependencies": [],
+      "gap": "Provider-specific smoke scripts exist elsewhere, but no Context health conformance/audit suite exists.",
+      "pr": "SC-05",
+      "acceptance": [
+        "Every failure mode has a deterministic test",
+        "Health changes are audited and alertable"
+      ],
+      "constraints": ["source_health", "no_invented_data"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SRC-015",
+      "category": "external-source",
+      "title": "Source rights registry",
+      "requirement": "Record purpose, owner, source class, authentication, attribution, commercial/demo/production approval, caching, redistribution, rate limit, key requirement, retention and review date per source.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-blueprint:source-and-connector-governance"
+      ],
+      "status": "missing",
+      "canonicalReuse": [
+        "docs/investor-diligence/open-source-inventory.json",
+        "integration registry"
+      ],
+      "evidence": ["docs/investor-diligence/open-source-inventory.json"],
+      "prototypeEvidence": [
+        "standalone-blueprint:source-and-connector-governance"
+      ],
+      "externalDependencies": ["Legal/contract review"],
+      "gap": "Main's software inventory is not a data-source rights registry.",
+      "pr": "SC-05",
+      "acceptance": [
+        "Every adapter references an approved registry entry",
+        "Expired or rejected production approval disables the source"
+      ],
+      "constraints": ["licensing", "source_authority"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-DEMO-001",
+      "category": "demonstration",
+      "title": "Persistent demo disclosure",
+      "requirement": "State that industrial site, assets, work, telemetry, risks and scenarios are synthetic while selected public context may be live; show this before and during use.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-readme:demo-disclosure"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["Source class contract"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-readme:demo-disclosure"],
+      "externalDependencies": [],
+      "gap": "Main has demo data but no Sync Context surface or persistent three-class disclosure.",
+      "pr": "SC-04",
+      "acceptance": [
+        "Disclosure appears on entry and inspector/source panel",
+        "Automated accessibility test verifies labels"
+      ],
+      "constraints": ["no_invented_data", "source_authority"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-DEMO-002",
+      "category": "demonstration",
+      "title": "Synthetic industrial site pack",
+      "requirement": "Provide a clearly fictional site with fixed assets, mobile fleet, utility/infrastructure objects, field zones, roads and dependencies linked through canonical demo identities.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-readme:what-is-playable-now"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["public.assets", "public.sites", "demo organization"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": [],
+      "gap": "Main demo assets exist but not the reviewed Mine North spatial pack.",
+      "pr": "SC-04",
+      "acceptance": [
+        "All records are tagged simulated",
+        "No fictional value is promoted into customer operational records"
+      ],
+      "constraints": ["canonical_identity", "no_invented_data"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-DEMO-003",
+      "category": "demonstration",
+      "title": "Deterministic telemetry stream",
+      "requirement": "Generate deterministic timestamp, location, operating state, rpm, temperature, vibration, load and health-state demo telemetry through the same adapter contract as customer sources.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-blueprint:demonstration-data-and-scenarios"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "public.sensors",
+        "realtime publication",
+        "ContextSourceAdapter"
+      ],
+      "evidence": [
+        "supabase/migrations/00000000000013_realtime_operating_picture.sql",
+        "src/hooks/useRealtimeUpdates.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "Main simulates sensor random walks, but the review requires deterministic sales-critical sequences and spatial position/state fields.",
+      "pr": "SC-04",
+      "acceptance": [
+        "Same seed and scenario version produce identical sequence",
+        "Connected historian disables simulation for that organization"
+      ],
+      "constraints": ["no_invented_data", "tenant_isolation"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-DEMO-004",
+      "category": "demonstration",
+      "title": "Haul-truck failure scenario",
+      "requirement": "Replay vibration and temperature rise through warning, stop, downtime, recovery, opportunity work and RTS optimization as a deterministic simulated scenario.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-blueprint:demonstration-data-and-scenarios"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": [
+        "condition monitoring",
+        "Sync Recovery",
+        "canonical work"
+      ],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-blueprint:demonstration-data-and-scenarios"
+      ],
+      "externalDependencies": [],
+      "gap": "No deterministic scenario pack exists in main.",
+      "pr": "SC-04",
+      "acceptance": [
+        "Expected event sequence is snapshot-tested",
+        "All values and outcomes remain labeled simulated"
+      ],
+      "constraints": ["no_invented_data", "human_approval"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-DEMO-005",
+      "category": "demonstration",
+      "title": "Wildfire exposure scenario",
+      "requirement": "Combine a live or recorded approved fire/weather source with synthetic asset locations and dependencies, then draft an evidence-separated Decision Case without asserting actual exposure.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-blueprint:demonstration-data-and-scenarios"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": [
+        "public.geospatial_operational_assessments",
+        "Decision Case workspace"
+      ],
+      "evidence": [
+        "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql",
+        "src/pages/DecisionCaseWorkspacePage.tsx"
+      ],
+      "prototypeEvidence": [
+        "standalone-blueprint:demonstration-data-and-scenarios"
+      ],
+      "externalDependencies": [
+        "Approved fire and weather source or recorded fixture"
+      ],
+      "gap": "Foundations exist, but the end-to-end scenario does not.",
+      "pr": "SC-04",
+      "acceptance": [
+        "Evidence labels live, recorded and simulated inputs separately",
+        "Case remains draft pending authorized review"
+      ],
+      "constraints": [
+        "evidence_provenance",
+        "human_approval",
+        "no_invented_data"
+      ],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-DEMO-006",
+      "category": "demonstration",
+      "title": "Pump degradation scenario",
+      "requirement": "Replay synthetic vibration and thermal evidence into a repeat-failure hypothesis, recommendation and explicit human approval handoff.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-blueprint:demonstration-data-and-scenarios"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": [
+        "canonical failure modes",
+        "reliability recommendation",
+        "approval plane"
+      ],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-blueprint:demonstration-data-and-scenarios"
+      ],
+      "externalDependencies": [],
+      "gap": "Main has reliability foundations but no Context scenario.",
+      "pr": "SC-04",
+      "acceptance": [
+        "Hypothesis is not presented as confirmed mechanism",
+        "Recommendation cannot self-approve"
+      ],
+      "constraints": ["human_approval", "no_invented_data"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-DEMO-007",
+      "category": "demonstration",
+      "title": "Road-closure logistics scenario",
+      "requirement": "Replay a sourced or recorded closure into parts delay, route alternative and revised RTS forecast while preserving uncertainty and approval boundaries.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-blueprint:demonstration-data-and-scenarios"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": [
+        "geospatial access routes",
+        "material stock",
+        "Sync Recovery"
+      ],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-blueprint:demonstration-data-and-scenarios"
+      ],
+      "externalDependencies": [],
+      "gap": "No end-to-end deterministic scenario exists in main.",
+      "pr": "SC-04",
+      "acceptance": [
+        "Closure source and time are visible",
+        "Route and RTS are estimates with stated basis"
+      ],
+      "constraints": ["evidence_provenance", "no_invented_data"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-DEMO-008",
+      "category": "demonstration",
+      "title": "Project SIMOPS scenario",
+      "requirement": "Replay a crane/exclusion zone overlapping maintenance work into a camera/barrier check and field-review request, not an autonomous stop-work verdict.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-blueprint:demonstration-data-and-scenarios"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": [
+        "Sync Develop",
+        "process safety barriers",
+        "canonical work"
+      ],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-blueprint:demonstration-data-and-scenarios"
+      ],
+      "externalDependencies": [],
+      "gap": "Main contains SIMOPS and barrier foundations but no spatial scenario.",
+      "pr": "SC-04",
+      "acceptance": [
+        "Conflict is an observation requiring review",
+        "No simulated camera is labeled customer operational"
+      ],
+      "constraints": ["human_approval", "non_surveillance"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-DEMO-009",
+      "category": "demonstration",
+      "title": "Demo-to-customer source replacement",
+      "requirement": "Allow a customer connector to replace the corresponding demo source without UI rewrite, duplicate objects or silent source-class changes.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-blueprint:demonstration-data-and-scenarios"
+      ],
+      "status": "missing",
+      "canonicalReuse": ["ContextSourceAdapter", "canonical identity mapping"],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-blueprint:demonstration-data-and-scenarios"
+      ],
+      "externalDependencies": ["Customer connector and identity mapping"],
+      "gap": "Main lacks the shared adapter and deduplication contract.",
+      "pr": "SC-09",
+      "acceptance": [
+        "Source replacement conformance test preserves object identity",
+        "Simulation is disabled before customer data becomes active"
+      ],
+      "constraints": ["canonical_identity", "source_authority"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-VOICE-001",
+      "category": "voice",
+      "title": "Server-mediated speech-to-speech",
+      "requirement": "Provide WebRTC speech input/output through an authenticated server boundary so permanent provider keys never reach the browser.",
+      "provenance": [
+        "standalone-readme:what-is-playable-now",
+        "standalone-blueprint:voice-copilot"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": ["sync-realtime-session", "existing auth and quota"],
+      "evidence": [
+        "supabase/functions/_shared/sync-realtime-core.ts",
+        "src/lib/speech/syncRealtimeClient.ts",
+        "src/lib/presence/sync-realtime-contract.test.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": ["Configured OpenAI Realtime provider"],
+      "gap": "The main capability exists but is not yet grounded in Sync Context map state.",
+      "pr": "SC-08",
+      "acceptance": [
+        "JWT, tenant flag and quota checks precede provider call",
+        "Browser never receives server key"
+      ],
+      "constraints": ["tenant_isolation", "privacy"],
+      "completion": {
+        "state": "partial",
+        "verifiedBy": ["src/lib/presence/sync-realtime-contract.test.ts"]
+      }
+    },
+    {
+      "id": "SCX-VOICE-002",
+      "category": "voice",
+      "title": "Context-grounded voice answers",
+      "requirement": "Ground map-related answers in selected object, work, reliability, barrier state and live source snapshot while separating observed, simulated and inferred content.",
+      "provenance": [
+        "standalone-readme:what-is-playable-now",
+        "standalone-blueprint:voice-copilot"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": ["Sync Investigation Runtime", "ask_sync tool"],
+      "evidence": [
+        "supabase/functions/_shared/sync-realtime-core.ts",
+        "supabase/functions/_shared/sync-investigation.ts",
+        "src/lib/sync/sync-investigation.test.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "Main voice delegates to governed investigation but no Context projection supplies selected spatial evidence.",
+      "pr": "SC-08",
+      "acceptance": [
+        "Plant claims route through ask_sync",
+        "Source class and missing evidence survive spoken summary"
+      ],
+      "constraints": ["evidence_provenance", "no_invented_data"],
+      "completion": {
+        "state": "partial",
+        "verifiedBy": ["src/lib/presence/sync-realtime-contract.test.ts"]
+      }
+    },
+    {
+      "id": "SCX-VOICE-003",
+      "category": "voice",
+      "title": "Bounded map tools",
+      "requirement": "Expose only explicit tools to focus an asset, toggle an approved layer, open a workspace, fly to a curated preset and change display mode; no arbitrary browser, script, network, credential or shell tool.",
+      "provenance": [
+        "standalone-readme:what-is-playable-now",
+        "standalone-blueprint:voice-copilot"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": [
+        "existing open_sync_page tool",
+        "SpatialLayer registry"
+      ],
+      "evidence": ["supabase/functions/_shared/sync-realtime-core.ts"],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": [],
+      "gap": "Main currently exposes governed ask_sync and navigation, not the five map-control tools.",
+      "pr": "SC-08",
+      "acceptance": [
+        "Tool schemas use allowlisted IDs and presets",
+        "Tool execution grants no additional data authority"
+      ],
+      "constraints": ["human_approval", "tenant_isolation"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-VOICE-004",
+      "category": "voice",
+      "title": "Push-to-talk and optional open microphone",
+      "requirement": "Support push-to-talk by default and an explicit optional open-microphone mode with visible privacy state and stop control.",
+      "provenance": [
+        "standalone-readme:what-is-playable-now",
+        "standalone-blueprint:voice-copilot"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["Sync Realtime voice UI"],
+      "evidence": ["src/components/SyncRealtimeVoicePanel.tsx"],
+      "prototypeEvidence": ["standalone-readme:what-is-playable-now"],
+      "externalDependencies": ["Browser microphone permission"],
+      "gap": "Main has conversation controls but the specific Space-key/open-mic Context interaction is not proved.",
+      "pr": "SC-08",
+      "acceptance": [
+        "Open mic requires explicit opt-in per session",
+        "Privacy notice and immediate stop remain visible"
+      ],
+      "constraints": ["privacy", "accessibility"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-VOICE-005",
+      "category": "voice",
+      "title": "Visible action confirmation",
+      "requirement": "Voice may propose navigation or a draft but must report actual tool results and leave approval, authorization and execution to visible human controls.",
+      "provenance": [
+        "standalone-blueprint:voice-copilot",
+        "standalone-readme:security-and-governance"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": ["ask_sync", "canonical approval plane"],
+      "evidence": [
+        "supabase/functions/_shared/sync-realtime-core.ts",
+        "src/lib/presence/sync-realtime-contract.test.ts",
+        "src/hooks/useSyncRealtimeVoice.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "Map tools must preserve the same boundary when added.",
+      "pr": "SC-08",
+      "acceptance": [
+        "Voice cannot call approval or execution RPCs",
+        "Spoken confirmation follows structured tool result"
+      ],
+      "constraints": ["human_approval"],
+      "completion": {
+        "state": "partial",
+        "verifiedBy": ["src/lib/presence/sync-realtime-contract.test.ts"]
+      }
+    },
+    {
+      "id": "SCX-VOICE-006",
+      "category": "voice",
+      "title": "Safety and emergency abstention",
+      "requirement": "Voice cannot authorize work, approve permits, issue safety verdicts, direct emergency response or claim human approval; it directs users to approved procedures and responsible authorities.",
+      "provenance": [
+        "standalone-readme:security-and-governance",
+        "standalone-blueprint:voice-copilot"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "Sync Realtime governance prompt",
+        "canonical procedures"
+      ],
+      "evidence": [
+        "supabase/functions/_shared/sync-realtime-core.ts",
+        "src/lib/presence/sync-realtime-contract.test.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "Future Context-specific tools need red-team coverage for this boundary.",
+      "pr": "SC-08",
+      "acceptance": [
+        "Safety/adversarial test set passes",
+        "No map tool changes operational state"
+      ],
+      "constraints": ["human_approval", "non_surveillance"],
+      "completion": {
+        "state": "partial",
+        "verifiedBy": ["src/lib/presence/sync-realtime-contract.test.ts"]
+      }
+    },
+    {
+      "id": "SCX-VOICE-007",
+      "category": "voice",
+      "title": "Voice audit, retention and cost control",
+      "requirement": "Apply tenant-scoped audit, usage/cost limits and approved retention rules to Context voice sessions and tool calls.",
+      "provenance": [
+        "standalone-blueprint:voice-copilot",
+        "standalone-blueprint:production-platform-boundary"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": ["sync-realtime-session quota", "canonical audit"],
+      "evidence": [
+        "supabase/functions/sync-realtime-session/index.ts",
+        "src/lib/presence/sync-realtime-contract.test.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": ["Tenant retention policy"],
+      "gap": "Auth and quota exist; durable Context-specific tool audit and approved retention evidence are incomplete.",
+      "pr": "SC-08",
+      "acceptance": [
+        "Every tool call is tenant-audited",
+        "Retention follows tenant policy",
+        "Quota failure occurs before provider call"
+      ],
+      "constraints": ["tenant_isolation", "privacy"],
+      "completion": {
+        "state": "partial",
+        "verifiedBy": ["src/lib/presence/sync-realtime-contract.test.ts"]
+      }
+    },
+    {
+      "id": "SCX-INV-001",
+      "category": "investigation",
+      "title": "Synchronized Investigation Replay",
+      "requirement": "Replay video, thermal, acoustic, historian, alarms, work, permits, GPS/fleet, weather, access, geofences and decisions on one evidence-aware timeline.",
+      "provenance": [
+        "godseye-discussion:cctv-investigation",
+        "godseye-discussion:safety-intelligence",
+        "standalone-blueprint:investigation-rca-fracas-learn"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": [
+        "public.evidence_items",
+        "canonical work, decision, alarm and audit records"
+      ],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-readme:what-is-playable-now",
+        "standalone-blueprint:investigation-rca-fracas-learn"
+      ],
+      "externalDependencies": ["Authorized source data for each channel"],
+      "gap": "Main's Sync Investigation Runtime is a governed question-answer runtime, not multimodal timeline replay.",
+      "pr": "SC-06",
+      "acceptance": [
+        "Every event retains source and clock quality",
+        "Unavailable channels are explicit",
+        "Replay creates no new operational truth"
+      ],
+      "constraints": [
+        "evidence_provenance",
+        "no_parallel_store",
+        "no_invented_data"
+      ],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-INV-002",
+      "category": "investigation",
+      "title": "Before/during/after event window",
+      "requirement": "Let an investigator select a bounded window before, during and after an event and retrieve only authorized source segments.",
+      "provenance": [
+        "godseye-discussion:cctv-investigation",
+        "standalone-blueprint:investigation-rca-fracas-learn"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["canonical event time and evidence access policy"],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-blueprint:investigation-rca-fracas-learn"
+      ],
+      "externalDependencies": ["Source retention and query support"],
+      "gap": "No multimodal replay query exists in main.",
+      "pr": "SC-06",
+      "acceptance": [
+        "Bounds and timezone are explicit",
+        "Risk- and media-sensitive access is enforced"
+      ],
+      "constraints": ["tenant_isolation", "privacy"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-INV-003",
+      "category": "investigation",
+      "title": "Camera auto-selection by coverage",
+      "requirement": "Suggest cameras that could physically cover the event location and time using source-supplied location and field-of-view metadata; never claim actual visibility without evidence.",
+      "provenance": [
+        "godseye-discussion:cctv-investigation",
+        "standalone-blueprint:safety-intelligence"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["Camera contract", "PostGIS query boundary"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-blueprint:safety-intelligence"],
+      "externalDependencies": [
+        "VMS camera metadata",
+        "Verified camera geometry"
+      ],
+      "gap": "Main has no camera registry or FOV query.",
+      "pr": "SC-09",
+      "acceptance": [
+        "Coverage result is a candidate list, not proof footage exists",
+        "Obstruction and offline state are visible"
+      ],
+      "constraints": ["no_invented_data", "privacy"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-INV-004",
+      "category": "investigation",
+      "title": "Mark-this-moment bookmarks",
+      "requirement": "Allow authorized investigators to bookmark a moment or interval with notes and create a canonical evidence reference without mutating source media.",
+      "provenance": [
+        "godseye-discussion:cctv-investigation",
+        "standalone-blueprint:investigation-rca-fracas-learn"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["public.evidence_items", "canonical audit"],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-blueprint:investigation-rca-fracas-learn"
+      ],
+      "externalDependencies": [],
+      "gap": "Main has evidence attachments but no replay bookmark contract.",
+      "pr": "SC-06",
+      "acceptance": [
+        "Bookmark records source interval and hash/reference",
+        "Annotation history is append-only and audited"
+      ],
+      "constraints": ["evidence_provenance", "tenant_isolation"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-INV-005",
+      "category": "investigation",
+      "title": "RCA, FRACAS and safety-case handoffs",
+      "requirement": "Attach replay evidence to a failure hypothesis, RCA branch, FRACAS record, corrective action or safety investigation through canonical links.",
+      "provenance": [
+        "godseye-discussion:cctv-investigation",
+        "standalone-blueprint:investigation-rca-fracas-learn"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "FRACAS/RCA agent",
+        "project FRACAS",
+        "public.evidence_items"
+      ],
+      "evidence": [
+        "src/components/FracasAgentWorkbench.tsx",
+        "src/services/fracasAgentService.ts",
+        "src/services/projectFracas.test.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "Canonical workflows exist, but replay evidence cannot yet link into them.",
+      "pr": "SC-06",
+      "acceptance": [
+        "Link preserves tenant and canonical subject",
+        "Evidence does not auto-confirm a hypothesis or close an action"
+      ],
+      "constraints": ["evidence_provenance", "human_approval"],
+      "completion": {
+        "state": "partial",
+        "verifiedBy": ["src/test/fracasRcaAgentContract.test.ts"]
+      }
+    },
+    {
+      "id": "SCX-INV-006",
+      "category": "investigation",
+      "title": "Media chain of custody",
+      "requirement": "Preserve original source, timestamps, integrity hash, access/export history, annotations, classification, retention and every derived clip relationship.",
+      "provenance": [
+        "godseye-discussion:cctv-investigation",
+        "godseye-discussion:safety-intelligence",
+        "standalone-blueprint:investigation-rca-fracas-learn"
+      ],
+      "status": "missing",
+      "canonicalReuse": ["public.evidence_items", "public.audit_events"],
+      "evidence": [
+        "src/services/syncConversation.ts",
+        "supabase/migrations/20260921110000_sync_investigation_v2.sql"
+      ],
+      "prototypeEvidence": [
+        "standalone-blueprint:investigation-rca-fracas-learn"
+      ],
+      "externalDependencies": ["Authorized immutable object storage"],
+      "gap": "Main hashes conversation attachments, but no video chain-of-custody lifecycle is proved.",
+      "pr": "SC-06",
+      "acceptance": [
+        "Export is audited",
+        "Derived clips retain parent hash/reference",
+        "Retention enforcement is tested"
+      ],
+      "constraints": ["evidence_provenance", "privacy"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-INV-007",
+      "category": "investigation",
+      "title": "Evidence caveats",
+      "requirement": "Make missing footage, obstruction, incomplete coverage, clock drift and the rule that video does not prove causality visible in review and exports.",
+      "provenance": [
+        "godseye-discussion:cctv-investigation",
+        "standalone-blueprint:investigation-rca-fracas-learn"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["evidence gaps and confidence"],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-blueprint:investigation-rca-fracas-learn"
+      ],
+      "externalDependencies": [],
+      "gap": "Main has evidence-gap concepts but no media/replay caveat surface.",
+      "pr": "SC-06",
+      "acceptance": [
+        "Caveats are structured, not optional prose",
+        "Exports include source and clock limitations"
+      ],
+      "constraints": ["no_invented_data", "evidence_provenance"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-INV-008",
+      "category": "investigation",
+      "title": "Thermal evidence channel",
+      "requirement": "Synchronize authorized thermal imagery or measurements for overheating bearings, electrical hot spots, refractory loss, steam leaks and hot surfaces without inventing limits or diagnoses.",
+      "provenance": [
+        "godseye-discussion:safety-extensions",
+        "standalone-blueprint:safety-intelligence"
+      ],
+      "status": "external_dependency",
+      "canonicalReuse": [
+        "public.evidence_items",
+        "condition monitoring",
+        "approved model envelopes"
+      ],
+      "evidence": [
+        "src/lib/domain-specialists/engine.ts",
+        "src/test/batteryEnergyProfileContract.test.ts"
+      ],
+      "prototypeEvidence": ["standalone-blueprint:safety-intelligence"],
+      "externalDependencies": [
+        "Calibrated thermal source and approved thresholds"
+      ],
+      "gap": "Main can govern supplied thermal observations but has no synchronized thermal media channel.",
+      "pr": "SC-09",
+      "acceptance": [
+        "Raw measurement, approved limit and interpretation are separate",
+        "Sensor calibration and time quality are visible"
+      ],
+      "constraints": ["no_invented_data", "evidence_provenance"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-INV-009",
+      "category": "investigation",
+      "title": "Acoustic evidence channel",
+      "requirement": "Synchronize authorized acoustic evidence for leaks, arcing, abnormal mechanical noise and pressure release without asserting failure mechanism from sound alone.",
+      "provenance": [
+        "godseye-discussion:safety-extensions",
+        "standalone-blueprint:safety-intelligence"
+      ],
+      "status": "external_dependency",
+      "canonicalReuse": ["public.evidence_items", "condition monitoring"],
+      "evidence": [
+        "supabase/migrations/20260810120000_detectability_matrix.sql"
+      ],
+      "prototypeEvidence": ["standalone-blueprint:safety-intelligence"],
+      "externalDependencies": ["Approved acoustic sensor/media source"],
+      "gap": "Detectability concepts exist; no acoustic replay adapter does.",
+      "pr": "SC-09",
+      "acceptance": [
+        "Observation remains evidence, not diagnosis",
+        "Calibration, time and processing provenance are retained"
+      ],
+      "constraints": ["no_invented_data", "evidence_provenance"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-INV-010",
+      "category": "investigation",
+      "title": "Safety Case Timeline",
+      "requirement": "Structure serious-event evidence as preconditions, trigger, barrier response, human response, escalation or containment, recovery, corrective action, verification and learning.",
+      "provenance": [
+        "godseye-discussion:safety-extensions",
+        "standalone-blueprint:investigation-rca-fracas-learn"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": [
+        "process safety",
+        "recovery",
+        "corrective actions",
+        "learning events"
+      ],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-readme:what-is-playable-now",
+        "standalone-blueprint:investigation-rca-fracas-learn"
+      ],
+      "externalDependencies": [],
+      "gap": "Main has the underlying domains but no synchronized Safety Case Timeline.",
+      "pr": "SC-07",
+      "acceptance": [
+        "Every phase links canonical records and evidence",
+        "Missing phases remain explicit"
+      ],
+      "constraints": ["canonical_identity", "evidence_provenance"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-INV-011",
+      "category": "investigation",
+      "title": "Response-effectiveness replay",
+      "requirement": "Measure detection, acknowledgement, response start, route availability, barrier behavior and delay introduction from sourced timestamps, preserving clock uncertainty.",
+      "provenance": [
+        "godseye-discussion:safety-extensions",
+        "standalone-blueprint:safety-intelligence"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["Safety Case Timeline", "canonical audit"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-blueprint:safety-intelligence"],
+      "externalDependencies": [
+        "Authoritative alarm, response and access sources"
+      ],
+      "gap": "Main does not correlate response events on a replay timeline.",
+      "pr": "SC-10",
+      "acceptance": [
+        "Metrics are not computed across incompatible clocks without uncertainty",
+        "No individual blame or score"
+      ],
+      "constraints": ["clock_integrity", "non_surveillance"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SAFE-001",
+      "category": "safety",
+      "title": "SafetyObservation object",
+      "requirement": "Record a human-, sensor- or camera-originated unsafe-condition observation with time, location, canonical asset/work/permit links, source, evidence, severity, confidence and human disposition.",
+      "provenance": [
+        "godseye-discussion:safety-intelligence",
+        "standalone-blueprint:safety-intelligence"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["public.evidence_items", "canonical risks and work"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-blueprint:safety-intelligence"],
+      "externalDependencies": [],
+      "gap": "Main has safety/event models but no canonical spatial SafetyObservation lifecycle.",
+      "pr": "SC-07",
+      "acceptance": [
+        "Observation cannot encode guilt or automatic verdict",
+        "Disposition is by an authorized human and audited"
+      ],
+      "constraints": [
+        "human_approval",
+        "non_surveillance",
+        "evidence_provenance"
+      ],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SAFE-002",
+      "category": "safety",
+      "title": "Safety observation taxonomy",
+      "requirement": "Support zone intrusion, blocked egress, visible leak, smoke/fire, vehicle conflict, lift conflict, PPE-zone occupancy, fall hazard, housekeeping hazard and uncontrolled-energy indicator as condition types, not verdicts.",
+      "provenance": [
+        "godseye-discussion:safety-intelligence",
+        "standalone-blueprint:safety-intelligence"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["SafetyObservation", "canonical hazards"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-blueprint:safety-intelligence"],
+      "externalDependencies": [
+        "Approved detection source for automated observations"
+      ],
+      "gap": "The taxonomy is not present in main.",
+      "pr": "SC-07",
+      "acceptance": [
+        "Every type has evidence and human disposition states",
+        "PPE occupancy is aggregate and identity-free"
+      ],
+      "constraints": ["non_surveillance", "human_approval"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SAFE-003",
+      "category": "safety",
+      "title": "Hazard verification support",
+      "requirement": "Use relevant authorized cameras and sensors to help humans verify alarms, permit conflicts, gas events, blocked egress, vehicle intrusion or hot-work conditions without replacing certified detection.",
+      "provenance": [
+        "godseye-discussion:safety-intelligence",
+        "standalone-blueprint:safety-intelligence"
+      ],
+      "status": "external_dependency",
+      "canonicalReuse": [
+        "SafetyObservation",
+        "process safety",
+        "permit references"
+      ],
+      "evidence": [
+        "src/components/ProcessSafety.tsx",
+        "src/pages/EmergencyMode.tsx"
+      ],
+      "prototypeEvidence": ["standalone-blueprint:safety-intelligence"],
+      "externalDependencies": ["Certified source systems and customer VMS"],
+      "gap": "Main has safety context but no video/sensor correlation workflow.",
+      "pr": "SC-09",
+      "acceptance": [
+        "Certified systems remain authoritative",
+        "Sync reports evidence and uncertainty, not safe/unsafe verdict"
+      ],
+      "constraints": ["source_authority", "human_approval"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SAFE-004",
+      "category": "safety",
+      "title": "SIMOPS spatial assurance",
+      "requirement": "Compare concurrent canonical work, zones, permits, lifts, isolations and hazards to surface potential spatial conflicts for human review.",
+      "provenance": [
+        "godseye-discussion:safety-intelligence",
+        "standalone-blueprint:safety-intelligence"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "Sync Develop SIMOPS",
+        "canonical work",
+        "process safety",
+        "geospatial features"
+      ],
+      "evidence": [
+        "supabase/migrations/20261220150000_develop_operational_disruption.sql",
+        "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql",
+        "src/components/develop/OperationalDisruptionPanel.tsx"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": ["Authoritative live work and permit locations"],
+      "gap": "Main records SIMOPS basis but does not perform spatial conflict assurance.",
+      "pr": "SC-07",
+      "acceptance": [
+        "Conflict is a review observation",
+        "No work cancellation or permit change occurs automatically"
+      ],
+      "constraints": ["human_approval", "no_invented_data"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SAFE-005",
+      "category": "safety",
+      "title": "Permit-to-work spatial assurance",
+      "requirement": "Compare authoritative permit zone, time and conditions with sourced work location and current hazards, flagging mismatch or changed boundary conditions for human review.",
+      "provenance": [
+        "godseye-discussion:safety-extensions",
+        "standalone-blueprint:safety-intelligence"
+      ],
+      "status": "external_dependency",
+      "canonicalReuse": [
+        "permit system references",
+        "geospatial features",
+        "canonical work"
+      ],
+      "evidence": ["src/pages/EmergencyMode.tsx"],
+      "prototypeEvidence": ["standalone-blueprint:safety-intelligence"],
+      "externalDependencies": ["Customer permit-to-work system"],
+      "gap": "Main explicitly points to the permit system of record but has no live connector or spatial comparison.",
+      "pr": "SC-09",
+      "acceptance": [
+        "Permit source remains authoritative",
+        "Sync cannot cancel or extend permits",
+        "Changed weather boundary is evidence-backed"
+      ],
+      "constraints": ["source_authority", "human_approval"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SAFE-006",
+      "category": "safety",
+      "title": "Preventive and mitigative barrier assurance",
+      "requirement": "Show expected preventive and mitigative barriers, performance standards, test state, impairments, common-cause dependencies and current work/operating context.",
+      "provenance": [
+        "godseye-discussion:safety-extensions",
+        "standalone-blueprint:safety-intelligence"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "public.safety_critical_elements",
+        "public.hazard_barriers",
+        "public.barrier_impairments"
+      ],
+      "evidence": [
+        "supabase/migrations/20260818140000_process_safety.sql",
+        "supabase/migrations/20261219091000_process_safety_foundations.sql",
+        "src/lib/process-safety/index.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "Barrier assurance is canonical; spatial Context projection and source correlation are absent.",
+      "pr": "SC-07",
+      "acceptance": [
+        "Untestable barriers are not counted",
+        "Impaired/common-cause states are visible",
+        "No deviation self-approves"
+      ],
+      "constraints": ["human_approval", "evidence_provenance"],
+      "completion": {
+        "state": "partial",
+        "verifiedBy": ["src/lib/process-safety/process-safety.test.ts"]
+      }
+    },
+    {
+      "id": "SCX-SAFE-007",
+      "category": "safety",
+      "title": "Barrier degradation events",
+      "requirement": "Raise an evidence-backed barrier-degradation context event when a required safeguard becomes unavailable instead of waiting for an incident.",
+      "provenance": ["godseye-discussion:safety-extensions"],
+      "status": "existing_foundation",
+      "canonicalReuse": ["public.barrier_impairments", "ContextEvent"],
+      "evidence": [
+        "supabase/migrations/20260818140000_process_safety.sql",
+        "src/components/ProcessSafetyActivation.tsx"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "Barrier impairments exist, but they are not projected as spatial Context events.",
+      "pr": "SC-07",
+      "acceptance": [
+        "Event links canonical barrier and impairment",
+        "Disposition follows existing independent approval path"
+      ],
+      "constraints": ["human_approval", "canonical_identity"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SAFE-008",
+      "category": "safety",
+      "title": "Temporary-condition tracking",
+      "requirement": "Represent bypassed protection, temporary hose, removed guard, scaffold, temporary power, excavation, disabled alarm and temporary procedure with location, owner, reason, start, expiry, risk and affected barriers.",
+      "provenance": [
+        "godseye-discussion:safety-extensions",
+        "standalone-blueprint:safety-intelligence"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "public.temporary_modifications",
+        "canonical risks",
+        "geospatial features"
+      ],
+      "evidence": [
+        "src/test/technicalDebtContract.test.ts",
+        "src/components/ProcessSafety.tsx"
+      ],
+      "prototypeEvidence": ["standalone-blueprint:safety-intelligence"],
+      "externalDependencies": [],
+      "gap": "Main has temporary-modification governance but not the complete spatial condition taxonomy and verification workflow.",
+      "pr": "SC-07",
+      "acceptance": [
+        "Owner and expiry are required",
+        "Camera verification remains supporting evidence",
+        "Clearance is human-recorded"
+      ],
+      "constraints": ["human_approval", "evidence_provenance"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SAFE-009",
+      "category": "safety",
+      "title": "Potential near-miss drafting",
+      "requirement": "When sourced signals such as zone overlap and braking align, create a draft potential near miss for review rather than declaring an incident.",
+      "provenance": [
+        "godseye-discussion:safety-extensions",
+        "standalone-blueprint:safety-intelligence"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": [
+        "SafetyObservation",
+        "canonical process safety events"
+      ],
+      "evidence": ["supabase/migrations/20260818140000_process_safety.sql"],
+      "prototypeEvidence": ["standalone-blueprint:safety-intelligence"],
+      "externalDependencies": ["Authorized positioning and event sources"],
+      "gap": "Main supports process safety events but not spatial multi-signal draft observations.",
+      "pr": "SC-07",
+      "acceptance": [
+        "Output is explicitly potential/review-required",
+        "No individual identity or blame score"
+      ],
+      "constraints": ["human_approval", "non_surveillance"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SAFE-010",
+      "category": "safety",
+      "title": "Dynamic exclusion and lifting zones",
+      "requirement": "Represent crane position, lift path, exclusion zone, nearby active work, crew zones and supplied wind limits for human assurance during lifting operations.",
+      "provenance": [
+        "godseye-discussion:safety-intelligence",
+        "godseye-discussion:safety-extensions",
+        "standalone-blueprint:safety-intelligence"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["Geofence", "canonical work and permits"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-blueprint:safety-intelligence"],
+      "externalDependencies": ["Approved lift plan, crane and weather sources"],
+      "gap": "Main has generic hazard polygons, not a governed lift-path workflow.",
+      "pr": "SC-07",
+      "acceptance": [
+        "Limits come only from approved lift evidence",
+        "Conflict is flagged for human authority"
+      ],
+      "constraints": ["no_invented_data", "human_approval"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SAFE-011",
+      "category": "safety",
+      "title": "Confined-space context",
+      "requirement": "Bring together authoritative entry permit, atmospheric readings, attendant state, communications, rescue readiness and nearby conflicting work without replacing certified gas or permit systems.",
+      "provenance": [
+        "godseye-discussion:safety-extensions",
+        "standalone-blueprint:safety-intelligence"
+      ],
+      "status": "external_dependency",
+      "canonicalReuse": [
+        "canonical competency/work context",
+        "SafetyObservation"
+      ],
+      "evidence": [
+        "src/lib/human-factors/human-factors.test.ts",
+        "src/lib/asset-onboarding.ts"
+      ],
+      "prototypeEvidence": ["standalone-blueprint:safety-intelligence"],
+      "externalDependencies": [
+        "Permit, gas-monitoring, access and rescue-readiness systems"
+      ],
+      "gap": "Main models confined-space needs but has no live Context aggregation.",
+      "pr": "SC-09",
+      "acceptance": [
+        "Certified sources remain authoritative",
+        "Missing readings or readiness are not inferred"
+      ],
+      "constraints": ["source_authority", "human_approval"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SAFE-012",
+      "category": "safety",
+      "title": "Emergency response awareness",
+      "requirement": "Combine smoke/fire confirmation, evacuation-route blockage, muster occupancy, road/access, responder routing, plume direction and asset shutdown state as supporting awareness.",
+      "provenance": [
+        "godseye-discussion:safety-intelligence",
+        "godseye-discussion:safety-extensions",
+        "standalone-blueprint:safety-intelligence"
+      ],
+      "status": "external_dependency",
+      "canonicalReuse": [
+        "Emergency Mode",
+        "geospatial context",
+        "canonical asset state"
+      ],
+      "evidence": [
+        "src/pages/EmergencyMode.tsx",
+        "supabase/migrations/20261219380000_emergency_restoration_command.sql"
+      ],
+      "prototypeEvidence": ["standalone-blueprint:safety-intelligence"],
+      "externalDependencies": [
+        "Certified emergency, access, muster, weather and shutdown sources"
+      ],
+      "gap": "Main has governed emergency surfaces but not the full spatial awareness aggregation.",
+      "pr": "SC-09",
+      "acceptance": [
+        "Sync supports but does not replace certified emergency systems",
+        "Routing and plume claims show source and time"
+      ],
+      "constraints": ["source_authority", "human_approval"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SAFE-013",
+      "category": "safety",
+      "title": "Recurring unsafe-condition analytics",
+      "requirement": "Find repeated zone conflicts, blocked access, permit/location mismatches, workarounds, congestion, crane conflicts, housekeeping issues and shift-transition ambiguity as system conditions, not worker blame.",
+      "provenance": [
+        "godseye-discussion:safety-intelligence",
+        "godseye-discussion:safety-extensions"
+      ],
+      "status": "missing",
+      "canonicalReuse": ["SafetyObservation", "canonical learning events"],
+      "evidence": [],
+      "prototypeEvidence": [],
+      "externalDependencies": ["Sufficient governed observation history"],
+      "gap": "Neither main nor the prototype ledger proves the full recurring-pattern capability.",
+      "pr": "SC-10",
+      "acceptance": [
+        "Analytics are aggregate and identity-free",
+        "Method, completeness and uncertainty are documented",
+        "Findings enter human review"
+      ],
+      "constraints": ["non_surveillance", "no_invented_data"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SAFE-014",
+      "category": "safety",
+      "title": "Leading-indicator views",
+      "requirement": "Measure repeated condition patterns and near-miss signals as leading indicators while keeping injuries and incidents distinct and avoiding fabricated rates.",
+      "provenance": [
+        "godseye-discussion:safety-intelligence",
+        "standalone-blueprint:safety-intelligence"
+      ],
+      "status": "missing",
+      "canonicalReuse": ["canonical KPIs", "SafetyObservation"],
+      "evidence": [
+        "supabase/migrations/20261005090200_refuse_unsourced_kpis_and_dead_counters.sql"
+      ],
+      "prototypeEvidence": ["standalone-blueprint:safety-intelligence"],
+      "externalDependencies": [
+        "Governed observation denominator and coverage evidence"
+      ],
+      "gap": "KPI honesty controls exist, but Context leading indicators do not.",
+      "pr": "SC-10",
+      "acceptance": [
+        "Every rate has numerator, denominator, period and source coverage",
+        "Unavailable is not zero"
+      ],
+      "constraints": ["no_invented_data", "non_surveillance"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SAFE-015",
+      "category": "safety",
+      "title": "HOP system-condition framing",
+      "requirement": "Frame investigation and learning around system conditions that recreate exposure rather than assigning individual blame.",
+      "provenance": [
+        "godseye-discussion:safety-intelligence",
+        "godseye-discussion:safety-extensions",
+        "standalone-blueprint:safety-intelligence"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["canonical learning events and RCA"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-blueprint:safety-intelligence"],
+      "externalDependencies": ["Customer HOP policy and training"],
+      "gap": "The governing framing is not encoded in a main Context workflow.",
+      "pr": "SC-07",
+      "acceptance": [
+        "Templates ask about conditions, barriers and work system",
+        "No worker score or automated culpability field"
+      ],
+      "constraints": ["non_surveillance"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-SAFE-016",
+      "category": "safety",
+      "title": "Certified systems remain authoritative",
+      "requirement": "Gas detection, emergency, permit-to-work and other certified safety systems remain authoritative; Sync aggregates evidence and supports human decisions only.",
+      "provenance": [
+        "godseye-discussion:safety-intelligence",
+        "godseye-discussion:safety-extensions",
+        "standalone-readme:security-and-governance"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "Safety Gatekeeper",
+        "Emergency Mode",
+        "process safety"
+      ],
+      "evidence": [
+        "src/components/SafetyGatekeeperPanel.tsx",
+        "src/pages/EmergencyMode.tsx",
+        "supabase/migrations/20260818140000_process_safety.sql"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": ["Certified customer systems"],
+      "gap": "The principle exists; every future Context connector must enforce source authority and abstention.",
+      "pr": "SC-07",
+      "acceptance": [
+        "UI names authoritative source",
+        "Sync failures cannot suppress certified alarms or controls"
+      ],
+      "constraints": ["source_authority", "human_approval"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-PLAT-001",
+      "category": "production-platform",
+      "title": "SSO and identity federation",
+      "requirement": "Require production identity federation before shared customer Context access.",
+      "provenance": [
+        "godseye-discussion:fork-strategy",
+        "standalone-blueprint:production-platform-boundary"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": ["existing authentication plane"],
+      "evidence": [
+        "src/components/AppShell.tsx",
+        "supabase/functions/sync-realtime-session/index.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": ["Customer identity provider configuration"],
+      "gap": "Base authentication exists; customer SSO production verification is environment-specific.",
+      "pr": "SC-09",
+      "acceptance": [
+        "Customer IdP login verified in production",
+        "User and organization mapping audited"
+      ],
+      "constraints": ["tenant_isolation"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-PLAT-002",
+      "category": "production-platform",
+      "title": "Server-authoritative RBAC and ABAC",
+      "requirement": "Enforce role, source, evidence sensitivity, media classification and task scope server-side; hiding a layer in UI is not authorization.",
+      "provenance": [
+        "godseye-discussion:production-hardening",
+        "standalone-blueprint:production-platform-boundary"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": ["existing RBAC/RLS", "risk-sensitive evidence policy"],
+      "evidence": [
+        "AGENTS.md",
+        "src/test/geospatialOperationalIntelligenceContract.test.ts",
+        "supabase/migrations/20260921110102_iso31000_enterprise_extensions.sql"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "Media/source-level ABAC is not implemented because Context media does not yet exist.",
+      "pr": "SC-06",
+      "acceptance": [
+        "Every query and media URL is authorization-checked",
+        "Foreign tenant and unauthorized source/class tests fail closed"
+      ],
+      "constraints": ["tenant_isolation", "privacy"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-PLAT-003",
+      "category": "production-platform",
+      "title": "Immutable audit and evidence logs",
+      "requirement": "Audit Context ingestion, verification, access, tool calls, exports, annotations, decisions and handoffs using canonical audit/evidence records.",
+      "provenance": [
+        "godseye-discussion:production-hardening",
+        "standalone-blueprint:production-platform-boundary"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": ["public.audit_events", "public.evidence_items"],
+      "evidence": [
+        "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql",
+        "AGENTS.md"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "Geospatial records are audited, but Context media/access/export/tool events are not yet modeled.",
+      "pr": "SC-06",
+      "acceptance": [
+        "No parallel audit store",
+        "Audit includes tenant, actor, canonical subjects and correlation ID"
+      ],
+      "constraints": ["evidence_provenance", "no_parallel_store"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-PLAT-004",
+      "category": "production-platform",
+      "title": "Server-side secrets and connectors",
+      "requirement": "Keep customer connector credentials, enterprise data access and permanent AI/provider keys server-side; browser-safe public tokens are explicitly classified.",
+      "provenance": [
+        "godseye-discussion:fork-strategy",
+        "standalone-readme:security-and-governance",
+        "standalone-blueprint:production-platform-boundary"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": ["edge-function boundary", "server secret management"],
+      "evidence": [
+        "config/edge-function-boundary.json",
+        "supabase/functions/sync-realtime-session/index.ts",
+        "src/lib/presence/sync-realtime-contract.test.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [
+        "Production secret store and provider credentials"
+      ],
+      "gap": "The boundary is established, but future providers need individual verification.",
+      "pr": "SC-05",
+      "acceptance": [
+        "Secret scanning finds no permanent keys in client bundle",
+        "Connector functions authenticate tenant and apply rate/egress controls"
+      ],
+      "constraints": ["tenant_isolation", "privacy"],
+      "completion": {
+        "state": "partial",
+        "verifiedBy": ["src/lib/presence/sync-realtime-contract.test.ts"]
+      }
+    },
+    {
+      "id": "SCX-PLAT-005",
+      "category": "production-platform",
+      "title": "PostGIS spatial and temporal queries",
+      "requirement": "Use indexed server-side spatial/temporal queries for geofences, proximity, exposure, camera FOV, routes and dependencies at production scale.",
+      "provenance": [
+        "godseye-discussion:fork-strategy",
+        "standalone-blueprint:production-platform-boundary"
+      ],
+      "status": "missing",
+      "canonicalReuse": [
+        "public.geospatial_features",
+        "tenant-scoped database"
+      ],
+      "evidence": [
+        "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql"
+      ],
+      "prototypeEvidence": [
+        "standalone-blueprint:production-platform-boundary"
+      ],
+      "externalDependencies": ["PostGIS extension and production capacity"],
+      "gap": "Current governed geometry is GeoJSON in jsonb, not indexed PostGIS geometry.",
+      "pr": "SC-09",
+      "acceptance": [
+        "Tenant predicates are included in spatial queries",
+        "Accuracy/CRS and performance are verified",
+        "Migration preserves source geometry provenance"
+      ],
+      "constraints": ["tenant_isolation", "no_invented_data"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-PLAT-006",
+      "category": "production-platform",
+      "title": "Durable event streaming and telemetry",
+      "requirement": "Support tenant-scoped event streaming, durable telemetry history and ordered replay while preventing demo generators from overwriting connected sources.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-blueprint:production-platform-boundary"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": ["Supabase Realtime", "public.sensors"],
+      "evidence": [
+        "supabase/migrations/00000000000013_realtime_operating_picture.sql",
+        "src/hooks/useRealtimeUpdates.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": ["Production streaming and storage capacity"],
+      "gap": "Realtime publication and latest values exist; durable high-volume Context replay does not.",
+      "pr": "SC-09",
+      "acceptance": [
+        "Ordering, duplication and backpressure tests",
+        "Historian connection disables simulation per tenant"
+      ],
+      "constraints": ["tenant_isolation", "source_authority"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-PLAT-007",
+      "category": "production-platform",
+      "title": "Replay indexing and retention",
+      "requirement": "Index replay events and media references by tenant, canonical subject, source and time while enforcing legal holds, deletion and retention policy.",
+      "provenance": [
+        "standalone-blueprint:production-platform-boundary",
+        "godseye-discussion:cctv-investigation"
+      ],
+      "status": "missing",
+      "canonicalReuse": ["public.evidence_items", "tenant retention policy"],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-blueprint:production-platform-boundary"
+      ],
+      "externalDependencies": [
+        "Approved storage, retention and legal-hold policy"
+      ],
+      "gap": "No Context replay index exists in main.",
+      "pr": "SC-10",
+      "acceptance": [
+        "Retention deletion and legal hold are tested",
+        "Index never bypasses evidence/media authorization"
+      ],
+      "constraints": ["privacy", "tenant_isolation"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-PLAT-008",
+      "category": "production-platform",
+      "title": "Offline, stale and degraded behavior",
+      "requirement": "Define safe behavior for network loss, partial source failure, stale caches and reconnect, including last-good timestamps and operations that must be disabled.",
+      "provenance": [
+        "godseye-discussion:fork-strategy",
+        "standalone-blueprint:production-platform-boundary"
+      ],
+      "status": "missing",
+      "canonicalReuse": ["SourceHealth", "existing network-first policy"],
+      "evidence": ["docs/enterprise-readiness/capability-register.md"],
+      "prototypeEvidence": [
+        "standalone-blueprint:production-platform-boundary"
+      ],
+      "externalDependencies": [],
+      "gap": "Main deliberately excludes offline/PWA operation and has no Context degraded-mode contract.",
+      "pr": "SC-10",
+      "acceptance": [
+        "Failure matrix covers every source class",
+        "Stale data cannot support new verified assessment or safety claim"
+      ],
+      "constraints": ["source_health", "no_invented_data"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-PLAT-009",
+      "category": "production-platform",
+      "title": "Customer connector portfolio",
+      "requirement": "Provide governed, tenant-scoped CMMS/EAM, historian, fleet, GIS, VMS, permit, access-control, project-control and emergency-system adapters as independent bounded slices.",
+      "provenance": [
+        "godseye-discussion:fork-strategy",
+        "godseye-discussion:demo-feeds",
+        "standalone-blueprint:production-platform-boundary"
+      ],
+      "status": "external_dependency",
+      "canonicalReuse": [
+        "existing connector framework",
+        "ContextSourceAdapter"
+      ],
+      "evidence": [
+        "src/pages/IntegrationsPage.tsx",
+        "supabase/migrations/20261212090400_plant_historian_read_adapter.sql"
+      ],
+      "prototypeEvidence": [
+        "standalone-blueprint:production-platform-boundary"
+      ],
+      "externalDependencies": [
+        "Customer systems, credentials, contracts and test environments"
+      ],
+      "gap": "Some connector foundations exist; the complete portfolio and Context conformance do not.",
+      "pr": "SC-09",
+      "acceptance": [
+        "Each connector ships separately with conformance, tenancy, health and provenance tests",
+        "No broad database credentials reach the browser"
+      ],
+      "constraints": ["tenant_isolation", "source_authority"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-PLAT-010",
+      "category": "production-platform",
+      "title": "Privacy, labor and legal approvals",
+      "requirement": "Obtain documented privacy, labor-relations, legal, retention and data-provider approval before production video, location or worker-zone use.",
+      "provenance": [
+        "godseye-discussion:cctv-investigation",
+        "godseye-discussion:safety-intelligence",
+        "standalone-blueprint:production-platform-boundary"
+      ],
+      "status": "external_dependency",
+      "canonicalReuse": ["compliance and vendor-governance evidence"],
+      "evidence": [
+        "docs/compliance/policies/07-data-management-policy.md",
+        "docs/compliance/policies/08-acceptable-use-hr-policy.md"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [
+        "Customer privacy office",
+        "Labor relations",
+        "Legal counsel",
+        "Data providers"
+      ],
+      "gap": "General policies exist; deployment-specific approvals cannot be proved in source.",
+      "pr": "SC-10",
+      "acceptance": [
+        "Approval artifacts name purpose, sources, users, retention and prohibited uses",
+        "Production flags remain off until approval"
+      ],
+      "constraints": ["privacy", "non_surveillance", "licensing"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-PLAT-011",
+      "category": "production-platform",
+      "title": "Source conflict handling",
+      "requirement": "Preserve conflicting source observations side by side with authority, time and quality; do not silently choose or merge them into false certainty.",
+      "provenance": [
+        "godseye-discussion:demo-feeds",
+        "standalone-blueprint:source-and-connector-governance"
+      ],
+      "status": "missing",
+      "canonicalReuse": ["SourceHealth", "public.evidence_items"],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-blueprint:source-and-connector-governance"
+      ],
+      "externalDependencies": [],
+      "gap": "Main lacks a generic Context conflict-resolution workflow.",
+      "pr": "SC-10",
+      "acceptance": [
+        "Conflict is explicit and audited",
+        "Resolution requires stated policy or human disposition"
+      ],
+      "constraints": ["no_invented_data", "evidence_provenance"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-PLAT-012",
+      "category": "production-platform",
+      "title": "Production verification and rollback",
+      "requirement": "Every Context slice ships with unit/contract tests, tenant-negative tests, browser journey, provider/degraded smoke, deployment evidence and a reversible rollback plan.",
+      "provenance": [
+        "standalone-readme:run-locally",
+        "standalone-blueprint:upstream-maintenance",
+        "AGENTS.md:definition-of-done"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": ["CI and deployment workflows"],
+      "evidence": [
+        "AGENTS.md",
+        ".github/workflows/ci.yml",
+        ".github/workflows/deploy-migrations.yml"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [
+        "Production-like provider/customer test environment"
+      ],
+      "gap": "The delivery pattern exists; no Context implementation slice has completed it in main.",
+      "pr": "SC-10",
+      "acceptance": [
+        "Required gates pass on the exact release commit",
+        "Production smoke verifies source, tenant, approval and degraded behavior",
+        "Rollback is exercised or evidenced"
+      ],
+      "constraints": ["tenant_isolation", "human_approval"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-GOV-016",
+      "category": "governance",
+      "title": "No retained tactical Global Intelligence workspace",
+      "requirement": "Record the prototype's retained Global Intelligence workspace as prototype provenance only; main must not make military/conflict HUDs or tactical feeds an active or default product surface.",
+      "provenance": [
+        "standalone-readme:what-is-playable-now",
+        "standalone-blueprint:experience-and-spatial-shell",
+        "godseye-discussion:fork-strategy"
+      ],
+      "status": "prototype_only",
+      "canonicalReuse": ["industrial AppShell and feature controls"],
+      "evidence": [],
+      "prototypeEvidence": [
+        "standalone-readme:what-is-playable-now",
+        "standalone-blueprint:experience-and-spatial-shell"
+      ],
+      "externalDependencies": [],
+      "gap": "The prototype deliberately retained a full upstream workspace, which conflicts with the governed main-product boundary and must not be copied.",
+      "pr": "SC-00",
+      "acceptance": [
+        "Main contains no active tactical workspace or military/conflict default",
+        "Future upstream-derived work has a denylist regression test"
+      ],
+      "constraints": ["non_surveillance"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-GOV-017",
+      "category": "governance",
+      "title": "No source-code upstream sync obligation",
+      "requirement": "Because this integration contract imports no God's Eye code, main has no upstream merge obligation; any later third-party code adoption requires a fresh architecture, license, security and provenance review.",
+      "provenance": [
+        "standalone-readme:upstream-sync",
+        "godseye-discussion:fork-strategy"
+      ],
+      "status": "missing",
+      "canonicalReuse": ["open-source policy and inventory"],
+      "evidence": [
+        "docs/investor-diligence/open-source-policy.md",
+        "docs/investor-diligence/open-source-inventory.json"
+      ],
+      "prototypeEvidence": ["standalone-readme:upstream-sync"],
+      "externalDependencies": [],
+      "gap": "No upstream code is in this PR, so the prototype's merge procedure is intentionally not applicable.",
+      "pr": "SC-00",
+      "acceptance": [
+        "Ledger and docs state no source was imported",
+        "A future adoption cannot bypass dependency/license review"
+      ],
+      "constraints": ["licensing"],
+      "completion": {
+        "state": "partial",
+        "verifiedBy": ["src/test/syncContextCapabilityLedger.test.ts"]
+      }
+    },
+    {
+      "id": "SCX-SRC-016",
+      "category": "external-source",
+      "title": "Other inherited providers remain disabled pending purpose review",
+      "requirement": "Do not enable inherited WFP, CelesTrak, Google Maps, YouTube, Guardian or similar feeds merely because the prototype or upstream supports them; each needs an industrial purpose, terms decision and bounded adapter.",
+      "provenance": [
+        "godseye-discussion:fork-strategy",
+        "godseye-discussion:demo-feeds",
+        "standalone-readme:licensing-and-data-terms"
+      ],
+      "status": "external_dependency",
+      "canonicalReuse": ["Source rights registry", "ContextSourceAdapter"],
+      "evidence": [],
+      "prototypeEvidence": ["standalone-readme:licensing-and-data-terms"],
+      "externalDependencies": [
+        "Provider terms",
+        "Approved industrial purpose",
+        "Legal review"
+      ],
+      "gap": "No approved main-repository Context source entries exist for these inherited providers.",
+      "pr": "SC-05",
+      "acceptance": [
+        "Disabled is the default",
+        "Each enabled source has its own reviewed purpose and rights record"
+      ],
+      "constraints": ["licensing", "source_authority"],
+      "completion": { "state": "not_started", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-DEMO-010",
+      "category": "demonstration",
+      "title": "Explore demo or connect my data onboarding",
+      "requirement": "Offer an honest entry choice between immediate synthetic demonstration data and a governed customer-data connection flow, with no implication that unconnected sources are live.",
+      "provenance": ["godseye-discussion:demo-feeds"],
+      "status": "missing",
+      "canonicalReuse": [
+        "existing onboarding and integrations pages",
+        "Source class contract"
+      ],
+      "evidence": [
+        "src/pages/SetupWizard.tsx",
+        "src/pages/IntegrationsPage.tsx"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "Main has onboarding and integrations but not this Context-specific bifurcation.",
+      "pr": "SC-04",
+      "acceptance": [
+        "Demo path shows persistent synthetic disclosure",
+        "Connect path uses governed integrations and remains not connected until verified"
+      ],
+      "constraints": ["no_invented_data", "source_authority"],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    },
+    {
+      "id": "SCX-DEC-001",
+      "category": "decision-case",
+      "title": "Spatial Decision Case draft",
+      "requirement": "Create a canonical Decision Case draft from selected spatial context with separate observed, simulated and inferred evidence, named gaps, confidence and required approver; never approve it from the map.",
+      "provenance": [
+        "godseye-discussion:industrial-look-and-feel",
+        "godseye-discussion:demo-feeds",
+        "standalone-blueprint:industrial-operating-model"
+      ],
+      "status": "existing_foundation",
+      "canonicalReuse": [
+        "Decision Case workspace",
+        "public.evidence_items",
+        "canonical approval plane"
+      ],
+      "evidence": [
+        "src/pages/DecisionCaseWorkspacePage.tsx",
+        "src/lib/decision-case.ts",
+        "src/services/decisionCaseService.ts"
+      ],
+      "prototypeEvidence": [],
+      "externalDependencies": [],
+      "gap": "Canonical Decision Cases exist, but no governed spatial-context draft handoff does.",
+      "pr": "SC-02",
+      "acceptance": [
+        "Draft carries canonical object/event/evidence references",
+        "Source classes remain explicit",
+        "Approval requires authorized visible action"
+      ],
+      "constraints": [
+        "human_approval",
+        "evidence_provenance",
+        "no_parallel_store"
+      ],
+      "completion": { "state": "partial", "verifiedBy": [] }
+    }
+  ]
+}
