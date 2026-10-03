@@ -459,6 +459,9 @@ verify_jwt = true
 [functions.sync-realtime-session]
 verify_jwt = true
 
+[functions.decision-case-invite]
+verify_jwt = true
+
 # Microsoft purchase resolution is a public SaaS landing flow and modern
 # publishable keys are not JWTs. This reviewed exception rate-limits resolution
 # server-side; activation/status independently verify the Supabase user and

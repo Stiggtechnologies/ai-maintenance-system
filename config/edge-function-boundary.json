@@ -8,6 +8,7 @@
     "calculation-service",
     "cmms-read-pull",
     "data-lake-read-pull",
+    "decision-case-invite",
     "domain-specialist-run",
     "edge-evidence-ingest",
     "engineering-model-supply-chain",

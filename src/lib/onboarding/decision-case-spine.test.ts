@@ -10,7 +10,9 @@ import {
   activeSpineStage,
   applyDisposition,
   applyInvite,
+  applyInvitationDelivery,
   applyVerificationPlan,
+  attachGovernedSpineEvidence,
   attachSpineEvidence,
   buildProofSummary,
   buildSpineDecisionCase,
@@ -22,6 +24,7 @@ import {
   interpretConnectionAttempt,
   inviteCopy,
   lineageFromCase,
+  nextWalkthroughAction,
   noConnectedDataHonesty,
   outcomeAttribution,
   policyAdvisory,
@@ -135,7 +138,7 @@ describe("P0.2 Decision Case spine", () => {
     );
   });
 
-  it("requires rationale, schedules verification, and invites required authority", () => {
+  it("requires rationale, schedules verification, and separates a required person from delivery", () => {
     const built = buildSpineDecisionCase({
       question: "Can this mill run to the next planned outage window?",
       intent: "coordinate",
@@ -150,6 +153,10 @@ describe("P0.2 Decision Case spine", () => {
       authority: built.authorityRole,
     });
     expect(invited.approvals[0]?.name).toBe("Jordan Lee");
+    expect(invited.invitation?.status).toBe("recorded_only");
+    expect(invited.messages.at(-1)?.text).toMatch(
+      /not an invitation delivery/i,
+    );
     const scheduled = applyVerificationPlan(built, {
       question: "How will we know this worked?",
       expected: "No repeat trip before the outage date",
@@ -189,10 +196,35 @@ describe("P0.2 Decision Case spine", () => {
       scheduledFor: "2026-09-14",
       effectiveness: "",
     });
-    const invited = applyInvite(verified, {
+    const recorded = applyInvite(verified, {
       name: "Kai",
       email: "kai@example.com",
       authority: verified.authorityRole,
+    });
+    const notReady = readinessFromCase(recorded, {
+      saved: true,
+      disposition: "need_more_evidence",
+      verification: {
+        question: "How will we know this worked?",
+        expected: "Named vibration set attached before the next review",
+        actual: "",
+        evidence: "",
+        scheduledFor: "2026-09-14",
+        effectiveness: "",
+      },
+      manualEvidencePath: true,
+    });
+    expect(
+      notReady.gates.find((gate) => gate.id === "invitation_delivery")?.met,
+    ).toBe(false);
+    const invited = applyInvitationDelivery(recorded, {
+      name: "Kai",
+      email: "kai@example.com",
+      status: "submitted",
+      detail: "Submitted to the configured email provider.",
+      invitedUserId: "11111111-1111-4111-8111-111111111112",
+      submittedAt: "2026-10-02T12:00:00.000Z",
+      lastCheckedAt: "2026-10-02T12:00:00.000Z",
     });
     const ready = readinessFromCase(invited, {
       saved: true,
@@ -205,11 +237,60 @@ describe("P0.2 Decision Case spine", () => {
         scheduledFor: "2026-09-14",
         effectiveness: "",
       },
-      invited: true,
       manualEvidencePath: true,
     });
     expect(ready.metCount).toBe(ready.total);
+    expect(invited.messages.at(-1)?.text).toMatch(/not yet confirmed/i);
     expect(lineageFromCase(built).honesty).toBe(noConnectedDataHonesty());
+  });
+
+  it("attaches governed receipts without treating quarantine or ingestion as approval", () => {
+    const built = buildSpineDecisionCase({ question, intent: "solve" });
+    const quarantined = attachGovernedSpineEvidence(
+      built,
+      "documents",
+      "Uploaded inspection procedure revision.",
+      {
+        sourceId: "decision-case-doc-1",
+        ingestionStatus: "indexed",
+        securityStatus: "quarantined",
+        chunksCreated: 2,
+      },
+    );
+    expect(quarantined.evidence[0]?.quality).toBe("conflict");
+    expect(quarantined.evidence[0]?.sourceReceipt?.securityStatus).toBe(
+      "quarantined",
+    );
+    expect(
+      quarantined.evidence.some((item) => item.id === "missing-documents"),
+    ).toBe(true);
+    expect(quarantined.messages.at(-1)?.text).toMatch(/not treated as usable/i);
+
+    const cleared = attachGovernedSpineEvidence(
+      built,
+      "documents",
+      "Uploaded inspection procedure revision.",
+      {
+        sourceId: "decision-case-doc-2",
+        ingestionStatus: "indexed",
+        securityStatus: "cleared",
+        chunksCreated: 2,
+      },
+    );
+    expect(cleared.evidence[0]?.quality).toBe("medium");
+    expect(
+      cleared.evidence.some((item) => item.id === "missing-documents"),
+    ).toBe(false);
+    expect(cleared.recommendationDetail).toMatch(/human review/i);
+  });
+
+  it("surfaces the first unmet walkthrough gate as the next action", () => {
+    const built = buildSpineDecisionCase({ question, intent: "solve" });
+    const action = nextWalkthroughAction(
+      readinessFromCase(built, { saved: false }),
+    );
+    expect(action.gateId).toBe("decision_loop");
+    expect(action.targetId).toBe("spine-disposition");
   });
 
   it("advances the visible stage when evidence is attached and names unknowns", () => {
