@@ -90,7 +90,13 @@ declare
   v_run public.connector_runs%rowtype;
   v_row jsonb;
   v_receipt jsonb;
-  v_canonical_rows jsonb;
+  v_canonical_row jsonb;
+  v_result jsonb;
+  v_external_id text;
+  v_read int:=0;
+  v_accepted int:=0;
+  v_duplicate int:=0;
+  v_rejected int:=0;
 begin
   if v_org is null or not public.recovery_role_allowed(
     array['planner','maintenance_manager','reliability_engineer','admin','ai_admin']
@@ -146,20 +152,79 @@ begin
     end if;
   end loop;
 
-  -- The canonical validator intentionally accepts scalar values only. Encode
-  -- the already verified receipt as a scalar for that call; the staging
-  -- trigger restores the exact object before the append occurs.
-  select coalesce(
-    jsonb_agg(
-      jsonb_set(value,'{_sync_source}',to_jsonb((value->'_sync_source')::text),true)
-      order by ordinal
-    ),
-    '[]'::jsonb
-  ) into v_canonical_rows
-  from jsonb_array_elements(p_rows) with ordinality rows(value,ordinal);
-
   perform set_config('app.data_lake_ingest','granted',true);
-  return public.ingest_recovery_activation_batch(p_run_id,v_canonical_rows);
+
+  -- Classify only an exact business-payload replay as a duplicate. Transport
+  -- receipts vary between files and runs, so they are deliberately excluded
+  -- from the comparison; a changed source row must still reach the canonical
+  -- upsert path. Process rows in order so a repeated row in the same batch is
+  -- also idempotent. The canonical validator accepts scalar values only, so
+  -- encode the already verified receipt for that call; the staging trigger
+  -- restores the exact object before each append.
+  for v_row in select value from jsonb_array_elements(p_rows) loop
+    v_external_id:=nullif(trim(v_row->>'external_id'),'');
+    v_canonical_row:=jsonb_set(
+      v_row,
+      '{_sync_source}',
+      to_jsonb((v_row->'_sync_source')::text),
+      true
+    );
+
+    if v_external_id is not null then
+      perform pg_advisory_xact_lock(
+        hashtextextended(
+          v_org::text||':'||v_run.connector_id::text||':'||
+          v_run.entity_type||':'||v_external_id,
+          0
+        )
+      );
+    end if;
+
+    if v_external_id is not null and exists(
+      select 1
+      from public.ingest_staging s
+      where s.organization_id=v_org
+        and s.connector_id=v_run.connector_id
+        and s.entity_type=v_run.entity_type
+        and s.external_id=v_external_id
+        and s.status='accepted'
+        and (s.payload-'_sync_source')=(v_row-'_sync_source')
+    ) then
+      insert into public.ingest_staging(
+        organization_id,connector_id,run_id,entity_type,
+        external_id,payload,status
+      ) values(
+        v_org,v_run.connector_id,p_run_id,v_run.entity_type,
+        v_external_id,v_canonical_row,'duplicate'
+      );
+      update public.connector_runs set
+        records_read=records_read+1,
+        records_duplicate=records_duplicate+1
+      where id=p_run_id and organization_id=v_org and status='running';
+      v_read:=v_read+1;
+      v_duplicate:=v_duplicate+1;
+      continue;
+    end if;
+
+    v_result:=public.ingest_recovery_activation_batch(
+      p_run_id,
+      jsonb_build_array(v_canonical_row)
+    );
+    if v_result ? 'error' then
+      raise exception 'canonical ADLS ingestion failed: %',v_result->>'error';
+    end if;
+    v_read:=v_read+coalesce((v_result->>'read')::int,0);
+    v_accepted:=v_accepted+coalesce((v_result->>'accepted')::int,0);
+    v_duplicate:=v_duplicate+coalesce((v_result->>'duplicate')::int,0);
+    v_rejected:=v_rejected+coalesce((v_result->>'rejected')::int,0);
+  end loop;
+
+  return jsonb_build_object(
+    'read',v_read,
+    'accepted',v_accepted,
+    'duplicate',v_duplicate,
+    'rejected',v_rejected
+  );
 end
 $$;
 
