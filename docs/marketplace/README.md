@@ -16,7 +16,7 @@ The machine-readable source of status is
 | Starter plan | Draft copy ready | Paste the controlled description | Owner must approve the boundary, Plan ID, price, term, markets, allowances, metered dimensions and support level |
 | Professional plan | Draft copy ready | Paste the controlled description | Same commercial decisions; no legacy `PRO` price or limits may be reused |
 | Enterprise plan | Draft copy ready | Paste the controlled description | Same commercial decisions; Enterprise does not imply SSO, private hosting, certifications or an SLA |
-| Technical configuration | Partially verified | Replace the two 404 URLs with the landing page and webhook candidates below | Confirm the webhook project is paired with the production offer and complete an authenticated preview lifecycle |
+| Technical configuration | Public routes observed; production upstream unconfirmed | The landing-page value can be prepared; keep the webhook and PC-001 blocked | A production owner must prove the Vercel proxy targets the intended production Supabase project before either URL set is treated as complete; authenticated preview remains separate |
 | CSP resale | Recommendation ready | Select **No partners in the CSP program** for first publication | Owner may later authorize named partners after channel support and commercial terms exist |
 | Supplemental content | Draft answers ready | Paste the architecture narrative | Owner must supply the Azure subscription ID and deployed consumption evidence; current Azure-primary posture is not proven |
 | Tax and payout profile | Externally unverified | Record any user-submitted tax form as a submission fact only | A Partner Center operator must separately capture Microsoft's current validation/assignment status and payout-profile readiness |
@@ -37,31 +37,44 @@ The machine-readable source of status is
 
 ## Immediate corrections in Partner Center
 
-Use the following values only after a Partner Center operator confirms the
-offer identity and saves a screenshot/export of the change:
+The values below have field-specific gates. Confirm the offer identity and save
+a screenshot/export of every Partner Center change. Do not enter the webhook
+until a production owner closes PC-000 in the manifest.
 
 | Field | Current value | Controlled replacement | Evidence |
 | --- | --- | --- | --- |
-| Landing page URL | `https://syncai.ca/marketplace/activate` (404 on 2026-10-03) | `https://app.syncai.ca/marketplace/signup` | Live HTTP 200; application route is defined in `src/App.tsx` |
-| Connection webhook | `https://syncai.ca/api/marketplace/webhook` (404 on 2026-10-03) | `https://pjvoswbwomesuwhygpby.supabase.co/functions/v1/marketplace-webhook` | Live unsigned POST returns HTTP 401 as the function's custom Microsoft-JWT boundary requires |
+| Landing page URL | `https://syncai.ca/marketplace/activate` (404 on 2026-10-03) | `https://app.syncai.ca/marketplace/activate` | The custom domain returned HTTP 200 and a signed-out browser rendered the bounded Marketplace no-token state |
+| Connection webhook | `https://syncai.ca/api/marketplace/webhook` (404 on 2026-10-03) | `https://app.syncai.ca/api/marketplace/webhook` **after PC-000** | The custom domain returned 405/`Allow: POST` for `GET` and the expected unsigned 401; neither probe reaches or identifies the configured upstream project |
 | Auto activation | Unknown | **Off** for every plan | The implemented offer contract is manual activation |
 
-The webhook host was identified by a live refusal probe and matches the
-repository's deployed Edge Function shape. Before saving it in the production
-offer, the operator must confirm that project `pjvoswbwomesuwhygpby` is the
-production project paired with `app.syncai.ca`; a 401 probe proves deployment
-and refusal, not correct publisher credentials or end-to-end commerce.
+Merged PR #602 contains the same-origin route implementation at merge commit
+`a0c4186efd1d449fbd80d67d5150d63f18684875`. Its Vercel status records identify
+three successful deployments attached to that merge commit: project
+`ai-maintenance-system` / deployment `2fyc2u4isGgjpBwRCWueNvPf9V54`, project
+`repo` / deployment `3Re57JFiNpHEe77ac7mZMajSYKKu`, and project
+`syncai-github` / deployment `DqYhNWUvqzpMb9aE9pzY1EdWzpr3`. The immutable
+status URLs are recorded in the manifest. Those records prove the deployment
+statuses and their commit association; they do not prove that `app.syncai.ca`
+aliases one of those deployments.
 
-Commit `50a2452` adds app-domain candidates
-`https://app.syncai.ca/marketplace/activate` and
-`https://app.syncai.ca/api/marketplace/webhook`. They are not yet the controlled
-production values: before deployment, the activation path returns the generic
-SPA shell and the webhook path does not expose the new POST proxy. After that
-commit is deployed, prefer the app-domain URLs only when a fresh signed-out
-browser reaches the Marketplace activation UI, `GET` on the webhook returns
-`405` with `Allow: POST`, and an unsigned JSON `POST` returns `401`. Until all
-three witnesses pass, retain the working signup URL and direct Supabase
-webhook above.
+The custom-domain observations on 2026-10-03 prove only public routing and the
+unauthenticated refusal boundary. A fresh signed-out browser reached the
+Marketplace activation UI; webhook `GET` returned `405` with `Allow: POST`; and
+an unsigned JSON `POST` returned
+`marketplace_webhook_token_required` with `no-store` and `nosniff`. Because both
+webhook requests return before the proxy resolves its upstream URL, they do
+**not** prove the intended production Supabase project, Microsoft token
+validation, subscription resolution, activation, lifecycle processing,
+metering, or a Partner Center purchase. The historical direct Supabase URL is
+an unconfirmed candidate, not a fallback. PC-000 and all authenticated preview
+gates remain blocked.
+
+PC-000 requires owner-controlled evidence that names the Vercel project and
+production environment, identifies the intended Supabase project reference,
+and shows that the proxy's production `SUPABASE_URL` or `VITE_SUPABASE_URL`
+resolves to that project. Store only a redacted export, checksum, or signed
+attestation; never commit the URL value if it contains credentials or any
+secret.
 
 ## Non-negotiable blockers
 

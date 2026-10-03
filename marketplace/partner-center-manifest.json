@@ -19,7 +19,41 @@
     "coSellReady": false
   },
   "technicalConfiguration": {
-    "status": "external_action_required",
+    "status": "blocked",
+    "deploymentEvidence": {
+      "mergeCommit": "a0c4186efd1d449fbd80d67d5150d63f18684875",
+      "mergeCommitUrl": "https://github.com/Stiggtechnologies/ai-maintenance-system/commit/a0c4186efd1d449fbd80d67d5150d63f18684875",
+      "relatedPullRequest": "https://github.com/Stiggtechnologies/ai-maintenance-system/pull/602",
+      "statusCommit": "a0c4186efd1d449fbd80d67d5150d63f18684875",
+      "statusContexts": [
+        {
+          "context": "Vercel – ai-maintenance-system",
+          "project": "ai-maintenance-system",
+          "deploymentId": "2fyc2u4isGgjpBwRCWueNvPf9V54",
+          "deploymentUrl": "https://vercel.com/stiggtechnologies-projects/ai-maintenance-system/2fyc2u4isGgjpBwRCWueNvPf9V54",
+          "recordedAt": "2026-10-03T06:47:21Z",
+          "result": "success"
+        },
+        {
+          "context": "Vercel – repo",
+          "project": "repo",
+          "deploymentId": "3Re57JFiNpHEe77ac7mZMajSYKKu",
+          "deploymentUrl": "https://vercel.com/stiggtechnologies-projects/repo/3Re57JFiNpHEe77ac7mZMajSYKKu",
+          "recordedAt": "2026-10-03T06:47:18Z",
+          "result": "success"
+        },
+        {
+          "context": "Vercel – syncai-github",
+          "project": "syncai-github",
+          "deploymentId": "DqYhNWUvqzpMb9aE9pzY1EdWzpr3",
+          "deploymentUrl": "https://vercel.com/stiggtechnologies-projects/syncai-github/DqYhNWUvqzpMb9aE9pzY1EdWzpr3",
+          "recordedAt": "2026-10-03T06:47:13Z",
+          "result": "success"
+        }
+      ],
+      "statusEvidenceScope": "The Vercel status contexts are immutable successful deployment records attached to merge commit a0c4186efd1d449fbd80d67d5150d63f18684875. They do not prove that app.syncai.ca aliases any listed deployment or source commit.",
+      "customDomainAliasToMergeCommit": "blocked"
+    },
     "landingPage": {
       "configuredUrl": "https://syncai.ca/marketplace/activate",
       "configuredUrlProbe": {
@@ -27,14 +61,14 @@
         "method": "GET",
         "httpStatus": 404
       },
-      "controlledReplacement": "https://app.syncai.ca/marketplace/signup",
-      "preferredAfterDeploymentVerification": "https://app.syncai.ca/marketplace/activate",
-      "preferredCandidateSourceCommit": "50a2452",
-      "preferredCandidateStatus": "external_action_required",
+      "controlledReplacement": "https://app.syncai.ca/marketplace/activate",
+      "historicalAlias": "https://app.syncai.ca/marketplace/signup",
+      "implementationMergeCommit": "a0c4186efd1d449fbd80d67d5150d63f18684875",
       "replacementProbe": {
         "date": "2026-10-03",
         "method": "GET",
-        "httpStatus": 200
+        "httpStatus": 200,
+        "browserWitness": "Marketplace activation UI rendered the bounded no-token state"
       },
       "status": "external_action_required"
     },
@@ -45,19 +79,33 @@
         "method": "GET",
         "httpStatus": 404
       },
-      "controlledReplacement": "https://pjvoswbwomesuwhygpby.supabase.co/functions/v1/marketplace-webhook",
-      "preferredAfterDeploymentVerification": "https://app.syncai.ca/api/marketplace/webhook",
-      "preferredCandidateSourceCommit": "50a2452",
-      "preferredCandidateStatus": "external_action_required",
+      "controlledReplacement": "https://app.syncai.ca/api/marketplace/webhook",
+      "unconfirmedHistoricalDirectCandidate": {
+        "url": "https://pjvoswbwomesuwhygpby.supabase.co/functions/v1/marketplace-webhook",
+        "permittedAsFallback": false,
+        "status": "blocked"
+      },
+      "implementationMergeCommit": "a0c4186efd1d449fbd80d67d5150d63f18684875",
       "replacementProbe": {
         "date": "2026-10-03",
-        "method": "POST",
-        "authentication": "none",
-        "httpStatus": 401,
-        "expectedBoundary": "custom Microsoft bearer-token verification"
+        "get": {
+          "httpStatus": 405,
+          "allow": "POST"
+        },
+        "unsignedJsonPost": {
+          "httpStatus": 401,
+          "error": "marketplace_webhook_token_required"
+        },
+        "headers": ["Cache-Control: no-store", "X-Content-Type-Options: nosniff"]
       },
-      "productionProjectConfirmation": "owner_decision_required",
-      "status": "external_action_required"
+      "productionProjectConfirmation": {
+        "requiredBeforePartnerCenterUpdate": true,
+        "intendedSupabaseProject": "owner_decision_required",
+        "authoritativeEvidence": "blocked",
+        "status": "blocked"
+      },
+      "authenticatedUpstreamLifecycleWitness": "blocked",
+      "status": "blocked"
     },
     "autoActivation": {
       "controlledValue": false,
@@ -162,10 +210,17 @@
   },
   "blockingActions": [
     {
+      "id": "PC-000",
+      "owner": "Production deployment owner",
+      "action": "Authoritatively confirm and record that the app.syncai.ca Vercel production proxy resolves to the intended production Supabase project. Public 405/401 probes and deployment status contexts are insufficient.",
+      "status": "blocked"
+    },
+    {
       "id": "PC-001",
       "owner": "Partner Center operator",
-      "action": "Replace the 404 landing page and webhook values with the controlled candidates after confirming the production Supabase project.",
-      "status": "external_action_required"
+      "action": "After PC-000 is verified, replace the two 404 Partner Center values with the controlled app.syncai.ca activation and webhook URLs, then save an export or screenshot.",
+      "dependsOn": ["PC-000"],
+      "status": "blocked"
     },
     {
       "id": "PC-002",
@@ -228,7 +283,8 @@
     "src/pages/Terms.tsx",
     ".github/workflows/deploy-migrations.yml",
     ".github/workflows/azure-marketplace-preview-certification.yml",
-    "scripts/azure-marketplace-preview-certification.ts"
+    "scripts/azure-marketplace-preview-certification.ts",
+    "scripts/marketplace-public-route-smoke.mjs"
   ],
   "documents": [
     "docs/marketplace/README.md",
