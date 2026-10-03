@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { INGEST_ENTITIES, INGEST_ENTITY_ORDER } from "../lib/ingest-entities";
 
 const migration = readFileSync(
-  "supabase/migrations/20270101490000_process_event_ingest.sql",
+  "supabase/migrations/20270102040000_process_event_ingest.sql",
   "utf8",
 ).toLowerCase();
 const service = readFileSync("src/services/reliabilityCallers.ts", "utf8");
