@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 const root = process.cwd();
 const read = (file: string) => fs.readFileSync(path.join(root, file), "utf8");
 const migration = read(
-  "supabase/migrations/20270101620000_sap_s4_inventory_read_adapter.sql",
+  "supabase/migrations/20270102180000_sap_s4_inventory_read_adapter.sql",
 );
 const edge = read("supabase/functions/sap-s4-inventory-read-pull/index.ts");
 const shared = read("supabase/functions/_shared/sap-s4-inventory-read.ts");
