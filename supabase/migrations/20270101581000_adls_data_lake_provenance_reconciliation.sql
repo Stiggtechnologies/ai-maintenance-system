@@ -71,6 +71,12 @@ $$;
 revoke all on function public.restore_data_lake_staging_provenance()
 from public,anon,authenticated;
 
+create index if not exists idx_ingest_staging_latest_accepted_identity
+on public.ingest_staging(
+  organization_id,connector_id,entity_type,external_id,received_at desc,id desc
+)
+where status='accepted';
+
 drop trigger if exists trg_restore_data_lake_staging_provenance
 on public.ingest_staging;
 create trigger trg_restore_data_lake_staging_provenance

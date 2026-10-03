@@ -65,6 +65,9 @@ describe("C2.14 governed ADLS data-lake adapter", () => {
     expect(repair).toContain("restore_data_lake_staging_provenance");
     expect(repair).toContain("s.payload-'_sync_source'");
     expect(repair).toContain("order by s.received_at desc,s.id desc");
+    expect(repair).toContain(
+      "idx_ingest_staging_latest_accepted_identity",
+    );
     expect(repair).toContain("pg_advisory_xact_lock");
     expect(repair).toContain("records_duplicate=records_duplicate+1");
     expect(repair).toContain("records_read=v_manifest_rows");
