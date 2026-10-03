@@ -35,8 +35,8 @@ const ORIGINAL_DOOR = "20260907090000_manual_import.sql";
 const CONTEXT_FIX =
   "20261004090200_operating_context_rows_survive_a_bad_cell.sql";
 const SCHEDULE_IMPORT = "20261112090000_p6_schedule_import.sql";
-const COST_ACTUAL_IMPORT = "20270101370000_develop_cost_actual_connector.sql";
-const PROCESS_EVENT_IMPORT = "20270101490000_process_event_ingest.sql";
+const COST_ACTUAL_IMPORT = "20270101900000_develop_cost_actual_connector.sql";
+const PROCESS_EVENT_IMPORT = "20270102040000_process_event_ingest.sql";
 /**
  * Where the schedule validator's CURRENT body lives.
  *
