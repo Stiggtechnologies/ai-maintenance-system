@@ -96,7 +96,10 @@
           "httpStatus": 401,
           "error": "marketplace_webhook_token_required"
         },
-        "headers": ["Cache-Control: no-store", "X-Content-Type-Options: nosniff"]
+        "headers": [
+          "Cache-Control: no-store",
+          "X-Content-Type-Options: nosniff"
+        ]
       },
       "productionProjectConfirmation": {
         "requiredBeforePartnerCenterUpdate": true,
@@ -208,6 +211,22 @@
     "partnerCenterCertification": "blocked",
     "status": "blocked"
   },
+  "professionalServices": {
+    "controlRecord": "marketplace/professional-services-offers.json",
+    "offers": [
+      "Reliability Intelligence Assessment",
+      "Industrial Decision Proof of Concept",
+      "SyncAI Implementation and Scale"
+    ],
+    "forwardDeployedEngineering": "bounded_implementation_workstream",
+    "supportingCollateral": {
+      "renderedPdf": "output/pdf/syncai-professional-services-and-fde.pdf",
+      "status": "rendered_unapproved"
+    },
+    "supportingSoftwareMarketplaceUrl": "blocked",
+    "published": false,
+    "status": "draft"
+  },
   "blockingActions": [
     {
       "id": "PC-000",
@@ -291,6 +310,9 @@
     "docs/marketplace/partner-center-fields.md",
     "docs/marketplace/supplemental-content.md",
     "docs/marketplace/supporting-document-source.md",
-    "docs/marketplace/preview-and-certification.md"
+    "docs/marketplace/preview-and-certification.md",
+    "docs/marketplace/professional-services-and-fde.md",
+    "docs/marketplace/professional-services-supporting-document-source.md",
+    "output/pdf/syncai-professional-services-and-fde.pdf"
   ]
 }
