@@ -453,6 +453,9 @@ jobs:
       - name: Smoke — explicit asset condition knowledge states
         run: bash scripts/ci-condition-state-smoke.sh
 
+      - name: Smoke — governed civil/structural asset classification
+        run: bash scripts/ci-asset-classification-smoke.sh
+
       - name: Smoke — independently reviewed model applicability envelopes
         run: bash scripts/ci-model-applicability-envelope-smoke.sh
 

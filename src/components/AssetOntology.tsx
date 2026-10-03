@@ -22,6 +22,7 @@ import { LoadingState, ErrorState } from "./ui/AsyncStates";
 import { AssetRelationshipPanel } from "./AssetRelationshipPanel";
 import { GeospatialOperationalIntelligencePanel } from "./GeospatialOperationalIntelligencePanel";
 import { ClimateHazardExposurePanel } from "./ClimateHazardExposurePanel";
+import { AssetClassGovernancePanel } from "./AssetClassGovernancePanel";
 
 interface Coverage {
   assets_total: number;
@@ -164,6 +165,8 @@ export function AssetOntology() {
           </div>
         </div>
       )}
+
+      <AssetClassGovernancePanel profiles={profiles} onAssigned={refetch} />
 
       <AssetRelationshipPanel />
 

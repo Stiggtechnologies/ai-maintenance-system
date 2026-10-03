@@ -1938,10 +1938,10 @@
     "backticked": 1
   },
   "U3.05": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 7,
+    "backticked": 7
   },
   "U3.06": {
     "status": "✅",
