@@ -153,6 +153,15 @@ begin
   end loop;
 
   perform set_config('app.data_lake_ingest','granted',true);
+  -- One tenant/connector/entity lock keeps replay classification and the
+  -- canonical write atomic across concurrent pulls without per-row lock-order
+  -- deadlocks.
+  perform pg_advisory_xact_lock(
+    hashtextextended(
+      v_org::text||':'||v_run.connector_id::text||':'||v_run.entity_type,
+      0
+    )
+  );
 
   -- Classify only an exact business-payload replay as a duplicate. Transport
   -- receipts vary between files and runs, so they are deliberately excluded
@@ -169,16 +178,6 @@ begin
       to_jsonb((v_row->'_sync_source')::text),
       true
     );
-
-    if v_external_id is not null then
-      perform pg_advisory_xact_lock(
-        hashtextextended(
-          v_org::text||':'||v_run.connector_id::text||':'||
-          v_run.entity_type||':'||v_external_id,
-          0
-        )
-      );
-    end if;
 
     if v_external_id is not null and (
       select s.payload-'_sync_source'
