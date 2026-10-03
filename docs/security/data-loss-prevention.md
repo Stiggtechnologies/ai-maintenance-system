@@ -6,7 +6,7 @@ connectors, or authorize plant action.
 
 ## Two-release activation
 
-1. Deploy the governance control plane (`20270101330000_data_loss_prevention.sql`)
+1. Deploy the governance control plane (`20270101860000_data_loss_prevention.sql`)
    and the Decision Governance panel.
 2. For every hostname, data class and purpose the tenant intends to use, one
    administrator or executive proposes an immutable rule and a different named
