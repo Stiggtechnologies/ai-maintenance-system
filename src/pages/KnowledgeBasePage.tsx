@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshCw, ShieldAlert, ShieldCheck, UploadCloud } from "lucide-react";
 import { useAuth } from "../components/AuthProvider";
 import { ControlledTechnicalDocuments } from "../components/ControlledTechnicalDocuments";
+import { EngineeringDiagramIntelligence } from "../components/EngineeringDiagramIntelligence";
 import { needsOcr, ocrPdfToText, type OcrProgress } from "../services/kbOcr";
 import {
   ingestKbDocument,
@@ -574,6 +575,10 @@ export function KnowledgeBasePage() {
       )}
 
       <ControlledTechnicalDocuments
+        canControl={canControlTechnicalDocuments}
+        canReview={canControlTechnicalDocuments}
+      />
+      <EngineeringDiagramIntelligence
         canControl={canControlTechnicalDocuments}
         canReview={canControlTechnicalDocuments}
       />
