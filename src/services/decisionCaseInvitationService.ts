@@ -2,7 +2,7 @@ import { supabase } from "../lib/supabase";
 import type {
   DecisionCaseInvitation,
   DecisionCaseInvitationStatus,
-} from "../lib/decision-case";
+} from "../lib/onboarding/decision-case-spine";
 
 interface InvitationResponse {
   status?: DecisionCaseInvitationStatus;

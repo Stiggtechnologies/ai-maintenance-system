@@ -38,32 +38,6 @@ export interface DecisionEvidence {
   finding: string;
   lineage: string;
   sourceSystem: string;
-  sourceReceipt?: {
-    kind: "governed_document" | "manual";
-    sourceId: string;
-    ingestionStatus: string;
-    securityStatus: "cleared" | "quarantined" | "released" | "rejected";
-    chunksCreated: number;
-    recordedAt: string;
-  };
-}
-
-export type DecisionCaseInvitationStatus =
-  | "recorded_only"
-  | "submitted"
-  | "already_member"
-  | "accepted"
-  | "active"
-  | "failed";
-
-export interface DecisionCaseInvitation {
-  name: string;
-  email: string;
-  status: DecisionCaseInvitationStatus;
-  detail: string;
-  invitedUserId?: string | null;
-  submittedAt?: string | null;
-  lastCheckedAt: string;
 }
 
 export interface DecisionApproval {
@@ -112,12 +86,6 @@ export interface DecisionCase {
   evidence: DecisionEvidence[];
   calculations: DecisionCalculation[];
   approvals: DecisionApproval[];
-  /**
-   * Workspace-access invitation state. This is deliberately distinct from an
-   * approval row: joining a tenant never grants engineering or decision
-   * authority, and merely naming somebody is not an email delivery event.
-   */
-  invitation?: DecisionCaseInvitation;
   comments: Array<{
     id: string;
     author: string;

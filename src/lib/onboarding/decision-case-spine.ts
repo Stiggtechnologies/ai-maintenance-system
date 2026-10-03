@@ -14,7 +14,6 @@ import {
 import type {
   DecisionApproval,
   DecisionCase,
-  DecisionCaseInvitation,
   DecisionCaseStage,
   DecisionEvidence,
   EvidenceQuality,
@@ -23,6 +22,53 @@ import type { InvertedIntentId } from "./inverted-opening";
 
 const BANNED_SEED =
   /Fort McMurray|North Ridge Energy|P-101|dc-1048|Copper Ridge/i;
+
+export interface WalkthroughSourceReceipt {
+  kind: "governed_document" | "manual";
+  sourceId: string;
+  ingestionStatus: string;
+  securityStatus: "cleared" | "quarantined" | "released" | "rejected";
+  chunksCreated: number;
+  recordedAt: string;
+}
+
+export interface WalkthroughDecisionEvidence extends DecisionEvidence {
+  sourceReceipt?: WalkthroughSourceReceipt;
+}
+
+export type DecisionCaseInvitationStatus =
+  | "recorded_only"
+  | "submitted"
+  | "already_member"
+  | "accepted"
+  | "active"
+  | "failed";
+
+export interface DecisionCaseInvitation {
+  name: string;
+  email: string;
+  status: DecisionCaseInvitationStatus;
+  detail: string;
+  invitedUserId?: string | null;
+  submittedAt?: string | null;
+  lastCheckedAt: string;
+}
+
+/**
+ * First-customer walkthrough state extends the governed Decision Case without
+ * changing the Reliability Engineer reasoning contract. Workspace membership
+ * and evidence-intake receipts are operational metadata, never approval.
+ */
+export type WalkthroughDecisionCase = Omit<DecisionCase, "evidence"> & {
+  evidence: WalkthroughDecisionEvidence[];
+  invitation?: DecisionCaseInvitation;
+};
+
+export function asWalkthroughDecisionCase(
+  decisionCase: DecisionCase,
+): WalkthroughDecisionCase {
+  return decisionCase as WalkthroughDecisionCase;
+}
 
 export const SPINE_STAGES = [
   "QUESTION",
@@ -364,7 +410,7 @@ function missingSlots(): DecisionEvidence[] {
 export function buildSpineDecisionCase(input: {
   question: string;
   intent: InvertedIntentId | "";
-}): DecisionCase {
+}): WalkthroughDecisionCase {
   const question = input.question.trim();
   if (question.length < 12) {
     throw new Error("A Decision Case needs a real question.");
@@ -532,7 +578,7 @@ export function attachSpineEvidence(
 }
 
 export function attachGovernedSpineEvidence(
-  decisionCase: DecisionCase,
+  decisionCase: WalkthroughDecisionCase,
   kind: EvidenceKind,
   body: string,
   receipt: {
@@ -541,13 +587,13 @@ export function attachGovernedSpineEvidence(
     securityStatus: "cleared" | "quarantined" | "released" | "rejected";
     chunksCreated: number;
   },
-): DecisionCase {
+): WalkthroughDecisionCase {
   const text = body.trim();
   if (!text) throw new Error("Governed evidence needs source content.");
   const kindMeta = EVIDENCE_KINDS.find((item) => item.id === kind);
   const now = new Date().toISOString();
   const retrievable = ["cleared", "released"].includes(receipt.securityStatus);
-  const nextItem: DecisionEvidence = {
+  const nextItem: WalkthroughDecisionEvidence = {
     id: `ev-${kind}-${Date.now()}`,
     title: kindMeta?.title ?? kind,
     summary: text.slice(0, 280),
@@ -861,9 +907,9 @@ export function applyVerificationPlan(
 }
 
 export function applyInvite(
-  decisionCase: DecisionCase,
+  decisionCase: WalkthroughDecisionCase,
   input: { name: string; email: string; authority: string },
-): DecisionCase {
+): WalkthroughDecisionCase {
   const name = input.name.trim();
   const email = input.email.trim();
   const authority = input.authority.trim() || decisionCase.authorityRole;
@@ -917,9 +963,9 @@ export function applyInvite(
 }
 
 export function applyInvitationDelivery(
-  decisionCase: DecisionCase,
+  decisionCase: WalkthroughDecisionCase,
   invitation: DecisionCaseInvitation,
-): DecisionCase {
+): WalkthroughDecisionCase {
   const previous = decisionCase.invitation;
   const changed =
     !previous ||
@@ -996,7 +1042,7 @@ export function lineageFromCase(
 }
 
 export function readinessFromCase(
-  decisionCase: DecisionCase,
+  decisionCase: WalkthroughDecisionCase,
   extras: {
     saved: boolean;
     disposition?: SpineDisposition | "";

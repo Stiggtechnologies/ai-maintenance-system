@@ -26,6 +26,7 @@ import {
   STAGE_HELP,
   VERIFICATION_EFFECTIVENESS,
   activeSpineStage,
+  asWalkthroughDecisionCase,
   applyDisposition,
   applyInvite,
   applyInvitationDelivery,
@@ -59,6 +60,7 @@ import {
   type EvidenceMethod,
   type SpineDisposition,
   type VerificationPlan,
+  type WalkthroughDecisionCase,
 } from "../lib/onboarding/decision-case-spine";
 import { getIntegrations } from "../services/operatingLoopService";
 import {
@@ -105,8 +107,11 @@ export function DecisionCaseSpine({
   openingNotice?: string | null;
 }) {
   const auth = useOptionalAuth();
-  const [decisionCase, setDecisionCase] = useState(
-    () => initialCase ?? buildSpineDecisionCase({ question, intent }),
+  const [decisionCase, setDecisionCase] = useState<WalkthroughDecisionCase>(
+    () =>
+      asWalkthroughDecisionCase(
+        initialCase ?? buildSpineDecisionCase({ question, intent }),
+      ),
   );
   const [saved, setSaved] = useState(initiallySaved);
   const [saveNotice, setSaveNotice] = useState(
@@ -227,7 +232,7 @@ export function DecisionCaseSpine({
   );
 
   const commit = (next: DecisionCase) => {
-    setDecisionCase(next);
+    setDecisionCase(asWalkthroughDecisionCase(next));
     if (
       blockWorkspacePersist ||
       isExamplePrompt(next.objective) ||
