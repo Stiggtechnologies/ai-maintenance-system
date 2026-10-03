@@ -22,12 +22,14 @@ import {
   interpretConnectionAttempt,
   inviteCopy,
   lineageFromCase,
+  nextWalkthroughAction,
   noConnectedDataHonesty,
   outcomeAttribution,
   policyAdvisory,
   proofDownloadName,
   provenanceFromCase,
   readinessFromCase,
+  recordSourceCheck,
   spineStageIndex,
   stageHelpFor,
   stageHelpSlug,
@@ -157,6 +159,7 @@ describe("P0.2 Decision Case spine", () => {
       evidence: "",
       scheduledFor: "2026-09-21",
       effectiveness: "",
+      attributedTo: "Jordan Lee",
     });
     expect(scheduled.statusLabel).toMatch(/scheduled/i);
   });
@@ -188,28 +191,101 @@ describe("P0.2 Decision Case spine", () => {
       evidence: "",
       scheduledFor: "2026-09-14",
       effectiveness: "",
+      attributedTo: "Ada",
     });
     const invited = applyInvite(verified, {
       name: "Kai",
       email: "kai@example.com",
       authority: verified.authorityRole,
     });
-    const ready = readinessFromCase(invited, {
-      saved: true,
-      disposition: "need_more_evidence",
-      verification: {
-        question: "How will we know this worked?",
-        expected: "Named vibration set attached before the next review",
-        actual: "",
-        evidence: "",
-        scheduledFor: "2026-09-14",
-        effectiveness: "",
+    const checked = recordSourceCheck(
+      { ...invited, id: "11111111-1111-4111-8111-111111111111" },
+      {
+        ok: false,
+        reason: "No source is connected in this workspace.",
       },
-      invited: true,
-      manualEvidencePath: true,
-    });
+    );
+    const ready = readinessFromCase(checked, { saved: true });
     expect(ready.metCount).toBe(ready.total);
     expect(lineageFromCase(built).honesty).toBe(noConnectedDataHonesty());
+  });
+
+  it("derives readiness from recorded case state and never counts ask-admin-later as evidence", () => {
+    const built = buildSpineDecisionCase({ question, intent: "solve" });
+    const deferred = attachSpineEvidence(built, "documents", "ask_admin", "");
+    const readiness = readinessFromCase(
+      { ...deferred, id: "11111111-1111-4111-8111-111111111111" },
+      { saved: true },
+    );
+    expect(
+      readiness.gates.find((gate) => gate.id === "evidence_path")?.met,
+    ).toBe(false);
+    expect(readiness.gates[0]?.id).toBe("audit_trail");
+    expect(nextWalkthroughAction(readiness)).toMatchObject({
+      gateId: "evidence_path",
+      targetId: "spine-evidence",
+    });
+  });
+
+  it("advances the next action only from recorded journey state", () => {
+    const saved = {
+      ...buildSpineDecisionCase({ question, intent: "solve" }),
+      id: "11111111-1111-4111-8111-111111111111",
+    };
+    expect(
+      nextWalkthroughAction(readinessFromCase(saved, { saved: true })),
+    ).toMatchObject({ gateId: "evidence_path" });
+
+    const evidenced = attachSpineEvidence(
+      saved,
+      "documents",
+      "paste_data",
+      "Customer-supplied maintenance history excerpt.",
+    );
+    expect(
+      nextWalkthroughAction(readinessFromCase(evidenced, { saved: true })),
+    ).toMatchObject({ gateId: "decision_loop" });
+
+    const decided = applyDisposition(
+      evidenced,
+      "accept",
+      "Hold the interval pending the defined review.",
+      people,
+      { counterfactual: "A contradictory inspection result." },
+    );
+    expect(
+      nextWalkthroughAction(readinessFromCase(decided, { saved: true })),
+    ).toMatchObject({ gateId: "verification" });
+
+    const planned = applyVerificationPlan(decided, {
+      question: "How will we know this worked?",
+      expected: "No repeat event before review",
+      actual: "",
+      evidence: "",
+      scheduledFor: "2026-12-01",
+      effectiveness: "",
+      attributedTo: "Ada",
+    });
+    expect(
+      nextWalkthroughAction(readinessFromCase(planned, { saved: true })),
+    ).toMatchObject({ gateId: "named_approver" });
+
+    const requiredPerson = applyInvite(planned, {
+      name: "Kai",
+      email: "kai@example.com",
+      authority: planned.authorityRole,
+    });
+    expect(
+      nextWalkthroughAction(readinessFromCase(requiredPerson, { saved: true })),
+    ).toMatchObject({ gateId: "source_check" });
+
+    const checked = recordSourceCheck(requiredPerson, {
+      ok: false,
+      reason: "No source is connected in this workspace.",
+    });
+    expect(
+      nextWalkthroughAction(readinessFromCase(checked, { saved: true })),
+    ).toMatchObject({ gateId: "complete" });
   });
 
   it("advances the visible stage when evidence is attached and names unknowns", () => {
@@ -385,19 +461,17 @@ describe("P1 Decision Case trust", () => {
       /linked to Verification Owner Ada/,
     );
     expect(recorded.learningRecord?.summary).toMatch(/Verification Owner Ada/);
-    const unowned = applyVerificationPlan(built, {
-      question: "How will we know this worked?",
-      expected: "No repeat trip before the outage date",
-      actual: "No repeat trip",
-      evidence: "",
-      scheduledFor: "2026-09-21",
-      effectiveness: "",
-      attributedTo: "",
-    });
-    expect(unowned.messages.at(-1)?.author).toBe("Verification");
-    expect(unowned.messages.at(-1)?.text).toMatch(
-      /not linked to a Verification Owner/,
-    );
+    expect(() =>
+      applyVerificationPlan(built, {
+        question: "How will we know this worked?",
+        expected: "No repeat trip before the outage date",
+        actual: "No repeat trip",
+        evidence: "",
+        scheduledFor: "2026-09-21",
+        effectiveness: "",
+        attributedTo: "",
+      }),
+    ).toThrow(/named Verification Owner/i);
   });
 
   it("builds a replayable proof summary from the case without a new vault", () => {
