@@ -45,8 +45,8 @@ const VENDOR_FILE = "20261209090300_develop_vendor_quality_thread.sql";
 const READ_FILE = "20261209090400_develop_commercial_read.sql";
 const CONNECTOR_FILE =
   "20261209090500_develop_procurement_status_connector.sql";
-const COST_ACTUAL_CONNECTOR_FILE =
-  "20270101900000_develop_cost_actual_connector.sql";
+const CURRENT_CONNECTOR_ROUTES_FILE =
+  "20270102040000_process_event_ingest.sql";
 const SLICE_FILES = [
   CHANGE_FILE,
   CLAIM_FILE,
@@ -62,7 +62,7 @@ const warranty = read(WARRANTY_FILE);
 const vendor = read(VENDOR_FILE);
 const commercialRead = read(READ_FILE);
 const connector = read(CONNECTOR_FILE);
-const currentConnectorRoutes = read(COST_ACTUAL_CONNECTOR_FILE);
+const currentConnectorRoutes = read(CURRENT_CONNECTOR_ROUTES_FILE);
 const joined = SLICE_FILES.map(read).join("\n");
 const rawJoined = SLICE_FILES.map(raw).join("\n");
 
