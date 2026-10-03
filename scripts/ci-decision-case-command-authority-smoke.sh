@@ -9,8 +9,18 @@ WORKSPACE='99999999-9999-4999-8999-999999999951'; SPONSOR_WORKSPACE='99999999-99
 token(){ curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}" | python3 -c "import json,sys;print(json.load(sys.stdin).get('access_token',''))"; }
 rpc(){ curl -sS -w '\n%{http_code}' -X POST "$API_URL/rest/v1/rpc/apply_decision_case_command" -H "apikey: $ANON_KEY" -H "authorization: Bearer $1" -H 'content-type: application/json' -d "$2"; }
 body(){ printf '%s' "${1%$'\n'*}"; }; status(){ printf '%s' "${1##*$'\n'}"; }
-ok(){ test "$(status "$1")" = 200; BODY="$(body "$1")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x.get('version',0)>0,x"; }
-refused(){ test "$(status "$1")" != 200; BODY="$(body "$1")" NEEDLE="$2" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert os.environ['NEEDLE'].lower() in x.get('message','').lower(),x"; }
+ok(){
+  local code response
+  code="$(status "$1")"; response="$(body "$1")"
+  test "$code" = 200 || { echo "expected HTTP 200, got $code: $response" >&2; return 1; }
+  BODY="$response" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x.get('version',0)>0,x"
+}
+refused(){
+  local code response
+  code="$(status "$1")"; response="$(body "$1")"
+  test "$code" != 200 || { echo "expected governed refusal, got HTTP 200: $response" >&2; return 1; }
+  BODY="$response" NEEDLE="$2" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert os.environ['NEEDLE'].lower() in x.get('message','').lower(),x"
+}
 
 PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -q -v ON_ERROR_STOP=1 <<SQL
 insert into organizations(id,name,industry) values('$OTHER_ORG','Decision Case foreign tenant','utilities') on conflict(id) do nothing;
@@ -58,7 +68,7 @@ MISSING_ID=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_versi
 SELF_BIND=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"record_required_person\",\"p_case_state\":{\"requiredPerson\":{\"userId\":\"$ADMIN_ID\"}}}"); refused "$SELF_BIND" 'may not bind themselves'
 ROLE_SPOOF=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"record_required_person\",\"p_case_state\":{\"requiredPerson\":{\"userId\":\"$APPROVER\",\"authorityRole\":\"executive\"}}}"); refused "$ROLE_SPOOF" 'server-owned'
 for COMMAND in record_conversation add_evidence record_disposition define_verification record_required_person record_source_check record_approval; do SIDELOAD=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"$COMMAND\",\"p_case_state\":{\"learningRecord\":{\"status\":\"retained\"}}}"); refused "$SIDELOAD" 'unrelated decision case fields'; done
-psqlc "select set_config('syncai.decision_case_command','on',true); update cowork_workspaces set case_version=case_version+1,case_state=jsonb_set(jsonb_set(case_state,'{approvals}',(case_state->'approvals')||jsonb_build_array(jsonb_build_object('id','engineering-review','initials','ER','name','Engineering Review','role','engineering','responsibility','Independent review','status','complete')),true),'{revision}',to_jsonb(case_version+1),true) where id='$WORKSPACE'"
+psqlc "select set_config('syncai.decision_case_command','on',true); update cowork_workspaces set case_version=case_version+1,case_state=jsonb_set(jsonb_set(case_state,'{approvals}',(case_state->'approvals')||jsonb_build_array(jsonb_build_object('id','engineering-review','initials','ER','name','Engineering Review','role','engineering','responsibility','Independent review','status','complete')),true),'{revision}',to_jsonb(case_version+1),true) where id='$WORKSPACE'" >/dev/null
 VERSION=$(psqlc "select case_version from cowork_workspaces where id='$WORKSPACE'")
 BIND=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"record_required_person\",\"p_case_state\":{\"requiredPerson\":{\"userId\":\"$APPROVER\"}}}"); ok "$BIND"
 VERSION=$(psqlc "select case_version from cowork_workspaces where id='$WORKSPACE'")
