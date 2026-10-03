@@ -19,6 +19,8 @@ on:
       - "supabase/functions/cmms-read-pull/**"
       - "supabase/functions/ai-agent-processor/**"
       - "supabase/functions/autonomous-orchestrator/**"
+      - "supabase/functions/azure-iot-operations-ingest/**"
+      - "supabase/functions/_shared/azure-iot-operations-ingress.ts"
       - "supabase/functions/calculation-service/**"
       - "src/lib/value/**"
       - "supabase/functions/domain-specialist-run/**"
@@ -159,6 +161,7 @@ jobs:
           supabase functions deploy agent-loop-enrich --no-verify-jwt
           supabase functions deploy ai-agent-processor
           supabase functions deploy autonomous-orchestrator
+          supabase functions deploy azure-iot-operations-ingest --no-verify-jwt
           supabase functions deploy calculation-service
           supabase functions deploy cmms-read-pull
           supabase functions deploy domain-specialist-run
@@ -429,6 +432,19 @@ jobs:
             exit 1
           fi
           echo "Plant historian adapter is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove Azure IoT Operations ingress is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/azure-iot-operations-ingest"
+          status=$(curl --silent --show-error --output /tmp/azure-iot-ingress-probe.txt \
+            --write-out '%{http_code}' --request GET "$endpoint")
+          cat /tmp/azure-iot-ingress-probe.txt || true
+          if [ "$status" != "405" ]; then
+            echo "::error title=Azure IoT Operations ingress probe failed::Expected the deployed telemetry-only endpoint to refuse GET with HTTP 405; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Azure IoT Operations ingress is deployed and exposes POST only (HTTP 405 for GET)."
 
       - name: Prove CMMS read adapter is deployed
         run: |

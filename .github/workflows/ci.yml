@@ -468,6 +468,9 @@ jobs:
       - name: Smoke — canonical enterprise-to-failure-mode asset hierarchy
         run: bash scripts/ci-canonical-asset-hierarchy-smoke.sh
 
+      - name: Smoke — governed Azure IoT Operations/Event Hubs ingress
+        run: bash scripts/ci-azure-iot-operations-ingress-smoke.sh
+
       - name: Smoke — independently reviewed model applicability envelopes
         run: bash scripts/ci-model-applicability-envelope-smoke.sh
 
