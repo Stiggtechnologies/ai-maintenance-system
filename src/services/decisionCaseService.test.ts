@@ -4,8 +4,26 @@ import {
   createSeedDecisionCases,
 } from "../lib/decision-case";
 import { createHonestEmptyDecisionCase } from "../lib/decision-case-honesty";
-import { askDecisionCase } from "./decisionCaseService";
+import {
+  askDecisionCase,
+  createPersistedDecisionCase,
+  savePersistedDecisionCase,
+} from "./decisionCaseService";
 import { runPublicDecisionCaseAgent } from "./publicReliabilityAgent";
+import { createCoworkWorkspaceFromObjective } from "./operatingLoopService";
+
+const workspaceWrite = vi.hoisted(() => {
+  const maybeSingle = vi.fn();
+  const select = vi.fn(() => ({ maybeSingle }));
+  const eq = vi.fn(() => ({ select }));
+  const update = vi.fn(() => ({ eq }));
+  const from = vi.fn(() => ({ update }));
+  return { from, update, eq, select, maybeSingle };
+});
+
+vi.mock("../lib/supabase", () => ({
+  supabase: { from: workspaceWrite.from },
+}));
 
 vi.mock("./operatingLoopService", () => ({
   createCoworkWorkspaceFromObjective: vi.fn(),
@@ -18,10 +36,68 @@ vi.mock("./publicReliabilityAgent", () => ({
 }));
 
 const runPublicAgentMock = vi.mocked(runPublicDecisionCaseAgent);
+const createWorkspaceMock = vi.mocked(createCoworkWorkspaceFromObjective);
 
 describe("decisionCaseService", () => {
   beforeEach(() => {
     runPublicAgentMock.mockReset();
+    createWorkspaceMock.mockReset();
+    workspaceWrite.from.mockClear();
+    workspaceWrite.update.mockClear();
+    workspaceWrite.eq.mockClear();
+    workspaceWrite.select.mockClear();
+    workspaceWrite.maybeSingle.mockReset();
+  });
+
+  it("requires a tenant-visible initialized row before reporting a case creation", async () => {
+    const seed = createHonestEmptyDecisionCase("Reliability Engineer");
+    const workspaceId = "11111111-1111-4111-8111-111111111111";
+    createWorkspaceMock.mockResolvedValue({
+      workspaceId,
+      artifactId: null,
+      recommendationId: null,
+    });
+    workspaceWrite.maybeSingle.mockResolvedValueOnce({
+      data: { id: workspaceId },
+      error: null,
+    });
+
+    await expect(createPersistedDecisionCase(seed, {})).resolves.toMatchObject({
+      id: workspaceId,
+    });
+
+    workspaceWrite.maybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: null,
+    });
+    await expect(createPersistedDecisionCase(seed, {})).rejects.toThrow(
+      /no tenant-visible workspace row was updated/i,
+    );
+  });
+
+  it("requires a tenant-visible updated row before reporting a case save", async () => {
+    const decisionCase = {
+      ...createHonestEmptyDecisionCase("Reliability Engineer"),
+      id: "11111111-1111-4111-8111-111111111111",
+    };
+    workspaceWrite.maybeSingle.mockResolvedValueOnce({
+      data: { id: decisionCase.id },
+      error: null,
+    });
+    await expect(
+      savePersistedDecisionCase(decisionCase),
+    ).resolves.toBeUndefined();
+    expect(workspaceWrite.from).toHaveBeenCalledWith("cowork_workspaces");
+    expect(workspaceWrite.eq).toHaveBeenCalledWith("id", decisionCase.id);
+    expect(workspaceWrite.select).toHaveBeenCalledWith("id");
+
+    workspaceWrite.maybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: null,
+    });
+    await expect(savePersistedDecisionCase(decisionCase)).rejects.toThrow(
+      /no tenant-visible workspace row was updated/i,
+    );
   });
 
   it("answers from the active case's canonical calculations", async () => {

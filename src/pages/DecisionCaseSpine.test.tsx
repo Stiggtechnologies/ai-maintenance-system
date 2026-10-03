@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InvertedOpeningPage } from "./InvertedOpeningPage";
@@ -11,12 +11,19 @@ const authHolder = vi.hoisted(() => ({
 }));
 
 const persist = vi.hoisted(() => ({
-  createPersistedDecisionCase: vi.fn(async (seed: DecisionCase) => ({
-    ...seed,
-    id: "11111111-1111-4111-8111-111111111111",
-  })),
-  savePersistedDecisionCase: vi.fn(async () => undefined),
-  loadPersistedDecisionCase: vi.fn(async () => null as DecisionCase | null),
+  caseState: null as DecisionCase | null,
+  createPersistedDecisionCase: vi.fn(async (seed: DecisionCase) => {
+    const created = {
+      ...seed,
+      id: "11111111-1111-4111-8111-111111111111",
+    };
+    persist.caseState = created;
+    return created;
+  }),
+  savePersistedDecisionCase: vi.fn(async (next: DecisionCase) => {
+    persist.caseState = next;
+  }),
+  loadPersistedDecisionCase: vi.fn(async () => persist.caseState),
 }));
 
 vi.mock("../services/decisionCaseService", () => ({
@@ -73,6 +80,15 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     persist.createPersistedDecisionCase.mockClear();
     persist.savePersistedDecisionCase.mockClear();
     persist.loadPersistedDecisionCase.mockClear();
+    persist.savePersistedDecisionCase.mockImplementation(
+      async (next: DecisionCase) => {
+        persist.caseState = next;
+      },
+    );
+    persist.loadPersistedDecisionCase.mockImplementation(
+      async () => persist.caseState,
+    );
+    persist.caseState = null;
     localStorage.clear();
   });
 
@@ -120,6 +136,9 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     fireEvent.change(screen.getByTestId("spine-person-requiredApprover"), {
       target: { value: "Kai" },
     });
+    fireEvent.change(screen.getByTestId("spine-person-verificationOwner"), {
+      target: { value: "Ada" },
+    });
     fireEvent.click(screen.getByTestId("spine-disp-accept"));
     fireEvent.change(screen.getByTestId("spine-rationale"), {
       target: { value: "Accept structure only until vibration exists." },
@@ -134,6 +153,12 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     fireEvent.click(screen.getByTestId("spine-record-disposition"));
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByTestId("spine-verification")).toBeTruthy();
+    expect(
+      screen
+        .getByTestId("spine-verification")
+        .compareDocumentPosition(screen.getByTestId("spine-invite")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     fireEvent.change(screen.getByTestId("spine-verify-expected"), {
       target: { value: "Named vibration set before next review" },
     });
@@ -149,7 +174,6 @@ describe("P0.2 Decision Case spine on /get-started", () => {
   it("never dead-ends a failed connection", async () => {
     renderOpening();
     openSpine();
-    fireEvent.click(screen.getByTestId("spine-method-connect_source"));
     fireEvent.click(screen.getByTestId("spine-connect-check"));
     expect(
       (await screen.findByTestId("spine-connect-fallbacks")).textContent,
@@ -159,6 +183,66 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     );
     expect(screen.getByTestId("spine-connect-fallbacks").textContent).toMatch(
       /No source is connected/,
+    );
+  });
+
+  it("renders the supported first-time journey in evidence-before-recommendation order", () => {
+    renderOpening();
+    openSpine();
+    const ordered = [
+      screen.getByTestId("spine-save-workspace"),
+      screen.getByTestId("spine-evidence"),
+      screen.getByTestId("spine-recommendation"),
+      screen.getByTestId("spine-disposition"),
+      screen.getByTestId("spine-invite"),
+      screen.getByTestId("spine-connect-source"),
+      screen.getByTestId("spine-readiness"),
+    ];
+    for (let index = 0; index < ordered.length - 1; index += 1) {
+      expect(
+        ordered[index].compareDocumentPosition(ordered[index + 1]) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
+  });
+
+  it("does not earn saved readiness after an update failure and reloads the last persisted case", async () => {
+    authHolder.user = { id: "user-1" };
+    renderOpening();
+    openSpine();
+    expect(await screen.findByTestId("spine-save-notice")).toHaveTextContent(
+      /Decision Case is on your evaluation workspace/i,
+    );
+
+    persist.savePersistedDecisionCase.mockRejectedValueOnce(
+      new Error("workspace write refused"),
+    );
+    fireEvent.change(screen.getByTestId("spine-evidence-body"), {
+      target: { value: "Customer-supplied inspection note." },
+    });
+    fireEvent.click(screen.getByTestId("spine-add-evidence"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /workspace write refused/i,
+    );
+    expect(screen.getByTestId("spine-gate-audit_trail")).toHaveTextContent(
+      /Open/i,
+    );
+    expect(screen.getByTestId("spine-gate-evidence_path")).toHaveTextContent(
+      /Open/i,
+    );
+
+    fireEvent.click(screen.getByTestId("spine-reload-audit"));
+    await waitFor(() =>
+      expect(screen.getByTestId("spine-save-notice")).toHaveTextContent(
+        /reloaded from the evaluation workspace/i,
+      ),
+    );
+    expect(screen.getByTestId("spine-gate-audit_trail")).toHaveTextContent(
+      /Met/i,
+    );
+    expect(screen.getByTestId("spine-gate-evidence_path")).toHaveTextContent(
+      /Open/i,
     );
   });
 
@@ -305,11 +389,14 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     expect(screen.getByTestId("spine-help-action").textContent).toMatch(
       /ACTION · locked/,
     );
-    expect(screen.getByTestId("spine-help-action").getAttribute("data-locked")).toBe(
-      "true",
-    );
+    expect(
+      screen.getByTestId("spine-help-action").getAttribute("data-locked"),
+    ).toBe("true");
 
     fireEvent.change(screen.getByTestId("spine-person-decisionOwner"), {
+      target: { value: "Ada" },
+    });
+    fireEvent.change(screen.getByTestId("spine-person-verificationOwner"), {
       target: { value: "Ada" },
     });
     fireEvent.click(screen.getByTestId("spine-disp-accept"));

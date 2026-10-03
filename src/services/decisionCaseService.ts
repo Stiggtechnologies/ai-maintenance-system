@@ -44,7 +44,7 @@ export async function createPersistedDecisionCase(
     createdFromIntake: seed.createdFromIntake || Boolean(context.intakeId),
     updatedAt: new Date().toISOString(),
   };
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("cowork_workspaces")
     .update({
       case_number: persisted.caseNumber,
@@ -53,8 +53,15 @@ export async function createPersistedDecisionCase(
       usage_tokens: persisted.tokensUsed,
       next_action: "Complete the technical authority review",
     })
-    .eq("id", result.workspaceId);
+    .eq("id", result.workspaceId)
+    .select("id")
+    .maybeSingle();
   if (error) throw new Error(`Could not initialize case: ${error.message}`);
+  if (!data) {
+    throw new Error(
+      "Could not initialize case: no tenant-visible workspace row was updated.",
+    );
+  }
   return persisted;
 }
 
@@ -86,7 +93,7 @@ export async function savePersistedDecisionCase(
     outcomes: 90,
     learning: 100,
   };
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("cowork_workspaces")
     .update({
       case_state: decisionCase,
@@ -96,8 +103,15 @@ export async function savePersistedDecisionCase(
       next_action: decisionCase.statusLabel,
       updated_at: decisionCase.updatedAt,
     })
-    .eq("id", decisionCase.id);
+    .eq("id", decisionCase.id)
+    .select("id")
+    .maybeSingle();
   if (error) throw new Error(`Could not save case: ${error.message}`);
+  if (!data) {
+    throw new Error(
+      "Could not save case: no tenant-visible workspace row was updated.",
+    );
+  }
 }
 
 export interface DecisionCaseReply {

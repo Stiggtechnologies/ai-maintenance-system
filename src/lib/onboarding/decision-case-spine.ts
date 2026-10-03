@@ -22,6 +22,8 @@ import type { InvertedIntentId } from "./inverted-opening";
 
 const BANNED_SEED =
   /Fort McMurray|North Ridge Energy|P-101|dc-1048|Copper Ridge/i;
+const PERSISTED_CASE_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export const SPINE_STAGES = [
   "QUESTION",
@@ -245,11 +247,12 @@ export type DispositionRecord = {
 };
 
 export type LoopGateId =
-  | "decision_loop"
+  | "audit_trail"
   | "evidence_path"
-  | "named_approver"
+  | "decision_loop"
   | "verification"
-  | "audit_trail";
+  | "named_approver"
+  | "source_check";
 
 export type LoopGate = {
   id: LoopGateId;
@@ -263,6 +266,13 @@ export type SpineReadiness = {
   metCount: number;
   total: number;
   headline: string;
+};
+
+export type WalkthroughNextAction = {
+  gateId: LoopGateId | "complete";
+  title: string;
+  detail: string;
+  targetId: string;
 };
 
 export type EvidenceLineage = {
@@ -662,6 +672,7 @@ export function applyDisposition(
   }
   return {
     ...withPeople,
+    updatedAt: now,
     stage: disposition === "accept" ? "outcomes" : "authority",
     statusLabel: `${option?.title ?? disposition} · not plant execute`,
     approvals: withPeople.approvals.map((item) =>
@@ -701,12 +712,14 @@ export function applyVerificationPlan(
   decisionCase: DecisionCase,
   plan: VerificationPlan,
 ): DecisionCase {
-  if (!plan.expected.trim() || !plan.scheduledFor.trim()) {
-    throw new Error("Verification needs Expected and a scheduled date.");
+  const owner = (plan.attributedTo ?? "").trim();
+  if (!plan.expected.trim() || !plan.scheduledFor.trim() || !owner) {
+    throw new Error(
+      "Verification needs an expected outcome, a scheduled date, and a named Verification Owner.",
+    );
   }
   const now = new Date().toISOString();
   const hasOutcome = Boolean(plan.actual.trim() || plan.evidence.trim());
-  const owner = (plan.attributedTo ?? "").trim();
   const attribution = outcomeAttribution(plan, owner);
   const recorded = Boolean(plan.effectiveness && hasOutcome);
   const scheduleText = recorded
@@ -714,6 +727,7 @@ export function applyVerificationPlan(
     : `Verification scheduled for ${plan.scheduledFor}. Question: ${plan.question || "How will we know this worked?"}. Expected: ${plan.expected}.`;
   return {
     ...decisionCase,
+    updatedAt: now,
     stage: recorded ? "learning" : "outcomes",
     statusLabel: recorded
       ? `Verification recorded · ${plan.effectiveness}`
@@ -738,21 +752,29 @@ export function applyVerificationPlan(
         verifiedActual: plan.effectiveness || "Scheduled",
       },
     ],
-    comments: hasOutcome
-      ? [
-          ...decisionCase.comments.filter(
-            (item) => item.id !== "outcome-attribution",
-          ),
-          {
-            id: "outcome-attribution",
-            author: "Outcome attribution",
-            text: attribution.line,
-            createdAt: now,
-          },
-        ]
-      : decisionCase.comments.filter(
-          (item) => item.id !== "outcome-attribution",
-        ),
+    comments: [
+      ...decisionCase.comments.filter(
+        (item) =>
+          item.id !== "outcome-attribution" &&
+          item.author !== "Verification Owner",
+      ),
+      {
+        id: `verification-owner-${now}`,
+        author: "Verification Owner",
+        text: owner,
+        createdAt: now,
+      },
+      ...(hasOutcome
+        ? [
+            {
+              id: "outcome-attribution",
+              author: "Outcome attribution",
+              text: attribution.line,
+              createdAt: now,
+            },
+          ]
+        : []),
+    ],
     learningRecord: recorded
       ? {
           id: `learn-${decisionCase.caseNumber}`,
@@ -791,6 +813,7 @@ export function applyInvite(
   );
   return {
     ...decisionCase,
+    updatedAt: now,
     approvals: existing
       ? decisionCase.approvals.map((item) =>
           item.id === "required-approver"
@@ -813,10 +836,40 @@ export function applyInvite(
       {
         id: `invite-${Date.now()}`,
         role: "system",
-        author: "Invite",
-        text: `${inviteCopy(authority)} Recorded for ${label}${email ? ` <${email}>` : ""}. Delivery is a workspace-admin action if mail is not configured.`,
+        author: "Required person",
+        text: `${inviteCopy(authority)} Required person recorded as ${label}${email ? ` <${email}>` : ""}. No email or workspace invitation was sent by this action.`,
         createdAt: now,
-        meta: "Contextual invite",
+        meta: "Required person recorded",
+      },
+    ],
+  };
+}
+
+/**
+ * Records an integration-status check on the canonical case. This is not a
+ * connector, data pull, or evidence attachment; it only makes the attempted
+ * journey step replayable after reload.
+ */
+export function recordSourceCheck(
+  decisionCase: DecisionCase,
+  result: ConnectionAttempt,
+): DecisionCase {
+  const now = new Date().toISOString();
+  const detail = result.ok ? result.note : result.reason;
+  return {
+    ...decisionCase,
+    updatedAt: now,
+    messages: [
+      ...decisionCase.messages.filter(
+        (item) => item.meta !== "Source connection check",
+      ),
+      {
+        id: `source-check-${Date.now()}`,
+        role: "system",
+        author: "Connection",
+        text: `${detail} This check is not a data pull and supplies no case evidence.`,
+        createdAt: now,
+        meta: "Source connection check",
       },
     ],
   };
@@ -855,62 +908,80 @@ export function readinessFromCase(
   decisionCase: DecisionCase,
   extras: {
     saved: boolean;
-    disposition?: SpineDisposition | "";
-    verification?: VerificationPlan | null;
-    invited?: boolean;
-    manualEvidencePath?: boolean;
   },
 ): SpineReadiness {
-  const lineage = lineageFromCase(decisionCase, extras.verification);
+  const persistedDisposition = dispositionFromCase(decisionCase);
+  const persistedVerification = verificationFromCase(decisionCase);
+  const persistedPeople = peopleFromCase(decisionCase);
+  const lineage = lineageFromCase(decisionCase, persistedVerification);
   const hasAudit =
-    decisionCase.messages.some((item) => item.role === "user") && extras.saved;
+    PERSISTED_CASE_ID.test(decisionCase.id) &&
+    decisionCase.messages.some((item) => item.role === "user") &&
+    extras.saved;
   const verificationMet = Boolean(
-    extras.verification?.scheduledFor || extras.verification?.effectiveness,
+    persistedVerification?.expected.trim() &&
+    persistedVerification.scheduledFor.trim() &&
+    persistedPeople.verificationOwner.trim(),
   );
   const namedApprover = Boolean(
-    decisionCase.approvals.some((item) => item.name.trim()) || extras.invited,
+    decisionCase.approvals.some((item) => item.name.trim()) &&
+    decisionCase.messages.some(
+      (item) => item.meta === "Required person recorded",
+    ),
   );
-  const evidencePath =
-    lineage.evidenceCount > 0 || Boolean(extras.manualEvidencePath);
-  const loopDemonstrated = Boolean(extras.disposition);
+  const evidencePath = lineage.evidenceCount > 0;
+  const loopDemonstrated = Boolean(persistedDisposition);
+  const sourceChecked = decisionCase.messages.some(
+    (item) => item.meta === "Source connection check",
+  );
   const gates: LoopGate[] = [
     {
-      id: "decision_loop",
-      title: "Decision loop demonstrated",
-      met: loopDemonstrated,
-      evidence: loopDemonstrated
-        ? `Human disposition recorded: ${extras.disposition}`
-        : "Ask happened; a human disposition is still required",
+      id: "audit_trail",
+      title: "Saved Decision Case",
+      met: hasAudit,
+      evidence: hasAudit
+        ? `${decisionCase.messages.length} case turns retained on the workspace`
+        : "Save successfully before later steps can count as workspace readiness",
     },
     {
       id: "evidence_path",
-      title: "Evidence source or honest manual path",
+      title: "Evidence supplied",
       met: evidencePath,
       evidence: evidencePath
         ? `${lineage.evidenceCount} attached · ${lineage.missing.length} still missing`
-        : "No file, paste, connection, or manual evidence yet",
+        : "No file, paste, or substantive manual evidence is recorded; asking an administrator later does not supply evidence",
     },
     {
-      id: "named_approver",
-      title: "Named approver",
-      met: namedApprover,
-      evidence: namedApprover
-        ? decisionCase.authorityRole
-        : "Required approver is not named",
+      id: "decision_loop",
+      title: "Human decision recorded",
+      met: loopDemonstrated,
+      evidence: loopDemonstrated
+        ? `Human disposition recorded: ${persistedDisposition}`
+        : "Review the recommendation and record a human disposition",
     },
     {
       id: "verification",
-      title: "Verification scheduled or recorded",
+      title: "Verification defined",
       met: verificationMet,
-      evidence: lineage.verificationStatus,
+      evidence: verificationMet
+        ? `${lineage.verificationStatus} · owner ${persistedPeople.verificationOwner}`
+        : "Expected outcome, scheduled date, and named Verification Owner are all required",
     },
     {
-      id: "audit_trail",
-      title: "Audit trail",
-      met: hasAudit,
-      evidence: hasAudit
-        ? `${decisionCase.messages.length} case turns retained`
-        : "Save the assessment so the trail is on the workspace",
+      id: "named_approver",
+      title: "Required person recorded",
+      met: namedApprover,
+      evidence: namedApprover
+        ? `${decisionCase.authorityRole} · required person recorded; invitation not sent`
+        : "Record the required person after the decision; this does not claim an invitation was sent",
+    },
+    {
+      id: "source_check",
+      title: "Source connection checked",
+      met: sourceChecked,
+      evidence: sourceChecked
+        ? "Integration status check recorded; it is not a data pull or evidence attachment"
+        : "Check available sources after recording the required person; upload, paste, and manual evidence remain valid fallbacks",
     },
   ];
   const metCount = gates.filter((item) => item.met).length;
@@ -920,9 +991,63 @@ export function readinessFromCase(
     total: gates.length,
     headline:
       metCount === gates.length
-        ? "Stage-1 loop maturity: the first Decision Case loop is complete on this workspace."
+        ? "Stage-1 journey state is recorded on this workspace. Invitation delivery, a real source-to-evidence pull, and production acceptance remain separate gates."
         : `Stage-1 loop maturity: ${metCount} of ${gates.length} gates earned — not onboarding-screen ticks.`,
   };
+}
+
+export function nextWalkthroughAction(
+  readiness: SpineReadiness,
+): WalkthroughNextAction {
+  const next = readiness.gates.find((gate) => !gate.met);
+  if (!next) {
+    return {
+      gateId: "complete",
+      title: "Review readiness and unresolved evidence",
+      detail:
+        "The supported first-decision journey is recorded. Review the proof summary and remaining evidence limitations before sharing it.",
+      targetId: "spine-readiness",
+    };
+  }
+  const actions: Record<LoopGateId, Omit<WalkthroughNextAction, "gateId">> = {
+    audit_trail: {
+      title: "Save this Decision Case",
+      detail:
+        "A workspace save must succeed before later actions can count toward readiness.",
+      targetId: "spine-save-workspace",
+    },
+    evidence_path: {
+      title: "Add evidence",
+      detail:
+        "Attach a file, paste customer data, or write a substantive manual evidence note. Asking an administrator later is not evidence.",
+      targetId: "spine-evidence",
+    },
+    decision_loop: {
+      title: "Review the recommendation and decide",
+      detail:
+        "Choose a human disposition, state the rationale, and preserve the locked ACTION boundary.",
+      targetId: "spine-disposition",
+    },
+    verification: {
+      title: "Define verification",
+      detail:
+        "Record the expected outcome, scheduled date, and named Verification Owner.",
+      targetId: "spine-verification",
+    },
+    named_approver: {
+      title: "Record the required person",
+      detail:
+        "Name the required approver. This records responsibility; it does not claim invitation delivery.",
+      targetId: "spine-invite",
+    },
+    source_check: {
+      title: "Check a connected source",
+      detail:
+        "Check tenant-visible integration status. This does not pull data; use upload, paste, or manual evidence when no source is available.",
+      targetId: "spine-connect-source",
+    },
+  };
+  return { gateId: next.id, ...actions[next.id] };
 }
 
 /** Id of the last Decision Case this browser saved. Not case content. */
