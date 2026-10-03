@@ -11,6 +11,45 @@ vi.mock("../services/missionOutcomeModels", () => ({
   decideMissionOutcomeModel: (...values: unknown[]) => decide(...values),
 }));
 
+const assetObjectives = [
+  {
+    dimension: "safety" as const,
+    name: "Safe assets",
+    objective:
+      "Prevent asset-related harm within approved obligations and operating limits.",
+    evidenceRequirements: ["approved safety obligations"],
+    decisionBoundary:
+      "Mandatory safety duties cannot be traded for financial benefit.",
+  },
+  {
+    dimension: "reliability" as const,
+    name: "Reliable assets",
+    objective:
+      "Deliver required asset function when needed at adopted service levels.",
+    evidenceRequirements: ["functional and service requirements"],
+    decisionBoundary:
+      "No reliability target is inferred without approved requirements.",
+  },
+  {
+    dimension: "resilience" as const,
+    name: "Resilient assets",
+    objective:
+      "Anticipate, absorb, recover from and adapt to service disruption.",
+    evidenceRequirements: ["dependency and restoration evidence"],
+    decisionBoundary:
+      "Recoverability remains unproven until restoration is verified.",
+  },
+  {
+    dimension: "economics" as const,
+    name: "Economically responsible assets",
+    objective:
+      "Improve lifecycle value after mandatory obligations are satisfied.",
+    evidenceRequirements: ["cost, value and lifecycle assumptions"],
+    decisionBoundary:
+      "Economic optimization cannot override mandatory constraints.",
+  },
+];
+
 const template = {
   organizationType: "mining",
   title: "Mining production outcomes",
@@ -26,6 +65,7 @@ const template = {
   ],
   consequenceDimensions: ["worker_safety", "environment", "production"],
   evidenceRequirements: ["production reconciliation", "safety events"],
+  assetObjectives,
   limitations: "Site operating limits remain authoritative.",
   version: 1,
 };
@@ -48,8 +88,10 @@ const workspace = {
       measures: template.measures,
       consequenceDimensions: template.consequenceDimensions,
       evidenceRequirements: template.evidenceRequirements,
+      assetObjectives,
       evidenceBasis: "Board strategy and approved annual operating plan.",
-      applicabilityNotes: "Applies to the mine and processing facilities this year.",
+      applicabilityNotes:
+        "Applies to the mine and processing facilities this year.",
       status: "draft",
       version: 1,
       createdBy: "engineer@example.com",
@@ -75,12 +117,27 @@ describe("MissionOutcomeModels", () => {
   it("previews a governed organization template and submits evidence", async () => {
     render(<MissionOutcomeModels />);
     await screen.findByText(/Mine mission model/);
-    expect(screen.getByText(/Template defaults are not authority/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Template defaults are not authority/i),
+    ).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Organization type"), {
       target: { value: "mining" },
     });
-    expect(screen.getByText("Safe production · Throughput")).toBeInTheDocument();
-    expect(screen.getByText(/Site operating limits remain authoritative/)).toBeInTheDocument();
+    expect(
+      screen.getByText("Safe production · Throughput"),
+    ).toBeInTheDocument();
+    expect(screen.getAllByText("Safe assets")).toHaveLength(2);
+    expect(screen.getAllByText("Reliable assets")).toHaveLength(2);
+    expect(screen.getAllByText("Resilient assets")).toHaveLength(2);
+    expect(screen.getAllByText("Economically responsible assets")).toHaveLength(
+      2,
+    );
+    expect(
+      screen.getByText(/Mandatory safety duties cannot be traded/i),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Site operating limits remain authoritative/),
+    ).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Evidence basis"), {
       target: { value: "Board strategy and approved annual operating plan." },
     });
@@ -108,7 +165,8 @@ describe("MissionOutcomeModels", () => {
     fireEvent.click(screen.getByRole("button", { name: "Review" }));
     fireEvent.change(screen.getByLabelText("Decision basis for version 1"), {
       target: {
-        value: "Confirmed against the board strategy and current service obligations.",
+        value:
+          "Confirmed against the board strategy and current service obligations.",
       },
     });
     fireEvent.click(screen.getByRole("button", { name: "Adopt" }));

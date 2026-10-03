@@ -5,6 +5,14 @@ export interface MissionOutcomeItem {
   name: string;
 }
 
+export interface MissionAssetObjective {
+  dimension: "safety" | "reliability" | "resilience" | "economics";
+  name: string;
+  objective: string;
+  evidenceRequirements: string[];
+  decisionBoundary: string;
+}
+
 export interface MissionOutcomeTemplate {
   organizationType: string;
   title: string;
@@ -13,6 +21,7 @@ export interface MissionOutcomeTemplate {
   measures: MissionOutcomeItem[];
   consequenceDimensions: string[];
   evidenceRequirements: string[];
+  assetObjectives: MissionAssetObjective[];
   limitations: string;
   version: number;
 }

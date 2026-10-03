@@ -20,9 +20,9 @@ test "$NOAUTH" = '401'
 
 WORKSPACE=$(rpc "$AUTHOR" get_mission_outcome_workspace '{}')
 test "$(status "$WORKSPACE")" = '200'
-BODY="$(body "$WORKSPACE")" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert len(x['templates'])==12,x; assert len(x['models'])==0,x; assert 'starting points' in x['control'],x"
+BODY="$(body "$WORKSPACE")" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert len(x['templates'])==12,x; assert len(x['models'])==0,x; expected={'safety','reliability','resilience','economics'}; assert all({o['dimension'] for o in t['assetObjectives']}==expected and len(t['assetObjectives'])==4 for t in x['templates']),x; assert all(all(o['evidenceRequirements'] and len(o['decisionBoundary'])>=20 for o in t['assetObjectives']) for t in x['templates']),x; assert 'without inventing targets' in x['control'],x"
 
-make_model(){ rpc "$AUTHOR" author_mission_outcome_model "{\"p_model\":{\"organization_type\":\"$1\",\"title\":\"$2\",\"mission_statement\":\"$3\",\"evidence_basis\":\"Board strategy and approved annual operating plan dated 2026.\",\"applicability_notes\":\"Applies across the organization for the current planning cycle.\"}}"; }
+make_model(){ rpc "$AUTHOR" author_mission_outcome_model "{\"p_model\":{\"organization_type\":\"$1\",\"title\":\"$2\",\"mission_statement\":\"$3\",\"evidence_basis\":\"Board strategy and approved annual operating plan dated 2026.\",\"applicability_notes\":\"Applies across the organization for the current planning cycle.\",\"asset_objectives\":[{\"dimension\":\"economics\",\"objective\":\"Caller attempts to remove mandatory lenses.\"}]}}"; }
 
 FIRST=$(make_model mining 'Mine mission outcome model' 'Deliver safe and predictable mineral production within approved operating limits.')
 test "$(status "$FIRST")" = '200'
@@ -35,7 +35,7 @@ ADOPTED=$(rpc "$APPROVER" decide_mission_outcome_model "{\"p_id\":\"$FIRST_ID\",
 BODY="$(body "$ADOPTED")" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x['status']=='adopted' and 'does not authorize work' in x['authority'],x"
 
 RESOLVED=$(rpc "$AUTHOR" resolve_mission_outcome_model '{}')
-BODY="$(body "$RESOLVED")" FIRST_ID="$FIRST_ID" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x['modelId']==os.environ['FIRST_ID']; assert x['organizationType']=='mining'; assert 'Separate governed evidence' in x['authority'],x"
+BODY="$(body "$RESOLVED")" FIRST_ID="$FIRST_ID" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x['modelId']==os.environ['FIRST_ID']; assert x['organizationType']=='mining'; assert {o['dimension'] for o in x['assetObjectives']}=={'safety','reliability','resilience','economics'} and len(x['assetObjectives'])==4,x; assert 'human authority are required' in x['authority'],x"
 
 SECOND=$(make_model utility 'Utility service outcome model' 'Deliver safe reliable and affordable utility service while protecting people and environment.')
 SECOND_ID=$(BODY="$(body "$SECOND")" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x['version']==2,x; print(x['model_id'])")
@@ -63,4 +63,4 @@ join approvals a on a.id=s.approval_id
 where f.id='$FIRST_ID';
 SQL
 
-echo 'U1.01 mission/outcome models smoke passed: twelve_types=true tenant_wall=true canonical_approval=true independent_human=true ai_refused=true supersession=true evidence_boundary=true guarded_writes=true'
+echo 'U1.01/U1.02 mission/outcome models smoke passed: twelve_types=true universal_asset_objectives=true tenant_wall=true canonical_approval=true independent_human=true ai_refused=true caller_cannot_remove_lenses=true supersession=true evidence_boundary=true guarded_writes=true'

@@ -443,7 +443,7 @@ with the PR that changes an item's status._
 | ID    | Capability                                                                                                                                                           | Status |
 | ----- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------ |
 | U1.01 | Mission-outcome models per organization type (utility, water, rail, airline, hospital, municipality, data centre, mining, manufacturing, defence, property, telecom) | ✅ twelve governed reference models plus tenant-owned versioning, evidence/applicability basis, canonical independent approval, supersession, guarded writes, audit provenance and downstream resolver (`20261219210000_mission_outcome_models.sql`); Decision Governance UI and runtime smoke prove human/AI/tenant boundaries |
-| U1.02 | Universal objective: protect/improve mission delivery through safe, reliable, resilient, economic assets                                                             | 🟡     |
+| U1.02 | Universal objective: protect/improve mission delivery through safe, reliable, resilient, economic assets                                                             | ✅ the canonical organization mission model now carries exactly four immutable manufacturer-neutral asset objectives: safety, reliability, resilience and lifecycle economics. Each objective names required evidence and a decision boundary; reliability targets and achieved performance remain unclaimed without approved requirements and measurements, resilience remains unproven without dependency/restoration evidence, and economics cannot override mandatory duties. The existing tenant-owned authoring, canonical approval, independent named-human adoption, supersession, audit and resolver workflow remains the only authority; callers cannot remove a lens or use the model to authorize work, operation, spending or risk acceptance (`20270101730000_universal_mission_asset_objectives.sql`, `MissionOutcomeModels`, `ci-mission-outcome-models-smoke.sh`). |
 
 ### U2 — Systems-of-systems modeling
 
@@ -776,6 +776,6 @@ record-scoped._
 
 Atomic items tracked: **397** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 323 · 🟡 143 · ❌ 0. _(2026-10-03: U2.08 closed by the customer-reachable, evidence-backed, independently verified service-consequence workflow and clean-database acceptance smoke.)_
+never changed, only the count of it). Current tally: ✅ 324 · 🟡 142 · ❌ 0. _(2026-10-03: U1.02 closed by the canonical four-lens mission-asset objective contract and governed adoption workflow.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.
