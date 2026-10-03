@@ -127,6 +127,8 @@ describe("E10 governed environmental evidence workflow", () => {
     expect(workflow).toContain(
       "bash scripts/ci-environmental-evidence-workflow-smoke.sh",
     );
+    expect(smoke).toContain("'MEASURED'");
+    expect(smoke).not.toContain("'OBSERVED'");
     for (const proof of [
       "tenant_wall=true",
       "aal2_required=true",
