@@ -238,6 +238,7 @@ jobs:
           FLAGGED=$(echo "$LOOP" | python3 -c "import sys,json;print(json.load(sys.stdin).get('sensors_flagged',-1))" 2>/dev/null || echo -1)
           echo "loop: flagged=$FLAGGED created=$CREATED"
           test "$FLAGGED" -ge 3
+
           test "$CREATED" -ge 3
           AGAIN=$(curl -s -X POST "$API_URL/rest/v1/rpc/run_agent_loop" \
             -H "apikey: $SERVICE_ROLE_KEY" -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
@@ -245,6 +246,18 @@ jobs:
           SECOND=$(echo "$AGAIN" | python3 -c "import sys,json;print(json.load(sys.stdin).get('recommendations_created',-1))" 2>/dev/null || echo -1)
           test "$SECOND" = "0"
           echo "Agent-loop smoke passed: flagged=$FLAGGED first=$CREATED second=$SECOND (idempotent)"
+
+      - name: Smoke — governed Planning & Scheduling agent
+        run: bash scripts/ci-planning-agent-smoke.sh
+
+      - name: Smoke — governed Site Maintenance Manager shift handover
+        run: bash scripts/ci-site-maintenance-handover-smoke.sh
+
+      - name: Smoke — governed Reliability Engineer life data
+        run: bash scripts/ci-reliability-life-data-agent-smoke.sh
+
+      - name: Smoke — governed RCA / FRACAS investigation
+        run: bash scripts/ci-fracas-rca-agent-smoke.sh
 
       # The Sync Develop transcripts run in CI against the same booted chain,
       # so the gate/sanction discipline and the value-spine refusals cannot
@@ -272,6 +285,9 @@ jobs:
 
       - name: Smoke — organization governance workspace (root seeding, scoped tree, human acts)
         run: bash scripts/ci-organization-governance-workspace-smoke.sh
+
+      - name: Smoke — cross-node governance execution (ancestor definition, descendant acts)
+        run: bash scripts/ci-cross-node-governance-smoke.sh
 
       - name: Smoke — Sync Develop slice 4A (scope chain, P6 boundary, cost lines, controls baseline, lineage)
         run: bash scripts/ci-develop-slice4a-smoke.sh
@@ -344,6 +360,21 @@ jobs:
 
       - name: Smoke — contextual condition monitoring (historian + exact-time duty)
         run: bash scripts/ci-contextual-condition-monitoring-smoke.sh
+
+      - name: Smoke — governed Condition Monitoring Analyst
+        run: bash scripts/ci-condition-monitoring-agent-smoke.sh
+
+      - name: Smoke — governed MRO Materials Specialist
+        run: bash scripts/ci-mro-materials-agent-smoke.sh
+
+      - name: Smoke — governed Shutdown / Turnaround Specialist
+        run: bash scripts/ci-shutdown-turnaround-agent-smoke.sh
+
+      - name: Smoke — governed Asset Strategy Specialist
+        run: bash scripts/ci-asset-strategy-agent-smoke.sh
+
+      - name: Smoke — governed Data Steward Specialist
+        run: bash scripts/ci-data-steward-agent-smoke.sh
 
       - name: Smoke — loss forecast, risk backlog and outage options
         run: bash scripts/ci-loss-forecast-backlog-outage-smoke.sh
@@ -463,6 +494,9 @@ jobs:
 
       - name: Smoke — governed geospatial operational intelligence
         run: bash scripts/ci-geospatial-operational-intelligence-smoke.sh
+
+      - name: Smoke — Sync Context canonical contracts and two-tenant isolation
+        run: bash scripts/ci-sync-context-contract-smoke.sh
 
       - name: Smoke — governed enterprise portfolio optimization
         run: bash scripts/ci-enterprise-portfolio-optimization-smoke.sh

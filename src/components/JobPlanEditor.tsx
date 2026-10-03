@@ -9,12 +9,14 @@
 import type { ReactNode } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import type {
+  DocumentOption,
   JobPlanDraft,
   JobPlanMaterialLine,
   MaterialOption,
 } from "../services/jobPlanService";
 import {
   emptyCheck,
+  emptyDocument,
   emptyMaterial,
   emptyPermit,
   emptyStep,
@@ -39,6 +41,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 export function JobPlanEditor({
   draft,
   catalogue,
+  documents,
   busy,
   planKeyLocked,
   revising = false,
@@ -48,6 +51,7 @@ export function JobPlanEditor({
 }: {
   draft: JobPlanDraft;
   catalogue: MaterialOption[];
+  documents: DocumentOption[];
   busy: boolean;
   planKeyLocked: boolean;
   /** True when this save must insert the next version rather than edit the adopted row. */
@@ -366,6 +370,76 @@ export function JobPlanEditor({
               label={`Remove permit ${i + 1}`}
               onClick={() =>
                 set({ permits: draft.permits.filter((_, j) => j !== i) })
+              }
+            />
+          </div>
+        ))}
+      </LineSection>
+
+      <LineSection
+        title="Controlled documents"
+        hint={
+          documents.length === 0
+            ? "No indexed tenant documents are available. The plan may still be saved as a draft, but document readiness remains open."
+            : "Link only current documents already indexed in this tenant. State why each procedure, drawing, manual or standard controls the work."
+        }
+        onAdd={
+          documents.length === 0
+            ? undefined
+            : () => set({ documents: [...draft.documents, emptyDocument()] })
+        }
+        addLabel="Link document"
+      >
+        {draft.documents.map((line, i) => (
+          <div
+            key={`document-${i}`}
+            className="grid gap-2 md:grid-cols-[1fr_1fr_2rem]"
+          >
+            <select
+              aria-label={`Document ${i + 1}`}
+              value={line.document_id}
+              onChange={(e) => {
+                const picked = documents.find((d) => d.id === e.target.value);
+                const next = [...draft.documents];
+                next[i] = {
+                  ...line,
+                  document_id: e.target.value,
+                  title: picked?.title ?? "",
+                };
+                set({ documents: next });
+              }}
+              className={fieldClass}
+            >
+              <option value="">Select indexed document…</option>
+              {line.document_id &&
+                !documents.some((d) => d.id === line.document_id) && (
+                  <option value={line.document_id}>
+                    {line.title || line.document_id} (unavailable)
+                  </option>
+                )}
+              {documents.map((document) => (
+                <option key={document.id} value={document.id}>
+                  {document.title} · {document.document_class}
+                </option>
+              ))}
+            </select>
+            <input
+              aria-label={`Document ${i + 1} purpose`}
+              value={line.purpose}
+              onChange={(e) => {
+                const next = [...draft.documents];
+                next[i] = { ...line, purpose: e.target.value };
+                set({ documents: next });
+              }}
+              placeholder="Why this document controls the work"
+              className={fieldClass}
+            />
+            <IconButton
+              label={`Remove document ${i + 1}`}
+              onClick={() =>
+                set({
+                  documents: draft.documents.filter((_, j) => j !== i),
+                })
               }
             />
           </div>

@@ -12,11 +12,13 @@ import { JobPlans } from "./JobPlans";
 const listJobPlans = vi.fn();
 const getPlanningAccuracy = vi.fn();
 const listMaterials = vi.fn();
+const listJobPlanDocuments = vi.fn();
 const listOpenWorkOrders = vi.fn();
 const getJobPlanDetail = vi.fn();
 const upsertJobPlan = vi.fn();
 const adoptJobPlan = vi.fn();
 const applyJobPlan = vi.fn();
+const runPlanningAgent = vi.fn();
 
 let role = "reliability_engineer";
 
@@ -33,11 +35,13 @@ vi.mock("../services/jobPlanService", async () => {
     listJobPlans: () => listJobPlans(),
     getPlanningAccuracy: () => getPlanningAccuracy(),
     listMaterials: () => listMaterials(),
+    listJobPlanDocuments: () => listJobPlanDocuments(),
     listOpenWorkOrders: () => listOpenWorkOrders(),
     getJobPlanDetail: (...args: unknown[]) => getJobPlanDetail(...args),
     upsertJobPlan: (...args: unknown[]) => upsertJobPlan(...args),
     adoptJobPlan: (...args: unknown[]) => adoptJobPlan(...args),
     applyJobPlan: (...args: unknown[]) => applyJobPlan(...args),
+    runPlanningAgent: (...args: unknown[]) => runPlanningAgent(...args),
   };
 });
 
@@ -54,8 +58,11 @@ const DRAFT_PLAN = {
   materials: 0,
   tools: 0,
   permits: 0,
+  documents: 0,
   checks: 1,
   applied_to_work_orders: 0,
+  draft_origin: "human" as const,
+  agent_run_id: null,
 };
 
 const ADOPTED_PLAN = {
@@ -101,6 +108,7 @@ beforeEach(() => {
       unit_of_measure: "each",
     },
   ]);
+  listJobPlanDocuments.mockResolvedValue([]);
   listOpenWorkOrders.mockResolvedValue([
     {
       id: "wo1",
@@ -113,13 +121,80 @@ beforeEach(() => {
 });
 
 describe("JobPlans authoring surface", () => {
+  it("runs the governed Planning agent, shows its gaps, and opens its draft for human review", async () => {
+    runPlanningAgent.mockResolvedValue({
+      run_id: "run-12345678",
+      agent_id: "agent-1",
+      agent_key: "planning_scheduling",
+      work_order_id: "wo1",
+      job_plan_id: "p-agent",
+      draft_created: true,
+      draft_origin: "agent",
+      reference_plan_id: null,
+      gaps: [
+        {
+          code: "acceptance",
+          severity: "blocker",
+          label: "Acceptance criteria",
+          detail: "No measurable acceptance criterion exists.",
+        },
+      ],
+      materials: [],
+      human_approval_required: true,
+      required_human_approver_role: "maintenance_manager",
+      may_adopt: false,
+      may_apply: false,
+      may_release_schedule: false,
+      basis: "Deterministic reading of canonical tenant work context.",
+    });
+    getJobPlanDetail.mockResolvedValue({
+      id: "p-agent",
+      plan_key: "AGENT-WO-WO-100",
+      title: "Draft plan — WO-100 — Pump leak",
+      scope: "Planning boundary from work order WO-100: Pump leak",
+      applies_to_asset_class: "pump",
+      applies_to_system_group: "process water",
+      basis: "Recorded work context only.",
+      status: "draft",
+      version: 1,
+      steps: [],
+      materials: [],
+      tools: [],
+      permits: [],
+      documents: [],
+      checks: [],
+    });
+
+    renderPage();
+    fireEvent.change(
+      await screen.findByLabelText("Work order for Planning agent"),
+      {
+        target: { value: "wo1" },
+      },
+    );
+    fireEvent.click(screen.getByText("Run Planning agent"));
+
+    await waitFor(() => expect(runPlanningAgent).toHaveBeenCalledWith("wo1"));
+    expect(
+      await screen.findByTestId("planning-agent-reading"),
+    ).toHaveTextContent("Acceptance criteria");
+    expect(screen.getByTestId("planning-agent-reading")).toHaveTextContent(
+      "Human adoption required",
+    );
+    expect(await screen.findByLabelText("Plan title")).toHaveValue(
+      "Draft plan — WO-100 — Pump leak",
+    );
+    expect(adoptJobPlan).not.toHaveBeenCalled();
+    expect(applyJobPlan).not.toHaveBeenCalled();
+  });
+
   it("shows an honest empty state and does not invent a library", async () => {
     renderPage();
     expect(
       await screen.findByText(/No job plan has been authored/),
     ).toBeInTheDocument();
     expect(screen.getByTestId("job-plan-honesty")).toHaveTextContent(
-      /AI does not recommend or authorize/,
+      /cannot adopt, apply, release, spend, or return equipment to service/,
     );
   });
 
@@ -166,6 +241,52 @@ describe("JobPlans authoring surface", () => {
     expect(draft.plan_key).toBe("JP-SEAL");
     expect(draft.title).toBe("Replace pump seal");
     expect(await screen.findByText(/Draft saved/)).toBeInTheDocument();
+  });
+
+  it("links an indexed tenant document into the canonical draft", async () => {
+    listJobPlanDocuments.mockResolvedValue([
+      {
+        id: "doc-1",
+        title: "Pump isolation procedure",
+        document_class: "procedure",
+        document_type: "work_instruction",
+      },
+    ]);
+    upsertJobPlan.mockResolvedValue({
+      job_plan_id: "p-new",
+      plan_key: "JP-DOC",
+      steps: 0,
+      status: "draft",
+    });
+
+    renderPage();
+    fireEvent.click(await screen.findByText("Author a plan"));
+    fireEvent.change(screen.getByLabelText("Plan key"), {
+      target: { value: "JP-DOC" },
+    });
+    fireEvent.change(screen.getByLabelText("Plan title"), {
+      target: { value: "Documented pump work" },
+    });
+    fireEvent.change(screen.getByLabelText("Plan scope"), {
+      target: { value: "Controlled work boundary for the pump." },
+    });
+    fireEvent.click(await screen.findByText("Link document"));
+    fireEvent.change(screen.getByLabelText("Document 1"), {
+      target: { value: "doc-1" },
+    });
+    fireEvent.change(screen.getByLabelText("Document 1 purpose"), {
+      target: { value: "Controls isolation sequence" },
+    });
+    fireEvent.click(screen.getByText("Save draft"));
+
+    await waitFor(() => expect(upsertJobPlan).toHaveBeenCalled());
+    expect(upsertJobPlan.mock.calls[0][0].documents).toEqual([
+      {
+        document_id: "doc-1",
+        title: "Pump isolation procedure",
+        purpose: "Controls isolation sequence",
+      },
+    ]);
   });
 
   it("shows an unresolved code on the editor when a saved line is no longer in the catalogue", async () => {

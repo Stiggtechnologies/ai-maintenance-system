@@ -11,6 +11,7 @@ import {
   prioritiseUnderBudget,
   type CashFlow,
 } from "../../../src/lib/value/index.ts";
+import { selectWeibullMethod } from "../../../src/lib/reliability/method-selection.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -69,6 +70,54 @@ type CapitalPlanRow = {
   mandatory_basis: string | null;
   case_id: number | null;
 };
+type LifeEventRow = {
+  id: number;
+  hoursAtChangeOut: number | string;
+  eventKind: "failure" | "scheduled" | "other";
+  component: string;
+};
+type AssetStrategySource = {
+  error?: string;
+  kernelVersion?: string;
+  plan?: {
+    id: string;
+    intervalBasis: "calendar_days" | "run_hours";
+    intervalValue: number | string;
+    active: boolean;
+    componentScope: string | null;
+    failureMode: string | null;
+    strategyKind:
+      | "time_based_pm"
+      | "condition_based"
+      | "failure_finding"
+      | "run_to_failure"
+      | null;
+    plannedTaskCostUsd: number | string | null;
+    failureConsequenceCostUsd: number | string | null;
+    costBasis: string | null;
+    safetyCritical: boolean | null;
+    regulatoryRequired: boolean | null;
+    lifecycleObjective: string | null;
+    version: number;
+  };
+  asset?: {
+    id: string;
+    name: string;
+    tag: string | null;
+    assetClass: string | null;
+    criticality: string | null;
+  };
+  lifeEvents?: LifeEventRow[];
+  pfIntervals?: Array<{
+    id: string;
+    detectionTechnique: string;
+    pfIntervalDays: number | string;
+    basis: string;
+    status: string;
+  }>;
+  economics?: Record<string, unknown> | null;
+  lifecycleEvaluations?: Array<Record<string, unknown>>;
+};
 
 function finiteNumber(value: unknown): number | null {
   if (
@@ -116,7 +165,12 @@ Deno.serve(async (request) => {
   if (profileError || !profile?.organization_id)
     return json({ error: "organization_membership_required" }, 403);
 
-  let body: { action?: unknown; budget?: unknown };
+  let body: {
+    action?: unknown;
+    budget?: unknown;
+    component?: unknown;
+    planId?: unknown;
+  };
   try {
     const raw = await request.text();
     if (new TextEncoder().encode(raw).byteLength > MAX_BODY_BYTES)
@@ -125,6 +179,301 @@ Deno.serve(async (request) => {
   } catch {
     return json({ error: "invalid_json" }, 400);
   }
+  const organizationId = profile.organization_id;
+  const actorId = userData.user.id;
+
+  if (body.action === "reliability_life_data") {
+    const component =
+      typeof body.component === "string" ? body.component.trim() : "";
+    if (component.length < 2 || component.length > 160)
+      return json({ error: "component_must_contain_2_to_160_characters" }, 400);
+    try {
+      const { data: sourceData, error: sourceError } = await service.rpc(
+        "get_reliability_life_data_source",
+        {
+          p_organization_id: organizationId,
+          p_actor_id: actorId,
+          p_component: component,
+        },
+      );
+      if (sourceError) throw new Error(sourceError.message);
+      const source = sourceData as {
+        error?: string;
+        component?: string;
+        kernelVersion?: string;
+        events?: LifeEventRow[];
+      } | null;
+      if (source?.error) return json({ error: source.error }, 403);
+      const events = Array.isArray(source?.events) ? source.events : [];
+      if (events.length === 0)
+        return json({ error: "no_component_life_data" }, 422);
+      const failures = events
+        .filter((event) => event.eventKind === "failure")
+        .map((event) => finiteNumber(event.hoursAtChangeOut))
+        .filter((hours): hours is number => hours !== null && hours > 0);
+      const suspensions = events
+        .filter((event) => event.eventKind === "scheduled")
+        .map((event) => finiteNumber(event.hoursAtChangeOut))
+        .filter((hours): hours is number => hours !== null && hours > 0);
+      const methodSelection = selectWeibullMethod(failures, suspensions);
+      const { data: receiptData, error: receiptError } = await service.rpc(
+        "record_reliability_life_data_run",
+        {
+          p_organization_id: organizationId,
+          p_actor_id: actorId,
+          p_component: source?.component ?? component,
+          p_event_ids: events.map((event) => event.id),
+          p_kernel_version: source?.kernelVersion,
+          p_result: methodSelection,
+        },
+      );
+      if (receiptError) throw new Error(receiptError.message);
+      const receipt = receiptData as { error?: string } | null;
+      if (receipt?.error) return json({ error: receipt.error }, 422);
+      return json(receipt);
+    } catch (error) {
+      console.error("reliability life-data calculation failed", error);
+      return json({ error: "reliability_life_data_calculation_failed" }, 422);
+    }
+  }
+
+  if (body.action === "asset_strategy") {
+    const planId = typeof body.planId === "string" ? body.planId.trim() : "";
+    if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(planId))
+      return json({ error: "valid_plan_id_required" }, 400);
+    try {
+      const { data: sourceData, error: sourceError } = await service.rpc(
+        "get_asset_strategy_source",
+        {
+          p_organization_id: organizationId,
+          p_actor_id: actorId,
+          p_plan_id: planId,
+        },
+      );
+      if (sourceError) throw new Error(sourceError.message);
+      const source = sourceData as AssetStrategySource | null;
+      if (source?.error) return json({ error: source.error }, 403);
+      if (!source?.plan || !source.asset || !source.kernelVersion)
+        return json({ error: "asset_strategy_source_incomplete" }, 422);
+
+      // Keep the established reliability and value actions independent of the
+      // asset-strategy kernel.  The Edge Runtime loads this module only after
+      // the caller and exact tenant-scoped strategy source have been accepted.
+      const { inspectionInterval, optimalAgeReplacement } =
+        await import("../../../src/lib/optimization/index.ts");
+
+      const events = Array.isArray(source.lifeEvents) ? source.lifeEvents : [];
+      const failures = events
+        .filter((event) => event.eventKind === "failure")
+        .map((event) => finiteNumber(event.hoursAtChangeOut))
+        .filter((hours): hours is number => hours !== null && hours > 0);
+      const suspensions = events
+        .filter((event) => event.eventKind === "scheduled")
+        .map((event) => finiteNumber(event.hoursAtChangeOut))
+        .filter((hours): hours is number => hours !== null && hours > 0);
+      const methodSelection = selectWeibullMethod(failures, suspensions);
+      const plannedCost = finiteNumber(source.plan.plannedTaskCostUsd);
+      const failureCost = finiteNumber(source.plan.failureConsequenceCostUsd);
+      const hasCostEvidence =
+        plannedCost != null &&
+        plannedCost > 0 &&
+        failureCost != null &&
+        failureCost > 0 &&
+        typeof source.plan.costBasis === "string" &&
+        source.plan.costBasis.trim().length >= 20;
+      const fit =
+        methodSelection.beta != null && methodSelection.eta != null
+          ? {
+              beta: methodSelection.beta,
+              eta: methodSelection.eta,
+              failures: methodSelection.failures,
+            }
+          : null;
+      const ageReplacement = fit
+        ? optimalAgeReplacement(fit, {
+            plannedCost: plannedCost ?? 0,
+            failureCost: failureCost ?? 0,
+          })
+        : {
+            recommended: false,
+            optimalAge: null,
+            costRateAtOptimum: null,
+            runToFailureCostRate: null,
+            savingsPct: null,
+            reason:
+              "No identifiable life distribution exists, so an age-replacement interval is refused.",
+          };
+      const adoptedPf = Array.isArray(source.pfIntervals)
+        ? source.pfIntervals[0]
+        : undefined;
+      const pfDays = finiteNumber(adoptedPf?.pfIntervalDays);
+      const inspection =
+        pfDays != null
+          ? {
+              ...inspectionInterval(pfDays, 0.9, 2),
+              pfIntervalId: adoptedPf?.id ?? null,
+              detectionTechnique: adoptedPf?.detectionTechnique ?? null,
+              basis: adoptedPf?.basis ?? null,
+            }
+          : {
+              intervalDays: null,
+              detectionProbability: 0,
+              opportunities: 0,
+              reason:
+                "No matching adopted P-F interval exists for this asset class and failure mode; no inspection interval is inferred.",
+              pfIntervalId: null,
+              detectionTechnique: null,
+              basis: null,
+            };
+
+      const refusals: string[] = [];
+      if (!source.plan.componentScope)
+        refusals.push(
+          "The maintenance task is not linked to a component-life population.",
+        );
+      if (!source.plan.failureMode)
+        refusals.push("The maintenance task has no stated failure mode.");
+      if (!source.plan.strategyKind)
+        refusals.push("The current maintenance strategy kind is unknown.");
+      if (source.plan.safetyCritical == null)
+        refusals.push("Safety-critical applicability is unknown.");
+      if (source.plan.regulatoryRequired == null)
+        refusals.push("Regulatory applicability is unknown.");
+      if (!source.plan.lifecycleObjective)
+        refusals.push("No lifecycle objective is recorded for this task.");
+      if (!hasCostEvidence)
+        refusals.push(
+          "Planned-task cost, failure-consequence cost and their provenance are incomplete; no age-replacement or run-to-failure decision is proposed.",
+        );
+      if (methodSelection.method === "none")
+        refusals.push(methodSelection.reason);
+
+      let recommendation: Record<string, unknown>;
+      if (
+        source.plan.strategyKind === "condition_based" &&
+        inspection.intervalDays != null
+      ) {
+        recommendation = {
+          kind: "inspection_interval",
+          proposedStrategyKind: "condition_based",
+          proposedIntervalBasis: "calendar_days",
+          proposedIntervalValue: inspection.intervalDays,
+          currentIntervalBasis: source.plan.intervalBasis,
+          currentIntervalValue: Number(source.plan.intervalValue),
+          reason: inspection.reason,
+          humanApprovalRequired: true,
+        };
+      } else if (fit && ageReplacement.recommended) {
+        recommendation = {
+          kind: "interval_change",
+          proposedStrategyKind: "time_based_pm",
+          proposedIntervalBasis: "run_hours",
+          proposedIntervalValue: ageReplacement.optimalAge,
+          currentIntervalBasis: source.plan.intervalBasis,
+          currentIntervalValue: Number(source.plan.intervalValue),
+          savingsPct: ageReplacement.savingsPct,
+          reason: ageReplacement.reason,
+          humanApprovalRequired: true,
+        };
+      } else if (
+        fit &&
+        hasCostEvidence &&
+        !ageReplacement.recommended &&
+        source.plan.safetyCritical === false &&
+        source.plan.regulatoryRequired === false &&
+        (fit.beta <= 1 ||
+          (plannedCost != null &&
+            failureCost != null &&
+            failureCost <= plannedCost))
+      ) {
+        recommendation = {
+          kind: "run_to_failure_review",
+          proposedStrategyKind: "run_to_failure",
+          proposedIntervalBasis: null,
+          proposedIntervalValue: null,
+          reason: ageReplacement.reason,
+          humanApprovalRequired: true,
+          safetyCritical: false,
+          regulatoryRequired: false,
+        };
+      } else if (fit && hasCostEvidence && !ageReplacement.recommended) {
+        recommendation = {
+          kind: "strategy_review",
+          proposedStrategyKind: null,
+          proposedIntervalBasis: null,
+          proposedIntervalValue: null,
+          reason:
+            source.plan.safetyCritical !== false ||
+            source.plan.regulatoryRequired !== false
+              ? `${ageReplacement.reason} Run-to-failure is not proposed because safety or regulatory applicability is true or unknown.`
+              : ageReplacement.reason,
+          humanApprovalRequired: true,
+        };
+      } else {
+        recommendation = {
+          kind: "evidence_gap",
+          proposedStrategyKind: null,
+          proposedIntervalBasis: null,
+          proposedIntervalValue: null,
+          reason:
+            "No programme change is proposed until the named evidence gaps are closed.",
+          humanApprovalRequired: true,
+        };
+      }
+
+      const result = {
+        methodSelection,
+        ageReplacement,
+        inspection,
+        recommendation,
+        refusals,
+        lifecyclePlan: {
+          objective: source.plan.lifecycleObjective,
+          assetId: source.asset.id,
+          assetName: source.asset.name,
+          assetCriticality: source.asset.criticality,
+          existingLifecycleEvaluations: source.lifecycleEvaluations ?? [],
+          actions: [
+            {
+              action: recommendation.kind,
+              maintenancePlanId: source.plan.id,
+              reason: recommendation.reason,
+              requiresNamedHumanAdoption: true,
+            },
+            ...(refusals.length > 0
+              ? [
+                  {
+                    action: "close_evidence_gaps",
+                    gaps: refusals,
+                    requiresNamedHumanAdoption: false,
+                  },
+                ]
+              : []),
+          ],
+        },
+      };
+      const { data: receiptData, error: receiptError } = await service.rpc(
+        "record_asset_strategy_run",
+        {
+          p_organization_id: organizationId,
+          p_actor_id: actorId,
+          p_plan_id: source.plan.id,
+          p_plan_version: source.plan.version,
+          p_event_ids: events.map((event) => event.id),
+          p_kernel_version: source.kernelVersion,
+          p_result: result,
+        },
+      );
+      if (receiptError) throw new Error(receiptError.message);
+      const receipt = receiptData as { error?: string } | null;
+      if (receipt?.error) return json({ error: receipt.error }, 422);
+      return json(receipt);
+    } catch (error) {
+      console.error("asset-strategy calculation failed", error);
+      return json({ error: "asset_strategy_calculation_failed" }, 422);
+    }
+  }
+
   if (body.action !== "value_management")
     return json({ error: "unsupported_action" }, 400);
   const budget = finiteNumber(body.budget);
@@ -133,9 +482,6 @@ Deno.serve(async (request) => {
       { error: "budget_must_be_finite_nonnegative_and_bounded" },
       400,
     );
-
-  const organizationId = profile.organization_id;
-  const actorId = userData.user.id;
 
   async function recordRun(input: {
     subjectType: "organization" | "business_case" | "capital_plan_year";

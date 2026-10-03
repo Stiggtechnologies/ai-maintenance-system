@@ -17,11 +17,11 @@
  *
  * Authoring, adoption and application are product acts on this surface.
  * Saving a draft is not authorization. Revising an adopted plan writes the
- * next version as a draft and leaves the adopted plan in force. AI does not
- * recommend or authorize a plan here.
+ * next version as a draft and leaves the adopted plan in force. The Planning
+ * agent may draft from exact evidence, but it cannot authorize a plan here.
  */
 import { useState } from "react";
-import { ClipboardList, ShieldAlert, Target } from "lucide-react";
+import { Bot, ClipboardList, ShieldAlert, Target } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { useAuth } from "./AuthProvider";
@@ -35,13 +35,17 @@ import {
   emptyDraft,
   getJobPlanDetail,
   getPlanningAccuracy,
+  listJobPlanDocuments,
   listJobPlans,
   listMaterials,
   listOpenWorkOrders,
+  runPlanningAgent,
   upsertJobPlan,
+  type DocumentOption,
   type JobPlanDraft,
   type JobPlanSummary,
   type MaterialOption,
+  type PlanningAgentResult,
   type WorkOrderOption,
 } from "../services/jobPlanService";
 
@@ -63,6 +67,7 @@ export function JobPlans() {
   const plans = useAsyncData(listJobPlans, []);
   const acc = useAsyncData(getPlanningAccuracy, []);
   const materials = useAsyncData(listMaterials, []);
+  const documents = useAsyncData(listJobPlanDocuments, []);
   const workOrders = useAsyncData(listOpenWorkOrders, []);
 
   const [mode, setMode] = useState<Mode>({ kind: "idle" });
@@ -70,6 +75,9 @@ export function JobPlans() {
   const [flash, setFlash] = useState<string | null>(null);
   const [adoptNote, setAdoptNote] = useState("");
   const [workOrderId, setWorkOrderId] = useState("");
+  const [plannerWorkOrderId, setPlannerWorkOrderId] = useState("");
+  const [planningResult, setPlanningResult] =
+    useState<PlanningAgentResult | null>(null);
   const [detailError, setDetailError] = useState<string | null>(null);
 
   if (plans.loading || acc.loading)
@@ -81,7 +89,14 @@ export function JobPlans() {
   const adopted = list.filter((p) => p.status === "adopted").length;
   const a = acc.data;
   const catalogue: MaterialOption[] = materials.data ?? [];
+  const documentOptions: DocumentOption[] = documents.data ?? [];
   const openWork: WorkOrderOption[] = workOrders.data ?? [];
+  const canRunPlanningAgent = [
+    "planner",
+    "reliability_engineer",
+    "maintenance_manager",
+    "admin",
+  ].includes(profile?.role as string);
 
   const refresh = () => {
     plans.refetch();
@@ -161,6 +176,37 @@ export function JobPlans() {
     }
   };
 
+  const runAgent = async () => {
+    if (!plannerWorkOrderId) return;
+    setBusy(true);
+    setFlash(null);
+    setDetailError(null);
+    setPlanningResult(null);
+    try {
+      const result = await runPlanningAgent(plannerWorkOrderId);
+      setPlanningResult(result);
+      refresh();
+      const detail = await getJobPlanDetail(result.job_plan_id);
+      setMode({
+        kind: "author",
+        draft: draftFromDetail(detail),
+        existingKey: true,
+        asNewVersion: false,
+      });
+      setFlash(
+        result.draft_created
+          ? `Planning agent created one non-authoritative draft and found ${result.gaps.length} readiness gap(s). Review and edit it below; adoption remains a separate named-human act.`
+          : `Planning agent assessed the existing plan without overwriting it and found ${result.gaps.length} readiness gap(s).`,
+      );
+    } catch (e) {
+      setDetailError(
+        e instanceof Error ? e.message : "Planning agent run failed.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <section aria-labelledby="jobplans-heading" className="space-y-4">
       <div>
@@ -188,7 +234,68 @@ export function JobPlans() {
         adopted plan in force. Adoption records the signed-in person and is
         refused without a sequenced step and a quality check that states an
         acceptance criterion. Only an adopted plan may be applied to a work
-        order. AI does not recommend or authorize a plan here.
+        order. The Planning agent may create a traceable draft and identify
+        missing inputs; it cannot adopt, apply, release, spend, or return
+        equipment to service.
+      </div>
+
+      <div className="space-y-3 rounded-xl border border-signal-cyan/20 bg-signal-cyan/5 p-4">
+        <div className="flex items-start gap-3">
+          <Bot
+            className="mt-0.5 h-5 w-5 shrink-0 text-signal-cyan"
+            aria-hidden
+          />
+          <div>
+            <h3 className="text-sm font-semibold text-slate-100">
+              Planning &amp; Scheduling agent
+            </h3>
+            <p className="mt-1 max-w-3xl text-xs leading-relaxed text-slate-400">
+              Reads one tenant work order, its tasks, material demand, asset
+              context, adopted reference plans and indexed documents. It may
+              create one canonical draft from exact recorded content and list
+              what is missing. It never invents planning content or grants
+              execution authority.
+            </p>
+          </div>
+        </div>
+        {canRunPlanningAgent ? (
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="min-w-72 flex-1 md:max-w-xl">
+              <span className="mb-1 block text-xs font-medium text-slate-400">
+                Work order to assess
+              </span>
+              <select
+                aria-label="Work order for Planning agent"
+                value={plannerWorkOrderId}
+                onChange={(e) => setPlannerWorkOrderId(e.target.value)}
+                className="w-full rounded-lg border border-white/10 bg-industrial-black px-3 py-2 text-sm text-slate-200"
+              >
+                <option value="">Select an open work order…</option>
+                {openWork.map((wo) => (
+                  <option key={wo.id} value={wo.id}>
+                    {wo.wo_number || wo.id.slice(0, 8)} — {wo.title}
+                    {wo.job_plan_id ? " (plan attached)" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              disabled={busy || !plannerWorkOrderId}
+              onClick={runAgent}
+              className="rounded-lg border border-signal-cyan/40 bg-signal-cyan/10 px-3 py-2 text-sm text-signal-cyan disabled:opacity-50"
+            >
+              Run Planning agent
+            </button>
+          </div>
+        ) : (
+          <p className="text-xs text-slate-500">
+            Running this agent requires a named planner, reliability engineer,
+            maintenance manager, or admin. Its control profile must also bind
+            both the draft-plan and material/document-check rights and tools.
+          </p>
+        )}
+        {planningResult && <PlanningAgentReading result={planningResult} />}
       </div>
 
       <div className="rounded-xl border border-white/6 bg-overlook-deep/40 p-4">
@@ -269,6 +376,7 @@ export function JobPlans() {
         <JobPlanEditor
           draft={mode.draft}
           catalogue={catalogue}
+          documents={documentOptions}
           busy={busy}
           planKeyLocked={mode.existingKey}
           revising={mode.asNewVersion}
@@ -475,7 +583,7 @@ export function JobPlans() {
                     {p.estimated_hours}
                   </td>
                   <td className="px-4 py-2.5 text-xs text-slate-400">
-                    {p.materials}m · {p.tools}t ·{" "}
+                    {p.materials}m · {p.tools}t · {p.documents ?? 0}d ·{" "}
                     {p.permits > 0 ? (
                       <span className="inline-flex items-center gap-0.5 text-amber-300">
                         <ShieldAlert className="h-3 w-3" aria-hidden />
@@ -502,6 +610,11 @@ export function JobPlans() {
                     >
                       {p.status}
                     </span>
+                    {p.draft_origin === "agent" && (
+                      <span className="ml-1 rounded-full border border-signal-cyan/30 bg-signal-cyan/10 px-2 py-0.5 text-xs text-signal-cyan">
+                        agent draft
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-2.5">
                     <PlanActs
@@ -538,6 +651,71 @@ export function JobPlans() {
         refuses the save and nothing is written.
       </p>
     </section>
+  );
+}
+
+function PlanningAgentReading({ result }: { result: PlanningAgentResult }) {
+  return (
+    <div
+      data-testid="planning-agent-reading"
+      className="space-y-3 rounded-lg border border-white/8 bg-industrial-black/60 p-3"
+    >
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs font-medium text-slate-200">
+          Retained run {result.run_id.slice(0, 8)} · {result.gaps.length} gap(s)
+        </p>
+        <span className="text-xs text-amber-300">
+          Human adoption required · no release authority
+        </span>
+      </div>
+      {result.gaps.length === 0 ? (
+        <p className="text-xs text-green-300">
+          No structural readiness gap was found in the recorded context. A named
+          human must still verify and adopt the plan.
+        </p>
+      ) : (
+        <ul className="grid gap-2 md:grid-cols-2">
+          {result.gaps.map((gap) => (
+            <li
+              key={gap.code}
+              className={`rounded-lg border px-3 py-2 text-xs ${
+                gap.severity === "blocker"
+                  ? "border-red-500/20 bg-red-500/5 text-red-200"
+                  : "border-amber-500/20 bg-amber-500/5 text-amber-100"
+              }`}
+            >
+              <span className="font-semibold">{gap.label}:</span> {gap.detail}
+            </li>
+          ))}
+        </ul>
+      )}
+      {result.materials.length > 0 && (
+        <div>
+          <p className="mb-1 text-xs font-medium text-slate-300">
+            Material readiness
+          </p>
+          <ul className="space-y-1 text-xs text-slate-400">
+            {result.materials.map((material) => (
+              <li key={material.materialId}>
+                <span
+                  className={
+                    material.ready ? "text-green-300" : "text-amber-300"
+                  }
+                >
+                  {material.ready ? "Ready" : "Not ready"}
+                </span>{" "}
+                · {material.materialCode} · {material.quantityReserved}/
+                {material.quantityRequired} reserved ·{" "}
+                {material.workOrderStatus}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      <p className="text-[11px] leading-relaxed text-slate-500">
+        {result.basis}
+      </p>
+    </div>
   );
 }
 

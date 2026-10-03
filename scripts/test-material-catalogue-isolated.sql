@@ -42,6 +42,25 @@ create function public.contract_current_value(bigint) returns numeric language s
 \ir ../supabase/migrations/20261225170300_material_bom_link.sql
 \ir ../supabase/migrations/20261225170500_material_relationship_tenant_keys.sql
 \ir ../supabase/migrations/20261225170400_material_commercial_component_thread.sql
+\ir ../supabase/migrations/20270101100000_validate_material_relationship_tenant_constraints.sql
+
+do $$
+begin
+  if (
+    select count(*)
+    from pg_constraint
+    where conname in (
+      'material_suppliers_material_tenant_fk',
+      'material_suppliers_supplier_tenant_fk',
+      'bom_lines_material_tenant_fk',
+      'bom_lines_asset_tenant_fk',
+      'bom_lines_component_parent_fk'
+    ) and convalidated
+  ) <> 5 then
+    raise exception 'material relationship constraints are not fully validated';
+  end if;
+end
+$$;
 
 select set_config('test.org', '11111111-1111-1111-1111-111111111111', false);
 select set_config('test.actor', 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa', false);
