@@ -12,6 +12,7 @@ import {
   parseDataLakeObject,
   selectAdlsObjects,
   sha256Hex,
+  withoutDataLakeProvenance,
   type AdlsPathItem,
   type DataLakeCursor,
   type DataLakeFormat,
@@ -464,7 +465,12 @@ Deno.serve(async (request) => {
         }>(userClient, "preview_recovery_activation_batch", {
           p_connector_key: connectorKey,
           p_entity_type: entityType,
-          p_rows: mappedRows.slice(index, index + 500),
+          // Preview validates canonical values but writes no staging evidence.
+          // Committed batches independently prove each reserved receipt
+          // against the immutable run manifest before retaining it.
+          p_rows: mappedRows
+            .slice(index, index + 500)
+            .map(withoutDataLakeProvenance),
         });
         totals.read += preview.read;
         totals.accepted += preview.accepted;

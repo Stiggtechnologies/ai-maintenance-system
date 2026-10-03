@@ -53,6 +53,31 @@ describe("C2.14 governed ADLS data-lake adapter", () => {
     expect(core).toContain("last_modified");
   });
 
+  it("proves every row receipt and reconciles transport before watermarking", () => {
+    const repair = readFileSync(
+      "supabase/migrations/20270101581000_adls_data_lake_provenance_reconciliation.sql",
+      "utf8",
+    ).toLowerCase();
+    expect(repair).toContain(
+      "every adls row requires immutable source provenance",
+    );
+    expect(repair).toContain("does not match the immutable run manifest");
+    expect(repair).toContain("restore_data_lake_staging_provenance");
+    expect(repair).toContain("s.payload-'_sync_source'");
+    expect(repair).toContain("order by s.received_at desc,s.id desc");
+    expect(repair).toContain(
+      "idx_ingest_staging_latest_accepted_identity",
+    );
+    expect(repair).toContain("pg_advisory_xact_lock");
+    expect(repair.match(/for update of r/g)).toHaveLength(2);
+    expect(repair).toContain("records_duplicate=records_duplicate+1");
+    expect(repair).toContain("records_read=v_manifest_rows");
+    expect(repair).toContain(
+      "transported and ingested adls row counts do not reconcile",
+    );
+    expect(edge).toContain("withoutDataLakeProvenance");
+  });
+
   it("requires service-attested begin and finish boundaries", () => {
     expect(migration).toContain("service-attested transport evidence");
     expect(migration).toContain("app.data_lake_transport");
