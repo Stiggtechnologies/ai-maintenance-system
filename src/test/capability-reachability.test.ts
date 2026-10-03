@@ -1018,18 +1018,17 @@ describe("the reachability judges", () => {
    * them look like documentation.
    */
   it("is not fooled by a comment, a getter, or a file that merely exists", () => {
-    // 1. A COMMENT IS NOT A CALLER. `decide_lifecycle_evaluation` appears in
-    //    the app only inside a comment at LifecycleDecisionsPage.tsx — the
-    //    archetypal dead capability named in this gate's own header. The first
-    //    version of the gate would have passed it on that comment.
+    // 1. A COMMENT IS NOT A CALLER. `advance_lifecycle_stage` is declared but
+    //    has no customer-reachable caller. The first version of the gate would
+    //    have passed it on prose naming the missing path.
     const commentOnly = judge({
       id: "Z9.97",
-      raw: "decide_lifecycle_evaluation",
-      name: "decide_lifecycle_evaluation",
+      raw: "advance_lifecycle_stage",
+      name: "advance_lifecycle_stage",
       kind: "sql-function",
     });
     expect(commentOnly.ok, commentOnly.detail).toBe(false);
-    expect(commentOnly.detail).toMatch(/prose or a comment only/);
+    expect(commentOnly.detail).toMatch(/ZERO callers|prose or a comment only/);
 
     // 2. A GETTER DOES NOT VOUCH FOR A WRITER. `get_dependency_coverage()` is a
     //    read-only function declared in the same migration as the real writer;
@@ -1056,6 +1055,50 @@ describe("the reachability judges", () => {
       kind: "file",
     });
     expect(orphan.ok, orphan.detail).toBe(false);
+  });
+
+  it("recognizes the governed lifecycle decision as customer-reachable", () => {
+    const verdict = judge({
+      id: "C8.09",
+      raw: "decide_lifecycle_evaluation",
+      name: "decide_lifecycle_evaluation",
+      kind: "sql-function",
+    });
+    expect(verdict.ok, verdict.detail).toBe(true);
+    expect(verdict.detail).toMatch(
+      /invoked from src\/components\/LifecycleDecisions\.tsx/,
+    );
+  });
+
+  it("recognizes recommendation contract posture as customer-reachable", () => {
+    const verdict = judge({
+      id: "C8.21",
+      raw: "get_recommendation_contract_posture",
+      name: "get_recommendation_contract_posture",
+      kind: "sql-function",
+    });
+    expect(verdict.ok, verdict.detail).toBe(true);
+    expect(verdict.detail).toMatch(
+      /invoked from src\/services\/operatingLoopService\.ts/,
+    );
+  });
+
+  it("recognizes governed recommendation assumptions as customer-reachable", () => {
+    for (const name of [
+      "get_recommendation_assumption_packet",
+      "record_recommendation_assumptions",
+    ]) {
+      const verdict = judge({
+        id: "C5.24",
+        raw: name,
+        name,
+        kind: "sql-function",
+      });
+      expect(verdict.ok, verdict.detail).toBe(true);
+      expect(verdict.detail).toMatch(
+        /invoked from src\/services\/recommendationAssumptionService\.ts/,
+      );
+    }
   });
 
   /**

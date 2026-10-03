@@ -21,6 +21,8 @@ const standard: ProjectStandardWorkOption = {
   title: "Estimate review",
   version: 1,
   basis: "Manual",
+  safety_critical: false,
+  engineering_change_class: null,
   source_project_ca_id: null,
   previous_standard_work_id: null,
   change_summary: null,
@@ -58,7 +60,7 @@ it("exposes screened project identities, source basis and matched versus unmatch
 it("reloads a newly saved high-ID revision without skipping unloaded pages", async () => {
   const revision = {
     ...standard, id: 901, version: 2, source_project_ca_id: "closure",
-    approval: { status: "required", approver_user_id: null, decided_at: null },
+    approval: { status: "required", owner_role: "authorized standard-work approver", approver_user_id: null, decided_at: null },
     procedures: [{ ...standard.procedures[0], translation_status: "draft" }],
   };
   vi.mocked(listProjectStandardWork).mockImplementation(async (afterId, exactId) =>
@@ -66,6 +68,7 @@ it("reloads a newly saved high-ID revision without skipping unloaded pages", asy
   );
   vi.mocked(requestProjectStandardRevision).mockResolvedValue({
     revisionId: 901, approvalId: "approval", status: "draft",
+    safetyCritical: false, requiredAuthority: null,
   });
   render(<ProjectStandardPanel closure={closure} canWrite onChanged={vi.fn()} />);
   await selectProcedure();
@@ -125,6 +128,7 @@ it("surfaces self-approval refusal without claiming adoption", async () => {
       source_project_ca_id: "closure",
       approval: {
         status: "required",
+        owner_role: "authorized standard-work approver",
         approver_user_id: null,
         decided_at: null,
       },
@@ -148,4 +152,50 @@ it("surfaces self-approval refusal without claiming adoption", async () => {
   );
   expect(changed).not.toHaveBeenCalled();
   expect(screen.queryByRole("status")).toBeNull();
+});
+
+it("routes an explicitly classified procedure to the governed safety request", async () => {
+  const safetyRevision = {
+    ...standard,
+    id: 2,
+    version: 2,
+    safety_critical: true,
+    engineering_change_class: "safety_critical_procedure_change",
+    source_project_ca_id: "closure",
+    approval: {
+      status: "required",
+      owner_role: "admin",
+      approver_user_id: null,
+      decided_at: null,
+    },
+    procedures: [{ ...standard.procedures[0], content: "Controlled isolation" }],
+  };
+  vi.mocked(listProjectStandardWork).mockImplementation(async (_after, exactId) =>
+    exactId === 2 ? [safetyRevision] : [standard],
+  );
+  vi.mocked(requestProjectStandardRevision).mockResolvedValue({
+    revisionId: 2,
+    approvalId: "safety-approval",
+    status: "draft",
+    safetyCritical: true,
+    requiredAuthority: "admin",
+  });
+  render(<ProjectStandardPanel closure={closure} canWrite onChanged={vi.fn()} />);
+  await selectProcedure();
+  fireEvent.click(screen.getByLabelText("Safety-critical procedure"));
+  fireEvent.change(screen.getByLabelText("Proposed procedure"), {
+    target: { value: "Controlled isolation" },
+  });
+  fireEvent.change(screen.getByLabelText("Exact change summary"), {
+    target: { value: "Add isolation hold point" },
+  });
+  fireEvent.change(screen.getByLabelText("Revision source basis"), {
+    target: { value: "Verified protective-system evidence" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Request draft revision" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("designated safety authority");
+  expect(requestProjectStandardRevision).toHaveBeenCalledWith(
+    expect.objectContaining({ safetyCritical: true }),
+  );
+  expect(screen.getByText(/Designated safety authority: admin/)).toBeInTheDocument();
 });

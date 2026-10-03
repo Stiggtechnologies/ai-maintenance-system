@@ -36,7 +36,9 @@ beforeEach(() => {
 describe("PlantHistorianConnectorSetup", () => {
   it("refuses configuration to non-administrators", () => {
     role = "reliability_engineer";
-    render(<PlantHistorianConnectorSetup onConfigured={async () => undefined} />);
+    render(
+      <PlantHistorianConnectorSetup onConfigured={async () => undefined} />,
+    );
     expect(
       screen.getByText(/administrator must configure/i),
     ).toBeInTheDocument();
@@ -69,6 +71,9 @@ describe("PlantHistorianConnectorSetup", () => {
           key: "site-a-pi",
           enabled: false,
           systemKind: "historian",
+          paginationMode: "none",
+          paginationNextPath: "links.next",
+          paginationMaxPages: 20,
         }),
       ),
     );
@@ -85,8 +90,50 @@ describe("PlantHistorianConnectorSetup", () => {
   });
 
   it("does not offer a live pull until the source is enabled", () => {
-    render(<PlantHistorianConnectorSetup onConfigured={async () => undefined} />);
+    render(
+      <PlantHistorianConnectorSetup onConfigured={async () => undefined} />,
+    );
     expect(screen.getByText("Pull readings")).toBeDisabled();
     expect(screen.getByText("Dry-run pull")).toBeDisabled();
+  });
+
+  it("records a bounded next-link pagination profile", async () => {
+    render(
+      <PlantHistorianConnectorSetup onConfigured={async () => undefined} />,
+    );
+    fireEvent.change(screen.getByPlaceholderText(/Connector key/i), {
+      target: { value: "site-a-pi" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Display name"), {
+      target: { value: "Site A PI" },
+    });
+    fireEvent.change(screen.getByLabelText("Pagination mode"), {
+      target: { value: "next_url" },
+    });
+    fireEvent.change(screen.getByLabelText("Next-link JSON path"), {
+      target: { value: "meta.next" },
+    });
+    fireEvent.change(screen.getByLabelText("Maximum pages per pull"), {
+      target: { value: "12" },
+    });
+    fireEvent.change(
+      screen.getByPlaceholderText(/Configuration\/activation authority/i),
+      {
+        target: {
+          value:
+            "Approved bounded pagination for the controlled historian export.",
+        },
+      },
+    );
+    fireEvent.click(screen.getByText("Save disabled configuration"));
+    await waitFor(() =>
+      expect(configureSource).toHaveBeenCalledWith(
+        expect.objectContaining({
+          paginationMode: "next_url",
+          paginationNextPath: "meta.next",
+          paginationMaxPages: 12,
+        }),
+      ),
+    );
   });
 });

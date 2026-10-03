@@ -16,6 +16,7 @@ import {
 
 const authHolder = vi.hoisted(() => ({
   user: null as { id: string } | null,
+  profile: null as { role: string } | null,
 }));
 
 const persist = vi.hoisted(() => ({
@@ -51,6 +52,7 @@ const persist = vi.hoisted(() => ({
     },
   ),
   loadPersistedDecisionCase: vi.fn(async () => persist.caseState),
+  listRecentPersistedDecisionCases: vi.fn(async () => []),
   listDecisionCaseAuthorityDirectory: vi.fn(async () => [
     {
       userId: "22222222-2222-4222-8222-222222222222",
@@ -80,10 +82,45 @@ const persist = vi.hoisted(() => ({
   ),
 }));
 
+const invitation = vi.hoisted(() => ({
+  send: vi.fn(async () => ({
+    name: "Kai Manager",
+    email: "kai@example.com",
+    status: "submitted" as const,
+    detail:
+      "Secure invitation submitted; delivery and acceptance are not confirmed.",
+    invitedUserId: "22222222-2222-4222-8222-222222222222",
+    submittedAt: "2026-10-02T12:00:00.000Z",
+    lastCheckedAt: "2026-10-02T12:00:00.000Z",
+  })),
+  status: vi.fn(async () => ({
+    name: "Kai Manager",
+    email: "kai@example.com",
+    status: "active" as const,
+    detail:
+      "Invitation accepted and the invited member has signed in. Workspace membership does not grant decision authority.",
+    invitedUserId: "22222222-2222-4222-8222-222222222222",
+    submittedAt: "2026-10-02T12:00:00.000Z",
+    lastCheckedAt: "2026-10-02T13:00:00.000Z",
+  })),
+}));
+
+const kb = vi.hoisted(() => ({
+  ingest: vi.fn(async () => ({
+    source_id: "decision-case-dc-1-documents",
+    document_class: "unclassified",
+    chunks_created: 2,
+    status: "indexed",
+    security_status: "cleared" as const,
+    security_findings_count: 0,
+  })),
+}));
+
 vi.mock("../services/decisionCaseService", () => ({
   createPersistedDecisionCase: persist.createPersistedDecisionCase,
   savePersistedDecisionCase: persist.savePersistedDecisionCase,
   loadPersistedDecisionCase: persist.loadPersistedDecisionCase,
+  listRecentPersistedDecisionCases: persist.listRecentPersistedDecisionCases,
   listDecisionCaseAuthorityDirectory:
     persist.listDecisionCaseAuthorityDirectory,
   recordDecisionCaseApproval: persist.recordDecisionCaseApproval,
@@ -91,6 +128,15 @@ vi.mock("../services/decisionCaseService", () => ({
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
       id,
     ),
+}));
+
+vi.mock("../services/decisionCaseInvitationService", () => ({
+  sendDecisionCaseInvitation: invitation.send,
+  getDecisionCaseInvitationStatus: invitation.status,
+}));
+
+vi.mock("../services/kbIntake", () => ({
+  ingestKbDocument: kb.ingest,
 }));
 
 vi.mock("../services/operatingLoopService", () => ({
@@ -105,7 +151,7 @@ vi.mock("../components/AuthProvider", async () => {
     ...actual,
     useOptionalAuth: () => ({
       user: authHolder.user,
-      profile: null,
+      profile: authHolder.profile,
       session: null,
       loading: false,
     }),
@@ -134,11 +180,16 @@ function openSpine() {
 describe("P0.2 Decision Case spine on /get-started", () => {
   beforeEach(() => {
     authHolder.user = null;
+    authHolder.profile = null;
     persist.createPersistedDecisionCase.mockClear();
     persist.savePersistedDecisionCase.mockClear();
     persist.loadPersistedDecisionCase.mockClear();
+    persist.listRecentPersistedDecisionCases.mockClear();
     persist.listDecisionCaseAuthorityDirectory.mockClear();
     persist.recordDecisionCaseApproval.mockClear();
+    invitation.send.mockClear();
+    invitation.status.mockClear();
+    kb.ingest.mockClear();
     persist.savePersistedDecisionCase.mockImplementation(
       async (next: DecisionCase, command?: string) => {
         const canonical = {
@@ -200,6 +251,18 @@ describe("P0.2 Decision Case spine on /get-started", () => {
       screen.getAllByText(/No connected operating data/).length,
     ).toBeGreaterThan(0);
     expect(screen.queryByText(/Fort McMurray|P-101/)).toBeNull();
+  });
+
+  it("does not earn the workspace audit gate from a session-only save", () => {
+    renderOpening();
+    openSpine();
+    fireEvent.click(screen.getByTestId("spine-save-workspace"));
+    expect(
+      screen.getByText(/Sign in to create the evaluation workspace/i),
+    ).toBeTruthy();
+    expect(screen.getByTestId("spine-gate-audit_trail").textContent).toMatch(
+      /Open/i,
+    );
   });
 
   it("adds type-first evidence, records a disposition, and shows verification on accept", () => {
@@ -395,6 +458,7 @@ describe("P0.2 Decision Case spine on /get-started", () => {
 
   it("creates the evaluation workspace case when a signed-in user saves", async () => {
     authHolder.user = { id: "user-1" };
+    authHolder.profile = { role: "admin" };
     renderOpening();
     openSpine();
     expect(await screen.findByTestId("spine-audit")).toBeTruthy();
@@ -430,6 +494,83 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     );
     expect(screen.getByTestId("spine-approval-pending")).toHaveTextContent(
       /cannot approve on their behalf/i,
+    );
+  });
+
+  it("sends a secure workspace invitation only after binding a tenant authority", async () => {
+    authHolder.user = { id: "user-1" };
+    authHolder.profile = { role: "admin" };
+    renderOpening();
+    openSpine();
+
+    const select = await screen.findByTestId("spine-required-person");
+    expect(screen.getByTestId("spine-send-invite")).toBeDisabled();
+    fireEvent.change(select, {
+      target: { value: "22222222-2222-4222-8222-222222222222" },
+    });
+    fireEvent.click(screen.getByTestId("spine-record-invite"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("spine-send-invite")).not.toBeDisabled(),
+    );
+    fireEvent.click(screen.getByTestId("spine-send-invite"));
+
+    await waitFor(() =>
+      expect(invitation.send).toHaveBeenCalledWith({
+        decisionCaseId: "11111111-1111-4111-8111-111111111111",
+        name: "Kai Manager",
+        email: "kai@example.com",
+      }),
+    );
+    expect(await screen.findByTestId("spine-invite-status")).toHaveTextContent(
+      /submitted/i,
+    );
+    expect(screen.getByTestId("spine-invite-status")).toHaveTextContent(
+      /decision authority are separate states/i,
+    );
+  });
+
+  it("routes governed evidence through security intake before attaching it to the case", async () => {
+    authHolder.user = { id: "user-1" };
+    authHolder.profile = { role: "reliability_engineer" };
+    renderOpening();
+    openSpine();
+    await screen.findByTestId("spine-audit");
+
+    fireEvent.change(screen.getByTestId("spine-evidence-body"), {
+      target: {
+        value:
+          "Customer-provided inspection evidence with source identity and review context.",
+      },
+    });
+    fireEvent.click(screen.getByTestId("spine-ingest-evidence"));
+
+    await waitFor(() =>
+      expect(kb.ingest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: expect.stringMatching(/Work history/i),
+          document_class: "unclassified",
+          content: expect.stringMatching(/Customer-provided inspection evidence/),
+        }),
+      ),
+    );
+    await waitFor(() =>
+      expect(persist.savePersistedDecisionCase).toHaveBeenCalledWith(
+        expect.objectContaining({
+          evidence: expect.arrayContaining([
+            expect.objectContaining({
+              sourceReceipt: expect.objectContaining({
+                sourceId: "decision-case-dc-1-documents",
+                securityStatus: "cleared",
+              }),
+            }),
+          ]),
+        }),
+        "add_evidence",
+      ),
+    );
+    expect(await screen.findByTestId("spine-evidence-notice")).toHaveTextContent(
+      /indexed with 2 governed chunk/i,
     );
   });
 

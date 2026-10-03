@@ -60,6 +60,12 @@ function Summary({ result }: { result: RecoveryActivationBatchResult }) {
       {result.dry_run && (
         <span className="ml-2 text-slate-500">dry run; nothing written</span>
       )}
+      {result.objects !== undefined && (
+        <span className="ml-2 text-slate-500">
+          {result.objects} object{result.objects === 1 ? "" : "s"} ·{" "}
+          {((result.bytes ?? 0) / 1024 / 1024).toFixed(2)} MiB
+        </span>
+      )}
     </div>
   );
 }
@@ -93,6 +99,12 @@ export function RecoveryActivationKit({
   const [endpointUrl, setEndpointUrl] = useState("");
   const [intervalMinutes, setIntervalMinutes] = useState("15");
   const [credentialRef, setCredentialRef] = useState("");
+  const [objectPrefix, setObjectPrefix] = useState("");
+  const [objectFormat, setObjectFormat] = useState<"csv" | "jsonl" | "json">(
+    "csv",
+  );
+  const [maxObjects, setMaxObjects] = useState("20");
+  const [maxObjectMb, setMaxObjectMb] = useState("25");
   const [sourceBasis, setSourceBasis] = useState("");
   const [sourceEnabled, setSourceEnabled] = useState(true);
 
@@ -239,17 +251,33 @@ export function RecoveryActivationKit({
   }
 
   async function configureSource() {
-    await recoveryActivationActions.configureSource({
-      key: sourceKey,
-      name: sourceName,
-      systemKind,
-      endpointUrl: systemKind === "file" ? null : endpointUrl,
-      expectedIntervalMinutes:
-        systemKind === "file" ? null : Number(intervalMinutes),
-      credentialBindingRef: systemKind === "file" ? null : credentialRef,
-      enabled: sourceEnabled,
-      basis: sourceBasis,
-    });
+    if (systemKind === "data_lake") {
+      await recoveryActivationActions.configureDataLakeSource({
+        key: sourceKey,
+        name: sourceName,
+        filesystemUrl: endpointUrl,
+        objectPrefix,
+        objectFormat,
+        maxFiles: Number(maxObjects),
+        maxBytes: Number(maxObjectMb) * 1024 * 1024,
+        expectedIntervalMinutes: Number(intervalMinutes),
+        credentialBindingRef: credentialRef,
+        enabled: sourceEnabled,
+        basis: sourceBasis,
+      });
+    } else {
+      await recoveryActivationActions.configureSource({
+        key: sourceKey,
+        name: sourceName,
+        systemKind,
+        endpointUrl: systemKind === "file" ? null : endpointUrl,
+        expectedIntervalMinutes:
+          systemKind === "file" ? null : Number(intervalMinutes),
+        credentialBindingRef: systemKind === "file" ? null : credentialRef,
+        enabled: sourceEnabled,
+        basis: sourceBasis,
+      });
+    }
     setMessage("Read-only activation source saved.");
     await refresh();
   }
@@ -396,16 +424,23 @@ export function RecoveryActivationKit({
   }
 
   async function runRest(dryRun: boolean) {
-    const result = await recoveryActivationActions.pullRest(
-      sourceKey,
-      entityType,
-      dryRun,
-    );
+    const result =
+      selectedSource?.system_kind === "data_lake"
+        ? await recoveryActivationActions.pullDataLake(
+            sourceKey,
+            entityType,
+            dryRun,
+          )
+        : await recoveryActivationActions.pullRest(
+            sourceKey,
+            entityType,
+            dryRun,
+          );
     setPreview(result);
     setMessage(
       dryRun
-        ? "REST dry run complete; nothing was written."
-        : "REST source imported through the canonical connector contract.",
+        ? `${selectedSource?.system_kind === "data_lake" ? "ADLS" : "REST"} dry run complete; nothing was written.`
+        : `${selectedSource?.system_kind === "data_lake" ? "ADLS" : "REST"} source imported through the canonical connector contract.`,
     );
     await refresh();
   }
@@ -515,14 +550,18 @@ export function RecoveryActivationKit({
                 <option value="eam">EAM REST</option>
                 <option value="erp">ERP REST</option>
                 <option value="inventory">Inventory REST</option>
-                <option value="data_lake">Data-lake REST</option>
+                <option value="data_lake">Azure Data Lake Gen2</option>
                 <option value="scheduling">Production scheduling REST</option>
               </select>
               {systemKind !== "file" && (
                 <>
                   <input
                     className={inputClass}
-                    placeholder="HTTPS JSON endpoint (no credentials)"
+                    placeholder={
+                      systemKind === "data_lake"
+                        ? "https://account.dfs.core.windows.net/filesystem"
+                        : "HTTPS JSON endpoint (no credentials)"
+                    }
                     value={endpointUrl}
                     onChange={(event) => setEndpointUrl(event.target.value)}
                   />
@@ -539,6 +578,47 @@ export function RecoveryActivationKit({
                     placeholder="Opaque binding, e.g. vault://tenant/cmms"
                     value={credentialRef}
                     onChange={(event) => setCredentialRef(event.target.value)}
+                  />
+                </>
+              )}
+              {systemKind === "data_lake" && (
+                <>
+                  <input
+                    className={inputClass}
+                    placeholder="Approved object prefix, e.g. landing/work-orders/"
+                    value={objectPrefix}
+                    onChange={(event) => setObjectPrefix(event.target.value)}
+                  />
+                  <select
+                    className={inputClass}
+                    value={objectFormat}
+                    onChange={(event) =>
+                      setObjectFormat(
+                        event.target.value as "csv" | "jsonl" | "json",
+                      )
+                    }
+                  >
+                    <option value="csv">CSV objects</option>
+                    <option value="jsonl">JSON Lines objects</option>
+                    <option value="json">JSON array objects</option>
+                  </select>
+                  <input
+                    className={inputClass}
+                    type="number"
+                    min="1"
+                    max="100"
+                    placeholder="Maximum objects per pull"
+                    value={maxObjects}
+                    onChange={(event) => setMaxObjects(event.target.value)}
+                  />
+                  <input
+                    className={inputClass}
+                    type="number"
+                    min="1"
+                    max="50"
+                    placeholder="Maximum aggregate MiB"
+                    value={maxObjectMb}
+                    onChange={(event) => setMaxObjectMb(event.target.value)}
                   />
                 </>
               )}
@@ -572,7 +652,13 @@ export function RecoveryActivationKit({
                   sourceEnabled &&
                   (endpointUrl.trim().length < 10 ||
                     credentialRef.trim().length < 8 ||
-                    Number(intervalMinutes) < 1))
+                    Number(intervalMinutes) < 1)) ||
+                (systemKind === "data_lake" &&
+                  (objectPrefix.trim().length < 1 ||
+                    Number(maxObjects) < 1 ||
+                    Number(maxObjects) > 100 ||
+                    Number(maxObjectMb) < 1 ||
+                    Number(maxObjectMb) > 50))
               }
               onClick={() => void execute(configureSource)}
               className="rounded-lg bg-teal-600 px-4 py-2 text-sm font-semibold text-white disabled:opacity-40"
@@ -803,7 +889,9 @@ export function RecoveryActivationKit({
                 onClick={() => void execute(() => runRest(true))}
                 className="rounded-lg border border-industrial-border px-3 py-2 text-sm text-slate-200 disabled:opacity-40"
               >
-                Dry-run REST pull
+                Dry-run{" "}
+                {selectedSource.system_kind === "data_lake" ? "ADLS" : "REST"}{" "}
+                pull
               </button>
               <button
                 type="button"
@@ -816,7 +904,9 @@ export function RecoveryActivationKit({
                 onClick={() => void execute(() => runRest(false))}
                 className="rounded-lg bg-teal-600 px-3 py-2 text-sm font-semibold text-white disabled:opacity-40"
               >
-                Import REST pull
+                Import{" "}
+                {selectedSource.system_kind === "data_lake" ? "ADLS" : "REST"}{" "}
+                pull
               </button>
             </>
           )}

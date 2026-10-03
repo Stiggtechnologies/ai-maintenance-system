@@ -53,25 +53,32 @@ export type IngestEntityKey =
   | "condition_reading"
   | "material_stock"
   | "operating_state"
+  | "process_event"
   | "production_record"
   | "schedule_activity"
-  | "procurement_status";
+  | "procurement_status"
+  | "cost_actual";
 
 export type IngestHandler =
   | "ingest_batch"
   | "ingest_context_batch"
+  | "ingest_process_event_batch"
   | "ingest_schedule_batch"
-  | "ingest_procurement_status_batch";
+  | "ingest_procurement_status_batch"
+  | "ingest_cost_actual_batch";
 
 export interface ColumnSpec {
   name: string;
   /** Every row must carry a non-blank value. */
   required?: boolean;
-  kind: "text" | "number" | "timestamp";
+  kind: "text" | "number" | "timestamp" | "json";
+  jsonShape?: "array" | "object";
   /** Allowed values, checked before upload because the column has a CHECK. */
   oneOf?: readonly string[];
   min?: number;
   max?: number;
+  /** Timestamp must carry Z or an explicit UTC offset. */
+  timezoneRequired?: boolean;
   /** Shown next to the column name in the pre-upload column list. */
   note: string;
 }
@@ -403,7 +410,7 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
       reupload: "skips",
       reuploadSentence: "A re-upload is counted as DUPLICATE and skipped.",
       prerequisite:
-        "The sensors must already exist. This product has no screen that creates one, so a tenant whose sensors have not been provisioned will see every row refused with “unknown sensor”. Check the sensor list before uploading.",
+        "The sensors must already exist. Register the measurement point in Reliability → Condition Monitoring → Sensor registry before uploading; unknown or decommissioned sensors are refused.",
       caution:
         "A reading dated more than an hour in the future is refused as a clock or timezone fault at the source. ONLY THE NEWEST READING A SENSOR HAS SPEAKS FOR THE PRESENT: loading history moves that sensor's current value, status and trend to the newest reading in your file, and a breach there raises an alert dated to that reading. Readings older than one the sensor already holds are stored as history and change neither.",
       outcome:
@@ -468,7 +475,7 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
       reuploadSentence:
         "A re-upload UPDATES the quantity in place and is counted as ACCEPTED, not duplicate — a stock level is a snapshot, not an event.",
       prerequisite:
-        "The material catalogue must be loaded first. This product has no screen that creates a material, so a tenant without a provisioned catalogue will see every row refused with “the catalogue must be loaded before stock”.",
+        "Create or verify the governed material in /materials first. Rows whose material_code is absent from the active tenant catalogue are refused with “the catalogue must be loaded before stock”.",
       caution:
         "A site_name that matches no site is REFUSED, so a mistyped site cannot land the whole file as one site-less pile. Stock is ONE quantity per material per site: two lines in the same file for the same pair are not both kept — the second is refused rather than silently overwriting the first, because this table has no external_id column to tell them apart.",
       outcome:
@@ -566,12 +573,69 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
       ],
     },
 
+    process_event: {
+      key: "process_event",
+      label: "Process events (alarms, trips and excursions)",
+      handler: "ingest_process_event_batch",
+      purpose:
+        "Operator-facing DCS events that explain what happened around an asset — alarms, trips, interlocks, excursions, starts and stops.",
+      columns: [
+        ...ASSET_REF,
+        {
+          name: "external_id",
+          required: true,
+          kind: "text",
+          note: "the stable source-system event identifier",
+        },
+        {
+          name: "event_type",
+          required: true,
+          kind: "text",
+          oneOf: ["alarm", "trip", "interlock", "excursion", "start", "stop"],
+          note: "alarm, trip, interlock, excursion, start or stop",
+        },
+        {
+          name: "severity",
+          kind: "text",
+          oneOf: ["low", "medium", "high", "critical"],
+          note: "optional source severity; blank remains unknown",
+        },
+        { name: "tag", kind: "text", note: "the DCS or historian tag" },
+        {
+          name: "description",
+          kind: "text",
+          note: "the source event description; tag or description is required",
+        },
+        {
+          name: "occurred_at",
+          required: true,
+          kind: "timestamp",
+          timezoneRequired: true,
+          note: "the event instant with Z or an explicit UTC offset",
+        },
+      ],
+      requiredOneOf: [["asset_name", "asset_id"], ["tag", "description"]],
+      externalIdFrom: "external_id",
+      dedupe: "one event per external_id, per upload connector",
+      reupload: "skips",
+      reuploadSentence:
+        "A re-upload is counted as DUPLICATE and skipped. Process events are immutable source facts.",
+      caution:
+        "Process alarms and trips remain separate from predictive condition alerts. Importing an event never acknowledges, suppresses or resets an alarm, changes a trip/interlock, or grants operating authority. Missing severity remains unknown.",
+      outcome:
+        "Events appear in the selected asset's operating context and can support governed handovers. The source DCS remains authoritative for alarm state and control action.",
+      templateRows: [
+        ["Conveyor C-22", "", "DCS-45001", "alarm", "high", "C22-BELT-DRIFT", "Belt drift high", "2026-08-01T14:02:11Z"],
+        ["Conveyor C-22", "", "DCS-45002", "trip", "critical", "C22-TRIP", "Conveyor protective trip", "2026-08-01T14:03:02Z"],
+      ],
+    },
+
     schedule_activity: {
       key: "schedule_activity",
       label: "Schedule activities (P6)",
       handler: "ingest_schedule_batch",
       purpose:
-        "A project schedule exported from Primavera P6 (CSV layout), imported against a development case. P6 remains the system of record — Sync analyzes the schedule and never writes back. This slice LISTS what was imported on the case workspace; critical-path and schedule-confidence analysis are later work and are not claimed.",
+        "A project schedule exported from Primavera P6 as native XER or the governed CSV layout, imported against a development case. P6 remains the system of record — Sync analyzes the schedule and never writes back.",
       columns: [
         {
           name: "case_title",
@@ -634,6 +698,38 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
           kind: "text",
           note: "groups activities into one named schedule per case; blank means “P6 import”",
         },
+        {
+          name: "total_float_hours",
+          kind: "number",
+          note: "P6 total float in hours; negative float is retained, never clamped",
+        },
+        {
+          name: "constraint_type",
+          kind: "text",
+          oneOf: [
+            "mandatory_start",
+            "mandatory_finish",
+            "start_on",
+            "finish_on",
+            "start_on_or_after",
+            "start_on_or_before",
+            "finish_on_or_after",
+            "finish_on_or_before",
+            "as_late_as_possible",
+          ],
+          note: "the P6 constraint classification; date constraints also require constraint_date",
+        },
+        {
+          name: "constraint_date",
+          kind: "timestamp",
+          note: "the P6 constraint date with an explicit timezone",
+        },
+        {
+          name: "relationships",
+          kind: "json",
+          jsonShape: "array",
+          note: "relationship annotations as JSON: predecessor, FS/SS/FF/SF link_type and lag_hours",
+        },
       ],
       requiredOneOf: [["case_title", "development_case_id"]],
       externalIdFrom: "activity_id",
@@ -644,7 +740,7 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
       caution:
         "Every predecessor must resolve WITHIN THIS SCHEDULE — an activity already imported, or a valid row of the same upload. A row naming a predecessor that is missing, or that was itself refused, is REFUSED with the predecessor named, so the stored dependency set can never point at an activity that is not there. Files are sent in batches of 500 rows: if an export lists a successor more than 500 rows before its predecessor, upload the file again — the rows already loaded deduplicate and the remainder land against them.",
       outcome:
-        "Activities appear in the case workspace's Schedule section, listed with their dependencies. Analysis — critical path, schedule confidence, simulation over imported activities — is later work and does not exist yet.",
+        "Activities appear in the case workspace's Schedule section with typed relationships, float and constraints feeding schedule quality and simulation.",
       templateRows: [
         [
           "Crusher relining programme",
@@ -846,6 +942,108 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
         ],
       ],
     },
+
+    /**
+     * §78's cost/ERP connector (D11.33).
+     *
+     * The ERP supplies an actual-to-date SNAPSHOT, never a transaction that
+     * Sync silently accumulates. `project_cost_items.actual` is the canonical
+     * running total used by earned value, so the validator resolves an
+     * existing coded line and calls `record_cost_item` with that line's full
+     * current state plus the new actual. It cannot create WBS/CBS structure,
+     * change a baseline, approve a baseline, or manufacture an uncoded line.
+     */
+    cost_actual: {
+      key: "cost_actual",
+      label: "Cost actuals (ERP / SAP CO)",
+      handler: "ingest_cost_actual_batch",
+      purpose:
+        "Actual-to-date cost snapshots from the financial system, mapped onto cost lines already coded in Sync. The ERP remains the source of the posted actual; Sync records its governed effect on earned value and forecast views.",
+      columns: [
+        {
+          name: "external_id",
+          required: true,
+          kind: "text",
+          note: "the immutable ERP extract-row or posting-snapshot identifier",
+        },
+        {
+          name: "case_title",
+          kind: "text",
+          note: "the development case's title, exactly as it appears in Develop",
+        },
+        {
+          name: "development_case_id",
+          kind: "text",
+          note: "the case's id, if you have it — either case column will do",
+        },
+        {
+          name: "cost_item_ref",
+          required: true,
+          kind: "text",
+          note: "the existing Sync cost-line reference this actual belongs to",
+        },
+        {
+          name: "actual_to_date",
+          required: true,
+          kind: "number",
+          min: 0,
+          note: "the finite, non-negative cumulative actual as of this snapshot — not this row's transaction amount",
+        },
+        {
+          name: "currency",
+          required: true,
+          kind: "text",
+          note: "the actual's currency; it must equal the case and cost-line currency",
+        },
+        {
+          name: "as_of",
+          required: true,
+          kind: "timestamp",
+          timezoneRequired: true,
+          note: "the source-system snapshot time with an explicit timezone",
+        },
+        {
+          name: "basis",
+          kind: "text",
+          note: "the ledger/export basis. If blank, Sync derives one naming this source and row",
+        },
+      ],
+      requiredOneOf: [["case_title", "development_case_id"]],
+      externalIdFrom: "external_id",
+      dedupe:
+        "one accepted fact per source external_id; an identical actual is also skipped, while a reused id with different content or an older snapshot is refused",
+      reupload: "skips",
+      reuploadSentence:
+        "A re-upload is counted as DUPLICATE and skipped when the source external_id was already accepted with the same fact, or when the canonical line already carries the stated actual. A reused identifier with different content and an older snapshot are REFUSED rather than applied.",
+      prerequisite:
+        "The development case, business case, WBS, CBS and coded cost line must already exist in Sync. An ERP file cannot create project controls structure.",
+      caution:
+        "Supply ACTUAL TO DATE, not a journal-line amount. Sync replaces the line's running actual with this governed snapshot; it never guesses whether a number should be added. Snapshots cannot move backward in source time. Importing an actual does not approve or revise the cost baseline.",
+      outcome:
+        "The canonical cost line's actual-to-date value updates through the existing cost writer, with retained source provenance and audit history; earned value and forecast views then read the same line.",
+      templateRows: [
+        [
+          "SAP-CO-2027-03-31-000184",
+          "Crusher relining programme",
+          "",
+          "CI-LINER-SUPPLY",
+          "438250.75",
+          "CAD",
+          "2027-03-31T23:59:59Z",
+          "SAP CO month-end actuals export, ledger 0L",
+        ],
+        [
+          "ERP-ACT-2027-W14-0039",
+          "",
+          "00000000-0000-4000-8000-000000000000",
+          "CI-INSTALL-LABOUR",
+          "97240",
+          "CAD",
+          "2027-04-09T06:00:00Z",
+          "Approved weekly project-cost extract",
+        ],
+      ],
+    },
   };
 
 export const INGEST_ENTITY_ORDER: readonly IngestEntityKey[] = [
@@ -853,11 +1051,13 @@ export const INGEST_ENTITY_ORDER: readonly IngestEntityKey[] = [
   "work_order",
   "maintenance_notification",
   "operating_state",
+  "process_event",
   "production_record",
   "condition_reading",
   "material_stock",
   "schedule_activity",
   "procurement_status",
+  "cost_actual",
 ];
 
 /** Header row for the downloadable template, in declaration order. */
@@ -990,6 +1190,43 @@ export function preflight(
             column: col.name,
             message: `${col.name} is "${raw}", which is not a date the database can read. Use 2026-08-01 or 2026-08-01T06:00:00Z.`,
           });
+        } else if (
+          col.timezoneRequired &&
+          !/(Z|[+-]\d{2}:?\d{2})$/i.test(raw)
+        ) {
+          blockers.push({
+            row: n,
+            column: col.name,
+            message: `${col.name} must include Z or an explicit UTC offset so the source snapshot has one unambiguous instant`,
+          });
+        }
+      } else if (col.kind === "json") {
+        try {
+          const parsed = JSON.parse(raw) as unknown;
+          if (col.jsonShape === "array" && !Array.isArray(parsed)) {
+            blockers.push({
+              row: n,
+              column: col.name,
+              message: `${col.name} must be a JSON array`,
+            });
+          } else if (
+            col.jsonShape === "object" &&
+            (parsed === null ||
+              Array.isArray(parsed) ||
+              typeof parsed !== "object")
+          ) {
+            blockers.push({
+              row: n,
+              column: col.name,
+              message: `${col.name} must be a JSON object`,
+            });
+          }
+        } catch {
+          blockers.push({
+            row: n,
+            column: col.name,
+            message: `${col.name} is not valid JSON`,
+          });
         }
       } else if (col.oneOf && !col.oneOf.includes(raw)) {
         blockers.push({
@@ -1027,11 +1264,12 @@ export function toPayload(
   entity: IngestEntity,
   row: Record<string, string>,
   index: number,
-): Record<string, string | null> {
-  const out: Record<string, string | null> = {};
+): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
   for (const col of entity.columns) {
     const raw = (row[col.name] ?? "").trim();
-    out[col.name] = raw === "" ? null : raw;
+    out[col.name] =
+      raw === "" ? null : col.kind === "json" ? JSON.parse(raw) : raw;
   }
   const id = (row[entity.externalIdFrom] ?? "").trim();
   out.external_id =

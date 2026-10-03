@@ -12,6 +12,7 @@
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { withDataEgressGuard } from "../_shared/data-egress-guard.ts";
 import {
   FALLBACK_TTS_MODEL,
   PREFERRED_TTS_MODEL,
@@ -51,7 +52,11 @@ function json(body: unknown, status = 200): Response {
 async function requireSignedInUser(request: Request) {
   const authorization = request.headers.get("Authorization") ?? "";
   if (!authorization.startsWith("Bearer ")) {
-    return { user: null, error: json({ error: "unauthorized" }, 401) };
+    return {
+      user: null,
+      client: null,
+      error: json({ error: "unauthorized" }, 401),
+    };
   }
   const client = createClient(SUPABASE_URL, ANON_KEY, {
     global: { headers: { Authorization: authorization } },
@@ -60,11 +65,19 @@ async function requireSignedInUser(request: Request) {
   try {
     const { data, error } = await client.auth.getUser();
     if (error || !data.user) {
-      return { user: null, error: json({ error: "unauthorized" }, 401) };
+      return {
+        user: null,
+        client: null,
+        error: json({ error: "unauthorized" }, 401),
+      };
     }
-    return { user: data.user, error: null };
+    return { user: data.user, client, error: null };
   } catch {
-    return { user: null, error: json({ error: "unauthorized" }, 401) };
+    return {
+      user: null,
+      client: null,
+      error: json({ error: "unauthorized" }, 401),
+    };
   }
 }
 
@@ -107,12 +120,18 @@ Deno.serve(async (request) => {
   }
 
   try {
+    const guardedFetch = withDataEgressGuard(fetch, auth.client!, {
+      dataClass: "security_sensitive",
+      purpose: "speech_synthesis",
+      serviceLabel: "sync-tts",
+    });
     const result = await synthesizeOpenAiSpeech({
       apiKey: OPENAI_API_KEY,
       text: validated.text,
       voice: TTS_VOICE,
       preferredModel: PREFERRED_TTS_MODEL,
       fallbackModel: FALLBACK_TTS_MODEL,
+      fetchImpl: guardedFetch as typeof fetch,
     });
     if (!result.ok) {
       const status =

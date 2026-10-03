@@ -11,7 +11,9 @@ import {
   activeSpineStage,
   applyDisposition,
   applyInvite,
+  applyInvitationDelivery,
   applyVerificationPlan,
+  attachGovernedSpineEvidence,
   attachSpineEvidence,
   buildProofSummary,
   buildSpineDecisionCase,
@@ -275,8 +277,18 @@ describe("P0.2 Decision Case spine", () => {
         reason: "No source is connected in this workspace.",
       },
     );
-    const ready = readinessFromCase(checked, { saved: true });
+    const delivered = applyInvitationDelivery(checked, {
+      name: "Kai",
+      email: "kai@example.com",
+      status: "submitted",
+      detail: "Submitted to the configured email provider.",
+      invitedUserId: "22222222-2222-4222-8222-222222222222",
+      submittedAt: "2026-10-02T12:00:00.000Z",
+      lastCheckedAt: "2026-10-02T12:00:00.000Z",
+    });
+    const ready = readinessFromCase(delivered, { saved: true });
     expect(ready.metCount).toBe(ready.total);
+    expect(delivered.messages.at(-1)?.text).toMatch(/not yet confirmed/i);
     expect(lineageFromCase(built).honesty).toBe(noConnectedDataHonesty());
   });
 
@@ -358,6 +370,19 @@ describe("P0.2 Decision Case spine", () => {
     });
     expect(
       nextWalkthroughAction(readinessFromCase(checked, { saved: true })),
+    ).toMatchObject({ gateId: "invitation_delivery" });
+
+    const delivered = applyInvitationDelivery(checked, {
+      name: "Kai",
+      email: "kai@example.com",
+      status: "submitted",
+      detail: "Submitted to the configured email provider.",
+      invitedUserId: "22222222-2222-4222-8222-222222222222",
+      submittedAt: "2026-10-02T12:00:00.000Z",
+      lastCheckedAt: "2026-10-02T12:00:00.000Z",
+    });
+    expect(
+      nextWalkthroughAction(readinessFromCase(delivered, { saved: true })),
     ).toMatchObject({ gateId: "complete" });
   });
 

@@ -28,6 +28,9 @@ import {
   type RosteredMember,
 } from "../lib/human-factors";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
+import { WorkforceAdministration } from "./WorkforceAdministration";
+import { WorkforceGovernanceControls } from "./WorkforceGovernanceControls";
+import { WorkforceExecutionControls } from "./WorkforceExecutionControls";
 
 interface Posture {
   members_total: number;
@@ -134,6 +137,10 @@ export function WorkforceReadiness() {
           <p>{posture.basis}</p>
         </div>
       )}
+
+      <WorkforceAdministration onChanged={refetch} />
+      <WorkforceGovernanceControls onChanged={refetch} />
+      <WorkforceExecutionControls onChanged={refetch} />
 
       {/* Fatigue. Statutory separated from everything else. */}
       {fatigue && (

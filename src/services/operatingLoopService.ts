@@ -108,6 +108,32 @@ export async function getRecommendations(
   return data ?? [];
 }
 
+export interface RecommendationContractPostureRow {
+  register: string;
+  label: string;
+  blocking: boolean;
+  populated: number;
+  total: number;
+  share: number;
+  releasable_rows: number;
+  blocked_rows: number;
+}
+
+/**
+ * Tenant-scoped release readiness for the canonical recommendation contract.
+ * The server calls check_recommendation_contract for each row, so this reader
+ * cannot drift into a second client-side definition of what is releasable.
+ */
+export async function getRecommendationContractPosture(): Promise<
+  RecommendationContractPostureRow[]
+> {
+  const { data, error } = await supabase.rpc(
+    "get_recommendation_contract_posture",
+  );
+  if (error) fail("Could not load recommendation contract posture", error);
+  return (data as RecommendationContractPostureRow[]) ?? [];
+}
+
 export async function getRecommendation(
   id: string,
 ): Promise<RecommendationRow | null> {
@@ -691,20 +717,6 @@ export interface ApproveResult {
   decisionId: string | null;
 }
 
-function moneyFromText(text: string | null): number {
-  if (!text) return 0;
-  const match = text.replace(/,/g, "").match(/\$?\s*([\d.]+)\s*([mMkK])?/);
-  if (!match) return 0;
-  const base = parseFloat(match[1]);
-  const scale =
-    match[2]?.toLowerCase() === "m"
-      ? 1_000_000
-      : match[2]?.toLowerCase() === "k"
-        ? 1_000
-        : 1;
-  return Math.round(base * scale);
-}
-
 /**
  * Approve a recommendation: named-human approval, a decision log, a work
  * action, and a projected (not realized) value metric.
@@ -718,125 +730,29 @@ function moneyFromText(text: string | null): number {
 export async function approveRecommendation(
   rec: RecommendationRow,
 ): Promise<ApproveResult> {
-  const ctx = await getOrgContext();
-  const now = new Date().toISOString();
-
-  const { error: recErr } = await supabase
-    .from("recommendations")
-    .update({ status: "approved", updated_at: now })
-    .eq("id", rec.id);
-  if (recErr) fail("Could not update recommendation", recErr);
-
-  const safetyCritical =
-    rec.urgency === "critical" || rec.risk_impact === "High";
-
-  // Decision log
-  const { data: decision, error: decErr } = await supabase
-    .from("decisions")
-    .insert({
-      organization_id: ctx.organizationId,
-      recommendation_id: rec.id,
-      agent_id: rec.agent_id,
-      asset_id: rec.asset_id,
-      decision_type: "work_order",
-      action_taken: `Approved: ${rec.action ?? rec.title}`,
-      approval_status: "approved",
-      autonomy_mode: safetyCritical ? "conditional" : "controlled",
-      confidence_score: rec.confidence,
-      human_actor: ctx.userId,
-      rationale: rec.rationale ?? rec.issue,
-      outcome_status: "open",
-    })
-    .select("id")
-    .maybeSingle()
-    .returns<{ id: string }>();
-  if (decErr) fail("Could not log decision", decErr);
-
-  // Approval record (resolve existing or create one)
-  const { data: existingApproval } = await supabase
-    .from("approvals")
-    .select("id")
-    .eq("recommendation_id", rec.id)
-    .maybeSingle()
-    .returns<{ id: string }>();
-  if (existingApproval) {
-    await supabase
-      .from("approvals")
-      .update({ status: "approved", approver: ctx.userId, decided_at: now })
-      .eq("id", existingApproval.id);
-  } else {
-    await supabase.from("approvals").insert({
-      organization_id: ctx.organizationId,
-      recommendation_id: rec.id,
-      status: "approved",
-      owner_role: rec.accountable,
-      approver: ctx.userId,
-      reason: rec.title,
-    });
+  const { data, error } = await supabase.rpc(
+    "approve_operating_recommendation",
+    { p_recommendation_id: rec.id },
+  );
+  if (error) fail("Could not approve recommendation", error);
+  if (!data || typeof data !== "object") {
+    fail("Could not approve recommendation", null);
   }
-
-  // Work action — safety-critical lands in the approval gate, never auto-executed.
-  const { data: workOrder, error: woErr } = await supabase
-    .from("work_orders")
-    .insert({
-      organization_id: ctx.organizationId,
-      asset_id: rec.asset_id,
-      recommendation_id: rec.id,
-      wo_number: `WO-${Date.now().toString().slice(-5)}`,
-      title: rec.action ?? rec.title,
-      description: rec.rationale ?? rec.issue,
-      status: safetyCritical ? "approval" : "scheduled",
-      priority:
-        rec.urgency === "critical"
-          ? "critical"
-          : rec.urgency === "action"
-            ? "high"
-            : "medium",
-      type: "ai_generated",
-      risk_score: rec.confidence,
-      financial_exposure: rec.financial_impact,
-      production_impact: urgencyToImpact(rec.urgency),
-      safety_flag: safetyCritical,
-      approval_required: safetyCritical,
-    })
-    .select("id")
-    .maybeSingle()
-    .returns<{ id: string }>();
-  if (woErr) fail("Could not create work action", woErr);
-
-  // Value metric — realized/projected exposure reduction
-  const exposure = moneyFromText(rec.financial_impact ?? rec.impact);
-  if (exposure > 0) {
-    await supabase.from("value_metrics").insert({
-      organization_id: ctx.organizationId,
-      recommendation_id: rec.id,
-      asset_id: rec.asset_id,
-      metric_type: "risk_exposure_reduced",
-      label: `Risk mitigated — ${rec.title}`,
-      value: exposure,
-      unit: "usd",
-      status: "projected",
-      period: "from_approval",
-    });
+  if ("error" in data && data.error) {
+    throw new Error(String(data.error));
   }
-
-  // Approval recorded. The outcome is not known yet — do not write
-  // recommendation_accepted as if the intended result already happened.
-  await supabase.from("learning_events").insert({
-    organization_id: ctx.organizationId,
-    recommendation_id: rec.id,
-    asset_id: rec.asset_id,
-    event_type: "recommendation_approved",
-    title: `Recommendation approved — ${rec.title}`,
-    detail: `Named human approved the recommendation; work action created${safetyCritical ? " (approval-gated, safety-critical)" : ""}. Outcome is not verified — record verification when the stated method can be measured.`,
-    expected_value: exposure || null,
-    model_confidence: rec.confidence,
-  });
-
+  const result = data as {
+    recommendationId?: string;
+    workOrderId?: string | null;
+    decisionId?: string | null;
+  };
+  if (result.recommendationId !== rec.id) {
+    fail("Could not approve recommendation", null);
+  }
   return {
-    recommendationId: rec.id,
-    workOrderId: workOrder?.id ?? null,
-    decisionId: decision?.id ?? null,
+    recommendationId: result.recommendationId,
+    workOrderId: result.workOrderId ?? null,
+    decisionId: result.decisionId ?? null,
   };
 }
 
@@ -1091,12 +1007,29 @@ export async function createCoworkWorkspaceFromObjective(
 /* Interactive controls — every button writes something real                  */
 /* -------------------------------------------------------------------------- */
 
-/** Human approves an approval-gated work order → scheduled, decision logged. */
+/**
+ * Human approves an ordinary approval-gated work order → scheduled, decision
+ * logged. Safety-critical work is deliberately refused here: its independent
+ * C5.17 request must be decided through decide_maintenance_change_control().
+ */
 export async function approveWorkOrder(
   id: string,
   title: string,
 ): Promise<void> {
   const ctx = await getOrgContext();
+  const { data: work, error: readError } = await supabase
+    .from("work_orders")
+    .select("safety_flag")
+    .eq("id", id)
+    .maybeSingle()
+    .returns<{ safety_flag: boolean }>();
+  if (readError) fail("Could not inspect work-order approval route", readError);
+  if (!work) throw new Error("Work order not found in this tenant.");
+  if (work.safety_flag) {
+    throw new Error(
+      "Safety-critical work requires an independent maintenance-manager decision in Decision Governance.",
+    );
+  }
   const { error } = await supabase
     .from("work_orders")
     .update({

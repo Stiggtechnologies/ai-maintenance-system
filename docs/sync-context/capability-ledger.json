@@ -307,11 +307,14 @@
       "evidence": [
         "AGENTS.md",
         "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql",
-        "src/test/geospatialOperationalIntelligenceContract.test.ts"
+        "supabase/migrations/20270101630000_sync_context_canonical_contracts.sql",
+        "src/lib/sync-context/contracts.test.ts",
+        "src/test/syncContextCanonicalContracts.test.ts",
+        "scripts/ci-sync-context-contract-smoke.sh"
       ],
       "prototypeEvidence": [],
       "externalDependencies": [],
-      "gap": "Future Context objects still require an explicit mapping to each canonical identity.",
+      "gap": "SC-01 canonical identity mapping, tenant enforcement and approval/work relationship checks are delivered; later adapters must extend these links rather than introduce stores.",
       "pr": "SC-01",
       "acceptance": [
         "Contract test forbids parallel asset, work, evidence, recommendation, approval and audit stores",
@@ -319,9 +322,10 @@
       ],
       "constraints": ["canonical_identity", "no_parallel_store"],
       "completion": {
-        "state": "partial",
+        "state": "complete",
         "verifiedBy": [
-          "src/test/geospatialOperationalIntelligenceContract.test.ts"
+          "src/lib/sync-context/contracts.test.ts",
+          "src/test/syncContextCanonicalContracts.test.ts"
         ]
       }
     },
@@ -340,11 +344,13 @@
       "evidence": [
         "AGENTS.md",
         "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql",
-        "src/test/geospatialOperationalIntelligenceContract.test.ts"
+        "supabase/migrations/20270101630000_sync_context_canonical_contracts.sql",
+        "src/test/syncContextCanonicalContracts.test.ts",
+        "scripts/ci-sync-context-contract-smoke.sh"
       ],
       "prototypeEvidence": [],
       "externalDependencies": [],
-      "gap": "No tenant-scoped Context media, feed or replay schema exists in main.",
+      "gap": "Canonical SC-01 sources, projections and writes are isolated; later media, feed, replay and tool surfaces still require their own tenant tests.",
       "pr": "SC-01",
       "acceptance": [
         "Foreign-tenant reads and writes fail for every Context table and RPC",
@@ -354,7 +360,8 @@
       "completion": {
         "state": "partial",
         "verifiedBy": [
-          "src/test/geospatialOperationalIntelligenceContract.test.ts"
+          "src/test/syncContextCanonicalContracts.test.ts",
+          "scripts/ci-sync-context-contract-smoke.sh"
         ]
       }
     },
@@ -408,11 +415,13 @@
       "evidence": [
         "AGENTS.md",
         "docs/architecture/governed-capability-pattern.md",
-        "src/lib/presence/sync-realtime-contract.test.ts"
+        "supabase/migrations/20270101630000_sync_context_canonical_contracts.sql",
+        "src/components/GeospatialOperationalIntelligencePanel.tsx",
+        "src/test/syncContextCanonicalContracts.test.ts"
       ],
       "prototypeEvidence": [],
       "externalDependencies": [],
-      "gap": "Every future Context action still needs explicit handoff tests to canonical approval paths.",
+      "gap": "SC-01 is read-only context with visible authority labels; later action surfaces still need explicit handoff tests to canonical approval paths.",
       "pr": "SC-01",
       "acceptance": [
         "No Context RPC can approve or release work",
@@ -421,7 +430,7 @@
       "constraints": ["human_approval"],
       "completion": {
         "state": "partial",
-        "verifiedBy": ["src/lib/presence/sync-realtime-contract.test.ts"]
+        "verifiedBy": ["src/test/syncContextCanonicalContracts.test.ts"]
       }
     },
     {
@@ -438,12 +447,14 @@
       "canonicalReuse": ["public.geospatial_features", "public.evidence_items"],
       "evidence": [
         "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql",
-        "src/test/geospatialOperationalIntelligenceContract.test.ts",
-        "supabase/functions/_shared/sync-realtime-core.ts"
+        "supabase/migrations/20270101630000_sync_context_canonical_contracts.sql",
+        "src/lib/sync-context/contracts.ts",
+        "src/lib/sync-context/contracts.test.ts",
+        "scripts/ci-sync-context-contract-smoke.sh"
       ],
       "prototypeEvidence": [],
       "externalDependencies": [],
-      "gap": "No common Context source-authority contract yet covers every object and event.",
+      "gap": "SC-01 preserves unknown values, prevents simulated sources from presenting as live, and rejects unverified engineering claims. A canonical server projection that verifies every engineering limit against approved evidence is still missing, and later media and analytic adapters must pass the same no-invention contract.",
       "pr": "SC-01",
       "acceptance": [
         "Unknown is represented as unknown",
@@ -454,7 +465,8 @@
       "completion": {
         "state": "partial",
         "verifiedBy": [
-          "src/test/geospatialOperationalIntelligenceContract.test.ts"
+          "src/lib/sync-context/contracts.test.ts",
+          "scripts/ci-sync-context-contract-smoke.sh"
         ]
       }
     },
@@ -641,11 +653,15 @@
       ],
       "evidence": [
         "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql",
-        "src/services/geospatialOperationalIntelligenceService.ts"
+        "supabase/migrations/20270101630000_sync_context_canonical_contracts.sql",
+        "src/lib/sync-context/contracts.ts",
+        "src/lib/sync-context/contracts.test.ts",
+        "src/services/syncContextService.ts",
+        "src/test/syncContextCanonicalContracts.test.ts"
       ],
       "prototypeEvidence": ["standalone-blueprint:industrial-operating-model"],
       "externalDependencies": [],
-      "gap": "Main has governed features and links but no shared render-ready SpatialObject envelope.",
+      "gap": "The SC-01 SpatialObject envelope projects only verified, current features with at least one canonical subject; draft-before-link records remain outside normalized Context until governed linking succeeds.",
       "pr": "SC-01",
       "acceptance": [
         "Object carries tenant, canonical subject, geometry, source class, authority, observed time, freshness and evidence",
@@ -657,9 +673,10 @@
         "evidence_provenance"
       ],
       "completion": {
-        "state": "partial",
+        "state": "complete",
         "verifiedBy": [
-          "src/test/geospatialOperationalIntelligenceContract.test.ts"
+          "src/lib/sync-context/contracts.test.ts",
+          "src/test/syncContextCanonicalContracts.test.ts"
         ]
       }
     },
@@ -673,21 +690,33 @@
         "godseye-discussion:demo-feeds",
         "standalone-readme:architecture"
       ],
-      "status": "missing",
+      "status": "existing_foundation",
       "canonicalReuse": [
         "canonical event, work, recommendation and audit records"
       ],
-      "evidence": [],
+      "evidence": [
+        "supabase/migrations/20270101630000_sync_context_canonical_contracts.sql",
+        "src/lib/sync-context/contracts.ts",
+        "src/lib/sync-context/contracts.test.ts",
+        "src/services/syncContextService.ts",
+        "src/test/syncContextCanonicalContracts.test.ts"
+      ],
       "prototypeEvidence": ["standalone-readme:architecture"],
       "externalDependencies": [],
-      "gap": "Main lacks a single render/replay ContextEvent projection over canonical records.",
+      "gap": "The SC-01 event projection covers source-linked canonical geospatial observations, hazards, and work records. Canonical failure, alarm, movement, and external-event projections remain missing and must extend this projection rather than persist copies.",
       "pr": "SC-01",
       "acceptance": [
         "Event is a projection, not a new system of record",
         "Source and canonical record linkage are mandatory"
       ],
       "constraints": ["canonical_identity", "no_parallel_store"],
-      "completion": { "state": "not_started", "verifiedBy": [] }
+      "completion": {
+        "state": "partial",
+        "verifiedBy": [
+          "src/lib/sync-context/contracts.test.ts",
+          "src/test/syncContextCanonicalContracts.test.ts"
+        ]
+      }
     },
     {
       "id": "SCX-MOD-003",
@@ -698,21 +727,32 @@
         "godseye-discussion:fork-strategy",
         "standalone-blueprint:experience-and-spatial-shell"
       ],
-      "status": "prototype_only",
+      "status": "existing_foundation",
       "canonicalReuse": ["existing feature flags and permissions"],
-      "evidence": [],
+      "evidence": [
+        "supabase/migrations/20270101630000_sync_context_canonical_contracts.sql",
+        "src/lib/sync-context/contracts.ts",
+        "src/lib/sync-context/contracts.test.ts",
+        "src/components/GeospatialOperationalIntelligencePanel.test.ts"
+      ],
       "prototypeEvidence": [
         "standalone-blueprint:experience-and-spatial-shell"
       ],
       "externalDependencies": [],
-      "gap": "Main has no spatial layer registry.",
+      "gap": "The bounded SC-01 server-derived layer registry and per-record parser isolation are delivered; optional Context transport failure is isolated from the canonical geospatial workspace and references.",
       "pr": "SC-01",
       "acceptance": [
         "Layer authorization is server-derived",
         "One failed source cannot crash unrelated layers"
       ],
       "constraints": ["tenant_isolation", "source_health"],
-      "completion": { "state": "not_started", "verifiedBy": [] }
+      "completion": {
+        "state": "complete",
+        "verifiedBy": [
+          "src/lib/sync-context/contracts.test.ts",
+          "src/components/GeospatialOperationalIntelligencePanel.test.ts"
+        ]
+      }
     },
     {
       "id": "SCX-MOD-004",
@@ -731,11 +771,14 @@
       ],
       "evidence": [
         "supabase/migrations/20261219360000_geospatial_operational_intelligence.sql",
-        "src/test/geospatialOperationalIntelligenceContract.test.ts"
+        "supabase/migrations/20270101630000_sync_context_canonical_contracts.sql",
+        "src/components/GeospatialOperationalIntelligencePanel.tsx",
+        "src/test/syncContextCanonicalContracts.test.ts",
+        "scripts/ci-sync-context-contract-smoke.sh"
       ],
       "prototypeEvidence": [],
       "externalDependencies": [],
-      "gap": "Hazard polygons exist as features, but temporal geofence policy and events are not implemented.",
+      "gap": "SC-01 gates verification and assessment use on governed source, named owner and explicit current validity; legacy incomplete rows and dependent assessments are quarantined. Later alert policy remains a separate action-bearing slice.",
       "pr": "SC-01",
       "acceptance": [
         "Validity and provenance are mandatory",
@@ -743,9 +786,10 @@
       ],
       "constraints": ["evidence_provenance", "human_approval"],
       "completion": {
-        "state": "partial",
+        "state": "complete",
         "verifiedBy": [
-          "src/test/geospatialOperationalIntelligenceContract.test.ts"
+          "src/test/geospatialOperationalIntelligenceContract.test.ts",
+          "src/test/syncContextCanonicalContracts.test.ts"
         ]
       }
     },
@@ -759,21 +803,33 @@
         "godseye-discussion:demo-feeds",
         "standalone-blueprint:source-and-connector-governance"
       ],
-      "status": "prototype_only",
+      "status": "existing_foundation",
       "canonicalReuse": ["existing integration health and audit"],
-      "evidence": [],
+      "evidence": [
+        "supabase/migrations/20270101630000_sync_context_canonical_contracts.sql",
+        "src/lib/sync-context/contracts.ts",
+        "src/lib/sync-context/contracts.test.ts",
+        "src/components/sync-context/ContextProvenanceBadges.tsx",
+        "scripts/ci-sync-context-contract-smoke.sh"
+      ],
       "prototypeEvidence": [
         "standalone-blueprint:source-and-connector-governance"
       ],
       "externalDependencies": [],
-      "gap": "Main has connector-specific status but no common Context health contract.",
+      "gap": "The normalized SC-01 health contract enforces monotonic checks, non-regressing live observations and a positive freshness interval; later adapters must report these states and timestamps through the governed RPC.",
       "pr": "SC-01",
       "acceptance": [
         "Every adapter reports normalized state and observed/check times",
         "Stale and conflicting states are not displayed as live"
       ],
       "constraints": ["source_health", "no_invented_data"],
-      "completion": { "state": "not_started", "verifiedBy": [] }
+      "completion": {
+        "state": "complete",
+        "verifiedBy": [
+          "src/lib/sync-context/contracts.test.ts",
+          "scripts/ci-sync-context-contract-smoke.sh"
+        ]
+      }
     },
     {
       "id": "SCX-MOD-006",
@@ -785,22 +841,29 @@
         "standalone-readme:architecture",
         "standalone-blueprint:production-platform-boundary"
       ],
-      "status": "prototype_only",
+      "status": "existing_foundation",
       "canonicalReuse": ["existing integration and edge-function boundary"],
-      "evidence": [],
+      "evidence": [
+        "src/lib/sync-context/contracts.ts",
+        "src/services/syncContextService.ts",
+        "src/test/syncContextAdapterConformance.test.ts"
+      ],
       "prototypeEvidence": [
         "standalone-readme:architecture",
         "standalone-blueprint:source-and-connector-governance"
       ],
       "externalDependencies": [],
-      "gap": "Main has multiple read adapters but no shared spatial/context conformance interface.",
+      "gap": "The interface and canonical adapter are delivered; demo, public and customer-specific adapters are later slices and are not yet proven by one shared runtime conformance suite.",
       "pr": "SC-01",
       "acceptance": [
         "Demo, public and customer adapters pass one conformance suite",
         "UI imports only normalized contracts"
       ],
       "constraints": ["source_authority", "tenant_isolation"],
-      "completion": { "state": "not_started", "verifiedBy": [] }
+      "completion": {
+        "state": "partial",
+        "verifiedBy": ["src/test/syncContextAdapterConformance.test.ts"]
+      }
     },
     {
       "id": "SCX-MOD-007",
@@ -812,22 +875,33 @@
         "standalone-readme:demo-disclosure",
         "standalone-blueprint:demonstration-data-and-scenarios"
       ],
-      "status": "prototype_only",
+      "status": "existing_foundation",
       "canonicalReuse": ["evidence source_system and integration identity"],
-      "evidence": [],
+      "evidence": [
+        "supabase/migrations/20270101630000_sync_context_canonical_contracts.sql",
+        "src/lib/sync-context/contracts.ts",
+        "src/components/sync-context/ContextProvenanceBadges.tsx",
+        "scripts/ci-sync-context-contract-smoke.sh"
+      ],
       "prototypeEvidence": [
         "standalone-readme:what-is-playable-now",
         "standalone-blueprint:demonstration-data-and-scenarios"
       ],
       "externalDependencies": [],
-      "gap": "Main does not enforce the three-class taxonomy across spatial context.",
+      "gap": "The three-class SC-01 taxonomy is required, immutable and visible; rights state remains separately mutable only through a human-admin revocation/expiry command. Later adapters must register into exactly one class.",
       "pr": "SC-01",
       "acceptance": [
         "Class is required and immutable per source record",
         "UI exposes class without relying on color alone"
       ],
       "constraints": ["source_authority", "no_invented_data"],
-      "completion": { "state": "not_started", "verifiedBy": [] }
+      "completion": {
+        "state": "complete",
+        "verifiedBy": [
+          "src/test/syncContextCanonicalContracts.test.ts",
+          "scripts/ci-sync-context-contract-smoke.sh"
+        ]
+      }
     },
     {
       "id": "SCX-MOD-008",

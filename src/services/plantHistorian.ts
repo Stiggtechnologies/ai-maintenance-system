@@ -8,7 +8,10 @@ interface RpcResult {
   [key: string]: unknown;
 }
 
-async function call<T>(name: string, args: Record<string, unknown>): Promise<T> {
+async function call<T>(
+  name: string,
+  args: Record<string, unknown>,
+): Promise<T> {
   const { data, error } = await supabase.rpc(name, args);
   if (error) throw new Error(error.message);
   const payload = data as RpcResult | null;
@@ -26,6 +29,9 @@ export const plantHistorianActions = {
     endpointUrl?: string | null;
     expectedIntervalMinutes?: number | null;
     credentialBindingRef?: string | null;
+    paginationMode: "none" | "next_url";
+    paginationNextPath: string;
+    paginationMaxPages: number;
     enabled: boolean;
     basis: string;
   }) =>
@@ -36,6 +42,11 @@ export const plantHistorianActions = {
       p_endpoint_url: args.endpointUrl ?? null,
       p_expected_interval_minutes: args.expectedIntervalMinutes ?? null,
       p_credential_binding_ref: args.credentialBindingRef ?? null,
+      p_pagination_mode: args.paginationMode,
+      p_pagination_next_path:
+        args.paginationMode === "next_url" ? args.paginationNextPath : null,
+      p_pagination_max_pages:
+        args.paginationMode === "next_url" ? args.paginationMaxPages : 1,
       p_enabled: args.enabled,
       p_basis: args.basis,
     }),
@@ -62,10 +73,7 @@ export const plantHistorianActions = {
       p_recommendation_id: recommendationId,
     }),
 
-  pull: async (
-    connectorKey: string,
-    dryRun: boolean,
-  ): Promise<RpcResult> => {
+  pull: async (connectorKey: string, dryRun: boolean): Promise<RpcResult> => {
     const { data, error } = await supabase.functions.invoke(
       "plant-historian-pull",
       {

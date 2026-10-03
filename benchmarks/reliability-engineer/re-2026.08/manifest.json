@@ -73,6 +73,13 @@
       "tier": "core"
     },
     {
+      "path": "supabase/functions/_shared/data-egress-guard.ts",
+      "gitBlobSha": "71e997d153ee625789ac92fc5d6ecdc5ca52c0c0",
+      "reachability": "value-import from ai-agent-processor/index.ts",
+      "purpose": "fail-closed tenant destination, data-class, purpose and redaction authorization before the protected provider call",
+      "tier": "core"
+    },
+    {
       "path": "src/lib/reliability-agent-contract.ts",
       "gitBlobSha": "ca959ad921986c6d82842b9160672eeff0b769e1",
       "reachability": "value-import from src/services/publicReliabilityAgent.ts",
@@ -211,17 +218,17 @@
   "protectedDatabaseObjects": [
     {
       "object": "retrieve_kb_context",
-      "definitionDigest": "25a3084e15671158cd2929768ecd248bd3fbef0fc4fdbd11d3fd0cfa92229532",
+      "definitionDigest": "b3b6fae1462fa9db3971aa25b387f6ba4df1c7d051850d74a8f9fd475ba4faf8",
       "purpose": "SECURITY DEFINER retrieval whose ranking, permitted_claims join and org filter decide which knowledge text is inlined into the Reliability Engineer system prompt"
     },
     {
       "object": "kb_document_classes",
-      "definitionDigest": "c28c7f52cd1bc12f18f857a47df626a4351ecdfebce52b5bc40ec2aef44fcb26",
+      "definitionDigest": "2ccb0bc7b86d9460d4055e07b4e9169db59402abdd01bea489cd9c41522f0a61",
       "purpose": "trust_rank, permitted_claims and redistributable \u2014 the claim-type and public-redistribution gate"
     },
     {
       "object": "kb_claim_types",
-      "definitionDigest": "ad6b9d93c69a3d88c72b4e0c20eb344dbd4d5448ac042bc554531367417b5793",
+      "definitionDigest": "9dd0ea7aef3284e50f0eb0776009961166adb3aee0c4818317ff9c8926ed521d",
       "purpose": "the claim-type enumeration the retrieval gate is written against"
     }
   ],

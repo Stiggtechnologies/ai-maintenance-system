@@ -17,6 +17,8 @@ import { MaterialSupplierLink } from "../components/MaterialSupplierLink";
 import { MaterialBomLink } from "../components/MaterialBomLink";
 import { MaterialRelationshipHistory } from "../components/MaterialRelationshipHistory";
 import { MroMaterialsAgentWorkbench } from "../components/MroMaterialsAgentWorkbench";
+import { SupplierGovernanceControls } from "../components/SupplierGovernanceControls";
+import { RepairableUnitRegister } from "../components/RepairableUnitRegister";
 
 export function MaterialsPage() {
   const [catalogueVersion, setCatalogueVersion] = useState(0);
@@ -35,6 +37,7 @@ export function MaterialsPage() {
       <MaterialCatalogue
         onCreated={() => setCatalogueVersion((version) => version + 1)}
       />
+      <RepairableUnitRegister refreshVersion={catalogueVersion} />
       <MroMaterialsAgentWorkbench refreshVersion={catalogueVersion} />
       <MaterialSupplierLink refreshVersion={catalogueVersion} />
       <MaterialBomLink refreshVersion={catalogueVersion} />
@@ -42,6 +45,7 @@ export function MaterialsPage() {
       <MaterialsReadiness />
       <SparesOptimization />
       <SupplyExposure />
+      <SupplierGovernanceControls />
     </div>
   );
 }

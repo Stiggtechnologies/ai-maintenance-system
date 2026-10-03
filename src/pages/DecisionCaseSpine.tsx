@@ -26,9 +26,12 @@ import {
   STAGE_HELP,
   VERIFICATION_EFFECTIVENESS,
   activeSpineStage,
+  asWalkthroughDecisionCase,
   applyDisposition,
   applyInvite,
+  applyInvitationDelivery,
   applyVerificationPlan,
+  attachGovernedSpineEvidence,
   attachSpineEvidence,
   buildProofSummary,
   buildSpineDecisionCase,
@@ -58,6 +61,7 @@ import {
   type EvidenceMethod,
   type SpineDisposition,
   type VerificationPlan,
+  type WalkthroughDecisionCase,
 } from "../lib/onboarding/decision-case-spine";
 import { getIntegrations } from "../services/operatingLoopService";
 import {
@@ -70,6 +74,11 @@ import {
   type DecisionCaseAuthorityDirectoryEntry,
   type DecisionCaseCommand,
 } from "../services/decisionCaseService";
+import {
+  getDecisionCaseInvitationStatus,
+  sendDecisionCaseInvitation,
+} from "../services/decisionCaseInvitationService";
+import { ingestKbDocument } from "../services/kbIntake";
 
 const emptyPeople = (): CasePeople => ({
   decisionOwner: "",
@@ -103,8 +112,11 @@ export function DecisionCaseSpine({
   openingNotice?: string | null;
 }) {
   const auth = useOptionalAuth();
-  const [decisionCase, setDecisionCase] = useState(
-    () => initialCase ?? buildSpineDecisionCase({ question, intent }),
+  const [decisionCase, setDecisionCase] = useState<WalkthroughDecisionCase>(
+    () =>
+      asWalkthroughDecisionCase(
+        initialCase ?? buildSpineDecisionCase({ question, intent }),
+      ),
   );
   const [saved, setSaved] = useState(initiallySaved);
   const [saveNotice, setSaveNotice] = useState(
@@ -156,6 +168,12 @@ export function DecisionCaseSpine({
   const [selectedAuthorityId, setSelectedAuthorityId] = useState("");
   const [directoryError, setDirectoryError] = useState<string | null>(null);
   const [approvalReason, setApprovalReason] = useState("");
+  const [inviteBusy, setInviteBusy] = useState(false);
+  const [selectedEvidenceFile, setSelectedEvidenceFile] = useState<File | null>(
+    null,
+  );
+  const [evidenceBusy, setEvidenceBusy] = useState(false);
+  const [evidenceNotice, setEvidenceNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lineageOpen, setLineageOpen] = useState(true);
 
@@ -255,6 +273,16 @@ export function DecisionCaseSpine({
     "source_check",
   ].every((gateId) =>
     readiness.gates.some((gate) => gate.id === gateId && gate.met),
+  );
+  const canIngestGovernedEvidence = Boolean(
+    auth?.user &&
+    ["admin", "ai_admin", "reliability_engineer"].includes(
+      String(auth.profile?.role ?? ""),
+    ),
+  );
+  const canSendWorkspaceInvite = Boolean(
+    auth?.user &&
+    ["admin", "executive"].includes(String(auth.profile?.role ?? "")),
   );
 
   const focusStep = (targetId: string) => {
@@ -435,6 +463,143 @@ export function DecisionCaseSpine({
       setSaveNotice("Audit trail reloaded from the evaluation workspace.");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "Reload failed");
+    }
+  };
+
+  const ingestEvidence = async () => {
+    if (!isPersistedDecisionCase(decisionCase.id)) {
+      setError("Save this Decision Case before governed evidence intake.");
+      return;
+    }
+    if (!canIngestGovernedEvidence) {
+      setError(
+        "Governed intake requires a signed-in administrator or Reliability Engineer. Manual evidence remains available and is labelled accordingly.",
+      );
+      return;
+    }
+    const evidenceFile = method === "upload_file" ? selectedEvidenceFile : null;
+    if (!evidenceFile && evidenceBody.trim().length < 20) {
+      setError("Paste at least 20 characters or select a supported file.");
+      return;
+    }
+    setEvidenceBusy(true);
+    setEvidenceNotice(null);
+    setError(null);
+    try {
+      let fileBase64: string | undefined;
+      let filename: string | undefined;
+      if (evidenceFile) {
+        if (evidenceFile.size > 20 * 1024 * 1024) {
+          throw new Error("The document exceeds the 20 MB intake limit.");
+        }
+        const bytes = new Uint8Array(await evidenceFile.arrayBuffer());
+        let binary = "";
+        for (const byte of bytes) binary += String.fromCharCode(byte);
+        fileBase64 = btoa(binary);
+        filename = evidenceFile.name;
+      }
+      const kindLabel =
+        EVIDENCE_KINDS.find((item) => item.id === kind)?.title ?? kind;
+      const sourceId = [
+        "decision-case",
+        decisionCase.caseNumber,
+        kind,
+        Date.now().toString(36),
+      ]
+        .join("-")
+        .toLowerCase()
+        .replaceAll(/[^a-z0-9_-]+/g, "-")
+        .slice(0, 160);
+      const result = await ingestKbDocument({
+        source_id: sourceId,
+        title: `${decisionCase.caseNumber} · ${kindLabel}`,
+        document_class: "unclassified",
+        original_filename: filename ?? null,
+        file_base64: fileBase64,
+        filename,
+        content: evidenceFile ? undefined : evidenceBody.trim(),
+      });
+      const next = attachGovernedSpineEvidence(
+        decisionCase,
+        kind,
+        evidenceFile
+          ? `${evidenceFile.name} uploaded through governed document intake.`
+          : evidenceBody,
+        {
+          sourceId: result.source_id,
+          ingestionStatus: result.status,
+          securityStatus: result.security_status,
+          chunksCreated: result.chunks_created,
+        },
+      );
+      await commit(next, "add_evidence");
+      setEvidenceNotice(
+        result.security_status === "quarantined"
+          ? `Source ${result.source_id} is retained but quarantined from retrieval pending independent security review.`
+          : `Source ${result.source_id} is indexed with ${result.chunks_created} governed chunk(s). Engineering approval remains separate.`,
+      );
+      setEvidenceBody("");
+      setSelectedEvidenceFile(null);
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "Evidence intake failed",
+      );
+    } finally {
+      setEvidenceBusy(false);
+    }
+  };
+
+  const sendInvite = async () => {
+    if (!isPersistedDecisionCase(decisionCase.id)) {
+      setError(
+        "Save this Decision Case before sending a workspace invitation.",
+      );
+      return;
+    }
+    if (!canSendWorkspaceInvite) {
+      setError(
+        "A named tenant administrator or executive with an AAL2 session must send the workspace invitation.",
+      );
+      return;
+    }
+    setInviteBusy(true);
+    setError(null);
+    try {
+      const recipient = decisionCase.requiredPerson;
+      if (!recipient?.email) {
+        throw new Error(
+          "Record a tenant authority-directory person with a work email before sending.",
+        );
+      }
+      const receipt = await sendDecisionCaseInvitation({
+        decisionCaseId: decisionCase.id,
+        name: recipient.name,
+        email: recipient.email,
+      });
+      setDecisionCase(applyInvitationDelivery(decisionCase, receipt));
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : "Invitation failed");
+    } finally {
+      setInviteBusy(false);
+    }
+  };
+
+  const refreshInvite = async () => {
+    if (!isPersistedDecisionCase(decisionCase.id)) {
+      setError("Save this Decision Case before checking invitation status.");
+      return;
+    }
+    setInviteBusy(true);
+    setError(null);
+    try {
+      const receipt = await getDecisionCaseInvitationStatus(decisionCase.id);
+      setDecisionCase(applyInvitationDelivery(decisionCase, receipt));
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "Status check failed",
+      );
+    } finally {
+      setInviteBusy(false);
     }
   };
 
@@ -715,6 +880,7 @@ export function DecisionCaseSpine({
                 onChange={(event) => {
                   const file = event.target.files?.[0];
                   if (!file) return;
+                  setSelectedEvidenceFile(file);
                   const textLike =
                     file.size <= 200_000 &&
                     (/text|json|csv|markdown|plain/.test(file.type) ||
@@ -794,6 +960,33 @@ export function DecisionCaseSpine({
           >
             Add this evidence
           </button>
+          <button
+            type="button"
+            data-testid="spine-ingest-evidence"
+            disabled={
+              saving ||
+              connecting ||
+              evidenceBusy ||
+              approvalBasisLocked ||
+              !canIngestGovernedEvidence
+            }
+            className="ml-2 mt-2 rounded-lg border border-teal-400/40 px-3 py-2 text-xs font-semibold text-teal-100 disabled:opacity-40"
+            onClick={() => void ingestEvidence()}
+          >
+            {evidenceBusy ? "Ingesting…" : "Ingest as governed source"}
+          </button>
+          <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+            Governed intake records source identity, security state, and
+            retrievability. It never approves engineering content.
+          </p>
+          {evidenceNotice ? (
+            <p
+              data-testid="spine-evidence-notice"
+              className="mt-2 text-xs leading-relaxed text-teal-100"
+            >
+              {evidenceNotice}
+            </p>
+          ) : null}
         </>
       </section>
 
@@ -1238,6 +1431,51 @@ export function DecisionCaseSpine({
           This binds a real tenant profile to the case. It does not send or
           claim an email or workspace invitation.
         </p>
+        <button
+          type="button"
+          data-testid="spine-send-invite"
+          disabled={
+            inviteBusy ||
+            !canSendWorkspaceInvite ||
+            !decisionCase.requiredPerson?.email ||
+            !isPersistedDecisionCase(decisionCase.id)
+          }
+          className="mt-3 rounded-lg bg-teal-400 px-3 py-2 text-xs font-bold text-slate-950 disabled:opacity-40"
+          onClick={() => void sendInvite()}
+        >
+          {inviteBusy ? "Working…" : "Send secure workspace invitation"}
+        </button>
+        <button
+          type="button"
+          data-testid="spine-refresh-invite"
+          disabled={inviteBusy || !isPersistedDecisionCase(decisionCase.id)}
+          className="ml-2 mt-3 rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold text-slate-100 disabled:opacity-40"
+          onClick={() => void refreshInvite()}
+        >
+          Refresh invitation status
+        </button>
+        <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
+          Sending requires a same-tenant administrator or executive using an
+          AAL2 session. Membership is viewer-only.
+          Workspace access never grants engineering or decision authority.
+        </p>
+        {decisionCase.invitation ? (
+          <div
+            data-testid="spine-invite-status"
+            className="mt-3 rounded-xl border border-white/10 px-3 py-2"
+          >
+            <p className="text-xs font-semibold text-white">
+              Status · {decisionCase.invitation.status.replaceAll("_", " ")}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-300">
+              {decisionCase.invitation.detail}
+            </p>
+            <p className="mt-1 text-[11px] text-amber-100/90">
+              Delivery, acceptance, sign-in, and decision authority are
+              separate states.
+            </p>
+          </div>
+        ) : null}
         {currentUserIsRequiredPerson && !decisionCase.humanApproval ? (
           <div
             data-testid="spine-required-person-approval"

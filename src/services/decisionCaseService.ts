@@ -215,6 +215,53 @@ export async function loadPersistedDecisionCase(
     : null;
 }
 
+export interface RecentDecisionCase {
+  id: string;
+  decisionCase: DecisionCase;
+  updatedAt: string;
+}
+
+/**
+ * Tenant-scoped resume discovery. Local storage remains a convenience pointer,
+ * never the directory of record; RLS on cowork_workspaces limits this list to
+ * the signed-in organization.
+ */
+export async function listRecentPersistedDecisionCases(
+  limit = 5,
+): Promise<RecentDecisionCase[]> {
+  const boundedLimit = Math.max(1, Math.min(20, Math.trunc(limit)));
+  const { data, error } = await supabase
+    .from("cowork_workspaces")
+    .select("id, case_state, updated_at")
+    .not("case_number", "is", null)
+    .order("updated_at", { ascending: false })
+    .limit(boundedLimit)
+    .returns<
+      Array<{
+        id: string;
+        case_state: DecisionCase | null;
+        updated_at: string;
+      }>
+    >();
+  if (error)
+    throw new Error(`Could not discover saved cases: ${error.message}`);
+  return (data ?? [])
+    .filter(
+      (
+        row,
+      ): row is {
+        id: string;
+        case_state: DecisionCase;
+        updated_at: string;
+      } => Boolean(row.case_state?.objective),
+    )
+    .map((row) => ({
+      id: row.id,
+      decisionCase: row.case_state,
+      updatedAt: row.updated_at,
+    }));
+}
+
 export async function savePersistedDecisionCase(
   decisionCase: DecisionCase,
   command: DecisionCaseCommand = "record_conversation",

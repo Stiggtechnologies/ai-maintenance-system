@@ -294,6 +294,10 @@ export interface RecoveryActivationBatchResult {
   dry_run?: boolean;
   run_id?: string;
   status?: string;
+  transport_complete?: boolean;
+  objects?: number;
+  bytes?: number;
+  cursor_advanced?: boolean;
   read: number;
   accepted: number;
   duplicate: number;
@@ -1091,6 +1095,32 @@ export const recoveryActivationActions = {
       p_enabled: args.enabled,
       p_basis: args.basis,
     }),
+  configureDataLakeSource: (args: {
+    key: string;
+    name: string;
+    filesystemUrl: string;
+    objectPrefix: string;
+    objectFormat: "csv" | "jsonl" | "json";
+    maxFiles: number;
+    maxBytes: number;
+    expectedIntervalMinutes: number;
+    credentialBindingRef: string;
+    enabled: boolean;
+    basis: string;
+  }) =>
+    call<RpcResult>("configure_data_lake_read_source", {
+      p_key: args.key,
+      p_name: args.name,
+      p_filesystem_url: args.filesystemUrl,
+      p_object_prefix: args.objectPrefix,
+      p_object_format: args.objectFormat,
+      p_max_files: args.maxFiles,
+      p_max_bytes: args.maxBytes,
+      p_expected_interval_minutes: args.expectedIntervalMinutes,
+      p_credential_binding_ref: args.credentialBindingRef,
+      p_enabled: args.enabled,
+      p_basis: args.basis,
+    }),
   saveMapping: (args: {
     connectorKey: string;
     entityType: string;
@@ -1155,6 +1185,26 @@ export const recoveryActivationActions = {
   ): Promise<RecoveryActivationBatchResult> => {
     const { data, error } = await supabase.functions.invoke(
       "recovery-activation-pull",
+      {
+        body: {
+          connector_key: connectorKey,
+          entity_type: entityType,
+          dry_run: dryRun,
+        },
+      },
+    );
+    if (error) throw new Error(error.message);
+    const payload = data as RecoveryActivationBatchResult & { error?: string };
+    if (payload.error) throw new Error(payload.error);
+    return payload;
+  },
+  pullDataLake: async (
+    connectorKey: string,
+    entityType: string,
+    dryRun: boolean,
+  ): Promise<RecoveryActivationBatchResult> => {
+    const { data, error } = await supabase.functions.invoke(
+      "data-lake-read-pull",
       {
         body: {
           connector_key: connectorKey,

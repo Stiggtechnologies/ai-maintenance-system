@@ -22,8 +22,11 @@ const ALLOWED_HOSTS = (Deno.env.get("PLANT_HISTORIAN_ALLOWED_HOSTS") ?? "")
   .filter(Boolean);
 const CREDENTIALS_JSON =
   Deno.env.get("PLANT_HISTORIAN_CREDENTIALS_JSON") ?? "{}";
-const MAX_ROWS = 10_000;
-const MAX_RESPONSE_BYTES = 10 * 1024 * 1024;
+const MAX_TOTAL_ROWS = 50_000;
+const MAX_TOTAL_BYTES = 50 * 1024 * 1024;
+const MAX_PAGE_ROWS = 10_000;
+const MAX_PAGE_BYTES = 10 * 1024 * 1024;
+const MAX_TOTAL_DURATION_MS = 55_000;
 const FETCH_TIMEOUT_MS = 20_000;
 
 const corsHeaders = {
@@ -54,13 +57,21 @@ function safeLog(event: string, details: Record<string, unknown> = {}): void {
 
 function isPrivateHostname(hostname: string): boolean {
   const lower = hostname.toLowerCase();
+  const address = lower.replace(/^\[/, "").replace(/\]$/, "");
   if (
     lower === "localhost" ||
     lower.endsWith(".localhost") ||
     lower.endsWith(".local")
   )
     return true;
-  if (lower === "::1" || lower === "0.0.0.0") return true;
+  if (
+    address === "::" ||
+    address === "::1" ||
+    /^(?:fc|fd)[0-9a-f]{2}:/i.test(address) ||
+    /^fe[89ab][0-9a-f]:/i.test(address)
+  )
+    return true;
+  if (lower === "0.0.0.0") return true;
   const octets = lower.split(".").map(Number);
   if (
     octets.length !== 4 ||
@@ -100,33 +111,57 @@ function validateEndpoint(endpoint: string): URL {
     throw new Error(
       "The configured endpoint host is not in the deployment allowlist.",
     );
+  url.hash = "";
   return url;
 }
 
-function extractRows(
-  payload: unknown,
-  path: string,
-): Array<Record<string, unknown>> {
+function valueAtPath(payload: unknown, path: string): unknown {
   let value = payload;
   for (const segment of path
     .split(".")
     .map((part) => part.trim())
     .filter(Boolean)) {
     if (!value || typeof value !== "object" || Array.isArray(value))
-      throw new Error("Configured source array path does not exist.");
+      return undefined;
     value = (value as Record<string, unknown>)[segment];
   }
+  return value;
+}
+
+function extractRows(
+  payload: unknown,
+  path: string,
+): Array<Record<string, unknown>> {
+  const value = valueAtPath(payload, path);
   if (!Array.isArray(value))
     throw new Error("Configured source array path is not a JSON array.");
-  if (value.length > MAX_ROWS)
+  if (value.length > MAX_PAGE_ROWS)
     throw new Error(
-      `Source returned more than ${MAX_ROWS} rows; narrow the endpoint window.`,
+      `Historian page returned more than ${MAX_PAGE_ROWS} rows; narrow the endpoint window.`,
     );
   if (
     value.some((row) => !row || typeof row !== "object" || Array.isArray(row))
   )
     throw new Error("Every source row must be a JSON object.");
   return value as Array<Record<string, unknown>>;
+}
+
+function nextPage(
+  payload: unknown,
+  path: string,
+  current: URL,
+  initial: URL,
+): URL | null {
+  const value = valueAtPath(payload, path);
+  if (value === undefined || value === null || value === "") return null;
+  if (typeof value !== "string")
+    throw new Error("Historian next-page value must be a URL string or null.");
+  const next = validateEndpoint(new URL(value, current).href);
+  if (next.origin !== initial.origin)
+    throw new Error(
+      "Historian next-page URL must remain on the approved source origin.",
+    );
+  return next;
 }
 
 function applyMapping(
@@ -149,17 +184,14 @@ function applyMapping(
 }
 
 type Credential =
-  | string
-  | { type?: "bearer" | "header"; header?: string; value?: string };
+  string | { type?: "bearer" | "header"; header?: string; value?: string };
 
 function credentialHeaders(binding: string): Record<string, string> {
   let credentials: Record<string, Credential>;
   try {
     credentials = JSON.parse(CREDENTIALS_JSON) as Record<string, Credential>;
   } catch {
-    throw new Error(
-      "Plant historian credential registry is not valid JSON.",
-    );
+    throw new Error("Plant historian credential registry is not valid JSON.");
   }
   const credential = credentials[binding];
   if (!credential)
@@ -185,9 +217,10 @@ function credentialHeaders(binding: string): Record<string, string> {
 async function fetchJson(
   endpoint: URL,
   headers: Record<string, string>,
-): Promise<unknown> {
+  timeoutMs: number,
+): Promise<{ payload: unknown; bytes: number }> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
     const response = await fetch(endpoint, {
       method: "GET",
@@ -201,12 +234,13 @@ async function fetchJson(
     if (!contentType.toLowerCase().includes("application/json"))
       throw new Error("Source did not return application/json.");
     const declared = Number(response.headers.get("content-length") ?? "0");
-    if (declared > MAX_RESPONSE_BYTES)
-      throw new Error("Source response exceeds the 10 MB pull limit.");
+    if (declared > MAX_PAGE_BYTES)
+      throw new Error("Historian response page exceeds the 10 MB limit.");
     const text = await response.text();
-    if (new TextEncoder().encode(text).byteLength > MAX_RESPONSE_BYTES)
-      throw new Error("Source response exceeds the 10 MB pull limit.");
-    return JSON.parse(text) as unknown;
+    const bytes = new TextEncoder().encode(text).byteLength;
+    if (bytes > MAX_PAGE_BYTES)
+      throw new Error("Historian response page exceeds the 10 MB limit.");
+    return { payload: JSON.parse(text) as unknown, bytes };
   } finally {
     clearTimeout(timer);
   }
@@ -249,8 +283,7 @@ Deno.serve(async (request) => {
   const connectorKey =
     typeof body.connector_key === "string" ? body.connector_key.trim() : "";
   const dryRun = body.dry_run !== false;
-  if (!connectorKey)
-    return json({ error: "connector_key is required" }, 400);
+  if (!connectorKey) return json({ error: "connector_key is required" }, 400);
 
   let runId: string | null = null;
   try {
@@ -265,6 +298,9 @@ Deno.serve(async (request) => {
       column_mapping: Record<string, string>;
       value_mappings: Record<string, Record<string, string>>;
       constants: Record<string, unknown>;
+      pagination_mode: string;
+      pagination_next_path: string | null;
+      pagination_max_pages: number;
     }>(client, "get_plant_historian_source", {
       p_connector_key: connectorKey,
     });
@@ -281,19 +317,74 @@ Deno.serve(async (request) => {
         "Source endpoint or credential binding is not configured.",
       );
 
-    const endpoint = validateEndpoint(source.endpoint_url);
-    const raw = await fetchJson(
-      endpoint,
-      credentialHeaders(source.credential_binding_ref),
-    );
-    const rows = extractRows(raw, source.source_array_path).map((row) =>
-      applyMapping(
-        row,
-        source.column_mapping,
-        source.value_mappings,
-        source.constants,
-      ),
-    );
+    const mode = String(source.pagination_mode ?? "none");
+    const maxPages = Number(source.pagination_max_pages ?? 1);
+    const nextPath = String(source.pagination_next_path ?? "");
+    if (!["none", "next_url"].includes(mode))
+      throw new Error("Historian pagination mode is invalid.");
+    if (
+      !Number.isInteger(maxPages) ||
+      (mode === "none" && maxPages !== 1) ||
+      (mode === "next_url" && (maxPages < 2 || maxPages > 100 || !nextPath))
+    )
+      throw new Error("Historian pagination profile is invalid.");
+
+    const initial = validateEndpoint(source.endpoint_url);
+    let current: URL | null = initial;
+    let pageCount = 0;
+    let totalBytes = 0;
+    const rows: Array<Record<string, unknown>> = [];
+    const visited = new Set<string>();
+    const sourceHeaders = credentialHeaders(source.credential_binding_ref);
+    const transportStartedAt = Date.now();
+    let transportComplete = false;
+
+    while (current) {
+      if (pageCount >= maxPages)
+        throw new Error(
+          "Historian pagination exceeded its approved page limit.",
+        );
+      if (visited.has(current.href))
+        throw new Error("Historian pagination loop detected.");
+      const remainingMs =
+        MAX_TOTAL_DURATION_MS - (Date.now() - transportStartedAt);
+      if (remainingMs <= 0)
+        throw new Error(
+          "Historian pagination exceeded its total transport time limit.",
+        );
+      visited.add(current.href);
+      const page = await fetchJson(
+        current,
+        sourceHeaders,
+        Math.min(FETCH_TIMEOUT_MS, remainingMs),
+      );
+      totalBytes += page.bytes;
+      if (totalBytes > MAX_TOTAL_BYTES)
+        throw new Error(
+          "Historian paginated response exceeds the 50 MB total limit.",
+        );
+      const pageRows = extractRows(page.payload, source.source_array_path);
+      if (rows.length + pageRows.length > MAX_TOTAL_ROWS)
+        throw new Error(
+          "Historian paginated response exceeds the 50,000-row limit.",
+        );
+      rows.push(
+        ...pageRows.map((row) =>
+          applyMapping(
+            row,
+            source.column_mapping,
+            source.value_mappings,
+            source.constants,
+          ),
+        ),
+      );
+      pageCount += 1;
+      current =
+        mode === "next_url"
+          ? nextPage(page.payload, nextPath, current, initial)
+          : null;
+    }
+    transportComplete = true;
 
     if (dryRun) {
       const totals = { read: 0, accepted: 0, duplicate: 0, rejected: 0 };
@@ -318,10 +409,19 @@ Deno.serve(async (request) => {
       }
       safeLog("dry_run_complete", {
         connectorKey,
+        pages: pageCount,
         rows: totals.read,
         rejected: totals.rejected,
       });
-      return json({ dry_run: true, ...totals, results });
+      return json({
+        dry_run: true,
+        transport_complete: transportComplete,
+        pages: pageCount,
+        bytes: totalBytes,
+        ...totals,
+        results,
+        note: "All approved pages were read. No canonical or staging rows were written.",
+      });
     }
 
     const started = await rpc<{ run_id: string }>(
@@ -355,9 +455,18 @@ Deno.serve(async (request) => {
       connectorKey,
       runId,
       status,
+      pages: pageCount,
       ...totals,
     });
-    return json({ dry_run: false, run_id: runId, status, ...totals });
+    return json({
+      dry_run: false,
+      transport_complete: transportComplete,
+      run_id: runId,
+      status,
+      pages: pageCount,
+      bytes: totalBytes,
+      ...totals,
+    });
   } catch (error) {
     if (runId) {
       try {
