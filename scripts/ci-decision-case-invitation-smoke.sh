@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Brad walkthrough — canonical, tenant-bound Decision Case invitations.
+# First Decision Journey — canonical, tenant-bound Decision Case invitations.
 set -euo pipefail
 trap 'echo "Decision Case invitation smoke FAILED at line $LINENO: $BASH_COMMAND"' ERR
 
@@ -38,7 +38,7 @@ psqlc(){ PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres 
 
 PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -q <<PSQL
 insert into organizations(id,name) values
-  ('$ORG','Brad walkthrough tenant'),('$FOREIGN_ORG','Brad walkthrough foreign tenant');
+  ('$ORG','First Decision Journey tenant'),('$FOREIGN_ORG','First Decision Journey foreign tenant');
 insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,
   created_at,updated_at,raw_app_meta_data,raw_user_meta_data,confirmation_token,
   recovery_token,email_change,email_change_token_new,email_change_token_current,

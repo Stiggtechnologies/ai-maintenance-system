@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270101560000_cmms_paginated_read.sql",
+  "supabase/migrations/20270102110000_cmms_paginated_read.sql",
   "utf8",
 );
 const edge = readFileSync("supabase/functions/cmms-read-pull/index.ts", "utf8");

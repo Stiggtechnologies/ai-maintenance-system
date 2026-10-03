@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 const read = (path: string) => readFileSync(path, "utf8");
 
 const migration = read(
-  "supabase/migrations/20270101600000_decision_case_workspace_invitation.sql",
+  "supabase/migrations/20270102160000_decision_case_workspace_invitation.sql",
 );
 const edge = read("supabase/functions/decision-case-invite/index.ts");
 const edgeCore = read(
@@ -17,7 +17,7 @@ const workflow = read(".github/workflows/deploy-migrations.yml");
 const boundary = read("config/edge-function-boundary.json");
 const config = read("supabase/config.toml");
 
-describe("Brad first-customer walkthrough closeout contract", () => {
+describe("First Decision Journey closeout contract", () => {
   it("extends canonical case, membership, evidence, and audit records", () => {
     expect(migration).toMatch(/cowork_workspaces/);
     expect(migration).toMatch(/auth\.users/);
