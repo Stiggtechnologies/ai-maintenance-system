@@ -39,8 +39,11 @@ export function LearningRevisionPanel({ observationId, procedureId, canWrite }: 
     const values = new FormData(form);
     setBusy(true); setError(""); setMessage("");
     try {
-      const receipt = await requestLearningStandardRevision({ observationId, content: String(values.get("content")), changeSummary: String(values.get("summary")), basis: String(values.get("basis")) });
-      setMessage(`Draft revision ${receipt.revisionId} requested. A different authorized human must decide adoption.`);
+      const safetyCritical = original.standard.safety_critical || values.get("safetyCritical") === "on";
+      const receipt = await requestLearningStandardRevision({ observationId, content: String(values.get("content")), changeSummary: String(values.get("summary")), basis: String(values.get("basis")), safetyCritical });
+      setMessage(receipt.safetyCritical
+        ? `Draft revision ${receipt.revisionId} requested. A different designated safety authority (${receipt.requiredAuthority}) must decide adoption.`
+        : `Draft revision ${receipt.revisionId} requested. A different authorized human must decide adoption.`);
       form.reset(); setTick(n => n + 1);
     } catch (reason) { setError(reason instanceof Error ? reason.message : "Request failed; reload before retrying"); }
     finally { setBusy(false); }
@@ -65,6 +68,7 @@ export function LearningRevisionPanel({ observationId, procedureId, canWrite }: 
       {original && <details><summary>Exact observed procedure · {original.language_code}</summary><p className="whitespace-pre-wrap">{original.content}</p></details>}
       {items.map(item => <article key={item.id} className="border border-slate-700 rounded p-3 space-y-2">
         <h5>{item.title} · version {item.version} · {item.approval?.status ?? "Approval missing"}</h5>
+        {item.safety_critical && <p><strong>Safety-critical procedure.</strong> Designated safety authority: {item.approval?.owner_role ?? "Missing"}.</p>}
         <p>{item.change_summary}</p><p>Basis: {item.basis}</p>
         <p>Requested by: {item.revision_requested_by}</p>
         {item.procedures.map(procedure => <details key={procedure.id}><summary>Proposed procedure · {procedure.language_code}</summary><p className="whitespace-pre-wrap">{procedure.content}</p></details>)}
@@ -72,7 +76,9 @@ export function LearningRevisionPanel({ observationId, procedureId, canWrite }: 
         {canWrite && ["required", "pending"].includes(item.approval?.status ?? "") && <form onSubmit={event => decide(event, item.id)}><fieldset disabled={busy || loading}>
           <label>Decision<select name="outcome" required defaultValue=""><option value="">Choose decision</option><option value="approved">Approve adoption</option><option value="rejected">Reject revision</option></select></label>
           <label>Decision basis<textarea name="note" required maxLength={10000} /></label>
-          <p>The requester cannot approve their own revision. The server checks approval authority.</p>
+          <p>{item.safety_critical
+            ? "The requester cannot approve their own revision. The server requires the designated safety authority."
+            : "The requester cannot approve their own revision. The server checks approval authority."}</p>
           <button type="submit">Record human decision</button>
         </fieldset></form>}
       </article>)}
@@ -81,6 +87,8 @@ export function LearningRevisionPanel({ observationId, procedureId, canWrite }: 
         <label>Changed procedure content<textarea name="content" required maxLength={100000} /></label>
         <label>Change summary<textarea name="summary" required maxLength={10000} /></label>
         <label>Evidence and applicability basis<textarea name="basis" required maxLength={10000} /></label>
+        <label><input key={original.id} name="safetyCritical" type="checkbox" defaultChecked={original.standard.safety_critical} disabled={original.standard.safety_critical} /> Safety-critical procedure</label>
+        <p>Safety-critical alterations are routed to a different named designated safety authority and cannot be downgraded later.</p>
         <p>A request creates a draft, not an adopted procedure or proof of improved outcomes.</p>
         <button type="submit">Request procedure revision</button>
       </fieldset></form>}
