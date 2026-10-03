@@ -376,6 +376,9 @@ jobs:
       - name: Smoke — governed Data Steward Specialist
         run: bash scripts/ci-data-steward-agent-smoke.sh
 
+      - name: Smoke — data residency and sovereignty
+        run: bash scripts/ci-data-residency-sovereignty-smoke.sh
+
       - name: Smoke — loss forecast, risk backlog and outage options
         run: bash scripts/ci-loss-forecast-backlog-outage-smoke.sh
 
