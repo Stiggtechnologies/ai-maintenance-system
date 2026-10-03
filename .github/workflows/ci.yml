@@ -536,6 +536,9 @@ jobs:
       - name: Smoke — governed enterprise resilience scenarios and mode policy
         run: bash scripts/ci-resilience-scenario-governance-smoke.sh
 
+      - name: Smoke — safety-critical regulatory obligation register
+        run: bash scripts/ci-safety-obligation-register-smoke.sh
+
       - name: Smoke — emergency and restoration command
         run: bash scripts/ci-emergency-restoration-command-smoke.sh
 

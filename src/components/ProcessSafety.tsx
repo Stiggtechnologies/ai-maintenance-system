@@ -27,6 +27,7 @@ import { LoadingState, ErrorState } from "./ui/AsyncStates";
 import { ProcessSafetyActivation } from "./ProcessSafetyActivation";
 import { ProcessSafetyFoundations } from "./ProcessSafetyFoundations";
 import { PressureIntegrity } from "./PressureIntegrity";
+import { SafetyObligationRegister } from "./SafetyObligationRegister";
 
 interface Posture {
   barriers_total: number;
@@ -157,6 +158,8 @@ export function ProcessSafety() {
       <ProcessSafetyActivation />
 
       <ProcessSafetyFoundations />
+
+      <SafetyObligationRegister />
 
       <PressureIntegrity />
 
