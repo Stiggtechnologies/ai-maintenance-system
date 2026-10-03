@@ -160,6 +160,15 @@ describe("SC-01 canonical Sync Context contracts", () => {
     expect(sql).toContain("v_role<>'technician'");
     expect(sql).toContain("never use to_jsonb(link)");
     expect(sql).toContain("public.can_read_risk(l.risk_id)");
+    expect(sql).toContain(
+      "returns boolean language sql immutable set search_path=public",
+    );
+    expect(sql).toContain(
+      "grant execute on function public.sync_context_source_rights_permit(public.connectors) to authenticated",
+    );
+    expect(sql).toContain(
+      "revoke all on function public.sync_context_source_rights_permit(public.connectors) from public,anon,service_role",
+    );
     for (const policy of [
       "create policy connectors_org_read",
       "create policy geospatial_features_read",

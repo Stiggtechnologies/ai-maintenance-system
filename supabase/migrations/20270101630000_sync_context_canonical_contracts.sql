@@ -453,7 +453,7 @@ where a.status in ('approved','rejected') and a.decided_at is not null
     and e.event_time=a.decided_at and e.new_state->>'status'=a.status);
 
 create or replace function public.sync_context_source_rights_permit(p_source public.connectors)
-returns boolean language sql stable security definer set search_path=public as $$
+returns boolean language sql immutable set search_path=public as $$
   select case p_source.context_source_class
     when 'live_external' then p_source.context_rights_state in ('demo_approved','production_approved')
     when 'customer_operational' then p_source.context_rights_state='customer_authorized'
@@ -461,7 +461,13 @@ returns boolean language sql stable security definer set search_path=public as $
     else false
   end
 $$;
-revoke all on function public.sync_context_source_rights_permit(public.connectors) from public,anon,authenticated,service_role;
+-- This is a pure policy classifier: it reads only the composite value supplied
+-- by its caller and exposes no stored row.  PostgreSQL evaluates RLS policy
+-- expressions with the querying role's function privileges, so authenticated
+-- needs EXECUTE for the policies below to filter rows instead of failing the
+-- read.  Anonymous and service roles have no direct Context read path.
+revoke all on function public.sync_context_source_rights_permit(public.connectors) from public,anon,service_role;
+grant execute on function public.sync_context_source_rights_permit(public.connectors) to authenticated;
 
 -- Direct table reads are narrower than the security-definer projections.
 drop policy if exists connectors_org_read on public.connectors;
