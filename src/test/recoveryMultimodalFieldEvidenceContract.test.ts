@@ -82,6 +82,27 @@ describe("governed Recovery multimodal field evidence", () => {
     );
   });
 
+  it("requires real bounded bytes at the exact tenant, actor and capture-workspace path", () => {
+    expect(migration).toContain("from storage.objects o");
+    expect(migration).toContain("o.bucket_id='sync-attachments'");
+    expect(migration).toContain("and o.name=v_attachment.object_path");
+    expect(migration).toContain("v_object_size not between 1 and 26214400");
+    expect(migration).toContain(
+      "v_attachment.size_bytes is distinct from v_object_size",
+    );
+    expect(migration).toContain(
+      "(storage.foldername(v_attachment.object_path))[3] is distinct from v_attachment.workspace_id::text",
+    );
+    expect(migration).toContain(
+      "attachment bytes are missing, empty, oversized or inconsistent with their metadata",
+    );
+    expect(migration).toContain("'attachment_provenance'");
+    expect(migration).toContain("'client_computed_unverified'");
+    expect(migration).toContain(
+      "attachment requires a lowercase client-computed sha-256 provenance value",
+    );
+  });
+
   it("refuses mismatched media and incomplete structured observations", () => {
     expect(migration).toContain("video evidence requires a video attachment");
     expect(migration).toContain("photo evidence requires an image attachment");

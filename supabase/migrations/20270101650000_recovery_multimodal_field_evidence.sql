@@ -297,6 +297,8 @@ declare
   v_id uuid;
   v_existing public.recovery_field_evidence%rowtype;
   v_attachment public.cowork_attachments%rowtype;
+  v_object_size bigint;
+  v_object_mime text;
   v_metadata jsonb:=coalesce(p_metadata,'{}'::jsonb);
   v_command_id text:=nullif(btrim(coalesce(p_client_command_id,'')),'');
   v_replayed boolean:=false;
@@ -351,6 +353,48 @@ begin
     if not found then
       return jsonb_build_object('error','attachment is not an active Recovery upload for this user and event');
     end if;
+
+    -- Attachment metadata is not proof that bytes exist. Bind the row to the
+    -- exact tenant / actor / capture-workspace storage key, then require the
+    -- private object itself and reconcile its bounded size and content type.
+    -- This prevents a client from turning a fabricated metadata row into
+    -- governed Recovery evidence.
+    if coalesce(array_length(storage.foldername(v_attachment.object_path),1),0)<>3
+      or (storage.foldername(v_attachment.object_path))[1] is distinct from v_org::text
+      or (storage.foldername(v_attachment.object_path))[2] is distinct from auth.uid()::text
+      or (storage.foldername(v_attachment.object_path))[3] is distinct from v_attachment.workspace_id::text then
+      return jsonb_build_object('error','attachment object path is not bound to this tenant, user and Recovery upload context');
+    end if;
+
+    select
+      case when coalesce(o.metadata->>'size','') ~ '^[0-9]+$'
+        then (o.metadata->>'size')::bigint else 0 end,
+      coalesce(o.metadata->>'mimetype',o.metadata->>'contentType','')
+    into v_object_size,v_object_mime
+    from storage.objects o
+    where o.bucket_id='sync-attachments'
+      and o.name=v_attachment.object_path;
+    if not found
+      or v_object_size not between 1 and 26214400
+      or v_attachment.size_bytes is distinct from v_object_size then
+      return jsonb_build_object('error','attachment bytes are missing, empty, oversized or inconsistent with their metadata');
+    end if;
+    if coalesce(v_attachment.mime_type,'')<>''
+      and lower(v_attachment.mime_type) is distinct from lower(v_object_mime) then
+      return jsonb_build_object('error','attachment content type does not match the private stored object');
+    end if;
+    if coalesce(v_attachment.content_sha256,'') !~ '^[0-9a-f]{64}$' then
+      return jsonb_build_object('error','attachment requires a lowercase client-computed SHA-256 provenance value');
+    end if;
+    v_metadata:=v_metadata||jsonb_build_object(
+      'attachment_provenance',jsonb_build_object(
+        'object_path',v_attachment.object_path,
+        'size_bytes',v_object_size,
+        'mime_type',v_object_mime,
+        'content_sha256',v_attachment.content_sha256,
+        'content_hash_verification','client_computed_unverified'
+      )
+    );
   end if;
 
   if p_kind in ('photo','video','voice','document','signature','drawing')

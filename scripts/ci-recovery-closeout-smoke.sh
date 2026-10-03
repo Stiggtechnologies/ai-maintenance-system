@@ -154,13 +154,56 @@ CAPTURE_WORKSPACE=$(BODY="$CAPTURE_CONTEXT" python3 -c "import json,os; print(js
 TECH_ID=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "select id from auth.users where email='technician@syncai.ca'")
 test -n "$CAPTURE_WORKSPACE"; test -n "$TECH_ID"
 
-VIDEO_ATTACHMENT=$(curl -sS -X POST "$API_URL/rest/v1/cowork_attachments?select=id" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TECH" -H 'Content-Type: application/json' -H 'Prefer: return=representation' -d "{\"organization_id\":\"$ORG\",\"workspace_id\":\"$CAPTURE_WORKSPACE\",\"uploaded_by\":\"$TECH_ID\",\"file_name\":\"ci-walkdown.mp4\",\"mime_type\":\"video/mp4\",\"size_bytes\":1024,\"object_path\":\"$ORG/$TECH_ID/$CAPTURE_WORKSPACE/ci-walkdown.mp4\",\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"extraction_status\":\"unsupported\"}")
+VIDEO_PATH="$ORG/$TECH_ID/$CAPTURE_WORKSPACE/ci-walkdown.mp4"
+IMAGE_PATH="$ORG/$TECH_ID/$CAPTURE_WORKSPACE/ci-attestation.png"
+VIDEO_FILE="/tmp/recovery-field-video-$EVENT.mp4"
+IMAGE_FILE="/tmp/recovery-field-image-$EVENT.png"
+printf 'ci-governed-video-bytes' > "$VIDEO_FILE"
+printf '\211PNG\r\n\032\nci-governed-image-bytes' > "$IMAGE_FILE"
+VIDEO_SIZE=$(wc -c < "$VIDEO_FILE" | tr -d ' ')
+IMAGE_SIZE=$(wc -c < "$IMAGE_FILE" | tr -d ' ')
+curl -fsS -X POST "$API_URL/storage/v1/object/sync-attachments/$VIDEO_PATH" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TECH" \
+  -H 'Content-Type: video/mp4' -H 'x-upsert: false' \
+  --data-binary "@$VIDEO_FILE" >/dev/null
+curl -fsS -X POST "$API_URL/storage/v1/object/sync-attachments/$IMAGE_PATH" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TECH" \
+  -H 'Content-Type: image/png' -H 'x-upsert: false' \
+  --data-binary "@$IMAGE_FILE" >/dev/null
+
+VIDEO_ATTACHMENT=$(curl -sS -X POST "$API_URL/rest/v1/cowork_attachments?select=id" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TECH" -H 'Content-Type: application/json' -H 'Prefer: return=representation' -d "{\"organization_id\":\"$ORG\",\"workspace_id\":\"$CAPTURE_WORKSPACE\",\"uploaded_by\":\"$TECH_ID\",\"file_name\":\"ci-walkdown.mp4\",\"mime_type\":\"video/mp4\",\"size_bytes\":$VIDEO_SIZE,\"object_path\":\"$VIDEO_PATH\",\"content_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"extraction_status\":\"unsupported\"}")
 VIDEO_ATTACHMENT_ID=$(BODY="$VIDEO_ATTACHMENT" python3 -c "import json,os; x=json.loads(os.environ['BODY']); print(x[0].get('id','') if isinstance(x,list) and x else '')")
 test -n "$VIDEO_ATTACHMENT_ID"
 
-IMAGE_ATTACHMENT=$(curl -sS -X POST "$API_URL/rest/v1/cowork_attachments?select=id" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TECH" -H 'Content-Type: application/json' -H 'Prefer: return=representation' -d "{\"organization_id\":\"$ORG\",\"workspace_id\":\"$CAPTURE_WORKSPACE\",\"uploaded_by\":\"$TECH_ID\",\"file_name\":\"ci-attestation.png\",\"mime_type\":\"image/png\",\"size_bytes\":512,\"object_path\":\"$ORG/$TECH_ID/$CAPTURE_WORKSPACE/ci-attestation.png\",\"content_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"extraction_status\":\"unsupported\"}")
+IMAGE_ATTACHMENT=$(curl -sS -X POST "$API_URL/rest/v1/cowork_attachments?select=id" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TECH" -H 'Content-Type: application/json' -H 'Prefer: return=representation' -d "{\"organization_id\":\"$ORG\",\"workspace_id\":\"$CAPTURE_WORKSPACE\",\"uploaded_by\":\"$TECH_ID\",\"file_name\":\"ci-attestation.png\",\"mime_type\":\"image/png\",\"size_bytes\":$IMAGE_SIZE,\"object_path\":\"$IMAGE_PATH\",\"content_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"extraction_status\":\"unsupported\"}")
 IMAGE_ATTACHMENT_ID=$(BODY="$IMAGE_ATTACHMENT" python3 -c "import json,os; x=json.loads(os.environ['BODY']); print(x[0].get('id','') if isinstance(x,list) and x else '')")
 test -n "$IMAGE_ATTACHMENT_ID"
+
+MISSING_ATTACHMENT=$(curl -sS -X POST "$API_URL/rest/v1/cowork_attachments?select=id" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TECH" -H 'Content-Type: application/json' -H 'Prefer: return=representation' -d "{\"organization_id\":\"$ORG\",\"workspace_id\":\"$CAPTURE_WORKSPACE\",\"uploaded_by\":\"$TECH_ID\",\"file_name\":\"ci-missing.mp4\",\"mime_type\":\"video/mp4\",\"size_bytes\":17,\"object_path\":\"$ORG/$TECH_ID/$CAPTURE_WORKSPACE/ci-missing.mp4\",\"content_sha256\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"extraction_status\":\"unsupported\"}")
+MISSING_ATTACHMENT_ID=$(BODY="$MISSING_ATTACHMENT" python3 -c "import json,os; x=json.loads(os.environ['BODY']); print(x[0].get('id','') if isinstance(x,list) and x else '')")
+test -n "$MISSING_ATTACHMENT_ID"
+MISSING_BYTES=$(rpc "$TECH" add_recovery_field_evidence "{\"p_event_id\":\"$EVENT\",\"p_event_work_id\":\"$EW1\",\"p_kind\":\"video\",\"p_note\":\"CI metadata without stored bytes must be refused\",\"p_attachment_id\":\"$MISSING_ATTACHMENT_ID\",\"p_metadata\":{},\"p_client_command_id\":\"ci-recovery-missing-bytes\"}")
+BODY="$MISSING_BYTES" python3 - <<'PY'
+import json,os,sys
+x=json.loads(os.environ['BODY'])
+if 'attachment bytes are missing' not in x.get('error',''): print('metadata-only attachment was not refused',x); sys.exit(1)
+PY
+
+WRONG_WORKSPACE='00000000-0000-4000-8000-000000000099'
+WRONG_PATH="$ORG/$TECH_ID/$WRONG_WORKSPACE/ci-wrong-workspace.mp4"
+curl -fsS -X POST "$API_URL/storage/v1/object/sync-attachments/$WRONG_PATH" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TECH" \
+  -H 'Content-Type: video/mp4' -H 'x-upsert: false' \
+  --data-binary "@$VIDEO_FILE" >/dev/null
+WRONG_ATTACHMENT=$(curl -sS -X POST "$API_URL/rest/v1/cowork_attachments?select=id" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TECH" -H 'Content-Type: application/json' -H 'Prefer: return=representation' -d "{\"organization_id\":\"$ORG\",\"workspace_id\":\"$CAPTURE_WORKSPACE\",\"uploaded_by\":\"$TECH_ID\",\"file_name\":\"ci-wrong-workspace.mp4\",\"mime_type\":\"video/mp4\",\"size_bytes\":$VIDEO_SIZE,\"object_path\":\"$WRONG_PATH\",\"content_sha256\":\"dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd\",\"extraction_status\":\"unsupported\"}")
+WRONG_ATTACHMENT_ID=$(BODY="$WRONG_ATTACHMENT" python3 -c "import json,os; x=json.loads(os.environ['BODY']); print(x[0].get('id','') if isinstance(x,list) and x else '')")
+test -n "$WRONG_ATTACHMENT_ID"
+WRONG_OBJECT_PATH=$(rpc "$TECH" add_recovery_field_evidence "{\"p_event_id\":\"$EVENT\",\"p_event_work_id\":\"$EW1\",\"p_kind\":\"video\",\"p_note\":\"CI wrong workspace object path must be refused\",\"p_attachment_id\":\"$WRONG_ATTACHMENT_ID\",\"p_metadata\":{},\"p_client_command_id\":\"ci-recovery-wrong-object-path\"}")
+BODY="$WRONG_OBJECT_PATH" python3 - <<'PY'
+import json,os,sys
+x=json.loads(os.environ['BODY'])
+if 'object path is not bound' not in x.get('error',''): print('wrong-workspace object path was not refused',x); sys.exit(1)
+PY
 
 VIDEO_NO_FILE=$(rpc "$TECH" add_recovery_field_evidence "{\"p_event_id\":\"$EVENT\",\"p_event_work_id\":\"$EW1\",\"p_kind\":\"video\",\"p_note\":\"CI video without bytes must be refused\",\"p_attachment_id\":null,\"p_metadata\":{},\"p_client_command_id\":\"ci-recovery-video-no-file\"}")
 BODY="$VIDEO_NO_FILE" python3 - <<'PY'
@@ -172,6 +215,7 @@ PY
 VIDEO_PAYLOAD="{\"p_event_id\":\"$EVENT\",\"p_event_work_id\":\"$EW1\",\"p_kind\":\"video\",\"p_note\":\"CI walkdown shows the coupling guard after reassembly\",\"p_attachment_id\":\"$VIDEO_ATTACHMENT_ID\",\"p_metadata\":{\"capture_method\":\"device_camera\"},\"p_client_command_id\":\"ci-recovery-video-1\"}"
 VIDEO=$(rpc "$TECH" add_recovery_field_evidence "$VIDEO_PAYLOAD"); noerr "$VIDEO"
 VIDEO_REPLAY=$(rpc "$TECH" add_recovery_field_evidence "$VIDEO_PAYLOAD"); noerr "$VIDEO_REPLAY"
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "select case when count(*)=1 and bool_and(metadata#>>'{attachment_provenance,content_hash_verification}'='client_computed_unverified') and bool_and((metadata#>>'{attachment_provenance,size_bytes}')::bigint=$VIDEO_SIZE) and bool_and(metadata#>>'{attachment_provenance,object_path}'='$VIDEO_PATH') then 'ok' else 'bad' end from recovery_field_evidence where id=(('$VIDEO'::jsonb)->>'evidence_id')::uuid" | grep -qx ok
 BODY="$VIDEO_REPLAY" python3 - <<'PY'
 import json,os,sys
 x=json.loads(os.environ['BODY'])
@@ -195,6 +239,7 @@ for call in \
 
 SIGNATURE=$(rpc "$TECH" add_recovery_field_evidence "{\"p_event_id\":\"$EVENT\",\"p_event_work_id\":\"$EW1\",\"p_kind\":\"signature\",\"p_note\":\"CI technician attestation retained as evidence only\",\"p_attachment_id\":\"$IMAGE_ATTACHMENT_ID\",\"p_metadata\":{},\"p_client_command_id\":\"ci-recovery-signature-1\"}"); noerr "$SIGNATURE"
 PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "select case when count(*)=1 and bool_and(metadata->>'authority_boundary'='evidence_only_not_approval_or_release') then 'ok' else 'bad' end from recovery_field_evidence where id=(('$SIGNATURE'::jsonb)->>'evidence_id')::uuid" | grep -qx ok
+rm -f "$VIDEO_FILE" "$IMAGE_FILE"
 
 EA=$(rpc "$PLANNER" set_recovery_economic_assumptions "{\"p_event_id\":\"$EVENT\",\"p_regular\":120,\"p_overtime\":180,\"p_overtime_share\":0.25,\"p_contractor\":500,\"p_logistics\":250,\"p_risk\":1000,\"p_life_cycle\":300,\"p_basis\":\"CI labour overtime contractor logistics risk and life-cycle assumptions\"}"); noerr "$EA"
 EC=$(rpc "$PLANNER" get_recovery_economics "{\"p_event_id\":\"$EVENT\"}"); noerr "$EC"
