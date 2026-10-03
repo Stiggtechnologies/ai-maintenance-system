@@ -187,7 +187,7 @@ describe("decision-case-chat prompt contract", () => {
     expect(request.agentType).toBe("ReliabilityAgent");
     expect(request.publicOnly).toBe(true);
     expect(request.depth).toBe("deliverable");
-    expect(request.maxOutputTokens).toBeGreaterThanOrEqual(5000);
+    expect(request.maxOutputTokens).toBe(8000);
     expect(request.query).toContain("steps to onboard a Caterpillar 797");
     expect(request.query).toContain("Current user request: Caterpillar 797");
     expect(request.query).toContain("Do not ask the user to repeat");
