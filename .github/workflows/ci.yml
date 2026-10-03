@@ -582,6 +582,9 @@ jobs:
       - name: Smoke — governed environmental evidence workflow
         run: bash scripts/ci-environmental-evidence-workflow-smoke.sh
 
+      - name: Smoke — tenant-bound Decision Case workspace invitation
+        run: bash scripts/ci-decision-case-invitation-smoke.sh
+
       - name: Smoke — thirteen-dimension finance intelligence
         run: bash scripts/ci-develop-finance-intelligence-smoke.sh
 
