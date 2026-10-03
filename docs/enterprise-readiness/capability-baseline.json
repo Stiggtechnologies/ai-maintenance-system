@@ -150,16 +150,16 @@
     "backticked": 9
   },
   "C2.10": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 0
+    "citations": 9,
+    "backticked": 9
   },
   "C2.11": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 8,
+    "backticked": 8
   },
   "C2.12": {
     "status": "🟡",
@@ -2346,10 +2346,10 @@
     "backticked": 3
   },
   "U25.01": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 3,
-    "backticked": 3
+    "citations": 5,
+    "backticked": 5
   },
   "U25.02": {
     "status": "✅",

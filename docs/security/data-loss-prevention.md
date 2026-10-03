@@ -6,7 +6,7 @@ connectors, or authorize plant action.
 
 ## Two-release activation
 
-1. Deploy the governance control plane (`20270101330000_data_loss_prevention.sql`)
+1. Deploy the governance control plane (`20270101860000_data_loss_prevention.sql`)
    and the Decision Governance panel.
 2. For every hostname, data class and purpose the tenant intends to use, one
    administrator or executive proposes an immutable rule and a different named
@@ -27,16 +27,16 @@ The shipped runtime declares the most conservative class it can defend for
 each path. A rule may permit or deny an exact combination; `redaction required`
 denies until that caller explicitly proves redaction was applied.
 
-| Runtime path | Data class | Purpose |
-| --- | --- | --- |
-| Sync investigation, general agents | `security_sensitive` | `model_inference` |
-| Sync attachment extraction | `security_sensitive` | `document_extraction` |
-| Sync realtime voice | `security_sensitive` | `realtime_voice` |
-| Sync speech | `security_sensitive` | `speech_synthesis` |
-| Gate, evidence, risk and change-impact agents | `safety_critical` | `model_inference` |
-| Contract, methodology and requirements agents | `commercial` | `model_inference` |
-| Asset onboarding | `operational` | `onboarding_enrichment` |
-| Condition-loop enrichment | `operational` | `agent_enrichment` |
+| Runtime path                                  | Data class           | Purpose                 |
+| --------------------------------------------- | -------------------- | ----------------------- |
+| Sync investigation, general agents            | `security_sensitive` | `model_inference`       |
+| Sync attachment extraction                    | `security_sensitive` | `document_extraction`   |
+| Sync realtime voice                           | `security_sensitive` | `realtime_voice`        |
+| Sync speech                                   | `security_sensitive` | `speech_synthesis`      |
+| Gate, evidence, risk and change-impact agents | `safety_critical`    | `model_inference`       |
+| Contract, methodology and requirements agents | `commercial`         | `model_inference`       |
+| Asset onboarding                              | `operational`        | `onboarding_enrichment` |
+| Condition-loop enrichment                     | `operational`        | `agent_enrichment`      |
 
 Public reference-case inference contains no tenant data and remains outside
 this tenant-DLP claim. Marketplace lifecycle traffic and inbound CMMS,
