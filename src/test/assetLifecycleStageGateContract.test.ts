@@ -13,6 +13,12 @@ const workflow = read(".github/workflows/ci.yml");
 const register = read("docs/enterprise-readiness/capability-register.md");
 
 describe("U4.11/U4.12/U4.14 governed lifecycle stage gates", () => {
+  it("closes each optional workspace CASE before closing the response object", () => {
+    expect(migration).toMatch(
+      /'disposal',case when p_asset_id is null then null else \([\s\S]*?and d\.asset_id=p_asset_id\) end\s*\);/,
+    );
+  });
+
   it("extends the canonical lifecycle, gate, evidence, evaluation and disposal records", () => {
     for (const source of [
       "public.asset_lifecycle_state",

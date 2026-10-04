@@ -673,7 +673,7 @@ begin
         'evidenceItemId',d.evidence_item_id,'version',d.version,
         'updatedAt',d.updated_at)
       from public.disposal_records d where d.organization_id=v_org
-        and d.asset_id=p_asset_id)
+        and d.asset_id=p_asset_id) end
   );
 end $$;
 
