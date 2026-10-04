@@ -9,7 +9,7 @@ eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL)=')"
 : "${API_URL:?}" "${ANON_KEY:?}"
 
 ORG='11111111-1111-1111-1111-111111111111'
-ASSET='aaaaaaaa-0000-0000-0000-000000000002'
+ASSET='c8040000-0000-4000-8000-000000000010'
 ENGINEER_ID='00000000-0000-0000-0000-000000000001'
 MANAGER_ID='00000000-0000-0000-0000-000000000003'
 PRECEDING='c8040000-0000-4000-8000-000000000001'
@@ -87,13 +87,18 @@ MECHANISM=$(psqlc "select id from public.damage_mechanisms where organization_id
 test -n "$MECHANISM"
 
 psqlc "
+  insert into public.assets(
+    id,organization_id,name,tag,asset_class,criticality
+  ) values (
+    '$ASSET','$ORG','C8.04 isolated pump','C804-P-1','pump','high'
+  ) on conflict(id) do nothing;
   insert into public.work_orders(
     id,organization_id,asset_id,wo_number,title,status,work_type,created_at,
     completed_at,actual_failure_mode,actual_cause,corrective_action,
     technician_comments,parts_used,labor_hours,downtime_hours
   ) values (
     '$PRECEDING','$ORG','$ASSET','C8.04-PM','Seal inspection and reassembly',
-    'completed','preventive',now()-interval '5 days',now()-interval '1 second',
+    'completed','preventive',now()-interval '5 days',now()-interval '3 days',
     null,null,null,'Completed inspection and reassembly to the approved job plan.',
     'seal kit',4,2
   ) on conflict(id) do nothing;
@@ -104,10 +109,10 @@ psqlc "
     failure_mechanism_id,mechanism_coded_by,mechanism_coded_at,mechanism_note
   ) values (
     '$FAILURE','$ORG','$ASSET','C8.04-FAIL','Seal failure recorded after maintenance',
-    'completed','corrective',now(),now(),
+    'completed','corrective',now()-interval '2 days',now()-interval '1 day',
     'Seal leakage','Reported reassembly concern','Replaced and correctly reassembled seal',
     'Teardown retained for independent causal review.','seal kit',8,12,
-    '$MECHANISM','$ENGINEER_ID',now(),
+    '$MECHANISM','$ENGINEER_ID',now()-interval '1 day',
     'Named-human coding from teardown and governed failure history.'
   ) on conflict(id) do nothing;
 " >/dev/null
