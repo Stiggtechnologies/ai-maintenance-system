@@ -66,7 +66,7 @@ describe("C2.18 SAP S/4HANA financial read contract", () => {
     expect(edge).toContain("manifest.length >= maxPages");
     expect(migration).toContain("v_bytes<>p_source_bytes");
     expect(migration).toContain(
-      "digest(array_to_string(v_hashes,':'),'sha256')",
+      "extensions.digest(array_to_string(v_hashes,':'),'sha256')",
     );
     expect(migration).toContain("v_run.records_read<>v_expected");
     expect(migration).toContain(

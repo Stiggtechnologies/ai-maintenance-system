@@ -257,7 +257,7 @@ grant execute on function public.configure_sap_s4_financial_source(
 create or replace function public.sap_s4_financial_contract_hash(p_connector_id uuid)
 returns text language sql stable security definer set search_path=public
 as $$
-  select encode(digest(jsonb_build_object(
+  select encode(extensions.digest(jsonb_build_object(
     'organizationId',c.organization_id,
     'connectorId',c.id,
     'connectorKey',c.connector_key,
@@ -416,7 +416,7 @@ begin
     v_hashes:=v_hashes||(v_item->>'sha256');
     v_bytes:=v_bytes+(v_item->>'bytes')::bigint; v_rows:=v_rows+(v_item->>'row_count')::int;
   end loop;
-  v_digest:=encode(digest(array_to_string(v_hashes,':'),'sha256'),'hex');
+  v_digest:=encode(extensions.digest(array_to_string(v_hashes,':'),'sha256'),'hex');
   if v_bytes<>p_source_bytes or v_rows<1 or v_rows>v_connector.financial_max_rows
      or coalesce(p_cursor_to->>'raw_rows','')<>v_rows::text
      or coalesce(p_cursor_to->>'pages','')<>v_page::text
