@@ -348,10 +348,10 @@
     "backticked": 0
   },
   "C4.12": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 6,
+    "backticked": 6
   },
   "C4.13": {
     "status": "✅",
@@ -368,8 +368,8 @@
   "C4.15": {
     "status": "✅",
     "evidence": true,
-    "citations": 0,
-    "backticked": 0
+    "citations": 3,
+    "backticked": 3
   },
   "C4.16": {
     "status": "✅",
