@@ -85,3 +85,32 @@ export function boundedProviderDetail(value: unknown): string {
     .trim();
   return detail.slice(0, 300) || "Invitation provider returned no detail.";
 }
+
+export function providerFailureReceipt(): string {
+  return "The invitation provider refused the request. A tenant administrator must review the protected function log and Auth email configuration.";
+}
+
+export function mayRollbackFreshInvite(
+  user: {
+    created_at?: string | null;
+    email_confirmed_at?: string | null;
+    confirmed_at?: string | null;
+    last_sign_in_at?: string | null;
+  } | null,
+  nowMs = Date.now(),
+): boolean {
+  if (
+    !user?.created_at ||
+    user.email_confirmed_at ||
+    user.confirmed_at ||
+    user.last_sign_in_at
+  ) {
+    return false;
+  }
+  const createdMs = Date.parse(user.created_at);
+  return (
+    Number.isFinite(createdMs) &&
+    createdMs <= nowMs + 60_000 &&
+    nowMs - createdMs <= 5 * 60_000
+  );
+}

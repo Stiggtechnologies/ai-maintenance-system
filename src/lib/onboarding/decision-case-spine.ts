@@ -1063,9 +1063,7 @@ export function readinessFromCase(
   const invitationStatus = decisionCase.invitation?.status;
   const invitationMet = Boolean(
     invitationStatus &&
-    ["submitted", "already_member", "accepted", "active"].includes(
-      invitationStatus,
-    ),
+    ["already_member", "accepted", "active"].includes(invitationStatus),
   );
   const explicitlyDeferredEvidence = decisionCase.messages.some(
     (item) => item.meta === "Connection fallback",
@@ -1105,9 +1103,11 @@ export function readinessFromCase(
         ? `Status: ${invitationStatus?.replaceAll("_", " ")}. Workspace access does not grant decision authority.`
         : decisionCase.invitation?.status === "failed"
           ? `Failed: ${decisionCase.invitation.detail}`
-          : decisionCase.invitation?.status === "recorded_only"
-            ? "Person recorded; no invitation sent"
-            : "No invitation delivery event recorded",
+          : decisionCase.invitation?.status === "submitted"
+            ? "Submitted; acceptance or existing tenant membership is not yet confirmed"
+            : decisionCase.invitation?.status === "recorded_only"
+              ? "Person recorded; no invitation sent"
+              : "No invitation delivery event recorded",
     },
     {
       id: "verification",

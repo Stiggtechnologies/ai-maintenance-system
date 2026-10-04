@@ -124,7 +124,9 @@ export interface RecordSafetyCriticalElementInput {
 
 export interface LinkRegulatoryObligationInput {
   safetyCriticalElementId: number;
+  expectedElementVersion: number;
   capabilityPackLayerId: string;
+  expectedLayerVersion: number;
   requirementKey: string;
   evidenceItemId: string;
   basis: string;
@@ -187,6 +189,13 @@ export async function linkSafetyCriticalRegulatoryObligation(
 ) {
   if (!Number.isInteger(input.safetyCriticalElementId))
     throw new Error("Choose a safety-critical element.");
+  if (
+    !Number.isInteger(input.expectedElementVersion) ||
+    input.expectedElementVersion <= 0 ||
+    !Number.isInteger(input.expectedLayerVersion) ||
+    input.expectedLayerVersion <= 0
+  )
+    throw new Error("Element and jurisdiction-layer versions must be positive.");
   if (!input.capabilityPackLayerId.trim() || !input.requirementKey.trim())
     throw new Error("Choose an exact adopted regulatory requirement.");
   if (!input.evidenceItemId.trim())
@@ -207,7 +216,9 @@ export async function linkSafetyCriticalRegulatoryObligation(
   }>("link_safety_critical_regulatory_obligation", {
     p_link: {
       safety_critical_element_id: input.safetyCriticalElementId,
+      expected_element_version: input.expectedElementVersion,
       capability_pack_layer_id: input.capabilityPackLayerId.trim(),
+      expected_layer_version: input.expectedLayerVersion,
       requirement_key: input.requirementKey.trim(),
       evidence_item_id: input.evidenceItemId.trim(),
       basis: input.basis.trim(),

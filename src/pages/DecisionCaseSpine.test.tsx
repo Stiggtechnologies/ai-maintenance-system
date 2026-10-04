@@ -251,7 +251,7 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     expect(screen.getByTestId("spine-evidence-file")).toBeTruthy();
   });
 
-  it("does not count a recorded person as an invitation, then earns the gate from a delivery receipt", async () => {
+  it("earns collaboration only after Auth confirms acceptance or membership", async () => {
     authHolder.user = { id: "user-1" };
     authHolder.profile = { role: "admin" };
     renderOpening();
@@ -283,10 +283,21 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     );
     expect(
       screen.getByTestId("spine-gate-invitation_delivery").textContent,
-    ).toMatch(/Met/);
+    ).toMatch(/Open/);
     expect(screen.getByTestId("spine-invite-status").textContent).toMatch(
       /acceptance are not confirmed/i,
     );
+
+    fireEvent.click(screen.getByTestId("spine-refresh-invite"));
+    await waitFor(() => expect(invitation.status).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByTestId("spine-invite-status").textContent).toMatch(
+        /active/i,
+      ),
+    );
+    expect(
+      screen.getByTestId("spine-gate-invitation_delivery").textContent,
+    ).toMatch(/Met/);
   });
 
   it("routes signed-in evidence through governed intake and retains its receipt", async () => {
