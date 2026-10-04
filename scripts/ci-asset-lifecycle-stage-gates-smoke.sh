@@ -97,14 +97,44 @@ FOREIGN_SCOPE=$(rpc "$OWNER_TOKEN" get_asset_lifecycle_gate_workspace "{\"p_asse
 expect_error "$FOREIGN_SCOPE" 'outside the active tenant'
 OP_CRITERION=$(psqlc "select id from stage_gate_criteria where organization_id='$ORG' and stage_key='operation';")
 
-FINDING="[{\"criterion_id\":$OP_CRITERION,\"status\":\"met\",\"evidence_item_id\":\"$EVIDENCE\"}]"
-REVIEW="{\"p_asset_id\":\"$ASSET\",\"p_to_stage\":\"life_extension\",\"p_outcome\":\"pass\",\"p_note\":\"The accepted evaluation and independent evidence support controlled life extension.\",\"p_findings\":$FINDING,\"p_evaluation_id\":\"$EVALUATION\"}"
+REVIEW=$(ASSET_ID="$ASSET" CRITERION_ID="$OP_CRITERION" EVIDENCE_ID="$EVIDENCE" \
+  EVALUATION_ID="$EVALUATION" python3 - <<'PY'
+import json,os
+print(json.dumps({
+  'p_asset_id':os.environ['ASSET_ID'],'p_to_stage':'life_extension',
+  'p_outcome':'pass','p_note':'The accepted evaluation and independent evidence support controlled life extension.',
+  'p_findings':[{'criterion_id':int(os.environ['CRITERION_ID']),'status':'met',
+    'evidence_item_id':os.environ['EVIDENCE_ID']}],
+  'p_evaluation_id':os.environ['EVALUATION_ID']
+},separators=(',',':')))
+PY
+)
 AAL1_DENIED=$(rpc "$OWNER_AAL1" record_asset_lifecycle_gate_review "$REVIEW"); expect_error "$AAL1_DENIED" 'AAL2 session'
 AI_DENIED=$(rpc "$AI_TOKEN" record_asset_lifecycle_gate_review "$REVIEW"); expect_error "$AI_DENIED" 'named lifecycle authority'
-BAD_EVIDENCE="[{\"criterion_id\":$OP_CRITERION,\"status\":\"met\",\"evidence_item_id\":\"$FOREIGN_EVIDENCE\"}]"
-FOREIGN_DENIED=$(rpc "$OWNER_TOKEN" record_asset_lifecycle_gate_review "{\"p_asset_id\":\"$ASSET\",\"p_to_stage\":\"life_extension\",\"p_outcome\":\"pass\",\"p_note\":\"Foreign proof must never support this tenant lifecycle decision.\",\"p_findings\":$BAD_EVIDENCE,\"p_evaluation_id\":\"$EVALUATION\"}")
+FOREIGN_REQUEST=$(ASSET_ID="$ASSET" CRITERION_ID="$OP_CRITERION" EVIDENCE_ID="$FOREIGN_EVIDENCE" \
+  EVALUATION_ID="$EVALUATION" python3 - <<'PY'
+import json,os
+print(json.dumps({
+  'p_asset_id':os.environ['ASSET_ID'],'p_to_stage':'life_extension',
+  'p_outcome':'pass','p_note':'Foreign proof must never support this tenant lifecycle decision.',
+  'p_findings':[{'criterion_id':int(os.environ['CRITERION_ID']),'status':'met',
+    'evidence_item_id':os.environ['EVIDENCE_ID']}],
+  'p_evaluation_id':os.environ['EVALUATION_ID']
+},separators=(',',':')))
+PY
+)
+FOREIGN_DENIED=$(rpc "$OWNER_TOKEN" record_asset_lifecycle_gate_review "$FOREIGN_REQUEST")
 expect_error "$FOREIGN_DENIED" 'independently verified'
-EMPTY_DENIED=$(rpc "$OWNER_TOKEN" record_asset_lifecycle_gate_review "{\"p_asset_id\":\"$ASSET\",\"p_to_stage\":\"life_extension\",\"p_outcome\":\"pass\",\"p_note\":\"An omitted criterion must fail closed before any lifecycle movement.\",\"p_findings\":[],\"p_evaluation_id\":\"$EVALUATION\"}")
+EMPTY_REQUEST=$(ASSET_ID="$ASSET" EVALUATION_ID="$EVALUATION" python3 - <<'PY'
+import json,os
+print(json.dumps({
+  'p_asset_id':os.environ['ASSET_ID'],'p_to_stage':'life_extension',
+  'p_outcome':'pass','p_note':'An omitted criterion must fail closed before any lifecycle movement.',
+  'p_findings':[],'p_evaluation_id':os.environ['EVALUATION_ID']
+},separators=(',',':')))
+PY
+)
+EMPTY_DENIED=$(rpc "$OWNER_TOKEN" record_asset_lifecycle_gate_review "$EMPTY_REQUEST")
 expect_error "$EMPTY_DENIED" 'every current-stage criterion exactly once'
 PASSED=$(rpc "$OWNER_TOKEN" record_asset_lifecycle_gate_review "$REVIEW"); noerr "$PASSED"
 BODY="$PASSED" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x['mayAdvance'] is True and x['operationalAuthority'] is False and x['financialAuthority'] is False,x"
