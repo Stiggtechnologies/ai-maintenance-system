@@ -19,7 +19,7 @@ refused_contains(){ printf '%s' "$1" | python3 -c 'import json,sys;x=json.load(s
 # Two authenticated attempts must serialize to one accepted write and one refusal.
 # HTTP/transport failures are test failures, not acceptable domain refusals.
 race_revision(){ API_URL="$API_URL" ANON_KEY="$ANON_KEY" RACE_TOKEN="$1" RACE_RPC="$2" RACE_BODY="$3" python3 - <<'PY'
-import concurrent.futures,json,os,threading,urllib.request
+import concurrent.futures,json,os,threading,urllib.error,urllib.request
 barrier=threading.Barrier(2)
 def attempt(_):
     request=urllib.request.Request(
@@ -27,8 +27,12 @@ def attempt(_):
         data=os.environ['RACE_BODY'].encode(),
         headers={'apikey':os.environ['ANON_KEY'],'authorization':'Bearer '+os.environ['RACE_TOKEN'],'content-type':'application/json'})
     barrier.wait(timeout=10)
-    with urllib.request.urlopen(request,timeout=30) as response:
-        return json.load(response)
+    try:
+        with urllib.request.urlopen(request,timeout=30) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as error:
+        body=error.read().decode('utf-8','replace')
+        raise AssertionError(f'Unexpected HTTP {error.code} from {os.environ["RACE_RPC"]}: {body}') from error
 with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
     results=list(pool.map(attempt,range(2)))
 successes=[r for r in results if r.get('revisionId') and not r.get('error')]
@@ -80,7 +84,7 @@ FOREIGN=$(token 'fracas-foreign@syncai.ca' 'Foreign123!@#')
 LESSON=$(psqlc "select id from learning_events where organization_id='$ORG' and development_case_id='98550000-0000-4000-8000-000000000001' and title='Seal failure at first start' order by created_at desc limit 1")
 test -n "$LESSON"
 CLOSURE=$(API_URL="$API_URL" ANON_KEY="$ANON_KEY" PLANNER="$PLANNER" LESSON="$LESSON" python3 - <<'PY'
-import concurrent.futures,json,os,threading,urllib.request
+import concurrent.futures,json,os,threading,urllib.error,urllib.request
 barrier=threading.Barrier(2)
 def start(_):
     request=urllib.request.Request(
@@ -88,8 +92,12 @@ def start(_):
         data=json.dumps({'p_lesson_id':os.environ['LESSON'],'p_basis':'CI witnessed flush failure review'}).encode(),
         headers={'apikey':os.environ['ANON_KEY'],'authorization':'Bearer '+os.environ['PLANNER'],'content-type':'application/json'})
     barrier.wait(timeout=10)
-    with urllib.request.urlopen(request,timeout=30) as response:
-        return json.load(response)
+    try:
+        with urllib.request.urlopen(request,timeout=30) as response:
+            return json.load(response)
+    except urllib.error.HTTPError as error:
+        body=error.read().decode('utf-8','replace')
+        raise AssertionError(f'Unexpected HTTP {error.code} from start_project_ca_verification: {body}') from error
 with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
     results=list(pool.map(start,range(2)))
 successes=[r for r in results if r.get('id')]
