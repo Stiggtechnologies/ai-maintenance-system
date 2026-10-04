@@ -262,6 +262,9 @@ jobs:
       - name: Smoke — governed enterprise HSE events
         run: bash scripts/ci-enterprise-hse-events-smoke.sh
 
+      - name: Smoke — governed enterprise asset lifecycle risk
+        run: bash scripts/ci-enterprise-asset-lifecycle-risk-smoke.sh
+
       - name: Smoke — governed RCA / FRACAS investigation
         run: bash scripts/ci-fracas-rca-agent-smoke.sh
 

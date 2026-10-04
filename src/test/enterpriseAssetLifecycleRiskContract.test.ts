@@ -51,7 +51,9 @@ describe("C6.05 governed enterprise asset lifecycle risk", () => {
 
   it("publishes the canonical KPI only when the same strict gate passes", () => {
     expect(migration).toContain("asset_risk_index");
-    expect(migration).toContain("compute_enterprise_asset_lifecycle_risk_kpi_snapshot");
+    expect(migration).toContain(
+      "compute_enterprise_asset_lifecycle_risk_kpi_snapshot",
+    );
     expect(migration).toContain("delete from public.kpi_values");
     expect(migration).toContain("compute_kpi_snapshot_with_hse");
     expect(migration).toContain("to service_role");
@@ -60,14 +62,26 @@ describe("C6.05 governed enterprise asset lifecycle risk", () => {
   it("limits exact risk detail while preserving tenant-scoped aggregate posture", () => {
     expect(migration).toContain("public.app_current_org()");
     expect(migration).toContain("detailaccess");
-    expect(migration).toContain("aggregate lifecycle-risk posture only for this role");
+    expect(migration).toContain(
+      "aggregate lifecycle-risk posture only for this role",
+    );
     expect(migration).toContain("organization_id=v_org");
     expect(migration).toContain("information_sensitivity");
   });
 
   it("is customer reachable from Executive Asset Intelligence", () => {
     expect(service).toContain('"get_enterprise_asset_lifecycle_risk"');
+    expect(service).toContain('"record_initial_asset_lifecycle_state"');
+    expect(migration).toContain("get_initial_asset_lifecycle_state_options");
+    expect(migration).toContain("app_actor_has_verified_mfa");
+    expect(migration).toContain("app_current_aal()<>'aal2'");
+    expect(migration).toContain("basis_evidence_item_id");
+    expect(migration).toContain(
+      "independently verified by another named human",
+    );
+    expect(migration).toContain("asset lifecycle state is rpc-only");
     expect(panel).toContain("Asset lifecycle risk");
+    expect(panel).toContain("Record initial lifecycle state");
     expect(panel).toContain("Open risk workspace");
     expect(panel).toContain("Open lifecycle decisions");
     expect(panel).toContain("No enterprise index is published");
@@ -85,6 +99,9 @@ describe("C6.05 governed enterprise asset lifecycle risk", () => {
       "sensitive_detail_restricted=true",
       "stale_snapshot_removed=true",
       "no_decision_authority=true",
+      "governed_lifecycle_writer=true",
+      "independent_evidence_required=true",
+      "aal2_required=true",
     ])
       expect(smoke).toContain(proof);
     expect(workflow).toContain(
