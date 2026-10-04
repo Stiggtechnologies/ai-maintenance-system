@@ -7,8 +7,9 @@
 // Credentials are resolved by opaque URI from PLANT_HISTORIAN_CREDENTIALS_JSON
 // and are never stored in or returned by the database.
 //
-// Promoted rows go through ingest_plant_historian_batch → ingest_batch
-// (condition_reading). This function never writes to the plant source.
+// Promoted rows go through ingest_plant_historian_batch and the canonical
+// condition-reading validator/writer. This function never writes to the plant
+// source.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
@@ -183,10 +184,17 @@ function applyMapping(
   return result;
 }
 
-type Credential =
-  string | { type?: "bearer" | "header"; header?: string; value?: string };
+type Credential = {
+  tenant_id?: string;
+  type?: "bearer" | "header";
+  header?: string;
+  value?: string;
+};
 
-function credentialHeaders(binding: string): Record<string, string> {
+function credentialHeaders(
+  binding: string,
+  expectedTenantId: string,
+): Record<string, string> {
   let credentials: Record<string, Credential>;
   try {
     credentials = JSON.parse(CREDENTIALS_JSON) as Record<string, Credential>;
@@ -198,8 +206,18 @@ function credentialHeaders(binding: string): Record<string, string> {
     throw new Error(
       "The configured credential binding is not present in the Edge Function secret registry.",
     );
-  if (typeof credential === "string")
-    return { Authorization: `Bearer ${credential}` };
+  if (
+    !credential ||
+    typeof credential !== "object" ||
+    Array.isArray(credential)
+  )
+    throw new Error(
+      "The credential binding must be a tenant-bound credential object.",
+    );
+  if (credential.tenant_id !== expectedTenantId)
+    throw new Error(
+      "The credential binding is not authorized for the active tenant.",
+    );
   const value = credential.value ?? "";
   if (!value || /[\r\n]/.test(value))
     throw new Error("The credential binding is empty or invalid.");
@@ -293,6 +311,7 @@ Deno.serve(async (request) => {
       write_enabled: boolean;
       endpoint_url: string | null;
       credential_binding_ref: string | null;
+      credential_tenant_id: string;
       mapping_status: string;
       source_array_path: string;
       column_mapping: Record<string, string>;
@@ -301,20 +320,30 @@ Deno.serve(async (request) => {
       pagination_mode: string;
       pagination_next_path: string | null;
       pagination_max_pages: number;
+      contract_hash: string;
+      can_commit: boolean;
     }>(client, "get_plant_historian_source", {
       p_connector_key: connectorKey,
     });
     if (
-      !source.enabled ||
       source.direction !== "read_only" ||
       source.write_enabled
     )
-      throw new Error("Source is not active and read-only.");
-    if (source.mapping_status !== "approved")
-      throw new Error("Source mapping is not approved.");
+      throw new Error("Source is not read-only.");
     if (!source.endpoint_url || !source.credential_binding_ref)
       throw new Error(
         "Source endpoint or credential binding is not configured.",
+      );
+    if (!source.contract_hash || !/^[0-9a-f]{32}$/.test(source.contract_hash))
+      throw new Error("Source contract hash is unavailable.");
+    if (
+      !dryRun &&
+      (!source.enabled ||
+        source.mapping_status !== "approved" ||
+        !source.can_commit)
+    )
+      throw new Error(
+        "Canonical promotion requires an active source, a human-approved mapping, and a named human operator.",
       );
 
     const mode = String(source.pagination_mode ?? "none");
@@ -335,7 +364,10 @@ Deno.serve(async (request) => {
     let totalBytes = 0;
     const rows: Array<Record<string, unknown>> = [];
     const visited = new Set<string>();
-    const sourceHeaders = credentialHeaders(source.credential_binding_ref);
+    const sourceHeaders = credentialHeaders(
+      source.credential_binding_ref,
+      source.credential_tenant_id,
+    );
     const transportStartedAt = Date.now();
     let transportComplete = false;
 
@@ -427,7 +459,10 @@ Deno.serve(async (request) => {
     const started = await rpc<{ run_id: string }>(
       client,
       "begin_plant_historian_run",
-      { p_connector_key: connectorKey },
+      {
+        p_connector_key: connectorKey,
+        p_expected_contract_hash: source.contract_hash,
+      },
     );
     runId = started.run_id;
     const totals = { read: 0, accepted: 0, duplicate: 0, rejected: 0 };
@@ -472,7 +507,7 @@ Deno.serve(async (request) => {
       try {
         await rpc(client, "finish_connector_run", {
           p_run_id: runId,
-          p_status: "failed",
+          p_status: "failure",
           p_error:
             "Plant historian adapter failed; inspect Edge Function logs.",
         });

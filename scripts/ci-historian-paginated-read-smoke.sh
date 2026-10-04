@@ -7,7 +7,7 @@ eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL|JWT_SECRET)=')"
 : "${API_URL:?missing API_URL}" "${ANON_KEY:?missing ANON_KEY}" "${JWT_SECRET:?missing JWT_SECRET}"
 
 uuid(){ python3 -c 'import uuid; print(uuid.uuid4())'; }
-ORG=$(uuid); FOREIGN_ORG=$(uuid); ADMIN=$(uuid); ENGINEER=$(uuid); FOREIGN=$(uuid); ASSET=$(uuid); SENSOR=$(uuid)
+ORG=$(uuid); FOREIGN_ORG=$(uuid); ADMIN=$(uuid); AI_ADMIN=$(uuid); ENGINEER=$(uuid); SECOND=$(uuid); FOREIGN=$(uuid); ASSET=$(uuid); SENSOR=$(uuid)
 CONNECTOR_KEY="c213-historian-${ORG:0:8}"
 READING_ONE="2026-09-03T12:00:00Z"
 READING_TWO="2026-09-03T13:00:00Z"
@@ -41,11 +41,15 @@ insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_co
   recovery_token,email_change,email_change_token_new,email_change_token_current,
   phone_change,phone_change_token,reauthentication_token) values
 ('00000000-0000-0000-0000-000000000000','$ADMIN','authenticated','authenticated','c213-admin-$ADMIN@invalid.syncai.ca','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','',''),
+('00000000-0000-0000-0000-000000000000','$AI_ADMIN','authenticated','authenticated','c213-ai-admin-$AI_ADMIN@invalid.syncai.ca','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','',''),
 ('00000000-0000-0000-0000-000000000000','$ENGINEER','authenticated','authenticated','c213-engineer-$ENGINEER@invalid.syncai.ca','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','',''),
+('00000000-0000-0000-0000-000000000000','$SECOND','authenticated','authenticated','c213-second-$SECOND@invalid.syncai.ca','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','',''),
 ('00000000-0000-0000-0000-000000000000','$FOREIGN','authenticated','authenticated','c213-foreign-$FOREIGN@invalid.syncai.ca','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','','');
 insert into user_profiles(id,organization_id,email,full_name,role) values
   ('$ADMIN','$ORG','c213-admin-$ADMIN@invalid.syncai.ca','C2.13 administrator','admin'),
+  ('$AI_ADMIN','$ORG','c213-ai-admin-$AI_ADMIN@invalid.syncai.ca','C2.13 AI administrator','ai_admin'),
   ('$ENGINEER','$ORG','c213-engineer-$ENGINEER@invalid.syncai.ca','C2.13 engineer','reliability_engineer'),
+  ('$SECOND','$ORG','c213-second-$SECOND@invalid.syncai.ca','C2.13 second engineer','reliability_engineer'),
   ('$FOREIGN','$FOREIGN_ORG','c213-foreign-$FOREIGN@invalid.syncai.ca','C2.13 foreign administrator','admin');
 insert into assets(id,organization_id,name,tag,asset_class,criticality)
 values('$ASSET','$ORG','C2.13 monitored pump','C213-P-101','pump','high');
@@ -54,13 +58,18 @@ values('$SENSOR','$ORG','$ASSET','C2.13 drive-end vibration','vibration velocity
 PSQL
 
 ADMIN_JWT=$(jwt "$ADMIN" "c213-admin-$ADMIN@invalid.syncai.ca")
+AI_ADMIN_JWT=$(jwt "$AI_ADMIN" "c213-ai-admin-$AI_ADMIN@invalid.syncai.ca")
 ENGINEER_JWT=$(jwt "$ENGINEER" "c213-engineer-$ENGINEER@invalid.syncai.ca")
+SECOND_JWT=$(jwt "$SECOND" "c213-second-$SECOND@invalid.syncai.ca")
 FOREIGN_JWT=$(jwt "$FOREIGN" "c213-foreign-$FOREIGN@invalid.syncai.ca")
 
-BASE="{\"p_key\":\"$CONNECTOR_KEY\",\"p_name\":\"C2.13 governed historian\",\"p_system_kind\":\"historian\",\"p_endpoint_url\":\"https://historian.example.com/api/readings\",\"p_expected_interval_minutes\":15,\"p_credential_binding_ref\":\"vault://tenant/historian\",\"p_pagination_mode\":\"next_url\",\"p_pagination_next_path\":\"links.next\",\"p_pagination_max_pages\":20,\"p_enabled\":true,\"p_basis\":\"Named administrator approved the bounded read-only historian activation.\"}"
+BASE="{\"p_key\":\"$CONNECTOR_KEY\",\"p_name\":\"C2.13 governed historian\",\"p_system_kind\":\"historian\",\"p_endpoint_url\":\"https://historian.example.com/api/readings\",\"p_expected_interval_minutes\":15,\"p_credential_binding_ref\":\"vault://tenant/historian\",\"p_pagination_mode\":\"next_url\",\"p_pagination_next_path\":\"links.next\",\"p_pagination_max_pages\":20,\"p_enabled\":false,\"p_basis\":\"Named administrator approved the bounded read-only historian configuration.\"}"
+ENABLED_BASE="${BASE/\"p_enabled\":false/\"p_enabled\":true}"
 
 ROLE_DENIED=$(rpc "$ENGINEER_JWT" configure_plant_historian_source "$BASE")
-expect_error "$ROLE_DENIED" 'requires an administrator'
+expect_error "$ROLE_DENIED" 'named human administrator'
+AI_ROLE_DENIED=$(rpc "$AI_ADMIN_JWT" configure_plant_historian_source "$BASE")
+expect_error "$AI_ROLE_DENIED" 'named human administrator'
 BAD_KIND="${BASE/\"historian\"/null}"
 KIND_DENIED=$(rpc "$ADMIN_JWT" configure_plant_historian_source "$BAD_KIND")
 expect_error "$KIND_DENIED" 'source kind must be'
@@ -82,40 +91,77 @@ expect_error "$LIMIT_DENIED" 'between 2 and 100'
 
 CONFIGURED=$(rpc "$ADMIN_JWT" configure_plant_historian_source "$BASE")
 noerr "$CONFIGURED"
-test "$(field "$CONFIGURED" enabled)" = 'true'
+test "$(field "$CONFIGURED" enabled)" = 'false'
 test "$(field "$CONFIGURED" write_enabled)" = 'false'
 test "$(field "$CONFIGURED" pagination_mode)" = 'next_url'
 test "$(field "$CONFIGURED" pagination_max_pages)" = '20'
 
 MAPPING='{"external_id":"external_id","sensor_name":"sensor_name","value":"value","taken_at":"taken_at","quality":"quality"}'
+AI_MAPPED=$(rpc "$AI_ADMIN_JWT" save_plant_historian_mapping "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_source_array_path\":\"readings\",\"p_column_mapping\":$MAPPING,\"p_value_mappings\":{},\"p_constants\":{},\"p_approve\":true,\"p_basis\":\"AI attempted to create approval authority and must be refused.\"}")
+expect_error "$AI_MAPPED" 'named human administrator'
 MAPPED=$(rpc "$ADMIN_JWT" save_plant_historian_mapping "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_source_array_path\":\"readings\",\"p_column_mapping\":$MAPPING,\"p_value_mappings\":{},\"p_constants\":{},\"p_approve\":true,\"p_basis\":\"Canonical condition-reading mapping reviewed against the controlled source export.\"}")
-noerr "$MAPPED"; test "$(field "$MAPPED" status)" = 'approved'
+noerr "$MAPPED"; test "$(field "$MAPPED" status)" = 'approved'; test "$(field "$MAPPED" source_disabled)" = 'true'
+
+ROWS="[{\"external_id\":\"READING-1\",\"sensor_name\":\"C2.13 drive-end vibration\",\"value\":\"3.2\",\"taken_at\":\"$READING_ONE\",\"quality\":\"good\"},{\"external_id\":\"READING-BAD\",\"sensor_name\":\"missing sensor\",\"value\":\"8.1\",\"taken_at\":\"$READING_ONE\",\"quality\":\"good\"}]"
+PREVIEW=$(rpc "$AI_ADMIN_JWT" preview_plant_historian_batch "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_rows\":$ROWS}")
+noerr "$PREVIEW"
+test "$(field "$PREVIEW" read)" = '2'
+test "$(field "$PREVIEW" accepted)" = '1'
+test "$(field "$PREVIEW" rejected)" = '1'
+test "$(psqlc "select count(*) from condition_readings where organization_id='$ORG' and source_system='$CONNECTOR_KEY';")" = '0'
+test "$(psqlc "select count(*) from ingest_staging where organization_id='$ORG' and connector_id=(select id from connectors where organization_id='$ORG' and connector_key='$CONNECTOR_KEY');")" = '0'
+DISABLED_SOURCE=$(rpc "$ENGINEER_JWT" get_plant_historian_source "{\"p_connector_key\":\"$CONNECTOR_KEY\"}")
+noerr "$DISABLED_SOURCE"; STALE_HASH=$(field "$DISABLED_SOURCE" contract_hash)
+
+CONFIGURED=$(rpc "$ADMIN_JWT" configure_plant_historian_source "$ENABLED_BASE")
+noerr "$CONFIGURED"; test "$(field "$CONFIGURED" enabled)" = 'true'
 
 SOURCE=$(rpc "$ENGINEER_JWT" get_plant_historian_source "{\"p_connector_key\":\"$CONNECTOR_KEY\"}")
 noerr "$SOURCE"
 test "$(field "$SOURCE" pagination_mode)" = 'next_url'
 test "$(field "$SOURCE" pagination_next_path)" = 'links.next'
 test "$(field "$SOURCE" pagination_max_pages)" = '20'
+test "$(field "$SOURCE" mapping_status)" = 'approved'
+test "$(field "$SOURCE" can_commit)" = 'true'
+CONTRACT_HASH=$(field "$SOURCE" contract_hash)
+test "${#CONTRACT_HASH}" = '32'
+test "$STALE_HASH" != "$CONTRACT_HASH"
 FOREIGN_SOURCE=$(rpc "$FOREIGN_JWT" get_plant_historian_source "{\"p_connector_key\":\"$CONNECTOR_KEY\"}")
 expect_error "$FOREIGN_SOURCE" 'not found'
 
-RUN_RESULT=$(rpc "$ENGINEER_JWT" begin_plant_historian_run "{\"p_connector_key\":\"$CONNECTOR_KEY\"}")
+AI_BEGIN=$(rpc "$AI_ADMIN_JWT" begin_plant_historian_run "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_expected_contract_hash\":\"$CONTRACT_HASH\"}")
+expect_error "$AI_BEGIN" 'named human'
+STALE_BEGIN=$(rpc "$ENGINEER_JWT" begin_plant_historian_run "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_expected_contract_hash\":\"$STALE_HASH\"}")
+expect_error "$STALE_BEGIN" 'changed after transport began'
+GUARD_RESULT=$(rpc "$ENGINEER_JWT" begin_plant_historian_run "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_expected_contract_hash\":\"$CONTRACT_HASH\"}")
+noerr "$GUARD_RESULT"; GUARD_RUN=$(field "$GUARD_RESULT" run_id)
+psqlc "update connectors set pagination_max_pages=19 where organization_id='$ORG' and connector_key='$CONNECTOR_KEY';" >/dev/null
+CHANGED_INGEST=$(rpc "$ENGINEER_JWT" ingest_plant_historian_batch "{\"p_run_id\":\"$GUARD_RUN\",\"p_rows\":[]}")
+expect_error "$CHANGED_INGEST" 'changed during this run'
+psqlc "update connectors set pagination_max_pages=20 where organization_id='$ORG' and connector_key='$CONNECTOR_KEY';" >/dev/null
+GUARD_FINISH=$(rpc "$ENGINEER_JWT" finish_connector_run "{\"p_run_id\":\"$GUARD_RUN\",\"p_status\":\"failure\",\"p_error\":\"Contract-mutation smoke test.\"}")
+noerr "$GUARD_FINISH"; test "$(field "$GUARD_FINISH" watermark_advanced)" = 'false'
+RUN_RESULT=$(rpc "$ENGINEER_JWT" begin_plant_historian_run "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_expected_contract_hash\":\"$CONTRACT_HASH\"}")
 noerr "$RUN_RESULT"; RUN=$(field "$RUN_RESULT" run_id)
+CONCURRENT=$(rpc "$ENGINEER_JWT" begin_plant_historian_run "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_expected_contract_hash\":\"$CONTRACT_HASH\"}")
+expect_error "$CONCURRENT" 'already running'
 FOREIGN_INGEST=$(rpc "$FOREIGN_JWT" ingest_plant_historian_batch "{\"p_run_id\":\"$RUN\",\"p_rows\":[]}")
 expect_error "$FOREIGN_INGEST" 'not found'
-
-ROWS="[{\"external_id\":\"READING-1\",\"sensor_name\":\"C2.13 drive-end vibration\",\"value\":\"3.2\",\"taken_at\":\"$READING_ONE\",\"quality\":\"good\"},{\"external_id\":\"READING-BAD\",\"sensor_name\":\"missing sensor\",\"value\":\"8.1\",\"taken_at\":\"$READING_ONE\",\"quality\":\"good\"}]"
+OTHER_INGEST=$(rpc "$SECOND_JWT" ingest_plant_historian_batch "{\"p_run_id\":\"$RUN\",\"p_rows\":[]}")
+expect_error "$OTHER_INGEST" 'not found'
 INGESTED=$(rpc "$ENGINEER_JWT" ingest_plant_historian_batch "{\"p_run_id\":\"$RUN\",\"p_rows\":$ROWS}")
 noerr "$INGESTED"
 test "$(field "$INGESTED" read)" = '2'
 test "$(field "$INGESTED" accepted)" = '1'
 test "$(field "$INGESTED" rejected)" = '1'
+OTHER_FINISH=$(rpc "$SECOND_JWT" finish_connector_run "{\"p_run_id\":\"$RUN\",\"p_status\":\"partial\",\"p_error\":null}")
+expect_error "$OTHER_FINISH" 'named human'
 FINISHED=$(rpc "$ENGINEER_JWT" finish_connector_run "{\"p_run_id\":\"$RUN\",\"p_status\":\"partial\",\"p_error\":null}")
 noerr "$FINISHED"; test "$(field "$FINISHED" watermark_advanced)" = 'false'
 test "$(psqlc "select count(*) from condition_readings where organization_id='$ORG' and source_system='$CONNECTOR_KEY' and external_id='READING-1' and sensor_id='$SENSOR';")" = '1'
 test "$(psqlc "select count(*) from ingest_staging where run_id='$RUN' and status='rejected' and reject_reason ilike '%unknown sensor%';")" = '1'
 
-RUN2_RESULT=$(rpc "$ENGINEER_JWT" begin_plant_historian_run "{\"p_connector_key\":\"$CONNECTOR_KEY\"}")
+RUN2_RESULT=$(rpc "$ENGINEER_JWT" begin_plant_historian_run "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_expected_contract_hash\":\"$CONTRACT_HASH\"}")
 noerr "$RUN2_RESULT"; RUN2=$(field "$RUN2_RESULT" run_id)
 ROWS2="[{\"external_id\":\"READING-1\",\"sensor_name\":\"C2.13 drive-end vibration\",\"value\":\"3.2\",\"taken_at\":\"$READING_ONE\",\"quality\":\"good\"},{\"external_id\":\"READING-2\",\"sensor_name\":\"C2.13 drive-end vibration\",\"value\":\"3.6\",\"taken_at\":\"$READING_TWO\",\"quality\":\"good\"}]"
 REPLAY=$(rpc "$ENGINEER_JWT" ingest_plant_historian_batch "{\"p_run_id\":\"$RUN2\",\"p_rows\":$ROWS2}")
@@ -131,7 +177,7 @@ case "$DIRECT" in 200|204|401|403) ;; *) cat /tmp/c213-direct.txt; false ;; esac
 test "$(psqlc "select pagination_max_pages from connectors where organization_id='$ORG' and connector_key='$CONNECTOR_KEY';")" = '20'
 OUT=$(sql_must_fail "update connectors set pagination_mode='next_url',pagination_next_path=null,pagination_max_pages=20 where organization_id='$ORG' and connector_key='$CONNECTOR_KEY';")
 grep -qi 'connectors_pagination_profile_check' <<<"$OUT"
-test "$(psqlc "select count(*) from decisions where organization_id='$ORG' and decision_type='plant_historian_source';")" = '1'
+test "$(psqlc "select count(*) from decisions where organization_id='$ORG' and decision_type='plant_historian_source';")" = '2'
 test "$(psqlc "select count(*) from connectors where organization_id='$ORG' and connector_key='$CONNECTOR_KEY' and direction='read_only' and not write_enabled and pagination_mode='next_url' and pagination_next_path='links.next' and pagination_max_pages=20;")" = '1'
 
-echo 'C2.13 historian paginated read smoke passed: canonical_connector=true canonical_condition_readings=true tenant_wall=true administrator_profile=true bounded_pagination=true same_contract_mapping=true retained_rejects=true idempotent_replay=true clean_run_watermark=true direct_write_locked=true source_write_back=false unattended=false'
+echo 'C2.13 historian paginated read smoke passed: canonical_connector=true canonical_condition_readings=true tenant_wall=true human_admin_approval=true ai_commit_refused=true actor_bound_run=true immutable_contract=true dry_run_commit_parity=true dry_run_no_writes=true bounded_pagination=true retained_rejects=true idempotent_replay=true clean_run_watermark=true direct_write_locked=true source_write_back=false unattended=false'
