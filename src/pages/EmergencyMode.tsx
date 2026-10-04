@@ -97,35 +97,36 @@ const severityConfig: Record<
   },
 };
 
-
 export function EmergencyMode() {
   const { data: alerts, loading } = useAsyncData<CriticalAlert[]>(
     () => getActiveCriticalAlerts(),
     [],
   );
 
-  if (loading) return <LoadingState label="Checking for active incidents…" />;
+  if (loading) return <LoadingState label="Checking critical alerts…" />;
 
   if (!alerts || alerts.length === 0) {
     return (
-      <div className="p-6">
+      <div className="space-y-6 p-6">
         <h1 className="text-2xl font-bold text-white tracking-tight">
           Emergency Mode
         </h1>
         <p className="text-sm text-slate-400 mt-0.5 mb-6">
-          Incident command view — activates automatically when a critical system
-          alert is raised.
+          Read-only critical-alert view with governed resilience configuration.
+          An alert does not declare an emergency or create an incident record.
         </p>
         <div className="bg-[#0D1520] border border-teal-500/20 rounded-2xl p-10 text-center">
           <div className="text-teal-400 text-lg font-semibold">
-            No active incidents
+            No unresolved critical alerts
           </div>
           <p className="text-sm text-slate-400 mt-2 max-w-md mx-auto">
-            All critical alerts are resolved. When an unresolved critical alert
-            exists, this view becomes the incident command center with timeline,
-            affected assets, and recovery tracking.
+            No unresolved critical alert is recorded. Use the resilience panel
+            below to govern threat scenarios and operating-mode policy; incident
+            command, affected-asset confirmation and recovery execution remain
+            in their authorized systems of record.
           </p>
         </div>
+        <ResiliencePanel />
       </div>
     );
   }
@@ -153,7 +154,7 @@ export function EmergencyMode() {
                 <span
                   className={`text-xs font-black uppercase tracking-wider ${sc.color}`}
                 >
-                  {sc.label} INCIDENT
+                  {sc.label} ALERT
                 </span>
                 <span className="text-xs text-slate-400 font-mono">
                   {activeIncident.id}
@@ -163,7 +164,8 @@ export function EmergencyMode() {
                 {activeIncident.title}
               </h1>
               <p className="text-sm text-slate-300 mt-1">
-                {alerts[0].description ?? "No description recorded on this alert."}
+                {alerts[0].description ??
+                  "No description recorded on this alert."}
               </p>
               <div className="flex items-center gap-4 mt-3 text-xs text-slate-400">
                 <span className="flex items-center gap-1">
@@ -228,11 +230,10 @@ export function EmergencyMode() {
             ))}
           </div>
           <p className="mt-4 pt-3 border-t border-white/6 text-xs text-slate-500">
-            This panel was a scripted &ldquo;Live Event Timeline&rdquo; —
-            ten hand-written entries including an AI failure confirmation at
-            97% confidence and a work order created automatically, neither of
-            which happened. It now shows the alerts the platform actually
-            holds.
+            This panel was a scripted &ldquo;Live Event Timeline&rdquo; — ten
+            hand-written entries including an AI failure confirmation at 97%
+            confidence and a work order created automatically, neither of which
+            happened. It now shows the alerts the platform actually holds.
           </p>
         </div>
 
@@ -266,8 +267,8 @@ export function EmergencyMode() {
               No recovery plan is modelled.
             </p>
             <p className="text-xs text-slate-400 mt-2">
-              The five steps and the 08:45 UTC return-to-service shown here
-              were fixed text, not a schedule anyone had committed to.
+              The five steps and the 08:45 UTC return-to-service shown here were
+              fixed text, not a schedule anyone had committed to.
             </p>
           </div>
         </div>

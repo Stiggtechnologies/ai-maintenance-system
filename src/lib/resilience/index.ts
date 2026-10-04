@@ -38,6 +38,7 @@ import {
 
 export type ThreatKind =
   | "wildfire"
+  | "smoke"
   | "flood"
   | "extreme_cold"
   | "grid_interruption"
@@ -59,6 +60,7 @@ export interface Scenario {
   lastExercisedOn?: string | null;
   exerciseOutcome?: string | null;
   planReference?: string | null;
+  exposureStatus?: "not_mapped" | "provisional" | "evidence_verified";
 }
 
 export interface ScenarioAssessment {
@@ -74,6 +76,7 @@ export interface ScenarioAssessment {
   servicesLost: string[];
   /** True when the figure can be read as an estimate rather than a floor. */
   boundedEstimate: boolean;
+  provisionalExposure: boolean;
   reason: string;
 }
 
@@ -98,7 +101,9 @@ export function assessScenario(
 
   const uncovered = scenario.directlyAffected.filter((a) => !known.has(a));
   const cascade = propagateLoss(graph, scenario.directlyAffected);
-  const bounded = uncovered.length === 0 && graph.edges.length > 0;
+  const provisional = scenario.exposureStatus === "provisional";
+  const bounded =
+    uncovered.length === 0 && graph.edges.length > 0 && !provisional;
 
   return {
     scenarioKey: scenario.scenarioKey,
@@ -111,6 +116,7 @@ export function assessScenario(
     totalLost: cascade.lostCount,
     servicesLost: cascade.servicesLost,
     boundedEstimate: bounded,
+    provisionalExposure: provisional,
     reason:
       scenario.directlyAffected.length === 0
         ? `No assets are recorded as directly affected by ${scenario.title}, so there is nothing to propagate. A scenario with no exposure mapped is a title.`
@@ -120,6 +126,9 @@ export function assessScenario(
               ? ` Services lost: ${cascade.servicesLost.join(", ")}.`
               : "")
           : `${scenario.title} directly removes ${scenario.directlyAffected.length} asset(s) and the graph carries it to ${cascade.lostCount}. ` +
+            (provisional
+              ? `The direct exposure mapping is provisional because its evidence gap is still open. `
+              : "") +
             (uncovered.length > 0
               ? `${uncovered.length} of the directly affected asset(s) have NO recorded dependencies, so nothing downstream of them was counted. `
               : "") +
@@ -191,6 +200,7 @@ export interface OperatingMode {
   declaredByRole?: string | null;
   /** Decisions that change hands in this mode. */
   authorityChanges?: string | null;
+  governanceStatus?: "governed" | "legacy_unverified";
 }
 
 export interface ModeReadiness {
@@ -225,6 +235,8 @@ export function assessOperatingModes(modes: OperatingMode[]): ModeReadiness {
     if (!m.exitCriteria?.trim()) missing.push("exit criteria");
     if (!m.declaredByRole?.trim()) missing.push("who declares it");
     if (!m.authorityChanges?.trim()) missing.push("what authority changes");
+    if (m.governanceStatus !== "governed")
+      missing.push("governed evidence or an explicit evidence gap");
     if (missing.length === 0) usable += 1;
     else gaps.push({ mode: key, missing });
   }
