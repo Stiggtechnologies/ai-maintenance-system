@@ -8,12 +8,13 @@ import {
 import { supabase } from "../lib/supabase";
 import { recordSecurityEvent } from "../lib/securityEvents";
 import type { User, Session } from "@supabase/supabase-js";
+import type { AppRoleKey } from "../lib/roleNavigation";
 
 interface UserProfile {
   id: string;
   email: string;
   full_name: string | null;
-  role: "admin" | "manager" | "operator" | "viewer";
+  role: AppRoleKey;
   preferences: Record<string, unknown>;
 }
 

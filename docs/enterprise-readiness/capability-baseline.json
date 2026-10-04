@@ -1,9 +1,9 @@
 {
   "C1.01": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 6,
+    "backticked": 6
   },
   "C1.02": {
     "status": "✅",
