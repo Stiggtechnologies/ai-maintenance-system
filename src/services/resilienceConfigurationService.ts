@@ -43,6 +43,8 @@ export interface ResilienceScenarioRecord {
   evidence_item_ids: string[];
   missing_evidence: string[];
   asset_ids: string[];
+  exposure_evidence_item_id: string | null;
+  exposure_mapping_status: "not_mapped" | "provisional" | "evidence_verified";
 }
 
 export interface OperatingModeDefinitionRecord {
@@ -94,27 +96,24 @@ export const getResilienceConfigurationWorkspace = () =>
     "get_resilience_configuration_workspace",
   );
 
-export const saveThreatScenario = (scenario: Record<string, unknown>) =>
-  rpc<{ scenario_id: number; scenario_key: string; status: string }>(
-    "save_threat_scenario",
-    { p_scenario: scenario },
-  );
-
-export const replaceScenarioExposure = (
-  scenarioId: number,
+export const saveThreatScenarioWithExposure = (
+  scenario: Record<string, unknown>,
   assetIds: string[],
   basis: string,
   evidenceItemId?: string,
 ) =>
-  rpc<{ scenario_id: number; mapped_assets: number; status: string }>(
-    "replace_scenario_exposure",
-    {
-      p_scenario_id: scenarioId,
-      p_asset_ids: assetIds,
-      p_basis: basis,
-      p_evidence_item_id: evidenceItemId || null,
-    },
-  );
+  rpc<{
+    scenario_id: number;
+    scenario_key: string;
+    mapped_assets: number;
+    mapping_status: "not_mapped" | "provisional" | "evidence_verified";
+    status: string;
+  }>("save_threat_scenario_with_exposure", {
+    p_scenario: scenario,
+    p_asset_ids: assetIds,
+    p_exposure_basis: basis,
+    p_exposure_evidence_item_id: evidenceItemId || null,
+  });
 
 export const saveOperatingModeDefinition = (
   definition: Record<string, unknown>,

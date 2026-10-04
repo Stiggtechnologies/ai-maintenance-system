@@ -4,7 +4,6 @@ import { ResilienceConfigurationPanel } from "./ResilienceConfigurationPanel";
 
 const getWorkspace = vi.fn();
 const saveScenario = vi.fn();
-const replaceExposure = vi.fn();
 const saveMode = vi.fn();
 
 vi.mock("../services/resilienceConfigurationService", () => ({
@@ -26,8 +25,7 @@ vi.mock("../services/resilienceConfigurationService", () => ({
   ENTERPRISE_OPERATING_MODES: ["normal", "degraded", "emergency", "recovery"],
   getResilienceConfigurationWorkspace: (...args: unknown[]) =>
     getWorkspace(...args),
-  saveThreatScenario: (...args: unknown[]) => saveScenario(...args),
-  replaceScenarioExposure: (...args: unknown[]) => replaceExposure(...args),
+  saveThreatScenarioWithExposure: (...args: unknown[]) => saveScenario(...args),
   saveOperatingModeDefinition: (...args: unknown[]) => saveMode(...args),
 }));
 
@@ -55,12 +53,9 @@ beforeEach(() => {
   saveScenario.mockResolvedValue({
     scenario_id: 41,
     scenario_key: "SMOKE-REGIONAL",
-    status: "saved",
-  });
-  replaceExposure.mockResolvedValue({
-    scenario_id: 41,
     mapped_assets: 0,
-    status: "confirmed",
+    mapping_status: "not_mapped",
+    status: "saved",
   });
   saveMode.mockResolvedValue({
     definition_id: 9,
@@ -118,17 +113,14 @@ describe("ResilienceConfigurationPanel", () => {
           threat_kind: "smoke",
           missing_evidence: ["Current intake smoke test", "Seasonal drill"],
         }),
+        [],
+        "Named human review of site intake layout and regional hazard evidence.",
+        undefined,
       ),
-    );
-    expect(replaceExposure).toHaveBeenCalledWith(
-      41,
-      [],
-      "Named human review of site intake layout and regional hazard evidence.",
-      undefined,
     );
     expect(
       await screen.findByText(
-        "Scenario saved with 0 confirmed exposed asset(s).",
+        "Scenario saved; no directly exposed asset is mapped, so impact cannot yet be computed.",
       ),
     ).toBeVisible();
   });

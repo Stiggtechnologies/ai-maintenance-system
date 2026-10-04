@@ -24,7 +24,8 @@ field(){ BODY="$(body "$1")" KEY="$2" python3 -c "import json,os;print(json.load
 
 PLANNER=$(token 'planner@syncai.ca' 'Planner123!@#')
 ADMIN=$(token 'admin@syncai.ca' 'Admin123!@#')
-test -n "$PLANNER"; test -n "$ADMIN"
+TECH=$(token 'technician@syncai.ca' 'Tech123!@#')
+test -n "$PLANNER"; test -n "$ADMIN"; test -n "$TECH"
 
 ASSET=$(psqlc "select id from assets where organization_id='$ORG' order by created_at limit 1")
 SITE=$(psqlc "select site_id from assets where id='$ASSET'")
@@ -36,6 +37,11 @@ psqlc "insert into assets(id,organization_id,site_id,name,asset_class) values('$
 psqlc "insert into evidence_items(id,organization_id,asset_id,source_system,evidence_type,description,evidence_class) values('$EVIDENCE','$ORG','$ASSET','ci-e11','documented','Approved enterprise hazard-source package with stated scope and currency.','DOCUMENTED') on conflict(id) do nothing"
 psqlc "insert into evidence_items(id,organization_id,asset_id,source_system,evidence_type,description,evidence_class) values('$FOREIGN_EVIDENCE','$OTHER','$OTHER_ASSET','ci-e11','documented','Foreign-tenant evidence that must never cross the tenant wall.','DOCUMENTED') on conflict(id) do nothing"
 AUDIT_BEFORE=$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type in ('resilience_threat_scenario','resilience_scenario_exposure','resilience_operating_mode_definition')")
+
+UNVERIFIED_EVIDENCE=$(rpc "$PLANNER" save_threat_scenario "{\"p_scenario\":{\"scenario_key\":\"$PREFIX-UNVERIFIED\",\"title\":\"Unverified evidence scenario\",\"threat_kind\":\"smoke\",\"description\":\"Unverified evidence must not become a governed scenario basis.\",\"governance_basis\":\"Only a recorded named-human determination can support this scenario.\",\"evidence_item_ids\":[\"$EVIDENCE\"]}}")
+err "$UNVERIFIED_EVIDENCE" 'verified by a named human'
+VERIFY=$(rpc "$ADMIN" verify_evidence_item "{\"p_evidence_id\":\"$EVIDENCE\",\"p_method\":\"CI named-human document review\",\"p_outcome\":\"verified\",\"p_note\":\"Approved only for the bounded resilience smoke scenario.\"}")
+ok "$VERIFY"
 
 NO_PROVENANCE=$(rpc "$PLANNER" save_threat_scenario "{\"p_scenario\":{\"scenario_key\":\"$PREFIX-NO-EVIDENCE\",\"title\":\"No provenance scenario\",\"threat_kind\":\"wildfire\",\"description\":\"This scenario must be refused without evidence provenance.\",\"governance_basis\":\"A substantive basis cannot replace the provenance requirement.\"}}")
 err "$NO_PROVENANCE" 'cite canonical evidence or explicitly name missing evidence'
@@ -50,7 +56,10 @@ FOREIGN_SITE=$(rpc "$PLANNER" save_threat_scenario "{\"p_scenario\":{\"scenario_
 err "$FOREIGN_SITE" 'site not found in this organization'
 
 FOREIGN_PROVENANCE=$(rpc "$PLANNER" save_threat_scenario "{\"p_scenario\":{\"scenario_key\":\"$PREFIX-FOREIGN-EVIDENCE\",\"title\":\"Foreign evidence scenario\",\"threat_kind\":\"cyber_incident\",\"description\":\"Cross-tenant evidence references must be refused.\",\"governance_basis\":\"Tenant isolation is mandatory for every evidence reference.\",\"evidence_item_ids\":[\"$FOREIGN_EVIDENCE\"]}}")
-err "$FOREIGN_PROVENANCE" 'belong to this organization'
+err "$FOREIGN_PROVENANCE" 'same-tenant'
+
+UNSUPPORTED_LIKELIHOOD=$(rpc "$PLANNER" save_threat_scenario "{\"p_scenario\":{\"scenario_key\":\"$PREFIX-UNSOURCED-LIKELIHOOD\",\"title\":\"Unsourced likelihood scenario\",\"threat_kind\":\"flood\",\"description\":\"A numerical annual likelihood without verified evidence must be refused.\",\"annual_likelihood\":\"0.02\",\"governance_basis\":\"A missing-evidence note cannot substantiate a quantitative likelihood.\",\"missing_evidence\":[\"Current flood-frequency study\"]}}")
+err "$UNSUPPORTED_LIKELIHOOD" 'quantitative annual likelihood requires'
 
 PARTIAL_EXERCISE=$(rpc "$PLANNER" save_threat_scenario "{\"p_scenario\":{\"scenario_key\":\"$PREFIX-PARTIAL-EXERCISE\",\"title\":\"Partial exercise record\",\"threat_kind\":\"wildfire\",\"description\":\"An exercise date without its outcome must be refused.\",\"last_exercised_on\":\"2026-01-15\",\"governance_basis\":\"Exercise provenance must be recorded as one complete fact.\",\"missing_evidence\":[\"Exercise outcome record\"]}}")
 err "$PARTIAL_EXERCISE" 'date and outcome must be recorded together'
@@ -59,8 +68,15 @@ BAD_DATE=$(rpc "$PLANNER" save_threat_scenario "{\"p_scenario\":{\"scenario_key\
 err "$BAD_DATE" 'invalid identifier, date, number or controlled value'
 
 save_scenario(){
-  local key="$1" kind="$2" title="$3" evidence_json="$4" result
-  result=$(rpc "$PLANNER" save_threat_scenario "{\"p_scenario\":{\"scenario_key\":\"$PREFIX-$key\",\"title\":\"$title\",\"threat_kind\":\"$kind\",\"description\":\"Controlled $title exposure scenario for enterprise resilience testing.\",\"site_id\":\"$SITE\",\"annual_likelihood\":\"0.02\",\"governance_basis\":\"Human-reviewed hazard scope mapped to canonical site and asset identities.\",$evidence_json}}")
+  local key="$1" kind="$2" title="$3" evidence_json="$4" result likelihood='' asset_json='[]' exposure_evidence='null'
+  if [ "$key" = 'SMOKE' ]; then
+    likelihood='"annual_likelihood":"0.02",'
+    asset_json="[\"$ASSET\"]"
+    exposure_evidence="\"$EVIDENCE\""
+  elif [ "$key" = 'WILDFIRE' ]; then
+    asset_json="[\"$ASSET\"]"
+  fi
+  result=$(rpc "$PLANNER" save_threat_scenario_with_exposure "{\"p_scenario\":{\"scenario_key\":\"$PREFIX-$key\",\"title\":\"$title\",\"threat_kind\":\"$kind\",\"description\":\"Controlled $title exposure scenario for enterprise resilience testing.\",\"site_id\":\"$SITE\",$likelihood\"governance_basis\":\"Human-reviewed hazard scope mapped to canonical site and asset identities.\",$evidence_json},\"p_asset_ids\":$asset_json,\"p_exposure_basis\":\"Human-reviewed hazard scope mapped to canonical site and asset identities.\",\"p_exposure_evidence_item_id\":$exposure_evidence}")
   ok "$result"
   field "$result" scenario_id
 }
@@ -72,16 +88,25 @@ COLD=$(save_scenario COLD extreme_cold 'extreme cold' '"missing_evidence":["Cold
 CYBER=$(save_scenario CYBER cyber_incident 'cyber loss of view' '"missing_evidence":["Current OT attack-path assessment"]')
 test -n "$WILDFIRE"; test -n "$SMOKE"; test -n "$FLOOD"; test -n "$COLD"; test -n "$CYBER"
 
+ATOMIC_KEY="$PREFIX-ATOMIC-ROLLBACK"
+ATOMIC_FAIL=$(rpc "$PLANNER" save_threat_scenario_with_exposure "{\"p_scenario\":{\"scenario_key\":\"$ATOMIC_KEY\",\"title\":\"Atomic rollback scenario\",\"threat_kind\":\"wildfire\",\"description\":\"A refused exposure mapping must roll the scenario record back too.\",\"governance_basis\":\"Scenario and exposure are one customer-facing governed transaction.\",\"missing_evidence\":[\"Current exposure confirmation\"]},\"p_asset_ids\":[\"$OTHER_ASSET\"],\"p_exposure_basis\":\"Cross-tenant exposure must refuse the complete atomic transaction.\",\"p_exposure_evidence_item_id\":null}")
+err "$ATOMIC_FAIL" 'belong to this organization'
+test "$(psqlc "select count(*) from threat_scenarios where organization_id='$ORG' and scenario_key='$ATOMIC_KEY'")" = 0
+
 EXPOSURE=$(rpc "$PLANNER" replace_scenario_exposure "{\"p_scenario_id\":$SMOKE,\"p_asset_ids\":[\"$ASSET\"],\"p_basis\":\"Site HVAC intake and outdoor work exposure confirmed by named human review.\",\"p_evidence_item_id\":\"$EVIDENCE\"}")
 ok "$EXPOSURE"
 test "$(field "$EXPOSURE" mapped_assets)" = 1
+test "$(field "$EXPOSURE" mapping_status)" = evidence_verified
+
+UNSUPPORTED_EXPOSURE=$(rpc "$PLANNER" replace_scenario_exposure "{\"p_scenario_id\":$SMOKE,\"p_asset_ids\":[\"$ASSET\"],\"p_basis\":\"A narrative basis alone cannot silently replace verified exposure evidence.\"}")
+err "$UNSUPPORTED_EXPOSURE" 'requires verified evidence or an explicit scenario evidence gap'
 
 DUPLICATE=$(rpc "$PLANNER" replace_scenario_exposure "{\"p_scenario_id\":$SMOKE,\"p_asset_ids\":[\"$ASSET\",\"$ASSET\"],\"p_basis\":\"Duplicate asset identities must not create ambiguous exposure evidence.\"}")
 err "$DUPLICATE" 'unique'
 FOREIGN_ASSET=$(rpc "$PLANNER" replace_scenario_exposure "{\"p_scenario_id\":$SMOKE,\"p_asset_ids\":[\"$OTHER_ASSET\"],\"p_basis\":\"Cross-tenant exposed assets must remain inaccessible to this tenant.\"}")
 err "$FOREIGN_ASSET" 'belong to this organization'
 FOREIGN_EXPOSURE_EVIDENCE=$(rpc "$PLANNER" replace_scenario_exposure "{\"p_scenario_id\":$SMOKE,\"p_asset_ids\":[\"$ASSET\"],\"p_basis\":\"Cross-tenant evidence must not substantiate an otherwise valid mapping.\",\"p_evidence_item_id\":\"$FOREIGN_EVIDENCE\"}")
-err "$FOREIGN_EXPOSURE_EVIDENCE" 'belong to this organization'
+err "$FOREIGN_EXPOSURE_EVIDENCE" 'same-tenant'
 
 BAD_MODE=$(rpc "$ADMIN" save_operating_mode_definition '{"p_definition":{"mode":"normal","entry_criteria":"Stable operations within approved operating envelope.","exit_criteria":"Observed condition exceeds a governed normal-operation threshold.","declared_by_role":"Site manager","authority_changes":"Normal site decision rights and approval limits remain in force.","governance_basis":"Approved site emergency-management and continuity policy source.","missing_evidence":"not-an-array"}}')
 err "$BAD_MODE" 'must be arrays'
@@ -92,16 +117,25 @@ for MODE in normal degraded emergency recovery; do
 done
 
 EVENTS_BEFORE=$(psqlc "select count(*) from operating_mode_events where organization_id='$ORG'")
+FORBIDDEN_WORKSPACE=$(rpc "$TECH" get_resilience_configuration_workspace '{}')
+err "$FORBIDDEN_WORKSPACE" 'forbidden'
 WORKSPACE=$(rpc "$PLANNER" get_resilience_configuration_workspace '{}')
 ok "$WORKSPACE"
-BODY="$(body "$WORKSPACE")" PREFIX="$PREFIX" OTHER_SITE="$OTHER_SITE" OTHER_ASSET="$OTHER_ASSET" python3 - <<'PY'
+BODY="$(body "$WORKSPACE")" PREFIX="$PREFIX" OTHER_SITE="$OTHER_SITE" OTHER_ASSET="$OTHER_ASSET" EVIDENCE="$EVIDENCE" FOREIGN_EVIDENCE="$FOREIGN_EVIDENCE" python3 - <<'PY'
 import json, os
 x=json.loads(os.environ['BODY'])
 ours=[s for s in x['scenarios'] if s['scenario_key'].startswith(os.environ['PREFIX'])]
 assert {s['threat_kind'] for s in ours} >= {'wildfire','smoke','flood','extreme_cold','cyber_incident'}, ours
+smoke=next(s for s in ours if s['threat_kind']=='smoke')
+assert smoke['exposure_mapping_status']=='evidence_verified', smoke
+wildfire=next(s for s in ours if s['threat_kind']=='wildfire')
+assert wildfire['exposure_mapping_status']=='provisional', wildfire
 assert len([m for m in x['modes'] if m['mode'] in {'normal','degraded','emergency','recovery'}]) == 4
 assert all(s['id'] != os.environ['OTHER_SITE'] for s in x['sites'])
 assert all(a['id'] != os.environ['OTHER_ASSET'] for a in x['assets'])
+assert all(e['verification_status']=='verified' for e in x['evidence']), x['evidence']
+assert any(e['id']==os.environ['EVIDENCE'] for e in x['evidence']), x['evidence']
+assert all(e['id']!=os.environ['FOREIGN_EVIDENCE'] for e in x['evidence']), x['evidence']
 assert 'does not infer or autonomously declare' in x['authority_boundary']
 PY
 EVENTS_AFTER=$(psqlc "select count(*) from operating_mode_events where organization_id='$ORG'")
@@ -114,7 +148,25 @@ BODY="$(body "$POSTURE")" python3 -c "import json,os;x=json.loads(os.environ['BO
 DIRECT_STATUS=$(curl -sS -o /tmp/e11-direct-write.txt -w '%{http_code}' -X POST "$API_URL/rest/v1/threat_scenarios" -H "apikey: $ANON_KEY" -H "authorization: Bearer $PLANNER" -H 'content-type: application/json' -d "{\"organization_id\":\"$ORG\",\"scenario_key\":\"$PREFIX-DIRECT\",\"title\":\"Direct write\",\"threat_kind\":\"wildfire\"}")
 test "$DIRECT_STATUS" = 401 -o "$DIRECT_STATUS" = 403
 
+if PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 \
+  -c "begin; grant insert on public.threat_scenarios to service_role; set local role service_role; insert into public.threat_scenarios(organization_id,scenario_key,title,threat_kind) values('$ORG','$PREFIX-SERVICE-BYPASS','Service bypass','wildfire');" \
+  >/tmp/e11-service-write.txt 2>&1; then
+  echo 'service-role direct insert unexpectedly succeeded' >&2
+  exit 1
+fi
+grep -q 'governed workflow' /tmp/e11-service-write.txt
+
+if PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 \
+  -c "begin; grant truncate on public.scenario_exposure to service_role; set local role service_role; truncate public.scenario_exposure;" \
+  >/tmp/e11-service-truncate.txt 2>&1; then
+  echo 'service-role truncate unexpectedly succeeded' >&2
+  exit 1
+fi
+grep -q 'cannot be truncated' /tmp/e11-service-truncate.txt
+
 AUDIT_AFTER=$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type in ('resilience_threat_scenario','resilience_scenario_exposure','resilience_operating_mode_definition')")
 test "$((AUDIT_AFTER-AUDIT_BEFORE))" -ge 10
+test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type in ('resilience_threat_scenario','resilience_scenario_exposure','resilience_operating_mode_definition') and created_at>now()-interval '10 minutes' and new_state is null")" = 0
+test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='resilience_scenario_exposure' and created_at>now()-interval '10 minutes' and previous_state is not null")" -ge 1
 
-echo 'Enterprise resilience scenario governance smoke passed: threats=5 smoke_distinct=true modes=4 tenant_wall=true evidence_or_gap=true direct_write_closed=true execution_authority_unchanged=true'
+echo 'Enterprise resilience scenario governance smoke passed: threats=5 smoke_distinct=true modes=4 tenant_wall=true verified_evidence_only=true quantitative_source_gate=true atomic_write=true provisional_mapping=true service_role_guard=true truncate_guard=true audit_state=true execution_authority_unchanged=true'

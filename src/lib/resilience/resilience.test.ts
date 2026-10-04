@@ -84,6 +84,23 @@ describe("assessScenario", () => {
     expect(r.reason).toMatch(/as a FLOOR, not an estimate/);
   });
 
+  it("never presents a provisional exposure mapping as a bounded estimate", () => {
+    const r = assessScenario(
+      {
+        scenarioKey: "smoke",
+        title: "Regional smoke",
+        threatKind: "smoke",
+        directlyAffected: ["sub"],
+        exposureStatus: "provisional",
+      },
+      GRAPH,
+    );
+    expect(r.provisionalExposure).toBe(true);
+    expect(r.boundedEstimate).toBe(false);
+    expect(r.reason).toMatch(/evidence gap is still open/);
+    expect(r.reason).toMatch(/FLOOR/);
+  });
+
   it("counts an in-graph asset with no edges as covered, not missing", () => {
     // 'lonely' IS a node; it simply has nothing downstream. That is a fact
     // about the plant, not a gap in the data.
@@ -179,6 +196,7 @@ describe("assessOperatingModes", () => {
     exitCriteria: "stated",
     declaredByRole: "Site manager",
     authorityChanges: "stated",
+    governanceStatus: "governed",
   });
 
   it("accepts four fully specified modes", () => {
@@ -211,6 +229,7 @@ describe("assessOperatingModes", () => {
       "exit criteria",
       "who declares it",
       "what authority changes",
+      "governed evidence or an explicit evidence gap",
     ]);
     expect(r.reason).toMatch(/a word on a dashboard/);
   });
@@ -224,5 +243,18 @@ describe("assessOperatingModes", () => {
     ]);
     expect(r.usable).toBe(3);
     expect(r.gaps[0].missing).toEqual(["who declares it"]);
+  });
+
+  it("does not count legacy policy text without governed provenance", () => {
+    const r = assessOperatingModes([
+      { ...full("normal"), governanceStatus: "legacy_unverified" },
+      full("degraded"),
+      full("emergency"),
+      full("recovery"),
+    ]);
+    expect(r.usable).toBe(3);
+    expect(r.gaps[0].missing).toContain(
+      "governed evidence or an explicit evidence gap",
+    );
   });
 });

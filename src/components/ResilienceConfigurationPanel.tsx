@@ -4,9 +4,8 @@ import {
   ENTERPRISE_OPERATING_MODES,
   THREAT_KINDS,
   getResilienceConfigurationWorkspace,
-  replaceScenarioExposure,
   saveOperatingModeDefinition,
-  saveThreatScenario,
+  saveThreatScenarioWithExposure,
   type EnterpriseOperatingMode,
   type OperatingModeDefinitionRecord,
   type ResilienceConfigurationWorkspace,
@@ -32,6 +31,7 @@ interface ScenarioDraft {
   supplierId: string;
   governanceBasis: string;
   evidenceIds: string[];
+  exposureEvidenceId: string;
   missingEvidence: string;
   assetIds: string[];
 }
@@ -50,6 +50,7 @@ const emptyScenario = (): ScenarioDraft => ({
   supplierId: "",
   governanceBasis: "",
   evidenceIds: [],
+  exposureEvidenceId: "",
   missingEvidence: "",
   assetIds: [],
 });
@@ -91,6 +92,7 @@ function scenarioDraft(row: ResilienceScenarioRecord): ScenarioDraft {
     supplierId: row.linked_supplier?.toString() ?? "",
     governanceBasis: row.governance_basis ?? "",
     evidenceIds: row.evidence_item_ids,
+    exposureEvidenceId: row.exposure_evidence_item_id ?? "",
     missingEvidence: row.missing_evidence.join("; "),
     assetIds: row.asset_ids,
   };
@@ -204,30 +206,33 @@ export function ResilienceConfigurationPanel({
             onSubmit={(event) => {
               event.preventDefault();
               void run(async () => {
-                const saved = await saveThreatScenario({
-                  scenario_key: scenario.scenarioKey,
-                  title: scenario.title,
-                  threat_kind: scenario.threatKind,
-                  description: scenario.description,
-                  site_id: scenario.siteId || null,
-                  annual_likelihood: scenario.annualLikelihood || null,
-                  plan_reference: scenario.planReference || null,
-                  last_exercised_on: scenario.lastExercisedOn || null,
-                  exercise_outcome: scenario.exerciseOutcome || null,
-                  linked_continuity_procedure: scenario.continuityId || null,
-                  linked_supplier: scenario.supplierId || null,
-                  governance_basis: scenario.governanceBasis,
-                  evidence_item_ids: scenario.evidenceIds,
-                  missing_evidence: missing(scenario.missingEvidence),
-                });
-                await replaceScenarioExposure(
-                  saved.scenario_id,
+                const saved = await saveThreatScenarioWithExposure(
+                  {
+                    scenario_key: scenario.scenarioKey,
+                    title: scenario.title,
+                    threat_kind: scenario.threatKind,
+                    description: scenario.description,
+                    site_id: scenario.siteId || null,
+                    annual_likelihood: scenario.annualLikelihood || null,
+                    plan_reference: scenario.planReference || null,
+                    last_exercised_on: scenario.lastExercisedOn || null,
+                    exercise_outcome: scenario.exerciseOutcome || null,
+                    linked_continuity_procedure: scenario.continuityId || null,
+                    linked_supplier: scenario.supplierId || null,
+                    governance_basis: scenario.governanceBasis,
+                    evidence_item_ids: scenario.evidenceIds,
+                    missing_evidence: missing(scenario.missingEvidence),
+                  },
                   scenario.assetIds,
                   scenario.governanceBasis,
-                  scenario.evidenceIds[0],
+                  scenario.exposureEvidenceId || undefined,
                 );
                 setNotice(
-                  `Scenario saved with ${scenario.assetIds.length} confirmed exposed asset(s).`,
+                  saved.mapping_status === "not_mapped"
+                    ? "Scenario saved; no directly exposed asset is mapped, so impact cannot yet be computed."
+                    : saved.mapping_status === "evidence_verified"
+                      ? `Scenario saved with ${saved.mapped_assets} evidence-verified exposed asset(s).`
+                      : `Scenario saved with ${saved.mapped_assets} provisional exposed asset(s); close the recorded evidence gap before treating the mapping as verified.`,
                 );
               });
             }}
@@ -313,6 +318,27 @@ export function ResilienceConfigurationPanel({
                 setScenario({ ...scenario, description: event.target.value })
               }
             />
+            <label className="block text-xs text-slate-400">
+              Exposure-mapping evidence
+              <select
+                aria-label="Exposure-mapping evidence"
+                className={`${inputClass} mt-1`}
+                value={scenario.exposureEvidenceId}
+                onChange={(event) =>
+                  setScenario({
+                    ...scenario,
+                    exposureEvidenceId: event.target.value,
+                  })
+                }
+              >
+                <option value="">No verified source — keep provisional</option>
+                {workspace?.evidence.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.description} · verified
+                  </option>
+                ))}
+              </select>
+            </label>
             <div className="grid gap-3 sm:grid-cols-2">
               <select
                 className={inputClass}
@@ -475,8 +501,7 @@ export function ResilienceConfigurationPanel({
               >
                 {workspace?.evidence.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.description} ·{" "}
-                    {item.verification_status ?? "unverified"}
+                    {item.description} · verified
                   </option>
                 ))}
               </select>
@@ -492,6 +517,12 @@ export function ResilienceConfigurationPanel({
                 }
               />
             </div>
+            <p className="text-xs text-slate-500">
+              Only named-human-verified evidence is selectable. Without it,
+              exposure remains explicitly provisional and requires a recorded
+              evidence gap. Quantitative likelihood cannot be saved without
+              verified evidence.
+            </p>
             <button
               disabled={busy}
               className="rounded-lg bg-signal-cyan px-4 py-2 text-sm font-semibold text-slate-950 disabled:opacity-50"
@@ -601,8 +632,7 @@ export function ResilienceConfigurationPanel({
               >
                 {workspace?.evidence.map((item) => (
                   <option key={item.id} value={item.id}>
-                    {item.description} ·{" "}
-                    {item.verification_status ?? "unverified"}
+                    {item.description} · verified
                   </option>
                 ))}
               </select>

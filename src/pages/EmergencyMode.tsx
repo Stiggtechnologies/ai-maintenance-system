@@ -103,7 +103,7 @@ export function EmergencyMode() {
     [],
   );
 
-  if (loading) return <LoadingState label="Checking for active incidents…" />;
+  if (loading) return <LoadingState label="Checking critical alerts…" />;
 
   if (!alerts || alerts.length === 0) {
     return (
@@ -112,17 +112,18 @@ export function EmergencyMode() {
           Emergency Mode
         </h1>
         <p className="text-sm text-slate-400 mt-0.5 mb-6">
-          Incident command view — activates automatically when a critical system
-          alert is raised.
+          Read-only critical-alert view with governed resilience configuration.
+          An alert does not declare an emergency or create an incident record.
         </p>
         <div className="bg-[#0D1520] border border-teal-500/20 rounded-2xl p-10 text-center">
           <div className="text-teal-400 text-lg font-semibold">
-            No active incidents
+            No unresolved critical alerts
           </div>
           <p className="text-sm text-slate-400 mt-2 max-w-md mx-auto">
-            All critical alerts are resolved. When an unresolved critical alert
-            exists, this view becomes the incident command center with timeline,
-            affected assets, and recovery tracking.
+            No unresolved critical alert is recorded. Use the resilience panel
+            below to govern threat scenarios and operating-mode policy; incident
+            command, affected-asset confirmation and recovery execution remain
+            in their authorized systems of record.
           </p>
         </div>
         <ResiliencePanel />
@@ -153,7 +154,7 @@ export function EmergencyMode() {
                 <span
                   className={`text-xs font-black uppercase tracking-wider ${sc.color}`}
                 >
-                  {sc.label} INCIDENT
+                  {sc.label} ALERT
                 </span>
                 <span className="text-xs text-slate-400 font-mono">
                   {activeIncident.id}

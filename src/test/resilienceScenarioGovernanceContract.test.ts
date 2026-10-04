@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { THREAT_KINDS } from "../services/resilienceConfigurationService";
 
 const migration = readFileSync(
-  "supabase/migrations/20270101790000_resilience_scenario_governance.sql",
+  "supabase/migrations/20270102240000_resilience_scenario_governance.sql",
   "utf8",
 ).toLowerCase();
 const service = readFileSync(
@@ -59,7 +59,17 @@ describe("E11 governed resilience configuration", () => {
     expect(migration).toContain(
       "every exposed asset must belong to this organization",
     );
+    expect(migration).toContain("verification_status='verified'");
+    expect(migration).toContain(
+      "quantitative annual likelihood requires at least one verified canonical evidence item",
+    );
+    expect(migration).toContain(
+      "exposure mapping requires verified evidence or an explicit scenario evidence gap",
+    );
     expect(migration).toContain("insert into public.audit_events");
+    expect(migration).toContain("previous_state,new_state");
+    expect(migration).toContain("guard_resilience_configuration_write");
+    expect(migration).toContain("from public,anon,authenticated,service_role");
     expect(migration).toContain(
       "revoke all on function public.save_threat_scenario(jsonb) from public,anon",
     );
@@ -81,15 +91,18 @@ describe("E11 governed resilience configuration", () => {
   it("is customer reachable before or during a critical incident", () => {
     for (const rpc of [
       "get_resilience_configuration_workspace",
-      "save_threat_scenario",
-      "replace_scenario_exposure",
+      "save_threat_scenario_with_exposure",
       "save_operating_mode_definition",
     ]) {
       expect(service).toContain(`"${rpc}"`);
     }
+    expect(panel).not.toContain("replaceScenarioExposure");
     expect(panel).toContain("Configure scenarios and operating-mode policy");
     expect(panel).toContain("This does not change operating state");
+    expect(panel).toContain("exposure remains explicitly provisional");
     expect(resiliencePanel).toContain("<ResilienceConfigurationPanel");
     expect(emergencyPage.match(/<ResiliencePanel \/>/g)).toHaveLength(2);
+    expect(emergencyPage).not.toContain("activates automatically");
+    expect(emergencyPage).not.toContain("becomes the incident command center");
   });
 });

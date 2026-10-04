@@ -13,7 +13,9 @@ The resilience workspace lets an authorized named human:
   utility, labour, equipment-loss, evacuation, shutdown and communications
   scenarios;
 - map directly exposed canonical assets with an accountable basis;
-- cite canonical evidence or explicitly record what evidence is missing;
+- cite same-tenant evidence carrying a named-human `verified` determination, or
+  explicitly record what evidence is missing and retain the exposure mapping
+  as `provisional`;
 - link an existing site, continuity procedure or supplier; and
 - define entry criteria, exit criteria, declaring role and changed decision
   rights for normal, degraded, emergency and recovery policy.
@@ -33,10 +35,17 @@ inventing one enterprise-wide state.
 
 The write functions derive organization and role from the authenticated
 session. Every site, asset, supplier, continuity procedure and evidence item
-must belong to that organization. Direct table writes remain closed; governed
-RPCs validate controlled values, evidence shape, duplicate identities,
-likelihood bounds, complete exercise facts and substantive human rationale.
-Every accepted configuration change creates an audit event.
+must belong to that organization. A quantitative annual likelihood is refused
+unless at least one named-human-verified evidence item supports the scenario;
+a missing-evidence note never substitutes for the source of a number. The
+workspace returns only verified evidence to authorized planning, engineering,
+maintenance, executive and administrator roles.
+
+The customer-facing scenario and exposure save is one database transaction: a
+refused exposure rolls the scenario upsert back. Direct insert, update, delete
+and truncate are protected by a governed-writer trigger in addition to RLS and
+explicit privilege revocation, including for `service_role`. Every accepted
+change stores before/after state in the canonical audit ledger.
 
 Scenario impact continues to use the canonical dependency cascade. Where a
 directly exposed asset is absent from that graph, the displayed impact is
@@ -57,7 +66,10 @@ The release gate includes:
 - pure analysis tests for smoke and dependency-cascade coverage;
 - a static architecture contract preventing parallel stores or state changes;
 - a clean migration-chain application;
-- authenticated scenario and four-mode configuration;
+- authenticated atomic scenario/exposure and four-mode configuration;
 - malformed input, missing provenance and cross-tenant refusals;
-- direct-write denial and audit-event checks; and
+- refusal of unverified evidence and unsupported numerical likelihood;
+- provisional labelling where exposure relies on a recorded evidence gap;
+- authenticated and service-role direct-write plus truncate denial;
+- complete before/after audit-state checks; and
 - proof that configuration does not add an `operating_mode_events` record.
