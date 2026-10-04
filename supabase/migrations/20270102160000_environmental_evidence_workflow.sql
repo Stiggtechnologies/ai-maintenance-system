@@ -22,6 +22,9 @@ alter table public.emission_factors
 alter table public.environmental_activities
   add column if not exists evidence_item_id uuid
     references public.evidence_items(id) on delete restrict,
+  add column if not exists emission_factor_id bigint
+    references public.emission_factors(id) on delete no action
+      deferrable initially deferred,
   add column if not exists basis text,
   add column if not exists source_reference text,
   add column if not exists substance text,
@@ -222,6 +225,7 @@ declare
   v_number3 numeric;
   v_bool boolean;
   v_factor_key text;
+  v_factor_id bigint;
   v_scope text;
   v_activity_kind text;
   v_category text;
@@ -259,7 +263,7 @@ begin
     select 1 from public.evidence_items e
     join public.user_profiles verifier on verifier.id=e.verified_by
       and verifier.organization_id=e.organization_id
-      and verifier.role<>'ai_admin'
+      and verifier.role in ('admin','executive','maintenance_manager','reliability_engineer')
     where e.id=v_evidence and e.organization_id=v_org
       and e.verification_status='verified'
       and e.verified_by is not null and e.verified_at is not null
@@ -281,6 +285,8 @@ begin
        or length(btrim(coalesce(p_record->>'label','')))<3
        or length(btrim(coalesce(p_record->>'activityUnit','')))<1
        or length(btrim(coalesce(p_record->>'factorUnit','')))<1
+       or not public.sync_is_finite_numeric(v_number)
+       or (v_number2 is not null and not public.sync_is_finite_numeric(v_number2))
        or v_number<=0 or (v_number2 is not null and v_number2<=0) then
       return jsonb_build_object('error','Factor key, label, units and positive factor/GWP are required');
     end if;
@@ -311,7 +317,11 @@ begin
     exception when others then
       return jsonb_build_object('error','asset, values, established date and expected version must be valid');
     end;
-    if v_expected<0 or v_number<=0 or coalesce(v_number2,0)<0 or coalesce(v_number3,0)<0
+    if v_expected<0
+       or not public.sync_is_finite_numeric(v_number)
+       or (v_number2 is not null and not public.sync_is_finite_numeric(v_number2))
+       or (v_number3 is not null and not public.sync_is_finite_numeric(v_number3))
+       or v_number<=0 or coalesce(v_number2,0)<0 or coalesce(v_number3,0)<0
        or v_date1>current_date
        or length(btrim(coalesce(p_record->>'metric','')))<2
        or length(btrim(coalesce(p_record->>'unit','')))<1 then
@@ -322,6 +332,17 @@ begin
     end if;
     if exists(select 1 from public.evidence_items e where e.id=v_evidence and e.asset_id is not null and e.asset_id<>v_asset) then
       return jsonb_build_object('error','evidence is not applicable to the selected asset');
+    end if;
+    -- The original index is case-sensitive. Serialize the governed normalized
+    -- identity so two concurrent calls cannot create `Specific Energy` and
+    -- `specific energy` as separate baselines.
+    perform pg_advisory_xact_lock(hashtextextended(
+      format('e10:baseline:%s:%s:%s',v_org,v_asset,lower(btrim(p_record->>'metric'))),0
+    ));
+    if (select count(*) from public.efficiency_baselines
+        where organization_id=v_org and asset_id=v_asset
+          and lower(btrim(metric))=lower(btrim(p_record->>'metric'))) > 1 then
+      return jsonb_build_object('error','Multiple legacy baselines share this normalized metric; reconcile them before recording a revision');
     end if;
     select * into v_existing_baseline from public.efficiency_baselines
       where organization_id=v_org and asset_id=v_asset
@@ -371,7 +392,8 @@ begin
     end;
     select b.asset_id into v_asset from public.efficiency_baselines b
       where b.id=v_baseline and b.organization_id=v_org and v_date1>=b.established_on;
-    if v_asset is null or v_date1>current_date or v_number<=0 then
+    if v_asset is null or v_date1>current_date
+       or not public.sync_is_finite_numeric(v_number) or v_number<=0 then
       return jsonb_build_object('error','Reading requires a same-tenant baseline, a date on/after the baseline and a positive value');
     end if;
     if exists(select 1 from public.evidence_items e where e.id=v_evidence and e.asset_id is not null and e.asset_id<>v_asset) then
@@ -410,7 +432,8 @@ begin
       'fuel_burn','electricity','flaring','venting','fugitive_methane',
       'water_withdrawal','water_discharge','waste_generated','hazardous_waste',
       'lubricant_loss','chemical_loss'
-    ) or v_number<0 or v_date2<v_date1 or v_date2>current_date
+    ) or not public.sync_is_finite_numeric(v_number)
+      or v_number<0 or v_date2<v_date1 or v_date2>current_date
       or length(btrim(coalesce(p_record->>'unit','')))<1 then
       return jsonb_build_object('error','Valid activity kind, non-negative quantity, unit and completed period are required');
     end if;
@@ -424,16 +447,28 @@ begin
     if v_factor_key is not null and v_scope is null then
       return jsonb_build_object('error','An activity with an emission factor requires an explicit scope');
     end if;
-    if v_factor_key is not null and not exists(
-      select 1 from public.emission_factors f where f.organization_id=v_org
-        and f.factor_key=v_factor_key and f.valid_from<=v_date2
+    if v_factor_key is not null then
+      select f.id into v_factor_id
+      from public.emission_factors f
+      where f.organization_id=v_org and f.factor_key=v_factor_key
+        and f.valid_from<=v_date2
         and lower(btrim(f.activity_unit))=lower(btrim(p_record->>'unit'))
-    ) then return jsonb_build_object('error','No applicable same-tenant emission factor with the same activity unit exists for this activity period'); end if;
+      order by f.valid_from desc,f.id desc limit 1;
+      if v_factor_id is null then
+        return jsonb_build_object('error','No applicable same-tenant emission factor with the same activity unit exists for this activity period');
+      end if;
+    end if;
     if v_site is not null and not exists(select 1 from public.sites s where s.id=v_site and s.organization_id=v_org) then
       return jsonb_build_object('error','site is outside the active tenant');
     end if;
     if v_asset is not null and not exists(select 1 from public.assets a where a.id=v_asset and a.organization_id=v_org) then
       return jsonb_build_object('error','asset is outside the active tenant');
+    end if;
+    if v_site is not null and v_asset is not null and not exists(
+      select 1 from public.assets a
+      where a.id=v_asset and a.organization_id=v_org and a.site_id=v_site
+    ) then
+      return jsonb_build_object('error','asset does not belong to the selected same-tenant site');
     end if;
     if exists(select 1 from public.evidence_items e where e.id=v_evidence and e.asset_id is not null
       and (v_asset is null or e.asset_id<>v_asset)) then
@@ -442,17 +477,18 @@ begin
     perform set_config('app.environmental_evidence_writer','governed',true);
     insert into public.environmental_activities(
       organization_id,site_id,asset_id,activity_kind,period_start,period_end,
-      quantity,unit,factor_key,scope,maintenance_attributable,note,
+      quantity,unit,factor_key,emission_factor_id,scope,maintenance_attributable,note,
       evidence_item_id,basis,source_reference,substance,recorded_by
     ) values(
       v_org,v_site,v_asset,v_activity_kind,v_date1,v_date2,v_number,
-      btrim(p_record->>'unit'),v_factor_key,v_scope,v_bool,
+      btrim(p_record->>'unit'),v_factor_key,v_factor_id,v_scope,v_bool,
       nullif(btrim(p_record->>'note'),''),v_evidence,v_basis,v_source,
       nullif(btrim(p_record->>'substance'),''),v_actor
     ) returning id into v_id;
     v_after:=jsonb_build_object('id',v_id,'activityKind',v_activity_kind,
       'periodStart',v_date1,'periodEnd',v_date2,'quantity',v_number,
-      'unit',btrim(p_record->>'unit'),'factorKey',v_factor_key,'scope',v_scope,
+      'unit',btrim(p_record->>'unit'),'factorKey',v_factor_key,
+      'emissionFactorId',v_factor_id,'scope',v_scope,
       'maintenanceAttributable',v_bool,'substance',nullif(btrim(p_record->>'substance'),''),
       'evidenceItemId',v_evidence,'basis',v_basis,'sourceReference',v_source);
 
@@ -470,7 +506,7 @@ begin
     if length(coalesce(v_ref,''))<2 or v_expected<0
        or length(btrim(coalesce(p_record->>'substance','')))<2
        or v_category not in ('battery','refrigerant','solvent','lubricant','reagent','radioactive_source','asbestos','other')
-       or (v_number is not null and v_number<=0)
+       or (v_number is not null and (not public.sync_is_finite_numeric(v_number) or v_number<=0))
        or ((v_number is null)<>(nullif(btrim(p_record->>'unit'),'') is null))
        or length(btrim(coalesce(p_record->>'location','')))<2
        or length(btrim(coalesce(p_record->>'handlingRequirements','')))<20
@@ -579,9 +615,10 @@ revoke all on function public.get_environmental_loss_records()
 grant execute on function public.get_environmental_loss_records()
   to authenticated;
 
--- Replace the original activity projection so a later factor version cannot
--- be applied retroactively and a factor whose activity unit differs from the
--- recorded activity is returned as absent instead of producing false CO2e.
+-- Replace the original activity projection. New governed activities retain
+-- the exact factor row selected at record time. Legacy rows with no frozen
+-- factor remain honestly uncalculated rather than being assigned a later
+-- factor retroactively.
 create or replace function public.get_environmental_activities(p_limit int default 50)
 returns jsonb
 language sql
@@ -600,14 +637,8 @@ as $$
     from public.environmental_activities a
     left join public.assets ast
       on ast.id=a.asset_id and ast.organization_id=a.organization_id
-    left join lateral (
-      select ef.* from public.emission_factors ef
-      where ef.organization_id=a.organization_id
-        and ef.factor_key=a.factor_key
-        and ef.valid_from<=a.period_end
-        and lower(btrim(ef.activity_unit))=lower(btrim(a.unit))
-      order by ef.valid_from desc,ef.id desc limit 1
-    ) f on true
+    left join public.emission_factors f
+      on f.id=a.emission_factor_id and f.organization_id=a.organization_id
     where a.organization_id=public.app_current_org()
     order by a.period_end desc,a.id desc
     limit greatest(1,least(p_limit,500))
@@ -648,7 +679,7 @@ as $$
       order by e.verified_at desc)
       from public.evidence_items e join public.user_profiles verifier
         on verifier.id=e.verified_by and verifier.organization_id=e.organization_id
-        and verifier.role<>'ai_admin'
+        and verifier.role in ('admin','executive','maintenance_manager','reliability_engineer')
       join context c on e.organization_id=c.org
       where e.verified_by<>(select actor from context)
         and e.verification_status='verified' and e.verified_by is not null

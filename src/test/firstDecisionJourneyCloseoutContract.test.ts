@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 const read = (path: string) => readFileSync(path, "utf8");
 
 const migration = read(
-  "supabase/migrations/20270102160000_decision_case_workspace_invitation.sql",
+  "supabase/migrations/20270102170000_decision_case_workspace_invitation.sql",
 );
 const edge = read("supabase/functions/decision-case-invite/index.ts");
 const edgeCore = read(
@@ -56,6 +56,21 @@ describe("First Decision Journey closeout contract", () => {
     expect(edge).toMatch(/auth\.getUser/);
     expect(edge).toMatch(/inviteUserByEmail/);
     expect(edge).toMatch(/deleteUser/);
+    expect(edge).toMatch(/mayRollbackFreshInvite/);
+    expect(edge).toMatch(/providerFailureReceipt/);
+    expect(edge).not.toMatch(/rolled back because tenant registration failed:/);
+  });
+
+  it("derives acceptance from Auth and retains lifecycle transitions in the audit ledger", () => {
+    expect(migration).toMatch(/observe_decision_case_invitation/);
+    expect(migration).toMatch(/email_confirmed_at/);
+    expect(migration).toMatch(/last_sign_in_at/);
+    expect(migration).toMatch(/workspace_invitation_observation/);
+    expect(migration).toMatch(
+      /revoke all on function public\.observe_decision_case_invitation[\s\S]*authenticated/,
+    );
+    expect(edge).toMatch(/observe_decision_case_invitation/);
+    expect(spine).toMatch(/\["already_member", "accepted", "active"\]/);
   });
 
   it("deploys the protected edge boundary and probes anonymous refusal", () => {

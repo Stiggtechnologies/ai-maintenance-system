@@ -225,7 +225,28 @@ describe("P0.2 Decision Case spine", () => {
       submittedAt: "2026-10-02T12:00:00.000Z",
       lastCheckedAt: "2026-10-02T12:00:00.000Z",
     });
-    const ready = readinessFromCase(invited, {
+    const submitted = readinessFromCase(invited, {
+      saved: true,
+      disposition: "need_more_evidence",
+      verification: {
+        question: "How will we know this worked?",
+        expected: "Named vibration set attached before the next review",
+        actual: "",
+        evidence: "",
+        scheduledFor: "2026-09-14",
+        effectiveness: "",
+      },
+    });
+    expect(
+      submitted.gates.find((gate) => gate.id === "invitation_delivery")?.met,
+    ).toBe(false);
+    const accepted = applyInvitationDelivery(invited, {
+      ...invited.invitation!,
+      status: "accepted",
+      detail:
+        "Invitation accepted; first workspace sign-in has not yet been observed.",
+    });
+    const ready = readinessFromCase(accepted, {
       saved: true,
       disposition: "need_more_evidence",
       verification: {

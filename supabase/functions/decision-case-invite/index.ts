@@ -2,9 +2,10 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
   boundedProviderDetail,
-  invitationLifecycle,
   inviteAuthority,
+  mayRollbackFreshInvite,
   normalizeInviteRequest,
+  providerFailureReceipt,
 } from "../_shared/decision-case-invite-core.ts";
 
 const origin = Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
@@ -90,23 +91,28 @@ Deno.serve(async (request: Request) => {
     }
     const invitedUserId =
       typeof receipt.invitedUserId === "string" ? receipt.invitedUserId : "";
-    let status = String(receipt.status ?? "submitted");
-    if (status === "submitted" && invitedUserId) {
-      const { data: invited } =
-        await admin.auth.admin.getUserById(invitedUserId);
-      status = invitationLifecycle(invited.user ?? null);
+    const status = String(receipt.status ?? "submitted");
+    if (invitedUserId && (status === "submitted" || status === "accepted")) {
+      const { data: observed, error: observationError } = await admin.rpc(
+        "observe_decision_case_invitation",
+        { p_actor_id: authData.user.id, p_case_id: input.decisionCaseId },
+      );
+      const observation = (observed ?? {}) as Record<string, unknown>;
+      if (observationError || observation.error) {
+        return response(
+          {
+            error: String(
+              observation.error ??
+                observationError?.message ??
+                "invitation acceptance could not be verified",
+            ),
+          },
+          500,
+        );
+      }
+      return response(observation);
     }
-    return response({
-      ...receipt,
-      status,
-      detail:
-        status === "active"
-          ? "Invitation accepted and the invited member has signed in. Workspace membership does not grant decision authority."
-          : status === "accepted"
-            ? "Invitation accepted; first workspace sign-in has not yet been observed. Workspace membership does not grant decision authority."
-            : receipt.detail,
-      lastCheckedAt: new Date().toISOString(),
-    });
+    return response({ ...receipt, lastCheckedAt: new Date().toISOString() });
   }
 
   const { data: profile, error: profileError } = await admin
@@ -198,7 +204,26 @@ Deno.serve(async (request: Request) => {
       redirectTo,
     });
   if (inviteError || !invited.user) {
-    const detail = boundedProviderDetail(inviteError?.message);
+    console.error(
+      "decision-case-invite provider refusal:",
+      boundedProviderDetail(inviteError?.message),
+    );
+    const detail = providerFailureReceipt();
+    const { data: recovered } = await admin
+      .from("user_profiles")
+      .select("id")
+      .eq("organization_id", profile.organization_id)
+      .ilike("email", input.email)
+      .maybeSingle();
+    if (recovered?.id) {
+      return response(
+        await register(
+          recovered.id,
+          "already_member",
+          "The named identity became a member of this tenant while the invitation was being processed; no additional email was recorded.",
+        ),
+      );
+    }
     try {
       return response(await register(null, "failed", detail));
     } catch {
@@ -215,10 +240,33 @@ Deno.serve(async (request: Request) => {
       ),
     );
   } catch (error) {
-    await admin.auth.admin.deleteUser(invited.user.id);
+    console.error(
+      "decision-case-invite tenant registration failure:",
+      boundedProviderDetail(error instanceof Error ? error.message : error),
+    );
+    let rolledBack = false;
+    if (mayRollbackFreshInvite(invited.user)) {
+      const { error: rollbackError } = await admin.auth.admin.deleteUser(
+        invited.user.id,
+      );
+      if (rollbackError) {
+        console.error(
+          "decision-case-invite rollback failure:",
+          boundedProviderDetail(rollbackError.message),
+        );
+      } else {
+        rolledBack = true;
+      }
+    } else {
+      console.error(
+        "decision-case-invite refused destructive rollback for a non-fresh or accepted identity",
+      );
+    }
     return response(
       {
-        error: `Invitation was rolled back because tenant registration failed: ${boundedProviderDetail(error instanceof Error ? error.message : error)}`,
+        error: rolledBack
+          ? "Invitation could not be attached to the tenant and the fresh invite identity was rolled back. Review the protected function log before retrying."
+          : "Invitation could not be attached to the tenant. No acceptance state was recorded; an administrator must review the protected function log.",
       },
       500,
     );
