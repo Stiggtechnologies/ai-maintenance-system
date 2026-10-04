@@ -176,11 +176,19 @@ describe("the resolver sees a real chain", () => {
       "20260917001000_definer_tenancy_guards.sql",
     );
     expect(defs.get("retrieve_kb_context")?.file).toBe(
-      // Last definition moved with the governed-source overlay. The session
-      // gate and permitted_claims join must still hold on THIS file, not on
-      // the earlier tenancy-hardening copy.
-      "20261216090000_governed_engineering_knowledge.sql",
+      // Last definition moved with malicious-document containment. The
+      // session, governed-source, claim-purpose and quarantine gates must all
+      // hold on THIS file, not on an earlier hardened copy.
+      "20270101850000_kb_document_security.sql",
     );
+
+    const latestKbBody = defs.get("retrieve_kb_context")?.body.toLowerCase();
+    expect(latestKbBody).toContain(
+      "c.security_status in ('cleared','released')",
+    );
+    expect(latestKbBody).toContain("s.review_state='approved'");
+    expect(latestKbBody).toContain("s.superseded_by_source_id is null");
+    expect(latestKbBody).toContain("p_claim_type=any(d.permitted_claims)");
   });
 });
 

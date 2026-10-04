@@ -22,6 +22,8 @@ import {
   reviewEngineeringModelApplicability,
   type EngineeringModelRegistryRow,
 } from "../services/engineeringModelService";
+import { ModelPerformanceMonitoringPanel } from "../components/ModelPerformanceMonitoringPanel";
+import { DegradationLibraryPanel } from "../components/DegradationLibraryPanel";
 
 interface EvidenceOption {
   id: string;
@@ -720,6 +722,12 @@ export function EngineeringModelRegistryPage() {
         </p>
       </div>
 
+      <DegradationLibraryPanel
+        evidence={evidence.data ?? []}
+        canManage={canManage}
+        currentUserId={profile?.id ?? null}
+      />
+
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
         {[
           ["Registered", data.posture.registered],
@@ -785,6 +793,8 @@ export function EngineeringModelRegistryPage() {
         <RefreshCw className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />
         <p>{data.posture.basis}</p>
       </div>
+
+      <ModelPerformanceMonitoringPanel />
     </div>
   );
 }

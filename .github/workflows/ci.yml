@@ -259,6 +259,9 @@ jobs:
       - name: Smoke — governed RCA / FRACAS investigation
         run: bash scripts/ci-fracas-rca-agent-smoke.sh
 
+      - name: Smoke — Reliability Engineer composite improvement case
+        run: bash scripts/ci-reliability-improvement-case-smoke.sh
+
       # The Sync Develop transcripts run in CI against the same booted chain,
       # so the gate/sanction discipline and the value-spine refusals cannot
       # rot silently behind green checks. Both scripts are idempotent and
@@ -361,6 +364,9 @@ jobs:
       - name: Smoke — contextual condition monitoring (historian + exact-time duty)
         run: bash scripts/ci-contextual-condition-monitoring-smoke.sh
 
+      - name: Smoke — bounded paginated historian condition-reading import
+        run: bash scripts/ci-historian-paginated-read-smoke.sh
+
       - name: Smoke — governed Condition Monitoring Analyst
         run: bash scripts/ci-condition-monitoring-agent-smoke.sh
 
@@ -375,6 +381,9 @@ jobs:
 
       - name: Smoke — governed Data Steward Specialist
         run: bash scripts/ci-data-steward-agent-smoke.sh
+
+      - name: Smoke — governed Maintenance Executive agent
+        run: bash scripts/ci-maintenance-executive-agent-smoke.sh
 
       - name: Smoke — loss forecast, risk backlog and outage options
         run: bash scripts/ci-loss-forecast-backlog-outage-smoke.sh
@@ -399,6 +408,18 @@ jobs:
 
       - name: Smoke — Sync Develop Site Change Load (capacity absorption)
         run: bash scripts/ci-develop-site-change-load-smoke.sh
+
+      - name: Smoke — workforce training lifecycle and governed labour rules
+        run: bash scripts/ci-workforce-governance-smoke.sh
+
+      - name: Smoke — governed crew, tools, knowledge and multilingual standard work
+        run: bash scripts/ci-workforce-execution-governance-smoke.sh
+
+      - name: Smoke — governed supplier and contractor evidence
+        run: bash scripts/ci-supplier-commercial-governance-smoke.sh
+
+      - name: Smoke — governed design feedback and live standardization
+        run: bash scripts/ci-design-project-governance-smoke.sh
 
       - name: Smoke — Sync Develop Technical Debt (case origin, valuation, independent approval)
         run: bash scripts/ci-develop-technical-debt-smoke.sh
@@ -462,6 +483,39 @@ jobs:
       - name: Smoke — governed AI and calculation model registry
         run: bash scripts/ci-governed-model-registry-smoke.sh
 
+      - name: Smoke — governed sixteen-family degradation library
+        run: bash scripts/ci-degradation-library-smoke.sh
+
+      - name: Smoke — governed recommendation evidence provenance
+        run: bash scripts/ci-recommendation-evidence-provenance-smoke.sh
+
+      - name: Smoke — governed recommendation assumptions and release gate
+        run: bash scripts/ci-recommendation-assumptions-smoke.sh
+
+      - name: Smoke — governed return-to-service verification
+        run: bash scripts/ci-return-to-service-verification-smoke.sh
+
+      - name: Smoke — governed maintenance change control
+        run: bash scripts/ci-maintenance-change-control-smoke.sh
+
+      - name: Smoke — governed uncertainty-aware risk analysis
+        run: bash scripts/ci-risk-uncertainty-analysis-smoke.sh
+
+      - name: Smoke — exact-version model performance, drift and cohort screening
+        run: bash scripts/ci-model-performance-governance-smoke.sh
+
+      - name: Smoke — tenant MFA and privileged-access assurance
+        run: bash scripts/ci-privileged-access-mfa-smoke.sh
+
+      - name: Smoke — quarantined knowledge and independent AAL2 release
+        run: bash scripts/ci-kb-document-security-smoke.sh
+
+      - name: Smoke — governed fail-closed tenant AI egress
+        run: bash scripts/ci-data-loss-prevention-smoke.sh
+
+      - name: Smoke — deterministic contract legal compliance
+        run: bash scripts/ci-contract-legal-compliance-smoke.sh
+
       - name: Smoke — hardware-neutral governed Edge Evidence Contract
         run: bash scripts/ci-edge-evidence-contract-smoke.sh
 
@@ -495,14 +549,71 @@ jobs:
       - name: Smoke — governed geospatial operational intelligence
         run: bash scripts/ci-geospatial-operational-intelligence-smoke.sh
 
+      - name: Smoke — Decision Case command authority
+        run: bash scripts/ci-decision-case-command-authority-smoke.sh
+
       - name: Smoke — Sync Context canonical contracts and two-tenant isolation
         run: bash scripts/ci-sync-context-contract-smoke.sh
 
       - name: Smoke — governed enterprise portfolio optimization
         run: bash scripts/ci-enterprise-portfolio-optimization-smoke.sh
 
+      - name: Smoke — governed cost/ERP actuals import
+        run: bash scripts/ci-develop-cost-actual-connector-smoke.sh
+
+      - name: Smoke — governed process-event import and per-asset context
+        run: bash scripts/ci-process-event-ingest-smoke.sh
+
+      - name: Smoke — governed condition-sensor registry, ingest and diagnostic report
+        run: bash scripts/ci-condition-sensor-registry-smoke.sh
+
+      - name: Smoke — governed production-loss, downtime and constraint reconciliation
+        run: bash scripts/ci-production-loss-classification-smoke.sh
+
+      - name: Smoke — governed material catalogue and serialized repairable history
+        run: bash scripts/ci-material-catalogue-repairable-history-smoke.sh
+
+      - name: Smoke — controlled technical-document revisions and effectivity
+        run: bash scripts/ci-controlled-technical-documents-smoke.sh
+
+      - name: Smoke — governed asset economics and lifecycle capital plans
+        run: bash scripts/ci-asset-economics-capital-plans-smoke.sh
+
+      - name: Smoke — safety-critical equipment and regulatory obligations
+        run: bash scripts/ci-safety-critical-regulatory-registers-smoke.sh
+
+      - name: Smoke — bounded paginated CMMS work-order import
+        run: bash scripts/ci-cmms-paginated-read-smoke.sh
+
+      - name: Smoke — governed ADLS data-lake run attestation and cursor
+        run: bash scripts/ci-adls-data-lake-smoke.sh
+
+      - name: Smoke — governed Primavera P6 schedule read and revision approval
+        run: bash scripts/ci-p6-schedule-read-smoke.sh
+
+      - name: Smoke — governed SAP S/4HANA material stock read
+        run: bash scripts/ci-sap-s4-inventory-read-smoke.sh
+
+      - name: Smoke — governed SAP S/4HANA financial actuals read
+        run: bash scripts/ci-sap-s4-financial-read-smoke.sh
+
+      - name: Smoke — governed Bently System 1 condition-data read
+        run: bash scripts/ci-bently-system1-condition-read-smoke.sh
+
+      - name: Smoke — governed environmental evidence workflow
+        run: bash scripts/ci-environmental-evidence-workflow-smoke.sh
+
+      - name: Smoke — tenant-bound Decision Case workspace invitation
+        run: bash scripts/ci-decision-case-invitation-smoke.sh
+
+      - name: Smoke — thirteen-dimension finance intelligence
+        run: bash scripts/ci-develop-finance-intelligence-smoke.sh
+
       - name: Smoke — value calculations execute server-side with immutable lineage
         run: bash scripts/ci-value-calculation-lineage-smoke.sh
+
+      - name: Smoke — Modelling Studio calculations execute server-side with immutable lineage
+        run: bash scripts/ci-modelling-studio-lineage-smoke.sh
 
       - name: Smoke — Sync Develop nine-dimension portfolio frontier
         run: bash scripts/ci-develop-portfolio-frontier-smoke.sh

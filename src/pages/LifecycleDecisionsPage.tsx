@@ -8,8 +8,18 @@
  * §2 Group 5). The panel is remounted, not modified.
  */
 import { LifecycleDecisions } from "../components/LifecycleDecisions";
+import { AssetEconomicsAdministration } from "../components/AssetEconomicsAdministration";
+import { useAuth } from "../components/AuthProvider";
+
+const ECONOMICS_EDITOR_ROLES = new Set([
+  "admin",
+  "executive",
+  "maintenance_manager",
+  "reliability_engineer",
+]);
 
 export function LifecycleDecisionsPage() {
+  const { profile } = useAuth();
   return (
     <div className="p-6 space-y-6">
       <div>
@@ -21,6 +31,9 @@ export function LifecycleDecisionsPage() {
           decided by a human
         </p>
       </div>
+      <AssetEconomicsAdministration
+        canEdit={ECONOMICS_EDITOR_ROLES.has(profile?.role ?? "")}
+      />
       <LifecycleDecisions />
     </div>
   );

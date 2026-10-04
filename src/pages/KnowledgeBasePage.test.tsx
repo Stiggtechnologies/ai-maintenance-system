@@ -12,6 +12,7 @@ import { KnowledgeBasePage } from "./KnowledgeBasePage";
 const listKbIntakeDocuments = vi.fn();
 const listKbDocumentClasses = vi.fn();
 const ingestKbDocument = vi.fn();
+const reviewKbDocumentSecurity = vi.fn();
 
 const ocrPdfToText = vi.fn();
 
@@ -26,11 +27,24 @@ vi.mock("../services/kbIntake", () => ({
   listKbIntakeDocuments: () => listKbIntakeDocuments(),
   listKbDocumentClasses: () => listKbDocumentClasses(),
   ingestKbDocument: (input: unknown) => ingestKbDocument(input),
+  reviewKbDocumentSecurity: (...args: unknown[]) =>
+    reviewKbDocumentSecurity(...args),
+}));
+
+// C2.09 has its own component/service/SQL contract suite. Keep these C2.15
+// intake tests focused on the existing upload and security-review surface.
+vi.mock("../components/ControlledTechnicalDocuments", () => ({
+  ControlledTechnicalDocuments: () => (
+    <div data-testid="controlled-technical-documents" />
+  ),
 }));
 
 let role = "reliability_engineer";
 vi.mock("../components/AuthProvider", () => ({
-  useAuth: () => ({ profile: { role } }),
+  useAuth: () => ({
+    profile: { role },
+    user: { id: "reviewer-user" },
+  }),
 }));
 
 const DOC = {
@@ -45,6 +59,13 @@ const DOC = {
   page_count: 14,
   uploaded_at: "2026-08-27T00:00:00Z",
   error_message: null,
+  security_status: "cleared",
+  security_findings: [],
+  security_scan_version: "deterministic-v1",
+  security_scanned_at: "2026-08-27T00:00:01Z",
+  security_reviewed_by: null,
+  security_reviewed_at: null,
+  security_review_basis: null,
 };
 
 const CLASSES = [
@@ -122,6 +143,8 @@ describe("KnowledgeBasePage", () => {
       document_class: "oem_service_manual",
       chunks_created: 12,
       status: "indexed",
+      security_status: "cleared",
+      security_findings_count: 0,
     });
     render(
       <MemoryRouter>
@@ -198,6 +221,8 @@ describe("KnowledgeBasePage", () => {
         document_class: "unclassified",
         chunks_created: 6,
         status: "indexed",
+        security_status: "cleared",
+        security_findings_count: 0,
       });
     ocrPdfToText.mockResolvedValue({
       text: "[Page 1]\nRecognized service text from the scanned manual.",
@@ -249,6 +274,8 @@ describe("KnowledgeBasePage", () => {
       document_class: "unclassified",
       chunks_created: 8,
       status: "indexed",
+      security_status: "cleared",
+      security_findings_count: 0,
     });
     render(
       <MemoryRouter>
@@ -303,6 +330,61 @@ describe("KnowledgeBasePage", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ingest" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
       /intake failed/i,
+    );
+  });
+
+  it("shows quarantine findings and reaches the independent review action", async () => {
+    listKbIntakeDocuments.mockResolvedValue([
+      {
+        ...DOC,
+        id: "quarantined-doc",
+        security_status: "quarantined",
+        security_findings: [
+          {
+            chunkIndex: 0,
+            signals: [
+              {
+                signal: "instruction_override",
+                severity: "critical",
+                explanation:
+                  "The document contains language attempting to override higher-priority instructions.",
+              },
+            ],
+          },
+        ],
+      },
+    ]);
+    reviewKbDocumentSecurity.mockResolvedValue({
+      sourceId: DOC.source_id,
+      securityStatus: "released",
+      chunksReviewed: 1,
+      retrievable: true,
+      segregationOfDuties: true,
+      engineeringAuthority: false,
+    });
+    render(
+      <MemoryRouter>
+        <KnowledgeBasePage />
+      </MemoryRouter>,
+    );
+    expect(
+      await screen.findByText(/Excluded from every supported AI retriever/i),
+    ).toBeTruthy();
+    fireEvent.change(screen.getByPlaceholderText(/Independent review basis/i), {
+      target: {
+        value:
+          "Confirmed as a training example and not an executable instruction.",
+      },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: /Release false positive/i }),
+    );
+    await waitFor(() =>
+      expect(reviewKbDocumentSecurity).toHaveBeenCalledWith(
+        DOC.source_id,
+        "release",
+        "Confirmed as a training example and not an executable instruction.",
+      ),
     );
   });
 });

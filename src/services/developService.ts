@@ -25,6 +25,7 @@ import type {
   CalculationRun,
   CaseControls,
   CostReconciliation,
+  ScheduleLogicEdge,
   ScopeGrowth,
 } from "../lib/develop/controls";
 import type {
@@ -1253,10 +1254,38 @@ export async function recordCaseValueEvaluation(input: {
 export async function getCaseFinanceModel(
   caseId: string,
 ): Promise<CaseFinanceModel> {
-  const { data, error } = await supabase.rpc("get_case_finance_model", {
+  const { data, error } = await supabase.rpc("get_case_finance_intelligence", {
     p_case_id: caseId,
   });
   return unwrapRpc(data, error, "Could not load the finance model");
+}
+
+export async function configureBusinessCaseOptionEconomics(input: {
+  optionId: number;
+  sourceCurrency: string;
+  escalationAssumptionKey?: string | null;
+  fxAssumptionKey?: string | null;
+  basis: string;
+}): Promise<{
+  optionId: number;
+  sourceCurrency: string;
+  targetCurrency: string;
+  escalationAssumptionKey: string | null;
+  fxAssumptionKey: string | null;
+  basis: string;
+}> {
+  const { data, error } = await supabase.rpc(
+    "configure_business_case_option_economics",
+    {
+      p_option_id: input.optionId,
+      p_source_currency: input.sourceCurrency,
+      p_escalation_assumption_key:
+        input.escalationAssumptionKey ?? null,
+      p_fx_assumption_key: input.fxAssumptionKey ?? null,
+      p_basis: input.basis,
+    },
+  );
+  return unwrapRpc(data, error, "Could not configure option economics");
 }
 
 export async function getCaseOptionComparison(
@@ -3199,10 +3228,35 @@ export async function setAssuranceClaimPosition(input: {
  */
 
 export async function getCaseControls(caseId: string): Promise<CaseControls> {
-  const { data, error } = await supabase.rpc("get_case_controls", {
-    p_case_id: caseId,
-  });
-  return unwrap(data, error);
+  const [controlsResult, graphResult] = await Promise.all([
+    supabase.rpc("get_case_controls", { p_case_id: caseId }),
+    supabase.rpc("get_case_schedule_activity_graph", { p_case_id: caseId }),
+  ]);
+  const controls = unwrap<CaseControls>(
+    controlsResult.data,
+    controlsResult.error,
+  );
+  const graph = unwrap<{
+    activities: Array<{
+      activityId: number;
+      predecessors: ScheduleLogicEdge[];
+      successors: ScheduleLogicEdge[];
+    }>;
+  }>(graphResult.data, graphResult.error);
+  const byId = new Map(
+    (graph.activities ?? []).map((activity) => [activity.activityId, activity]),
+  );
+  return {
+    ...controls,
+    scheduleActivities: controls.scheduleActivities.map((activity) => {
+      const logic = byId.get(activity.id);
+      return {
+        ...activity,
+        predecessors: logic?.predecessors ?? [],
+        successors: logic?.successors ?? [],
+      };
+    }),
+  };
 }
 
 export async function recordScopeNeed(input: {
@@ -3898,6 +3952,58 @@ export async function recordLocalScheduleRelationship(input: {
         link_type: input.linkType ?? "",
         lag_hours: input.lagHours ?? "",
       },
+    },
+  );
+  return unwrap(data, error);
+}
+
+export interface ScheduleImportRevisionChange {
+  taskId: number;
+  eventId: string;
+  caseId: string;
+  activityKey: string;
+  stagingRowId: number;
+  fields: Record<string, { from: unknown; to: unknown }>;
+}
+
+export interface ScheduleImportRevisionResult {
+  answered: boolean;
+  refusal?: string;
+  revisionId?: string;
+  status?: "pending" | "approved" | "rejected";
+  changeCount?: number;
+  changes?: ScheduleImportRevisionChange[];
+  applied?: boolean;
+  note?: string;
+}
+
+/**
+ * D5.28: turns changed duplicate rows from a completed P6 re-export into a
+ * pending immutable review. Identical replays return an honest refusal and
+ * create no ledger noise.
+ */
+export async function proposeScheduleImportRevision(
+  runId: string,
+): Promise<ScheduleImportRevisionResult> {
+  const { data, error } = await supabase.rpc(
+    "propose_schedule_import_revision",
+    { p_run_id: runId },
+  );
+  return unwrap(data, error);
+}
+
+/** §70: only a named human may accept or reject the P6 change set. */
+export async function decideScheduleImportRevision(input: {
+  revisionId: string;
+  decision: "approved" | "rejected";
+  note: string;
+}): Promise<ScheduleImportRevisionResult> {
+  const { data, error } = await supabase.rpc(
+    "decide_schedule_import_revision",
+    {
+      p_revision_id: input.revisionId,
+      p_decision: input.decision,
+      p_note: input.note,
     },
   );
   return unwrap(data, error);
@@ -6826,6 +6932,28 @@ export interface ContractCommercial {
   contractStartDate?: string | null;
   contractCompletionDate?: string | null;
   summary?: Record<string, unknown>;
+  legalCompliance?: {
+    packageId: number;
+    answered: boolean;
+    status: "unassessed" | "expired" | "compliant" | "not_compliant" | "not_a_contract";
+    compliant?: boolean;
+    determination?: "compliant" | "not_compliant";
+    version?: number;
+    jurisdiction?: string;
+    legalScope?: string;
+    basis?: string;
+    attestedBy?: string;
+    attestedAt?: string;
+    validUntil?: string;
+    evidence?: {
+      id: string;
+      description: string;
+      revision: string | null;
+      verifiedAt: string | null;
+      verifiedBy: string | null;
+    };
+    refusal?: string;
+  };
   commitment?: Record<string, unknown>;
   invoicePosition?: Record<string, unknown>;
   changeOrders?: {
@@ -6909,6 +7037,45 @@ export async function getContractCommercial(
     p_package_id: packageId,
   });
   return unwrap(data, error);
+}
+
+export interface ContractLegalComplianceInput {
+  determination: "compliant" | "not_compliant";
+  jurisdiction: string;
+  legalScope: string;
+  evidenceItemId: string;
+  basis: string;
+  validUntil: string;
+  supersessionReason?: string;
+}
+
+/** D11.24 / spec §70: named-human, MFA/AAL2 legal determination. */
+export async function recordContractLegalCompliance(
+  packageId: number,
+  input: ContractLegalComplianceInput,
+): Promise<{
+  attestationId: string;
+  version: number;
+  determination: "compliant" | "not_compliant";
+  validUntil: string;
+  position: NonNullable<ContractCommercial["legalCompliance"]>;
+}> {
+  const { data, error } = await supabase.rpc(
+    "record_contract_legal_compliance",
+    {
+      p_package_id: packageId,
+      p_attestation: {
+        determination: input.determination,
+        jurisdiction: input.jurisdiction,
+        legal_scope: input.legalScope,
+        evidence_item_id: input.evidenceItemId,
+        basis: input.basis,
+        valid_until: input.validUntil,
+        supersession_reason: input.supersessionReason ?? null,
+      },
+    },
+  );
+  return unwrapRpc(data, error, "Could not record legal compliance");
 }
 
 /** D6.01: accrued from acts, never stored. Refuses when no period is recorded. */
@@ -8290,6 +8457,8 @@ export async function recordWorkforceMember(payload: {
   employer?: string;
   fte?: string;
   siteId?: string | null;
+  hiredOn?: string;
+  expectedDeparture?: string;
 }): Promise<CompetencyWriteResult> {
   const { data, error } = await supabase.rpc("record_workforce_member", {
     p_payload: payload,
@@ -8946,18 +9115,20 @@ export interface ProjectStandardWorkOption {
   title: string;
   version: number;
   basis: string | null;
+  safety_critical: boolean;
+  engineering_change_class: string | null;
   source_project_ca_id: string | null;
   previous_standard_work_id: number | null;
   change_summary: string | null;
   revision_requested_by: string | null;
   revision_approval_id: string | null;
   procedures: { id: number; language_code: string; content: string; translation_status: string; verified_by: string | null; verified_at: string | null }[];
-  approval: { status: string; approver_user_id: string | null; decided_at: string | null } | null;
+  approval: { status: string; owner_role: string; approver_user_id: string | null; decided_at: string | null } | null;
 }
 
 export async function listProjectStandardWork(afterId?: number, exactId?: number, observationId?: string): Promise<ProjectStandardWorkOption[]> {
   let query = supabase.from("standard_work")
-    .select("id, work_key, title, version, basis, source_project_ca_id, previous_standard_work_id, change_summary, revision_requested_by, revision_approval_id, procedures:procedure_translations!procedure_translations_standard_work_id_fkey(id, language_code, content, translation_status, verified_by, verified_at), approval:approvals!standard_work_revision_approval_id_fkey(status, approver_user_id, decided_at)")
+    .select("id, work_key, title, version, basis, safety_critical, engineering_change_class, source_project_ca_id, previous_standard_work_id, change_summary, revision_requested_by, revision_approval_id, procedures:procedure_translations!procedure_translations_standard_work_id_fkey(id, language_code, content, translation_status, verified_by, verified_at), approval:approvals!standard_work_revision_approval_id_fkey(status, owner_role, approver_user_id, decided_at)")
     .order("id", { ascending: true }).limit(100);
   if (afterId !== undefined) query = query.gt("id", afterId);
   if (exactId !== undefined) query = query.eq("id", exactId);
@@ -8983,18 +9154,26 @@ export async function registerStandardWorkBaseline(input: {
 
 export async function requestProjectStandardRevision(input: {
   verificationId: string; previousId: number; language: string;
-  content: string; changeSummary: string; basis: string;
-}): Promise<{ revisionId: number; approvalId: string; status: "draft" }> {
-  const { data, error } = await supabase.rpc("request_project_standard_revision", {
+  content: string; changeSummary: string; basis: string; safetyCritical: boolean;
+}): Promise<{ revisionId: number; approvalId: string; status: "draft"; safetyCritical: boolean; requiredAuthority: string | null }> {
+  const rpcName = input.safetyCritical
+    ? "request_safety_critical_project_standard_revision"
+    : "request_project_standard_revision";
+  const { data, error } = await supabase.rpc(rpcName, {
     p_verification_id: input.verificationId, p_previous_id: input.previousId,
     p_language: input.language, p_content: input.content,
     p_change_summary: input.changeSummary, p_basis: input.basis,
   });
-  const result = unwrapRpc<{ revisionId?: number; approvalId?: string; status?: string }>(data, error, "Could not request standard revision");
-  if (!Number.isSafeInteger(result.revisionId) || !result.approvalId || result.status !== "draft") {
+  const result = unwrapRpc<{ revisionId?: number; approvalId?: string; status?: string; safetyCritical?: boolean; requiredAuthority?: string }>(data, error, "Could not request standard revision");
+  if (!Number.isSafeInteger(result.revisionId) || !result.approvalId || result.status !== "draft"
+      || (input.safetyCritical && (result.safetyCritical !== true || result.requiredAuthority !== "admin"))) {
     throw new Error("Standard revision did not return a draft approval receipt");
   }
-  return { revisionId: result.revisionId!, approvalId: result.approvalId, status: "draft" };
+  return {
+    revisionId: result.revisionId!, approvalId: result.approvalId, status: "draft",
+    safetyCritical: input.safetyCritical,
+    requiredAuthority: input.safetyCritical ? result.requiredAuthority! : null,
+  };
 }
 
 export async function decideProjectStandardRevision(
@@ -9565,29 +9744,48 @@ export async function listStandardWorkObservations(
   return (data ?? []) as StandardWorkObservation[];
 }
 
-export async function getObservedProcedure(procedureId: number): Promise<{ id: number; language_code: string; content: string }> {
+export async function getObservedProcedure(procedureId: number): Promise<{
+  id: number;
+  language_code: string;
+  content: string;
+  standard: { safety_critical: boolean; engineering_change_class: string | null };
+}> {
   const { data, error } = await supabase.from("procedure_translations")
-    .select("id,language_code,content").eq("id", procedureId).single();
+    .select("id,language_code,content,standard:standard_work!procedure_translations_standard_work_id_fkey(safety_critical,engineering_change_class)")
+    .eq("id", procedureId).single();
   if (error) throw error;
   if (!data) throw new Error("Observed procedure unavailable");
-  return data as { id: number; language_code: string; content: string };
+  return data as unknown as {
+    id: number;
+    language_code: string;
+    content: string;
+    standard: { safety_critical: boolean; engineering_change_class: string | null };
+  };
 }
 
 export async function requestLearningStandardRevision(input: {
-  observationId: string; content: string; changeSummary: string; basis: string;
-}): Promise<{ revisionId: number; approvalId: string; status: "draft" }> {
-  const { data, error } = await supabase.rpc("request_learning_standard_revision", {
+  observationId: string; content: string; changeSummary: string; basis: string; safetyCritical: boolean;
+}): Promise<{ revisionId: number; approvalId: string; status: "draft"; safetyCritical: boolean; requiredAuthority: string | null }> {
+  const rpcName = input.safetyCritical
+    ? "request_safety_critical_learning_standard_revision"
+    : "request_learning_standard_revision";
+  const { data, error } = await supabase.rpc(rpcName, {
     p_observation_id: input.observationId, p_content: input.content,
     p_change_summary: input.changeSummary, p_basis: input.basis,
   });
-  const result = unwrapRpc<{ revisionId?: number; approvalId?: string; status?: string }>(
+  const result = unwrapRpc<{ revisionId?: number; approvalId?: string; status?: string; safetyCritical?: boolean; requiredAuthority?: string }>(
     data, error, "Could not request learning revision",
   );
   if (!result || !Number.isSafeInteger(result.revisionId) || result.revisionId! <= 0
-    || typeof result.approvalId !== "string" || !result.approvalId.trim() || result.status !== "draft") {
+    || typeof result.approvalId !== "string" || !result.approvalId.trim() || result.status !== "draft"
+    || (input.safetyCritical && (result.safetyCritical !== true || result.requiredAuthority !== "admin"))) {
     throw new Error("Invalid learning revision receipt; reload before retrying");
   }
-  return { revisionId: result.revisionId!, approvalId: result.approvalId, status: "draft" };
+  return {
+    revisionId: result.revisionId!, approvalId: result.approvalId, status: "draft",
+    safetyCritical: input.safetyCritical,
+    requiredAuthority: input.safetyCritical ? result.requiredAuthority! : null,
+  };
 }
 
 export async function decideLearningStandardRevision(

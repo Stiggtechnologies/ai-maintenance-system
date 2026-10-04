@@ -45,6 +45,7 @@ import {
   callWithResilience,
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
+import { withDataEgressGuard } from "../_shared/data-egress-guard.ts";
 import {
   buildRequirementsPrompts,
   parseRequirementInconsistencies,
@@ -63,7 +64,8 @@ const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "";
 // this file's opinion, and this file has no opinion to drift.
 const MODEL = Deno.env.get("DEVELOP_AGENT_MODEL") || undefined;
 const GATEWAY_MODEL = Deno.env.get("LLM_GATEWAY_MODEL") || undefined;
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
+const ALLOWED_ORIGIN =
+  Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
@@ -194,7 +196,11 @@ Deno.serve(async (req: Request) => {
     .eq("development_case_id", caseId)
     .order("requirement_ref");
   const requirements = (reqRows ?? []).map(
-    (r: { requirement_ref: string; category: string; requirement: string }) => ({
+    (r: {
+      requirement_ref: string;
+      category: string;
+      requirement: string;
+    }) => ({
       ref: r.requirement_ref,
       category: r.category,
       statement: r.requirement,
@@ -227,7 +233,12 @@ Deno.serve(async (req: Request) => {
       "semantic inconsistency needs at least two requirements to compare — not attempted, and NOT reported as 'no contradictions found'";
   } else {
     const prompts = buildRequirementsPrompts({ reading, requirements });
-    const result = await callWithResilience(fetch, providers, {
+    const guardedFetch = withDataEgressGuard(fetch, caller, {
+      dataClass: "commercial",
+      purpose: "model_inference",
+      serviceLabel: "develop-requirements-agent",
+    });
+    const result = await callWithResilience(guardedFetch, providers, {
       systemPrompt: prompts.systemPrompt,
       userContent: prompts.userContent,
       maxTokens: 900,

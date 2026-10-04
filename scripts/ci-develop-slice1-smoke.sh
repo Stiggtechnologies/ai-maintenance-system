@@ -697,6 +697,10 @@ R=$(rpc "$TECH" bind_recommendation_to_case "{\"p_recommendation_id\":\"$REC\",\
 expect_err "$R" 'planning'
 R=$(rpc "$PLANNER" bind_recommendation_to_case "{\"p_recommendation_id\":\"$REC\",\"p_case_id\":\"$CASE\"}")
 noerr "$R"
+# C5.24 is a binary release gate: the fixture has no material hidden premise,
+# but that conclusion must itself be an explicit named-human engineering act.
+R=$(rpc "$MANAGER" record_recommendation_assumptions "{\"p_recommendation_id\":\"$REC\",\"p_packet\":{\"disposition\":\"none_identified\",\"basis\":\"The case evidence, alternatives, consequence statement and verification plan were reviewed together; no additional material premise is required for this bounded trial decision.\",\"items\":[]},\"p_note\":\"Maintenance management completed the assumption review before approving the action.\"}")
+noerr "$R"
 # Approval spawns the verification obligation on the SAME canonical machinery.
 psqlc "update recommendations set status='approved' where id='$REC';" >/dev/null
 test "$(psqlc "select count(*) from verification_obligations where recommendation_id='$REC'")" = "1"

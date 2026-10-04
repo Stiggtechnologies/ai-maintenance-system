@@ -24,7 +24,11 @@ psqlc "insert into sites(id,organization_id,name) values('$SITE','$ORG','D7.15 L
 
 COMP=$(psqlc "with recorded as (insert into competencies(organization_id,competency_key,title,kind) values('$ORG','D715-TRAIN','D7.15 change training','skill') returning id) select id from recorded")
 MEMBER=$(psqlc "with recorded as (insert into workforce_members(organization_id,site_id,employee_ref,display_name,craft) values('$ORG','$SITE','D715-MEMBER','D7.15 Member','planner') returning id) select id from recorded")
-psqlc "insert into training_plans(organization_id,member_id,competency_id,plan_kind,target_date,status,driver,created_at) values('$ORG',$MEMBER,$COMP,'cross_training','2026-02-01','planned','Concurrent site change','2025-12-15 00:00+00'); insert into craft_capacity(organization_id,site_id,craft,weekly_hours,basis,effective_from,resource_category) values('$ORG','$SITE','planner',10,'D7.15 smoke net capacity','2025-12-01','project_management'); insert into capacity_deductions(organization_id,site_id,craft,deduction_kind,weekly_hours,basis,effective_from,resource_category) values('$ORG','$SITE','planner','training',2,'D7.15 smoke deduction already reflected in net capacity','2025-12-01','project_management');" >/dev/null
+# This transcript evaluates a fixed historical as-of date. Seed that historical
+# plan under the same named-human marker the public writer owns; using today's
+# customer writer would correctly refuse the now-past target date.
+psqlc "begin; select set_config('request.jwt.claim.sub','$PLANNER_ID',true); select set_config('app.training_plan_write','granted',true); insert into training_plans(organization_id,member_id,competency_id,plan_kind,target_date,status,driver,created_at) values('$ORG',$MEMBER,$COMP,'cross_training','2026-02-01','planned','Concurrent site change','2025-12-15 00:00+00'); commit;" >/dev/null
+psqlc "insert into craft_capacity(organization_id,site_id,craft,weekly_hours,basis,effective_from,resource_category) values('$ORG','$SITE','planner',10,'D7.15 smoke net capacity','2025-12-01','project_management'); insert into capacity_deductions(organization_id,site_id,craft,deduction_kind,weekly_hours,basis,effective_from,resource_category) values('$ORG','$SITE','planner','training',2,'D7.15 smoke deduction already reflected in net capacity','2025-12-01','project_management');" >/dev/null
 
 LOAD=$(rpc "$PLANNER" get_site_change_load "{\"p_site_id\":\"$SITE\",\"p_horizon_weeks\":13,\"p_as_of\":\"2026-01-01T00:00:00Z\"}")
 BODY="$LOAD" python3 - <<'PY'

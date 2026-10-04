@@ -28,6 +28,7 @@ import {
   type OptionCost,
 } from "../lib/lifecycle";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
+import { useAuth } from "./AuthProvider";
 
 interface Evaluation {
   id: string;
@@ -72,9 +73,40 @@ const UNCERTAINTY_STYLE: Record<string, string> = {
 const money = (v: number | null) =>
   v == null ? "unpriced" : `$${Math.round(v).toLocaleString()}/yr`;
 
+const LIFECYCLE_DECISION_ROLES = new Set([
+  "maintenance_manager",
+  "reliability_engineer",
+  "executive",
+  "admin",
+]);
+
+const HIGH_UNCERTAINTY_ACCEPTANCE_ROLES = new Set([
+  "reliability_engineer",
+  "executive",
+  "admin",
+]);
+
+type LifecycleDecision = "accepted" | "rejected" | "deferred_decision";
+
+interface DecisionResult {
+  evaluation_id?: string;
+  decision?: LifecycleDecision;
+  error?: string;
+}
+
 export function LifecycleDecisions() {
+  const { profile } = useAuth();
   const [running, setRunning] = useState(false);
   const [preview, setPreview] = useState<string | null>(null);
+  const [decisionNotes, setDecisionNotes] = useState<Record<string, string>>(
+    {},
+  );
+  const [processingDecision, setProcessingDecision] = useState<string | null>(
+    null,
+  );
+  const [decisionMessages, setDecisionMessages] = useState<
+    Record<string, string>
+  >({});
   const { data, loading, error, refetch } = useAsyncData<Position>(async () => {
     const { data: r, error: e } = await supabase.rpc(
       "get_lifecycle_position",
@@ -156,6 +188,57 @@ export function LifecycleDecisions() {
       `${inputs.asset_name}: β=${fit.beta.toFixed(2)}, ${(risk.probability * 100).toFixed(1)}% chance of failure in 30 days. ${verdict.rationale}`,
     );
     refetch();
+  }
+
+  async function decideEvaluation(
+    evaluation: Evaluation,
+    decision: LifecycleDecision,
+  ) {
+    const note = decisionNotes[evaluation.id]?.trim() ?? "";
+    if (note.length < 10) {
+      setDecisionMessages((current) => ({
+        ...current,
+        [evaluation.id]: "Record at least 10 characters of decision reasoning.",
+      }));
+      return;
+    }
+
+    setProcessingDecision(evaluation.id);
+    setDecisionMessages((current) => ({
+      ...current,
+      [evaluation.id]: "",
+    }));
+    try {
+      const { data: raw, error: rpcError } = await supabase.rpc(
+        "decide_lifecycle_evaluation",
+        {
+          p_id: evaluation.id,
+          p_decision: decision,
+          p_note: note,
+        },
+      );
+      if (rpcError) throw new Error(rpcError.message);
+      const result = raw as DecisionResult | null;
+      if (result?.error) throw new Error(result.error);
+      if (result?.decision !== decision) {
+        throw new Error("The database did not confirm the lifecycle decision.");
+      }
+      setDecisionMessages((current) => ({
+        ...current,
+        [evaluation.id]: `Human decision recorded: ${decision}.`,
+      }));
+      refetch();
+    } catch (decisionError) {
+      setDecisionMessages((current) => ({
+        ...current,
+        [evaluation.id]:
+          decisionError instanceof Error
+            ? decisionError.message
+            : "The lifecycle decision was not recorded.",
+      }));
+    } finally {
+      setProcessingDecision(null);
+    }
   }
 
   if (loading) return <LoadingState label="Loading lifecycle position" />;
@@ -289,6 +372,120 @@ export function LifecycleDecisions() {
                     </li>
                   ))}
                 </ul>
+              )}
+
+              {e.decision ? (
+                e.decision_note && (
+                  <p className="mt-3 rounded-lg border border-white/8 bg-white/3 p-3 text-xs text-slate-300">
+                    Human decision basis: {e.decision_note}
+                  </p>
+                )
+              ) : LIFECYCLE_DECISION_ROLES.has(profile?.role ?? "") ? (
+                <div className="mt-4 space-y-2 border-t border-white/8 pt-4">
+                  <div>
+                    <p className="text-xs font-semibold uppercase tracking-wide text-slate-300">
+                      Human decision required
+                    </p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Accepting adopts the recorded recommendation; rejecting or
+                      deferring records the determination but performs no work,
+                      purchase, operating-limit change, or return to service.
+                    </p>
+                  </div>
+                  <label
+                    className="block text-xs text-slate-400"
+                    htmlFor={`lifecycle-decision-note-${e.id}`}
+                  >
+                    Decision basis for {e.asset}
+                  </label>
+                  <textarea
+                    id={`lifecycle-decision-note-${e.id}`}
+                    rows={3}
+                    minLength={10}
+                    value={decisionNotes[e.id] ?? ""}
+                    onChange={(event) =>
+                      setDecisionNotes((current) => ({
+                        ...current,
+                        [e.id]: event.target.value,
+                      }))
+                    }
+                    placeholder="State the evidence reviewed, uncertainty accepted, and reason for this decision."
+                    className="w-full rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm text-white placeholder:text-slate-600 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-signal-cyan"
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <button
+                      type="button"
+                      aria-label={
+                        e.recommended
+                          ? `Accept ${e.recommended} recommendation`
+                          : "Accept recommendation unavailable"
+                      }
+                      disabled={
+                        processingDecision === e.id ||
+                        (decisionNotes[e.id]?.trim().length ?? 0) < 10 ||
+                        !e.recommended ||
+                        (e.uncertainty === "high" &&
+                          !HIGH_UNCERTAINTY_ACCEPTANCE_ROLES.has(
+                            profile?.role ?? "",
+                          ))
+                      }
+                      onClick={() => void decideEvaluation(e, "accepted")}
+                      className="rounded-lg bg-signal-cyan px-3 py-2 text-xs font-semibold text-overlook-void disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      {e.recommended
+                        ? `Accept ${e.recommended}`
+                        : "No recommendation to accept"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={
+                        processingDecision === e.id ||
+                        (decisionNotes[e.id]?.trim().length ?? 0) < 10
+                      }
+                      onClick={() => void decideEvaluation(e, "rejected")}
+                      className="rounded-lg border border-red-400/40 px-3 py-2 text-xs font-semibold text-red-200 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Reject recommendation
+                    </button>
+                    <button
+                      type="button"
+                      disabled={
+                        processingDecision === e.id ||
+                        (decisionNotes[e.id]?.trim().length ?? 0) < 10
+                      }
+                      onClick={() =>
+                        void decideEvaluation(e, "deferred_decision")
+                      }
+                      className="rounded-lg border border-amber-400/40 px-3 py-2 text-xs font-semibold text-amber-200 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      Defer decision
+                    </button>
+                  </div>
+                  {e.uncertainty === "high" &&
+                    !HIGH_UNCERTAINTY_ACCEPTANCE_ROLES.has(
+                      profile?.role ?? "",
+                    ) && (
+                      <p className="text-xs text-amber-200/80">
+                        High-uncertainty acceptance requires reliability
+                        engineering or executive authority. You may still reject
+                        or defer it with a recorded basis.
+                      </p>
+                    )}
+                  {decisionMessages[e.id] && (
+                    <p
+                      aria-live="polite"
+                      className="text-xs text-slate-300"
+                    >
+                      {decisionMessages[e.id]}
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <p className="mt-4 border-t border-white/8 pt-3 text-xs text-slate-500">
+                  AI may prepare the evaluation, but cannot decide it. An
+                  authorized maintenance, reliability, executive, or
+                  administrator identity must record the human determination.
+                </p>
               )}
             </li>
           ))}

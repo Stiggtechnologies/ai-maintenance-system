@@ -45,6 +45,8 @@ const VENDOR_FILE = "20261209090300_develop_vendor_quality_thread.sql";
 const READ_FILE = "20261209090400_develop_commercial_read.sql";
 const CONNECTOR_FILE =
   "20261209090500_develop_procurement_status_connector.sql";
+const CURRENT_CONNECTOR_ROUTES_FILE =
+  "20270102040000_process_event_ingest.sql";
 const SLICE_FILES = [
   CHANGE_FILE,
   CLAIM_FILE,
@@ -60,6 +62,7 @@ const warranty = read(WARRANTY_FILE);
 const vendor = read(VENDOR_FILE);
 const commercialRead = read(READ_FILE);
 const connector = read(CONNECTOR_FILE);
+const currentConnectorRoutes = read(CURRENT_CONNECTOR_ROUTES_FILE);
 const joined = SLICE_FILES.map(read).join("\n");
 const rawJoined = SLICE_FILES.map(raw).join("\n");
 
@@ -1153,7 +1156,9 @@ describe("the §78 procurement-status connector is a thin caller, not a new door
 
   it("keeps every route the door already carried", () => {
     for (const key of Object.keys(INGEST_ENTITIES)) {
-      expect(connector, `route ${key} was dropped`).toContain(`('${key}',`);
+      expect(currentConnectorRoutes, `route ${key} was dropped`).toContain(
+        `('${key}',`,
+      );
     }
   });
 

@@ -22,7 +22,12 @@ import { useMemo, useState } from "react";
 import { DraftingCompass, Info, Repeat2, TriangleAlert } from "lucide-react";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { supabase } from "../lib/supabase";
-import { allocateAvailability, analyseEarlyLife } from "../lib/design";
+import {
+  allocateAvailability,
+  analyseEarlyLife,
+  assessStandardisation,
+  type StandardisationInput,
+} from "../lib/design";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
 
 interface Posture {
@@ -72,6 +77,12 @@ interface ProjectRow {
   status: string;
 }
 
+interface StandardisationAssetRow {
+  asset_class: string | null;
+  manufacturer: string | null;
+  model: string | null;
+}
+
 const pct = (x: number) => `${(x * 100).toFixed(2)}%`;
 
 export function ReliabilityByDesign() {
@@ -84,8 +95,9 @@ export function ReliabilityByDesign() {
     projects: ProjectRow[];
     loop: LoopRow[];
     early: EarlyRow[];
+    assets: StandardisationAssetRow[];
   }>(async () => {
-    const [p, c, l, e] = await Promise.all([
+    const [p, c, l, e, a] = await Promise.all([
       supabase.rpc("get_project_posture"),
       // The org's own projects via org-scoped RLS (capproj_read) — never a
       // literal project code.
@@ -97,16 +109,19 @@ export function ReliabilityByDesign() {
       supabase
         .from("early_life_failures")
         .select("months_since_handover, attributed_to, fed_back_to_design"),
+      supabase.from("assets").select("asset_class, manufacturer, model"),
     ]);
     if (p.error) throw new Error(p.error.message);
     if (c.error) throw new Error(c.error.message);
     if (l.error) throw new Error(l.error.message);
     if (e.error) throw new Error(e.error.message);
+    if (a.error) throw new Error(a.error.message);
     return {
       posture: (p.data as Posture[])?.[0] ?? null,
       projects: (c.data as ProjectRow[]) ?? [],
       loop: (l.data as LoopRow[]) ?? [],
       early: (e.data as EarlyRow[]) ?? [],
+      assets: (a.data as StandardisationAssetRow[]) ?? [],
     };
   }, []);
 
@@ -162,6 +177,33 @@ export function ReliabilityByDesign() {
       ),
     [data],
   );
+
+  const standardisation = useMemo(() => {
+    const rows = data?.assets ?? [];
+    const grouped = new Map<string, StandardisationInput>();
+    let includedAssetCount = 0;
+    for (const asset of rows) {
+      const functionLabel = asset.asset_class?.trim() ?? "";
+      const manufacturer = asset.manufacturer?.trim() ?? "";
+      const model = asset.model?.trim() ?? "";
+      if (!functionLabel || !manufacturer || !model) continue;
+      includedAssetCount += 1;
+      const makeModel = `${manufacturer} ${model}`;
+      const key = `${functionLabel.toLocaleLowerCase()}::${makeModel.toLocaleLowerCase()}`;
+      const existing = grouped.get(key);
+      grouped.set(key, {
+        functionLabel: existing?.functionLabel ?? functionLabel,
+        makeModel: existing?.makeModel ?? makeModel,
+        count: (existing?.count ?? 0) + 1,
+      });
+    }
+    return {
+      result: assessStandardisation([...grouped.values()]),
+      totalAssetCount: rows.length,
+      includedAssetCount,
+      incompleteAssetCount: rows.length - includedAssetCount,
+    };
+  }, [data]);
 
   if (loading) return <LoadingState label="Loading design posture" />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
@@ -348,6 +390,78 @@ export function ReliabilityByDesign() {
             </div>
           </div>
         ))}
+
+      <div className="rounded-xl border border-white/6 p-4">
+        <h3 className="text-sm font-semibold text-white">
+          Standardization exposure
+        </h3>
+        <p className="mt-1 text-xs leading-relaxed text-slate-400">
+          {standardisation.result.reason}
+        </p>
+        <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+          Assessment includes {standardisation.includedAssetCount} of{" "}
+          {standardisation.totalAssetCount} live assets with asset class,
+          manufacturer and model recorded.{" "}
+          {standardisation.incompleteAssetCount} incomplete asset(s) are
+          excluded and are not treated as standardized.
+          {standardisation.incompleteAssetCount > 0
+            ? " No fleet-wide conclusion is made until those fields are known."
+            : " The result covers every asset currently in the register."}
+        </p>
+        {standardisation.result.functions.length > 0 ? (
+          <div className="mt-3 overflow-x-auto">
+            <table className="w-full min-w-[32rem] text-left text-sm">
+              <caption className="sr-only">
+                Make and model variants serving each recorded asset class
+              </caption>
+              <thead className="text-xs uppercase tracking-wide text-slate-400">
+                <tr>
+                  <th scope="col" className="py-2 pr-4 font-medium">
+                    Asset function
+                  </th>
+                  <th scope="col" className="py-2 pr-4 font-medium">
+                    Units
+                  </th>
+                  <th scope="col" className="py-2 pr-4 font-medium">
+                    Variants
+                  </th>
+                  <th scope="col" className="py-2 font-medium">
+                    Dominant share
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {standardisation.result.functions.map((item) => (
+                  <tr
+                    key={item.functionLabel}
+                    className="border-t border-white/6"
+                    title={item.reason}
+                  >
+                    <td className="py-2 pr-4 text-slate-200">
+                      {item.functionLabel}
+                    </td>
+                    <td className="py-2 pr-4 font-mono text-slate-300 tabular-nums">
+                      {item.totalUnits}
+                    </td>
+                    <td
+                      className={`py-2 pr-4 font-mono tabular-nums ${
+                        item.variants > 1
+                          ? "text-amber-300"
+                          : "text-signal-cyan"
+                      }`}
+                    >
+                      {item.variants}
+                    </td>
+                    <td className="py-2 font-mono text-slate-400 tabular-nums">
+                      {(item.dominantShare * 100).toFixed(0)}%
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+      </div>
 
       {/* Early life. */}
       <div className="rounded-xl border border-white/6 p-4">
