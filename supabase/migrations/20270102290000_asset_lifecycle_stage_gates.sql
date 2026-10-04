@@ -23,6 +23,17 @@ alter table public.disposal_records
   add column if not exists updated_at timestamptz not null default now(),
   add column if not exists version integer not null default 1;
 
+-- The canonical stage mapper has always emitted `disposed` for the disposal
+-- stage, but the older coarse assets constraint omitted that value. The
+-- mismatch made the final governed transition impossible at persistence time.
+alter table public.assets
+  drop constraint if exists assets_lifecycle_status_check;
+alter table public.assets
+  add constraint assets_lifecycle_status_check check (lifecycle_status in (
+    'new','active','standby','mothballed','obsolete','end_of_life',
+    'decommissioned','disposed'
+  ));
+
 alter table public.disposal_records
   drop constraint if exists disposal_records_currency_shape;
 alter table public.disposal_records

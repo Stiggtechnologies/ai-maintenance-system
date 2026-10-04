@@ -28,6 +28,15 @@ describe("U4.11/U4.12/U4.14 governed lifecycle stage gates", () => {
     );
   });
 
+  it("keeps the canonical disposal stage compatible with the coarse asset status", () => {
+    expect(migration).toContain(
+      "drop constraint if exists assets_lifecycle_status_check",
+    );
+    expect(migration).toMatch(
+      /add constraint assets_lifecycle_status_check check \(lifecycle_status in \([\s\S]*?'decommissioned','disposed'/,
+    );
+  });
+
   it("extends the canonical lifecycle, gate, evidence, evaluation and disposal records", () => {
     for (const source of [
       "public.asset_lifecycle_state",

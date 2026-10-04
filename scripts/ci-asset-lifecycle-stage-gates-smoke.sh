@@ -131,6 +131,7 @@ PASSED=$(rpc "$OWNER_TOKEN" record_asset_lifecycle_gate_review "$REVIEW"); noerr
 BODY="$PASSED" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x.get('mayAdvance') is True and x.get('operationalAuthority') is False and x.get('financialAuthority') is False,x"
 
 MOVED=$(rpc "$OWNER_TOKEN" advance_lifecycle_stage "{\"p_asset_id\":\"$ASSET\",\"p_to_stage\":\"life_extension\",\"p_reason\":\"The named human advances the asset against the fresh passing gate record.\"}")
+noerr "$MOVED"
 BODY="$MOVED" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x[0]['outcome']=='moved',x"
 
 LIFE_CRITERIA=$(psqlc "select id from stage_gate_criteria where organization_id='$ORG' and stage_key='life_extension' and gate_id is null order by sort_order,id;")
@@ -139,6 +140,7 @@ LIFE_REQUEST=$(review_payload "$ASSET" decommissioning pass \
   "$LIFE_CRITERIA" "$EVIDENCE")
 LIFE_REVIEW=$(rpc "$OWNER_TOKEN" record_asset_lifecycle_gate_review "$LIFE_REQUEST"); noerr "$LIFE_REVIEW"
 TO_DECOM=$(rpc "$OWNER_TOKEN" advance_lifecycle_stage "{\"p_asset_id\":\"$ASSET\",\"p_to_stage\":\"decommissioning\",\"p_reason\":\"The approved lifecycle gate moves the asset into controlled decommissioning.\"}")
+noerr "$TO_DECOM"
 BODY="$TO_DECOM" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x[0]['outcome']=='moved',x"
 
 DECOM_CRITERIA=$(psqlc "select id from stage_gate_criteria where organization_id='$ORG' and stage_key='decommissioning' and gate_id is null order by sort_order,id;")
@@ -147,6 +149,7 @@ DECOM_REQUEST=$(review_payload "$ASSET" disposal pass \
   "$DECOM_CRITERIA" "$EVIDENCE")
 DECOM_REVIEW=$(rpc "$OWNER_TOKEN" record_asset_lifecycle_gate_review "$DECOM_REQUEST"); noerr "$DECOM_REVIEW"
 TO_DISPOSAL=$(rpc "$OWNER_TOKEN" advance_lifecycle_stage "{\"p_asset_id\":\"$ASSET\",\"p_to_stage\":\"disposal\",\"p_reason\":\"The fresh decommissioning gate supports movement into physical disposal closeout.\"}")
+noerr "$TO_DISPOSAL"
 BODY="$TO_DISPOSAL" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x[0]['outcome']=='moved',x"
 
 DIRECT=$(sql_must_fail "insert into disposal_records(asset_id,organization_id,disposal_route) values('$ASSET','$ORG','scrap_recycle');")
