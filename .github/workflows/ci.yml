@@ -397,6 +397,9 @@ jobs:
       - name: Smoke — continuous strategy refresh from verified field experience
         run: bash scripts/ci-strategy-field-learning-smoke.sh
 
+      - name: Smoke — governed maintenance-induced failure identification
+        run: bash scripts/ci-maintenance-induced-failure-smoke.sh
+
       - name: Smoke — corrective-action strategy update linkage
         run: bash scripts/ci-ca-strategy-update-smoke.sh
 
