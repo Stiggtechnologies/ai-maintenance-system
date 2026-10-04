@@ -93,7 +93,7 @@ psqlc "
     technician_comments,parts_used,labor_hours,downtime_hours
   ) values (
     '$PRECEDING','$ORG','$ASSET','C8.04-PM','Seal inspection and reassembly',
-    'completed','preventive',now()-interval '5 days',now()-interval '3 days',
+    'completed','preventive',now()-interval '5 days',now()-interval '1 second',
     null,null,null,'Completed inspection and reassembly to the approved job plan.',
     'seal kit',4,2
   ) on conflict(id) do nothing;
@@ -104,10 +104,10 @@ psqlc "
     failure_mechanism_id,mechanism_coded_by,mechanism_coded_at,mechanism_note
   ) values (
     '$FAILURE','$ORG','$ASSET','C8.04-FAIL','Seal failure recorded after maintenance',
-    'completed','corrective',now()-interval '2 days',now()-interval '1 day',
+    'completed','corrective',now(),now(),
     'Seal leakage','Reported reassembly concern','Replaced and correctly reassembled seal',
     'Teardown retained for independent causal review.','seal kit',8,12,
-    '$MECHANISM','$ENGINEER_ID',now()-interval '1 day',
+    '$MECHANISM','$ENGINEER_ID',now(),
     'Named-human coding from teardown and governed failure history.'
   ) on conflict(id) do nothing;
 " >/dev/null
