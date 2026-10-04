@@ -11,6 +11,7 @@ import {
   getEngineeringDiagramWorkspace,
   proposeDiagramAssetMapping,
   publishDiagramDependencyCandidates,
+  retryEngineeringDiagramRun,
   reviewDiagramAssetMapping,
   uploadAndCreateEngineeringDiagramRun,
   type DiagramWorkspace,
@@ -44,6 +45,7 @@ export function EngineeringDiagramIntelligence({
   const [assetChoice, setAssetChoice] = useState<Record<string, string>>({});
   const [mappingBasis, setMappingBasis] = useState<Record<string, string>>({});
   const [reviewBasis, setReviewBasis] = useState<Record<string, string>>({});
+  const [retryBasis, setRetryBasis] = useState<Record<string, string>>({});
   const [edgeKind, setEdgeKind] = useState<
     Record<string, (typeof dependencyKinds)[number]>
   >({});
@@ -102,12 +104,12 @@ export function EngineeringDiagramIntelligence({
     try {
       await action();
       setNotice(message);
-      await load();
     } catch (caught) {
       setError(
         caught instanceof Error ? caught.message : "Diagram action failed",
       );
     } finally {
+      await load();
       setWorking(null);
     }
   }
@@ -251,6 +253,9 @@ export function EngineeringDiagramIntelligence({
             <p className="mt-2 text-sm text-industrial-text">
               {run.node_count} nodes · {run.edge_count} connections
             </p>
+            <p className="mt-1 text-xs text-industrial-muted">
+              Attempts: {run.attempt_count}
+            </p>
             <p
               className="mt-1 truncate font-mono text-[11px] text-industrial-muted"
               title={run.input_sha256}
@@ -259,6 +264,22 @@ export function EngineeringDiagramIntelligence({
             </p>
             {run.error_detail && (
               <p className="mt-2 text-xs text-red-200">{run.error_detail}</p>
+            )}
+            {run.status === "queued" && (
+              <button
+                type="button"
+                disabled={!canControl || working != null}
+                onClick={() =>
+                  void perform(
+                    `start-${run.id}`,
+                    () => dispatchEngineeringDiagramRun(run.id, "start"),
+                    "Diagram extraction was submitted.",
+                  )
+                }
+                className="mt-3 rounded-lg border border-signal-cyan/40 px-3 py-1.5 text-xs font-semibold text-signal-cyan disabled:opacity-40"
+              >
+                Start extraction
+              </button>
             )}
             {run.status === "awaiting_graph" && (
               <button
@@ -275,6 +296,47 @@ export function EngineeringDiagramIntelligence({
               >
                 Check result
               </button>
+            )}
+            {run.status === "failed" && (
+              <div className="mt-3 space-y-2">
+                <textarea
+                  className={inputClass}
+                  rows={2}
+                  value={retryBasis[run.id] ?? ""}
+                  onChange={(event) =>
+                    setRetryBasis((current) => ({
+                      ...current,
+                      [run.id]: event.target.value,
+                    }))
+                  }
+                  placeholder="Human retry basis after reviewing the provider failure (20+ characters)"
+                  disabled={!canControl}
+                />
+                <button
+                  type="button"
+                  disabled={
+                    !canControl ||
+                    (retryBasis[run.id]?.trim().length ?? 0) < 20 ||
+                    working != null
+                  }
+                  onClick={() =>
+                    void perform(
+                      `retry-${run.id}`,
+                      async () => {
+                        await retryEngineeringDiagramRun({
+                          runId: run.id,
+                          basis: retryBasis[run.id],
+                        });
+                        await dispatchEngineeringDiagramRun(run.id, "start");
+                      },
+                      "The failed extraction was reviewed, re-queued and submitted as a new governed attempt.",
+                    )
+                  }
+                  className="rounded-lg border border-signal-cyan/40 px-3 py-1.5 text-xs font-semibold text-signal-cyan disabled:opacity-40"
+                >
+                  Retry extraction
+                </button>
+              </div>
             )}
           </article>
         ))}

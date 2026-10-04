@@ -84,8 +84,9 @@ noerr "$EFFECTIVE"; test "$(field "$EFFECTIVE" controlStatus)" = 'effective'
 # Prepare and upload real private bytes through the storage API. The database
 # run cannot be created from metadata-only or missing-object claims.
 SOURCE_FILE=$(mktemp)
+RETRY_FILE=$(mktemp)
 DIRECT_BODY=$(mktemp)
-trap 'rm -f "$SOURCE_FILE" "$DIRECT_BODY"' EXIT
+trap 'rm -f "$SOURCE_FILE" "$RETRY_FILE" "$DIRECT_BODY"' EXIT
 printf '%s' 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=' | base64 --decode > "$SOURCE_FILE"
 SOURCE_SIZE=$(wc -c < "$SOURCE_FILE" | tr -d ' ')
 SOURCE_SHA=$(sha256sum "$SOURCE_FILE" | awk '{print $1}')
@@ -110,6 +111,36 @@ CREATED=$(rpc "$CONTROLLER_AAL1" create_engineering_diagram_run "{\"p_document_i
 noerr "$CREATED"; RUN=$(field "$CREATED" runId); test "$(field "$CREATED" operationalAuthorization)" = 'false'
 REPLAY=$(rpc "$CONTROLLER_AAL1" create_engineering_diagram_run "{\"p_document_id\":\"$DOCUMENT\",\"p_object_path\":\"$OBJECT_PATH\",\"p_input_sha256\":\"$SOURCE_SHA\",\"p_idempotency_key\":\"$DOCUMENT:$SOURCE_SHA\"}")
 noerr "$REPLAY"; test "$(field "$REPLAY" runId)" = "$RUN"; test "$(field "$REPLAY" idempotentReplay)" = 'true'
+
+# A failed provider attempt is audited and can be re-queued only by an
+# authorized same-tenant human with a stated basis. The immutable source and
+# run identity remain unchanged while each worker claim increments the attempt.
+cp "$SOURCE_FILE" "$RETRY_FILE"; printf '%s' 'retry-proof' >> "$RETRY_FILE"
+RETRY_SIZE=$(wc -c < "$RETRY_FILE" | tr -d ' ')
+RETRY_SHA=$(sha256sum "$RETRY_FILE" | awk '{print $1}')
+RETRY_PREPARED=$(rpc "$CONTROLLER_AAL1" prepare_engineering_diagram_upload "{\"p_document_id\":\"$DOCUMENT\",\"p_filename\":\"pid-di-100-retry.png\",\"p_mime_type\":\"image/png\",\"p_size_bytes\":$RETRY_SIZE,\"p_input_sha256\":\"$RETRY_SHA\"}")
+noerr "$RETRY_PREPARED"; RETRY_OBJECT_PATH=$(field "$RETRY_PREPARED" objectPath)
+RETRY_UPLOAD_CODE=$(curl -sS -o "$DIRECT_BODY" -w '%{http_code}' -X POST "$API_URL/storage/v1/object/engineering-diagrams/$RETRY_OBJECT_PATH" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $CONTROLLER_AAL1" -H 'Content-Type: image/png' --data-binary "@$RETRY_FILE")
+case "$RETRY_UPLOAD_CODE" in 200|201) ;; *) cat "$DIRECT_BODY"; false ;; esac
+RETRY_CREATED=$(rpc "$CONTROLLER_AAL1" create_engineering_diagram_run "{\"p_document_id\":\"$DOCUMENT\",\"p_object_path\":\"$RETRY_OBJECT_PATH\",\"p_input_sha256\":\"$RETRY_SHA\",\"p_idempotency_key\":\"$DOCUMENT:$RETRY_SHA\"}")
+noerr "$RETRY_CREATED"; RETRY_RUN=$(field "$RETRY_CREATED" runId)
+RETRY_CLAIMED=$(service_rpc claim_engineering_diagram_run "{\"p_run_id\":\"$RETRY_RUN\"}")
+noerr "$RETRY_CLAIMED"; test "$(field "$RETRY_CLAIMED" attemptCount)" = '1'
+service_rpc fail_engineering_diagram_run "{\"p_run_id\":\"$RETRY_RUN\",\"p_error_code\":\"provider_timeout\",\"p_error_detail\":\"The controlled retry proof simulates a transient provider timeout.\"}" >/dev/null
+test "$(psqlc "select status||'|'||attempt_count from engineering_diagram_runs where id='$RETRY_RUN';")" = 'failed|1'
+test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='engineering_diagram_run' and event_data->>'action'='provider_failed' and event_data->>'runId'='$RETRY_RUN';")" = '1'
+AI_RETRY=$(rpc "$AI_AAL1" retry_engineering_diagram_run "{\"p_run_id\":\"$RETRY_RUN\",\"p_basis\":\"The AI operator must not requeue a provider failure.\"}")
+expect_error "$AI_RETRY" 'named same-tenant engineering authority'
+FOREIGN_RETRY=$(rpc "$FOREIGN_AAL2" retry_engineering_diagram_run "{\"p_run_id\":\"$RETRY_RUN\",\"p_basis\":\"A foreign tenant must never requeue this provider failure.\"}")
+expect_error "$FOREIGN_RETRY" 'outside the active tenant'
+SHORT_RETRY=$(rpc "$CONTROLLER_AAL1" retry_engineering_diagram_run "{\"p_run_id\":\"$RETRY_RUN\",\"p_basis\":\"too short\"}")
+expect_error "$SHORT_RETRY" '20-8000 characters'
+REQUEUED=$(rpc "$CONTROLLER_AAL1" retry_engineering_diagram_run "{\"p_run_id\":\"$RETRY_RUN\",\"p_basis\":\"Human review confirms the timeout was transient and the immutable input remains valid.\"}")
+noerr "$REQUEUED"; test "$(field "$REQUEUED" status)" = 'queued'; test "$(field "$REQUEUED" nextAttempt)" = '2'
+RETRY_CLAIMED_AGAIN=$(service_rpc claim_engineering_diagram_run "{\"p_run_id\":\"$RETRY_RUN\"}")
+noerr "$RETRY_CLAIMED_AGAIN"; test "$(field "$RETRY_CLAIMED_AGAIN" attemptCount)" = '2'
+service_rpc fail_engineering_diagram_run "{\"p_run_id\":\"$RETRY_RUN\",\"p_error_code\":\"retry_proof_complete\",\"p_error_detail\":\"The governed retry path completed its second claimed attempt.\"}" >/dev/null
+test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='engineering_diagram_run' and event_data->>'action'='retry_queued' and event_data->>'runId'='$RETRY_RUN';")" = '1'
 
 # Authenticated callers cannot invoke the service-only inference boundary.
 AUTH_CLAIM_CODE=$(curl -sS -o "$DIRECT_BODY" -w '%{http_code}' -X POST "$API_URL/rest/v1/rpc/claim_engineering_diagram_run" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $CONTROLLER_AAL1" -H 'Content-Type: application/json' -d "{\"p_run_id\":\"$RUN\"}")
@@ -194,4 +225,4 @@ for table in engineering_diagram_runs engineering_diagram_nodes engineering_diag
 done
 test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type in('engineering_diagram_run','engineering_diagram_asset_mapping','engineering_diagram_publication');")" -ge '6'
 
-echo 'Engineering Diagram Intelligence smoke passed: canonical_document=true private_source_object=true tenant_wall=true service_only_inference=true bounded_geometry=true independent_mapping_review=true atomic_candidate_publication=true effective_revision_rechecked=true candidate_only_publication=true independent_graph_review=true direct_graph_write=false operational_authority=false'
+echo 'Engineering Diagram Intelligence smoke passed: canonical_document=true private_source_object=true tenant_wall=true service_only_inference=true governed_retry=true bounded_geometry=true independent_mapping_review=true atomic_candidate_publication=true effective_revision_rechecked=true candidate_only_publication=true independent_graph_review=true direct_graph_write=false operational_authority=false'

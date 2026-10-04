@@ -110,6 +110,7 @@ create table if not exists public.engineering_diagram_runs(
   edge_count integer not null default 0 check(edge_count between 0 and 10000),
   error_code text,
   error_detail text,
+  attempt_count integer not null default 0 check(attempt_count between 0 and 100),
   requested_by uuid not null references auth.users(id) on delete restrict,
   requested_at timestamptz not null default now(),
   started_at timestamptz,
@@ -348,7 +349,8 @@ begin
   select * into v_run from public.engineering_diagram_runs where id=p_run_id for update;
   if not found then return jsonb_build_object('error','diagram run not found'); end if;
   if v_run.status='queued' then
-    update public.engineering_diagram_runs set status='extracting',started_at=now(),updated_at=now()
+    update public.engineering_diagram_runs set status='extracting',
+      attempt_count=attempt_count+1,started_at=now(),updated_at=now()
       where id=v_run.id returning * into v_run;
   elsif v_run.status not in('extracting','awaiting_graph','extracted','failed') then
     return jsonb_build_object('error','diagram run cannot be claimed in its current state');
@@ -356,7 +358,8 @@ begin
   return jsonb_build_object('runId',v_run.id,'organizationId',v_run.organization_id,
     'documentId',v_run.document_id,'objectPath',v_run.source_object_path,
     'mimeType',v_run.source_mime_type,'inputSha256',v_run.input_sha256,
-    'providerPidId',v_run.provider_pid_id,'status',v_run.status);
+    'providerPidId',v_run.provider_pid_id,'status',v_run.status,
+    'attemptCount',v_run.attempt_count);
 end $$;
 revoke all on function public.claim_engineering_diagram_run(uuid)
   from public,anon,authenticated;
@@ -462,16 +465,68 @@ grant execute on function public.record_engineering_diagram_inference(uuid,text,
 create or replace function public.fail_engineering_diagram_run(
   p_run_id uuid,p_error_code text,p_error_detail text
 ) returns void language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_run public.engineering_diagram_runs%rowtype; v_code text; v_detail text;
 begin
+  select * into v_run from public.engineering_diagram_runs
+    where id=p_run_id and status in('queued','extracting','awaiting_graph') for update;
+  if not found then return; end if;
+  v_code:=left(coalesce(nullif(btrim(p_error_code),''),'provider_error'),100);
+  v_detail:=left(coalesce(p_error_detail,'Provider inference failed'),2000);
   update public.engineering_diagram_runs set status='failed',
-    error_code=left(coalesce(nullif(btrim(p_error_code),''),'provider_error'),100),
-    error_detail=left(coalesce(p_error_detail,'Provider inference failed'),2000),
+    error_code=v_code,error_detail=v_detail,
     completed_at=now(),updated_at=now()
-    where id=p_run_id and status in('queued','extracting','awaiting_graph');
+    where id=v_run.id;
+  insert into public.audit_events(organization_id,entity_type,actor,event_data,previous_state,new_state)
+  values(v_run.organization_id,'engineering_diagram_run','service_role',jsonb_build_object(
+    'action','provider_failed','runId',v_run.id,'documentId',v_run.document_id,
+    'errorCode',v_code,'attemptCount',v_run.attempt_count,
+    'operationalAuthorization',false),jsonb_build_object('status',v_run.status),
+    jsonb_build_object('status','failed','errorCode',v_code));
 end $$;
 revoke all on function public.fail_engineering_diagram_run(uuid,text,text)
   from public,anon,authenticated;
 grant execute on function public.fail_engineering_diagram_run(uuid,text,text) to service_role;
+
+create or replace function public.retry_engineering_diagram_run(
+  p_run_id uuid,p_basis text
+) returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare v_org uuid:=public.app_current_org(); v_actor uuid:=auth.uid();
+  v_run public.engineering_diagram_runs%rowtype;
+begin
+  if v_org is null or v_actor is null or not public.controlled_document_human_role_allowed() then
+    return jsonb_build_object('error','named same-tenant engineering authority is required; the AI operator is refused'); end if;
+  if length(btrim(coalesce(p_basis,''))) not between 20 and 8000 then
+    return jsonb_build_object('error','20-8000 characters of retry basis are required'); end if;
+  select r.* into v_run from public.engineering_diagram_runs r
+    join public.kb_intake_documents d on d.id=r.document_id and d.organization_id=r.organization_id
+    where r.id=p_run_id and r.organization_id=v_org and r.status='failed'
+      and d.controlled_kind in('pid','drawing') and d.status='indexed'
+      and d.control_status='effective' and d.security_status in('cleared','released')
+    for update of r;
+  if not found then
+    return jsonb_build_object('error','failed run is outside the active tenant or its controlled source is no longer effective'); end if;
+  if v_run.attempt_count>=100 then
+    return jsonb_build_object('error','the bounded retry limit has been reached; provider configuration requires administrator review'); end if;
+  update public.engineering_diagram_runs set status='queued',provider_job_id=null,
+    provider_manifest='{}'::jsonb,raw_result_sha256=null,node_count=0,edge_count=0,
+    error_code=null,error_detail=null,started_at=null,completed_at=null,updated_at=now()
+    where id=v_run.id;
+  insert into public.audit_events(organization_id,entity_type,actor,event_data,previous_state,new_state)
+  values(v_org,'engineering_diagram_run',public.app_current_role(),jsonb_build_object(
+    'action','retry_queued','runId',v_run.id,'documentId',v_run.document_id,
+    'basis',btrim(p_basis),'nextAttempt',v_run.attempt_count+1,
+    'operationalAuthorization',false),jsonb_build_object('status','failed',
+      'errorCode',v_run.error_code,'errorDetail',v_run.error_detail,
+      'attemptCount',v_run.attempt_count,'providerJobId',v_run.provider_job_id,
+      'providerManifest',v_run.provider_manifest),jsonb_build_object(
+      'status','queued','attemptCount',v_run.attempt_count));
+  return jsonb_build_object('runId',v_run.id,'status','queued',
+    'nextAttempt',v_run.attempt_count+1,'operationalAuthorization',false);
+end $$;
+revoke all on function public.retry_engineering_diagram_run(uuid,text)
+  from public,anon,service_role;
+grant execute on function public.retry_engineering_diagram_run(uuid,text)
+  to authenticated;
 
 create or replace function public.propose_engineering_diagram_asset_mapping(
   p_node_id uuid,p_asset_id uuid,p_basis text

@@ -43,6 +43,7 @@ export interface DiagramRun {
   node_count: number;
   edge_count: number;
   error_detail: string | null;
+  attempt_count: number;
   requested_by: string;
   requested_at: string;
   completed_at: string | null;
@@ -119,7 +120,7 @@ export async function getEngineeringDiagramWorkspace(): Promise<DiagramWorkspace
     supabase
       .from("engineering_diagram_runs")
       .select(
-        "id,document_id,source_object_path,input_sha256,provider_commit_sha,schema_version,status,node_count,edge_count,error_detail,requested_by,requested_at,completed_at",
+        "id,document_id,source_object_path,input_sha256,provider_commit_sha,schema_version,status,node_count,edge_count,error_detail,attempt_count,requested_by,requested_at,completed_at",
       )
       .order("requested_at", { ascending: false }),
     supabase
@@ -209,6 +210,21 @@ export async function dispatchEngineeringDiagramRun(
   const body = data as Record<string, unknown> | null;
   if (typeof body?.error === "string") throw new Error(body.error);
   return body ?? {};
+}
+
+export async function retryEngineeringDiagramRun(input: {
+  runId: string;
+  basis: string;
+}) {
+  return rpc<{
+    runId: string;
+    status: "queued";
+    nextAttempt: number;
+    operationalAuthorization: false;
+  }>("retry_engineering_diagram_run", {
+    p_run_id: input.runId,
+    p_basis: input.basis.trim(),
+  });
 }
 
 export async function proposeDiagramAssetMapping(input: {

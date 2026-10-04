@@ -70,6 +70,11 @@ describe("C2.09 governed Engineering Diagram Intelligence", () => {
 
   it("accepts bounded service-only inference with normalized geometry", () => {
     expect(migration).toContain("record_engineering_diagram_inference");
+    expect(migration).toContain("retry_engineering_diagram_run");
+    expect(migration).toContain("attempt_count=attempt_count+1");
+    expect(migration).toContain("'action','provider_failed'");
+    expect(migration).toContain("'action','retry_queued'");
+    expect(migration).toContain("bounded retry limit has been reached");
     expect(migration).toContain("to service_role");
     expect(migration).toContain("jsonb_array_length(p_nodes)");
     expect(migration).toContain("jsonb_array_length(p_edges)");
@@ -129,11 +134,14 @@ describe("C2.09 governed Engineering Diagram Intelligence", () => {
     expect(service).toContain(
       '"publish_engineering_diagram_dependency_candidates"',
     );
+    expect(service).toContain('"retry_engineering_diagram_run"');
     expect(component).toContain("Diagram Intelligence");
     expect(component).toContain("machine-generated candidates");
     expect(component).toMatch(/does not\s+authorize plant work/);
     expect(component).toContain("canControl");
     expect(component).toContain("canReview");
+    expect(component).toContain("Start extraction");
+    expect(component).toContain("Retry extraction");
     expect(parent).toContain("<EngineeringDiagramIntelligence");
   });
 
@@ -146,6 +154,7 @@ describe("C2.09 governed Engineering Diagram Intelligence", () => {
       "private_source_object=true",
       "tenant_wall=true",
       "service_only_inference=true",
+      "governed_retry=true",
       "bounded_geometry=true",
       "independent_mapping_review=true",
       "atomic_candidate_publication=true",

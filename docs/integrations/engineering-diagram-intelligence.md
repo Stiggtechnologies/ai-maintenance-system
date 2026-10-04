@@ -95,6 +95,13 @@ an authenticated gateway.
 - A provider start failure marks only a run already authorized and claimed by
   the worker. A caller-supplied or cross-tenant run ID cannot be failed by the
   service-role catch path.
+- Each claimed attempt increments a bounded counter. A named same-tenant human
+  can review a terminal failure, record a 20-character-or-longer retry basis,
+  and re-queue the same immutable input. Both the provider failure and retry
+  are retained in the audit ledger; a superseded or quarantined source cannot
+  be retried.
+- A queued run has an explicit `Start extraction` recovery action, so a network
+  interruption between run creation or retry and provider dispatch is resumable.
 - Graph construction is asynchronous. The current UI uses an explicit
   `Check result` action; no completion is invented while the provider is still
   processing.
