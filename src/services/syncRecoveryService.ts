@@ -1141,6 +1141,26 @@ export const recoveryActivationActions = {
       p_approve: args.approve,
       p_basis: args.basis,
     }),
+  saveDataLakeMapping: (args: {
+    connectorKey: string;
+    entityType: string;
+    sourceArrayPath: string;
+    columnMapping: Record<string, string>;
+    valueMappings: Record<string, Record<string, string>>;
+    constants: Record<string, unknown>;
+    approve: boolean;
+    basis: string;
+  }) =>
+    call<RpcResult>("save_data_lake_read_mapping", {
+      p_connector_key: args.connectorKey,
+      p_entity_type: args.entityType,
+      p_source_array_path: args.sourceArrayPath,
+      p_column_mapping: args.columnMapping,
+      p_value_mappings: args.valueMappings,
+      p_constants: args.constants,
+      p_approve: args.approve,
+      p_basis: args.basis,
+    }),
   preview: (
     connectorKey: string,
     entityType: string,
