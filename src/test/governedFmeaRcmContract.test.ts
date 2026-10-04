@@ -76,6 +76,13 @@ describe("C7.09/C8.06 governed FMEA/FMECA and RCM", () => {
     expect(migration).toContain("segregation of duties requires review");
     expect(migration).toContain("app.governed_rcm_write");
     expect(migration).toContain("governed rcm records are retained");
+    expect(migration).toMatch(
+      /f\.rcm_status in \('reviewed','rejected'\) for update/,
+    );
+    expect(migration).toMatch(
+      /if tg_table_name='asset_failure_mode_libraries' then[\s\S]+elsif tg_table_name='asset_maintenance_strategy_recommendations' then[\s\S]+elsif tg_table_name='recommendation_approval_workflows' then/,
+    );
+    expect(migration).not.toMatch(/v_governed := case tg_table_name/);
   });
 
   it("keeps engineering review separate from operational authority", () => {

@@ -128,17 +128,25 @@ create or replace function public.protect_governed_rcm_records()
 returns trigger language plpgsql security definer set search_path=public as $$
 declare v_governed boolean;
 begin
-  v_governed := case tg_table_name
-    when 'asset_failure_mode_libraries' then
+  -- A trigger RECORD has only the fields of the table that fired it. Keep the
+  -- three shapes in separate executable branches: a single CASE expression
+  -- still resolves fields from non-selected branches and breaks legacy
+  -- onboarding inserts with "record OLD has no field ...".
+  if tg_table_name='asset_failure_mode_libraries' then
+    v_governed :=
       coalesce(case when tg_op='DELETE' then old.source else new.source end,'')='governed_rcm'
-      or (tg_op='UPDATE' and coalesce(old.source,'')='governed_rcm')
-    when 'asset_maintenance_strategy_recommendations' then
+      or (tg_op='UPDATE' and coalesce(old.source,'')='governed_rcm');
+  elsif tg_table_name='asset_maintenance_strategy_recommendations' then
+    v_governed :=
       (case when tg_op='DELETE' then old.failure_mode_library_id else new.failure_mode_library_id end) is not null
-      or (tg_op='UPDATE' and old.failure_mode_library_id is not null)
-    when 'recommendation_approval_workflows' then
+      or (tg_op='UPDATE' and old.failure_mode_library_id is not null);
+  elsif tg_table_name='recommendation_approval_workflows' then
+    v_governed :=
       (case when tg_op='DELETE' then old.strategy_recommendation_id else new.strategy_recommendation_id end) is not null
-      or (tg_op='UPDATE' and old.strategy_recommendation_id is not null)
-    else false end;
+      or (tg_op='UPDATE' and old.strategy_recommendation_id is not null);
+  else
+    v_governed := false;
+  end if;
   if v_governed and coalesce(current_setting('app.governed_rcm_write',true),'')<>'granted' then
     raise exception 'governed RCM records are written only through the controlled workflow';
   end if;
@@ -319,7 +327,7 @@ begin
     select f.rcm_version+1 into v_fm_version from public.asset_failure_mode_libraries f
     where f.id=p_supersedes_failure_mode_id and f.organization_id=v_org
       and f.canonical_asset_id=p_asset_id and f.source='governed_rcm'
-      and f.rcm_status in ('reviewed','rejected');
+      and f.rcm_status in ('reviewed','rejected') for update;
     if v_fm_version is null then return jsonb_build_object('error','only a reviewed or rejected same-asset governed analysis can be superseded'); end if;
     select s.id,coalesce(s.strategy_version,0)+1 into v_old_strategy_id,v_strategy_version
     from public.asset_maintenance_strategy_recommendations s
