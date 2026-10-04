@@ -23,6 +23,8 @@ on:
       - "supabase/functions/_shared/adls-data-lake.ts"
       - "supabase/functions/ai-agent-processor/**"
       - "supabase/functions/autonomous-orchestrator/**"
+      - "supabase/functions/bently-system1-condition-read-pull/**"
+      - "supabase/functions/_shared/bently-system1-condition-read.ts"
       - "supabase/functions/calculation-service/**"
       - "src/lib/value/**"
       - "supabase/functions/domain-specialist-run/**"
@@ -169,6 +171,7 @@ jobs:
           supabase functions deploy agent-loop-enrich --no-verify-jwt
           supabase functions deploy ai-agent-processor
           supabase functions deploy autonomous-orchestrator
+          supabase functions deploy bently-system1-condition-read-pull
           supabase functions deploy calculation-service
           supabase functions deploy cmms-read-pull
           supabase functions deploy data-lake-read-pull
@@ -529,6 +532,23 @@ jobs:
             exit 1
           fi
           echo "SAP financial read adapter is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove Bently System 1 condition read adapter is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/bently-system1-condition-read-pull"
+          status=$(curl --silent --show-error --output /tmp/system1-condition-read-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"connector_key":"boundary-probe","dry_run":true}' \
+            "$endpoint")
+          cat /tmp/system1-condition-read-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=System 1 condition read adapter boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "System 1 condition read adapter is deployed and JWT-protected (HTTP 401 unauthenticated)."
 
       - name: Prove CMMS read adapter is deployed
         run: |

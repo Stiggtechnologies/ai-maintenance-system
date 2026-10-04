@@ -207,7 +207,7 @@
     "status": "🟡",
     "evidence": true,
     "citations": 1,
-    "backticked": 0
+    "backticked": 1
   },
   "C3.01": {
     "status": "✅",
