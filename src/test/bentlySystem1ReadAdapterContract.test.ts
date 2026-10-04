@@ -66,6 +66,15 @@ describe("C2.19 Bently System 1 condition read contract", () => {
     expect(shared).toContain("must be an exact decimal string or safe integer");
   });
 
+  it("extends the shared connector pagination contract for opaque cursors", () => {
+    expect(migration).toContain(
+      "drop constraint if exists connectors_pagination_profile_check",
+    );
+    expect(migration).toContain("pagination_mode = 'cursor'");
+    expect(migration).toContain("pagination_next_path is not null");
+    expect(migration).toContain("pagination_max_pages between 1 and 100");
+  });
+
   it("reconciles complete bounded pages and advances only clean evidence", () => {
     expect(edge).toContain("MAX_TOTAL_BYTES");
     expect(edge).toContain("manifest.length >= maxPages");
