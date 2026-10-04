@@ -32,7 +32,7 @@ rpc(){
 }
 psqlc(){ PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -qAt -c "$1"; }
 expect_error(){ BODY="$1" WANT="$2" python3 -c "import json,os,sys; x=json.loads(os.environ['BODY']); e=str(x.get('error') or x.get('message') or ''); sys.exit(0) if os.environ['WANT'].lower() in e.lower() else (print('expected',os.environ['WANT'],'got',x) or sys.exit(1))"; }
-noerr(){ BODY="$1" python3 -c "import json,os,sys; x=json.loads(os.environ['BODY']); e=x.get('error') if isinstance(x,dict) else None; print(x,file=sys.stderr) if e else None; sys.exit(1 if e else 0)"; }
+noerr(){ BODY="$1" python3 -c "import json,os,sys; x=json.loads(os.environ['BODY']); e=(x.get('error') or x.get('message') or x.get('code')) if isinstance(x,dict) else None; print(x,file=sys.stderr) if e else None; sys.exit(1 if e else 0)"; }
 sql_must_fail(){ local out rc; set +e; out=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "$1" 2>&1); rc=$?; set -e; test "$rc" != 0; printf '%s' "$out"; }
 review_payload(){
   ASSET_ID="$1" TARGET_STAGE="$2" OUTCOME="$3" NOTE="$4" CRITERION_IDS="$5" \
@@ -128,7 +128,7 @@ EMPTY_REQUEST=$(review_payload "$ASSET" life_extension pass \
 EMPTY_DENIED=$(rpc "$OWNER_TOKEN" record_asset_lifecycle_gate_review "$EMPTY_REQUEST")
 expect_error "$EMPTY_DENIED" 'every current-stage criterion exactly once'
 PASSED=$(rpc "$OWNER_TOKEN" record_asset_lifecycle_gate_review "$REVIEW"); noerr "$PASSED"
-BODY="$PASSED" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x['mayAdvance'] is True and x['operationalAuthority'] is False and x['financialAuthority'] is False,x"
+BODY="$PASSED" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x.get('mayAdvance') is True and x.get('operationalAuthority') is False and x.get('financialAuthority') is False,x"
 
 MOVED=$(rpc "$OWNER_TOKEN" advance_lifecycle_stage "{\"p_asset_id\":\"$ASSET\",\"p_to_stage\":\"life_extension\",\"p_reason\":\"The named human advances the asset against the fresh passing gate record.\"}")
 BODY="$MOVED" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x[0]['outcome']=='moved',x"
