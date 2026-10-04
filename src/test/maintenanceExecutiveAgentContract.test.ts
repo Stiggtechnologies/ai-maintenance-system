@@ -86,6 +86,15 @@ describe("governed Maintenance Executive execution", () => {
     expect(migration).toContain("'operationalauthorization',false");
     expect(migration).toContain("'approvalcreated',false");
     expect(migration).toContain("maintenance-executive evidence cannot be truncated");
+    expect(migration).toContain(
+      "if tg_table_name='maintenance_executive_briefings' then",
+    );
+    expect(migration).toContain(
+      "elsif tg_table_name='maintenance_executive_review_assignments' then",
+    );
+    expect(migration).toContain(
+      "elsif tg_table_name='maintenance_executive_acknowledgements' then",
+    );
     expect(migration).toContain("from public,anon,authenticated,service_role");
     expect(migration).not.toContain(
       "u.role in ('executive','maintenance_manager','reliability_engineer','admin','ai_admin')",
