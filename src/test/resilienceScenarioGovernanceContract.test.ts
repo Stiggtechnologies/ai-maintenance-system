@@ -59,6 +59,9 @@ describe("E11 governed resilience configuration", () => {
     expect(migration).toContain(
       "every exposed asset must belong to this organization",
     );
+    expect(migration).toContain("scenario_exposure_scenario_tenant_fk");
+    expect(migration).toContain("scenario_exposure_asset_tenant_fk");
+    expect(migration).toContain("e.organization_id=t.organization_id");
     expect(migration).toContain("verification_status='verified'");
     expect(migration).toContain(
       "quantitative annual likelihood requires at least one verified canonical evidence item",

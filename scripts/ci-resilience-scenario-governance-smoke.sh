@@ -108,6 +108,19 @@ err "$FOREIGN_ASSET" 'belong to this organization'
 FOREIGN_EXPOSURE_EVIDENCE=$(rpc "$PLANNER" replace_scenario_exposure "{\"p_scenario_id\":$SMOKE,\"p_asset_ids\":[\"$ASSET\"],\"p_basis\":\"Cross-tenant evidence must not substantiate an otherwise valid mapping.\",\"p_evidence_item_id\":\"$FOREIGN_EVIDENCE\"}")
 err "$FOREIGN_EXPOSURE_EVIDENCE" 'same-tenant'
 
+# Prove the canonical relationship itself rejects cross-tenant composition,
+# even for a privileged path holding the guarded-writer marker.
+if psqlc "begin; select set_config('app.resilience_configuration_write','granted',true); insert into scenario_exposure(scenario_id,asset_id,organization_id,basis) values($SMOKE,'$OTHER_ASSET','$ORG','Privileged cross-tenant asset composition must still fail at the canonical relationship boundary.');" >/tmp/e11-asset-tenant-fk.txt 2>&1; then
+  echo 'cross-tenant exposure asset unexpectedly passed the composite tenant foreign key' >&2
+  exit 1
+fi
+grep -q 'scenario_exposure_asset_tenant_fk' /tmp/e11-asset-tenant-fk.txt
+if psqlc "begin; select set_config('app.resilience_configuration_write','granted',true); insert into scenario_exposure(scenario_id,asset_id,organization_id,basis) values($SMOKE,'$OTHER_ASSET','$OTHER','Privileged cross-tenant scenario composition must still fail at the canonical relationship boundary.');" >/tmp/e11-scenario-tenant-fk.txt 2>&1; then
+  echo 'cross-tenant exposure scenario unexpectedly passed the composite tenant foreign key' >&2
+  exit 1
+fi
+grep -q 'scenario_exposure_scenario_tenant_fk' /tmp/e11-scenario-tenant-fk.txt
+
 BAD_MODE=$(rpc "$ADMIN" save_operating_mode_definition '{"p_definition":{"mode":"normal","entry_criteria":"Stable operations within approved operating envelope.","exit_criteria":"Observed condition exceeds a governed normal-operation threshold.","declared_by_role":"Site manager","authority_changes":"Normal site decision rights and approval limits remain in force.","governance_basis":"Approved site emergency-management and continuity policy source.","missing_evidence":"not-an-array"}}')
 err "$BAD_MODE" 'must be arrays'
 

@@ -44,6 +44,31 @@ alter table public.operating_mode_definitions
   add column if not exists updated_by uuid references auth.users(id) on delete restrict,
   add column if not exists updated_at timestamptz not null default now();
 
+-- The original exposure table carried three independent foreign keys.  That
+-- shape allowed a privileged writer to pair a scenario from one tenant with
+-- an asset or organization from another.  The governed writer checks the
+-- tenant in code, but the canonical relationship must enforce it as data.
+create unique index if not exists threat_scenarios_org_identity
+  on public.threat_scenarios(organization_id,id);
+do $$ begin
+  if not exists(select 1 from pg_constraint
+    where conrelid='public.scenario_exposure'::regclass
+      and conname='scenario_exposure_scenario_tenant_fk') then
+    alter table public.scenario_exposure
+      add constraint scenario_exposure_scenario_tenant_fk
+      foreign key(organization_id,scenario_id)
+      references public.threat_scenarios(organization_id,id) on delete cascade;
+  end if;
+  if not exists(select 1 from pg_constraint
+    where conrelid='public.scenario_exposure'::regclass
+      and conname='scenario_exposure_asset_tenant_fk') then
+    alter table public.scenario_exposure
+      add constraint scenario_exposure_asset_tenant_fk
+      foreign key(organization_id,asset_id)
+      references public.assets(organization_id,id) on delete cascade;
+  end if;
+end $$;
+
 alter table public.threat_scenarios
   drop constraint if exists threat_scenarios_governed_shape;
 alter table public.threat_scenarios
@@ -477,12 +502,16 @@ as $$
   else jsonb_build_object(
     'scenarios',coalesce((select jsonb_agg(
       to_jsonb(t)||jsonb_build_object('asset_ids',coalesce((select jsonb_agg(e.asset_id order by e.asset_id)
-        from public.scenario_exposure e where e.scenario_id=t.id),'[]'::jsonb),
+        from public.scenario_exposure e where e.scenario_id=t.id
+          and e.organization_id=t.organization_id),'[]'::jsonb),
         'exposure_evidence_item_id',(select e.evidence_item_id from public.scenario_exposure e
-          where e.scenario_id=t.id and e.evidence_item_id is not null order by e.asset_id limit 1),
+          where e.scenario_id=t.id and e.organization_id=t.organization_id
+            and e.evidence_item_id is not null order by e.asset_id limit 1),
         'exposure_mapping_status',case
-          when not exists(select 1 from public.scenario_exposure e where e.scenario_id=t.id) then 'not_mapped'
-          when exists(select 1 from public.scenario_exposure e where e.scenario_id=t.id and e.provisional) then 'provisional'
+          when not exists(select 1 from public.scenario_exposure e where e.scenario_id=t.id
+            and e.organization_id=t.organization_id) then 'not_mapped'
+          when exists(select 1 from public.scenario_exposure e where e.scenario_id=t.id
+            and e.organization_id=t.organization_id and e.provisional) then 'provisional'
           else 'evidence_verified' end)
       order by t.scenario_key) from public.threat_scenarios t
       where t.organization_id=public.app_current_org()),'[]'::jsonb),
@@ -523,7 +552,8 @@ language sql stable security invoker set search_path=public as $$
   with org as (select public.app_current_org() id),
   s as (
     select count(*)::bigint n,count(distinct threat_kind)::bigint kinds,
-      count(*) filter(where exists(select 1 from public.scenario_exposure e where e.scenario_id=t.id))::bigint with_exp,
+      count(*) filter(where exists(select 1 from public.scenario_exposure e
+        where e.scenario_id=t.id and e.organization_id=t.organization_id))::bigint with_exp,
       count(*) filter(where last_exercised_on is null)::bigint never,
       count(*) filter(where last_exercised_on is not null and last_exercised_on<current_date-730)::bigint stale
     from public.threat_scenarios t where t.organization_id=(select id from org)
@@ -573,11 +603,14 @@ returns jsonb language sql stable security invoker set search_path=public as $$
     'exerciseOutcome',t.exercise_outcome,'governanceBasis',t.governance_basis,
     'missingEvidence',t.missing_evidence,
     'exposureStatus',case
-      when not exists(select 1 from public.scenario_exposure e where e.scenario_id=t.id) then 'not_mapped'
-      when exists(select 1 from public.scenario_exposure e where e.scenario_id=t.id and e.provisional) then 'provisional'
+      when not exists(select 1 from public.scenario_exposure e where e.scenario_id=t.id
+        and e.organization_id=t.organization_id) then 'not_mapped'
+      when exists(select 1 from public.scenario_exposure e where e.scenario_id=t.id
+        and e.organization_id=t.organization_id and e.provisional) then 'provisional'
       else 'evidence_verified' end,
     'directlyAffected',coalesce((select jsonb_agg(e.asset_id order by e.asset_id)
-      from public.scenario_exposure e where e.scenario_id=t.id),'[]'::jsonb)
+      from public.scenario_exposure e where e.scenario_id=t.id
+        and e.organization_id=t.organization_id),'[]'::jsonb)
   ) order by t.scenario_key),'[]'::jsonb)
   from public.threat_scenarios t where t.organization_id=public.app_current_org()
 $$;
