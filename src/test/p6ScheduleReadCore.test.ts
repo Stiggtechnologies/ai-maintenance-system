@@ -3,6 +3,7 @@ import {
   mapP6Constraint,
   mapP6RelationshipType,
   mapP6ScheduleSnapshot,
+  normalizeP6PullRequest,
   P6_ACTIVITY_FIELDS,
   p6ResourceUrl,
 } from "../../supabase/functions/_shared/p6-schedule-read";
@@ -64,6 +65,23 @@ const relationships = [
 ];
 
 describe("Primavera P6 schedule read mapping", () => {
+  it("normalizes only a bounded object request with an explicit boolean mode", () => {
+    expect(
+      normalizeP6PullRequest({ connector_key: " site-a-p6 ", dry_run: false }),
+    ).toEqual({ connectorKey: "site-a-p6", dryRun: false });
+    expect(normalizeP6PullRequest({ connector_key: "site-a-p6" })).toEqual({
+      connectorKey: "site-a-p6",
+      dryRun: true,
+    });
+    expect(() => normalizeP6PullRequest(null)).toThrow(/JSON object/);
+    expect(() =>
+      normalizeP6PullRequest({ connector_key: "site-a-p6", dry_run: "false" }),
+    ).toThrow(/true or false/);
+    expect(() =>
+      normalizeP6PullRequest({ connector_key: "x".repeat(161) }),
+    ).toThrow(/160-character/);
+  });
+
   it("builds an explicit bounded Oracle resource URL", () => {
     const url = p6ResourceUrl(
       new URL("https://p6.example.com/p6ws/restapi/"),
@@ -164,6 +182,40 @@ describe("Primavera P6 schedule read mapping", () => {
         config,
       ),
     ).toThrow(/cross-project predecessor/);
+  });
+
+  it("reconciles Oracle relationship identities to the transported activities", () => {
+    expect(() =>
+      mapP6ScheduleSnapshot(
+        activities,
+        [{ ...relationships[0], PredecessorActivityId: "WRONG" }],
+        config,
+      ),
+    ).toThrow(/do not reconcile/);
+    expect(() =>
+      mapP6ScheduleSnapshot(
+        activities,
+        [relationships[0], { ...relationships[0] }],
+        config,
+      ),
+    ).toThrow(/duplicate identity/);
+  });
+
+  it("bounds text before it can enter staging or an error receipt", () => {
+    expect(() =>
+      mapP6ScheduleSnapshot(
+        [{ ...activities[0], Id: "A".repeat(256) }],
+        [],
+        config,
+      ),
+    ).toThrow(/255-character/);
+    expect(() =>
+      mapP6ScheduleSnapshot(
+        [{ ...activities[0], Name: "A".repeat(1001) }],
+        [],
+        config,
+      ),
+    ).toThrow(/1000-character/);
   });
 
   it("requires a complete non-empty bounded snapshot", () => {

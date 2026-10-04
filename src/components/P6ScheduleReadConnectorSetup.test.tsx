@@ -125,6 +125,15 @@ describe("P6 schedule read connector setup", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.queryByPlaceholderText("P6 connector key")).toBeNull();
+
+    auth.role = "ai_admin";
+    rerender(<P6ScheduleReadConnectorSetup onConfigured={vi.fn()} />);
+    expect(
+      screen.getByText(
+        "An administrator must configure or enable this source.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("P6 connector key")).toBeNull();
   });
 
   it("opens the canonical human review when a committed pull retains duplicates", async () => {

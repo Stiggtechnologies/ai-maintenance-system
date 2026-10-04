@@ -7,7 +7,7 @@ eval "$(supabase status -o env | grep -E '^(ANON_KEY|SERVICE_ROLE_KEY|API_URL|JW
 : "${API_URL:?missing API_URL}" "${ANON_KEY:?missing ANON_KEY}" "${SERVICE_ROLE_KEY:?missing SERVICE_ROLE_KEY}" "${JWT_SECRET:?missing JWT_SECRET}"
 
 uuid(){ python3 -c 'import uuid; print(uuid.uuid4())'; }
-ORG=$(uuid); FOREIGN_ORG=$(uuid); ADMIN=$(uuid); PLANNER=$(uuid); FOREIGN=$(uuid); CASE_ID=$(uuid)
+ORG=$(uuid); FOREIGN_ORG=$(uuid); ADMIN=$(uuid); PLANNER=$(uuid); AI_ADMIN=$(uuid); FOREIGN=$(uuid); CASE_ID=$(uuid)
 CONNECTOR_KEY="c216-p6-${ORG:0:8}"
 FETCH_ONE=$(python3 -c 'from datetime import datetime,timezone,timedelta; print((datetime.now(timezone.utc)-timedelta(minutes=2)).isoformat().replace("+00:00","Z"))')
 FETCH_TWO=$(python3 -c 'from datetime import datetime,timezone,timedelta; print((datetime.now(timezone.utc)-timedelta(minutes=1)).isoformat().replace("+00:00","Z"))')
@@ -43,10 +43,12 @@ insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_co
   phone_change,phone_change_token,reauthentication_token) values
 ('00000000-0000-0000-0000-000000000000','$ADMIN','authenticated','authenticated','c216-admin-$ADMIN@invalid.syncai.ca','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','',''),
 ('00000000-0000-0000-0000-000000000000','$PLANNER','authenticated','authenticated','c216-planner-$PLANNER@invalid.syncai.ca','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','',''),
+('00000000-0000-0000-0000-000000000000','$AI_ADMIN','authenticated','authenticated','c216-ai-$AI_ADMIN@invalid.syncai.ca','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','',''),
 ('00000000-0000-0000-0000-000000000000','$FOREIGN','authenticated','authenticated','c216-foreign-$FOREIGN@invalid.syncai.ca','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','','');
 insert into user_profiles(id,organization_id,email,full_name,role) values
   ('$ADMIN','$ORG','c216-admin-$ADMIN@invalid.syncai.ca','C2.16 administrator','admin'),
   ('$PLANNER','$ORG','c216-planner-$PLANNER@invalid.syncai.ca','C2.16 planner','planner'),
+  ('$AI_ADMIN','$ORG','c216-ai-$AI_ADMIN@invalid.syncai.ca','C2.16 AI administrator','ai_admin'),
   ('$FOREIGN','$FOREIGN_ORG','c216-foreign-$FOREIGN@invalid.syncai.ca','C2.16 foreign administrator','admin');
 insert into development_cases(id,organization_id,title,lifecycle_type,problem_statement,created_by)
 values('$CASE_ID','$ORG','C2.16 turnaround 2027','brownfield','The approved turnaround requires a governed P6 analysis copy.','$ADMIN');
@@ -54,11 +56,14 @@ PSQL
 
 ADMIN_JWT=$(jwt "$ADMIN" "c216-admin-$ADMIN@invalid.syncai.ca")
 PLANNER_JWT=$(jwt "$PLANNER" "c216-planner-$PLANNER@invalid.syncai.ca")
+AI_ADMIN_JWT=$(jwt "$AI_ADMIN" "c216-ai-$AI_ADMIN@invalid.syncai.ca")
 FOREIGN_JWT=$(jwt "$FOREIGN" "c216-foreign-$FOREIGN@invalid.syncai.ca")
 BASE="{\"p_key\":\"$CONNECTOR_KEY\",\"p_name\":\"C2.16 governed Primavera\",\"p_base_url\":\"https://p6.example.com/p6ws/restapi\",\"p_project_object_id\":4101,\"p_development_case_id\":\"$CASE_ID\",\"p_schedule_name\":\"Turnaround 2027\",\"p_duration_to_hours\":8,\"p_max_activities\":50,\"p_max_relationships\":100,\"p_expected_interval_minutes\":60,\"p_credential_binding_ref\":\"vault://tenant/primavera-p6\",\"p_enabled\":true,\"p_basis\":\"Named turnaround manager approved project 4101 and verified eight-hour P6 duration units.\"}"
 
 ROLE_DENIED=$(rpc "$PLANNER_JWT" configure_p6_schedule_read_source "$BASE")
 expect_error "$ROLE_DENIED" 'requires an administrator'
+AI_DENIED=$(rpc "$AI_ADMIN_JWT" configure_p6_schedule_read_source "$BASE")
+expect_error "$AI_DENIED" 'named human administrator'
 BAD_ENDPOINT="${BASE/https:\/\/p6.example.com/https:\/\/192.168.1.50}"
 expect_error "$(rpc "$ADMIN_JWT" configure_p6_schedule_read_source "$BAD_ENDPOINT")" 'private/local targets are blocked'
 BAD_DURATION="${BASE/\"p_duration_to_hours\":8/\"p_duration_to_hours\":0}"
@@ -77,6 +82,8 @@ SOURCE=$(rpc "$PLANNER_JWT" get_p6_schedule_read_source "{\"p_connector_key\":\"
 noerr "$SOURCE"
 test "$(field "$SOURCE" project_object_id)" = '4101'
 test "$(field "$SOURCE" development_case_id)" = "$CASE_ID"
+AI_SOURCE=$(rpc "$AI_ADMIN_JWT" get_p6_schedule_read_source "{\"p_connector_key\":\"$CONNECTOR_KEY\"}")
+expect_error "$AI_SOURCE" 'access denied'
 FOREIGN_SOURCE=$(rpc "$FOREIGN_JWT" get_p6_schedule_read_source "{\"p_connector_key\":\"$CONNECTOR_KEY\"}")
 expect_error "$FOREIGN_SOURCE" 'not found'
 
