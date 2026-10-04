@@ -34,6 +34,21 @@ psqlc(){ PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres 
 expect_error(){ BODY="$1" WANT="$2" python3 -c "import json,os,sys; x=json.loads(os.environ['BODY']); e=str(x.get('error') or x.get('message') or ''); sys.exit(0) if os.environ['WANT'].lower() in e.lower() else (print('expected',os.environ['WANT'],'got',x) or sys.exit(1))"; }
 noerr(){ BODY="$1" python3 -c "import json,os,sys; x=json.loads(os.environ['BODY']); e=x.get('error') if isinstance(x,dict) else None; print(x,file=sys.stderr) if e else None; sys.exit(1 if e else 0)"; }
 sql_must_fail(){ local out rc; set +e; out=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "$1" 2>&1); rc=$?; set -e; test "$rc" != 0; printf '%s' "$out"; }
+review_payload(){
+  ASSET_ID="$1" TARGET_STAGE="$2" OUTCOME="$3" NOTE="$4" CRITERION_IDS="$5" \
+    EVIDENCE_ID="$6" EVALUATION_ID="${7:-}" python3 - <<'PY'
+import json,os
+findings=[{
+  'criterion_id':int(value),'status':'met','evidence_item_id':os.environ['EVIDENCE_ID']
+} for value in os.environ['CRITERION_IDS'].split()]
+print(json.dumps({
+  'p_asset_id':os.environ['ASSET_ID'],'p_to_stage':os.environ['TARGET_STAGE'],
+  'p_outcome':os.environ['OUTCOME'],'p_note':os.environ['NOTE'],
+  'p_findings':findings,
+  'p_evaluation_id':os.environ['EVALUATION_ID'] or None
+},separators=(',',':')))
+PY
+}
 
 PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -q <<PSQL
 insert into organizations(id,name) values
@@ -95,45 +110,21 @@ assert x['authority']['operationalAuthority'] is False,x
 PY
 FOREIGN_SCOPE=$(rpc "$OWNER_TOKEN" get_asset_lifecycle_gate_workspace "{\"p_asset_id\":\"$FOREIGN_ASSET\"}")
 expect_error "$FOREIGN_SCOPE" 'outside the active tenant'
-OP_CRITERION=$(psqlc "select id from stage_gate_criteria where organization_id='$ORG' and stage_key='operation';")
+OP_CRITERIA=$(psqlc "select id from stage_gate_criteria where organization_id='$ORG' and stage_key='operation' and gate_id is null order by sort_order,id;")
 
-REVIEW=$(ASSET_ID="$ASSET" CRITERION_ID="$OP_CRITERION" EVIDENCE_ID="$EVIDENCE" \
-  EVALUATION_ID="$EVALUATION" python3 - <<'PY'
-import json,os
-print(json.dumps({
-  'p_asset_id':os.environ['ASSET_ID'],'p_to_stage':'life_extension',
-  'p_outcome':'pass','p_note':'The accepted evaluation and independent evidence support controlled life extension.',
-  'p_findings':[{'criterion_id':int(os.environ['CRITERION_ID']),'status':'met',
-    'evidence_item_id':os.environ['EVIDENCE_ID']}],
-  'p_evaluation_id':os.environ['EVALUATION_ID']
-},separators=(',',':')))
-PY
-)
+REVIEW=$(review_payload "$ASSET" life_extension pass \
+  'The accepted evaluation and independent evidence support controlled life extension.' \
+  "$OP_CRITERIA" "$EVIDENCE" "$EVALUATION")
 AAL1_DENIED=$(rpc "$OWNER_AAL1" record_asset_lifecycle_gate_review "$REVIEW"); expect_error "$AAL1_DENIED" 'AAL2 session'
 AI_DENIED=$(rpc "$AI_TOKEN" record_asset_lifecycle_gate_review "$REVIEW"); expect_error "$AI_DENIED" 'named lifecycle authority'
-FOREIGN_REQUEST=$(ASSET_ID="$ASSET" CRITERION_ID="$OP_CRITERION" EVIDENCE_ID="$FOREIGN_EVIDENCE" \
-  EVALUATION_ID="$EVALUATION" python3 - <<'PY'
-import json,os
-print(json.dumps({
-  'p_asset_id':os.environ['ASSET_ID'],'p_to_stage':'life_extension',
-  'p_outcome':'pass','p_note':'Foreign proof must never support this tenant lifecycle decision.',
-  'p_findings':[{'criterion_id':int(os.environ['CRITERION_ID']),'status':'met',
-    'evidence_item_id':os.environ['EVIDENCE_ID']}],
-  'p_evaluation_id':os.environ['EVALUATION_ID']
-},separators=(',',':')))
-PY
-)
+FOREIGN_REQUEST=$(review_payload "$ASSET" life_extension pass \
+  'Foreign proof must never support this tenant lifecycle decision.' \
+  "$OP_CRITERIA" "$FOREIGN_EVIDENCE" "$EVALUATION")
 FOREIGN_DENIED=$(rpc "$OWNER_TOKEN" record_asset_lifecycle_gate_review "$FOREIGN_REQUEST")
 expect_error "$FOREIGN_DENIED" 'independently verified'
-EMPTY_REQUEST=$(ASSET_ID="$ASSET" EVALUATION_ID="$EVALUATION" python3 - <<'PY'
-import json,os
-print(json.dumps({
-  'p_asset_id':os.environ['ASSET_ID'],'p_to_stage':'life_extension',
-  'p_outcome':'pass','p_note':'An omitted criterion must fail closed before any lifecycle movement.',
-  'p_findings':[],'p_evaluation_id':os.environ['EVALUATION_ID']
-},separators=(',',':')))
-PY
-)
+EMPTY_REQUEST=$(review_payload "$ASSET" life_extension pass \
+  'An omitted criterion must fail closed before any lifecycle movement.' \
+  '' "$EVIDENCE" "$EVALUATION")
 EMPTY_DENIED=$(rpc "$OWNER_TOKEN" record_asset_lifecycle_gate_review "$EMPTY_REQUEST")
 expect_error "$EMPTY_DENIED" 'every current-stage criterion exactly once'
 PASSED=$(rpc "$OWNER_TOKEN" record_asset_lifecycle_gate_review "$REVIEW"); noerr "$PASSED"
@@ -142,15 +133,19 @@ BODY="$PASSED" python3 -c "import json,os; x=json.loads(os.environ['BODY']); ass
 MOVED=$(rpc "$OWNER_TOKEN" advance_lifecycle_stage "{\"p_asset_id\":\"$ASSET\",\"p_to_stage\":\"life_extension\",\"p_reason\":\"The named human advances the asset against the fresh passing gate record.\"}")
 BODY="$MOVED" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x[0]['outcome']=='moved',x"
 
-LIFE_CRITERION=$(psqlc "select id from stage_gate_criteria where organization_id='$ORG' and stage_key='life_extension';")
-LIFE_FINDING="[{\"criterion_id\":$LIFE_CRITERION,\"status\":\"met\",\"evidence_item_id\":\"$EVIDENCE\"}]"
-LIFE_REVIEW=$(rpc "$OWNER_TOKEN" record_asset_lifecycle_gate_review "{\"p_asset_id\":\"$ASSET\",\"p_to_stage\":\"decommissioning\",\"p_outcome\":\"pass\",\"p_note\":\"Independent condition evidence supports the controlled end of extended service.\",\"p_findings\":$LIFE_FINDING,\"p_evaluation_id\":null}"); noerr "$LIFE_REVIEW"
+LIFE_CRITERIA=$(psqlc "select id from stage_gate_criteria where organization_id='$ORG' and stage_key='life_extension' and gate_id is null order by sort_order,id;")
+LIFE_REQUEST=$(review_payload "$ASSET" decommissioning pass \
+  'Independent condition evidence supports the controlled end of extended service.' \
+  "$LIFE_CRITERIA" "$EVIDENCE")
+LIFE_REVIEW=$(rpc "$OWNER_TOKEN" record_asset_lifecycle_gate_review "$LIFE_REQUEST"); noerr "$LIFE_REVIEW"
 TO_DECOM=$(rpc "$OWNER_TOKEN" advance_lifecycle_stage "{\"p_asset_id\":\"$ASSET\",\"p_to_stage\":\"decommissioning\",\"p_reason\":\"The approved lifecycle gate moves the asset into controlled decommissioning.\"}")
 BODY="$TO_DECOM" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x[0]['outcome']=='moved',x"
 
-DECOM_CRITERION=$(psqlc "select id from stage_gate_criteria where organization_id='$ORG' and stage_key='decommissioning';")
-DECOM_FINDING="[{\"criterion_id\":$DECOM_CRITERION,\"status\":\"met\",\"evidence_item_id\":\"$EVIDENCE\"}]"
-DECOM_REVIEW=$(rpc "$OWNER_TOKEN" record_asset_lifecycle_gate_review "{\"p_asset_id\":\"$ASSET\",\"p_to_stage\":\"disposal\",\"p_outcome\":\"pass\",\"p_note\":\"Independent make-safe evidence confirms readiness for governed disposal closeout.\",\"p_findings\":$DECOM_FINDING,\"p_evaluation_id\":null}"); noerr "$DECOM_REVIEW"
+DECOM_CRITERIA=$(psqlc "select id from stage_gate_criteria where organization_id='$ORG' and stage_key='decommissioning' and gate_id is null order by sort_order,id;")
+DECOM_REQUEST=$(review_payload "$ASSET" disposal pass \
+  'Independent make-safe evidence confirms readiness for governed disposal closeout.' \
+  "$DECOM_CRITERIA" "$EVIDENCE")
+DECOM_REVIEW=$(rpc "$OWNER_TOKEN" record_asset_lifecycle_gate_review "$DECOM_REQUEST"); noerr "$DECOM_REVIEW"
 TO_DISPOSAL=$(rpc "$OWNER_TOKEN" advance_lifecycle_stage "{\"p_asset_id\":\"$ASSET\",\"p_to_stage\":\"disposal\",\"p_reason\":\"The fresh decommissioning gate supports movement into physical disposal closeout.\"}")
 BODY="$TO_DISPOSAL" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x[0]['outcome']=='moved',x"
 
