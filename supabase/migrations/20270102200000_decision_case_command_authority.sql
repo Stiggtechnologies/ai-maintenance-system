@@ -275,7 +275,7 @@ begin
           length(coalesce(item->>'author',''))>200 or length(coalesce(item->>'meta',''))>200 or
           (ordinality>jsonb_array_length(coalesce(v_state->'messages','[]'::jsonb)) and
             (item ?| array['actorId','actorRole'] or item->>'meta' in
-              ('Human disposition','Required person recorded','Source connection check','Verification obligation'))) or
+              ('Human disposition','Required person recorded','Source connection check','Verification obligation')))) or
       exists(select 1 from jsonb_array_elements(v_new_messages) item group by item->>'id' having count(*)>1) then
       raise exception using errcode='23514',message='Conversation command may append valid messages but may not rewrite history'; end if;
     if coalesce(v_payload->>'tokensUsed','') !~ '^[0-9]{1,10}$' then
