@@ -51,6 +51,8 @@ on:
       - "supabase/functions/onboarding-enrich/**"
       - "supabase/functions/p6-schedule-read-pull/**"
       - "supabase/functions/_shared/p6-schedule-read.ts"
+      - "supabase/functions/sap-s4-inventory-read-pull/**"
+      - "supabase/functions/_shared/sap-s4-inventory-read.ts"
       - "supabase/functions/plant-historian-pull/**"
       - "supabase/functions/public-reliability-agent/**"
       - "supabase/functions/recovery-activation-pull/**"
@@ -194,6 +196,7 @@ jobs:
           supabase functions deploy plant-historian-pull
           supabase functions deploy public-reliability-agent
           supabase functions deploy recovery-activation-pull
+          supabase functions deploy sap-s4-inventory-read-pull
           supabase functions deploy sync-investigation-runtime
           supabase functions deploy sync-realtime-session
           supabase functions deploy sync-runtime
@@ -489,6 +492,23 @@ jobs:
             exit 1
           fi
           echo "P6 schedule read adapter is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove SAP S/4HANA inventory read adapter is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/sap-s4-inventory-read-pull"
+          status=$(curl --silent --show-error --output /tmp/sap-s4-inventory-read-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"connector_key":"boundary-probe","dry_run":true}' \
+            "$endpoint")
+          cat /tmp/sap-s4-inventory-read-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=SAP inventory read adapter boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "SAP inventory read adapter is deployed and JWT-protected (HTTP 401 unauthenticated)."
 
       - name: Prove CMMS read adapter is deployed
         run: |

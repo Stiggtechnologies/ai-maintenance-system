@@ -475,7 +475,7 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
       reuploadSentence:
         "A re-upload UPDATES the quantity in place and is counted as ACCEPTED, not duplicate — a stock level is a snapshot, not an event.",
       prerequisite:
-        "The material catalogue must be loaded first. This product has no screen that creates a material, so a tenant without a provisioned catalogue will see every row refused with “the catalogue must be loaded before stock”.",
+        "Create or verify the governed material in /materials first. Rows whose material_code is absent from the active tenant catalogue are refused with “the catalogue must be loaded before stock”.",
       caution:
         "A site_name that matches no site is REFUSED, so a mistyped site cannot land the whole file as one site-less pile. Stock is ONE quantity per material per site: two lines in the same file for the same pair are not both kept — the second is refused rather than silently overwriting the first, because this table has no external_id column to tell them apart.",
       outcome:
