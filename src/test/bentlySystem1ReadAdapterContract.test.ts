@@ -68,6 +68,9 @@ describe("C2.19 Bently System 1 condition read contract", () => {
     expect(migration).toContain("v_run.records_read<>v_expected");
     expect(migration).toContain("v_run.records_accepted+v_run.records_duplicate=v_expected");
     expect(migration).toContain("p_status='success' and v_run.records_rejected=0");
+    expect(migration).not.toContain("select r,c into v_run,v_connector");
+    expect(migration).toContain("select r.* into v_run from public.connector_runs r");
+    expect(migration).toContain("select c.* into v_connector from public.connectors c");
   });
 
   it("wires administrator configuration, dry run and committed pull", () => {

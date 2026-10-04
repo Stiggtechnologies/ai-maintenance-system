@@ -691,7 +691,7 @@ begin
   if p_status not in ('success','partial','failed') then
     return jsonb_build_object('error','System 1 status must be success, partial or failed');
   end if;
-  select r,c into v_run,v_connector from public.connector_runs r
+  select r.* into v_run from public.connector_runs r
   join public.connectors c on c.id=r.connector_id and c.organization_id=r.organization_id
   where r.id=p_run_id and r.organization_id=p_organization_id
     and r.status='running' and c.connector_type='condition_monitoring_read'
@@ -699,6 +699,13 @@ begin
     and c.connector_profile='bently_system1_opcua_gateway'
     and c.register_ref='C2.19' for update of r;
   if not found then return jsonb_build_object('error','running governed System 1 run not found'); end if;
+  select c.* into v_connector from public.connectors c
+  where c.id=v_run.connector_id and c.organization_id=p_organization_id
+    and c.connector_type='condition_monitoring_read'
+    and c.system_kind='condition_monitoring'
+    and c.connector_profile='bently_system1_opcua_gateway'
+    and c.register_ref='C2.19';
+  if not found then return jsonb_build_object('error','governed System 1 connector not found'); end if;
   if v_run.source_contract_hash<>public.bently_system1_contract_hash(v_connector.id) then
     return jsonb_build_object('error','System 1 connector contract changed before run completion');
   end if;
