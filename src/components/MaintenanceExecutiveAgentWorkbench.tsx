@@ -22,6 +22,13 @@ function value(record: Record<string, unknown>, key: string): string {
   return typeof found === "object" ? JSON.stringify(found) : String(found);
 }
 
+function label(key: string): string {
+  return key
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replaceAll("_", " ")
+    .replace(/^./, (character) => character.toUpperCase());
+}
+
 const sections = [
   ["performance", "Performance"],
   ["governance", "Governance"],
@@ -188,8 +195,27 @@ function AuthorizedMaintenanceExecutiveAgentWorkbench({
                         {first ? value(record, first) : "—"}
                       </p>
                       <p className="mt-1 text-xs text-slate-400">
-                        {first?.replaceAll("_", " ") ?? "No recorded fact"}
+                        {first ? label(first) : "No recorded fact"}
                       </p>
+                      <details className="mt-3 border-t border-white/8 pt-2">
+                        <summary className="cursor-pointer text-xs font-medium text-teal-200">
+                          Inspect all recorded facts
+                        </summary>
+                        <dl className="mt-2 space-y-2 text-xs">
+                          {Object.entries(record).map(([fact, factValue]) => (
+                            <div key={fact}>
+                              <dt className="font-medium text-slate-300">
+                                {label(fact)}
+                              </dt>
+                              <dd className="mt-0.5 break-words whitespace-pre-wrap text-slate-400">
+                                {typeof factValue === "object"
+                                  ? JSON.stringify(factValue, null, 2)
+                                  : String(factValue ?? "—")}
+                              </dd>
+                            </div>
+                          ))}
+                        </dl>
+                      </details>
                     </article>
                   );
                 })}
@@ -229,9 +255,12 @@ function AuthorizedMaintenanceExecutiveAgentWorkbench({
                       <ul className="mt-2 space-y-2 text-xs text-slate-300">
                         {briefing.assignments.map((item) => (
                           <li key={item.id}>
-                            {item.reviewerName ?? item.reviewerEmail ?? item.assignedTo}
-                            {" · due "}
-                            {item.dueDate}
+                            <p>
+                              {item.reviewerName ?? item.reviewerEmail ?? item.assignedTo}
+                              {" · due "}
+                              {item.dueDate}
+                            </p>
+                            <p className="mt-1 text-slate-400">{item.note}</p>
                           </li>
                         ))}
                       </ul>
@@ -249,9 +278,19 @@ function AuthorizedMaintenanceExecutiveAgentWorkbench({
                       <ul className="mt-2 space-y-2 text-xs text-slate-300">
                         {briefing.acknowledgements.map((item) => (
                           <li key={item.id}>
-                            {item.reviewerName ?? item.reviewedBy}
-                            {" · "}
-                            {item.disposition.replaceAll("_", " ")}
+                            <p>
+                              {item.reviewerName ?? item.reviewedBy}
+                              {" · "}
+                              {item.disposition.replaceAll("_", " ")}
+                            </p>
+                            <p className="mt-1 text-slate-400">
+                              {item.reviewNote}
+                            </p>
+                            {item.evidenceReference && (
+                              <p className="mt-1 break-all text-teal-200">
+                                Evidence: {item.evidenceReference}
+                              </p>
+                            )}
                           </li>
                         ))}
                       </ul>

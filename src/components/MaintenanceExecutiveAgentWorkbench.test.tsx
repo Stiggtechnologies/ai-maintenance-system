@@ -47,7 +47,7 @@ function workspace(options?: {
         agentRunId: "run-1",
         asOf: "2026-10-04T00:00:00.000Z",
         sourceSnapshot: { kpis: { count: 1, sha256: "abc" } },
-        performance: { latestMeasured: 1 },
+        performance: { latestMeasured: 1, breaches: 2 },
         governance: { pendingApprovals: 0 },
         budgets: {
           lineCount: 1,
@@ -124,6 +124,26 @@ describe("MaintenanceExecutiveAgentWorkbench", () => {
     ).toBeInTheDocument();
     expect(screen.getByText("No independent reviewer assigned.")).toBeInTheDocument();
     expect(screen.getByText("No review receipt recorded.")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Inspect all recorded facts"),
+    ).toHaveLength(5);
+    expect(screen.getByText("Breaches")).toBeInTheDocument();
+  });
+
+  it("shows the retained assignment and receipt evidence to the reviewer", async () => {
+    auth.role = "admin";
+    auth.userId = "user-admin";
+    loadWorkspace.mockResolvedValue(
+      workspace({ assignedTo: "user-admin", receiptBy: "user-admin" }),
+    );
+    render(<MaintenanceExecutiveAgentWorkbench />);
+
+    expect(
+      await screen.findByText("Review the exact evidence packet."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("Independent review completed against source evidence."),
+    ).toBeInTheDocument();
   });
 
   it("enables a receipt only for the assigned reviewer with a substantive note", async () => {
