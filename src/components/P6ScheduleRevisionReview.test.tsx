@@ -85,4 +85,15 @@ describe("P6ScheduleRevisionReview", () => {
     await waitFor(() => expect(propose).toHaveBeenCalledWith("run-2"));
     expect(container).toBeEmptyDOMElement();
   });
+
+  it("answers an explicit history review when the run has no changes", async () => {
+    propose.mockResolvedValue({
+      answered: false,
+      refusal: "No changed duplicate activity was found in this run.",
+    });
+    render(<P6ScheduleRevisionReview runId="run-3" showNoChanges />);
+    expect(
+      await screen.findByText(/no changed duplicate activity/i),
+    ).toBeInTheDocument();
+  });
 });
