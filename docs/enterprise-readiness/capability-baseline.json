@@ -786,10 +786,10 @@
     "backticked": 2
   },
   "C8.04": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 5,
+    "backticked": 5
   },
   "C8.05": {
     "status": "✅",
