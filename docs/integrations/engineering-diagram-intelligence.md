@@ -37,7 +37,9 @@ a second document register or asset graph.
 6. A named human proposes each node-to-asset mapping. A different named human
    with verified MFA and AAL2 accepts or rejects it.
 7. A human explicitly chooses dependency orientation, kind, and basis. SyncAI
-   publishes only to the existing `dependency_candidates` queue.
+   publishes only to the existing `dependency_candidates` queue. Multi-candidate
+   publication is atomic: one invalid item rolls back every candidate in that
+   request, so an error cannot leave an unaudited partial batch.
 8. A different named human with verified MFA and AAL2 confirms or rejects that
    candidate through the existing Asset Interdependency review. Only that
    confirmation can update `asset_dependencies`.
