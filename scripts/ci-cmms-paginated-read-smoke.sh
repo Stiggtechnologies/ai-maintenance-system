@@ -151,7 +151,7 @@ expect_error "$AI_INGEST_DENIED" 'named human'
 ADMIN_INGEST_DENIED=$(rpc "$ADMIN_JWT" ingest_cmms_read_batch "{\"p_run_id\":\"$RUN\",\"p_rows\":[]}")
 expect_error "$ADMIN_INGEST_DENIED" 'not found'
 ADMIN_FINISH_DENIED=$(rpc "$ADMIN_JWT" finish_connector_run "{\"p_run_id\":\"$RUN\",\"p_status\":\"success\",\"p_error\":null}")
-expect_error "$ADMIN_FINISH_DENIED" 'triggered this CMMS pull'
+expect_error "$ADMIN_FINISH_DENIED" 'triggered this governed pull'
 
 INGESTED=$(rpc "$PLANNER_JWT" ingest_cmms_read_batch "{\"p_run_id\":\"$RUN\",\"p_rows\":$ROWS}")
 noerr "$INGESTED"
