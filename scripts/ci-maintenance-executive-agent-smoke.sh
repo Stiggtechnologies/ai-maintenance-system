@@ -51,7 +51,7 @@ RUN=$(rpc "$EXECUTIVE" run_maintenance_executive_agent '{}')
 RUN_IDS=$(RUN="$RUN" python3 - <<'PY'
 import json,os
 d=json.loads(os.environ['RUN'])
-assert d['advisory'] is True,d
+assert d.get('advisory') is True,d
 for key in ('mayApprove','mayAcceptRisk','mayAdoptStrategy','mayCommitSpend',
             'mayReleaseWork','mayChangeOperatingLimits','mayReturnToService'):
     assert d[key] is False,(key,d)

@@ -49,6 +49,11 @@ begin
 
   if new.strategy_updated_at is distinct from old.strategy_updated_at
      and new.strategy_updated_at is not null
+     -- Project corrective-action closure has no asset by design and completes
+     -- this stage through its independently approved canonical standard-work
+     -- revision. The lifecycle-plan requirement belongs only to asset/work-
+     -- order verification.
+     and new.project_lesson_id is null
      and new.strategy_lifecycle_plan_id is null then
     raise exception 'Strategy completion requires an adopted lifecycle-plan version';
   end if;
