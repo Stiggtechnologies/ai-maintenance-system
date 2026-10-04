@@ -25,6 +25,7 @@ import { useRealtimeRefetch } from "../hooks/useRealtimeRefetch";
 import { LiveBadge } from "../components/ui/LiveBadge";
 import { ValueManagement } from "../components/ValueManagement";
 import { EnvironmentalPerformance } from "../components/EnvironmentalPerformance";
+import { EnterpriseHseEvents } from "../components/EnterpriseHseEvents";
 import { MaintenanceExecutiveAgentWorkbench } from "../components/MaintenanceExecutiveAgentWorkbench";
 import {
   getKpiDashboard,
@@ -312,6 +313,7 @@ export function ExecutiveIntelligence() {
       <SegmentedReliability />
       <AccountabilityCascade />
       <ValueManagement />
+      <EnterpriseHseEvents />
       {/* Environmental performance moved here when the fabricated /performance
           dashboard was deleted: it was the only sourced panel on that page, it
           reads its own RPCs, and the Sustainability & ESG KPI section above is

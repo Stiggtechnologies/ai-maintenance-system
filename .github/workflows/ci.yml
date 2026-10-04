@@ -259,6 +259,9 @@ jobs:
       - name: Smoke — governed reliability segmentation
         run: bash scripts/ci-reliability-segmentation-smoke.sh
 
+      - name: Smoke — governed enterprise HSE events
+        run: bash scripts/ci-enterprise-hse-events-smoke.sh
+
       - name: Smoke — governed RCA / FRACAS investigation
         run: bash scripts/ci-fracas-rca-agent-smoke.sh
 
