@@ -101,9 +101,22 @@ describe("SAP S/4HANA inventory connector setup", () => {
     expect(onConfigured).toHaveBeenCalledTimes(1);
   });
 
-  it("does not expose configuration to non-administrators", () => {
+  it("does not expose configuration to non-human administrators", () => {
     auth.role = "inventory_manager";
-    render(<SapS4InventoryReadConnectorSetup onConfigured={vi.fn()} />);
+    const { rerender } = render(
+      <SapS4InventoryReadConnectorSetup onConfigured={vi.fn()} />,
+    );
+    expect(
+      screen.getByText(
+        "An administrator must configure or enable this source.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText("SAP inventory connector key"),
+    ).toBeNull();
+
+    auth.role = "ai_admin";
+    rerender(<SapS4InventoryReadConnectorSetup onConfigured={vi.fn()} />);
     expect(
       screen.getByText(
         "An administrator must configure or enable this source.",

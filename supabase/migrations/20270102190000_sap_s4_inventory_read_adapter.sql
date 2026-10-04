@@ -76,14 +76,18 @@ declare
 begin
   select role into v_role from public.user_profiles
   where id=auth.uid() and organization_id=v_org;
-  if v_org is null or coalesce(v_role,'') not in ('admin','ai_admin') then
+  if coalesce(v_role,'')='ai_admin' then
+    return jsonb_build_object('error','a named human administrator must configure or enable an SAP inventory source');
+  end if;
+  if v_org is null or coalesce(v_role,'')<>'admin' then
     return jsonb_build_object('error','configuring an SAP inventory source requires an administrator');
   end if;
-  if coalesce(length(btrim(p_key)),0)<3 or coalesce(length(btrim(p_name)),0)<3 then
-    return jsonb_build_object('error','connector key and name are required');
+  if coalesce(length(btrim(p_key)),0) not between 3 and 160
+     or coalesce(length(btrim(p_name)),0) not between 3 and 160 then
+    return jsonb_build_object('error','connector key and name must be between 3 and 160 characters');
   end if;
-  if coalesce(length(btrim(p_basis)),0)<20 then
-    return jsonb_build_object('error','record a substantive SAP inventory activation and site-mapping basis');
+  if coalesce(length(btrim(p_basis)),0) not between 20 and 2000 then
+    return jsonb_build_object('error','record a substantive bounded SAP inventory activation and site-mapping basis');
   end if;
   if not exists(select 1 from public.sites s where s.id=p_site_id and s.organization_id=v_org) then
     return jsonb_build_object('error','the canonical inventory site is outside the active tenant or does not exist');
@@ -101,16 +105,17 @@ begin
   if coalesce(p_max_pages,0) not between 2 and 100 then
     return jsonb_build_object('error','maximum SAP pages must be between 2 and 100');
   end if;
-  if coalesce(p_expected_interval_minutes,0)<1 then
-    return jsonb_build_object('error','expected interval must be at least one minute');
+  if coalesce(p_expected_interval_minutes,0) not between 1 and 525600 then
+    return jsonb_build_object('error','expected interval must be between one minute and one year');
   end if;
-  if v_endpoint is null
+  if v_endpoint is null or length(v_endpoint)>2048
      or v_endpoint !~* '^https://[A-Za-z0-9.-]+(:443)?(/[^[:space:]?#]*)?$'
      or v_endpoint !~ '/API_MATERIAL_STOCK_SRV/?$'
      or v_endpoint ~* '(localhost|127\.0\.0\.1|0\.0\.0\.0|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|169\.254\.|\[?::1\]?|@|password|token|api[_-]?key|bearer|secret)' then
     return jsonb_build_object('error','SAP service root must be a credential-free public HTTPS URL ending in API_MATERIAL_STOCK_SRV without query or fragment; private/local targets are blocked');
   end if;
-  if v_ref is null or v_ref !~ '^[a-z][a-z0-9+.-]*://[A-Za-z0-9._:/-]+$'
+  if v_ref is null or length(v_ref)>500
+     or v_ref !~ '^[a-z][a-z0-9+.-]*://[A-Za-z0-9._:/-]+$'
      or v_ref ~ '[@?=#]' then
     return jsonb_build_object('error','credential binding must be an opaque secret-store URI without a value, query or fragment');
   end if;
@@ -196,7 +201,7 @@ begin
   select role into v_role from public.user_profiles
   where id=auth.uid() and organization_id=v_org;
   if v_org is null or coalesce(v_role,'') not in
-    ('planner','inventory_manager','reliability_engineer','maintenance_manager','admin','ai_admin') then
+    ('planner','inventory_manager','reliability_engineer','maintenance_manager','admin') then
     return jsonb_build_object('error','SAP inventory source access denied');
   end if;
   select * into v_connector from public.connectors
@@ -256,7 +261,7 @@ begin
   select role into v_role from public.user_profiles
   where id=p_triggered_by and organization_id=p_organization_id;
   if coalesce(v_role,'') not in
-    ('planner','inventory_manager','reliability_engineer','maintenance_manager','admin','ai_admin') then
+    ('planner','inventory_manager','reliability_engineer','maintenance_manager','admin') then
     return jsonb_build_object('error','SAP inventory run actor is not authorized for this tenant');
   end if;
   select * into v_connector from public.connectors
@@ -298,8 +303,12 @@ begin
        or coalesce(v_item->>'row_count','') !~ '^[0-9]+$' then
       return jsonb_build_object('error','SAP inventory manifest is missing bounded page provenance');
     end if;
-    if (v_item->>'bytes')::bigint<=0 then
-      return jsonb_build_object('error','SAP inventory source pages must contain bytes');
+    if (v_item->>'bytes')::bigint<=0
+       or (v_item->>'bytes')::bigint>10485760 then
+      return jsonb_build_object('error','SAP inventory source pages must contain no more than 10 MB');
+    end if;
+    if (v_item->>'row_count')::int>v_connector.inventory_page_size then
+      return jsonb_build_object('error','SAP inventory source page exceeds the approved row size');
     end if;
     v_bytes:=v_bytes+(v_item->>'bytes')::bigint;
     v_rows:=v_rows+(v_item->>'row_count')::int;
@@ -371,7 +380,7 @@ begin
   select role into v_role from public.user_profiles
   where id=p_triggered_by and organization_id=p_organization_id;
   if coalesce(v_role,'') not in
-    ('planner','inventory_manager','reliability_engineer','maintenance_manager','admin','ai_admin') then
+    ('planner','inventory_manager','reliability_engineer','maintenance_manager','admin') then
     return jsonb_build_object('error','SAP inventory ingest actor is not authorized for this tenant');
   end if;
   select r.* into v_run
@@ -404,6 +413,9 @@ begin
       v_reason:='row contains fields outside the governed SAP stock contract';
     elsif v_ext is null or nullif(btrim(v_row->>'material_code'),'') is null
        or nullif(btrim(v_row->>'unit_of_measure'),'') is null
+       or length(v_ext)>320
+       or length(btrim(v_row->>'material_code'))>255
+       or length(btrim(v_row->>'unit_of_measure'))>40
        or coalesce(v_row->>'site_id','')<>v_connector.inventory_site_id::text
        or jsonb_typeof(v_row->'qty_on_hand')<>'number' then
       v_reason:='material code, UOM, non-negative quantity, exact site and external identity are required';

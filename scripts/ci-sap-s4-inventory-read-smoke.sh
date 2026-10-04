@@ -7,7 +7,7 @@ eval "$(supabase status -o env | grep -E '^(ANON_KEY|SERVICE_ROLE_KEY|API_URL|JW
 : "${API_URL:?missing API_URL}" "${ANON_KEY:?missing ANON_KEY}" "${SERVICE_ROLE_KEY:?missing SERVICE_ROLE_KEY}" "${JWT_SECRET:?missing JWT_SECRET}"
 
 uuid(){ python3 -c 'import uuid; print(uuid.uuid4())'; }
-ORG=$(uuid); FOREIGN_ORG=$(uuid); ADMIN=$(uuid); MANAGER=$(uuid); FOREIGN=$(uuid); SITE=$(uuid); FOREIGN_SITE=$(uuid)
+ORG=$(uuid); FOREIGN_ORG=$(uuid); ADMIN=$(uuid); MANAGER=$(uuid); AI_ADMIN=$(uuid); FOREIGN=$(uuid); SITE=$(uuid); FOREIGN_SITE=$(uuid)
 MATERIAL_ONE=$(uuid); MATERIAL_TWO=$(uuid); CONNECTOR_KEY="c217-sap-${ORG:0:8}"
 FETCH_ONE=$(python3 -c 'from datetime import datetime,timezone,timedelta; print((datetime.now(timezone.utc)-timedelta(minutes=2)).isoformat().replace("+00:00","Z"))')
 FETCH_TWO=$(python3 -c 'from datetime import datetime,timezone,timedelta; print((datetime.now(timezone.utc)-timedelta(minutes=1)).isoformat().replace("+00:00","Z"))')
@@ -42,10 +42,12 @@ insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_co
   phone_change,phone_change_token,reauthentication_token) values
 ('00000000-0000-0000-0000-000000000000','$ADMIN','authenticated','authenticated','c217-admin-$ADMIN@invalid.syncai.ca','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','',''),
 ('00000000-0000-0000-0000-000000000000','$MANAGER','authenticated','authenticated','c217-manager-$MANAGER@invalid.syncai.ca','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','',''),
+('00000000-0000-0000-0000-000000000000','$AI_ADMIN','authenticated','authenticated','c217-ai-$AI_ADMIN@invalid.syncai.ca','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','',''),
 ('00000000-0000-0000-0000-000000000000','$FOREIGN','authenticated','authenticated','c217-foreign-$FOREIGN@invalid.syncai.ca','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','','');
 insert into user_profiles(id,organization_id,email,full_name,role) values
 ('$ADMIN','$ORG','c217-admin-$ADMIN@invalid.syncai.ca','C2.17 administrator','admin'),
 ('$MANAGER','$ORG','c217-manager-$MANAGER@invalid.syncai.ca','C2.17 inventory manager','inventory_manager'),
+('$AI_ADMIN','$ORG','c217-ai-$AI_ADMIN@invalid.syncai.ca','C2.17 AI administrator','ai_admin'),
 ('$FOREIGN','$FOREIGN_ORG','c217-foreign-$FOREIGN@invalid.syncai.ca','C2.17 foreign administrator','admin');
 insert into materials(id,organization_id,material_code,description,unit_of_measure,is_template,source_system)
 values('$MATERIAL_ONE','$ORG','MAT-001','Seal kit','EA',false,'customer_catalogue');
@@ -55,10 +57,12 @@ PSQL
 
 ADMIN_JWT=$(jwt "$ADMIN" "c217-admin-$ADMIN@invalid.syncai.ca")
 MANAGER_JWT=$(jwt "$MANAGER" "c217-manager-$MANAGER@invalid.syncai.ca")
+AI_ADMIN_JWT=$(jwt "$AI_ADMIN" "c217-ai-$AI_ADMIN@invalid.syncai.ca")
 FOREIGN_JWT=$(jwt "$FOREIGN" "c217-foreign-$FOREIGN@invalid.syncai.ca")
 BASE="{\"p_key\":\"$CONNECTOR_KEY\",\"p_name\":\"C2.17 governed SAP stock\",\"p_service_root\":\"https://sap.example.com/sap/opu/odata/sap/API_MATERIAL_STOCK_SRV\",\"p_plant\":\"1000\",\"p_storage_location\":\"0001\",\"p_site_id\":\"$SITE\",\"p_max_rows\":100,\"p_page_size\":50,\"p_max_pages\":5,\"p_expected_interval_minutes\":60,\"p_credential_binding_ref\":\"vault://tenant/sap-s4-inventory\",\"p_enabled\":true,\"p_basis\":\"Named inventory manager approved SAP Plant 1000 StorageLocation 0001 as North Plant.\"}"
 
 expect_error "$(rpc "$MANAGER_JWT" configure_sap_s4_inventory_source "$BASE")" 'requires an administrator'
+expect_error "$(rpc "$AI_ADMIN_JWT" configure_sap_s4_inventory_source "$BASE")" 'named human administrator'
 BAD_SITE="${BASE/$SITE/$FOREIGN_SITE}"
 expect_error "$(rpc "$ADMIN_JWT" configure_sap_s4_inventory_source "$BAD_SITE")" 'outside the active tenant'
 BAD_ENDPOINT="${BASE/https:\/\/sap.example.com/https:\/\/192.168.1.50}"
@@ -71,6 +75,7 @@ test "$(field "$CONFIGURED" source_profile)" = 'sap_s4_material_stock'
 SOURCE=$(rpc "$MANAGER_JWT" get_sap_s4_inventory_source "{\"p_connector_key\":\"$CONNECTOR_KEY\"}"); noerr "$SOURCE"
 test "$(field "$SOURCE" site_id)" = "$SITE"
 test "$(field "$SOURCE" plant)" = '1000'
+expect_error "$(rpc "$AI_ADMIN_JWT" get_sap_s4_inventory_source "{\"p_connector_key\":\"$CONNECTOR_KEY\"}")" 'access denied'
 expect_error "$(rpc "$FOREIGN_JWT" get_sap_s4_inventory_source "{\"p_connector_key\":\"$CONNECTOR_KEY\"}")" 'not found'
 test "$(psqlc "select has_function_privilege('authenticated','public.begin_sap_s4_inventory_read_run(uuid,uuid,text,jsonb,jsonb,bigint)','execute');")" = 'f'
 test "$(psqlc "select has_function_privilege('service_role','public.begin_sap_s4_inventory_read_run(uuid,uuid,text,jsonb,jsonb,bigint)','execute');")" = 't'

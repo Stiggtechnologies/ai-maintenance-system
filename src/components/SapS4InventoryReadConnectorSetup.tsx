@@ -13,9 +13,7 @@ export function SapS4InventoryReadConnectorSetup({
   onConfigured: () => Promise<void>;
 }) {
   const { profile } = useAuth();
-  const admin = ["admin", "ai_admin"].includes(
-    String(profile?.role ?? "").toLowerCase(),
-  );
+  const admin = String(profile?.role ?? "").toLowerCase() === "admin";
   const [sites, setSites] = useState<SiteOption[]>([]);
   const [key, setKey] = useState("");
   const [name, setName] = useState("");
