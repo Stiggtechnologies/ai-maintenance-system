@@ -582,6 +582,9 @@ jobs:
       - name: Smoke — governed ADLS data-lake run attestation and cursor
         run: bash scripts/ci-adls-data-lake-smoke.sh
 
+      - name: Smoke — governed environmental evidence workflow
+        run: bash scripts/ci-environmental-evidence-workflow-smoke.sh
+
       - name: Smoke — thirteen-dimension finance intelligence
         run: bash scripts/ci-develop-finance-intelligence-smoke.sh
 
