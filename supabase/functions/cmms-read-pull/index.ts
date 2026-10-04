@@ -71,7 +71,7 @@ function endpoint(value: string): URL {
   return out;
 }
 
-function headers(binding: string): Record<string, string> {
+function headers(binding: string, tenantId: string): Record<string, string> {
   let registry: Record<string, unknown>;
   try {
     registry = JSON.parse(credentials);
@@ -84,13 +84,20 @@ function headers(binding: string): Record<string, string> {
       "Configured credential binding is not present in the Edge Function secret registry.",
     );
   }
-  if (typeof entry === "string") {
-    return { Authorization: `Bearer ${entry}` };
-  }
   if (!entry || typeof entry !== "object") {
     throw new Error("Configured credential binding is invalid.");
   }
-  const record = entry as { type?: string; header?: string; value?: string };
+  const record = entry as {
+    tenant_id?: string;
+    type?: string;
+    header?: string;
+    value?: string;
+  };
+  if (!tenantId || record.tenant_id !== tenantId) {
+    throw new Error(
+      "Configured credential binding is not assigned to the active tenant.",
+    );
+  }
   const value = record.value ?? "";
   if (!value || /[\r\n]/.test(value)) {
     throw new Error("Configured credential binding is empty or invalid.");
@@ -212,13 +219,22 @@ Deno.serve(async (request) => {
       p_connector_key: key,
     });
     if (
-      !source.enabled ||
       source.direction !== "read_only" ||
-      source.write_enabled ||
-      source.mapping_status !== "approved"
+      source.write_enabled
+    ) {
+      throw new Error("CMMS source is not governed as read-only.");
+    }
+    if (
+      !dryRun &&
+      (!source.enabled || source.mapping_status !== "approved")
     ) {
       throw new Error(
-        "CMMS source is not enabled, read-only and mapping-approved.",
+        "Canonical CMMS promotion requires an enabled source and a human-approved mapping.",
+      );
+    }
+    if (!dryRun && source.can_commit !== true) {
+      throw new Error(
+        "A named human planning, engineering, maintenance or administrator role must trigger canonical CMMS promotion.",
       );
     }
     if (
@@ -280,7 +296,10 @@ Deno.serve(async (request) => {
       const response = await fetch(current, {
         headers: {
           Accept: "application/json",
-          ...headers(source.credential_binding_ref),
+          ...headers(
+            source.credential_binding_ref,
+            String(source.credential_tenant_id ?? ""),
+          ),
         },
         redirect: "error",
         signal: AbortSignal.timeout(Math.min(20_000, remainingMs)),
@@ -346,6 +365,7 @@ Deno.serve(async (request) => {
 
     const run = await rpc(client, "begin_cmms_read_run", {
       p_connector_key: key,
+      p_expected_contract_hash: String(source.contract_hash ?? ""),
     });
     runId = String(run.run_id);
     for (let index = 0; index < mapped.length; index += 500) {

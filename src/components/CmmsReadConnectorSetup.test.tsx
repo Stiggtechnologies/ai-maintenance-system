@@ -76,8 +76,16 @@ describe("CMMS read connector setup", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Save and enable" }));
 
-    await waitFor(() => expect(actions.configure).toHaveBeenCalledTimes(1));
-    expect(actions.configure).toHaveBeenCalledWith(
+    await waitFor(() => expect(actions.configure).toHaveBeenCalledTimes(2));
+    expect(actions.configure).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        key: "mine-maximo",
+        enabled: false,
+      }),
+    );
+    expect(actions.configure).toHaveBeenNthCalledWith(
+      2,
       expect.objectContaining({
         key: "mine-maximo",
         endpointUrl: "https://maximo.example.com/api/work-orders",
@@ -102,7 +110,18 @@ describe("CMMS read connector setup", () => {
     render(<CmmsReadConnectorSetup onConfigured={vi.fn()} />);
     expect(
       screen.getByText(
-        "An administrator must configure or enable this source.",
+        "A named human administrator must configure or enable this source.",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByPlaceholderText("Connector key")).toBeNull();
+  });
+
+  it("does not present an AI administrator as the human approver", () => {
+    auth.role = "ai_admin";
+    render(<CmmsReadConnectorSetup onConfigured={vi.fn()} />);
+    expect(
+      screen.getByText(
+        "A named human administrator must configure or enable this source.",
       ),
     ).toBeTruthy();
     expect(screen.queryByPlaceholderText("Connector key")).toBeNull();

@@ -152,9 +152,20 @@ export function SafetyCriticalRegulatoryRegister() {
     setError(null);
     setNotice(null);
     try {
+      const selectedRequirement = mandatoryRequirements.find(
+        (requirement) =>
+          requirement.layerId === layerId &&
+          requirement.key === requirementKey,
+      );
+      if (!linkElement || !selectedRequirement)
+        throw new Error(
+          "The selected element or requirement changed. Refresh before linking.",
+        );
       const result = await linkSafetyCriticalRegulatoryObligation({
         safetyCriticalElementId: Number(linkElementId),
+        expectedElementVersion: linkElement.version,
         capabilityPackLayerId: layerId,
+        expectedLayerVersion: selectedRequirement.layerVersion,
         requirementKey,
         evidenceItemId: String(form.get("evidenceItemId") ?? ""),
         basis: String(form.get("basis") ?? ""),
