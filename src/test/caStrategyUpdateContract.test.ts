@@ -6,6 +6,18 @@ const migration = readFileSync(
   "utf8",
 ).toLowerCase();
 const panel = readFileSync("src/components/CaEffectivenessPanel.tsx", "utf8");
+const closeoutPanel = readFileSync(
+  "src/components/WorkOrderCloseoutModal.tsx",
+  "utf8",
+);
+const closeoutService = readFileSync(
+  "src/services/workOrderCloseout.ts",
+  "utf8",
+);
+const closeoutMigration = readFileSync(
+  "supabase/migrations/20261219138000_pm_task_effectiveness.sql",
+  "utf8",
+).toLowerCase();
 const smoke = readFileSync("scripts/ci-ca-strategy-update-smoke.sh", "utf8");
 const workflow = readFileSync(".github/workflows/ci.yml", "utf8");
 const register = readFileSync(
@@ -14,6 +26,19 @@ const register = readFileSync(
 );
 
 describe("governed corrective-action strategy update", () => {
+  it("requires a governed corrective-work closeout before verification", () => {
+    expect(closeoutPanel).toContain("Corrective action");
+    expect(closeoutPanel).toContain("Complete work order");
+    expect(closeoutService).toContain('supabase.rpc("close_work_order_v2"');
+    expect(closeoutMigration).toContain(
+      "work-order closeout requires a maintenance or engineering role",
+    );
+    expect(closeoutMigration).toContain("p_closeout->>'correctiveaction'");
+    expect(smoke).toContain("governed_correction=true");
+    expect(smoke).toContain("mandatory_closeout=true");
+    expect(register).toMatch(/\| C4\.11 \|[^\n]+\| ✅[^\n]+/i);
+  });
+
   it("links closure to the canonical immutable lifecycle-plan version", () => {
     expect(migration).toContain("public.ca_verifications");
     expect(migration).toContain("public.asset_lifecycle_plans");

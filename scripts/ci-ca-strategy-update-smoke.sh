@@ -49,17 +49,27 @@ test -n "$LIFECYCLE_PLAN"
 
 psqlc "
   insert into public.work_orders(
-    id,organization_id,asset_id,wo_number,title,status,work_type,completed_at,
-    actual_failure_mode,actual_cause,corrective_action
+    id,organization_id,asset_id,wo_number,title,status,work_type
   ) values (
     '$WORK_ORDER','$ORG','$ASSET','C4.12-CI',
-    'Corrective action requiring a canonical strategy update','completed',
-    'corrective',now()-interval '1 day','Bearing wear','Age-related wear',
-    'Replaced the damaged component and verified the physical repair'
+    'Corrective action requiring a canonical strategy update','in_progress',
+    'corrective'
   ) on conflict(id) do update set
-    asset_id=excluded.asset_id,status='completed',work_type='corrective',
-    completed_at=excluded.completed_at,actual_failure_mode=excluded.actual_failure_mode;
+    asset_id=excluded.asset_id,status='in_progress',work_type='corrective',
+    completed_at=null,closed_at=null,actual_failure_mode=null,
+    actual_cause=null,corrective_action=null;
 " >/dev/null
+
+# C4.11: the customer-reachable work-order closeout path will not complete
+# corrective work without the failure, cause, action and actual-hour evidence.
+INCOMPLETE=$(rpc "$ENGINEER" close_work_order_v2 \
+  "{\"p_work_order_id\":\"$WORK_ORDER\",\"p_closeout\":{\"actualFailureMode\":\"Bearing wear\",\"actualCause\":\"Age-related wear\",\"correctiveAction\":\"\",\"laborHours\":4,\"downtimeHours\":6}}")
+INCOMPLETE="$INCOMPLETE" python3 -c "import json,os; assert json.loads(os.environ['INCOMPLETE'])['error']=='missing_required_closeout_fields'"
+
+CORRECTED=$(rpc "$ENGINEER" close_work_order_v2 \
+  "{\"p_work_order_id\":\"$WORK_ORDER\",\"p_closeout\":{\"actualFailureMode\":\"Bearing wear\",\"actualCause\":\"Age-related wear\",\"correctiveAction\":\"Replaced the damaged component and verified the physical repair\",\"laborHours\":4,\"downtimeHours\":6,\"partsUsed\":\"CI-BRG-001\",\"technicianComments\":\"Repair completed against the approved work package.\"}}")
+CORRECTED="$CORRECTED" python3 -c "import json,os; d=json.loads(os.environ['CORRECTED']); assert d.get('closed') is True and d.get('closeoutType')=='corrective',d"
+test "$(psqlc "select count(*) from public.work_orders where id='$WORK_ORDER' and organization_id='$ORG' and status='completed' and completed_at is not null and actual_failure_mode='Bearing wear' and actual_cause='Age-related wear' and corrective_action='Replaced the damaged component and verified the physical repair' and labor_hours=4 and downtime_hours=6")" = '1'
 
 STARTED=$(rpc "$ENGINEER" start_ca_verification \
   "{\"p_work_order_id\":\"$WORK_ORDER\",\"p_observation_days\":90}")
@@ -121,4 +131,4 @@ PATCH=$(curl -sS -o /tmp/c412-patch.txt -w '%{http_code}' -X PATCH \
 case "$PATCH" in 401|403) ;; 200) test "$(cat /tmp/c412-patch.txt)" = '[]' ;; *) false ;; esac
 test "$(psqlc "select count(*) from public.ca_verifications where id='$VERIFICATION' and strategy_note='forged browser rewrite'")" = '0'
 
-echo 'Corrective-action strategy linkage smoke passed: blind_attestation_refused=true stage_order=true same_asset_plan=true programme_changed=true immutable_link=true tenant_wall=true audit_lineage=true'
+echo 'Corrective-action strategy linkage smoke passed: governed_correction=true mandatory_closeout=true blind_attestation_refused=true stage_order=true same_asset_plan=true programme_changed=true immutable_link=true tenant_wall=true audit_lineage=true'
