@@ -131,12 +131,15 @@ export function EnterpriseHseEvents() {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const eventType = String(form.get("eventType"));
+    const correction = data?.events.find(
+      (item) => item.id === String(form.get("correctionTarget") || ""),
+    );
     void runAction(
       () =>
         recordHseEvent({
-          eventRef: String(form.get("eventRef")),
-          expectedVersion: 0,
-          status: "active",
+          eventRef: correction?.eventRef ?? String(form.get("eventRef")),
+          expectedVersion: correction?.version ?? 0,
+          status: String(form.get("status")) as "active" | "withdrawn",
           domain: eventDomain,
           eventType: eventType as Parameters<
             typeof recordHseEvent
@@ -168,14 +171,17 @@ export function EnterpriseHseEvents() {
   function submitSource(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
+    const correction = data?.reportingSources.find(
+      (item) => item.id === String(form.get("correctionTarget") || ""),
+    );
     const scope = String(form.get("scope")) as "enterprise" | "site";
     const sourceKind = String(form.get("sourceKind")) as
       "manual_register" | "external_system" | "hybrid";
     void runAction(
       () =>
         recordHseReportingSource({
-          sourceRef: String(form.get("sourceRef")),
-          expectedVersion: 0,
+          sourceRef: correction?.sourceRef ?? String(form.get("sourceRef")),
+          expectedVersion: correction?.version ?? 0,
           domain: String(form.get("domain")) as Parameters<
             typeof recordHseReportingSource
           >[0]["domain"],
@@ -187,10 +193,13 @@ export function EnterpriseHseEvents() {
             sourceKind === "manual_register"
               ? null
               : String(form.get("connectorId") || ""),
-          status: "active",
+          status: String(form.get("status")) as "active" | "inactive",
           coverageStart: new Date(
             String(form.get("coverageStart")),
           ).toISOString(),
+          coverageEnd: form.get("coverageEnd")
+            ? new Date(String(form.get("coverageEnd"))).toISOString()
+            : null,
           sourceReference: String(form.get("sourceReference")),
           evidenceItemId: String(form.get("evidenceItemId")),
           basis: String(form.get("basis")),
@@ -311,6 +320,81 @@ export function EnterpriseHseEvents() {
         />
       </div>
 
+      {(data.events.length > 0 || data.reportingSources.length > 0) && (
+        <div className="grid gap-3 lg:grid-cols-2">
+          <div className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
+            <h3 className="text-sm font-semibold text-white">Recent events</h3>
+            {data.events.length === 0 ? (
+              <p className="mt-2 text-xs text-slate-500">No events recorded.</p>
+            ) : (
+              <ul className="mt-2 divide-y divide-white/6">
+                {data.events.slice(0, 6).map((event) => (
+                  <li
+                    key={event.id}
+                    className="flex items-start justify-between gap-3 py-2 text-xs"
+                  >
+                    <div>
+                      <p className="font-medium text-slate-200">
+                        {event.eventRef} · {event.eventType.replace(/_/g, " ")}
+                      </p>
+                      <p className="text-slate-500">
+                        v{event.version} · {event.domain.replace(/_/g, " ")} ·{" "}
+                        {event.actuality.replace(/_/g, " ")}
+                      </p>
+                    </div>
+                    <span
+                      className={
+                        event.verifiedAt ? "text-emerald-300" : "text-amber-300"
+                      }
+                    >
+                      {event.verifiedAt ? "Verified" : "Needs verification"}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className="rounded-xl border border-white/8 bg-white/[0.02] p-4">
+            <h3 className="text-sm font-semibold text-white">
+              Reporting coverage sources
+            </h3>
+            {data.reportingSources.length === 0 ? (
+              <p className="mt-2 text-xs text-slate-500">
+                No coverage source has been attested.
+              </p>
+            ) : (
+              <ul className="mt-2 divide-y divide-white/6">
+                {data.reportingSources.map((source) => (
+                  <li
+                    key={source.id}
+                    className="flex items-start justify-between gap-3 py-2 text-xs"
+                  >
+                    <div>
+                      <p className="font-medium text-slate-200">
+                        {source.sourceName}
+                      </p>
+                      <p className="text-slate-500">
+                        {source.domain.replace(/_/g, " ")} · {source.scope} · v
+                        {source.version}
+                      </p>
+                    </div>
+                    <span
+                      className={
+                        source.status === "active"
+                          ? "text-emerald-300"
+                          : "text-slate-500"
+                      }
+                    >
+                      {source.status}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+
       {panel === "event" && (
         <form
           onSubmit={submitEvent}
@@ -319,14 +403,31 @@ export function EnterpriseHseEvents() {
           <h3 className="md:col-span-2 text-sm font-semibold text-white">
             Record a governed event
           </h3>
+          <label className={`${labelClass} md:col-span-2`}>
+            Correction or withdrawal target (optional)
+            <select name="correctionTarget" className={inputClass}>
+              <option value="">New event</option>
+              {data.events.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.eventRef} · current version {item.version}
+                </option>
+              ))}
+            </select>
+            <span className="font-normal text-slate-500">
+              Selecting an existing event appends a complete immutable version;
+              it never overwrites history.
+            </span>
+          </label>
           <label className={labelClass}>
             Stable event reference
-            <input
-              name="eventRef"
-              required
-              minLength={3}
-              className={inputClass}
-            />
+            <input name="eventRef" minLength={3} className={inputClass} />
+          </label>
+          <label className={labelClass}>
+            Version status
+            <select name="status" className={inputClass}>
+              <option value="active">Active</option>
+              <option value="withdrawn">Withdrawn</option>
+            </select>
           </label>
           <label className={labelClass}>
             Occurred at
@@ -480,14 +581,20 @@ export function EnterpriseHseEvents() {
           <h3 className="md:col-span-2 text-sm font-semibold text-white">
             Attest reporting source
           </h3>
+          <label className={`${labelClass} md:col-span-2`}>
+            Revision or retirement target (optional)
+            <select name="correctionTarget" className={inputClass}>
+              <option value="">New reporting source</option>
+              {data.reportingSources.map((source) => (
+                <option key={source.id} value={source.id}>
+                  {source.sourceRef} · current version {source.version}
+                </option>
+              ))}
+            </select>
+          </label>
           <label className={labelClass}>
             Stable source reference
-            <input
-              name="sourceRef"
-              required
-              minLength={3}
-              className={inputClass}
-            />
+            <input name="sourceRef" minLength={3} className={inputClass} />
           </label>
           <label className={labelClass}>
             Source name
@@ -544,6 +651,21 @@ export function EnterpriseHseEvents() {
               name="coverageStart"
               type="datetime-local"
               required
+              className={inputClass}
+            />
+          </label>
+          <label className={labelClass}>
+            Source status
+            <select name="status" className={inputClass}>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive / retired</option>
+            </select>
+          </label>
+          <label className={labelClass}>
+            Coverage ends (required when inactive)
+            <input
+              name="coverageEnd"
+              type="datetime-local"
               className={inputClass}
             />
           </label>
