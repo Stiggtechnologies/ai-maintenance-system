@@ -30,6 +30,7 @@ import {
   callWithResilience,
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
+import { withDataEgressGuard } from "../_shared/data-egress-guard.ts";
 import {
   buildMethodologyPrompts,
   parseFrameworkProposal,
@@ -47,12 +48,17 @@ const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "";
 // rather than this file's opinion, and this file has no opinion to drift.
 const MODEL = Deno.env.get("DEVELOP_AGENT_MODEL") || undefined;
 const GATEWAY_MODEL = Deno.env.get("LLM_GATEWAY_MODEL") || undefined;
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
+const ALLOWED_ORIGIN =
+  Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
 
 // The governance content a framework document carries sits in the analysis
 // and maintenance-task claim families; asking across all of them and taking
 // the best chunks is the same contract the evidence agent retrieves under.
-const KB_CLAIM_TYPES = ["analysis_method", "maintenance_task", "component_structure"];
+const KB_CLAIM_TYPES = [
+  "analysis_method",
+  "maintenance_task",
+  "component_structure",
+];
 
 // websearch_to_tsquery syntax: `or` between quoted phrases and bare words
 // yields a DISJUNCTION. Bare words separated by spaces are AND-ed, which is
@@ -107,9 +113,8 @@ async function authenticate(req: Request): Promise<AuthContext | null> {
   if (!token) return null;
   try {
     const admin = serviceClient();
-    const { data: userResult, error: userError } = await admin.auth.getUser(
-      token,
-    );
+    const { data: userResult, error: userError } =
+      await admin.auth.getUser(token);
     if (userError || !userResult.user) return null;
     const { data: profile } = await admin
       .from("user_profiles")
@@ -190,7 +195,10 @@ Deno.serve(async (req: Request) => {
     (r: { stage_key: string }) => r.stage_key,
   );
   if (canonicalStageKeys.length === 0) {
-    return json({ error: "the canonical lifecycle stage vocabulary is unavailable" }, 500);
+    return json(
+      { error: "the canonical lifecycle stage vocabulary is unavailable" },
+      500,
+    );
   }
 
   // Retrieval, on the governed rail.
@@ -288,7 +296,12 @@ Deno.serve(async (req: Request) => {
     excerpts,
     canonicalStageKeys,
   });
-  const result = await callWithResilience(fetch, providers, {
+  const guardedFetch = withDataEgressGuard(fetch, caller, {
+    dataClass: "commercial",
+    purpose: "model_inference",
+    serviceLabel: "develop-methodology-agent",
+  });
+  const result = await callWithResilience(guardedFetch, providers, {
     systemPrompt: prompts.systemPrompt,
     userContent: prompts.userContent,
     maxTokens: 1600,

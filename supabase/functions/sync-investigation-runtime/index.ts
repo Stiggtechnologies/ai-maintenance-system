@@ -9,6 +9,7 @@ import {
   type LlmProvider,
 } from "../_shared/llm-provider.ts";
 import { callWithResilienceStream } from "../_shared/llm-provider-stream.ts";
+import { withDataEgressGuard } from "../_shared/data-egress-guard.ts";
 import { retrieveReliabilityContext } from "../_shared/reliability-context.ts";
 import {
   RELIABILITY_PROMPT_VERSION,
@@ -524,7 +525,13 @@ async function extractPdfOrImage(
               text: "Transcribe and describe only factual visible content relevant to industrial engineering. Preserve labels, values, units and uncertainty. Do not infer hidden facts or recommend actions.",
             },
           ];
-    const response = await fetch("https://api.openai.com/v1/responses", {
+    const guardedFetch = withDataEgressGuard(fetch, adminClient(), {
+      organizationId: auth.organizationId,
+      dataClass: "security_sensitive",
+      purpose: "document_extraction",
+      serviceLabel: "sync-investigation-runtime",
+    });
+    const response = await guardedFetch("https://api.openai.com/v1/responses", {
       method: "POST",
       signal: AbortSignal.timeout(90_000),
       headers: {
@@ -1167,7 +1174,13 @@ async function runFocusedSpecialist(input: {
       `${base}\n\nFOCUSED SPECIALIST EXECUTION — ${specialist.label}:\n${specialist.brief}\nReturn at most six decision-relevant bullets. Separate facts from hypotheses, cite supplied labels where applicable, and do not make the final cross-disciplinary decision.`,
       kbPrompt,
     );
-    const result = await callWithResilience(fetch, providersFor(model), {
+    const guardedFetch = withDataEgressGuard(fetch, adminClient(), {
+      organizationId: auth.organizationId,
+      dataClass: "security_sensitive",
+      purpose: "model_inference",
+      serviceLabel: "sync-investigation-runtime:specialist",
+    });
+    const result = await callWithResilience(guardedFetch, providersFor(model), {
       systemPrompt,
       userContent: `${contextText}\n\nQUESTION: ${question}`,
       maxTokens: 900,
@@ -1479,8 +1492,14 @@ Deno.serve(async (req: Request) => {
       );
       const modelStarted = Date.now();
       let sequence = 0;
+      const guardedFetch = withDataEgressGuard(fetch, adminClient(), {
+        organizationId: auth.organizationId,
+        dataClass: "security_sensitive",
+        purpose: "model_inference",
+        serviceLabel: "sync-investigation-runtime:coordinator",
+      });
       const streamed = await callWithResilienceStream(
-        fetch,
+        guardedFetch,
         providersFor(model),
         {
           systemPrompt,

@@ -1242,10 +1242,10 @@
     "backticked": 10
   },
   "E5.07": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 5,
+    "backticked": 5
   },
   "E5.08": {
     "status": "✅",
