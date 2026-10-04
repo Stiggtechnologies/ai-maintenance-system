@@ -4,6 +4,7 @@ import {
   ClipboardCheck,
   Gauge,
   History,
+  RefreshCw,
   Save,
   ShieldCheck,
 } from "lucide-react";
@@ -80,6 +81,10 @@ export function AssetStrategyAgentWorkbench() {
   const assessment = useMemo(
     () => data?.assessments.find((item) => item.id === assessmentId) ?? null,
     [assessmentId, data],
+  );
+  const learning = useMemo(
+    () => data?.learning.find((item) => item.planId === planId)?.state ?? null,
+    [data?.learning, planId],
   );
 
   useEffect(() => {
@@ -180,8 +185,43 @@ export function AssetStrategyAgentWorkbench() {
             >
               {busy === "run"
                 ? "Running controlled kernels…"
-                : "Run retained assessment"}
+                : learning?.refreshRequired
+                  ? "Refresh from verified field experience"
+                  : "Run retained assessment"}
             </button>
+            {plan ? (
+              <div
+                className={`mt-3 rounded-lg border px-3 py-2 text-xs leading-5 ${
+                  learning?.revisionRequired
+                    ? "border-rose-400/30 bg-rose-400/10 text-rose-100"
+                    : learning?.refreshRequired
+                      ? "border-amber-300/30 bg-amber-300/10 text-amber-100"
+                      : learning && learning.eventIds.length > 0
+                        ? "border-emerald-300/20 bg-emerald-300/5 text-emerald-100"
+                        : "border-white/8 bg-white/[0.025] text-slate-400"
+                }`}
+              >
+                <div className="flex items-center gap-2 font-semibold">
+                  <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+                  {learning?.revisionRequired
+                    ? "Verified recurrence requires strategy review"
+                    : learning?.refreshRequired
+                      ? "New verified field outcome awaits assessment"
+                      : learning && learning.eventIds.length > 0
+                        ? "Field experience is incorporated"
+                        : "Awaiting concluded field experience"}
+                </div>
+                <p className="mt-1">
+                  {learning
+                    ? `${learning.currentEffectiveCount} effective · ${learning.currentIneffectiveCount} ineffective against plan v${learning.currentPlanVersion}.`
+                    : "No concluded corrective-action outcome is tied to this exact maintenance task yet."}
+                </p>
+                <p className="mt-1 opacity-80">
+                  A refresh creates an advisory assessment only. Independent
+                  review and named-human adoption remain mandatory.
+                </p>
+              </div>
+            ) : null}
           </div>
         </div>
       </div>
@@ -410,6 +450,24 @@ export function AssetStrategyAgentWorkbench() {
               <p className="mt-3 text-sm leading-6 text-slate-300">
                 {assessment.recommendation.reason}
               </p>
+              <div className="mt-3 rounded-lg border border-white/8 bg-black/20 p-3 text-xs text-slate-300">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-semibold text-white">
+                    Frozen field experience
+                  </span>
+                  <span>
+                    {assessment.analysis.fieldExperience?.effectiveCount ?? 0}{" "}
+                    effective{" · "}
+                    {assessment.analysis.fieldExperience?.ineffectiveCount ??
+                      0}{" "}
+                    ineffective
+                  </span>
+                </div>
+                <p className="mt-1 text-slate-400">
+                  {assessment.analysis.fieldExperience?.basis ??
+                    "This assessment predates field-learning provenance; run a new retained assessment to capture current verified outcomes."}
+                </p>
+              </div>
               <dl className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
                 <div>
                   <dt className="text-[10px] uppercase text-slate-500">

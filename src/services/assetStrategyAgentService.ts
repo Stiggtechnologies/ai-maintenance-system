@@ -62,10 +62,46 @@ export interface AssetStrategyAnalysis {
     basis?: string | null;
   };
   recommendation: AssetStrategyRecommendation;
+  fieldExperience?: StrategyFieldExperience;
   refusals: string[];
   lifecyclePlan: {
     objective: string | null;
     actions: Array<Record<string, unknown>>;
+  };
+}
+
+export interface StrategyFieldExperience {
+  eventIds: string[];
+  effectiveCount: number;
+  ineffectiveCount: number;
+  currentEffectiveCount: number;
+  currentIneffectiveCount: number;
+  refreshRequired: boolean;
+  revisionRequired: boolean;
+  latestEvaluatedAt: string | null;
+  currentPlanVersion: number;
+  basis: string;
+}
+
+export interface AssetStrategyLearningState {
+  planId: string;
+  assetId: string | null;
+  taskLabel: string;
+  state: StrategyFieldExperience & {
+    events: Array<{
+      learningEventId: string;
+      caVerificationId: string;
+      lifecyclePlanId: string;
+      lifecyclePlanVersion: number;
+      appliedPlanVersion: number;
+      effectiveness: "effective" | "ineffective";
+      evaluatedAt: string;
+      observationDays: number;
+      failureMode: string | null;
+      recurrenceWorkOrderId: string | null;
+      appliesToCurrentPlanVersion: boolean;
+      unconsumed: boolean;
+    }>;
   };
 }
 
@@ -124,6 +160,17 @@ export interface AssetStrategyWorkspace {
   assessments: AssetStrategyAssessment[];
   lifecyclePlans: AssetLifecyclePlan[];
   reviewers: StrategyReviewer[];
+  learning: AssetStrategyLearningState[];
+  learningBoundary: {
+    refreshesAssessment: true;
+    changesMaintenancePlan: false;
+    createsWork: false;
+    acceptsRisk: false;
+    commitsSpend: false;
+    changesOperatingLimits: false;
+    returnsToService: false;
+    requiresIndependentReviewAndHumanAdoption: true;
+  };
   basis: string;
 }
 
@@ -136,7 +183,7 @@ function rpcError(data: unknown): string | null {
 }
 
 export async function loadAssetStrategyWorkspace(): Promise<AssetStrategyWorkspace> {
-  const { data, error } = await supabase.rpc("get_asset_strategy_workspace");
+  const { data, error } = await supabase.rpc("get_asset_strategy_workspace_v2");
   if (error) throw new Error(error.message);
   const issue = rpcError(data);
   if (issue) throw new Error(issue);
