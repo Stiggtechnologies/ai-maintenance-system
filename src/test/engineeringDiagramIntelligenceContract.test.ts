@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270101660000_engineering_diagram_intelligence.sql",
+  "supabase/migrations/20270102090000_engineering_diagram_intelligence.sql",
   "utf8",
 ).toLowerCase();
 const edge = readFileSync(

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 
 const migration = readFileSync(
-  "supabase/migrations/20270101410000_degradation_library.sql",
+  "supabase/migrations/20270101940000_degradation_library.sql",
   "utf8",
 );
 const service = readFileSync(
@@ -52,10 +52,14 @@ describe("U14.01 governed degradation library contract", () => {
     expect(migration).toContain("references public.approvals(id)");
     expect(migration).toContain("insert into public.approvals");
     expect(migration).toContain("insert into public.audit_events");
-    expect(migration).toContain("operational_authorization boolean not null default false");
+    expect(migration).toContain(
+      "operational_authorization boolean not null default false",
+    );
     expect(migration).toContain("check (not operational_authorization)");
     expect(migration).toContain("profile author cannot independently review");
-    expect(migration).toContain("same-tenant verified source evidence is required");
+    expect(migration).toContain(
+      "same-tenant verified source evidence is required",
+    );
   });
 
   it("denies direct mutation, service-role bypass and destructive history changes", () => {
@@ -64,9 +68,13 @@ describe("U14.01 governed degradation library contract", () => {
     );
     expect(migration).toContain("from public,anon,authenticated,service_role");
     expect(migration).toContain("degradation profile history is immutable");
-    expect(migration).toContain("pending degradation profiles move only through independent review");
+    expect(migration).toContain(
+      "pending degradation profiles move only through independent review",
+    );
     expect(migration).toContain("(to_jsonb(new)-'status') is distinct from");
-    expect(migration).toContain("before truncate on public.degradation_profiles");
+    expect(migration).toContain(
+      "before truncate on public.degradation_profiles",
+    );
     expect(migration).toContain("pg_advisory_xact_lock");
   });
 

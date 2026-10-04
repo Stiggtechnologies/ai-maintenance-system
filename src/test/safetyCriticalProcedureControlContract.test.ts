@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270101480000_safety_critical_procedure_control.sql",
+  "supabase/migrations/20270102030000_safety_critical_procedure_control.sql",
   "utf8",
 );
 const service = readFileSync("src/services/developService.ts", "utf8");
@@ -98,7 +98,7 @@ describe("C5.14 safety-critical procedure control contract", () => {
       .split("\n")
       .find((line) => line.includes("| C5.14 |"));
     expect(row).toContain("✅");
-    expect(row).toContain("20270101480000_safety_critical_procedure_control.sql");
+    expect(row).toContain("20270102030000_safety_critical_procedure_control.sql");
     expect(row).toContain("ci-project-fracas-smoke.sh");
   });
 });
