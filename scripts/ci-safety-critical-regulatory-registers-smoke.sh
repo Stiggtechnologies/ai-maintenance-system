@@ -110,7 +110,10 @@ V2="${V2/\"expected_version\":0/\"expected_version\":1}"
 UPDATED=$(rpc "$WRITER_AAL2" record_safety_critical_element "{\"p_record\":$V2}")
 noerr "$UPDATED"; test "$(field "$UPDATED" version)" = '2'
 
-LINK="{\"safety_critical_element_id\":$ELEMENT,\"capability_pack_layer_id\":\"$LAYER\",\"requirement_key\":\"pressure_shutdown_test\",\"evidence_item_id\":\"$LINK_EVIDENCE\",\"basis\":\"AB-PR-101 applies to this exact registered pressure shutdown barrier.\"}"
+LINK="{\"safety_critical_element_id\":$ELEMENT,\"expected_element_version\":2,\"capability_pack_layer_id\":\"$LAYER\",\"expected_layer_version\":1,\"requirement_key\":\"pressure_shutdown_test\",\"evidence_item_id\":\"$LINK_EVIDENCE\",\"basis\":\"AB-PR-101 applies to this exact registered pressure shutdown barrier.\"}"
+MISSING_VERSION_LINK="{\"safety_critical_element_id\":$ELEMENT,\"capability_pack_layer_id\":\"$LAYER\",\"requirement_key\":\"pressure_shutdown_test\",\"evidence_item_id\":\"$LINK_EVIDENCE\",\"basis\":\"AB-PR-101 applies to this exact registered pressure shutdown barrier.\"}"
+MISSING_VERSION_DENIED=$(rpc "$WRITER_AAL2" link_safety_critical_regulatory_obligation "{\"p_link\":$MISSING_VERSION_LINK}")
+expect_error "$MISSING_VERSION_DENIED" 'versions must be positive'
 ADVISORY="${LINK/pressure_shutdown_test/inspection_retention_review}"
 ADVISORY_DENIED=$(rpc "$WRITER_AAL2" link_safety_critical_regulatory_obligation "{\"p_link\":$ADVISORY}")
 expect_error "$ADVISORY_DENIED" 'applicable mandatory'
@@ -127,22 +130,32 @@ V3="${V2/\"expected_version\":1/\"expected_version\":2}"
 V3="${V3/retain leak-tight isolation/retain leak-tight isolation at the approved differential pressure}"
 UPDATED3=$(rpc "$WRITER_AAL2" record_safety_critical_element "{\"p_record\":$V3}")
 noerr "$UPDATED3"; test "$(field "$UPDATED3" version)" = '3'
+STALE_LINK=$(rpc "$WRITER_AAL2" link_safety_critical_regulatory_obligation "{\"p_link\":$LINK}")
+expect_error "$STALE_LINK" 'changed after it was loaded'
+
+UNKNOWN_INTERVAL_PAYLOAD="${PAYLOAD/\"sce_ref\":\"SCE-P-101\"/\"sce_ref\":\"SCE-P-102\"}"
+UNKNOWN_INTERVAL_PAYLOAD="${UNKNOWN_INTERVAL_PAYLOAD/\"label\":\"Emergency shutdown valve\"/\"label\":\"Independent shutdown barrier\"}"
+UNKNOWN_INTERVAL_PAYLOAD="${UNKNOWN_INTERVAL_PAYLOAD/\"test_interval_months\":12/\"test_interval_months\":null}"
+UNKNOWN_INTERVAL_PAYLOAD="${UNKNOWN_INTERVAL_PAYLOAD/\"last_tested_on\":\"$LAST_TEST\"/\"last_tested_on\":null}"
+UNKNOWN_INTERVAL=$(rpc "$WRITER_AAL2" record_safety_critical_element "{\"p_record\":$UNKNOWN_INTERVAL_PAYLOAD}")
+noerr "$UNKNOWN_INTERVAL"
 
 STALE_WORKSPACE=$(rpc "$WRITER_AAL2" get_safety_critical_regulatory_workspace '{}')
 noerr "$STALE_WORKSPACE"
 BODY="$STALE_WORKSPACE" python3 - <<'PY'
 import json,os
 x=json.loads(os.environ['BODY'])
-assert x['coverage']['elements']==1,x
-assert x['coverage']['elementsWithVerifiedEvidence']==1,x
-assert x['coverage']['overdueOrUntested']==1,x
+assert x['coverage']['elements']==2,x
+assert x['coverage']['elementsWithVerifiedEvidence']==2,x
+assert x['coverage']['overdueOrUntested']==2,x
 assert x['coverage']['mandatoryRegulatoryObligations']==1,x
 assert x['coverage']['currentBindings']==0 and x['coverage']['staleBindings']==1,x
 assert x['bindings'][0]['current'] is False,x
 assert 'not a compliance finding' in x['decisionBoundary'],x
 PY
 
-RELINKED=$(rpc "$WRITER_AAL2" link_safety_critical_regulatory_obligation "{\"p_link\":$LINK}")
+CURRENT_LINK="${LINK/\"expected_element_version\":2/\"expected_element_version\":3}"
+RELINKED=$(rpc "$WRITER_AAL2" link_safety_critical_regulatory_obligation "{\"p_link\":$CURRENT_LINK}")
 noerr "$RELINKED"; test "$(field "$RELINKED" elementVersion)" = '3'
 WORKSPACE=$(rpc "$WRITER_AAL2" get_safety_critical_regulatory_workspace '{}')
 BODY="$WORKSPACE" python3 - <<'PY'
@@ -153,7 +166,7 @@ assert sum(1 for b in x['bindings'] if b['current'])==1,x
 PY
 
 POSTURE=$(rpc "$WRITER_AAL2" get_process_safety_posture '{}')
-BODY="$POSTURE" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x[0]['barriers_total']==1,x"
+BODY="$POSTURE" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x[0]['barriers_total']==2,x"
 
 DIRECT=$(curl -sS -o /tmp/c211-direct.txt -w '%{http_code}' -X PATCH "$API_URL/rest/v1/safety_critical_elements?id=eq.$ELEMENT" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $WRITER_AAL2" -H 'Content-Type: application/json' -d '{"label":"forged"}')
 case "$DIRECT" in 401|403) ;; *) cat /tmp/c211-direct.txt; false ;; esac
@@ -161,7 +174,7 @@ OUT=$(sql_must_fail "update safety_critical_elements set label='forged' where id
 grep -qi 'governed C2.11 writer' <<<"$OUT"
 OUT=$(sql_must_fail "update safety_critical_element_obligations set requirement_key='forged' where safety_critical_element_id=$ELEMENT;")
 grep -qi 'immutable' <<<"$OUT"
-test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type in ('safety_critical_element','safety_critical_regulatory_obligation');")" = '5'
+test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type in ('safety_critical_element','safety_critical_regulatory_obligation');")" = '6'
 
 FOREIGN_CREATED=$(rpc "$FOREIGN_AAL2" record_safety_critical_element "{\"p_record\":{\"id\":null,\"asset_id\":\"$FOREIGN_ASSET\",\"sce_ref\":\"X-SCE-1\",\"label\":\"Foreign shutdown\",\"barrier_kind\":\"mechanical\",\"barrier_role\":\"preventive\",\"performance_standard\":\"Close within the foreign approved functional-test response time.\",\"test_interval_months\":12,\"last_tested_on\":\"$EFFECTIVE\",\"evidence_item_id\":\"$FOREIGN_EVIDENCE\",\"effective_from\":\"$EFFECTIVE\",\"review_due\":\"$REVIEW\",\"expected_version\":0}}")
 noerr "$FOREIGN_CREATED"
@@ -170,4 +183,4 @@ CROSS_LINK="${LINK/$ELEMENT/$FOREIGN_ELEMENT}"
 CROSS_DENIED=$(rpc "$WRITER_AAL2" link_safety_critical_regulatory_obligation "{\"p_link\":$CROSS_LINK}")
 expect_error "$CROSS_DENIED" 'outside the active tenant'
 
-echo 'C2.11 safety-critical regulatory smoke passed: canonical_element_register=true canonical_jurisdiction_obligations=true aal2_required=true ai_operator_refused=true independent_verified_evidence=true tenant_wall=true optimistic_version=true exact_version_binding=true stale_binding_visible=true direct_write_locked=true compliance_established=false operational_authority=false'
+echo 'C2.11 safety-critical regulatory smoke passed: canonical_element_register=true canonical_jurisdiction_obligations=true aal2_required=true ai_operator_refused=true independent_verified_evidence=true tenant_wall=true optimistic_version=true exact_version_binding=true optimistic_link_versions=true missing_link_versions_refused=true stale_binding_visible=true unknown_interval_exposed=true direct_write_locked=true compliance_established=false operational_authority=false'

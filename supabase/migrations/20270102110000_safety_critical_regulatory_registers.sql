@@ -177,7 +177,8 @@ begin
      or length(btrim(coalesce(p_record->>'performance_standard','')))<20 then
     return jsonb_build_object('error','Reference, label and a testable performance standard of at least 20 characters are required');
   end if;
-  if v_kind not in ('instrumented','mechanical','passive','procedural','human','structural','emergency_response')
+  if v_kind is null or v_barrier_role is null
+     or v_kind not in ('instrumented','mechanical','passive','procedural','human','structural','emergency_response')
      or v_barrier_role not in ('preventive','mitigative') then
     return jsonb_build_object('error','Choose a governed barrier kind and preventive or mitigative role');
   end if;
@@ -277,6 +278,8 @@ declare
   v_sce bigint;
   v_layer uuid;
   v_evidence uuid;
+  v_expected_element_version integer;
+  v_expected_layer_version integer;
   v_key text:=nullif(btrim(p_link->>'requirement_key'),'');
   v_basis text:=nullif(btrim(p_link->>'basis'),'');
   s public.safety_critical_elements%rowtype;
@@ -293,15 +296,26 @@ begin
     v_sce:=(p_link->>'safety_critical_element_id')::bigint;
     v_layer:=(p_link->>'capability_pack_layer_id')::uuid;
     v_evidence:=(p_link->>'evidence_item_id')::uuid;
+    v_expected_element_version:=(p_link->>'expected_element_version')::integer;
+    v_expected_layer_version:=(p_link->>'expected_layer_version')::integer;
   exception when others then
-    return jsonb_build_object('error','Element, jurisdiction layer and evidence identifiers must be valid');
+    return jsonb_build_object('error','Element, jurisdiction layer, evidence and expected versions must be valid');
   end;
+  if v_expected_element_version is null
+     or v_expected_layer_version is null
+     or v_expected_element_version<=0
+     or v_expected_layer_version<=0 then
+    return jsonb_build_object('error','Expected element and jurisdiction-layer versions must be positive');
+  end if;
   if length(coalesce(v_basis,'')) not between 20 and 4000 or v_key is null then
     return jsonb_build_object('error','Requirement key and a 20-4000 character applicability basis are required');
   end if;
   select * into s from public.safety_critical_elements
-    where id=v_sce and organization_id=v_org;
+    where id=v_sce and organization_id=v_org for update;
   if not found then return jsonb_build_object('error','Safety-critical element is outside the active tenant'); end if;
+  if s.version<>v_expected_element_version then
+    return jsonb_build_object('error','Safety-critical element changed after it was loaded; refresh before linking the obligation');
+  end if;
   if s.evidence_item_id is null then
     return jsonb_build_object('error','Legacy safety-critical elements require a governed evidence-backed revision before obligation linkage');
   end if;
@@ -309,8 +323,11 @@ begin
     where id=v_layer and organization_id=v_org and layer_kind='jurisdiction'
       and status='adopted' and jurisdiction=(
         select o.jurisdiction from public.organizations o where o.id=v_org
-      );
+      ) for update;
   if not found then return jsonb_build_object('error','An adopted same-tenant jurisdiction layer is required'); end if;
+  if l.version<>v_expected_layer_version then
+    return jsonb_build_object('error','Jurisdiction requirement layer changed after it was loaded; refresh before linking the obligation');
+  end if;
   select value into req
   from jsonb_array_elements(l.configuration->'jurisdiction_requirements')
   where value->>'key'=v_key limit 1;
@@ -439,15 +456,24 @@ as $$
       'assetId',e.asset_id,'verifiedBy',e.verified_by,'verifiedAt',e.verified_at
     ) order by e.verified_at desc) from public.evidence_items e,context c
       where e.organization_id=c.org and e.verification_status='verified'
-        and e.verified_by is not null and e.verified_at is not null),'[]'::jsonb),
+        and e.verified_by is not null and e.verified_at is not null
+        and e.verified_by<>auth.uid()),'[]'::jsonb),
     'assets',coalesce((select jsonb_agg(jsonb_build_object(
       'id',a.id,'name',a.name,'tag',a.tag) order by a.name)
       from public.assets a,context c where a.organization_id=c.org),'[]'::jsonb),
     'coverage',jsonb_build_object(
       'elements',(select count(*) from elements),
-      'elementsWithVerifiedEvidence',(select count(*) from elements where evidence_item_id is not null),
-      'overdueOrUntested',(select count(*) from elements s where s.test_interval_months is not null
-        and (s.last_tested_on is null or s.last_tested_on<current_date-(s.test_interval_months||' months')::interval)),
+      'elementsWithVerifiedEvidence',(select count(*) from elements s where exists(
+        select 1 from public.evidence_items e
+        where e.id=s.evidence_item_id and e.organization_id=(select org from context)
+          and e.verification_status='verified' and e.verified_by is not null
+          and e.verified_at is not null)),
+      'overdueOrUntested',(select count(*) from elements s
+        where s.test_interval_months is null
+          or (s.test_interval_months is not null and (
+            s.last_tested_on is null
+            or s.last_tested_on<current_date-(s.test_interval_months||' months')::interval
+          ))),
       'mandatoryRegulatoryObligations',(select count(*) from requirements r
         where r.requirement->>'requirement_class' in ('regulatory','statutory')
           and r.requirement->>'applicability'='applicable'

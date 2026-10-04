@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270102100000_safety_critical_regulatory_registers.sql",
+  "supabase/migrations/20270102110000_safety_critical_regulatory_registers.sql",
   "utf8",
 ).toLowerCase();
 const service = readFileSync(
@@ -39,6 +39,16 @@ describe("C2.11 safety-critical equipment and regulatory obligations", () => {
       "requirement_class' in ('regulatory','statutory')",
     );
     expect(component).toContain("stale: element is now");
+    expect(migration).toContain("s.version<>v_expected_element_version");
+    expect(migration).toContain("l.version<>v_expected_layer_version");
+    expect(migration).toContain("v_expected_element_version is null");
+    expect(migration).toContain("v_expected_layer_version is null");
+    expect(migration).toContain(
+      "where id=v_sce and organization_id=v_org for update",
+    );
+    expect(migration).toMatch(
+      /where id=v_layer[\s\S]*jurisdiction=[\s\S]*for update;/,
+    );
   });
 
   it("requires a named AAL2 human and independently verified same-tenant evidence", () => {
@@ -47,7 +57,15 @@ describe("C2.11 safety-critical equipment and regulatory obligations", () => {
     expect(migration).toContain("app_current_aal()<>'aal2'");
     expect(migration).toContain("e.verification_status='verified'");
     expect(migration).toContain("e.verified_by<>v_actor");
+    expect(migration).toContain("e.verified_by<>auth.uid()");
     expect(migration).toContain("e.organization_id=v_org");
+    expect(migration).toContain("e.verification_status='verified'");
+  });
+
+  it("keeps unknown proof-test intervals in the overdue or untested posture", () => {
+    expect(migration).toContain("where s.test_interval_months is null");
+    expect(migration).toContain("or (s.test_interval_months is not null and (");
+    expect(smoke).toContain("unknown_interval_exposed=true");
   });
 
   it("locks direct mutation and keeps compliance and operating authority false", () => {
@@ -86,6 +104,9 @@ describe("C2.11 safety-critical equipment and regulatory obligations", () => {
       "optimistic_version=true",
       "exact_version_binding=true",
       "stale_binding_visible=true",
+      "optimistic_link_versions=true",
+      "missing_link_versions_refused=true",
+      "unknown_interval_exposed=true",
       "direct_write_locked=true",
       "compliance_established=false",
       "operational_authority=false",
