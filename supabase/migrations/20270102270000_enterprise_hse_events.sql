@@ -114,9 +114,11 @@ create index hse_events_containment_idx
 alter table public.hse_reporting_sources enable row level security;
 alter table public.hse_events enable row level security;
 
+drop policy if exists hse_reporting_sources_read on public.hse_reporting_sources;
 create policy hse_reporting_sources_read on public.hse_reporting_sources
   for select to authenticated
   using (organization_id=public.app_current_org());
+drop policy if exists hse_events_read on public.hse_events;
 create policy hse_events_read on public.hse_events
   for select to authenticated
   using (organization_id=public.app_current_org());
