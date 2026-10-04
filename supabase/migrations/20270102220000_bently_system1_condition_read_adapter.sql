@@ -48,6 +48,35 @@ alter table public.connectors
   add column if not exists condition_max_rows int,
   add column if not exists condition_page_size int;
 
+-- C2.12 introduced the shared pagination constraint before cursor-based
+-- sources existed. System 1 returns an opaque cursor rather than a same-origin
+-- next URL, so extend the canonical constraint instead of bypassing it with a
+-- connector-specific column or storing a cursor in endpoint metadata.
+alter table public.connectors
+  drop constraint if exists connectors_pagination_profile_check;
+alter table public.connectors
+  add constraint connectors_pagination_profile_check check (
+    (
+      pagination_mode = 'none'
+      and pagination_next_path is null
+      and pagination_max_pages = 1
+    )
+    or
+    (
+      pagination_mode = 'next_url'
+      and pagination_next_path is not null
+      and pagination_next_path ~ '^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$'
+      and pagination_max_pages between 2 and 100
+    )
+    or
+    (
+      pagination_mode = 'cursor'
+      and pagination_next_path is not null
+      and pagination_next_path ~ '^[A-Za-z0-9_-]+(\.[A-Za-z0-9_-]+)*$'
+      and pagination_max_pages between 1 and 100
+    )
+  );
+
 alter table public.connectors
   drop constraint if exists connectors_system1_read_profile_check;
 alter table public.connectors add constraint connectors_system1_read_profile_check check (
