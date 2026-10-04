@@ -570,6 +570,9 @@ jobs:
       - name: Smoke — governed asset economics and lifecycle capital plans
         run: bash scripts/ci-asset-economics-capital-plans-smoke.sh
 
+      - name: Smoke — safety-critical equipment and regulatory obligations
+        run: bash scripts/ci-safety-critical-regulatory-registers-smoke.sh
+
       - name: Smoke — thirteen-dimension finance intelligence
         run: bash scripts/ci-develop-finance-intelligence-smoke.sh
 
