@@ -31,6 +31,14 @@ function numberValue(form: FormData, name: string) {
   return raw === "" ? null : Number(raw);
 }
 
+function requiredNumberValue(form: FormData, name: string, label: string) {
+  const value = numberValue(form, name);
+  if (value == null || !Number.isFinite(value)) {
+    throw new Error(`${label} is required and must be a finite number.`);
+  }
+  return value;
+}
+
 function textValue(form: FormData, name: string) {
   return String(form.get(name) ?? "").trim();
 }
@@ -95,7 +103,7 @@ export function EnvironmentalEvidenceManagement() {
           factorKey: textValue(form, "factorKey"),
           label: textValue(form, "label"),
           activityUnit: textValue(form, "activityUnit"),
-          factor: Number(numberValue(form, "factor")),
+          factor: requiredNumberValue(form, "factor", "Emission factor"),
           factorUnit: textValue(form, "factorUnit"),
           validFrom: textValue(form, "validFrom"),
           gwp: numberValue(form, "gwp"),
@@ -115,7 +123,7 @@ export function EnvironmentalEvidenceManagement() {
           assetId,
           metric,
           unit: textValue(form, "unit"),
-          designValue: Number(numberValue(form, "designValue")),
+          designValue: requiredNumberValue(form, "designValue", "Design value"),
           establishedOn: textValue(form, "establishedOn"),
           interventionCost: numberValue(form, "interventionCost"),
           energyCostPerDay: numberValue(form, "energyCostPerDay"),
@@ -128,7 +136,7 @@ export function EnvironmentalEvidenceManagement() {
         receipt = await recordEnvironmentalEvidence(mode, {
           baselineId: Number(textValue(form, "baselineId")),
           measuredOn: textValue(form, "measuredOn"),
-          value: Number(numberValue(form, "value")),
+          value: requiredNumberValue(form, "value", "Measured value"),
           basis,
           sourceReference,
           evidenceItemId,
@@ -144,7 +152,7 @@ export function EnvironmentalEvidenceManagement() {
           assetId: textValue(form, "assetId") || null,
           periodStart: textValue(form, "periodStart"),
           periodEnd: textValue(form, "periodEnd"),
-          quantity: Number(numberValue(form, "quantity")),
+          quantity: requiredNumberValue(form, "quantity", "Activity quantity"),
           unit: textValue(form, "unit"),
           substance: textValue(form, "substance") || null,
           factorKey: textValue(form, "factorKey") || null,

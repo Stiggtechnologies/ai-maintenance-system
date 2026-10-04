@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270102120000_historian_paginated_read.sql",
+  "supabase/migrations/20270102130000_historian_paginated_read.sql",
   "utf8",
 );
 const edge = readFileSync(
@@ -32,7 +32,7 @@ describe("plant historian paginated read contract", () => {
 
   it("keeps the pagination profile administrator-owned and fail-closed", () => {
     expect(migration).toContain(
-      "configuring a plant historian source requires an administrator",
+      "configuring a plant historian source requires a named human administrator",
     );
     expect(migration).toContain("coalesce(p_system_kind, '') not in");
     expect(migration).toContain("192\\.168\\.");
@@ -51,6 +51,36 @@ describe("plant historian paginated read contract", () => {
     expect(migration).toContain(
       "'pagination_max_pages', v_connector.pagination_max_pages",
     );
+  });
+
+  it("binds approval, promotion, completion, and credentials to the tenant and named humans", () => {
+    expect(migration).toContain("coalesce(v_role, '') <> 'admin'");
+    expect(migration).toContain("approver.role = 'admin'");
+    expect(migration).toContain("source_contract_hash");
+    expect(migration).toContain("plant_historian_contract_hash");
+    expect(migration).toContain("cr.triggered_by = auth.uid()");
+    expect(migration).toContain(
+      "c.connector_type in ('cmms_read', 'plant_historian')",
+    );
+    expect(edge).toContain("credential.tenant_id !== expectedTenantId");
+    expect(edge).toContain("source.credential_tenant_id");
+    expect(edge).toContain("p_expected_contract_hash: source.contract_hash");
+    expect(edge).toContain('p_status: "failure"');
+    expect(setup).toContain('const isAdmin = role === "admin"');
+  });
+
+  it("uses one canonical validator for no-write preview and commit", () => {
+    expect(migration).toContain("public.plant_historian_validate_row(");
+    expect(
+      migration.match(/:= public\.plant_historian_validate_row\(/g),
+    ).toHaveLength(2);
+    expect(migration).toContain(
+      "Dry run used the canonical commit validator and wrote no canonical or staging rows.",
+    );
+    expect(migration).toContain("public.record_condition_reading(");
+    expect(migration).toContain("v_run.source_contract_hash is distinct from");
+    expect(edge).toContain("!dryRun &&");
+    expect(edge).toContain('source.mapping_status !== "approved"');
   });
 
   it("traverses only bounded same-origin GET pages without silent truncation", () => {

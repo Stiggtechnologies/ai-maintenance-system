@@ -8,6 +8,14 @@ export interface SapInventoryScope {
   maxRows: number;
 }
 
+export interface SapInventoryPullRequest {
+  connectorKey: string;
+  dryRun: boolean;
+}
+
+const UUID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export const SAP_MATERIAL_STOCK_FIELDS = [
   "Material",
   "Plant",
@@ -25,11 +33,15 @@ function record(value: unknown, label: string): JsonRecord {
   return value as JsonRecord;
 }
 
-function requiredText(value: unknown, label: string): string {
+function requiredText(value: unknown, label: string, max = 1000): string {
   if (typeof value !== "string" || !value.trim()) {
     throw new Error(`${label} is required.`);
   }
-  return value.trim();
+  const text = value.trim();
+  if (text.length > max) {
+    throw new Error(`${label} exceeds its ${max}-character limit.`);
+  }
+  return text;
 }
 
 function quantity(value: unknown, label: string): number {
@@ -89,6 +101,9 @@ export function readSapODataPage(payload: unknown): {
   if (next !== undefined && next !== null && typeof next !== "string") {
     throw new Error("SAP OData __next must be a URL string when present.");
   }
+  if (typeof next === "string" && next.length > 4096) {
+    throw new Error("SAP OData __next exceeds its 4096-character limit.");
+  }
   return {
     rows: envelope.results,
     nextUrl: typeof next === "string" && next.trim() ? next.trim() : null,
@@ -131,14 +146,34 @@ export function validateSapNextUrl(nextValue: string, firstUrl: URL): URL {
   return next;
 }
 
+export function normalizeSapInventoryPullRequest(
+  value: unknown,
+): SapInventoryPullRequest {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("SAP inventory pull request must be a JSON object.");
+  }
+  const body = value as Record<string, unknown>;
+  const connectorKey = requiredText(
+    body.connector_key,
+    "connector_key",
+    160,
+  );
+  if (body.dry_run !== undefined && typeof body.dry_run !== "boolean") {
+    throw new Error("dry_run must be true or false when supplied.");
+  }
+  return { connectorKey, dryRun: body.dry_run !== false };
+}
+
 export function mapSapMaterialStock(
   values: unknown[],
   scope: SapInventoryScope,
 ): JsonRecord[] {
   if (
     !scope.plant.trim() ||
+    scope.plant.trim().length > 20 ||
     !scope.storageLocation.trim() ||
-    !scope.siteId.trim() ||
+    scope.storageLocation.trim().length > 20 ||
+    !UUID.test(scope.siteId) ||
     !/(?:Z|[+-]\d{2}:\d{2})$/i.test(scope.observedAt) ||
     !Number.isFinite(Date.parse(scope.observedAt)) ||
     !Number.isSafeInteger(scope.maxRows) ||
@@ -162,15 +197,18 @@ export function mapSapMaterialStock(
     const material = requiredText(
       row.Material,
       `SAP stock row ${index + 1} Material`,
+      255,
     );
-    const plant = requiredText(row.Plant, `SAP stock ${material} Plant`);
+    const plant = requiredText(row.Plant, `SAP stock ${material} Plant`, 20);
     const storage = requiredText(
       row.StorageLocation,
       `SAP stock ${material} StorageLocation`,
+      20,
     );
     const stockType = requiredText(
       row.InventoryStockType,
       `SAP stock ${material} InventoryStockType`,
+      20,
     );
     const specialType =
       typeof row.InventorySpecialStockType === "string"
@@ -189,6 +227,7 @@ export function mapSapMaterialStock(
     const uom = requiredText(
       row.MaterialBaseUnit,
       `SAP stock ${material} base unit`,
+      40,
     );
     const qty = quantity(
       row.MatlWrhsStkQtyInMatlBaseUnit,

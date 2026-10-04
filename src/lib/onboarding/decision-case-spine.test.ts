@@ -285,7 +285,17 @@ describe("P0.2 Decision Case spine", () => {
       submittedAt: "2026-10-02T12:00:00.000Z",
       lastCheckedAt: "2026-10-02T12:00:00.000Z",
     });
-    const ready = readinessFromCase(delivered, { saved: true });
+    const submitted = readinessFromCase(delivered, { saved: true });
+    expect(
+      submitted.gates.find((gate) => gate.id === "invitation_delivery")?.met,
+    ).toBe(false);
+    const accepted = applyInvitationDelivery(delivered, {
+      ...delivered.invitation!,
+      status: "accepted",
+      detail:
+        "Invitation accepted; first workspace sign-in has not yet been observed.",
+    });
+    const ready = readinessFromCase(accepted, { saved: true });
     expect(ready.metCount).toBe(ready.total);
     expect(delivered.messages.at(-1)?.text).toMatch(/not yet confirmed/i);
     expect(lineageFromCase(built).honesty).toBe(noConnectedDataHonesty());

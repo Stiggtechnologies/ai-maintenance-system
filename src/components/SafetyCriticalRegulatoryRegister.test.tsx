@@ -234,7 +234,9 @@ describe("SafetyCriticalRegulatoryRegister", () => {
       expect(linkObligation).toHaveBeenCalledWith(
         expect.objectContaining({
           safetyCriticalElementId: 7,
+          expectedElementVersion: 2,
           capabilityPackLayerId: "layer-1",
+          expectedLayerVersion: 4,
           requirementKey: "pressure_shutdown_test",
           evidenceItemId: "evidence-1",
         }),

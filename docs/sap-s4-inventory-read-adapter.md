@@ -53,10 +53,11 @@ capability register. Rotate the protected secret before expiry. Client
 credentials or refresh-token exchange must be separately bound to the
 customer's SAP identity deployment; the adapter does not guess a token URL.
 
-In `/integrations`, an administrator records the exact OData service root,
-Plant, StorageLocation, canonical tenant site, row/page ceilings, expected
-interval, opaque credential reference and a substantive mapping authority.
-Use one connector per Plant + StorageLocation → site mapping.
+In `/integrations`, a named human administrator records the exact OData service
+root, Plant, StorageLocation, canonical tenant site, row/page ceilings,
+expected interval, opaque credential reference and a substantive mapping
+authority. The `ai_admin` identity is explicitly refused. Use one connector
+per Plant + StorageLocation → site mapping.
 
 ## Runtime controls
 
@@ -64,15 +65,17 @@ Use one connector per Plant + StorageLocation → site mapping.
   adapter. The request body cannot alter the SAP query.
 - OData V2 `d.__next` pagination must stay on the original HTTPS origin and
   resource path, retain the exact approved select/filter/order, and add only
-  bounded paging parameters.
-- Each response page is limited to 10 MB; a pull is limited to 25 MB, 55
-  seconds, the configured page ceiling and the configured raw-row ceiling.
+  bounded paging parameters. Repeated page URLs are refused.
+- Each response page is limited to 10 MB and receives only the remaining
+  combined streaming budget; a pull cannot cross 25 MB or 55 seconds across
+  transport and mapping, the configured page ceiling, or the configured
+  raw-row ceiling.
 - Each complete response page is SHA-256 hashed. Sequential page number, exact
   source scope, byte count and raw-row count must reconcile server-side before
   a run is opened.
 - Mapping rejects a scope escape, stock type other than `01`, special stock,
-  missing identity/UOM, negative or non-finite quantity, conflicting units or
-  an empty result.
+  missing or overlong identity/UOM, negative or non-finite quantity,
+  conflicting units or an empty result.
 - The database independently checks row shape, exact source identity,
   material code, UOM, site and observation timestamp. Unknown materials and
   UOM mismatches are retained with refusal reasons.

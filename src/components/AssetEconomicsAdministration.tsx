@@ -79,8 +79,7 @@ export function AssetEconomicsAdministration({
       (workspace?.economics ?? []).find((snapshot) =>
         scope === "asset"
           ? snapshot.assetId === assetId
-          : snapshot.assetId == null &&
-            snapshot.assetClass?.toLowerCase() === assetClass.toLowerCase(),
+          : snapshot.assetId == null && snapshot.assetClass === assetClass,
       ) ?? null,
     [assetClass, assetId, scope, workspace],
   );
@@ -92,10 +91,7 @@ export function AssetEconomicsAdministration({
     return (workspace?.verifiedEvidence ?? []).filter((evidence) => {
       if (evidence.assetId == null) return true;
       if (scope === "asset") return evidence.assetId === assetId;
-      return (
-        assets.get(evidence.assetId)?.assetClass?.toLowerCase() ===
-        assetClass.toLowerCase()
-      );
+      return assets.get(evidence.assetId)?.assetClass === assetClass;
     });
   }, [assetClass, assetId, scope, workspace]);
 
@@ -431,11 +427,16 @@ export function AssetEconomicsAdministration({
             {workspace.capitalPlans.length ? (
               <ul className="mt-2 space-y-1 text-xs text-slate-300">
                 {workspace.capitalPlans.map((plan) => (
-                  <li key={plan.planYear}>
-                    {plan.planYear}: {plan.itemCount} item(s),{" "}
-                    {plan.mandatoryCount} mandatory,{" "}
+                  <li
+                    key={`${plan.planYear}:${plan.currency ?? "unspecified"}`}
+                  >
+                    {plan.planYear} · {plan.currency ?? "currency unspecified"}:{" "}
+                    {plan.itemCount} item(s), {plan.mandatoryCount} mandatory,{" "}
                     {plan.governedCandidateCount} evidence-backed development
-                    candidate(s), {amount(plan.totalCost)} total recorded cost
+                    candidate(s),{" "}
+                    {plan.currency
+                      ? `${amount(plan.totalCost, ` ${plan.currency}`)} total recorded cost`
+                      : "total withheld because currency is not recorded"}
                   </li>
                 ))}
               </ul>

@@ -470,7 +470,7 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     expect(screen.getByTestId("spine-evidence-file")).toBeTruthy();
   });
 
-  it("binds required authority from the tenant directory rather than free text", async () => {
+  it("binds tenant authority and earns collaboration only after Auth confirms access", async () => {
     authHolder.user = { id: "user-1" };
     renderOpening();
     openSpine();
@@ -495,6 +495,23 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     expect(screen.getByTestId("spine-approval-pending")).toHaveTextContent(
       /cannot approve on their behalf/i,
     );
+    expect(
+      screen.getByTestId("spine-gate-invitation_delivery").textContent,
+    ).toMatch(/Open/);
+    expect(screen.getByTestId("spine-invite-status").textContent).toMatch(
+      /acceptance are not confirmed/i,
+    );
+
+    fireEvent.click(screen.getByTestId("spine-refresh-invite"));
+    await waitFor(() => expect(invitation.status).toHaveBeenCalledTimes(1));
+    await waitFor(() =>
+      expect(screen.getByTestId("spine-invite-status").textContent).toMatch(
+        /active/i,
+      ),
+    );
+    expect(
+      screen.getByTestId("spine-gate-invitation_delivery").textContent,
+    ).toMatch(/Met/);
   });
 
   it("sends a secure workspace invitation only after binding a tenant authority", async () => {
@@ -550,7 +567,9 @@ describe("P0.2 Decision Case spine on /get-started", () => {
         expect.objectContaining({
           title: expect.stringMatching(/Work history/i),
           document_class: "unclassified",
-          content: expect.stringMatching(/Customer-provided inspection evidence/),
+          content: expect.stringMatching(
+            /Customer-provided inspection evidence/,
+          ),
         }),
       ),
     );
@@ -569,9 +588,9 @@ describe("P0.2 Decision Case spine on /get-started", () => {
         "add_evidence",
       ),
     );
-    expect(await screen.findByTestId("spine-evidence-notice")).toHaveTextContent(
-      /indexed with 2 governed chunk/i,
-    );
+    expect(
+      await screen.findByTestId("spine-evidence-notice"),
+    ).toHaveTextContent(/indexed with 2 governed chunk/i);
   });
 
   it("exposes approval only to the authenticated bound required person", async () => {

@@ -67,7 +67,7 @@ EVIDENCE=$(psqlc "insert into evidence_items(organization_id,asset_id,source_sys
 SELF_EVIDENCE=$(psqlc "insert into evidence_items(organization_id,asset_id,source_system,evidence_type,description,evidence_class,verification_status,verified_by,verified_at,verification_method) values('$ORG','$ASSET','ERP-SELF','economic_estimate','Self-verified economics evidence.','DOCUMENTED','verified','$WRITER',now(),'Self review') returning id;")
 CLASS_EVIDENCE=$(psqlc "insert into evidence_items(organization_id,source_system,evidence_type,description,evidence_class,verification_status,verified_by,verified_at,verification_method) values('$ORG','ERP-CLASS','economic_estimate','Verified pump-class maintenance estimate.','DOCUMENTED','verified','$VERIFIER',now(),'Independent class estimate review') returning id;")
 FOREIGN_EVIDENCE=$(psqlc "insert into evidence_items(organization_id,asset_id,source_system,evidence_type,description,evidence_class,verification_status,verified_by,verified_at,verification_method) values('$FOREIGN_ORG','$FOREIGN_ASSET','ERP-FOREIGN','economic_estimate','Foreign economics evidence.','DOCUMENTED','verified','$FOREIGN',now(),'Foreign review') returning id;")
-psqlc "insert into capital_plan_items(organization_id,plan_year,label,cost,mandatory,mandatory_basis) values('$ORG',extract(year from current_date)::int+1,'P-101 lifecycle renewal',2000000,true,'Statutory and reliability renewal basis.');" >/dev/null
+psqlc "insert into capital_plan_items(organization_id,plan_year,label,cost,mandatory,mandatory_basis) values('$ORG',extract(year from current_date)::int+1,'Legacy lifecycle renewal',2000000,true,'Statutory and reliability renewal basis.'); insert into capital_plan_items(organization_id,plan_year,label,cost,mandatory,currency) values('$ORG',extract(year from current_date)::int+1,'Governed CAD lifecycle candidate',1500000,false,'CAD');" >/dev/null
 
 PAYLOAD="{\"assetId\":\"$ASSET\",\"assetClass\":null,\"replacementValueUsd\":1200000,\"annualMaintenanceCostUsd\":95000,\"downtimeCostPerHourUsd\":null,\"expectedRepairCostUsd\":70000,\"expectedRepairHours\":36,\"expectedRemainingLifeYears\":8,\"basis\":\"Approved lifecycle estimate tied to the verified canonical evidence.\",\"sourceSystem\":\"ERP-2026\",\"evidenceItemId\":\"$EVIDENCE\",\"effectiveFrom\":\"$EFFECTIVE\",\"reviewDue\":\"$REVIEW\",\"expectedVersion\":0}"
 
@@ -126,7 +126,11 @@ assert x['coverage']['assets']==2,x
 assert x['coverage']['assetsWithEconomics']==2,x
 assert x['coverage']['assetsWithCompleteEconomics']==1,x
 assert x['coverage']['snapshots']==2,x
-assert len(x['capitalPlans'])==1 and x['capitalPlans'][0]['itemCount']==1,x
+assert len(x['capitalPlans'])==2,x
+cad=next(p for p in x['capitalPlans'] if p['currency']=='CAD')
+unknown=next(p for p in x['capitalPlans'] if p['currency'] is None)
+assert cad['itemCount']==1 and cad['totalCost']==1500000 and cad['currencySpecified'] is True,x
+assert unknown['itemCount']==1 and unknown['totalCost'] is None and unknown['currencySpecified'] is False,x
 assert x['currency']=='USD',x
 assert 'does not authorize expenditure' in x['decisionBoundary'],x
 PY
@@ -138,4 +142,4 @@ grep -qi 'governed C2.10 writer' <<<"$OUT"
 test "$(psqlc "select has_function_privilege('authenticated','public.guard_asset_economics_governed_write()','EXECUTE');")" = 'f'
 test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='asset_economics_snapshot';")" = '3'
 
-echo 'C2.10 asset economics smoke passed: canonical_economics=true canonical_capital_plans=true named_human_only=true ai_operator_refused=true aal2_required=true independent_verified_evidence=true tenant_wall=true unknowns_preserved=true optimistic_version=true direct_write_locked=true audit_history=true authority_granted=false'
+echo 'C2.10 asset economics smoke passed: canonical_economics=true canonical_capital_plans=true named_human_only=true ai_operator_refused=true aal2_required=true independent_verified_evidence=true tenant_wall=true unknowns_preserved=true optimistic_version=true direct_write_locked=true audit_history=true currency_safe_capital_totals=true authority_granted=false'

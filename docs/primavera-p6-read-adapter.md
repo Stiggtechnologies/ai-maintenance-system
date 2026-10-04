@@ -46,7 +46,8 @@ register. Rotate the protected secret before expiry. A future refresh-token or
 client-credential profile must be separately reviewed against the customer's
 Oracle identity deployment; the adapter does not guess an OAuth token endpoint.
 
-In `/integrations`, an administrator records:
+In `/integrations`, a named human administrator records (the `ai_admin`
+identity is explicitly refused):
 
 - the exact REST base ending before `/activity` and `/relationship`;
 - the P6 `ProjectObjectId`;
@@ -64,12 +65,14 @@ are converted only by the multiplier the customer verifies for its deployment.
   project and exact host.
 - Activity and relationship field lists, filter and `ObjectId` order are
   explicit.
-- Each response is streamed through a 15 MB bound; the combined transport is
-  limited to 25 MB and 55 seconds.
+- Each response is streamed through a 15 MB bound; the second stream receives
+  only the remaining combined budget, so transport cannot cross 25 MB. The
+  total transport and mapping deadline is 55 seconds.
 - Both byte streams are SHA-256 hashed. The manifest, cursor hashes, source byte
   count and activity row count must reconcile server-side.
 - Activity scope escape, cross-project predecessors, missing activities,
-  duplicate identities or edges, unknown P6 vocabulary, invalid dates,
+  inconsistent activity/relationship identifiers, duplicate identities or
+  edges, overlong source text, unknown P6 vocabulary, invalid dates,
   non-finite values, stale observation timestamps and repeated ingestion fail
   closed.
 - Every schedule timestamp must include `Z` or an explicit UTC offset. If a P6

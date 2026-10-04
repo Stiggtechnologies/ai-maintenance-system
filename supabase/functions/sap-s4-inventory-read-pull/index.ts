@@ -5,6 +5,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   mapSapMaterialStock,
+  normalizeSapInventoryPullRequest,
   readSapODataPage,
   sapMaterialStockUrl,
   validateSapNextUrl,
@@ -78,7 +79,7 @@ function serviceRoot(value: string): URL {
     host === "localhost" ||
     host.endsWith(".localhost") ||
     host.endsWith(".local") ||
-    host === "::1" ||
+    host.startsWith("[") ||
     privateIpv4
   ) {
     throw new Error(
@@ -125,10 +126,13 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
     .join("");
 }
 
-async function boundedBytes(response: Response): Promise<Uint8Array> {
+async function boundedBytes(
+  response: Response,
+  maxBytes: number,
+): Promise<Uint8Array> {
   const declared = Number(response.headers.get("content-length") ?? "0");
-  if (Number.isFinite(declared) && declared > MAX_PAGE_BYTES) {
-    throw new Error("SAP inventory page exceeds the 10 MB limit.");
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    throw new Error("SAP inventory page exceeds its transport byte limit.");
   }
   if (!response.body) throw new Error("SAP inventory response has no body.");
   const reader = response.body.getReader();
@@ -138,9 +142,9 @@ async function boundedBytes(response: Response): Promise<Uint8Array> {
     const { done, value } = await reader.read();
     if (done) break;
     total += value.byteLength;
-    if (total > MAX_PAGE_BYTES) {
+    if (total > maxBytes) {
       await reader.cancel();
-      throw new Error("SAP inventory page exceeds the 10 MB limit.");
+      throw new Error("SAP inventory page exceeds its transport byte limit.");
     }
     chunks.push(value);
   }
@@ -159,7 +163,13 @@ async function rpc<T>(
   args: Record<string, unknown>,
 ): Promise<T> {
   const { data, error } = await client.rpc(name, args);
-  if (error) throw new Error(error.message);
+  if (error) {
+    safeLog("rpc_failed", {
+      rpc: name,
+      code: typeof error.code === "string" ? error.code : "unknown",
+    });
+    throw new Error("SAP inventory data operation failed.");
+  }
   const payload = data as { error?: string } | null;
   if (payload?.error) throw new Error(payload.error);
   return data as T;
@@ -187,20 +197,26 @@ Deno.serve(async (request) => {
   if (Number.isFinite(declared) && declared > MAX_REQUEST_BYTES) {
     return json({ error: "request_too_large" }, 413);
   }
-  let body: { connector_key?: unknown; dry_run?: unknown };
+  let body: unknown;
   try {
     const raw = await request.text();
     if (new TextEncoder().encode(raw).byteLength > MAX_REQUEST_BYTES) {
       return json({ error: "request_too_large" }, 413);
     }
-    body = JSON.parse(raw) as typeof body;
+    body = JSON.parse(raw);
   } catch {
     return json({ error: "invalid_json" }, 400);
   }
-  const connectorKey =
-    typeof body.connector_key === "string" ? body.connector_key.trim() : "";
-  const dryRun = body.dry_run !== false;
-  if (!connectorKey) return json({ error: "connector_key is required" }, 400);
+  let connectorKey: string;
+  let dryRun: boolean;
+  try {
+    ({ connectorKey, dryRun } = normalizeSapInventoryPullRequest(body));
+  } catch (error) {
+    return json(
+      { error: error instanceof Error ? error.message : "invalid_request" },
+      400,
+    );
+  }
 
   const serviceClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { persistSession: false },
@@ -231,6 +247,20 @@ Deno.serve(async (request) => {
     const maxRows = Number(source.max_rows ?? 0);
     const pageSize = Number(source.page_size ?? 0);
     const maxPages = Number(source.max_pages ?? 0);
+    if (
+      !organizationId ||
+      !Number.isSafeInteger(maxRows) ||
+      maxRows < 1 ||
+      maxRows > 25000 ||
+      !Number.isSafeInteger(pageSize) ||
+      pageSize < 1 ||
+      pageSize > Math.min(maxRows, 5000) ||
+      !Number.isSafeInteger(maxPages) ||
+      maxPages < 2 ||
+      maxPages > 100
+    ) {
+      throw new Error("SAP inventory source profile is invalid.");
+    }
     const firstUrl = sapMaterialStockUrl(
       root,
       plant,
@@ -241,9 +271,14 @@ Deno.serve(async (request) => {
     const deadline = Date.now() + MAX_TRANSPORT_MS;
     const rows: unknown[] = [];
     const manifest: JsonRecord[] = [];
+    const fetchedUrls = new Set<string>();
     let totalBytes = 0;
 
     while (nextUrl) {
+      if (fetchedUrls.has(nextUrl.href)) {
+        throw new Error("SAP inventory pagination repeated a page URL.");
+      }
+      fetchedUrls.add(nextUrl.href);
       if (manifest.length >= maxPages) {
         throw new Error(
           "SAP inventory response exceeds the approved page limit.",
@@ -252,6 +287,10 @@ Deno.serve(async (request) => {
       const remaining = deadline - Date.now();
       if (remaining <= 0)
         throw new Error("SAP inventory pull exceeded its time limit.");
+      const remainingBytes = MAX_TOTAL_BYTES - totalBytes;
+      if (remainingBytes <= 0) {
+        throw new Error("SAP inventory pull exceeds the 25 MB total limit.");
+      }
       const response = await fetch(nextUrl, {
         method: "GET",
         headers: {
@@ -276,7 +315,10 @@ Deno.serve(async (request) => {
           "SAP inventory read did not return successful application/json.",
         );
       }
-      const bytes = await boundedBytes(response);
+      const bytes = await boundedBytes(
+        response,
+        Math.min(MAX_PAGE_BYTES, remainingBytes),
+      );
       totalBytes += bytes.byteLength;
       if (totalBytes > MAX_TOTAL_BYTES) {
         throw new Error("SAP inventory pull exceeds the 25 MB total limit.");
@@ -319,6 +361,9 @@ Deno.serve(async (request) => {
       observedAt: fetchedAt,
       maxRows,
     });
+    if (Date.now() > deadline) {
+      throw new Error("SAP inventory pull exceeded its time limit.");
+    }
     const cursor = {
       fetched_at: fetchedAt,
       raw_rows: rows.length,
