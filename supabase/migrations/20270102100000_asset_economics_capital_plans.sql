@@ -305,14 +305,18 @@ as $$
     select e.* from public.asset_economics e,context c
     where c.org is not null and e.organization_id=c.org
   ), plans as (
-    select i.plan_year,count(*)::int item_count,
+    -- A capital-plan cost is meaningful only in its recorded currency. Legacy
+    -- rows can predate the governed portfolio currency field, so they remain
+    -- visible but their amounts are never summed or labelled as USD. Mixing
+    -- currencies would turn a factual plan view into invented arithmetic.
+    select i.plan_year,i.currency,count(*)::int item_count,
       count(*) filter(where i.mandatory)::int mandatory_count,
       count(*) filter(where i.development_case_id is not null
         and i.evidence_item_id is not null)::int governed_candidate_count,
-      sum(i.cost) total_cost
+      case when i.currency is null then null else sum(i.cost) end total_cost
     from public.capital_plan_items i,context c
     where c.org is not null and i.organization_id=c.org
-    group by i.plan_year
+    group by i.plan_year,i.currency
   )
   select jsonb_build_object(
     'assets',coalesce((select jsonb_agg(jsonb_build_object(
@@ -342,16 +346,17 @@ as $$
     ) order by e.verified_at desc)
       from public.evidence_items e,context c
       where e.organization_id=c.org and e.verification_status='verified'
-        and e.verified_by is not null and e.verified_at is not null),'[]'::jsonb),
+        and e.verified_by is not null and e.verified_at is not null
+        and e.verified_by<>auth.uid()),'[]'::jsonb),
     'coverage',jsonb_build_object(
       'assets',(select count(*) from tenant_assets),
       'assetsWithEconomics',(select count(*) from tenant_assets a where exists(
         select 1 from economics e where e.asset_id=a.id
-          or (e.asset_id is null and lower(btrim(e.asset_class))=lower(btrim(a.asset_class)))
+          or (e.asset_id is null and e.asset_class=a.asset_class)
       )),
       'assetsWithCompleteEconomics',(select count(*) from tenant_assets a where exists(
         select 1 from economics e where (e.asset_id=a.id
-          or (e.asset_id is null and lower(btrim(e.asset_class))=lower(btrim(a.asset_class))))
+          or (e.asset_id is null and e.asset_class=a.asset_class))
           and e.replacement_value_usd is not null
           and e.annual_maintenance_cost_usd is not null
           and e.downtime_cost_per_hour_usd is not null
@@ -367,7 +372,9 @@ as $$
       'planYear',p.plan_year,'itemCount',p.item_count,
       'mandatoryCount',p.mandatory_count,
       'governedCandidateCount',p.governed_candidate_count,
-      'totalCost',p.total_cost) order by p.plan_year desc) from plans p),'[]'::jsonb),
+      'currency',p.currency,'currencySpecified',p.currency is not null,
+      'totalCost',p.total_cost) order by p.plan_year desc,p.currency nulls last)
+      from plans p),'[]'::jsonb),
     'currency','USD',
     'basis','Economic inputs remain explicit tenant evidence. Missing values remain unknown and prevent dependent options from being priced.',
     'decisionBoundary','Recording economics or viewing a capital plan does not authorize expenditure, sanction a project, release work, accept risk, change an operating limit or return equipment to service.'
@@ -385,6 +392,6 @@ revoke insert,update,delete,truncate on public.asset_economics
 comment on function public.record_asset_economics_snapshot(jsonb) is
   'C2.10: AAL2 named-human versioned economic input snapshot with independently verified canonical evidence and no approval authority.';
 comment on function public.get_asset_economics_workspace() is
-  'C2.10: tenant-scoped economics coverage and canonical capital_plan_items visibility; no invented values or operational authority.';
+  'C2.10: tenant-scoped economics coverage and currency-safe canonical capital_plan_items visibility; unknown currencies withhold totals and no operational authority is granted.';
 
 notify pgrst, 'reload schema';

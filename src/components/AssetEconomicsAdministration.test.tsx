@@ -70,7 +70,18 @@ const workspace = {
       itemCount: 2,
       mandatoryCount: 1,
       governedCandidateCount: 1,
+      currency: "CAD",
+      currencySpecified: true,
       totalCost: 2_000_000,
+    },
+    {
+      planYear: 2027,
+      itemCount: 1,
+      mandatoryCount: 0,
+      governedCandidateCount: 0,
+      currency: null,
+      currencySpecified: false,
+      totalCost: null,
     },
   ],
   currency: "USD" as const,
@@ -107,7 +118,12 @@ describe("AssetEconomicsAdministration", () => {
       await screen.findByText("Asset economics and lifecycle capital plans"),
     ).toBeInTheDocument();
     expect(screen.getByText(/Downtime Unknown/)).toBeInTheDocument();
-    expect(screen.getByText(/2027: 2 item/)).toBeInTheDocument();
+    expect(screen.getByText(/2027 · CAD: 2 item/)).toHaveTextContent(
+      /2,000,000 CAD total recorded cost/,
+    );
+    expect(screen.getByText(/2027 · currency unspecified/)).toHaveTextContent(
+      /total withheld because currency is not recorded/,
+    );
     expect(
       screen.getByRole("link", { name: /open governed capital planning/i }),
     ).toHaveAttribute("href", "/develop/portfolio");

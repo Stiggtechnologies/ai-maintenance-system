@@ -101,7 +101,9 @@ describe("safetyCriticalRegulatoryService", () => {
     });
     await linkSafetyCriticalRegulatoryObligation({
       safetyCriticalElementId: 7,
+      expectedElementVersion: 2,
       capabilityPackLayerId: "layer-1",
+      expectedLayerVersion: 4,
       requirementKey: "pressure_shutdown_test",
       evidenceItemId: "evidence-2",
       basis:
@@ -112,7 +114,9 @@ describe("safetyCriticalRegulatoryService", () => {
       {
         p_link: expect.objectContaining({
           safety_critical_element_id: 7,
+          expected_element_version: 2,
           capability_pack_layer_id: "layer-1",
+          expected_layer_version: 4,
           requirement_key: "pressure_shutdown_test",
           evidence_item_id: "evidence-2",
         }),
