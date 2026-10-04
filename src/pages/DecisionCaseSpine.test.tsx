@@ -499,7 +499,7 @@ describe("P0.2 Decision Case spine on /get-started", () => {
       screen.getByTestId("spine-gate-invitation_delivery").textContent,
     ).toMatch(/Open/);
     expect(screen.getByTestId("spine-invite-status").textContent).toMatch(
-      /acceptance are not confirmed/i,
+      /no workspace invitation has been sent/i,
     );
 
     fireEvent.click(screen.getByTestId("spine-refresh-invite"));
@@ -520,6 +520,7 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     renderOpening();
     openSpine();
 
+    await screen.findByText(/Kai Manager · maintenance_manager/);
     const select = await screen.findByTestId("spine-required-person");
     expect(screen.getByTestId("spine-send-invite")).toBeDisabled();
     fireEvent.change(select, {

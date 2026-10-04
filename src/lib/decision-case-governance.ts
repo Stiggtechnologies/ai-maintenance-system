@@ -26,9 +26,8 @@ export interface RequiredDecisionPerson {
 }
 
 export interface HumanApprovalRecord {
-  decision: "approved" | "rejected" | "changes_requested" | "delegated";
+  decision: "approved" | "rejected" | "changes_requested";
   reason: string;
-  delegatedTo?: string | null;
   actor?: DecisionActor;
   recordedAt: string;
   /** Canonical case version whose governed basis the person reviewed. */

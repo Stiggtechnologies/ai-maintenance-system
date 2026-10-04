@@ -126,7 +126,8 @@ describe("Decision Case command authority contract", () => {
       "a governed approval decision and reason are required",
     );
     expect(migration).toContain("'reason',nullif(v_reason,'')");
-    expect(migration).toContain("'delegatedto',v_delegated_to");
+    expect(migration).not.toContain("'delegated'");
+    expect(migration).not.toContain("'delegatedto'");
     expect(migration).toContain("decision_case_approval_basis_sha256");
     expect(migration).toContain("'basisversion',v_workspace.case_version");
     expect(migration).toContain("'basissha256',v_basis_digest");
@@ -149,14 +150,33 @@ describe("Decision Case command authority contract", () => {
     expect(migration).toContain(
       "'postapprovalverificationoutcome',v_post_approval_outcome",
     );
-    expect(migration).toContain(
-      "where coalesce(m->>'meta','')<>'source connection check'",
-    );
+    expect(migration).toContain("jsonb_agg(m order by ordinality)");
     expect(page).toContain('data-testid="spine-required-person-approval"');
     expect(page).toContain('data-testid="spine-approval-basis"');
     expect(page).toContain('data-testid="spine-approval-prerequisites"');
     expect(page).toContain("First Decision Journey");
     expect(page).toContain("not the full 20-step journey");
+  });
+
+  it("bounds command growth and refuses malformed identities and counters", () => {
+    expect(migration).toContain(
+      "command payload exceeds the 2 mb governed limit",
+    );
+    expect(migration).toContain(
+      "initialization exceeds governed collection limits",
+    );
+    expect(migration).toContain("invalid or duplicate messages");
+    expect(migration).toContain(
+      "evidence identities must be unique, nonempty, and bounded",
+    );
+    expect(migration).toContain("may not remove existing evidence identities");
+    expect(migration).toContain(
+      "conversation token count must be a bounded nonnegative integer",
+    );
+    expect(migration).toContain(
+      "decision case exceeds governed persistence limits",
+    );
+    expect(migration).toContain("sourcecheck,detail");
   });
 
   it("preserves unrelated canonical arrays and creates server learning only from a complete outcome", () => {

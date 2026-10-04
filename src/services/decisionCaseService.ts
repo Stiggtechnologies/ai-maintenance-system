@@ -43,7 +43,7 @@ export type DecisionCaseCommand =
   | "record_approval";
 
 export type DecisionCaseApprovalDecision =
-  "approved" | "rejected" | "changes_requested" | "delegated";
+  "approved" | "rejected" | "changes_requested";
 
 export class DecisionCaseConflictError extends Error {
   constructor(message: string) {
@@ -287,7 +287,6 @@ export async function recordDecisionCaseApproval(
   decisionCase: DecisionCase,
   decision: DecisionCaseApprovalDecision,
   reason: string,
-  delegatedTo?: string,
 ): Promise<DecisionCase> {
   if (!Number.isInteger(decisionCase.revision) || decisionCase.revision! < 1) {
     throw new Error(
@@ -298,7 +297,7 @@ export async function recordDecisionCaseApproval(
     decisionCase,
     "record_approval",
     decisionCase.revision!,
-    { decision, reason, delegatedTo },
+    { decision, reason },
   );
 }
 

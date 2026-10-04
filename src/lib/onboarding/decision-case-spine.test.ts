@@ -384,8 +384,8 @@ describe("P0.2 Decision Case spine", () => {
     const delivered = applyInvitationDelivery(checked, {
       name: "Kai",
       email: "kai@example.com",
-      status: "submitted",
-      detail: "Submitted to the configured email provider.",
+      status: "accepted",
+      detail: "The invited Auth identity confirmed its email.",
       invitedUserId: "22222222-2222-4222-8222-222222222222",
       submittedAt: "2026-10-02T12:00:00.000Z",
       lastCheckedAt: "2026-10-02T12:00:00.000Z",

@@ -163,7 +163,7 @@ declare
   v_previous jsonb; v_state jsonb; v_payload jsonb:=coalesce(p_case_state,'{}'::jsonb);
   v_now timestamptz:=clock_timestamp(); v_next_version integer; v_allowed text[];
   v_required_user uuid; v_required_name text; v_required_email text; v_required_role text;
-  v_decision text; v_reason text; v_delegated_to uuid; v_plan jsonb; v_new_messages jsonb; v_key text; v_person_label text;
+  v_decision text; v_reason text; v_plan jsonb; v_new_messages jsonb; v_key text; v_person_label text;
   v_approval jsonb; v_basis_digest text; v_existing_expected text; v_existing_scheduled text;
   v_existing_question text; v_post_approval_outcome boolean:=false;
 begin
@@ -191,6 +191,8 @@ begin
     raise exception using errcode='22023',message='Unsupported Decision Case command'; end if;
   if jsonb_typeof(v_payload)<>'object' then
     raise exception using errcode='22023',message='Command payload must be an object'; end if;
+  if octet_length(v_payload::text)>2097152 then
+    raise exception using errcode='22023',message='Decision Case command payload exceeds the 2 MB governed limit'; end if;
 
   if p_command='initialize' then
     if v_workspace.case_version<>0 or coalesce(v_workspace.case_state,'{}'::jsonb)<>'{}'::jsonb then
@@ -199,6 +201,21 @@ begin
       jsonb_typeof(v_payload->'comments')<>'array' or jsonb_typeof(v_payload->'approvals')<>'array' or
       jsonb_typeof(v_payload->'valueMetrics')<>'array' then
       raise exception using errcode='23514',message='Decision Case initialization requires canonical collection fields'; end if;
+    if jsonb_array_length(v_payload->'messages')>500 or jsonb_array_length(v_payload->'evidence')>200 or
+      jsonb_array_length(v_payload->'comments')>250 or jsonb_array_length(v_payload->'approvals')>100 or
+      jsonb_array_length(v_payload->'valueMetrics')>200 then
+      raise exception using errcode='22023',message='Decision Case initialization exceeds governed collection limits'; end if;
+    if exists(select 1 from jsonb_array_elements(v_payload->'messages') m where jsonb_typeof(m)<>'object' or
+      jsonb_typeof(m->'id')<>'string' or length(btrim(coalesce(m->>'id','')))=0 or length(m->>'id')>200 or
+      jsonb_typeof(m->'role')<>'string' or m->>'role' not in ('user','assistant','system') or
+      jsonb_typeof(m->'text')<>'string' or length(btrim(coalesce(m->>'text',''))) not between 1 and 16000 or
+      length(coalesce(m->>'author',''))>200 or length(coalesce(m->>'meta',''))>200) or
+      exists(select 1 from jsonb_array_elements(v_payload->'messages') m group by m->>'id' having count(*)>1) then
+      raise exception using errcode='23514',message='Decision Case initialization contains invalid or duplicate messages'; end if;
+    if exists(select 1 from jsonb_array_elements(v_payload->'evidence') e where jsonb_typeof(e)<>'object' or
+      length(btrim(coalesce(e->>'id','')))=0 or length(e->>'id')>200 or octet_length(e::text)>65536) or
+      exists(select 1 from jsonb_array_elements(v_payload->'evidence') e group by e->>'id' having count(*)>1) then
+      raise exception using errcode='23514',message='Decision Case initialization contains invalid or duplicate evidence identities'; end if;
     if v_payload ?| array['humanDecision','requiredPerson','humanApproval','learningRecord'] or
       coalesce(jsonb_array_length(case when jsonb_typeof(v_payload->'approvals')='array' then v_payload->'approvals' else '[]'::jsonb end),0)>0 or
       exists(select 1 from jsonb_array_elements(case when jsonb_typeof(v_payload->'messages')='array' then v_payload->'messages' else '[]'::jsonb end) m
@@ -221,7 +238,7 @@ begin
       when 'define_verification' then array['verification']
       when 'record_required_person' then array['requiredPerson']
       when 'record_source_check' then array['sourceCheck']
-      when 'record_approval' then array['decision','reason','delegatedTo'] else array[]::text[] end;
+      when 'record_approval' then array['decision','reason'] else array[]::text[] end;
     if exists(select 1 from jsonb_object_keys(v_payload) k where not(k=any(v_allowed))) then
       raise exception using errcode='42501',message=format('%s payload contains unrelated Decision Case fields',p_command); end if;
     v_approval:=v_state->'humanApproval';
@@ -246,24 +263,40 @@ begin
 
   if p_command='record_conversation' then
     v_new_messages:=v_payload->'messages';
-    if jsonb_typeof(v_new_messages)<>'array' or
+    if jsonb_typeof(v_new_messages)<>'array' or jsonb_array_length(v_new_messages)>500 or
       jsonb_array_length(v_new_messages)<jsonb_array_length(coalesce(v_state->'messages','[]'::jsonb)) or
       exists(select 1 from generate_series(0,jsonb_array_length(coalesce(v_state->'messages','[]'::jsonb))-1) i
         where v_new_messages->i is distinct from v_state->'messages'->i) or
       exists(select 1 from jsonb_array_elements(v_new_messages) with ordinality m(item,ordinality)
-        where item->>'role' not in ('user','assistant','system') or length(btrim(coalesce(item->>'text','')))=0 or
+        where jsonb_typeof(item)<>'object' or jsonb_typeof(item->'id')<>'string' or
+          length(btrim(coalesce(item->>'id','')))=0 or length(item->>'id')>200 or
+          jsonb_typeof(item->'role')<>'string' or item->>'role' not in ('user','assistant','system') or
+          jsonb_typeof(item->'text')<>'string' or length(btrim(coalesce(item->>'text',''))) not between 1 and 16000 or
+          length(coalesce(item->>'author',''))>200 or length(coalesce(item->>'meta',''))>200 or
           (ordinality>jsonb_array_length(coalesce(v_state->'messages','[]'::jsonb)) and
             (item ?| array['actorId','actorRole'] or item->>'meta' in
-              ('Human disposition','Required person recorded','Source connection check','Verification obligation')))) then
+              ('Human disposition','Required person recorded','Source connection check','Verification obligation'))) or
+      exists(select 1 from jsonb_array_elements(v_new_messages) item group by item->>'id' having count(*)>1) then
       raise exception using errcode='23514',message='Conversation command may append valid messages but may not rewrite history'; end if;
+    if coalesce(v_payload->>'tokensUsed','') !~ '^[0-9]{1,10}$' then
+      raise exception using errcode='22023',message='Conversation token count must be a bounded nonnegative integer'; end if;
+    if (v_payload->>'tokensUsed')::numeric>1000000000 then
+      raise exception using errcode='22023',message='Conversation token count must be a bounded nonnegative integer'; end if;
     v_state:=jsonb_set(v_state,'{messages}',v_new_messages,true);
     v_state:=jsonb_set(v_state,'{tokensUsed}',to_jsonb(greatest(coalesce((v_payload->>'tokensUsed')::integer,0),0)),true);
 
   elsif p_command='add_evidence' then
-    if jsonb_typeof(v_payload->'evidence')<>'array' or not exists(
+    if jsonb_typeof(v_payload->'evidence')<>'array' or jsonb_array_length(v_payload->'evidence')>200 or not exists(
       select 1 from jsonb_array_elements(v_payload->'evidence') n where not exists(
         select 1 from jsonb_array_elements(coalesce(v_state->'evidence','[]'::jsonb)) o where o->>'id'=n->>'id')) then
       raise exception using errcode='23514',message='Evidence command must add a new evidence identity'; end if;
+    if exists(select 1 from jsonb_array_elements(v_payload->'evidence') e where jsonb_typeof(e)<>'object' or
+      length(btrim(coalesce(e->>'id','')))=0 or length(e->>'id')>200 or octet_length(e::text)>65536) or
+      exists(select 1 from jsonb_array_elements(v_payload->'evidence') e group by e->>'id' having count(*)>1) then
+      raise exception using errcode='23514',message='Evidence identities must be unique, nonempty, and bounded'; end if;
+    if exists(select 1 from jsonb_array_elements(coalesce(v_state->'evidence','[]'::jsonb)) o where not exists(
+      select 1 from jsonb_array_elements(v_payload->'evidence') n where n->>'id'=o->>'id')) then
+      raise exception using errcode='42501',message='Evidence command may not remove existing evidence identities'; end if;
     if exists(select 1 from jsonb_array_elements(coalesce(v_state->'evidence','[]'::jsonb)) o
       where o->>'quality' in ('high','medium') and not exists(
         select 1 from jsonb_array_elements(v_payload->'evidence') n where n=o)) then
@@ -291,14 +324,22 @@ begin
       raise exception using errcode='42501',message='Your role may not record a Decision Case disposition'; end if;
     if jsonb_typeof(v_payload->'humanDecision')<>'object' or exists(
       select 1 from jsonb_object_keys(v_payload->'humanDecision') k
-      where k not in ('disposition','rationale','counterfactual','expiresOn')) then
+      where k not in ('disposition','rationale','counterfactual','expiresOn')) or exists(
+      select 1 from jsonb_each(v_payload->'humanDecision') item
+      where item.value<>'null'::jsonb and jsonb_typeof(item.value)<>'string') then
       raise exception using errcode='42501',message='Disposition actor and record metadata are server-owned'; end if;
     if v_payload#>>'{humanDecision,disposition}' not in ('accept','reject','need_more_evidence','park','escalate') or
-      length(btrim(coalesce(v_payload#>>'{humanDecision,rationale}','')))=0 then
+      length(btrim(coalesce(v_payload#>>'{humanDecision,rationale}',''))) not between 1 and 4000 then
       raise exception using errcode='23514',message='Disposition and rationale are required'; end if;
     if v_payload#>>'{humanDecision,disposition}'='accept' and
-      length(btrim(coalesce(v_payload#>>'{humanDecision,counterfactual}','')))=0 then
+      length(btrim(coalesce(v_payload#>>'{humanDecision,counterfactual}',''))) not between 1 and 4000 then
       raise exception using errcode='23514',message='Accept requires a counterfactual'; end if;
+    if length(coalesce(v_payload#>>'{humanDecision,counterfactual}',''))>4000 then
+      raise exception using errcode='22023',message='Disposition counterfactual exceeds the governed limit'; end if;
+    if length(btrim(coalesce(v_payload#>>'{humanDecision,expiresOn}','')))>0 then
+      begin perform (v_payload#>>'{humanDecision,expiresOn}')::date; exception when others then
+        raise exception using errcode='22023',message='Disposition expiry date is invalid'; end;
+    end if;
     if v_payload ? 'people' and (jsonb_typeof(v_payload->'people')<>'object' or exists(
       select 1 from jsonb_each(v_payload->'people') p(key,value)
       where key not in ('decisionOwner','recommendationAuthor','verificationOwner') or
@@ -336,6 +377,9 @@ begin
       length(btrim(coalesce(v_plan->>'expected','')))=0 or
       length(btrim(coalesce(v_plan->>'scheduledFor','')))=0 then
       raise exception using errcode='23514',message='Verification requires expected outcome and scheduled date'; end if;
+    if exists(select 1 from jsonb_each(v_plan) item where
+      item.value<>'null'::jsonb and (jsonb_typeof(item.value)<>'string' or length(item.value#>>'{}')>4000)) then
+      raise exception using errcode='22023',message='Verification fields exceed the governed limit'; end if;
     begin perform (v_plan->>'scheduledFor')::date; exception when others then
       raise exception using errcode='22023',message='Verification scheduled date is invalid'; end;
     if (length(btrim(coalesce(v_plan->>'effectiveness','')))>0 or length(btrim(coalesce(v_plan->>'actual','')))>0 or
@@ -436,9 +480,12 @@ begin
       raise exception using errcode='55000',message='Record a governed human disposition before checking sources'; end if;
     if length(btrim(coalesce(v_state#>>'{requiredPerson,userId}','')))=0 then
       raise exception using errcode='55000',message='Record a bound required person before checking sources'; end if;
-    if length(btrim(coalesce(v_payload#>>'{sourceCheck,detail}','')))<8 then
+    if jsonb_typeof(v_payload->'sourceCheck')<>'object' or jsonb_typeof(v_payload#>'{sourceCheck,detail}')<>'string' or exists(
+      select 1 from jsonb_object_keys(v_payload->'sourceCheck') k where k<>'detail') or
+      length(btrim(coalesce(v_payload#>>'{sourceCheck,detail}',''))) not between 8 and 4000 then
       raise exception using errcode='23514',message='Source check detail is required'; end if;
-    v_state:=jsonb_set(v_state,'{messages}',coalesce((select jsonb_agg(m) from jsonb_array_elements(coalesce(v_state->'messages','[]'::jsonb)) m
+    v_state:=jsonb_set(v_state,'{messages}',coalesce((select jsonb_agg(m order by ordinality)
+      from jsonb_array_elements(coalesce(v_state->'messages','[]'::jsonb)) with ordinality x(m,ordinality)
       where coalesce(m->>'meta','')<>'Source connection check'),'[]'::jsonb)||jsonb_build_array(jsonb_build_object(
       'id','source-check-'||(v_workspace.case_version+1)::text,'role','system','author',v_actor_name,'actorId',v_actor,'actorRole',v_actor_role,
       'text',btrim(v_payload#>>'{sourceCheck,detail}')||' This check is not a data pull and supplies no case evidence.',
@@ -452,8 +499,10 @@ begin
     if not public.decision_case_authority_role_allowed(v_actor_role) or
       v_state#>>'{requiredPerson,authorityRole}' is distinct from v_actor_role then
       raise exception using errcode='42501',message='Bound authority role no longer matches the canonical user profile'; end if;
+    if jsonb_typeof(v_payload->'decision')<>'string' or jsonb_typeof(v_payload->'reason')<>'string' then
+      raise exception using errcode='23514',message='A governed approval decision and reason are required'; end if;
     v_decision:=v_payload->>'decision'; v_reason:=btrim(coalesce(v_payload->>'reason',''));
-    if v_decision not in ('approved','rejected','changes_requested','delegated') or length(v_reason)<8 then
+    if v_decision not in ('approved','rejected','changes_requested') or length(v_reason) not between 8 and 4000 then
       raise exception using errcode='23514',message='A governed approval decision and reason are required'; end if;
     v_plan:=public.decision_case_approval_basis(v_state);
     if length(btrim(coalesce(v_state#>>'{humanDecision,actor,id}','')))=0 then
@@ -466,16 +515,9 @@ begin
       raise exception using errcode='55000',message='Approval requires a server-stamped scheduled verification plan'; end if;
     if coalesce(v_plan->'sourceCheck','null'::jsonb)='null'::jsonb then
       raise exception using errcode='55000',message='Approval requires a server-stamped source check'; end if;
-    if v_decision='delegated' then
-      begin v_delegated_to:=(v_payload->>'delegatedTo')::uuid; exception when invalid_text_representation or null_value_not_allowed then
-        raise exception using errcode='22023',message='Delegation requires a valid target user id'; end;
-      if v_delegated_to=v_actor or not exists(select 1 from public.user_profiles p where p.id=v_delegated_to and p.organization_id=v_org
-        and public.decision_case_authority_role_allowed(p.role)) then
-        raise exception using errcode='42501',message='Delegation target must be another authorized same-tenant human'; end if;
-    end if;
     v_basis_digest:=public.decision_case_approval_basis_sha256(v_state);
     v_state:=jsonb_set(v_state,'{humanApproval}',jsonb_build_object('decision',v_decision,'reason',v_reason,
-      'delegatedTo',v_delegated_to,'actor',jsonb_build_object('id',v_actor,'name',v_actor_name,'role',v_actor_role),
+      'actor',jsonb_build_object('id',v_actor,'name',v_actor_name,'role',v_actor_role),
       'recordedAt',v_now,'basisVersion',v_workspace.case_version,'basisSha256',v_basis_digest,
       'approvalVersion',v_workspace.case_version+1),true);
     v_state:=jsonb_set(v_state,'{approvals}',coalesce((select jsonb_agg(case when a->>'id'='required-approver'
@@ -501,6 +543,12 @@ begin
   if v_state#>>'{workPackage,status}' is distinct from 'locked' or
     coalesce(v_state#>'{workPackage,receipt}','null'::jsonb)<>'null'::jsonb then
     raise exception using errcode='42501',message='ACTION must remain locked and unreleased'; end if;
+  if octet_length(v_state::text)>4194304 or jsonb_array_length(coalesce(v_state->'messages','[]'::jsonb))>500 then
+    raise exception using errcode='22023',message='Decision Case exceeds governed persistence limits'; end if;
+  if coalesce(v_state->>'tokensUsed','') !~ '^[0-9]{1,10}$' then
+    raise exception using errcode='22023',message='Decision Case token count must be a bounded nonnegative integer'; end if;
+  if (v_state->>'tokensUsed')::numeric>1000000000 then
+    raise exception using errcode='22023',message='Decision Case token count must be a bounded nonnegative integer'; end if;
   if coalesce(v_state->'humanApproval','null'::jsonb)<>'null'::jsonb and
     v_state#>>'{humanApproval,basisSha256}' is distinct from public.decision_case_approval_basis_sha256(v_state) then
     raise exception using errcode='55000',message='Decision Case approval basis became stale during the command'; end if;
@@ -517,7 +565,7 @@ begin
   perform set_config('syncai.decision_case_command','off',true);
   insert into public.audit_events(organization_id,entity_type,actor,event_data,previous_state,new_state)
   values(v_org,'decision_case_command',v_actor::text,jsonb_build_object('workspaceId',p_workspace_id,'command',p_command,
-    'version',v_next_version,'actorName',v_actor_name,'actorRole',v_actor_role,'reason',nullif(v_reason,''),'delegatedTo',v_delegated_to,
+    'version',v_next_version,'actorName',v_actor_name,'actorRole',v_actor_role,'reason',nullif(v_reason,''),
     'approvalBasisVersion',v_state#>'{humanApproval,basisVersion}','approvalBasisSha256',v_state#>'{humanApproval,basisSha256}',
     'postApprovalVerificationOutcome',v_post_approval_outcome),
     v_previous,v_state);
