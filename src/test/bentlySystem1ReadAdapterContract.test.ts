@@ -37,6 +37,12 @@ describe("C2.19 Bently System 1 condition read contract", () => {
     expect(migration).toContain("coalesce(auth.role(),'')<>'service_role'");
     expect(migration).toContain("direction='read_only'");
     expect(migration).toContain("not write_enabled");
+    expect(migration).toContain(
+      "returning id,enabled,write_enabled,connector_profile",
+    );
+    expect(migration).toContain(
+      "'enabled',v_enabled",
+    );
     expect(migration).toContain("a named human administrator must configure");
     expect(migration).toContain("sourceWriteBack',false");
     expect(migration).toContain("alarmAcknowledgement',false");

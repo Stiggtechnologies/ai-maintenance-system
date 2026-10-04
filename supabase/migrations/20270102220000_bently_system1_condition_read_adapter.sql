@@ -91,6 +91,9 @@ declare
   v_org uuid:=public.app_current_org();
   v_role text;
   v_id uuid;
+  v_enabled boolean;
+  v_write_enabled boolean;
+  v_source_profile text;
   v_endpoint text:=nullif(btrim(coalesce(p_endpoint,'')),'');
   v_ref text:=nullif(btrim(coalesce(p_credential_binding_ref,'')),'');
   v_item jsonb;
@@ -188,7 +191,8 @@ begin
     condition_node_bindings=excluded.condition_node_bindings,
     condition_max_rows=excluded.condition_max_rows,
     condition_page_size=excluded.condition_page_size
-  returning id into v_id;
+  returning id,enabled,write_enabled,connector_profile
+    into v_id,v_enabled,v_write_enabled,v_source_profile;
 
   insert into public.decisions(
     organization_id,decision_type,action_taken,approval_status,autonomy_mode,
@@ -200,9 +204,9 @@ begin
       ||jsonb_array_length(p_node_bindings)||' exact node bindings',
     'approved','manual',100,auth.uid()::text,btrim(p_basis),'executed'
   );
-  return jsonb_build_object('ok',true,'connector_id',v_id,'enabled',p_enabled,
-    'direction','read_only','write_enabled',false,
-    'source_profile','bently_system1_opcua_gateway',
+  return jsonb_build_object('ok',true,'connector_id',v_id,'enabled',v_enabled,
+    'direction','read_only','write_enabled',v_write_enabled,
+    'source_profile',v_source_profile,
     'binding_count',jsonb_array_length(p_node_bindings),
     'note',case when p_enabled
       then 'Enabled bounded user-triggered System 1 reads. Source alarms, limits and control remain unchanged.'
