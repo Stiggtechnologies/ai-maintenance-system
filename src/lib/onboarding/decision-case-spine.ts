@@ -23,6 +23,53 @@ import type { InvertedIntentId } from "./inverted-opening";
 const BANNED_SEED =
   /Fort McMurray|North Ridge Energy|P-101|dc-1048|Copper Ridge/i;
 
+export interface WalkthroughSourceReceipt {
+  kind: "governed_document" | "manual";
+  sourceId: string;
+  ingestionStatus: string;
+  securityStatus: "cleared" | "quarantined" | "released" | "rejected";
+  chunksCreated: number;
+  recordedAt: string;
+}
+
+export interface WalkthroughDecisionEvidence extends DecisionEvidence {
+  sourceReceipt?: WalkthroughSourceReceipt;
+}
+
+export type DecisionCaseInvitationStatus =
+  | "recorded_only"
+  | "submitted"
+  | "already_member"
+  | "accepted"
+  | "active"
+  | "failed";
+
+export interface DecisionCaseInvitation {
+  name: string;
+  email: string;
+  status: DecisionCaseInvitationStatus;
+  detail: string;
+  invitedUserId?: string | null;
+  submittedAt?: string | null;
+  lastCheckedAt: string;
+}
+
+/**
+ * First-customer walkthrough state extends the governed Decision Case without
+ * changing the Reliability Engineer reasoning contract. Workspace membership
+ * and evidence-intake receipts are operational metadata, never approval.
+ */
+export type WalkthroughDecisionCase = Omit<DecisionCase, "evidence"> & {
+  evidence: WalkthroughDecisionEvidence[];
+  invitation?: DecisionCaseInvitation;
+};
+
+export function asWalkthroughDecisionCase(
+  decisionCase: DecisionCase,
+): WalkthroughDecisionCase {
+  return decisionCase as WalkthroughDecisionCase;
+}
+
 export const SPINE_STAGES = [
   "QUESTION",
   "EVIDENCE",
@@ -247,7 +294,8 @@ export type DispositionRecord = {
 export type LoopGateId =
   | "decision_loop"
   | "evidence_path"
-  | "named_approver"
+  | "required_person"
+  | "invitation_delivery"
   | "verification"
   | "audit_trail";
 
@@ -263,6 +311,13 @@ export type SpineReadiness = {
   metCount: number;
   total: number;
   headline: string;
+};
+
+export type WalkthroughNextAction = {
+  gateId: LoopGateId | "complete";
+  title: string;
+  detail: string;
+  targetId: string;
 };
 
 export type EvidenceLineage = {
@@ -355,7 +410,7 @@ function missingSlots(): DecisionEvidence[] {
 export function buildSpineDecisionCase(input: {
   question: string;
   intent: InvertedIntentId | "";
-}): DecisionCase {
+}): WalkthroughDecisionCase {
   const question = input.question.trim();
   if (question.length < 12) {
     throw new Error("A Decision Case needs a real question.");
@@ -446,7 +501,11 @@ export function attachSpineEvidence(
   body: string,
 ): DecisionCase {
   const text = body.trim();
-  if (!text && method !== "ask_admin") return decisionCase;
+  if (!text && method !== "ask_admin") {
+    throw new Error(
+      "Manual evidence needs content. Add a note or explicitly ask an administrator later.",
+    );
+  }
   const kindMeta = EVIDENCE_KINDS.find((item) => item.id === kind);
   const now = new Date().toISOString();
   if (method === "ask_admin") {
@@ -517,6 +576,83 @@ export function attachSpineEvidence(
         author: "You",
         text: `Added ${kindMeta?.title ?? kind} via ${method}: ${text.slice(0, 240)}`,
         createdAt: now,
+      },
+    ],
+  };
+}
+
+export function attachGovernedSpineEvidence(
+  decisionCase: WalkthroughDecisionCase,
+  kind: EvidenceKind,
+  body: string,
+  receipt: {
+    sourceId: string;
+    ingestionStatus: string;
+    securityStatus: "cleared" | "quarantined" | "released" | "rejected";
+    chunksCreated: number;
+  },
+): WalkthroughDecisionCase {
+  const text = body.trim();
+  if (!text) throw new Error("Governed evidence needs source content.");
+  const kindMeta = EVIDENCE_KINDS.find((item) => item.id === kind);
+  const now = new Date().toISOString();
+  const retrievable = ["cleared", "released"].includes(receipt.securityStatus);
+  const nextItem: WalkthroughDecisionEvidence = {
+    id: `ev-${kind}-${Date.now()}`,
+    title: kindMeta?.title ?? kind,
+    summary: text.slice(0, 280),
+    quality: retrievable ? "medium" : "conflict",
+    state: retrievable
+      ? "Governed source ingested"
+      : `Retained but ${receipt.securityStatus}`,
+    record: `Knowledge source ${receipt.sourceId}`,
+    finding: retrievable
+      ? text.slice(0, 400)
+      : "The source is retained but excluded from retrieval until its security state is resolved.",
+    lineage: `Tenant knowledge intake · ${receipt.sourceId} · ${receipt.ingestionStatus} · ${receipt.securityStatus} · ${now}`,
+    sourceSystem: "SyncAI governed document intake",
+    sourceReceipt: {
+      kind: "governed_document",
+      sourceId: receipt.sourceId,
+      ingestionStatus: receipt.ingestionStatus,
+      securityStatus: receipt.securityStatus,
+      chunksCreated: receipt.chunksCreated,
+      recordedAt: now,
+    },
+  };
+  const evidence = [
+    nextItem,
+    ...decisionCase.evidence.filter(
+      (item) => !retrievable || item.id !== `missing-${kind}`,
+    ),
+  ];
+  const confidence = computeConfidencePct(evidence);
+  return {
+    ...decisionCase,
+    evidence,
+    evidenceScore: confidence,
+    updatedAt: now,
+    stage:
+      retrievable && decisionCase.stage === "evidence"
+        ? "analysis"
+        : decisionCase.stage,
+    recommendation: retrievable
+      ? "Preliminary recommendation can be reviewed against the ingested source. It is still not authorization."
+      : decisionCase.recommendation,
+    recommendationDetail: retrievable
+      ? "The source passed deterministic intake controls. Engineering truth and approval still require human review."
+      : decisionCase.recommendationDetail,
+    messages: [
+      ...decisionCase.messages,
+      {
+        id: `source-${Date.now()}`,
+        role: "system",
+        author: "Evidence intake",
+        text: retrievable
+          ? `Source ${receipt.sourceId} was ingested as ${receipt.ingestionStatus}, passed with security state ${receipt.securityStatus}, and is attached to this case. Ingestion does not approve its engineering content.`
+          : `Source ${receipt.sourceId} was ingested but is ${receipt.securityStatus}. It remains retained and is not treated as usable evidence on this case.`,
+        createdAt: now,
+        meta: "Governed source receipt",
       },
     ],
   };
@@ -775,9 +911,9 @@ export function applyVerificationPlan(
 }
 
 export function applyInvite(
-  decisionCase: DecisionCase,
+  decisionCase: WalkthroughDecisionCase,
   input: { name: string; email: string; authority: string },
-): DecisionCase {
+): WalkthroughDecisionCase {
   const name = input.name.trim();
   const email = input.email.trim();
   const authority = input.authority.trim() || decisionCase.authorityRole;
@@ -791,6 +927,14 @@ export function applyInvite(
   );
   return {
     ...decisionCase,
+    invitation: {
+      name,
+      email,
+      status: "recorded_only",
+      detail:
+        "Required person recorded on the Decision Case. No workspace invitation has been sent.",
+      lastCheckedAt: now,
+    },
     approvals: existing
       ? decisionCase.approvals.map((item) =>
           item.id === "required-approver"
@@ -804,7 +948,7 @@ export function applyInvite(
             initials: initials(label),
             name: label,
             role: authority,
-            responsibility: `Invited to this Decision Case · ${email || "no email yet"}`,
+            responsibility: `Required person recorded · ${email || "no email yet"} · invitation not sent`,
             status: "next",
           },
         ],
@@ -813,12 +957,62 @@ export function applyInvite(
       {
         id: `invite-${Date.now()}`,
         role: "system",
-        author: "Invite",
-        text: `${inviteCopy(authority)} Recorded for ${label}${email ? ` <${email}>` : ""}. Delivery is a workspace-admin action if mail is not configured.`,
+        author: "Required person",
+        text: `${inviteCopy(authority)} Required person recorded as ${label}${email ? ` <${email}>` : ""}. This is not an invitation delivery event.`,
         createdAt: now,
-        meta: "Contextual invite",
+        meta: "Person recorded · invitation not sent",
       },
     ],
+  };
+}
+
+export function applyInvitationDelivery(
+  decisionCase: WalkthroughDecisionCase,
+  invitation: DecisionCaseInvitation,
+): WalkthroughDecisionCase {
+  const previous = decisionCase.invitation;
+  const changed =
+    !previous ||
+    previous.status !== invitation.status ||
+    previous.detail !== invitation.detail;
+  const label = invitation.name || invitation.email;
+  const deliveryText =
+    invitation.status === "submitted"
+      ? `A secure workspace invitation for ${label} was submitted to the configured email provider. Delivery and acceptance are not yet confirmed.`
+      : invitation.status === "already_member"
+        ? `${label} is already a member of this tenant. No new invitation email was sent.`
+        : invitation.status === "accepted"
+          ? `${label} accepted the workspace invitation. This does not grant decision authority.`
+          : invitation.status === "active"
+            ? `${label} accepted and has signed in. This does not grant decision authority.`
+            : invitation.status === "failed"
+              ? `The workspace invitation for ${label} failed: ${invitation.detail}`
+              : `Required person ${label} is recorded, but no workspace invitation has been sent.`;
+  return {
+    ...decisionCase,
+    invitation,
+    updatedAt: invitation.lastCheckedAt,
+    approvals: decisionCase.approvals.map((item) =>
+      item.id === "required-approver"
+        ? {
+            ...item,
+            responsibility: `${item.role} · workspace invitation ${invitation.status.replaceAll("_", " ")} · authority still requires verification`,
+          }
+        : item,
+    ),
+    messages: changed
+      ? [
+          ...decisionCase.messages,
+          {
+            id: `invite-status-${Date.now()}`,
+            role: "system",
+            author: "Workspace invitation",
+            text: deliveryText,
+            createdAt: invitation.lastCheckedAt,
+            meta: `Delivery status · ${invitation.status}`,
+          },
+        ]
+      : decisionCase.messages,
   };
 }
 
@@ -852,13 +1046,11 @@ export function lineageFromCase(
 }
 
 export function readinessFromCase(
-  decisionCase: DecisionCase,
+  decisionCase: WalkthroughDecisionCase,
   extras: {
     saved: boolean;
     disposition?: SpineDisposition | "";
     verification?: VerificationPlan | null;
-    invited?: boolean;
-    manualEvidencePath?: boolean;
   },
 ): SpineReadiness {
   const lineage = lineageFromCase(decisionCase, extras.verification);
@@ -867,11 +1059,16 @@ export function readinessFromCase(
   const verificationMet = Boolean(
     extras.verification?.scheduledFor || extras.verification?.effectiveness,
   );
-  const namedApprover = Boolean(
-    decisionCase.approvals.some((item) => item.name.trim()) || extras.invited,
+  const namedApprover = decisionCase.approvals.some((item) => item.name.trim());
+  const invitationStatus = decisionCase.invitation?.status;
+  const invitationMet = Boolean(
+    invitationStatus &&
+    ["already_member", "accepted", "active"].includes(invitationStatus),
   );
-  const evidencePath =
-    lineage.evidenceCount > 0 || Boolean(extras.manualEvidencePath);
+  const explicitlyDeferredEvidence = decisionCase.messages.some(
+    (item) => item.meta === "Connection fallback",
+  );
+  const evidencePath = lineage.evidenceCount > 0 || explicitlyDeferredEvidence;
   const loopDemonstrated = Boolean(extras.disposition);
   const gates: LoopGate[] = [
     {
@@ -891,12 +1088,26 @@ export function readinessFromCase(
         : "No file, paste, connection, or manual evidence yet",
     },
     {
-      id: "named_approver",
-      title: "Named approver",
+      id: "required_person",
+      title: "Required person named",
       met: namedApprover,
       evidence: namedApprover
         ? decisionCase.authorityRole
-        : "Required approver is not named",
+        : "Required decision or verification person is not named",
+    },
+    {
+      id: "invitation_delivery",
+      title: "Workspace invitation",
+      met: invitationMet,
+      evidence: invitationMet
+        ? `Status: ${invitationStatus?.replaceAll("_", " ")}. Workspace access does not grant decision authority.`
+        : decisionCase.invitation?.status === "failed"
+          ? `Failed: ${decisionCase.invitation.detail}`
+          : decisionCase.invitation?.status === "submitted"
+            ? "Submitted; acceptance or existing tenant membership is not yet confirmed"
+            : decisionCase.invitation?.status === "recorded_only"
+              ? "Person recorded; no invitation sent"
+              : "No invitation delivery event recorded",
     },
     {
       id: "verification",
@@ -923,6 +1134,60 @@ export function readinessFromCase(
         ? "Stage-1 loop maturity: the first Decision Case loop is complete on this workspace."
         : `Stage-1 loop maturity: ${metCount} of ${gates.length} gates earned — not onboarding-screen ticks.`,
   };
+}
+
+export function nextWalkthroughAction(
+  readiness: SpineReadiness,
+): WalkthroughNextAction {
+  const next = readiness.gates.find((gate) => !gate.met);
+  if (!next) {
+    return {
+      gateId: "complete",
+      title: "Review readiness and unresolved evidence",
+      detail:
+        "The supported first-decision loop is complete. Review the proof summary and every remaining evidence limitation before sharing it.",
+      targetId: "spine-readiness",
+    };
+  }
+  const actions: Record<LoopGateId, Omit<WalkthroughNextAction, "gateId">> = {
+    decision_loop: {
+      title: "Record the human decision",
+      detail:
+        "Choose a disposition, name the accountable people, state the rationale, and record what would change the recommendation.",
+      targetId: "spine-disposition",
+    },
+    evidence_path: {
+      title: "Add governed or clearly manual evidence",
+      detail:
+        "Ingest a supported document, paste customer data, upload a file, or explicitly continue with a manual evidence note.",
+      targetId: "spine-evidence",
+    },
+    required_person: {
+      title: "Name the required person",
+      detail:
+        "Record who owns approval or verification. Naming them does not send an invitation or grant authority.",
+      targetId: "spine-invite",
+    },
+    invitation_delivery: {
+      title: "Send or verify the workspace invitation",
+      detail:
+        "A saved case, work email, AAL2 session, and an authorized administrator or executive are required.",
+      targetId: "spine-invite",
+    },
+    verification: {
+      title: "Define how the outcome will be verified",
+      detail:
+        "State the expected result, date, and verification owner. An expected result is not an achieved outcome.",
+      targetId: "spine-verification",
+    },
+    audit_trail: {
+      title: "Save the Decision Case",
+      detail:
+        "Secure the case on the tenant workspace before relying on reload, invitation, or audit continuity.",
+      targetId: "decision-case-spine",
+    },
+  };
+  return { gateId: next.id, ...actions[next.id] };
 }
 
 /** Id of the last Decision Case this browser saved. Not case content. */
