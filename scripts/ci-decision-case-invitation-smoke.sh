@@ -62,6 +62,8 @@ FOREIGN_JWT=$(jwt "$FOREIGN" "$FOREIGN_EMAIL")
 
 test "$(psqlc "select has_function_privilege('authenticated','public.register_decision_case_invitation(uuid,uuid,uuid,uuid,text,text,text,text)','execute')")" = 'f'
 test "$(psqlc "select has_function_privilege('service_role','public.register_decision_case_invitation(uuid,uuid,uuid,uuid,text,text,text,text)','execute')")" = 't'
+test "$(psqlc "select has_function_privilege('authenticated','public.observe_decision_case_invitation(uuid,uuid)','execute')")" = 'f'
+test "$(psqlc "select has_function_privilege('service_role','public.observe_decision_case_invitation(uuid,uuid)','execute')")" = 't'
 
 SUBMITTED=$(service_rpc register_decision_case_invitation "{\"p_actor_id\":\"$ADMIN\",\"p_organization_id\":\"$ORG\",\"p_case_id\":\"$CASE_ID\",\"p_invited_user_id\":\"$INVITEE\",\"p_email\":\"$INVITEE_EMAIL\",\"p_name\":\"Invited verifier\",\"p_delivery_status\":\"submitted\",\"p_detail\":\"Secure invitation submitted to the configured provider.\"}")
 noerr "$SUBMITTED"; test "$(field "$SUBMITTED" status)" = 'submitted'
@@ -70,6 +72,26 @@ test "$(psqlc "select event_data->>'decision_authority_granted' from audit_event
 
 STATUS=$(rpc "$ADMIN_JWT" get_decision_case_invitation_status "{\"p_case_id\":\"$CASE_ID\"}")
 noerr "$STATUS"; test "$(field "$STATUS" status)" = 'submitted'
+OBSERVE_DENIED=$(rpc "$ADMIN_JWT" observe_decision_case_invitation "{\"p_actor_id\":\"$ADMIN\",\"p_case_id\":\"$CASE_ID\"}")
+expect_error "$OBSERVE_DENIED" 'permission denied'
+
+psqlc "update auth.users set email_confirmed_at=now(), updated_at=now() where id='$INVITEE'" >/dev/null
+ACCEPTED=$(service_rpc observe_decision_case_invitation "{\"p_actor_id\":\"$ADMIN\",\"p_case_id\":\"$CASE_ID\"}")
+noerr "$ACCEPTED"; test "$(field "$ACCEPTED" status)" = 'accepted'
+test -n "$(field "$ACCEPTED" submittedAt)"
+STATUS=$(rpc "$ADMIN_JWT" get_decision_case_invitation_status "{\"p_case_id\":\"$CASE_ID\"}")
+noerr "$STATUS"; test "$(field "$STATUS" status)" = 'accepted'
+
+psqlc "update auth.users set last_sign_in_at=now(), updated_at=now() where id='$INVITEE'" >/dev/null
+ACTIVE=$(service_rpc observe_decision_case_invitation "{\"p_actor_id\":\"$ADMIN\",\"p_case_id\":\"$CASE_ID\"}")
+noerr "$ACTIVE"; test "$(field "$ACTIVE" status)" = 'active'
+test -n "$(field "$ACTIVE" submittedAt)"
+ACTIVE_AGAIN=$(service_rpc observe_decision_case_invitation "{\"p_actor_id\":\"$ADMIN\",\"p_case_id\":\"$CASE_ID\"}")
+noerr "$ACTIVE_AGAIN"; test "$(field "$ACTIVE_AGAIN" status)" = 'active'
+test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='decision_case_invitation'")" -eq 3
+STATUS=$(rpc "$ADMIN_JWT" get_decision_case_invitation_status "{\"p_case_id\":\"$CASE_ID\"}")
+noerr "$STATUS"; test "$(field "$STATUS" status)" = 'active'
+
 FOREIGN_STATUS=$(rpc "$FOREIGN_JWT" get_decision_case_invitation_status "{\"p_case_id\":\"$CASE_ID\"}")
 expect_error "$FOREIGN_STATUS" 'active tenant'
 
@@ -83,6 +105,6 @@ expect_error "$CROSS_TENANT" 'another tenant'
 
 ALREADY_MEMBER=$(service_rpc register_decision_case_invitation "{\"p_actor_id\":\"$ADMIN\",\"p_organization_id\":\"$ORG\",\"p_case_id\":\"$CASE_ID\",\"p_invited_user_id\":null,\"p_email\":\"$OPERATOR_EMAIL\",\"p_name\":\"Walkthrough operator\",\"p_delivery_status\":\"already_member\",\"p_detail\":\"The identity is already a member; no email was sent.\"}")
 noerr "$ALREADY_MEMBER"; test "$(field "$ALREADY_MEMBER" status)" = 'already_member'
-test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='decision_case_invitation'")" -eq 2
+test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='decision_case_invitation'")" -eq 4
 
-echo 'Decision Case invitation smoke passed: canonical_identity=true canonical_case=true canonical_audit=true service_only_write=true same_tenant=true viewer_only=true authority_separate=true status_tenant_bound=true cross_tenant_refused=true ai_refused=true'
+echo 'Decision Case invitation smoke passed: canonical_identity=true canonical_case=true canonical_audit=true service_only_write=true service_only_observation=true auth_derived_acceptance=true append_only_lifecycle=true same_tenant=true viewer_only=true authority_separate=true status_tenant_bound=true cross_tenant_refused=true ai_refused=true'
