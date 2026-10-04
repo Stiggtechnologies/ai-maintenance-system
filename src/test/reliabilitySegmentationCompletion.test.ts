@@ -68,6 +68,12 @@ describe("complete governed reliability segmentation", () => {
     expect(migration).toContain(
       "this is not a failure-mechanism claim; use the governed mechanism axis",
     );
+    expect(migration).toContain(
+      "if p_dimension is null or p_dimension not in",
+    );
+    expect(migration).toContain(
+      "asset_class, criticality, site, failure_mode, system_group, mechanism, operating_regime",
+    );
   });
 
   it("matches observed failures to canonical operating states and discloses gaps", () => {

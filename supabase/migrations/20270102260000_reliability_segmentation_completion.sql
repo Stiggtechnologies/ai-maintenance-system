@@ -171,12 +171,12 @@ declare
   v_uncoded int:=0;
 begin
   if v_org is null then return jsonb_build_object('error','forbidden'); end if;
-  if p_dimension not in (
+  if p_dimension is null or p_dimension not in (
     'asset_class','criticality','site','failure_mode','system_group',
     'mechanism','operating_regime') then
     return jsonb_build_object(
       'error',
-      'dimension must be one of asset_class, criticality, site, system_group, mechanism, operating_regime');
+      'dimension must be one of asset_class, criticality, site, failure_mode, system_group, mechanism, operating_regime');
   end if;
 
   select count(*) filter(where w.failure_observed_at is null),
