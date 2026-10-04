@@ -265,6 +265,9 @@ jobs:
       - name: Smoke — governed enterprise asset lifecycle risk
         run: bash scripts/ci-enterprise-asset-lifecycle-risk-smoke.sh
 
+      - name: Smoke — governed asset lifecycle stage gates
+        run: bash scripts/ci-asset-lifecycle-stage-gates-smoke.sh
+
       - name: Smoke — governed RCA / FRACAS investigation
         run: bash scripts/ci-fracas-rca-agent-smoke.sh
 

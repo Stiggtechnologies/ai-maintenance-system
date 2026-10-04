@@ -1018,13 +1018,13 @@ describe("the reachability judges", () => {
    * them look like documentation.
    */
   it("is not fooled by a comment, a getter, or a file that merely exists", () => {
-    // 1. A COMMENT IS NOT A CALLER. `advance_lifecycle_stage` is declared but
-    //    has no customer-reachable caller. The first version of the gate would
-    //    have passed it on prose naming the missing path.
+    // 1. A COMMENT IS NOT A CALLER. This deliberately nonexistent probe is
+    //    named only in this explanatory prose. A reachability judge must not
+    //    turn that mention into an implementation or customer-reachable call.
     const commentOnly = judge({
       id: "Z9.97",
-      raw: "advance_lifecycle_stage",
-      name: "advance_lifecycle_stage",
+      raw: "comment_only_reachability_probe",
+      name: "comment_only_reachability_probe",
       kind: "sql-function",
     });
     expect(commentOnly.ok, commentOnly.detail).toBe(false);
