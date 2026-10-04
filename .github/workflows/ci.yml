@@ -564,6 +564,9 @@ jobs:
       - name: Smoke — governed material catalogue and serialized repairable history
         run: bash scripts/ci-material-catalogue-repairable-history-smoke.sh
 
+      - name: Smoke — controlled technical-document revisions and effectivity
+        run: bash scripts/ci-controlled-technical-documents-smoke.sh
+
       - name: Smoke — thirteen-dimension finance intelligence
         run: bash scripts/ci-develop-finance-intelligence-smoke.sh
 
