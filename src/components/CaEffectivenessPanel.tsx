@@ -254,10 +254,15 @@ export function CaEffectivenessPanel() {
             disabled={!selectedWo || busy}
             onClick={() =>
               act(async () => {
-                await supabase.rpc("start_ca_verification", {
+                const result = await supabase.rpc("start_ca_verification", {
                   p_work_order_id: selectedWo,
                 });
-                setSelectedWo("");
+                if (
+                  !result.error &&
+                  !(result.data as { error?: string })?.error
+                )
+                  setSelectedWo("");
+                return result;
               })
             }
             className="rounded-lg bg-signal-gold px-3 py-2 text-sm font-medium text-overlook-void hover:bg-signal-gold-soft disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-signal-gold"
@@ -350,7 +355,7 @@ export function CaEffectivenessPanel() {
                     busy={busy}
                     onAttest={() =>
                       act(async () => {
-                        await supabase.rpc("attest_ca_stage", {
+                        return await supabase.rpc("attest_ca_stage", {
                           p_verification_id: v.id,
                           p_stage: "physical",
                         });
@@ -363,7 +368,7 @@ export function CaEffectivenessPanel() {
                     busy={busy}
                     onAttest={() =>
                       act(async () => {
-                        await supabase.rpc("attest_ca_stage", {
+                        return await supabase.rpc("attest_ca_stage", {
                           p_verification_id: v.id,
                           p_stage: "causal",
                         });
@@ -382,7 +387,7 @@ export function CaEffectivenessPanel() {
                   <button
                     onClick={() =>
                       act(async () => {
-                        await supabase.rpc("screen_similar_assets", {
+                        return await supabase.rpc("screen_similar_assets", {
                           p_verification_id: v.id,
                         });
                       })
