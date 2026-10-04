@@ -1,6 +1,7 @@
 /**
- * SegmentedReliability — metrics segmented by asset class, criticality, site
- * and failure mode (capability register C6.26).
+ * SegmentedReliability — metrics segmented by asset class, criticality, site,
+ * source system group, governed failure mechanism and exact-time operating
+ * regime (capability register C6.26).
  *
  * Spec §6: "Metrics must always be segmented by asset class, criticality,
  * site, operating regime and failure mode." A fleet-level MTBF hides the
@@ -14,7 +15,13 @@ import { useAsyncData } from "../hooks/useAsyncData";
 import { supabase } from "../lib/supabase";
 import { LoadingState, ErrorState, EmptyState } from "./ui/AsyncStates";
 
-type Dimension = "criticality" | "asset_class" | "site" | "failure_mode";
+type Dimension =
+  | "criticality"
+  | "asset_class"
+  | "site"
+  | "system_group"
+  | "mechanism"
+  | "operating_regime";
 
 interface Segment {
   segment: string;
@@ -32,6 +39,8 @@ interface SegmentedResult {
   window_days?: number;
   window_source?: string;
   basis: string;
+  excludedMissingFailureTime?: number;
+  excludedUncodedMechanism?: number;
   segments: Segment[];
   error?: string;
 }
@@ -40,7 +49,9 @@ const DIMENSIONS: Array<{ key: Dimension; label: string }> = [
   { key: "criticality", label: "Criticality" },
   { key: "asset_class", label: "Asset class" },
   { key: "site", label: "Site" },
-  { key: "failure_mode", label: "Failure mode" },
+  { key: "system_group", label: "System group" },
+  { key: "mechanism", label: "Failure mechanism" },
+  { key: "operating_regime", label: "Operating regime" },
 ];
 
 export function SegmentedReliability() {
@@ -106,84 +117,95 @@ export function SegmentedReliability() {
       {segments.length === 0 ? (
         <EmptyState message="No segment has enough coded corrective history to report on." />
       ) : (
-        <>
-          <div className="overflow-x-auto rounded-xl border border-white/6">
-            <table className="w-full text-sm">
-              <caption className="sr-only">
-                Reliability metrics by {dimension.replace(/_/g, " ")}
-              </caption>
-              <thead>
-                <tr className="border-b border-white/6 text-left text-xs uppercase tracking-wide text-slate-400">
-                  <th scope="col" className="px-4 py-3">
-                    Segment
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-right">
-                    Assets
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-right">
-                    Failures
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-right">
-                    MTBF (h)
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-right">
-                    MTTR (h)
-                  </th>
-                  <th scope="col" className="px-4 py-3 text-right">
-                    Availability
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {segments.map((s) => {
-                  const worst =
-                    worstAvailability !== null &&
-                    s.availability_pct === worstAvailability &&
-                    segments.length > 1;
-                  return (
-                    <tr
-                      key={s.segment}
-                      className="border-b border-white/4 hover:bg-white/2"
+        <div className="overflow-x-auto rounded-xl border border-white/6">
+          <table className="w-full text-sm">
+            <caption className="sr-only">
+              Reliability metrics by {dimension.replace(/_/g, " ")}
+            </caption>
+            <thead>
+              <tr className="border-b border-white/6 text-left text-xs uppercase tracking-wide text-slate-400">
+                <th scope="col" className="px-4 py-3">
+                  Segment
+                </th>
+                <th scope="col" className="px-4 py-3 text-right">
+                  Assets
+                </th>
+                <th scope="col" className="px-4 py-3 text-right">
+                  Failures
+                </th>
+                <th scope="col" className="px-4 py-3 text-right">
+                  MTBF (h)
+                </th>
+                <th scope="col" className="px-4 py-3 text-right">
+                  MTTR (h)
+                </th>
+                <th scope="col" className="px-4 py-3 text-right">
+                  Availability
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {segments.map((s) => {
+                const worst =
+                  worstAvailability !== null &&
+                  s.availability_pct === worstAvailability &&
+                  segments.length > 1;
+                return (
+                  <tr
+                    key={s.segment}
+                    className="border-b border-white/4 hover:bg-white/2"
+                  >
+                    <th
+                      scope="row"
+                      className="px-4 py-2.5 text-left font-medium text-slate-200"
                     >
-                      <th
-                        scope="row"
-                        className="px-4 py-2.5 text-left font-medium text-slate-200"
-                      >
-                        {s.segment}
-                      </th>
-                      <td className="px-4 py-2.5 text-right font-mono text-slate-400">
-                        {s.assets_in_segment}
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-mono text-slate-400">
-                        {s.failures}
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-mono text-slate-200">
-                        {s.mtbf_hours}
-                      </td>
-                      <td className="px-4 py-2.5 text-right font-mono text-slate-200">
-                        {s.mttr_hours}
-                      </td>
-                      <td
-                        className={`px-4 py-2.5 text-right font-mono ${
-                          worst ? "text-red-300" : "text-slate-200"
-                        }`}
-                      >
-                        {s.availability_pct}%
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-          <p className="text-xs text-slate-500">
-            {data?.window_days
-              ? `Window ${data.window_days} days (${data.window_source}). `
-              : ""}
-            {data?.basis}
-          </p>
-        </>
+                      {s.segment}
+                    </th>
+                    <td className="px-4 py-2.5 text-right font-mono text-slate-400">
+                      {s.assets_in_segment}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono text-slate-400">
+                      {s.failures}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono text-slate-200">
+                      {s.mtbf_hours}
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono text-slate-200">
+                      {s.mttr_hours}
+                    </td>
+                    <td
+                      className={`px-4 py-2.5 text-right font-mono ${
+                        worst ? "text-red-300" : "text-slate-200"
+                      }`}
+                    >
+                      {s.availability_pct}%
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       )}
+      <p className="text-xs text-slate-500">
+        {data?.window_days
+          ? `Window ${data.window_days} days (${data.window_source}). `
+          : ""}
+        {data?.basis}
+      </p>
+      {(data?.excludedMissingFailureTime ?? 0) > 0 ? (
+        <p className="text-xs text-amber-300">
+          {data?.excludedMissingFailureTime} completed corrective event(s)
+          excluded because no human-recorded failure time exists.
+        </p>
+      ) : null}
+      {dimension === "mechanism" &&
+      (data?.excludedUncodedMechanism ?? 0) > 0 ? (
+        <p className="text-xs text-amber-300">
+          {data?.excludedUncodedMechanism} completed corrective event(s)
+          excluded because no governed failure mechanism has been coded.
+        </p>
+      ) : null}
     </section>
   );
 }
