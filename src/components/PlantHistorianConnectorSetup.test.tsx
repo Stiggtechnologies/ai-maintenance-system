@@ -36,10 +36,23 @@ beforeEach(() => {
 describe("PlantHistorianConnectorSetup", () => {
   it("refuses configuration to non-administrators", () => {
     role = "reliability_engineer";
-    render(<PlantHistorianConnectorSetup onConfigured={async () => undefined} />);
+    render(
+      <PlantHistorianConnectorSetup onConfigured={async () => undefined} />,
+    );
     expect(
       screen.getByText(/administrator must configure/i),
     ).toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText(/Connector key/i),
+    ).not.toBeInTheDocument();
+  });
+
+  it("does not let an AI administrator create human approval authority", () => {
+    role = "ai_admin";
+    render(
+      <PlantHistorianConnectorSetup onConfigured={async () => undefined} />,
+    );
+    expect(screen.getByText(/named human administrator/i)).toBeInTheDocument();
     expect(
       screen.queryByPlaceholderText(/Connector key/i),
     ).not.toBeInTheDocument();
@@ -69,6 +82,9 @@ describe("PlantHistorianConnectorSetup", () => {
           key: "site-a-pi",
           enabled: false,
           systemKind: "historian",
+          paginationMode: "none",
+          paginationNextPath: "links.next",
+          paginationMaxPages: 20,
         }),
       ),
     );
@@ -85,8 +101,104 @@ describe("PlantHistorianConnectorSetup", () => {
   });
 
   it("does not offer a live pull until the source is enabled", () => {
-    render(<PlantHistorianConnectorSetup onConfigured={async () => undefined} />);
+    render(
+      <PlantHistorianConnectorSetup onConfigured={async () => undefined} />,
+    );
     expect(screen.getByText("Pull readings")).toBeDisabled();
     expect(screen.getByText("Dry-run pull")).toBeDisabled();
+  });
+
+  it("records a bounded next-link pagination profile", async () => {
+    render(
+      <PlantHistorianConnectorSetup onConfigured={async () => undefined} />,
+    );
+    fireEvent.change(screen.getByPlaceholderText(/Connector key/i), {
+      target: { value: "site-a-pi" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Display name"), {
+      target: { value: "Site A PI" },
+    });
+    fireEvent.change(screen.getByLabelText("Pagination mode"), {
+      target: { value: "next_url" },
+    });
+    fireEvent.change(screen.getByLabelText("Next-link JSON path"), {
+      target: { value: "meta.next" },
+    });
+    fireEvent.change(screen.getByLabelText("Maximum pages per pull"), {
+      target: { value: "12" },
+    });
+    fireEvent.change(
+      screen.getByPlaceholderText(/Configuration\/activation authority/i),
+      {
+        target: {
+          value:
+            "Approved bounded pagination for the controlled historian export.",
+        },
+      },
+    );
+    fireEvent.click(screen.getByText("Save disabled configuration"));
+    await waitFor(() =>
+      expect(configureSource).toHaveBeenCalledWith(
+        expect.objectContaining({
+          paginationMode: "next_url",
+          paginationNextPath: "meta.next",
+          paginationMaxPages: 12,
+        }),
+      ),
+    );
+  });
+
+  it("saves disabled, approves the mapping, then activates", async () => {
+    configureSource
+      .mockResolvedValueOnce({ ok: true, note: "Saved disabled." })
+      .mockResolvedValueOnce({ ok: true, note: "Enabled." });
+    saveMapping.mockResolvedValueOnce({
+      ok: true,
+      status: "approved",
+      note: "Mapping approved by a named human.",
+    });
+    render(
+      <PlantHistorianConnectorSetup onConfigured={async () => undefined} />,
+    );
+    fireEvent.change(screen.getByPlaceholderText(/Connector key/i), {
+      target: { value: "site-a-pi" },
+    });
+    fireEvent.change(screen.getByPlaceholderText("Display name"), {
+      target: { value: "Site A PI" },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/historian\.example\.com/i), {
+      target: { value: "https://historian.example.com/readings" },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/Opaque binding/i), {
+      target: { value: "vault://tenant/historian" },
+    });
+    fireEvent.change(
+      screen.getByPlaceholderText(/Configuration\/activation authority/i),
+      {
+        target: {
+          value: "Named administrator approved this controlled source.",
+        },
+      },
+    );
+    fireEvent.click(screen.getByText(/Approve the default/i));
+    fireEvent.click(screen.getByText(/Enable the source/i));
+    fireEvent.click(screen.getByText("Approve mapping and enable"));
+
+    await waitFor(() => expect(configureSource).toHaveBeenCalledTimes(2));
+    expect(configureSource.mock.calls[0]?.[0]).toEqual(
+      expect.objectContaining({ enabled: false }),
+    );
+    expect(saveMapping).toHaveBeenCalledWith(
+      expect.objectContaining({ approve: true }),
+    );
+    expect(configureSource.mock.calls[1]?.[0]).toEqual(
+      expect.objectContaining({ enabled: true }),
+    );
+    expect(
+      configureSource.mock.invocationCallOrder[0],
+    ).toBeLessThan(saveMapping.mock.invocationCallOrder[0]);
+    expect(
+      saveMapping.mock.invocationCallOrder[0],
+    ).toBeLessThan(configureSource.mock.invocationCallOrder[1]);
   });
 });
