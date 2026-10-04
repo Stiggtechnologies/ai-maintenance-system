@@ -35,6 +35,7 @@
     "public-reliability-agent",
     "recovery-activation-pull",
     "sap-s4-inventory-read-pull",
+    "sap-s4-financial-read-pull",
     "sync-investigation-runtime",
     "sync-realtime-session",
     "sync-runtime",
