@@ -62,6 +62,12 @@ with check(
   )
 );
 
+-- The storage service evaluates the INSERT policy as the authenticated
+-- uploader. The predicate is a read-only SECURITY DEFINER role check, so the
+-- policy caller needs EXECUTE without receiving any document-write authority.
+grant execute on function public.controlled_document_human_role_allowed()
+  to authenticated;
+
 create or replace function public.engineering_diagram_valid_bbox(p_bbox jsonb)
 returns boolean language plpgsql immutable set search_path=pg_catalog as $$
 declare v_top_x numeric; v_top_y numeric; v_bottom_x numeric; v_bottom_y numeric;

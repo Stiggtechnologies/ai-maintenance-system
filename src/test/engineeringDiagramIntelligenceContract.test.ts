@@ -45,6 +45,9 @@ describe("C2.09 governed Engineering Diagram Intelligence", () => {
     expect(migration).toContain("'engineering-diagrams'");
     expect(migration).toContain("public=false");
     expect(migration).toContain("storage.foldername(name)");
+    expect(migration).toContain(
+      "grant execute on function public.controlled_document_human_role_allowed()",
+    );
     expect(migration).toContain("controlled_kind in ('pid','drawing')");
     expect(migration).toContain("control_status='effective'");
     expect(migration).toContain("security_status in ('cleared','released')");
