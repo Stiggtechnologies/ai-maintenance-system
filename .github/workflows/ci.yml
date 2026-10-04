@@ -567,6 +567,9 @@ jobs:
       - name: Smoke — controlled technical-document revisions and effectivity
         run: bash scripts/ci-controlled-technical-documents-smoke.sh
 
+      - name: Smoke — governed Engineering Diagram Intelligence
+        run: bash scripts/ci-engineering-diagram-intelligence-smoke.sh
+
       - name: Smoke — thirteen-dimension finance intelligence
         run: bash scripts/ci-develop-finance-intelligence-smoke.sh
 
