@@ -46,7 +46,13 @@ expect_error "$(rpc "$ADMIN" configure_bently_system1_source "$BAD_UNIT")" 'does
 BAD_ENDPOINT="${BASE/https:\/\/system1-gateway.example.com/https:\/\/192.168.1.50}"
 expect_error "$(rpc "$ADMIN" configure_bently_system1_source "$BAD_ENDPOINT")" 'private/local targets are blocked'
 CONFIGURED=$(rpc "$ADMIN" configure_bently_system1_source "$BASE"); noerr "$CONFIGURED"
-test "$(field "$CONFIGURED" enabled)" = 'true'; test "$(field "$CONFIGURED" write_enabled)" = 'false'
+CONFIGURED_ENABLED=$(field "$CONFIGURED" enabled)
+CONFIGURED_WRITE_ENABLED=$(field "$CONFIGURED" write_enabled)
+if test "$CONFIGURED_ENABLED" != 'true' || test "$CONFIGURED_WRITE_ENABLED" != 'false'; then
+  printf 'configured System 1 response did not reflect persisted read-only state: %s\n' "$CONFIGURED" >&2
+  exit 1
+fi
+test "$(psqlc "select enabled::text||'|'||write_enabled::text from connectors where organization_id='$ORG' and connector_key='$CONNECTOR_KEY'")" = 'true|false'
 test "$(field "$CONFIGURED" source_profile)" = 'bently_system1_opcua_gateway'
 SOURCE=$(rpc "$ENGINEER" get_bently_system1_source "{\"p_connector_key\":\"$CONNECTOR_KEY\"}"); noerr "$SOURCE"
 test "$(field "$SOURCE" can_commit)" = 'true'; test "$(field "$SOURCE" direction)" = 'read_only'
