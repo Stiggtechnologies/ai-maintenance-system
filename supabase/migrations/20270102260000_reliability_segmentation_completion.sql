@@ -216,6 +216,16 @@ begin
   end if;
   v_window_hours:=v_window_days*24.0;
 
+  -- Disclose evidence gaps for the same reporting window. Completion time is
+  -- used only to decide whether an untimed/uncoded event belongs in the gap
+  -- count; it is never substituted into mechanism or regime segmentation.
+  select count(*) filter(where w.failure_observed_at is null),
+         count(*) filter(where w.failure_mechanism_id is null)
+  into v_missing_time,v_uncoded
+  from public.work_orders w
+  where w.organization_id=v_org and w.work_type='corrective'
+    and w.completed_at between v_from and v_to;
+
   with scoped as (
     select
       case p_dimension
@@ -287,13 +297,13 @@ begin
     'excludedUncodedMechanism',case when p_dimension='mechanism' then v_uncoded else 0 end,
     'basis',case
       when p_dimension='mechanism' then
-        'Human-coded failure mechanisms with a human-recorded observed failure time only. Uncoded or untimed corrective work is disclosed and excluded.'
+        'Human-coded failure mechanisms with a human-recorded observed failure time only. Uncoded or untimed corrective work in the reporting window is disclosed and excluded. MTBF and availability are calendar-window event-cohort estimates for assets with qualifying events, not observed operating exposure.'
       when p_dimension='operating_regime' then
-        'Exact-time match between the human-recorded observed failure time and canonical operating_states. Missing load remains Unknown duty; missing failure times are disclosed and excluded. Work-order timestamps are not substituted.'
+        'Exact-time match between the human-recorded observed failure time and canonical operating_states. Missing load remains Unknown duty; missing failure times in the reporting window are disclosed and excluded. Work-order timestamps are not substituted. MTBF and availability are calendar-window event-cohort estimates, not duty-normalized operating exposure.'
       when p_dimension in ('failure_mode','system_group') then
-        'Segmented by SYSTEM GROUP, which is what the source downtime-coding vocabulary provides. This is not a failure-mechanism claim; use the governed mechanism axis.'
+        'Segmented by SYSTEM GROUP, which is what the source downtime-coding vocabulary provides. This is not a failure-mechanism claim; use the governed mechanism axis. MTBF and availability are calendar-window event-cohort estimates for assets with qualifying events, not observed operating exposure.'
       else
-        'Completed corrective work orders. Segments below the minimum-failure threshold are omitted rather than reported on thin evidence.' end,
+        'Completed corrective work orders. Segments below the minimum-failure threshold are omitted rather than reported on thin evidence. MTBF and availability are calendar-window event-cohort estimates for assets with qualifying events, not observed operating exposure.' end,
     'segments',v_rows);
 end;
 $$;

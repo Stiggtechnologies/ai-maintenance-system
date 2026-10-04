@@ -87,8 +87,9 @@ export function SegmentedReliability() {
             Segmented Reliability
           </h2>
           <p className="mt-1 text-sm text-slate-300">
-            Fleet averages hide the variation that matters. MTBF, MTTR and
-            availability computed per segment from coded work-order history.
+            Fleet averages hide the variation that matters. Event-cohort MTBF,
+            MTTR and calendar availability estimates are segmented from coded
+            work-order history; the evidence basis below states their limits.
           </p>
         </div>
         <div
@@ -195,15 +196,17 @@ export function SegmentedReliability() {
       </p>
       {(data?.excludedMissingFailureTime ?? 0) > 0 ? (
         <p className="text-xs text-amber-300">
-          {data?.excludedMissingFailureTime} completed corrective event(s)
-          excluded because no human-recorded failure time exists.
+          {data?.excludedMissingFailureTime} completed corrective event(s) in
+          this reporting window excluded because no human-recorded failure time
+          exists.
         </p>
       ) : null}
       {dimension === "mechanism" &&
       (data?.excludedUncodedMechanism ?? 0) > 0 ? (
         <p className="text-xs text-amber-300">
-          {data?.excludedUncodedMechanism} completed corrective event(s)
-          excluded because no governed failure mechanism has been coded.
+          {data?.excludedUncodedMechanism} completed corrective event(s) in this
+          reporting window excluded because no governed failure mechanism has
+          been coded.
         </p>
       ) : null}
     </section>

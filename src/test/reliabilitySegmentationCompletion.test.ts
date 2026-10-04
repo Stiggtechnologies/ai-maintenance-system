@@ -81,6 +81,9 @@ describe("complete governed reliability segmentation", () => {
     expect(migration).toContain("excludeduncodedmechanism");
     expect(segmentation).toContain("excludedMissingFailureTime");
     expect(segmentation).toContain("excludedUncodedMechanism");
+    expect(migration).toContain("w.completed_at between v_from and v_to");
+    expect(migration).toContain("calendar-window event-cohort estimates");
+    expect(segmentation).toContain("Event-cohort MTBF");
     expect(segmentation.indexOf("data?.basis")).toBeGreaterThan(
       segmentation.indexOf("segments.length === 0"),
     );
