@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { BentlySystem1ConnectorSetup } from "./BentlySystem1ConnectorSetup";
 
 const auth = vi.hoisted(() => ({ role: "admin" }));
-const actions = vi.hoisted(() => ({ configure: vi.fn(), pull: vi.fn() }));
+const actions = vi.hoisted(() => ({
+  configure: vi.fn(),
+  pull: vi.fn(),
+  recoverStale: vi.fn(),
+}));
 const loadRegistry = vi.hoisted(() => vi.fn());
 
 vi.mock("./AuthProvider", () => ({
@@ -29,6 +33,9 @@ beforeEach(() => {
     records_accepted: 2,
     records_duplicate: 0,
     records_rejected: 0,
+  });
+  actions.recoverStale.mockReset().mockResolvedValue({
+    note: "The stale run was retained as failed.",
   });
   loadRegistry.mockReset().mockResolvedValue({
     sensors: [
@@ -120,5 +127,30 @@ describe("Bently System 1 connector setup", () => {
     expect(
       screen.getByRole("button", { name: "Pull governed readings" }),
     ).toBeInTheDocument();
+  });
+
+  it("requires a substantive reason before recovering a stale run", async () => {
+    auth.role = "reliability_engineer";
+    render(<BentlySystem1ConnectorSetup onConfigured={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("System 1 connector key"), {
+      target: { value: "north-system1" },
+    });
+    const button = screen.getByRole("button", {
+      name: "Retain stale run as failed",
+    });
+    expect(button).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Stale-run recovery reason"), {
+      target: {
+        value: "Gateway process terminated after the run was opened.",
+      },
+    });
+    expect(button).toBeEnabled();
+    fireEvent.click(button);
+    await waitFor(() =>
+      expect(actions.recoverStale).toHaveBeenCalledWith(
+        "north-system1",
+        "Gateway process terminated after the run was opened.",
+      ),
+    );
   });
 });

@@ -17,6 +17,7 @@ TAKEN_TWO=$(python3 -c 'from datetime import datetime,timezone,timedelta; print(
 TAKEN_THREE=$(python3 -c 'from datetime import datetime,timezone,timedelta; print((datetime.now(timezone.utc)-timedelta(minutes=2)).isoformat().replace("+00:00","Z"))')
 DIGEST_ONE=$(python3 -c "import hashlib; print(hashlib.sha256(('a'*64).encode()).hexdigest())")
 DIGEST_TWO=$(python3 -c "import hashlib; print(hashlib.sha256(('b'*64).encode()).hexdigest())")
+DIGEST_STALE=$(python3 -c "import hashlib; print(hashlib.sha256(('c'*64).encode()).hexdigest())")
 
 token(){ local r; r=$(curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}"); printf '%s' "$r" | python3 -c "import json,sys;print(json.load(sys.stdin).get('access_token',''))"; }
 rpc(){ curl -sS -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d "$3"; }
@@ -60,6 +61,19 @@ CONTRACT_HASH=$(field "$SOURCE" contract_hash); test ${#CONTRACT_HASH} = 64
 test "$(psqlc "select has_function_privilege('authenticated','public.begin_bently_system1_read_run(uuid,uuid,text,text,jsonb,jsonb,bigint)','execute');")" = 'f'
 test "$(psqlc "select has_function_privilege('service_role','public.begin_bently_system1_read_run(uuid,uuid,text,text,jsonb,jsonb,bigint)','execute');")" = 't'
 
+# A crashed pull cannot strand the connector indefinitely. The guard refuses
+# a live run; after 15 minutes a named human can retain it as failed, but the
+# recovery path cannot advance a watermark.
+MANIFEST_STALE="[{\"transport\":\"system1_gateway_v1\",\"resource\":\"readings\",\"page\":1,\"cursor_in\":null,\"cursor_out\":null,\"complete\":true,\"row_count\":1,\"bytes\":90,\"sha256\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\"}]"
+CURSOR_STALE="{\"fetched_at\":\"$FETCH_ONE\",\"max_taken_at\":\"$TAKEN_ONE\",\"raw_rows\":1,\"mapped_rows\":1,\"pages\":1,\"source_digest\":\"$DIGEST_STALE\",\"contract_hash\":\"$CONTRACT_HASH\"}"
+BEGIN_STALE=$(service_rpc begin_bently_system1_read_run "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$ENGINEER_ID\",\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_contract_hash\":\"$CONTRACT_HASH\",\"p_manifest\":$MANIFEST_STALE,\"p_cursor_to\":$CURSOR_STALE,\"p_source_bytes\":90}"); noerr "$BEGIN_STALE"; RUN_STALE=$(field "$BEGIN_STALE" run_id)
+expect_error "$(rpc "$ENGINEER" recover_stale_bently_system1_read_run "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_reason\":\"Gateway process terminated after opening the governed run.\"}")" 'inside its 15-minute recovery guard'
+psqlc "select set_config('app.system1_finish','granted',true); update connector_runs set started_at=now()-interval '16 minutes' where id='$RUN_STALE';" >/dev/null
+RECOVERED=$(rpc "$ENGINEER" recover_stale_bently_system1_read_run "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_reason\":\"Gateway process terminated after opening the governed run.\"}"); noerr "$RECOVERED"
+test "$(field "$RECOVERED" status)" = 'failed'; test "$(field "$RECOVERED" watermark_advanced)" = 'false'
+test "$(psqlc "select status from connector_runs where id='$RUN_STALE'")" = 'failed'
+test "$(psqlc "select count(*) from ingest_watermarks where last_run_id='$RUN_STALE'")" = '0'
+
 MANIFEST_ONE="[{\"transport\":\"system1_gateway_v1\",\"resource\":\"readings\",\"page\":1,\"cursor_in\":null,\"cursor_out\":null,\"complete\":true,\"row_count\":2,\"bytes\":180,\"sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}]"
 CURSOR_ONE="{\"fetched_at\":\"$FETCH_ONE\",\"max_taken_at\":\"$TAKEN_TWO\",\"raw_rows\":2,\"mapped_rows\":2,\"pages\":1,\"source_digest\":\"$DIGEST_ONE\",\"contract_hash\":\"$CONTRACT_HASH\"}"
 expect_error "$(service_rpc begin_bently_system1_read_run "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$ENGINEER_ID\",\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_contract_hash\":\"$(printf '0%.0s' {1..64})\",\"p_manifest\":$MANIFEST_ONE,\"p_cursor_to\":$CURSOR_ONE,\"p_source_bytes\":180}")" 'contract changed'
@@ -98,4 +112,4 @@ grep -qi 'service-attested complete transport evidence' <<<"$DIRECT"
 test "$(psqlc "select count(*) from decisions where organization_id='$ORG' and decision_type='bently_system1_condition_read_source' and human_actor='$ADMIN_ID'")" = '1'
 test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='bently_system1_condition_read' and (event_data->>'sourceWriteBack')::boolean=false and (event_data->>'alarmAcknowledgement')::boolean=false and (event_data->>'limitChangeAuthority')::boolean=false and (event_data->>'controlAuthority')::boolean=false")" = '2'
 
-echo 'C2.19 System 1 condition read smoke passed: canonical_connector=true canonical_sensor_identity=true canonical_condition_writer=true named_human_admin=true ai_promotion_refused=true immutable_contract_hash=true service_attestation=true exact_page_reconciliation=true exact_node_unit_mapping=true retained_rejects=true duplicate_idempotency=true suspect_quality_retained=true clean_watermark=true source_write_back=false alarm_acknowledgement=false limit_change=false plant_control=false'
+echo 'C2.19 System 1 condition read smoke passed: canonical_connector=true canonical_sensor_identity=true canonical_condition_writer=true named_human_admin=true ai_promotion_refused=true immutable_contract_hash=true service_attestation=true exact_page_reconciliation=true exact_node_unit_mapping=true retained_rejects=true duplicate_idempotency=true suspect_quality_retained=true clean_watermark=true stale_run_recovery=true recovery_watermark=false source_write_back=false alarm_acknowledgement=false limit_change=false plant_control=false'
