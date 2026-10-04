@@ -30,6 +30,8 @@ describe("C6.01 governed enterprise HSE events", () => {
     expect(migration).toContain("public.app_current_aal()<>'aal2'");
     expect(migration).toContain("public.app_actor_has_verified_mfa(v_actor)");
     expect(migration).toContain("ai_admin");
+    expect(migration).toContain("aggregate hse posture only for this role");
+    expect(migration).toContain("exact event and source evidence requires");
     expect(migration).toContain("e.verification_status='verified'");
     expect(migration).toContain("e.verified_by<>v_actor");
     expect(migration).toContain("organization_id=v_org");

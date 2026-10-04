@@ -117,11 +117,15 @@ alter table public.hse_events enable row level security;
 drop policy if exists hse_reporting_sources_read on public.hse_reporting_sources;
 create policy hse_reporting_sources_read on public.hse_reporting_sources
   for select to authenticated
-  using (organization_id=public.app_current_org());
+  using (organization_id=public.app_current_org()
+    and public.app_current_role() in
+      ('admin','executive','maintenance_manager','reliability_engineer'));
 drop policy if exists hse_events_read on public.hse_events;
 create policy hse_events_read on public.hse_events
   for select to authenticated
-  using (organization_id=public.app_current_org());
+  using (organization_id=public.app_current_org()
+    and public.app_current_role() in
+      ('admin','executive','maintenance_manager','reliability_engineer'));
 
 create or replace function public.guard_hse_event_write()
 returns trigger
@@ -707,6 +711,19 @@ begin
     return jsonb_build_object('error','Window days must be between 1 and 366');
   end if;
   v_from:=v_to-make_interval(days=>v_days);
+  -- Aggregate posture is tenant-safe for every authenticated member. Exact
+  -- event, evidence, connector and asset details are restricted to the four
+  -- HSE management roles; a board/read-only view cannot become a sensitive
+  -- incident-data disclosure path through this SECURITY DEFINER function.
+  if v_role not in ('admin','executive','maintenance_manager','reliability_engineer') then
+    return jsonb_build_object(
+      'canRecord',false,'requiredAal','aal2',
+      'metrics',public.sync_enterprise_hse_metrics(v_org,v_from,v_to),
+      'sites','[]'::jsonb,'assets','[]'::jsonb,'connectors','[]'::jsonb,
+      'verifiedEvidence','[]'::jsonb,'reportingSources','[]'::jsonb,
+      'events','[]'::jsonb,'containmentLosses','[]'::jsonb,
+      'decisionBoundary','Aggregate HSE posture only for this role. Exact event and source evidence requires an HSE management role; reporting does not close an incident, certify compliance, accept risk, authorize work or return equipment to service.');
+  end if;
   return jsonb_build_object(
     'canRecord',v_role in ('admin','executive','maintenance_manager','reliability_engineer'),
     'requiredAal','aal2',
