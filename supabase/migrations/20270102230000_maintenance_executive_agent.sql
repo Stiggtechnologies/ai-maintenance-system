@@ -190,40 +190,50 @@ begin
   if coalesce(current_setting('app.maintenance_executive_record_write',true),'')<>'granted' then
     raise exception 'maintenance-executive records are written only by governed workflows';
   end if;
-  if tg_table_name='maintenance_executive_briefings' and not exists(
-    select 1 from public.agent_runs r
-    join public.ai_agents a on a.id=r.agent_id and a.organization_id=r.organization_id
-    join public.user_profiles u on u.id=new.created_by and u.organization_id=r.organization_id
-    where r.id=new.agent_run_id and r.organization_id=new.organization_id
-      and r.requested_by=new.created_by
-      and r.executive_scope and r.retained_for_governance
-      and a.key='maintenance_executive') then
-    raise exception 'executive briefing provenance crosses its organization or governed agent run';
-  end if;
-  if tg_table_name='maintenance_executive_review_assignments' and not exists(
-    select 1 from public.maintenance_executive_briefings b
-    join public.user_profiles reviewer on reviewer.id=new.assigned_to
-      and reviewer.organization_id=b.organization_id
-      and reviewer.role in ('executive','admin')
-    join public.user_profiles assigner on assigner.id=new.assigned_by
-      and assigner.organization_id=b.organization_id
-      and assigner.role in ('executive','admin')
-    where b.id=new.briefing_id and b.organization_id=new.organization_id
-      and new.assigned_to<>b.created_by) then
-    raise exception 'executive review assignment crosses its organization or named-human authority';
-  end if;
-  if tg_table_name='maintenance_executive_acknowledgements' and not exists(
-    select 1 from public.maintenance_executive_briefings b
-    join public.user_profiles reviewer on reviewer.id=new.reviewed_by
-      and reviewer.organization_id=b.organization_id
-      and reviewer.role in ('executive','admin')
-    join public.maintenance_executive_review_assignments assignment
-      on assignment.briefing_id=b.id
-      and assignment.organization_id=b.organization_id
-      and assignment.assigned_to=new.reviewed_by
-    where b.id=new.briefing_id and b.organization_id=new.organization_id
-      and new.reviewed_by<>b.created_by) then
-    raise exception 'executive review receipt crosses its organization or named-human authority';
+  -- These three tables have different row types. Keep each NEW reference in
+  -- its own branch: combining TG_TABLE_NAME with a heterogeneous NEW field in
+  -- one boolean expression still asks PL/pgSQL to bind that field for the
+  -- current trigger row, even when the table-name predicate is false.
+  if tg_table_name='maintenance_executive_briefings' then
+    if not exists(
+      select 1 from public.agent_runs r
+      join public.ai_agents a on a.id=r.agent_id and a.organization_id=r.organization_id
+      join public.user_profiles u on u.id=new.created_by and u.organization_id=r.organization_id
+      where r.id=new.agent_run_id and r.organization_id=new.organization_id
+        and r.requested_by=new.created_by
+        and r.executive_scope and r.retained_for_governance
+        and a.key='maintenance_executive') then
+      raise exception 'executive briefing provenance crosses its organization or governed agent run';
+    end if;
+  elsif tg_table_name='maintenance_executive_review_assignments' then
+    if not exists(
+      select 1 from public.maintenance_executive_briefings b
+      join public.user_profiles reviewer on reviewer.id=new.assigned_to
+        and reviewer.organization_id=b.organization_id
+        and reviewer.role in ('executive','admin')
+      join public.user_profiles assigner on assigner.id=new.assigned_by
+        and assigner.organization_id=b.organization_id
+        and assigner.role in ('executive','admin')
+      where b.id=new.briefing_id and b.organization_id=new.organization_id
+        and new.assigned_to<>b.created_by) then
+      raise exception 'executive review assignment crosses its organization or named-human authority';
+    end if;
+  elsif tg_table_name='maintenance_executive_acknowledgements' then
+    if not exists(
+      select 1 from public.maintenance_executive_briefings b
+      join public.user_profiles reviewer on reviewer.id=new.reviewed_by
+        and reviewer.organization_id=b.organization_id
+        and reviewer.role in ('executive','admin')
+      join public.maintenance_executive_review_assignments assignment
+        on assignment.briefing_id=b.id
+        and assignment.organization_id=b.organization_id
+        and assignment.assigned_to=new.reviewed_by
+      where b.id=new.briefing_id and b.organization_id=new.organization_id
+        and new.reviewed_by<>b.created_by) then
+      raise exception 'executive review receipt crosses its organization or named-human authority';
+    end if;
+  else
+    raise exception 'maintenance-executive guard is attached to an unsupported table';
   end if;
   return new;
 end $$;
