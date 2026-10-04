@@ -125,6 +125,32 @@ type AssetStrategySource = {
   }>;
   economics?: Record<string, unknown> | null;
   lifecycleEvaluations?: Array<Record<string, unknown>>;
+  fieldExperience?: {
+    events: Array<{
+      learningEventId: string;
+      caVerificationId: string;
+      lifecyclePlanId: string;
+      lifecyclePlanVersion: number;
+      appliedPlanVersion: number;
+      effectiveness: "effective" | "ineffective";
+      evaluatedAt: string;
+      observationDays: number;
+      failureMode: string | null;
+      recurrenceWorkOrderId: string | null;
+      appliesToCurrentPlanVersion: boolean;
+      unconsumed: boolean;
+    }>;
+    eventIds: string[];
+    effectiveCount: number;
+    ineffectiveCount: number;
+    currentEffectiveCount: number;
+    currentIneffectiveCount: number;
+    refreshRequired: boolean;
+    revisionRequired: boolean;
+    latestEvaluatedAt: string | null;
+    currentPlanVersion: number;
+    basis: string;
+  };
 };
 
 function finiteNumber(value: unknown): number | null {
@@ -251,7 +277,7 @@ Deno.serve(async (request) => {
       return json({ error: "valid_plan_id_required" }, 400);
     try {
       const { data: sourceData, error: sourceError } = await service.rpc(
-        "get_asset_strategy_source",
+        "get_asset_strategy_source_v2",
         {
           p_organization_id: organizationId,
           p_actor_id: actorId,
@@ -280,6 +306,29 @@ Deno.serve(async (request) => {
         .map((event) => finiteNumber(event.hoursAtChangeOut))
         .filter((hours): hours is number => hours !== null && hours > 0);
       const methodSelection = selectWeibullMethod(failures, suspensions);
+      const fieldRows = Array.isArray(source.fieldExperience?.events)
+        ? source.fieldExperience.events
+        : [];
+      const fieldExperience = {
+        eventIds: fieldRows.map((item) => item.learningEventId),
+        effectiveCount: Number(source.fieldExperience?.effectiveCount ?? 0),
+        ineffectiveCount: Number(source.fieldExperience?.ineffectiveCount ?? 0),
+        currentEffectiveCount: Number(
+          source.fieldExperience?.currentEffectiveCount ?? 0,
+        ),
+        currentIneffectiveCount: Number(
+          source.fieldExperience?.currentIneffectiveCount ?? 0,
+        ),
+        refreshRequired: source.fieldExperience?.refreshRequired === true,
+        revisionRequired: source.fieldExperience?.revisionRequired === true,
+        latestEvaluatedAt: source.fieldExperience?.latestEvaluatedAt ?? null,
+        currentPlanVersion: Number(
+          source.fieldExperience?.currentPlanVersion ?? source.plan.version,
+        ),
+        basis:
+          source.fieldExperience?.basis ??
+          "No concluded corrective-action field outcomes are linked to this maintenance task.",
+      };
       const plannedCost = finiteNumber(source.plan.plannedTaskCostUsd);
       const failureCost = finiteNumber(source.plan.failureConsequenceCostUsd);
       const hasCostEvidence =
@@ -429,11 +478,27 @@ Deno.serve(async (request) => {
         };
       }
 
+      // A verified recurrence against the exact currently applied plan version
+      // overrides an optimization proposal with a governed strategy review.
+      // Historical outcomes remain in the evidence bundle but do not keep an
+      // already-revised plan permanently in a refresh state.
+      if (fieldExperience.revisionRequired) {
+        recommendation = {
+          kind: "strategy_review",
+          proposedStrategyKind: null,
+          proposedIntervalBasis: null,
+          proposedIntervalValue: null,
+          reason: `${fieldExperience.currentIneffectiveCount} independently concluded corrective-action outcome(s) show recurrence against the current maintenance-plan version. Re-open the failure and task logic before considering any interval or strategy change.`,
+          humanApprovalRequired: true,
+        };
+      }
+
       const result = {
         methodSelection,
         ageReplacement,
         inspection,
         recommendation,
+        fieldExperience,
         refusals,
         lifecyclePlan: {
           objective: source.plan.lifecycleObjective,
@@ -441,6 +506,7 @@ Deno.serve(async (request) => {
           assetName: source.asset.name,
           assetCriticality: source.asset.criticality,
           existingLifecycleEvaluations: source.lifecycleEvaluations ?? [],
+          fieldExperience,
           actions: [
             {
               action: recommendation.kind,
@@ -461,13 +527,14 @@ Deno.serve(async (request) => {
         },
       };
       const { data: receiptData, error: receiptError } = await service.rpc(
-        "record_asset_strategy_run",
+        "record_asset_strategy_run_v2",
         {
           p_organization_id: organizationId,
           p_actor_id: actorId,
           p_plan_id: source.plan.id,
           p_plan_version: source.plan.version,
           p_event_ids: events.map((event) => event.id),
+          p_learning_event_ids: fieldExperience.eventIds,
           p_kernel_version: source.kernelVersion,
           p_result: result,
         },
