@@ -92,7 +92,7 @@ describe("GovernedRcmWorkbench", () => {
       name: /Submit for independent review/i,
     });
     expect(button).toBeDisabled();
-    fireEvent.click(screen.getByText("Verified seal failure history"));
+    fireEvent.click(await screen.findByText("Verified seal failure history"));
     expect(button).toBeEnabled();
   });
 
