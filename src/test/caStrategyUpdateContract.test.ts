@@ -56,6 +56,7 @@ describe("governed corrective-action strategy update", () => {
     expect(migration).toContain(
       "strategy completion requires a same-asset adopted lifecycle-plan version",
     );
+    expect(migration).toContain("and new.project_lesson_id is null");
     expect(migration).toContain("p_stage not in ('physical', 'causal')");
     expect(migration).toContain("l.adopted_action <> 'apply_recommended'");
     expect(migration).toContain("l.adopted_strategy ->> 'programmechanged'");
