@@ -159,7 +159,7 @@ expect_error "$OTHER_FINISH" 'named human'
 FINISHED=$(rpc "$ENGINEER_JWT" finish_connector_run "{\"p_run_id\":\"$RUN\",\"p_status\":\"partial\",\"p_error\":null}")
 noerr "$FINISHED"; test "$(field "$FINISHED" watermark_advanced)" = 'false'
 test "$(psqlc "select count(*) from condition_readings where organization_id='$ORG' and source_system='$CONNECTOR_KEY' and external_id='READING-1' and sensor_id='$SENSOR';")" = '1'
-test "$(psqlc "select count(*) from ingest_staging where run_id='$RUN' and status='rejected' and reject_reason ilike '%unknown sensor%';")" = '1'
+test "$(psqlc "select count(*) from ingest_staging where run_id='$RUN' and status='rejected' and reject_reason ilike '%unknown%tenant%sensor%';")" = '1'
 
 RUN2_RESULT=$(rpc "$ENGINEER_JWT" begin_plant_historian_run "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_expected_contract_hash\":\"$CONTRACT_HASH\"}")
 noerr "$RUN2_RESULT"; RUN2=$(field "$RUN2_RESULT" run_id)
