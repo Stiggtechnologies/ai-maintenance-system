@@ -25,6 +25,7 @@ import { useRealtimeRefetch } from "../hooks/useRealtimeRefetch";
 import { LiveBadge } from "../components/ui/LiveBadge";
 import { ValueManagement } from "../components/ValueManagement";
 import { EnvironmentalPerformance } from "../components/EnvironmentalPerformance";
+import { MaintenanceExecutiveAgentWorkbench } from "../components/MaintenanceExecutiveAgentWorkbench";
 import {
   getKpiDashboard,
   formatKpiValue,
@@ -304,6 +305,8 @@ export function ExecutiveIntelligence() {
       })}
 
       <OperatingContext />
+
+      <MaintenanceExecutiveAgentWorkbench />
 
       <WorkManagementHealth />
       <SegmentedReliability />
