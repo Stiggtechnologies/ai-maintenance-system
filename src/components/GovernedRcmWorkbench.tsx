@@ -88,6 +88,7 @@ export function GovernedRcmWorkbench() {
   } | null>(null);
   const [reviewing, setReviewing] = useState<string | null>(null);
   const [reviewNote, setReviewNote] = useState("");
+  const [supersedesId, setSupersedesId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!assetId && data?.assets[0]) setAssetId(data.assets[0].id);
@@ -130,6 +131,7 @@ export function GovernedRcmWorkbench() {
         assetId,
         reviewerId,
         evidenceItemIds: evidenceIds,
+        supersedesFailureModeId: supersedesId,
         answers: fmeca
           ? answers
           : {
@@ -144,6 +146,7 @@ export function GovernedRcmWorkbench() {
       setAnswers(blankAnswers);
       setEvidenceIds([]);
       setFmeca(false);
+      setSupersedesId(null);
       setNotice({
         kind: "success",
         text: "The versioned RCM analysis was submitted to the assigned independent reviewer. No maintenance change was executed.",
@@ -192,6 +195,20 @@ export function GovernedRcmWorkbench() {
     } finally {
       setBusy(false);
     }
+  }
+
+  function beginRevision(
+    analysis: NonNullable<typeof data>["analyses"][number],
+  ) {
+    setAnswers(analysis.strategy.rcmAnswers);
+    setEvidenceIds(analysis.evidenceItemIds);
+    setFmeca(Boolean(analysis.strategy.rcmAnswers.severityRank));
+    setSupersedesId(analysis.failureModeId);
+    setNotice({
+      kind: "success",
+      text: `Revision v${analysis.version + 1} is loaded. The retained v${analysis.version} record will be marked superseded only when the replacement is submitted.`,
+    });
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   if (loading && !data)
@@ -464,6 +481,23 @@ export function GovernedRcmWorkbench() {
           </div>
 
           <div className="rounded-xl border border-white/8 bg-white/[0.025] p-4">
+            {supersedesId && (
+              <div className="mb-4 rounded-lg border border-cyan-400/20 bg-cyan-400/5 p-3 text-xs text-cyan-100">
+                Recording a new retained version. The prior analysis remains in
+                history.
+                <button
+                  type="button"
+                  className="ml-2 underline"
+                  onClick={() => {
+                    setSupersedesId(null);
+                    setAnswers(blankAnswers);
+                    setEvidenceIds([]);
+                  }}
+                >
+                  Cancel revision
+                </button>
+              </div>
+            )}
             <label className="flex items-center gap-2 text-sm font-semibold text-slate-200">
               <input
                 type="checkbox"
@@ -616,6 +650,16 @@ export function GovernedRcmWorkbench() {
                 <div className="mt-2 text-xs text-slate-400">
                   Review: {analysis.reviewNote}
                 </div>
+              )}
+              {(analysis.status === "reviewed" ||
+                analysis.status === "rejected") && (
+                <button
+                  type="button"
+                  onClick={() => beginRevision(analysis)}
+                  className="mt-3 rounded-lg border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-white/5"
+                >
+                  Create superseding revision
+                </button>
               )}
               {analysis.status === "submitted" &&
                 analysis.strategy.reviewerId === user?.id && (

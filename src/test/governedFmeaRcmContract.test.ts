@@ -8,6 +8,8 @@ const migration = read(
 const service = read("src/services/governedRcmService.ts");
 const workbench = read("src/components/GovernedRcmWorkbench.tsx");
 const host = read("src/pages/ReliabilityPage.tsx");
+const smoke = read("scripts/ci-governed-fmea-rcm-smoke.sh");
+const workflow = read(".github/workflows/ci.yml");
 
 describe("C7.09/C8.06 governed FMEA/FMECA and RCM", () => {
   it("extends the canonical failure-mode, strategy, evidence and review records", () => {
@@ -97,5 +99,24 @@ describe("C7.09/C8.06 governed FMEA/FMECA and RCM", () => {
     expect(workbench).toContain("evidence");
     expect(workbench).toContain("Approve engineering disposition");
     expect(host).toContain("<GovernedRcmWorkbench />");
+  });
+
+  it("has authenticated clean-stack proof wired into CI", () => {
+    for (const proof of [
+      "tenant_wall=true",
+      "independent_verified_evidence=true",
+      "seven_questions=true",
+      "applicable_effective_gate=true",
+      "unsafe_rtf_refused=true",
+      "hidden_failure_gate=true",
+      "fmeca_scale_explicit=true",
+      "aal2_review=true",
+      "segregation_of_duties=true",
+      "direct_write_locked=true",
+      "version_history=true",
+      "no_operational_authority=true",
+    ])
+      expect(smoke).toContain(proof);
+    expect(workflow).toContain("bash scripts/ci-governed-fmea-rcm-smoke.sh");
   });
 });

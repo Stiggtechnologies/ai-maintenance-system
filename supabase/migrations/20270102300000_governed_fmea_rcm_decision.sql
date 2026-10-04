@@ -203,7 +203,7 @@ begin
       'strategy',jsonb_build_object(
         'id',s.id,'type',s.strategy_type,'taskApplicable',s.task_applicable,
         'taskEffective',s.task_effective,'defaultAction',s.default_action,
-        'recommendation',s.recommendation,'status',s.status,
+        'recommendation',s.recommendation,'status',s.status,'rcmAnswers',s.rcm_answers,
         'reviewerId',w.assigned_to,'reviewStatus',w.status),
       'evidenceItemIds',to_jsonb(f.evidence_item_ids))
       order by f.created_at desc)

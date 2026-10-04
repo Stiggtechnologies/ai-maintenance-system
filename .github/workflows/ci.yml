@@ -256,6 +256,9 @@ jobs:
       - name: Smoke — governed Reliability Engineer life data
         run: bash scripts/ci-reliability-life-data-agent-smoke.sh
 
+      - name: Smoke — governed FMEA/FMECA and RCM decisions
+        run: bash scripts/ci-governed-fmea-rcm-smoke.sh
+
       - name: Smoke — governed reliability segmentation
         run: bash scripts/ci-reliability-segmentation-smoke.sh
 

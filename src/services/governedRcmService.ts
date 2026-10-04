@@ -62,6 +62,7 @@ export interface RcmAnalysis {
     taskEffective: boolean | null;
     defaultAction: string | null;
     recommendation: string;
+    rcmAnswers: RcmAnswers;
     status: "submitted" | "approved" | "rejected" | "superseded";
     reviewerId: string;
     reviewStatus: string;
