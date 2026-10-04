@@ -51,12 +51,18 @@ CONFIGURED=$(rpc "$ADMIN" configure_sap_s4_financial_source "$BASE"); noerr "$CO
 test "$(field "$CONFIGURED" enabled)" = 'true'; test "$(field "$CONFIGURED" write_enabled)" = 'false'; test "$(field "$CONFIGURED" source_profile)" = 'sap_s4_gl_actuals'
 SOURCE=$(rpc "$PLANNER" get_sap_s4_financial_source "{\"p_connector_key\":\"$CONNECTOR_KEY\"}"); noerr "$SOURCE"
 test "$(field "$SOURCE" development_case_id)" = "$CASE"; test "$(field "$SOURCE" company_code)" = 'CA01'
-test "$(psqlc "select has_function_privilege('authenticated','public.begin_sap_s4_financial_read_run(uuid,uuid,text,jsonb,jsonb,bigint)','execute');")" = 'f'
-test "$(psqlc "select has_function_privilege('service_role','public.begin_sap_s4_financial_read_run(uuid,uuid,text,jsonb,jsonb,bigint)','execute');")" = 't'
+CONTRACT_HASH=$(field "$SOURCE" contract_hash); test ${#CONTRACT_HASH} = 64
+test "$(psqlc "select has_function_privilege('authenticated','public.begin_sap_s4_financial_read_run(uuid,uuid,text,text,jsonb,jsonb,bigint)','execute');")" = 'f'
+test "$(psqlc "select has_function_privilege('service_role','public.begin_sap_s4_financial_read_run(uuid,uuid,text,text,jsonb,jsonb,bigint)','execute');")" = 't'
 
 MANIFEST_ONE="[{\"transport\":\"sap_s4_odata_v2\",\"resource\":\"GLAccountLineItem\",\"page\":1,\"ledger\":\"0L\",\"company_code\":\"CA01\",\"posting_date_from\":\"2026-01-01\",\"posting_date_to\":\"$TODAY\",\"row_count\":3,\"bytes\":180,\"sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}]"
-CURSOR_ONE="{\"fetched_at\":\"$FETCH_ONE\",\"posting_date_from\":\"2026-01-01\",\"posting_date_to\":\"$TODAY\",\"raw_rows\":3,\"mapped_rows\":2,\"pages\":1,\"source_digest\":\"$DIGEST_ONE\",\"missing_mappings\":[]}"
-BEGIN_ONE=$(service_rpc begin_sap_s4_financial_read_run "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$PLANNER_ID\",\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_manifest\":$MANIFEST_ONE,\"p_cursor_to\":$CURSOR_ONE,\"p_source_bytes\":180}"); noerr "$BEGIN_ONE"; RUN_ONE=$(field "$BEGIN_ONE" run_id)
+CURSOR_ONE="{\"fetched_at\":\"$FETCH_ONE\",\"posting_date_from\":\"2026-01-01\",\"posting_date_to\":\"$TODAY\",\"raw_rows\":3,\"mapped_rows\":2,\"pages\":1,\"source_digest\":\"$DIGEST_ONE\",\"contract_hash\":\"$CONTRACT_HASH\",\"missing_mappings\":[]}"
+expect_error "$(service_rpc begin_sap_s4_financial_read_run "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$PLANNER_ID\",\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_contract_hash\":\"$(printf '0%.0s' {1..64})\",\"p_manifest\":$MANIFEST_ONE,\"p_cursor_to\":$CURSOR_ONE,\"p_source_bytes\":180}")" 'contract changed'
+psqlc "update user_profiles set role='ai_admin' where id='$ADMIN_ID'" >/dev/null
+expect_error "$(rpc "$ADMIN" configure_sap_s4_financial_source "$BASE")" 'named human administrator'
+expect_error "$(service_rpc begin_sap_s4_financial_read_run "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$ADMIN_ID\",\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_contract_hash\":\"$CONTRACT_HASH\",\"p_manifest\":$MANIFEST_ONE,\"p_cursor_to\":$CURSOR_ONE,\"p_source_bytes\":180}")" 'not authorized'
+psqlc "update user_profiles set role='admin' where id='$ADMIN_ID'" >/dev/null
+BEGIN_ONE=$(service_rpc begin_sap_s4_financial_read_run "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$PLANNER_ID\",\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_contract_hash\":\"$CONTRACT_HASH\",\"p_manifest\":$MANIFEST_ONE,\"p_cursor_to\":$CURSOR_ONE,\"p_source_bytes\":180}"); noerr "$BEGIN_ONE"; RUN_ONE=$(field "$BEGIN_ONE" run_id)
 ROWS_ONE="[{\"external_id\":\"sapgl:0L:CA01:CIVIL:${DIGEST_ONE:0:24}\",\"development_case_id\":\"$CASE\",\"cost_item_ref\":\"CIVIL\",\"actual_to_date\":650,\"currency\":\"CAD\",\"as_of\":\"$FETCH_ONE\",\"basis\":\"SAP cumulative mapped actual through $TODAY\"},{\"external_id\":\"sapgl:0L:CA01:ELEC:${DIGEST_ONE:0:24}\",\"development_case_id\":\"$CASE\",\"cost_item_ref\":\"ELEC\",\"actual_to_date\":-1,\"currency\":\"CAD\",\"as_of\":\"$FETCH_ONE\",\"basis\":\"SAP cumulative mapped actual through $TODAY\"}]"
 INGEST_ONE=$(service_rpc ingest_sap_s4_financial_read_batch "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$PLANNER_ID\",\"p_run_id\":\"$RUN_ONE\",\"p_actor_aal\":\"aal1\",\"p_rows\":$ROWS_ONE}"); noerr "$INGEST_ONE"
 test "$(field "$INGEST_ONE" accepted)" = '1'; test "$(field "$INGEST_ONE" rejected)" = '1'
@@ -65,8 +71,8 @@ FINISH_ONE=$(service_rpc finish_sap_s4_financial_read_run "{\"p_organization_id\
 test "$(field "$FINISH_ONE" watermark_advanced)" = 'false'
 
 MANIFEST_TWO="${MANIFEST_ONE//aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb}"
-CURSOR_TWO="{\"fetched_at\":\"$FETCH_TWO\",\"posting_date_from\":\"2026-01-01\",\"posting_date_to\":\"$TODAY\",\"raw_rows\":3,\"mapped_rows\":2,\"pages\":1,\"source_digest\":\"$DIGEST_TWO\",\"missing_mappings\":[]}"
-BEGIN_TWO=$(service_rpc begin_sap_s4_financial_read_run "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$PLANNER_ID\",\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_manifest\":$MANIFEST_TWO,\"p_cursor_to\":$CURSOR_TWO,\"p_source_bytes\":180}"); noerr "$BEGIN_TWO"; RUN_TWO=$(field "$BEGIN_TWO" run_id)
+CURSOR_TWO="{\"fetched_at\":\"$FETCH_TWO\",\"posting_date_from\":\"2026-01-01\",\"posting_date_to\":\"$TODAY\",\"raw_rows\":3,\"mapped_rows\":2,\"pages\":1,\"source_digest\":\"$DIGEST_TWO\",\"contract_hash\":\"$CONTRACT_HASH\",\"missing_mappings\":[]}"
+BEGIN_TWO=$(service_rpc begin_sap_s4_financial_read_run "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$PLANNER_ID\",\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_contract_hash\":\"$CONTRACT_HASH\",\"p_manifest\":$MANIFEST_TWO,\"p_cursor_to\":$CURSOR_TWO,\"p_source_bytes\":180}"); noerr "$BEGIN_TWO"; RUN_TWO=$(field "$BEGIN_TWO" run_id)
 ROWS_TWO="[{\"external_id\":\"sapgl:0L:CA01:CIVIL:${DIGEST_TWO:0:24}\",\"development_case_id\":\"$CASE\",\"cost_item_ref\":\"CIVIL\",\"actual_to_date\":700,\"currency\":\"CAD\",\"as_of\":\"$FETCH_TWO\",\"basis\":\"SAP cumulative mapped actual through $TODAY\"},{\"external_id\":\"sapgl:0L:CA01:ELEC:${DIGEST_TWO:0:24}\",\"development_case_id\":\"$CASE\",\"cost_item_ref\":\"ELEC\",\"actual_to_date\":200,\"currency\":\"CAD\",\"as_of\":\"$FETCH_TWO\",\"basis\":\"SAP cumulative mapped actual through $TODAY\"}]"
 INGEST_TWO=$(service_rpc ingest_sap_s4_financial_read_batch "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$PLANNER_ID\",\"p_run_id\":\"$RUN_TWO\",\"p_actor_aal\":\"aal1\",\"p_rows\":$ROWS_TWO}"); noerr "$INGEST_TWO"
 test "$(field "$INGEST_TWO" accepted)" = '2'; test "$(field "$INGEST_TWO" rejected)" = '0'
@@ -83,4 +89,4 @@ grep -qi 'service-attested complete transport evidence' <<<"$DIRECT"
 test "$(psqlc "select count(*) from decisions where organization_id='$ORG' and decision_type='sap_s4_financial_read_source' and human_actor='$ADMIN_ID';")" = '1'
 test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='sap_s4_financial_read' and (event_data->>'sourceWriteBack')::boolean=false and (event_data->>'baselineAuthority')::boolean=false;")" = '2'
 
-echo 'C2.18 SAP financial read smoke passed: canonical_connector=true canonical_cost_writer=true tenant_wall=true administrator_mapping=true service_attestation=true exact_page_reconciliation=true explicit_wbs_gl_mapping=true mixed_currency_refused=true retained_rejects=true preserves_baseline_commitment_forecast=true clean_watermark=true source_write_back=false'
+echo 'C2.18 SAP financial read smoke passed: canonical_connector=true canonical_cost_writer=true tenant_wall=true named_human_administrator=true ai_promotion_refused=true immutable_contract_hash=true service_attestation=true exact_page_reconciliation=true explicit_wbs_gl_mapping=true mixed_currency_refused=true retained_rejects=true preserves_baseline_commitment_forecast=true clean_watermark=true source_write_back=false'

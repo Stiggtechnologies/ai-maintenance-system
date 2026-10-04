@@ -119,7 +119,20 @@ describe("SAP S/4 financial connector setup", () => {
     render(<SapS4FinancialReadConnectorSetup onConfigured={vi.fn()} />);
     expect(
       screen.getByText(
-        "An administrator must configure or enable this source.",
+        "A named human administrator must configure or enable this source.",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByPlaceholderText("SAP finance connector key"),
+    ).toBeNull();
+  });
+
+  it("does not present AI administrators as human approval authority", () => {
+    auth.role = "ai_admin";
+    render(<SapS4FinancialReadConnectorSetup onConfigured={vi.fn()} />);
+    expect(
+      screen.getByText(
+        "A named human administrator must configure or enable this source.",
       ),
     ).toBeInTheDocument();
     expect(

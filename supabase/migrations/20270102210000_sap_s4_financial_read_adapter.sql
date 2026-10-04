@@ -118,7 +118,10 @@ declare
 begin
   select role into v_role from public.user_profiles
   where id=auth.uid() and organization_id=v_org;
-  if v_org is null or coalesce(v_role,'') not in ('admin','ai_admin') then
+  if coalesce(v_role,'')='ai_admin' then
+    return jsonb_build_object('error','a named human administrator must configure or enable an SAP financial source');
+  end if;
+  if v_org is null or coalesce(v_role,'')<>'admin' then
     return jsonb_build_object('error','configuring an SAP financial source requires an administrator');
   end if;
   if coalesce(length(btrim(p_key)),0)<3 or coalesce(length(btrim(p_name)),0)<3 then
@@ -248,6 +251,36 @@ grant execute on function public.configure_sap_s4_financial_source(
   text,text,text,uuid,text,text,text,date,jsonb,int,int,int,int,text,boolean,text
 ) to authenticated;
 
+-- Hash every field that controls transport or cost attribution. The Edge
+-- transport must present this exact contract at run creation, preventing a
+-- configuration or mapping change between source discovery and promotion.
+create or replace function public.sap_s4_financial_contract_hash(p_connector_id uuid)
+returns text language sql stable security definer set search_path=public
+as $$
+  select encode(digest(jsonb_build_object(
+    'organizationId',c.organization_id,
+    'connectorId',c.id,
+    'connectorKey',c.connector_key,
+    'serviceRoot',c.endpoint_hint,
+    'credentialBindingRef',c.credential_binding_ref,
+    'enabled',c.enabled,
+    'direction',c.direction,
+    'writeEnabled',c.write_enabled,
+    'developmentCaseId',c.financial_case_id,
+    'ledger',c.financial_ledger,
+    'companyCode',c.financial_company_code,
+    'currency',c.financial_currency,
+    'postingStartDate',c.financial_posting_start_date,
+    'costMappings',c.financial_cost_mappings,
+    'maxRows',c.financial_max_rows,
+    'pageSize',c.financial_page_size,
+    'maxPages',c.pagination_max_pages
+  )::text,'sha256'),'hex')
+  from public.connectors c where c.id=p_connector_id
+$$;
+
+revoke all on function public.sap_s4_financial_contract_hash(uuid) from public,anon,authenticated;
+
 create or replace function public.get_sap_s4_financial_source(p_connector_key text)
 returns jsonb language plpgsql stable security definer set search_path=public
 as $$
@@ -280,7 +313,8 @@ begin
     'posting_date_from',v_connector.financial_posting_start_date,
     'cost_mappings',v_connector.financial_cost_mappings,
     'max_rows',v_connector.financial_max_rows,'page_size',v_connector.financial_page_size,
-    'max_pages',v_connector.pagination_max_pages);
+    'max_pages',v_connector.pagination_max_pages,
+    'contract_hash',public.sap_s4_financial_contract_hash(v_connector.id));
 end
 $$;
 
@@ -311,7 +345,7 @@ $cost_gate$;
 
 create or replace function public.begin_sap_s4_financial_read_run(
   p_organization_id uuid,p_triggered_by uuid,p_connector_key text,
-  p_manifest jsonb,p_cursor_to jsonb,p_source_bytes bigint
+  p_contract_hash text,p_manifest jsonb,p_cursor_to jsonb,p_source_bytes bigint
 ) returns jsonb language plpgsql security definer set search_path=public
 as $$
 declare
@@ -322,7 +356,7 @@ declare
 begin
   if coalesce(auth.role(),'')<>'service_role' then return jsonb_build_object('error','SAP financial transport attestation is service-only'); end if;
   select role into v_role from public.user_profiles where id=p_triggered_by and organization_id=p_organization_id;
-  if coalesce(v_role,'') not in ('planner','reliability_engineer','maintenance_manager','admin','ai_admin') then
+  if coalesce(v_role,'') not in ('planner','reliability_engineer','maintenance_manager','admin') then
     return jsonb_build_object('error','SAP financial run actor is not authorized for this tenant');
   end if;
   select * into v_connector from public.connectors
@@ -331,6 +365,11 @@ begin
     and connector_profile='sap_s4_gl_actuals' and register_ref='C2.18'
     and enabled and direction='read_only' and not write_enabled for update;
   if not found then return jsonb_build_object('error','active governed SAP financial source not found'); end if;
+  if coalesce(p_contract_hash,'') !~ '^[0-9a-f]{64}$'
+     or p_contract_hash<>public.sap_s4_financial_contract_hash(v_connector.id)
+     or coalesce(p_cursor_to->>'contract_hash','')<>p_contract_hash then
+    return jsonb_build_object('error','SAP financial connector contract changed after source discovery; fetch and validate the approved scope again');
+  end if;
   if exists(select 1 from public.connector_runs r where r.connector_id=v_connector.id
     and r.organization_id=p_organization_id and r.entity_type='cost_actual' and r.status='running') then
     return jsonb_build_object('error','an SAP financial pull is already running for this connector');
@@ -404,8 +443,8 @@ begin
 end
 $$;
 
-revoke all on function public.begin_sap_s4_financial_read_run(uuid,uuid,text,jsonb,jsonb,bigint) from public,anon,authenticated;
-grant execute on function public.begin_sap_s4_financial_read_run(uuid,uuid,text,jsonb,jsonb,bigint) to service_role;
+revoke all on function public.begin_sap_s4_financial_read_run(uuid,uuid,text,text,jsonb,jsonb,bigint) from public,anon,authenticated;
+grant execute on function public.begin_sap_s4_financial_read_run(uuid,uuid,text,text,jsonb,jsonb,bigint) to service_role;
 
 create or replace function public.ingest_sap_s4_financial_read_batch(
   p_organization_id uuid,p_triggered_by uuid,p_run_id uuid,p_actor_aal text,p_rows jsonb
@@ -418,7 +457,7 @@ begin
   if coalesce(auth.role(),'')<>'service_role' then return jsonb_build_object('error','SAP financial ingestion is service-only'); end if;
   if coalesce(p_actor_aal,'') not in ('aal1','aal2') then return jsonb_build_object('error','SAP financial ingestion requires verified human session assurance'); end if;
   select role into v_role from public.user_profiles where id=p_triggered_by and organization_id=p_organization_id;
-  if coalesce(v_role,'') not in ('planner','reliability_engineer','maintenance_manager','admin','ai_admin') then
+  if coalesce(v_role,'') not in ('planner','reliability_engineer','maintenance_manager','admin') then
     return jsonb_build_object('error','SAP financial ingest actor is not authorized for this tenant');
   end if;
   select r.* into v_run from public.connector_runs r join public.connectors c
@@ -430,11 +469,19 @@ begin
     and c.enabled and c.direction='read_only' and not c.write_enabled;
   if not found then return jsonb_build_object('error','running attested SAP financial run not found'); end if;
   select * into v_connector from public.connectors where id=v_run.connector_id and organization_id=p_organization_id;
+  if coalesce(v_run.transport_cursor_to->>'contract_hash','')
+       <>public.sap_s4_financial_contract_hash(v_connector.id) then
+    return jsonb_build_object('error','SAP financial connector contract no longer matches the attested run');
+  end if;
   v_expected:=(v_run.transport_cursor_to->>'mapped_rows')::int;
   v_observed:=(v_run.transport_cursor_to->>'fetched_at')::timestamptz;
   if coalesce(jsonb_typeof(p_rows),'')<>'array' or jsonb_array_length(p_rows)<>v_expected
      or jsonb_array_length(p_rows)<1 or jsonb_array_length(p_rows)>40 then
     return jsonb_build_object('error','SAP financial rows must exactly reconcile to the attested mapped response');
+  end if;
+  if (select count(*) from jsonb_array_elements(p_rows))<>
+     (select count(distinct btrim(value->>'cost_item_ref')) from jsonb_array_elements(p_rows)) then
+    return jsonb_build_object('error','SAP financial mapped rows must contain each canonical cost line exactly once');
   end if;
   for v_row in select value from jsonb_array_elements(p_rows) loop
     if jsonb_typeof(v_row)<>'object'

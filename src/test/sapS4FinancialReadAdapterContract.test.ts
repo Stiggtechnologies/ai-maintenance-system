@@ -6,7 +6,7 @@ import { parseSapGlCostMappings } from "../services/sapS4FinancialRead";
 const root = process.cwd();
 const read = (file: string) => fs.readFileSync(path.join(root, file), "utf8");
 const migration = read(
-  "supabase/migrations/20270101630000_sap_s4_financial_read_adapter.sql",
+  "supabase/migrations/20270102210000_sap_s4_financial_read_adapter.sql",
 );
 const edge = read("supabase/functions/sap-s4-financial-read-pull/index.ts");
 const shared = read("supabase/functions/_shared/sap-s4-financial-read.ts");
@@ -35,10 +35,18 @@ describe("C2.18 SAP S/4HANA financial read contract", () => {
     expect(migration).toContain("not write_enabled");
     expect(migration).toContain("sourceWriteBack',false");
     expect(migration).toContain("baselineAuthority',false");
+    expect(migration).toContain("a named human administrator must configure");
+    expect(migration).toContain(
+      "'contract_hash',public.sap_s4_financial_contract_hash",
+    );
+    expect(migration).toContain(
+      "not in ('planner','reliability_engineer','maintenance_manager','admin')",
+    );
     expect(migration).toContain("c.organization_id=r.organization_id");
     expect(migration).toContain("from public,anon,authenticated");
     expect(edge).toContain('method: "GET"');
     expect(edge).not.toMatch(/method:\s*["'](?:POST|PUT|PATCH|DELETE)["']/);
+    expect(edge).toContain("p_contract_hash: contractHash");
   });
 
   it("admits only explicit cumulative WBS/G-L mappings in one currency", () => {
@@ -64,6 +72,7 @@ describe("C2.18 SAP S/4HANA financial read contract", () => {
     expect(migration).toContain(
       "p_status='success' and v_run.records_rejected=0",
     );
+    expect(migration).toContain("each canonical cost line exactly once");
     expect(migration).toContain("now()-interval '10 minutes'");
   });
 

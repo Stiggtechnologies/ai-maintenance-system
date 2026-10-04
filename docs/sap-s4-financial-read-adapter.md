@@ -6,7 +6,7 @@ until the live acceptance evidence below exists.
 
 ## Contract
 
-One connector binds one administrator-approved SAP ledger, company code,
+One connector binds one named-human-administrator-approved SAP ledger, company code,
 company-code currency and cumulative posting start date to one same-tenant
 SyncAI development case. Its 1–40 explicit mappings bind SAP WBS internal ID +
 G/L account pairs to cost lines that already exist on that case.
@@ -75,8 +75,15 @@ activation authority. Mapping format is:
   configured page count and raw-row count. Every page is SHA-256 hashed.
 - Manifest page numbers, exact scope, date window, byte count and row count
   reconcile server-side before a run can open.
+- A SHA-256 contract binds the tenant, source endpoint, opaque credential
+  reference, case, ledger, company, currency, posting boundary, exact WBS/G/L
+  mappings and transport ceilings from source discovery through promotion. A
+  mid-flight configuration change fails closed and requires a fresh pull.
 - The database independently verifies the attested actor, tenant, connector,
   row count, exact case/currency/cost reference and source timestamp.
+- AI administrators may inspect and validate a dry run, but cannot configure,
+  enable or promote finance actuals. Canonical promotion requires a named
+  human planner, reliability engineer, maintenance manager or administrator.
 - The existing cost importer retains accepted, duplicate and rejected source
   evidence and invokes the one `record_cost_item` writer. All non-actual cost
   fields are passed back exactly as stored.
