@@ -149,7 +149,7 @@ DIRECT_STATUS=$(curl -sS -o /tmp/e11-direct-write.txt -w '%{http_code}' -X POST 
 test "$DIRECT_STATUS" = 401 -o "$DIRECT_STATUS" = 403
 
 if PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 \
-  -c "begin; grant insert on public.threat_scenarios to service_role; set local role service_role; insert into public.threat_scenarios(organization_id,scenario_key,title,threat_kind) values('$ORG','$PREFIX-SERVICE-BYPASS','Service bypass','wildfire');" \
+  -c "begin; grant insert on public.threat_scenarios to service_role; set local role service_role; insert into public.threat_scenarios(id,organization_id,scenario_key,title,threat_kind) values(9870000001,'$ORG','$PREFIX-SERVICE-BYPASS','Service bypass','wildfire');" \
   >/tmp/e11-service-write.txt 2>&1; then
   echo 'service-role direct insert unexpectedly succeeded' >&2
   exit 1
