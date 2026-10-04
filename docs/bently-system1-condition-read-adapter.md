@@ -54,6 +54,10 @@ alert.
   attests the complete manifest before the first canonical write.
 - Accepted, duplicate and refused rows are retained in canonical staging.
   Only a fully reconciled success with no refusals advances the watermark.
+- If a process dies after opening a run, a named reliability, maintenance or
+  administrator user can retain that run as failed after a 15-minute guard,
+  with a substantive reason and audit event. Recovery cannot ingest, advance
+  the watermark or mutate System 1.
 
 ## Deployment
 

@@ -37,6 +37,7 @@ export function BentlySystem1ConnectorSetup({
   const [maxPages, setMaxPages] = useState("20");
   const [interval, setInterval] = useState("15");
   const [basis, setBasis] = useState("");
+  const [recoveryReason, setRecoveryReason] = useState("");
   const [enabled, setEnabled] = useState(false);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -126,6 +127,24 @@ export function BentlySystem1ConnectorSetup({
       setMessage(
         `${dryRun ? "Dry run" : "Pull"}: validated ${String(result.raw_rows ?? 0)} System 1 samples across ${String(result.pages ?? 0)} page(s). ${dryRun ? "No run, staging, reading, alert or watermark row was written." : `Status ${String(result.status ?? "unknown")}; accepted ${String(result.records_accepted ?? 0)}, duplicate ${String(result.records_duplicate ?? 0)}, refused ${String(result.records_rejected ?? 0)}.`}`,
       );
+      await onConfigured();
+    } catch (error) {
+      setMessage((error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function recoverStaleRun() {
+    setBusy(true);
+    setMessage(null);
+    try {
+      const result = await bentlySystem1ReadActions.recoverStale(
+        key.trim(),
+        recoveryReason.trim(),
+      );
+      setMessage(String(result.note ?? "Stale System 1 run retained as failed."));
+      setRecoveryReason("");
       await onConfigured();
     } catch (error) {
       setMessage((error as Error).message);
@@ -271,24 +290,54 @@ export function BentlySystem1ConnectorSetup({
       )}
 
       {(canDryRun || canPull) && (
-        <div className="mt-4 flex flex-wrap gap-2">
-          <button
-            type="button"
-            disabled={!key.trim() || busy}
-            onClick={() => void pull(true)}
-            className="rounded-lg border border-industrial-border px-4 py-2 text-sm text-industrial-text disabled:opacity-40"
-          >
-            Validate complete dry run
-          </button>
-          {canPull && (
+        <div className="mt-4 space-y-3">
+          <div className="flex flex-wrap gap-2">
             <button
               type="button"
               disabled={!key.trim() || busy}
-              onClick={() => void pull(false)}
-              className="rounded-lg border border-cyan-300/50 px-4 py-2 text-sm text-cyan-300 disabled:opacity-40"
+              onClick={() => void pull(true)}
+              className="rounded-lg border border-industrial-border px-4 py-2 text-sm text-industrial-text disabled:opacity-40"
             >
-              Pull governed readings
+              Validate complete dry run
             </button>
+            {canPull && (
+              <button
+                type="button"
+                disabled={!key.trim() || busy}
+                onClick={() => void pull(false)}
+                className="rounded-lg border border-cyan-300/50 px-4 py-2 text-sm text-cyan-300 disabled:opacity-40"
+              >
+                Pull governed readings
+              </button>
+            )}
+          </div>
+          {canPull && (
+            <div className="rounded-lg border border-amber-400/20 bg-amber-400/5 p-3">
+              <label className="text-xs text-slate-300">
+                Stale-run recovery reason
+                <textarea
+                  className={`${input} mt-2`}
+                  rows={2}
+                  value={recoveryReason}
+                  onChange={(event) => setRecoveryReason(event.target.value)}
+                  placeholder="Why the prior run is abandoned (20+ characters)"
+                />
+              </label>
+              <button
+                type="button"
+                disabled={
+                  !key.trim() || recoveryReason.trim().length < 20 || busy
+                }
+                onClick={() => void recoverStaleRun()}
+                className="mt-2 rounded-lg border border-amber-300/40 px-3 py-2 text-xs font-semibold text-amber-200 disabled:opacity-40"
+              >
+                Retain stale run as failed
+              </button>
+              <p className="mt-2 text-xs text-slate-400">
+                Available only after the run has been inactive for 15 minutes.
+                Recovery never advances a watermark or changes source data.
+              </p>
+            </div>
           )}
         </div>
       )}

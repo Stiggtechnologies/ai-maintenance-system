@@ -47,6 +47,9 @@ describe("C2.19 Bently System 1 condition read contract", () => {
     expect(migration).toContain("sourceWriteBack',false");
     expect(migration).toContain("alarmAcknowledgement',false");
     expect(migration).toContain("controlAuthority',false");
+    expect(migration).toContain("recover_stale_bently_system1_read_run");
+    expect(migration).toContain("watermarkAdvanced',false");
+    expect(migration).toContain("now()-interval '15 minutes'");
     expect(migration).toContain("c.organization_id=r.organization_id");
     expect(migration).toContain("from public,anon,authenticated");
     expect(edge).toContain('method: "GET"');
@@ -86,6 +89,7 @@ describe("C2.19 Bently System 1 condition read contract", () => {
     const component = read("src/components/BentlySystem1ConnectorSetup.tsx");
     expect(component).toContain("Validate complete dry run");
     expect(component).toContain("Pull governed readings");
+    expect(component).toContain("Retain stale run as failed");
     expect(component).toContain("AI administrators are limited to write-free validation");
   });
 });

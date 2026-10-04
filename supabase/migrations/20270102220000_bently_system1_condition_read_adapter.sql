@@ -763,4 +763,71 @@ grant execute on function public.finish_bently_system1_read_run(
   uuid,uuid,text,text
 ) to service_role;
 
+-- A process crash after begin must not strand the connector forever. Recovery
+-- is deliberately a named-human action, limited to an old same-tenant run,
+-- and can only fail the run. It cannot ingest, advance a watermark or alter
+-- the source contract.
+create or replace function public.recover_stale_bently_system1_read_run(
+  p_connector_key text,
+  p_reason text
+) returns jsonb language plpgsql security definer set search_path=public
+as $$
+declare
+  v_org uuid:=public.app_current_org();
+  v_role text;
+  v_run public.connector_runs%rowtype;
+  v_connector public.connectors%rowtype;
+begin
+  select role into v_role from public.user_profiles
+  where id=auth.uid() and organization_id=v_org;
+  if v_org is null or coalesce(v_role,'') not in
+      ('reliability_engineer','maintenance_manager','admin') then
+    return jsonb_build_object('error','stale System 1 recovery requires a named human reliability, maintenance or administrator role');
+  end if;
+  if coalesce(length(btrim(p_reason)),0)<20 then
+    return jsonb_build_object('error','record a substantive reason for abandoning the stale System 1 run');
+  end if;
+  select r.* into v_run
+  from public.connector_runs r join public.connectors c
+    on c.id=r.connector_id and c.organization_id=r.organization_id
+  where r.organization_id=v_org and c.connector_key=btrim(p_connector_key)
+    and r.entity_type='condition_reading' and r.status='running'
+    and c.connector_type='condition_monitoring_read'
+    and c.system_kind='condition_monitoring'
+    and c.connector_profile='bently_system1_opcua_gateway'
+    and c.register_ref='C2.19'
+  order by r.started_at
+  limit 1 for update of r;
+  if not found then
+    return jsonb_build_object('error','no running governed System 1 read exists for this connector');
+  end if;
+  if v_run.started_at>now()-interval '15 minutes' then
+    return jsonb_build_object('error','the System 1 run is still inside its 15-minute recovery guard');
+  end if;
+  select * into v_connector from public.connectors
+  where id=v_run.connector_id and organization_id=v_org;
+  perform set_config('app.system1_finish','granted',true);
+  update public.connector_runs set status='failed',finished_at=now(),
+    error_message=left('Named-human stale-run recovery: '||btrim(p_reason),500)
+  where id=v_run.id and organization_id=v_org and status='running';
+  update public.connectors set last_failure_at=now()
+  where id=v_connector.id and organization_id=v_org;
+  insert into public.audit_events(organization_id,entity_type,actor,event_data,new_state)
+  values(v_org,'bently_system1_condition_read',v_role,
+    jsonb_build_object('action','recover_stale_run','runId',v_run.id,
+      'connectorKey',v_connector.connector_key,'actorId',auth.uid(),
+      'reason',btrim(p_reason),'watermarkAdvanced',false,
+      'sourceWriteBack',false,'controlAuthority',false),
+    jsonb_build_object('status','failed','recoveredAt',now()));
+  return jsonb_build_object('ok',true,'run_id',v_run.id,'status','failed',
+    'watermark_advanced',false,
+    'note','The stale run was retained as failed. No reading or watermark was changed by recovery.');
+end
+$$;
+
+revoke all on function public.recover_stale_bently_system1_read_run(text,text)
+  from public,anon;
+grant execute on function public.recover_stale_bently_system1_read_run(text,text)
+  to authenticated;
+
 notify pgrst,'reload schema';

@@ -86,4 +86,10 @@ export const bentlySystem1ReadActions = {
     }
     return data as Record<string, unknown>;
   },
+
+  recoverStale: (key: string, reason: string) =>
+    rpc("recover_stale_bently_system1_read_run", {
+      p_connector_key: key,
+      p_reason: reason,
+    }),
 };
