@@ -20,6 +20,7 @@ import { FailureModeReliability } from "../components/FailureModeReliability";
 import { RestorationTimeComponents } from "../components/RestorationTimeComponents";
 import { RepeatFailureMetrics } from "../components/RepeatFailureMetrics";
 import { MaintenanceInducedFailureReview } from "../components/MaintenanceInducedFailureReview";
+import { AssetFoundationWorkbench } from "../components/AssetFoundationWorkbench";
 import { ReliabilityImprovementCasePanel } from "../components/ReliabilityImprovementCasePanel";
 import { GovernedRcmWorkbench } from "../components/GovernedRcmWorkbench";
 import { ConditionMonitoring } from "../components/ConditionMonitoring";
@@ -49,6 +50,7 @@ export function Reliability() {
       </div>
 
       <ReliabilityLifeDataWorkbench />
+      <AssetFoundationWorkbench />
       <ReliabilityAnalytics />
       <ModellingStudio />
 
