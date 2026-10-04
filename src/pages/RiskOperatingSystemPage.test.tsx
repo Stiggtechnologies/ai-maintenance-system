@@ -353,6 +353,20 @@ describe("RiskOperatingSystemPage", () => {
     expect(
       screen.getByLabelText("Add enterprise risk record"),
     ).toBeInTheDocument();
+    expect(screen.getByText("Consequence coverage")).toBeInTheDocument();
+    expect(
+      screen.getByText(/No aggregate score is calculated/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", {
+        name: "Identification & analysis · Consequence",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("option", {
+        name: "Assurance & communication · Consequence review",
+      }),
+    ).toBeInTheDocument();
     expect(screen.getByText("Stress and reverse stress")).toBeInTheDocument();
   });
 });
