@@ -610,38 +610,52 @@ begin
       and d.control_status='effective'
       and d.security_status in('cleared','released');
   if not found then return jsonb_build_object('error','run is outside the active tenant or the exact controlled revision is no longer effective'); end if;
-  for v_item in select value from jsonb_array_elements(p_candidates) loop
-    begin v_dependent:=(v_item->>'dependentAssetId')::uuid; v_supplier:=(v_item->>'supplierAssetId')::uuid;
-    exception when others then return jsonb_build_object('error','candidate asset ids must be UUIDs'); end;
-    v_kind:=v_item->>'dependencyKind'; v_basis:=btrim(coalesce(v_item->>'basis',''));
-    if v_dependent=v_supplier or v_kind not in('functional','utility','topological','control','geographic','logistical')
-       or length(v_basis) not between 20 and 8000 then
-      return jsonb_build_object('error','each candidate requires different endpoint assets, canonical dependency_kind and 20-8000 characters of basis'); end if;
-    select * into v_edge from public.engineering_diagram_edges
-      where id=case when coalesce(v_item->>'edgeId','') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
-        then (v_item->>'edgeId')::uuid else null end
-        and run_id=v_run.id and organization_id=v_org;
-    if not found then return jsonb_build_object('error','candidate edge is outside the selected run'); end if;
-    if not exists(
-      select 1 from public.engineering_diagram_asset_mappings sm
-      join public.engineering_diagram_asset_mappings tm on tm.run_id=sm.run_id and tm.organization_id=sm.organization_id
-      where sm.run_id=v_run.id and sm.organization_id=v_org and sm.status='accepted' and tm.status='accepted'
-        and ((sm.node_id=v_edge.source_node_id and sm.asset_id=v_dependent and tm.node_id=v_edge.target_node_id and tm.asset_id=v_supplier)
-          or (sm.node_id=v_edge.source_node_id and sm.asset_id=v_supplier and tm.node_id=v_edge.target_node_id and tm.asset_id=v_dependent))
-    ) then return jsonb_build_object('error','publication requires accepted endpoint mappings for the explicitly oriented assets'); end if;
-    insert into public.dependency_candidates(
-      organization_id,dependent_asset_id,supplier_asset_id,suggested_kind,group_key,
-      basis,confidence,status,source_kind,source_ref,proposed_by)
-    values(v_org,v_dependent,v_supplier,v_kind,'diagram:'||v_run.id::text||':'||v_edge.id::text,
-      v_basis,case when v_edge.confidence>=0.8 then 'strong' when v_edge.confidence>=0.5 then 'moderate' else 'weak' end,
-      'open','engineering_diagram',jsonb_build_object('runId',v_run.id,'edgeId',v_edge.id,
-        'documentId',v_run.document_id,'inputSha256',v_run.input_sha256,
-        'rawResultSha256',v_run.raw_result_sha256,'provider',v_run.provider,
-        'providerCommitSha',v_run.provider_commit_sha,'flowDirection',v_edge.flow_direction,
-        'machineGenerated',true,'humanOriented',true),v_actor)
-    on conflict do nothing;
-    if found then v_count:=v_count+1; end if;
-  end loop;
+  -- Expected validation failures are caught outside this nested block so every
+  -- insert in the batch is rolled back before an error envelope is returned.
+  -- Without the subtransaction, a valid first candidate followed by an invalid
+  -- second candidate would leave an unaudited partial publication behind.
+  begin
+    for v_item in select value from jsonb_array_elements(p_candidates) loop
+      begin
+        v_dependent:=(v_item->>'dependentAssetId')::uuid;
+        v_supplier:=(v_item->>'supplierAssetId')::uuid;
+      exception when others then
+        raise exception using errcode='22023',message='candidate asset ids must be UUIDs';
+      end;
+      v_kind:=v_item->>'dependencyKind'; v_basis:=btrim(coalesce(v_item->>'basis',''));
+      if v_dependent=v_supplier or v_kind not in('functional','utility','topological','control','geographic','logistical')
+         or length(v_basis) not between 20 and 8000 then
+        raise exception using errcode='22023',message='each candidate requires different endpoint assets, canonical dependency_kind and 20-8000 characters of basis'; end if;
+      select * into v_edge from public.engineering_diagram_edges
+        where id=case when coalesce(v_item->>'edgeId','') ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$'
+          then (v_item->>'edgeId')::uuid else null end
+          and run_id=v_run.id and organization_id=v_org;
+      if not found then
+        raise exception using errcode='22023',message='candidate edge is outside the selected run'; end if;
+      if not exists(
+        select 1 from public.engineering_diagram_asset_mappings sm
+        join public.engineering_diagram_asset_mappings tm on tm.run_id=sm.run_id and tm.organization_id=sm.organization_id
+        where sm.run_id=v_run.id and sm.organization_id=v_org and sm.status='accepted' and tm.status='accepted'
+          and ((sm.node_id=v_edge.source_node_id and sm.asset_id=v_dependent and tm.node_id=v_edge.target_node_id and tm.asset_id=v_supplier)
+            or (sm.node_id=v_edge.source_node_id and sm.asset_id=v_supplier and tm.node_id=v_edge.target_node_id and tm.asset_id=v_dependent))
+      ) then
+        raise exception using errcode='22023',message='publication requires accepted endpoint mappings for the explicitly oriented assets'; end if;
+      insert into public.dependency_candidates(
+        organization_id,dependent_asset_id,supplier_asset_id,suggested_kind,group_key,
+        basis,confidence,status,source_kind,source_ref,proposed_by)
+      values(v_org,v_dependent,v_supplier,v_kind,'diagram:'||v_run.id::text||':'||v_edge.id::text,
+        v_basis,case when v_edge.confidence>=0.8 then 'strong' when v_edge.confidence>=0.5 then 'moderate' else 'weak' end,
+        'open','engineering_diagram',jsonb_build_object('runId',v_run.id,'edgeId',v_edge.id,
+          'documentId',v_run.document_id,'inputSha256',v_run.input_sha256,
+          'rawResultSha256',v_run.raw_result_sha256,'provider',v_run.provider,
+          'providerCommitSha',v_run.provider_commit_sha,'flowDirection',v_edge.flow_direction,
+          'machineGenerated',true,'humanOriented',true),v_actor)
+      on conflict do nothing;
+      if found then v_count:=v_count+1; end if;
+    end loop;
+  exception when sqlstate '22023' then
+    return jsonb_build_object('error',sqlerrm);
+  end;
   insert into public.audit_events(organization_id,entity_type,actor,event_data,previous_state,new_state)
   values(v_org,'engineering_diagram_publication',public.app_current_role(),jsonb_build_object(
     'action','dependency_candidates_published','runId',v_run.id,'documentId',v_run.document_id,

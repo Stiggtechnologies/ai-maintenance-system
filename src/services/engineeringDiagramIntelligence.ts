@@ -112,6 +112,7 @@ export async function getEngineeringDiagramWorkspace(): Promise<DiagramWorkspace
       .from("kb_intake_documents")
       .select("id,title,document_number,revision_label,controlled_kind")
       .in("controlled_kind", ["pid", "drawing"])
+      .eq("status", "indexed")
       .eq("control_status", "effective")
       .in("security_status", ["cleared", "released"])
       .order("document_number"),

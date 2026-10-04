@@ -148,7 +148,13 @@ for mapping in "$MAP_A" "$MAP_B"; do
 done
 
 # Only an AAL2 human may publish an explicit orientation, and publication
-# creates a candidate—not a graph edge.
+# creates a candidate—not a graph edge. A mixed valid/invalid batch must roll
+# back the valid first insert before returning its error.
+ATOMIC_PAYLOAD="{\"p_run_id\":\"$RUN\",\"p_candidates\":[{\"edgeId\":\"$EDGE_A\",\"dependentAssetId\":\"$ASSET_B\",\"supplierAssetId\":\"$ASSET_A\",\"dependencyKind\":\"topological\",\"basis\":\"The first valid relationship must roll back when the following candidate is invalid.\"},{\"edgeId\":\"00000000-0000-4000-8000-000000000099\",\"dependentAssetId\":\"$ASSET_B\",\"supplierAssetId\":\"$ASSET_A\",\"dependencyKind\":\"topological\",\"basis\":\"This deliberately invalid edge proves that batch publication remains atomic.\"}]}"
+ATOMIC_REFUSAL=$(rpc "$CONTROLLER_AAL2" publish_engineering_diagram_dependency_candidates "$ATOMIC_PAYLOAD")
+expect_error "$ATOMIC_REFUSAL" 'candidate edge is outside the selected run'
+test "$(psqlc "select count(*) from dependency_candidates where organization_id='$ORG' and source_kind='engineering_diagram';")" = '0'
+
 PAYLOAD_A="{\"p_run_id\":\"$RUN\",\"p_candidates\":[{\"edgeId\":\"$EDGE_A\",\"dependentAssetId\":\"$ASSET_B\",\"supplierAssetId\":\"$ASSET_A\",\"dependencyKind\":\"topological\",\"basis\":\"Human review confirms that TK-100 depends on the mapped P-100 flow path.\"}]}"
 AAL1_PUBLISH=$(rpc "$CONTROLLER_AAL1" publish_engineering_diagram_dependency_candidates "$PAYLOAD_A")
 expect_error "$AAL1_PUBLISH" 'AAL2 session'
@@ -188,4 +194,4 @@ for table in engineering_diagram_runs engineering_diagram_nodes engineering_diag
 done
 test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type in('engineering_diagram_run','engineering_diagram_asset_mapping','engineering_diagram_publication');")" -ge '6'
 
-echo 'Engineering Diagram Intelligence smoke passed: canonical_document=true private_source_object=true tenant_wall=true service_only_inference=true bounded_geometry=true independent_mapping_review=true effective_revision_rechecked=true candidate_only_publication=true independent_graph_review=true direct_graph_write=false operational_authority=false'
+echo 'Engineering Diagram Intelligence smoke passed: canonical_document=true private_source_object=true tenant_wall=true service_only_inference=true bounded_geometry=true independent_mapping_review=true atomic_candidate_publication=true effective_revision_rechecked=true candidate_only_publication=true independent_graph_review=true direct_graph_write=false operational_authority=false'

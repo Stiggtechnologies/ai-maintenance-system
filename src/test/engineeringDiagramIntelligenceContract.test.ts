@@ -74,6 +74,8 @@ describe("C2.09 governed Engineering Diagram Intelligence", () => {
     expect(migration).toContain("jsonb_array_length(p_nodes)");
     expect(migration).toContain("jsonb_array_length(p_edges)");
     expect(migration).toContain("dependency_candidates_diagram_source_unique");
+    expect(migration).toContain("exception when sqlstate '22023'");
+    expect(migration).toContain("unaudited partial publication");
     expect(migration).toContain("engineering_diagram_valid_bbox");
     expect(migration).toContain("confidence between 0 and 1");
     expect(migration).toContain("source_node_id");
@@ -122,6 +124,7 @@ describe("C2.09 governed Engineering Diagram Intelligence", () => {
   it("is reachable in the knowledge workspace and states the decision boundary", () => {
     expect(service).toContain('from("engineering_diagram_runs")');
     expect(service).toContain('from("engineering-diagrams")');
+    expect(service).toContain('.eq("status", "indexed")');
     expect(service).toContain('"create_engineering_diagram_run"');
     expect(service).toContain(
       '"publish_engineering_diagram_dependency_candidates"',
@@ -145,6 +148,7 @@ describe("C2.09 governed Engineering Diagram Intelligence", () => {
       "service_only_inference=true",
       "bounded_geometry=true",
       "independent_mapping_review=true",
+      "atomic_candidate_publication=true",
       "effective_revision_rechecked=true",
       "candidate_only_publication=true",
       "independent_graph_review=true",
