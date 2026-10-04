@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270101590000_environmental_evidence_workflow.sql",
+  "supabase/migrations/20270102160000_environmental_evidence_workflow.sql",
   "utf8",
 );
 const service = readFileSync(
@@ -48,7 +48,14 @@ describe("E10 governed environmental evidence workflow", () => {
     expect(migration).toContain("public.app_actor_has_verified_mfa(v_actor)");
     expect(migration).toContain("e.verification_status='verified'");
     expect(migration).toContain("e.verified_by<>v_actor");
-    expect(migration).toContain("verifier.role<>'ai_admin'");
+    expect(migration).toContain(
+      "verifier.role in ('admin','executive','maintenance_manager','reliability_engineer')",
+    );
+    expect(
+      migration.match(
+        /verifier\.role in \('admin','executive','maintenance_manager','reliability_engineer'\)/g,
+      )?.length,
+    ).toBe(2);
     expect(migration).toContain("v_role not in");
     expect(migration).toContain("ai_admin and read-only roles are refused");
   });
@@ -75,9 +82,22 @@ describe("E10 governed environmental evidence workflow", () => {
     expect(migration).toContain(
       "lower(btrim(f.activity_unit))=lower(btrim(p_record->>'unit'))",
     );
-    expect(migration).toContain("ef.valid_from<=a.period_end");
+    expect(migration).toContain("add column if not exists emission_factor_id");
+    expect(migration).toContain("'emissionFactorId',v_factor_id");
+    expect(migration).toContain("f.id=a.emission_factor_id");
+    expect(migration).not.toContain("left join lateral (");
+  });
+
+  it("refuses non-finite values, serializes normalized baselines and enforces site ownership", () => {
+    expect(
+      migration.match(/sync_is_finite_numeric/g)?.length,
+    ).toBeGreaterThanOrEqual(6);
+    expect(migration).toContain("pg_advisory_xact_lock");
     expect(migration).toContain(
-      "lower(btrim(ef.activity_unit))=lower(btrim(a.unit))",
+      "Multiple legacy baselines share this normalized metric",
+    );
+    expect(migration).toContain(
+      "asset does not belong to the selected same-tenant site",
     );
   });
 
@@ -118,6 +138,8 @@ describe("E10 governed environmental evidence workflow", () => {
     }
     expect(service).toContain('"record_environmental_evidence"');
     expect(management).toContain("recordEnvironmentalEvidence");
+    expect(management).toContain("requiredNumberValue");
+    expect(management).not.toContain('Number(numberValue(form, "quantity"))');
     expect(performance).toContain("summariseLosses");
     expect(performance).toContain('"get_environmental_loss_records"');
     expect(performance).toContain("<EnvironmentalEvidenceManagement />");
@@ -137,8 +159,12 @@ describe("E10 governed environmental evidence workflow", () => {
       "tenant_wall=true",
       "foreign_evidence_refused=true",
       "foreign_asset_refused=true",
+      "asset_site_coherence=true",
       "aal2_required=true",
+      "viewer_verifier_refused=true",
       "independent_evidence=true",
+      "finite_numeric_only=true",
+      "factor_snapshot_frozen=true",
       "direct_write_locked=true",
       "loss_summary_reachable=true",
       "authority_granted=false",

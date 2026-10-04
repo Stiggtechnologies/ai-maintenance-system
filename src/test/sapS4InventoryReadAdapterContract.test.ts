@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 const root = process.cwd();
 const read = (file: string) => fs.readFileSync(path.join(root, file), "utf8");
 const migration = read(
-  "supabase/migrations/20270101620000_sap_s4_inventory_read_adapter.sql",
+  "supabase/migrations/20270102190000_sap_s4_inventory_read_adapter.sql",
 );
 const edge = read("supabase/functions/sap-s4-inventory-read-pull/index.ts");
 const shared = read("supabase/functions/_shared/sap-s4-inventory-read.ts");
@@ -31,6 +31,9 @@ describe("C2.17 SAP S/4HANA inventory read contract", () => {
 
   it("is service-attested, tenant-bound and permanently read-only", () => {
     expect(migration).toContain("coalesce(auth.role(),'')<>'service_role'");
+    expect(migration).toContain(
+      "a named human administrator must configure or enable",
+    );
     expect(migration).toContain("direction='read_only'");
     expect(migration).toContain("not write_enabled");
     expect(migration).toContain("sourceWriteBack',false");
@@ -62,6 +65,9 @@ describe("C2.17 SAP S/4HANA inventory read contract", () => {
     expect(shared).toContain("next.origin !== firstUrl.origin");
     expect(shared).toContain("next.pathname !== firstUrl.pathname");
     expect(edge).toContain("MAX_TOTAL_BYTES");
+    expect(edge).toContain("MAX_TOTAL_BYTES - totalBytes");
+    expect(edge).toContain("fetchedUrls.has(nextUrl.href)");
+    expect(edge).toContain("normalizeSapInventoryPullRequest(body)");
     expect(edge).toContain("manifest.length >= maxPages");
     expect(migration).toContain("v_bytes<>p_source_bytes");
     expect(migration).toContain("v_run.records_read<>v_expected");

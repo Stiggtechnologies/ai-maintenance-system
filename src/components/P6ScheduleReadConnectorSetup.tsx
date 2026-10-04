@@ -16,9 +16,7 @@ export function P6ScheduleReadConnectorSetup({
   onConfigured: () => Promise<void>;
 }) {
   const { profile } = useAuth();
-  const admin = ["admin", "ai_admin"].includes(
-    String(profile?.role ?? "").toLowerCase(),
-  );
+  const admin = String(profile?.role ?? "").toLowerCase() === "admin";
   const [cases, setCases] = useState<CaseOption[]>([]);
   const [key, setKey] = useState("");
   const [name, setName] = useState("");

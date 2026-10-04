@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270101610000_primavera_p6_read_adapter.sql",
+  "supabase/migrations/20270102180000_primavera_p6_read_adapter.sql",
   "utf8",
 );
 const edge = readFileSync(
@@ -35,6 +35,9 @@ describe("Primavera P6 schedule read adapter contract", () => {
   it("keeps P6 source-of-record access bounded, GET-only and service-attested", () => {
     expect(migration).toContain("public.app_current_org()");
     expect(migration).toContain("P6 schedule ingestion is service-only");
+    expect(migration).toContain(
+      "a named human administrator must configure or enable",
+    );
     expect(migration).toContain("direction='read_only'");
     expect(migration).toContain("write_enabled=false");
     expect(migration).toContain(
@@ -45,6 +48,8 @@ describe("Primavera P6 schedule read adapter contract", () => {
     expect(edge).toContain('method: "GET"');
     expect(edge).toContain('redirect: "error"');
     expect(edge).toContain("response.body.getReader()");
+    expect(edge).toContain("MAX_TOTAL_BYTES - activities.bytes");
+    expect(edge).toContain("normalizeP6PullRequest(body)");
     expect(edge).toContain("request_too_large");
     expect(edge).not.toMatch(/method:\s*["'](?:PUT|PATCH|DELETE)["']/);
   });

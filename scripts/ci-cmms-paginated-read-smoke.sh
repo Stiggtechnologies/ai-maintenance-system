@@ -7,7 +7,7 @@ eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL|JWT_SECRET)=')"
 : "${API_URL:?missing API_URL}" "${ANON_KEY:?missing ANON_KEY}" "${JWT_SECRET:?missing JWT_SECRET}"
 
 uuid(){ python3 -c 'import uuid; print(uuid.uuid4())'; }
-ORG=$(uuid); FOREIGN_ORG=$(uuid); ADMIN=$(uuid); PLANNER=$(uuid); FOREIGN=$(uuid); ASSET=$(uuid)
+ORG=$(uuid); FOREIGN_ORG=$(uuid); ADMIN=$(uuid); AI_ADMIN=$(uuid); PLANNER=$(uuid); FOREIGN=$(uuid); ASSET=$(uuid)
 CONNECTOR_KEY="c212-cmms-${ORG:0:8}"
 CREATED_ONE="2026-09-01T12:00:00Z"
 CREATED_TWO="2026-09-02T12:00:00Z"
@@ -41,10 +41,12 @@ insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_co
   recovery_token,email_change,email_change_token_new,email_change_token_current,
   phone_change,phone_change_token,reauthentication_token) values
 ('00000000-0000-0000-0000-000000000000','$ADMIN','authenticated','authenticated','c212-admin-$ADMIN@invalid.syncai.ca','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','',''),
+('00000000-0000-0000-0000-000000000000','$AI_ADMIN','authenticated','authenticated','c212-ai-$AI_ADMIN@invalid.syncai.ca','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','',''),
 ('00000000-0000-0000-0000-000000000000','$PLANNER','authenticated','authenticated','c212-planner-$PLANNER@invalid.syncai.ca','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','',''),
 ('00000000-0000-0000-0000-000000000000','$FOREIGN','authenticated','authenticated','c212-foreign-$FOREIGN@invalid.syncai.ca','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','','');
 insert into user_profiles(id,organization_id,email,full_name,role) values
   ('$ADMIN','$ORG','c212-admin-$ADMIN@invalid.syncai.ca','C2.12 administrator','admin'),
+  ('$AI_ADMIN','$ORG','c212-ai-$AI_ADMIN@invalid.syncai.ca','C2.12 AI administrator','ai_admin'),
   ('$PLANNER','$ORG','c212-planner-$PLANNER@invalid.syncai.ca','C2.12 planner','planner'),
   ('$FOREIGN','$FOREIGN_ORG','c212-foreign-$FOREIGN@invalid.syncai.ca','C2.12 foreign administrator','admin');
 insert into assets(id,organization_id,name,tag,asset_class,criticality,source_system,external_id)
@@ -52,13 +54,16 @@ values('$ASSET','$ORG','C2.12 source-bound pump','C212-P-101','pump','high','$CO
 PSQL
 
 ADMIN_JWT=$(jwt "$ADMIN" "c212-admin-$ADMIN@invalid.syncai.ca")
+AI_ADMIN_JWT=$(jwt "$AI_ADMIN" "c212-ai-$AI_ADMIN@invalid.syncai.ca")
 PLANNER_JWT=$(jwt "$PLANNER" "c212-planner-$PLANNER@invalid.syncai.ca")
 FOREIGN_JWT=$(jwt "$FOREIGN" "c212-foreign-$FOREIGN@invalid.syncai.ca")
 
 BASE="{\"p_key\":\"$CONNECTOR_KEY\",\"p_name\":\"C2.12 governed CMMS\",\"p_system_kind\":\"generic_cmms\",\"p_endpoint_url\":\"https://cmms.example.com/api/work-orders\",\"p_expected_interval_minutes\":60,\"p_credential_binding_ref\":\"vault://tenant/cmms\",\"p_pagination_mode\":\"next_url\",\"p_pagination_next_path\":\"links.next\",\"p_pagination_max_pages\":20,\"p_enabled\":true,\"p_basis\":\"Named administrator approved the bounded read-only CMMS activation.\"}"
 
 ROLE_DENIED=$(rpc "$PLANNER_JWT" configure_cmms_read_source "$BASE")
-expect_error "$ROLE_DENIED" 'requires an administrator'
+expect_error "$ROLE_DENIED" 'requires a named human administrator'
+AI_CONFIG_DENIED=$(rpc "$AI_ADMIN_JWT" configure_cmms_read_source "$BASE")
+expect_error "$AI_CONFIG_DENIED" 'requires a named human administrator'
 BAD_KIND="${BASE/\"generic_cmms\"/null}"
 KIND_DENIED=$(rpc "$ADMIN_JWT" configure_cmms_read_source "$BAD_KIND")
 expect_error "$KIND_DENIED" 'CMMS kind must be'
@@ -78,6 +83,17 @@ BAD_LIMIT="${BASE/\"p_pagination_max_pages\":20/\"p_pagination_max_pages\":101}"
 LIMIT_DENIED=$(rpc "$ADMIN_JWT" configure_cmms_read_source "$BAD_LIMIT")
 expect_error "$LIMIT_DENIED" 'between 2 and 100'
 
+PREMATURE_ENABLE_DENIED=$(rpc "$ADMIN_JWT" configure_cmms_read_source "$BASE")
+expect_error "$PREMATURE_ENABLE_DENIED" 'approve the work_order mapping before activation'
+BASE_DISABLED="${BASE/\"p_enabled\":true/\"p_enabled\":false}"
+STAGED=$(rpc "$ADMIN_JWT" configure_cmms_read_source "$BASE_DISABLED")
+noerr "$STAGED"; test "$(field "$STAGED" enabled)" = 'false'
+
+MAPPING='{"external_id":"external_id","title":"title","asset_external_id":"asset_external_id","wo_number":"wo_number","status":"status","priority":"priority","work_type":"work_type","planned_hours":"planned_hours","created_at":"created_at","completed_at":"completed_at","failure_mode":"failure_mode","downtime_hours":"downtime_hours"}'
+AI_MAPPING_DENIED=$(rpc "$AI_ADMIN_JWT" save_cmms_work_order_mapping "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_source_array_path\":\"work_orders\",\"p_column_mapping\":$MAPPING,\"p_approve\":true,\"p_basis\":\"AI identity attempted to approve the canonical work-order mapping.\"}")
+expect_error "$AI_MAPPING_DENIED" 'requires a named human administrator'
+MAPPED=$(rpc "$ADMIN_JWT" save_cmms_work_order_mapping "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_source_array_path\":\"work_orders\",\"p_column_mapping\":$MAPPING,\"p_approve\":true,\"p_basis\":\"Canonical work-order mapping reviewed against the controlled source export.\"}")
+noerr "$MAPPED"; test "$(field "$MAPPED" status)" = 'approved'
 CONFIGURED=$(rpc "$ADMIN_JWT" configure_cmms_read_source "$BASE")
 noerr "$CONFIGURED"
 test "$(field "$CONFIGURED" enabled)" = 'true'
@@ -87,10 +103,6 @@ test "$(field "$CONFIGURED" source_profile)" = 'generic_cmms'
 test "$(field "$CONFIGURED" pagination_mode)" = 'next_url'
 test "$(field "$CONFIGURED" pagination_max_pages)" = '20'
 
-MAPPING='{"external_id":"external_id","title":"title","asset_external_id":"asset_external_id","wo_number":"wo_number","status":"status","priority":"priority","work_type":"work_type","planned_hours":"planned_hours","created_at":"created_at","completed_at":"completed_at","failure_mode":"failure_mode","downtime_hours":"downtime_hours"}'
-MAPPED=$(rpc "$ADMIN_JWT" save_cmms_work_order_mapping "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_source_array_path\":\"work_orders\",\"p_column_mapping\":$MAPPING,\"p_approve\":true,\"p_basis\":\"Canonical work-order mapping reviewed against the controlled source export.\"}")
-noerr "$MAPPED"; test "$(field "$MAPPED" status)" = 'approved'
-
 SOURCE=$(rpc "$PLANNER_JWT" get_cmms_read_source "{\"p_connector_key\":\"$CONNECTOR_KEY\"}")
 noerr "$SOURCE"
 test "$(field "$SOURCE" pagination_mode)" = 'next_url'
@@ -98,15 +110,49 @@ test "$(field "$SOURCE" system_kind)" = 'cmms'
 test "$(field "$SOURCE" source_profile)" = 'generic_cmms'
 test "$(field "$SOURCE" pagination_next_path)" = 'links.next'
 test "$(field "$SOURCE" pagination_max_pages)" = '20'
+test "$(field "$SOURCE" can_commit)" = 'true'
+CONTRACT_HASH=$(field "$SOURCE" contract_hash); test "${#CONTRACT_HASH}" = '32'
+AI_SOURCE=$(rpc "$AI_ADMIN_JWT" get_cmms_read_source "{\"p_connector_key\":\"$CONNECTOR_KEY\"}")
+noerr "$AI_SOURCE"; test "$(field "$AI_SOURCE" can_commit)" = 'false'
 FOREIGN_SOURCE=$(rpc "$FOREIGN_JWT" get_cmms_read_source "{\"p_connector_key\":\"$CONNECTOR_KEY\"}")
 expect_error "$FOREIGN_SOURCE" 'not found'
 
-RUN_RESULT=$(rpc "$PLANNER_JWT" begin_cmms_read_run "{\"p_connector_key\":\"$CONNECTOR_KEY\"}")
+ROWS="[{\"external_id\":\"WO-EXT-1\",\"title\":\"Replace seal cartridge\",\"asset_external_id\":\"ASSET-EXT-1\",\"wo_number\":\"WO-1001\",\"status\":\"open\",\"priority\":\"high\",\"work_type\":\"corrective\",\"planned_hours\":\"8\",\"created_at\":\"$CREATED_ONE\"},{\"external_id\":\"WO-BAD-ASSET\",\"title\":\"Unknown asset work\",\"asset_external_id\":\"MISSING-ASSET\",\"status\":\"open\",\"created_at\":\"$CREATED_ONE\"}]"
+AI_PREVIEW=$(rpc "$AI_ADMIN_JWT" preview_cmms_work_order_batch "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_rows\":$ROWS}")
+noerr "$AI_PREVIEW"
+test "$(field "$AI_PREVIEW" read)" = '2'
+test "$(field "$AI_PREVIEW" accepted)" = '1'
+test "$(field "$AI_PREVIEW" rejected)" = '1'
+test "$(psqlc "select count(*) from ingest_staging where organization_id='$ORG';")" = '0'
+test "$(psqlc "select count(*) from work_orders where organization_id='$ORG';")" = '0'
+
+STALE_BEGIN=$(rpc "$PLANNER_JWT" begin_cmms_read_run "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_expected_contract_hash\":\"00000000000000000000000000000000\"}")
+expect_error "$STALE_BEGIN" 'changed after transport began'
+GUARD_RESULT=$(rpc "$PLANNER_JWT" begin_cmms_read_run "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_expected_contract_hash\":\"$CONTRACT_HASH\"}")
+noerr "$GUARD_RESULT"; GUARD_RUN=$(field "$GUARD_RESULT" run_id)
+AI_BEGIN_DENIED=$(rpc "$AI_ADMIN_JWT" begin_cmms_read_run "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_expected_contract_hash\":\"$CONTRACT_HASH\"}")
+expect_error "$AI_BEGIN_DENIED" 'named human'
+CONCURRENT_DENIED=$(rpc "$ADMIN_JWT" begin_cmms_read_run "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_expected_contract_hash\":\"$CONTRACT_HASH\"}")
+expect_error "$CONCURRENT_DENIED" 'already running'
+REMAPPED=$(rpc "$ADMIN_JWT" save_cmms_work_order_mapping "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_source_array_path\":\"work_orders\",\"p_column_mapping\":$MAPPING,\"p_approve\":true,\"p_basis\":\"Named administrator reconfirmed the mapping during the contract-change test.\"}")
+noerr "$REMAPPED"
+CHANGED_INGEST=$(rpc "$PLANNER_JWT" ingest_cmms_read_batch "{\"p_run_id\":\"$GUARD_RUN\",\"p_rows\":[]}")
+expect_error "$CHANGED_INGEST" 'changed during this run'
+GUARD_FINISHED=$(rpc "$PLANNER_JWT" finish_connector_run "{\"p_run_id\":\"$GUARD_RUN\",\"p_status\":\"failure\",\"p_error\":\"Contract changed during the guarded pull.\"}")
+noerr "$GUARD_FINISHED"
+SOURCE_REFRESH=$(rpc "$PLANNER_JWT" get_cmms_read_source "{\"p_connector_key\":\"$CONNECTOR_KEY\"}")
+noerr "$SOURCE_REFRESH"; CONTRACT_HASH=$(field "$SOURCE_REFRESH" contract_hash)
+RUN_RESULT=$(rpc "$PLANNER_JWT" begin_cmms_read_run "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_expected_contract_hash\":\"$CONTRACT_HASH\"}")
 noerr "$RUN_RESULT"; RUN=$(field "$RUN_RESULT" run_id)
 FOREIGN_INGEST=$(rpc "$FOREIGN_JWT" ingest_cmms_read_batch "{\"p_run_id\":\"$RUN\",\"p_rows\":[]}")
 expect_error "$FOREIGN_INGEST" 'not found'
+AI_INGEST_DENIED=$(rpc "$AI_ADMIN_JWT" ingest_cmms_read_batch "{\"p_run_id\":\"$RUN\",\"p_rows\":[]}")
+expect_error "$AI_INGEST_DENIED" 'named human'
+ADMIN_INGEST_DENIED=$(rpc "$ADMIN_JWT" ingest_cmms_read_batch "{\"p_run_id\":\"$RUN\",\"p_rows\":[]}")
+expect_error "$ADMIN_INGEST_DENIED" 'not found'
+ADMIN_FINISH_DENIED=$(rpc "$ADMIN_JWT" finish_connector_run "{\"p_run_id\":\"$RUN\",\"p_status\":\"success\",\"p_error\":null}")
+expect_error "$ADMIN_FINISH_DENIED" 'triggered this governed pull'
 
-ROWS="[{\"external_id\":\"WO-EXT-1\",\"title\":\"Replace seal cartridge\",\"asset_external_id\":\"ASSET-EXT-1\",\"wo_number\":\"WO-1001\",\"status\":\"open\",\"priority\":\"high\",\"work_type\":\"corrective\",\"planned_hours\":\"8\",\"created_at\":\"$CREATED_ONE\"},{\"external_id\":\"WO-BAD-ASSET\",\"title\":\"Unknown asset work\",\"asset_external_id\":\"MISSING-ASSET\",\"status\":\"open\",\"created_at\":\"$CREATED_ONE\"}]"
 INGESTED=$(rpc "$PLANNER_JWT" ingest_cmms_read_batch "{\"p_run_id\":\"$RUN\",\"p_rows\":$ROWS}")
 noerr "$INGESTED"
 test "$(field "$INGESTED" read)" = '2'
@@ -119,7 +165,7 @@ test "$(psqlc "select count(*) from work_orders where organization_id='$ORG' and
 test "$(psqlc "select count(*) from ingest_staging where run_id='$RUN' and status='rejected' and reject_reason ilike '%unknown asset_external_id%';")" = '1'
 test "$(psqlc "select count(*) from ingest_watermarks where organization_id='$ORG' and connector_id=(select id from connectors where organization_id='$ORG' and connector_key='$CONNECTOR_KEY');")" = '0'
 
-RUN2_RESULT=$(rpc "$PLANNER_JWT" begin_cmms_read_run "{\"p_connector_key\":\"$CONNECTOR_KEY\"}")
+RUN2_RESULT=$(rpc "$PLANNER_JWT" begin_cmms_read_run "{\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_expected_contract_hash\":\"$CONTRACT_HASH\"}")
 noerr "$RUN2_RESULT"; RUN2=$(field "$RUN2_RESULT" run_id)
 ROWS2="[{\"external_id\":\"WO-EXT-1\",\"title\":\"Replace seal cartridge\",\"asset_external_id\":\"ASSET-EXT-1\",\"status\":\"open\",\"created_at\":\"$CREATED_ONE\"},{\"external_id\":\"WO-EXT-2\",\"title\":\"Inspect coupling alignment\",\"asset_external_id\":\"ASSET-EXT-1\",\"status\":\"open\",\"priority\":\"medium\",\"created_at\":\"$CREATED_TWO\"}]"
 REPLAY=$(rpc "$PLANNER_JWT" ingest_cmms_read_batch "{\"p_run_id\":\"$RUN2\",\"p_rows\":$ROWS2}")
@@ -135,7 +181,9 @@ case "$DIRECT" in 200|204|401|403) ;; *) cat /tmp/c212-direct.txt; false ;; esac
 test "$(psqlc "select pagination_max_pages from connectors where organization_id='$ORG' and connector_key='$CONNECTOR_KEY';")" = '20'
 OUT=$(sql_must_fail "update connectors set pagination_mode='next_url',pagination_next_path=null,pagination_max_pages=20 where organization_id='$ORG' and connector_key='$CONNECTOR_KEY';")
 grep -qi 'connectors_pagination_profile_check' <<<"$OUT"
-test "$(psqlc "select count(*) from decisions where organization_id='$ORG' and decision_type='cmms_read_source';")" = '1'
+test "$(psqlc "select count(*) from decisions where organization_id='$ORG' and decision_type='cmms_read_source';")" = '2'
+test "$(psqlc "select count(*) from decisions where organization_id='$ORG' and decision_type='cmms_read_source' and action_taken like 'Configured/disabled read-only CMMS source %' and approval_status='approved' and autonomy_mode='manual' and human_actor='$ADMIN' and outcome_status='executed';")" = '1'
+test "$(psqlc "select count(*) from decisions where organization_id='$ORG' and decision_type='cmms_read_source' and action_taken like 'Activated read-only CMMS source %' and approval_status='approved' and autonomy_mode='manual' and human_actor='$ADMIN' and outcome_status='executed';")" = '1'
 test "$(psqlc "select count(*) from connectors where organization_id='$ORG' and connector_key='$CONNECTOR_KEY' and system_kind='cmms' and connector_profile='generic_cmms' and direction='read_only' and not write_enabled and pagination_mode='next_url' and pagination_next_path='links.next' and pagination_max_pages=20;")" = '1'
 
-echo 'C2.12 CMMS paginated read smoke passed: canonical_connector=true canonical_system_kind=true source_profile=true canonical_work_orders=true tenant_wall=true administrator_profile=true bounded_pagination=true same_contract_mapping=true external_asset_binding=true retained_rejects=true idempotent_replay=true clean_run_watermark=true direct_write_locked=true source_write_back=false unattended=false'
+echo 'C2.12 CMMS paginated read smoke passed: canonical_connector=true canonical_system_kind=true source_profile=true canonical_work_orders=true tenant_wall=true named_human_activation=true ai_approval_refused=true ai_dry_run_only=true preview_commit_parity=true trigger_actor_bound=true single_running_pull=true contract_version_bound=true bounded_pagination=true same_contract_mapping=true external_asset_binding=true retained_rejects=true idempotent_replay=true clean_run_watermark=true direct_write_locked=true source_write_back=false unattended=false'

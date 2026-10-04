@@ -22,9 +22,7 @@ export function SapS4FinancialReadConnectorSetup({
   onConfigured: () => Promise<void>;
 }) {
   const { profile } = useAuth();
-  const admin = ["admin", "ai_admin"].includes(
-    String(profile?.role ?? "").toLowerCase(),
-  );
+  const admin = String(profile?.role ?? "").toLowerCase() === "admin";
   const [cases, setCases] = useState<CaseOption[]>([]);
   const [costItems, setCostItems] = useState<CostOption[]>([]);
   const [key, setKey] = useState("");
@@ -180,7 +178,7 @@ export function SapS4FinancialReadConnectorSetup({
 
       {!admin ? (
         <p className="mt-4 text-sm text-slate-400">
-          An administrator must configure or enable this source.
+          A named human administrator must configure or enable this source.
         </p>
       ) : (
         <>

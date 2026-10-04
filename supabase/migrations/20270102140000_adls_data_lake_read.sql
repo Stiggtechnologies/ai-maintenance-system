@@ -98,11 +98,12 @@ declare
   v_prefix text:=trim(coalesce(p_object_prefix,''));
   v_format text:=lower(trim(coalesce(p_object_format,'')));
   v_ref text:=nullif(trim(coalesce(p_credential_binding_ref,'')),'');
+  v_enabled boolean:=coalesce(p_enabled,false);
 begin
   select role into v_role from public.user_profiles
   where id=auth.uid() and organization_id=v_org;
-  if v_org is null or coalesce(v_role,'') not in ('admin','ai_admin') then
-    return jsonb_build_object('error','configuring an Azure data-lake source requires an administrator');
+  if v_org is null or coalesce(v_role,'')<>'admin' then
+    return jsonb_build_object('error','configuring an Azure data-lake source requires a named human administrator');
   end if;
   if coalesce(length(trim(p_key)),0)<3 or coalesce(length(trim(p_name)),0)<3 then
     return jsonb_build_object('error','connector key and name are required');
@@ -140,6 +141,26 @@ begin
      or v_ref ~ '[@?=#]' then
     return jsonb_build_object('error','credential binding must be an opaque secret-store URI without a value or query string');
   end if;
+  if v_enabled and not exists(
+    select 1
+    from public.connectors c
+    join public.connector_entity_mappings m
+      on m.organization_id=c.organization_id and m.connector_id=c.id
+     and m.status='approved'
+    join public.user_profiles approver
+      on approver.id=m.approved_by
+     and approver.organization_id=m.organization_id
+     and approver.role='admin'
+    where c.organization_id=v_org
+      and c.connector_key=trim(p_key)
+      and c.connector_type='recovery_activation'
+      and c.system_kind='data_lake'
+      and c.register_ref='C2.14'
+  ) then
+    return jsonb_build_object(
+      'error','a named human administrator must approve at least one entity mapping before activation'
+    );
+  end if;
 
   insert into public.connectors(
     organization_id,connector_key,name,connector_type,system_kind,endpoint_hint,
@@ -150,7 +171,7 @@ begin
     v_org,trim(p_key),trim(p_name),'recovery_activation','data_lake',v_endpoint,
     p_expected_interval_minutes,v_ref,
     'Bounded ADLS Gen2 object pull using Microsoft OAuth. Read-only; no source write-back, delete, lease or metadata mutation.',
-    'C2.14',case when p_enabled then 'active' else 'configured' end,p_enabled,
+    'C2.14',case when v_enabled then 'active' else 'configured' end,v_enabled,
     'read_only',false,v_prefix,v_format,p_max_files,p_max_bytes
   )
   on conflict(organization_id,connector_key) where connector_key is not null
@@ -170,13 +191,13 @@ begin
     confidence_score,human_actor,rationale,outcome_status
   ) values(
     v_org,'data_lake_read_source',
-    case when p_enabled then 'Activated' else 'Configured/disabled' end
+    case when v_enabled then 'Activated' else 'Configured/disabled' end
       ||' read-only ADLS dataset '||trim(p_key)||' at prefix '||v_prefix,
     'approved','manual',100,auth.uid()::text,trim(p_basis),'executed'
   );
 
   return jsonb_build_object(
-    'ok',true,'connector_id',v_id,'enabled',p_enabled,
+    'ok',true,'connector_id',v_id,'enabled',v_enabled,
     'direction','read_only','write_enabled',false,'transport','adls_gen2_oauth',
     'object_prefix',v_prefix,'object_format',v_format,
     'max_files',p_max_files,'max_bytes',p_max_bytes,
@@ -250,7 +271,8 @@ create or replace function public.begin_data_lake_read_run(
   p_entity_type text,
   p_manifest jsonb,
   p_cursor_to jsonb,
-  p_source_bytes bigint
+  p_source_bytes bigint,
+  p_expected_contract_hash text
 ) returns jsonb
 language plpgsql
 security definer
@@ -269,22 +291,49 @@ declare
   v_max_path text;
   v_source_bytes numeric:=0;
   v_run uuid;
+  v_contract_hash text;
 begin
   select role into v_role from public.user_profiles
   where id=p_triggered_by and organization_id=p_organization_id;
   if coalesce(v_role,'') not in
-    ('planner','reliability_engineer','maintenance_manager','admin','ai_admin') then
-    return jsonb_build_object('error','data-lake run actor is not authorized for this tenant');
+    ('planner','reliability_engineer','maintenance_manager','admin') then
+    return jsonb_build_object('error','a named human planning, engineering, maintenance or administrator role must trigger the data-lake pull');
   end if;
   select * into v_connector from public.connectors
   where organization_id=p_organization_id and connector_key=trim(p_connector_key)
     and connector_type='recovery_activation' and system_kind='data_lake'
-    and register_ref='C2.14' and enabled and direction='read_only' and not write_enabled;
+    and register_ref='C2.14' and enabled and direction='read_only' and not write_enabled
+  for update;
   if not found then return jsonb_build_object('error','active governed ADLS source not found'); end if;
   select * into v_mapping from public.connector_entity_mappings
   where organization_id=p_organization_id and connector_id=v_connector.id
-    and entity_type=p_entity_type and status='approved';
-  if not found then return jsonb_build_object('error','approved entity mapping not found'); end if;
+    and entity_type=p_entity_type and status='approved'
+    and exists(
+      select 1 from public.user_profiles approver
+      where approver.id=public.connector_entity_mappings.approved_by
+        and approver.organization_id=p_organization_id
+        and approver.role='admin'
+    );
+  if not found then return jsonb_build_object('error','a named human administrator must approve the entity mapping before pull'); end if;
+  if exists(
+    select 1 from public.connector_runs
+    where organization_id=p_organization_id
+      and connector_id=v_connector.id
+      and entity_type=p_entity_type
+      and status='running'
+  ) then
+    return jsonb_build_object('error','a data-lake pull for this entity is already running');
+  end if;
+  v_contract_hash:=public.data_lake_read_contract_hash(
+    p_organization_id,v_connector.id,p_entity_type
+  );
+  if coalesce(p_expected_contract_hash,'') !~ '^[0-9a-f]{32}$'
+     or v_contract_hash is null
+     or v_contract_hash is distinct from p_expected_contract_hash then
+    return jsonb_build_object(
+      'error','data-lake source or mapping changed after transport began; run a fresh pull'
+    );
+  end if;
   if coalesce(jsonb_typeof(p_manifest),'')<>'array' then
     return jsonb_build_object('error','bounded ADLS transport manifest must be an array');
   end if;
@@ -362,22 +411,23 @@ begin
   insert into public.connector_runs(
     organization_id,connector_id,entity_type,run_type,status,started_at,
     triggered_by,transport_manifest,transport_cursor_from,transport_cursor_to,
-    source_object_count,source_bytes
+    source_object_count,source_bytes,source_contract_hash
   ) values(
     p_organization_id,v_connector.id,p_entity_type,'sync','running',now(),
     p_triggered_by,p_manifest,v_cursor_from,p_cursor_to,
-    jsonb_array_length(p_manifest),p_source_bytes
+    jsonb_array_length(p_manifest),p_source_bytes,v_contract_hash
   ) returning id into v_run;
   return jsonb_build_object('ok',true,'run_id',v_run,'cursor_from',v_cursor_from,
-    'cursor_to',p_cursor_to,'object_count',jsonb_array_length(p_manifest));
+    'cursor_to',p_cursor_to,'object_count',jsonb_array_length(p_manifest),
+    'contract_hash',v_contract_hash);
 end
 $$;
 
 revoke all on function public.begin_data_lake_read_run(
-  uuid,uuid,text,text,jsonb,jsonb,bigint
+  uuid,uuid,text,text,jsonb,jsonb,bigint,text
 ) from public,anon,authenticated;
 grant execute on function public.begin_data_lake_read_run(
-  uuid,uuid,text,text,jsonb,jsonb,bigint
+  uuid,uuid,text,text,jsonb,jsonb,bigint,text
 ) to service_role;
 
 -- Canonical promotion remains tenant-authenticated, but ADLS runs may enter it
@@ -396,7 +446,7 @@ declare
   v_org uuid:=public.app_current_org();
 begin
   if v_org is null or not public.recovery_role_allowed(
-    array['planner','maintenance_manager','reliability_engineer','admin','ai_admin']
+    array['planner','maintenance_manager','reliability_engineer','admin']
   ) then
     return jsonb_build_object('error','data-lake ingestion authority denied');
   end if;
@@ -406,7 +456,7 @@ begin
     where r.id=p_run_id and r.organization_id=v_org and r.status='running'
       and c.connector_type='recovery_activation' and c.system_kind='data_lake'
       and c.register_ref='C2.14' and c.enabled and c.direction='read_only'
-      and not c.write_enabled
+      and not c.write_enabled and r.triggered_by=auth.uid()
   ) then
     return jsonb_build_object('error','running governed ADLS run not found');
   end if;
@@ -464,8 +514,8 @@ declare
   v_advanced boolean:=false;
   v_rows int:=0;
 begin
-  if p_status not in ('success','partial','failed') then
-    return jsonb_build_object('error','data-lake run status must be success, partial or failed');
+  if p_status not in ('success','partial','failure') then
+    return jsonb_build_object('error','data-lake run status must be success, partial or failure');
   end if;
   select r.* into v_run from public.connector_runs r
   join public.connectors c on c.id=r.connector_id and c.organization_id=r.organization_id

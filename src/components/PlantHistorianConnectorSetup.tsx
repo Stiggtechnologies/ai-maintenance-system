@@ -19,7 +19,7 @@ export function PlantHistorianConnectorSetup({
 }) {
   const { profile } = useAuth();
   const role = String(profile?.role ?? "").toLowerCase();
-  const isAdmin = role === "admin" || role === "ai_admin";
+  const isAdmin = role === "admin";
   const [key, setKey] = useState("");
   const [name, setName] = useState("");
   const [systemKind, setSystemKind] = useState<
@@ -46,7 +46,7 @@ export function PlantHistorianConnectorSetup({
     setError(null);
     setMessage(null);
     try {
-      const configured = await plantHistorianActions.configureSource({
+      const configuration = {
         key,
         name,
         systemKind,
@@ -56,8 +56,11 @@ export function PlantHistorianConnectorSetup({
         paginationMode,
         paginationNextPath,
         paginationMaxPages: Number(paginationMaxPages),
-        enabled,
         basis,
+      } as const;
+      const configured = await plantHistorianActions.configureSource({
+        ...configuration,
+        enabled: false,
       });
       const mapped = await plantHistorianActions.saveMapping({
         connectorKey: key.trim(),
@@ -66,10 +69,19 @@ export function PlantHistorianConnectorSetup({
         approve: approveMapping,
         basis,
       });
+      const activated = enabled
+        ? await plantHistorianActions.configureSource({
+            ...configuration,
+            enabled: true,
+          })
+        : null;
       setMessage(
         [
           String(configured.note ?? "Historian source saved."),
           String(mapped.note ?? ""),
+          activated
+            ? String(activated.note ?? "Historian source enabled.")
+            : "",
         ]
           .filter(Boolean)
           .join(" "),
@@ -135,7 +147,9 @@ export function PlantHistorianConnectorSetup({
 
       {!isAdmin ? (
         <p className="mt-4 rounded-lg border border-industrial-border p-3 text-sm text-slate-400">
-          An administrator must configure or enable the plant historian source.
+          A named human administrator must configure, approve, or enable the
+          plant historian source. AI administrators may inspect and dry-run it,
+          but cannot create approval authority.
         </p>
       ) : (
         <>
@@ -277,6 +291,7 @@ export function PlantHistorianConnectorSetup({
                 !Number.isFinite(Number(interval)) ||
                 Number(interval) < 1 ||
                 !paginationValid ||
+                (enabled && !approveMapping) ||
                 (enabled &&
                   (endpointUrl.trim().length < 12 ||
                     credentialRef.trim().length < 8))
@@ -284,7 +299,9 @@ export function PlantHistorianConnectorSetup({
               className="inline-flex items-center gap-2 rounded-lg bg-signal-cyan px-4 py-2 text-sm font-semibold text-overlook-void disabled:opacity-40"
             >
               <ShieldCheck className="h-4 w-4" />
-              {enabled ? "Save and enable" : "Save disabled configuration"}
+              {enabled
+                ? "Approve mapping and enable"
+                : "Save disabled configuration"}
             </button>
             <button
               type="button"

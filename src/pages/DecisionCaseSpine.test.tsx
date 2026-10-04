@@ -2,9 +2,17 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InvertedOpeningPage } from "./InvertedOpeningPage";
+import { DecisionCaseSpine } from "./DecisionCaseSpine";
 import { readFileSync } from "node:fs";
 import { INVERTED_EXAMPLE_PROMPTS } from "../lib/onboarding/inverted-opening";
 import type { DecisionCase } from "../lib/decision-case";
+import {
+  applyDisposition,
+  applyInvite,
+  applyVerificationPlan,
+  buildSpineDecisionCase,
+  recordSourceCheck,
+} from "../lib/onboarding/decision-case-spine";
 
 const authHolder = vi.hoisted(() => ({
   user: null as { id: string } | null,
@@ -12,18 +20,71 @@ const authHolder = vi.hoisted(() => ({
 }));
 
 const persist = vi.hoisted(() => ({
-  createPersistedDecisionCase: vi.fn(async (seed: DecisionCase) => ({
-    ...seed,
-    id: "11111111-1111-4111-8111-111111111111",
-  })),
-  savePersistedDecisionCase: vi.fn(async () => undefined),
-  loadPersistedDecisionCase: vi.fn(async () => null as DecisionCase | null),
+  caseState: null as DecisionCase | null,
+  createPersistedDecisionCase: vi.fn(async (seed: DecisionCase) => {
+    const created = {
+      ...seed,
+      id: "11111111-1111-4111-8111-111111111111",
+      revision: 1,
+    };
+    persist.caseState = created;
+    return created;
+  }),
+  savePersistedDecisionCase: vi.fn(
+    async (next: DecisionCase, command?: string) => {
+      const canonical = {
+        ...next,
+        revision: (next.revision ?? 0) + 1,
+        humanDecision:
+          command === "record_disposition" && next.humanDecision
+            ? {
+                ...next.humanDecision,
+                actor: {
+                  id: "user-1",
+                  name: "Ada",
+                  role: "reliability_engineer",
+                },
+              }
+            : next.humanDecision,
+      };
+      persist.caseState = canonical;
+      return canonical;
+    },
+  ),
+  loadPersistedDecisionCase: vi.fn(async () => persist.caseState),
   listRecentPersistedDecisionCases: vi.fn(async () => []),
+  listDecisionCaseAuthorityDirectory: vi.fn(async () => [
+    {
+      userId: "22222222-2222-4222-8222-222222222222",
+      name: "Kai Manager",
+      email: "kai@example.com",
+      role: "maintenance_manager",
+    },
+  ]),
+  recordDecisionCaseApproval: vi.fn(
+    async (next: DecisionCase, decision: string, reason: string) => ({
+      ...next,
+      revision: (next.revision ?? 0) + 1,
+      humanApproval: {
+        decision,
+        reason,
+        recordedAt: "2026-10-03T12:00:00.000Z",
+        basisVersion: next.revision ?? 0,
+        basisSha256: "a".repeat(64),
+        approvalVersion: (next.revision ?? 0) + 1,
+        actor: {
+          id: authHolder.user?.id ?? "",
+          name: "Kai Manager",
+          role: "maintenance_manager",
+        },
+      },
+    }),
+  ),
 }));
 
 const invitation = vi.hoisted(() => ({
   send: vi.fn(async () => ({
-    name: "Kai",
+    name: "Kai Manager",
     email: "kai@example.com",
     status: "submitted" as const,
     detail:
@@ -33,7 +94,7 @@ const invitation = vi.hoisted(() => ({
     lastCheckedAt: "2026-10-02T12:00:00.000Z",
   })),
   status: vi.fn(async () => ({
-    name: "Kai",
+    name: "Kai Manager",
     email: "kai@example.com",
     status: "active" as const,
     detail:
@@ -60,6 +121,9 @@ vi.mock("../services/decisionCaseService", () => ({
   savePersistedDecisionCase: persist.savePersistedDecisionCase,
   loadPersistedDecisionCase: persist.loadPersistedDecisionCase,
   listRecentPersistedDecisionCases: persist.listRecentPersistedDecisionCases,
+  listDecisionCaseAuthorityDirectory:
+    persist.listDecisionCaseAuthorityDirectory,
+  recordDecisionCaseApproval: persist.recordDecisionCaseApproval,
   isPersistedDecisionCase: (id: string) =>
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
       id,
@@ -121,10 +185,41 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     persist.savePersistedDecisionCase.mockClear();
     persist.loadPersistedDecisionCase.mockClear();
     persist.listRecentPersistedDecisionCases.mockClear();
+    persist.listDecisionCaseAuthorityDirectory.mockClear();
+    persist.recordDecisionCaseApproval.mockClear();
     invitation.send.mockClear();
     invitation.status.mockClear();
     kb.ingest.mockClear();
+    persist.savePersistedDecisionCase.mockImplementation(
+      async (next: DecisionCase, command?: string) => {
+        const canonical = {
+          ...next,
+          revision: (next.revision ?? 0) + 1,
+          humanDecision:
+            command === "record_disposition" && next.humanDecision
+              ? {
+                  ...next.humanDecision,
+                  actor: {
+                    id: "user-1",
+                    name: "Ada",
+                    role: "reliability_engineer",
+                  },
+                }
+              : next.humanDecision,
+        };
+        persist.caseState = canonical;
+        return canonical;
+      },
+    );
+    persist.loadPersistedDecisionCase.mockImplementation(
+      async () => persist.caseState,
+    );
+    persist.caseState = null;
     localStorage.clear();
+    Object.defineProperty(HTMLElement.prototype, "scrollIntoView", {
+      configurable: true,
+      value: vi.fn(),
+    });
   });
 
   it("does not rewrite the P0.1 opening contract", () => {
@@ -143,6 +238,8 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     expect(screen.queryByTestId("decision-case-spine")).toBeNull();
     openSpine();
     expect(screen.getByTestId("decision-case-spine")).toBeTruthy();
+    expect(screen.getByText("First Decision Journey")).toBeTruthy();
+    expect(screen.getByText(/not the full 20-step journey/i)).toBeTruthy();
     expect(screen.getByTestId("spine-loop").textContent).toMatch(/QUESTION/);
     expect(screen.getByTestId("spine-loop").textContent).toMatch(/LEARNING/);
     expect(screen.getByTestId("spine-stage-help")).toBeTruthy();
@@ -180,8 +277,8 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     fireEvent.change(screen.getByTestId("spine-person-decisionOwner"), {
       target: { value: "Ada" },
     });
-    fireEvent.change(screen.getByTestId("spine-person-requiredApprover"), {
-      target: { value: "Kai" },
+    fireEvent.change(screen.getByTestId("spine-person-verificationOwner"), {
+      target: { value: "Ada" },
     });
     fireEvent.click(screen.getByTestId("spine-disp-accept"));
     fireEvent.change(screen.getByTestId("spine-rationale"), {
@@ -197,6 +294,12 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     fireEvent.click(screen.getByTestId("spine-record-disposition"));
     expect(screen.queryByRole("alert")).toBeNull();
     expect(screen.getByTestId("spine-verification")).toBeTruthy();
+    expect(
+      screen
+        .getByTestId("spine-verification")
+        .compareDocumentPosition(screen.getByTestId("spine-invite")) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
     fireEvent.change(screen.getByTestId("spine-verify-expected"), {
       target: { value: "Named vibration set before next review" },
     });
@@ -212,7 +315,6 @@ describe("P0.2 Decision Case spine on /get-started", () => {
   it("never dead-ends a failed connection", async () => {
     renderOpening();
     openSpine();
-    fireEvent.click(screen.getByTestId("spine-method-connect_source"));
     fireEvent.click(screen.getByTestId("spine-connect-check"));
     expect(
       (await screen.findByTestId("spine-connect-fallbacks")).textContent,
@@ -222,6 +324,68 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     );
     expect(screen.getByTestId("spine-connect-fallbacks").textContent).toMatch(
       /No source is connected/,
+    );
+    fireEvent.click(screen.getByTestId("spine-connect-fallback-manual"));
+    expect(document.activeElement).toBe(screen.getByTestId("spine-evidence"));
+  });
+
+  it("renders the supported first-time journey in evidence-before-recommendation order", () => {
+    renderOpening();
+    openSpine();
+    const ordered = [
+      screen.getByTestId("spine-save-workspace"),
+      screen.getByTestId("spine-evidence"),
+      screen.getByTestId("spine-recommendation"),
+      screen.getByTestId("spine-disposition"),
+      screen.getByTestId("spine-invite"),
+      screen.getByTestId("spine-connect-source"),
+      screen.getByTestId("spine-readiness"),
+    ];
+    for (let index = 0; index < ordered.length - 1; index += 1) {
+      expect(
+        ordered[index].compareDocumentPosition(ordered[index + 1]) &
+          Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    }
+  });
+
+  it("does not earn saved readiness after an update failure and reloads the last persisted case", async () => {
+    authHolder.user = { id: "user-1" };
+    renderOpening();
+    openSpine();
+    expect(await screen.findByTestId("spine-save-notice")).toHaveTextContent(
+      /Decision Case is on your evaluation workspace/i,
+    );
+
+    persist.savePersistedDecisionCase.mockRejectedValueOnce(
+      new Error("workspace write refused"),
+    );
+    fireEvent.change(screen.getByTestId("spine-evidence-body"), {
+      target: { value: "Customer-supplied inspection note." },
+    });
+    fireEvent.click(screen.getByTestId("spine-add-evidence"));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /workspace write refused/i,
+    );
+    expect(screen.getByTestId("spine-gate-audit_trail")).toHaveTextContent(
+      /Open/i,
+    );
+    expect(screen.getByTestId("spine-gate-evidence_path")).toHaveTextContent(
+      /Open/i,
+    );
+
+    fireEvent.click(screen.getByTestId("spine-reload-audit"));
+    await waitFor(() =>
+      expect(screen.getByTestId("spine-save-notice")).toHaveTextContent(
+        /reloaded from the evaluation workspace/i,
+      ),
+    );
+    expect(screen.getByTestId("spine-gate-audit_trail")).toHaveTextContent(
+      /Met/i,
+    );
+    expect(screen.getByTestId("spine-gate-evidence_path")).toHaveTextContent(
+      /Open/i,
     );
   });
 
@@ -235,6 +399,61 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     expect(screen.getByTestId("decision-case-spine")).toBeTruthy();
     expect(screen.getByText(/Example preview/i)).toBeTruthy();
     expect(persist.createPersistedDecisionCase).not.toHaveBeenCalled();
+  });
+
+  it("moves focus to the next step and exposes live save/readiness status", async () => {
+    authHolder.user = { id: "user-1" };
+    renderOpening();
+    openSpine();
+    await screen.findByTestId("spine-evidence");
+
+    expect(screen.getByTestId("spine-save-notice")).toHaveAttribute(
+      "aria-live",
+      "polite",
+    );
+    expect(screen.getByTestId("spine-readiness")).toHaveAttribute(
+      "aria-live",
+      "polite",
+    );
+    fireEvent.click(screen.getByTestId("spine-next-action-open"));
+    expect(document.activeElement).toBe(screen.getByTestId("spine-evidence"));
+    expect(HTMLElement.prototype.scrollIntoView).toHaveBeenCalled();
+  });
+
+  it("prevents an out-of-order second mutation while a save is in flight", async () => {
+    authHolder.user = { id: "user-1" };
+    type SavedCase = Awaited<
+      ReturnType<typeof persist.savePersistedDecisionCase>
+    >;
+    let resolveSave: ((value: SavedCase) => void) | undefined;
+    persist.savePersistedDecisionCase.mockImplementationOnce(
+      (next: DecisionCase) =>
+        new Promise<SavedCase>((resolve) => {
+          resolveSave = resolve;
+          persist.caseState = next;
+        }),
+    );
+    renderOpening();
+    openSpine();
+    await screen.findByTestId("spine-evidence");
+    fireEvent.change(screen.getByTestId("spine-evidence-body"), {
+      target: { value: "Customer supplied inspection finding." },
+    });
+    const add = screen.getByTestId("spine-add-evidence");
+    fireEvent.click(add);
+    fireEvent.click(add);
+    expect(persist.savePersistedDecisionCase).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(add).toBeDisabled());
+    fireEvent.click(add);
+    expect(persist.savePersistedDecisionCase).toHaveBeenCalledTimes(1);
+
+    const pending = persist.caseState!;
+    resolveSave?.({
+      ...pending,
+      revision: (pending.revision ?? 1) + 1,
+      humanDecision: pending.humanDecision,
+    });
+    await waitFor(() => expect(add).not.toBeDisabled());
   });
 
   it("creates the evaluation workspace case when a signed-in user saves", async () => {
@@ -251,68 +470,342 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     expect(screen.getByTestId("spine-evidence-file")).toBeTruthy();
   });
 
-  it("does not count a recorded person as an invitation, then earns the gate from a delivery receipt", async () => {
+  it("binds tenant authority and earns collaboration only after Auth confirms access", async () => {
     authHolder.user = { id: "user-1" };
-    authHolder.profile = { role: "admin" };
     renderOpening();
     openSpine();
-    await screen.findByTestId("spine-audit");
-    fireEvent.change(screen.getByTestId("spine-invite-name"), {
-      target: { value: "Kai" },
-    });
-    fireEvent.change(screen.getByTestId("spine-invite-email"), {
-      target: { value: "kai@example.com" },
+    await screen.findByText(/Kai Manager · maintenance_manager/);
+    const select = await screen.findByTestId("spine-required-person");
+    expect(screen.queryByTestId("spine-invite-name")).toBeNull();
+    fireEvent.change(select, {
+      target: { value: "22222222-2222-4222-8222-222222222222" },
     });
     fireEvent.click(screen.getByTestId("spine-record-invite"));
-    expect(screen.getByTestId("spine-invite-status").textContent).toMatch(
-      /recorded only/i,
+    await waitFor(() =>
+      expect(persist.savePersistedDecisionCase).toHaveBeenCalledWith(
+        expect.objectContaining({
+          requiredPerson: expect.objectContaining({
+            userId: "22222222-2222-4222-8222-222222222222",
+            authorityRole: "maintenance_manager",
+          }),
+        }),
+        "record_required_person",
+      ),
+    );
+    expect(screen.getByTestId("spine-approval-pending")).toHaveTextContent(
+      /cannot approve on their behalf/i,
     );
     expect(
       screen.getByTestId("spine-gate-invitation_delivery").textContent,
     ).toMatch(/Open/);
     expect(screen.getByTestId("spine-invite-status").textContent).toMatch(
-      /separate states/i,
+      /no workspace invitation has been sent/i,
     );
 
-    fireEvent.click(screen.getByTestId("spine-send-invite"));
-    await waitFor(() => expect(invitation.send).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByTestId("spine-refresh-invite"));
+    await waitFor(() => expect(invitation.status).toHaveBeenCalledTimes(1));
     await waitFor(() =>
       expect(screen.getByTestId("spine-invite-status").textContent).toMatch(
-        /submitted/i,
+        /active/i,
       ),
     );
     expect(
       screen.getByTestId("spine-gate-invitation_delivery").textContent,
     ).toMatch(/Met/);
-    expect(screen.getByTestId("spine-invite-status").textContent).toMatch(
-      /acceptance are not confirmed/i,
-    );
   });
 
-  it("routes signed-in evidence through governed intake and retains its receipt", async () => {
+  it("sends a secure workspace invitation only after binding a tenant authority", async () => {
     authHolder.user = { id: "user-1" };
     authHolder.profile = { role: "admin" };
     renderOpening();
     openSpine();
+
+    await screen.findByText(/Kai Manager · maintenance_manager/);
+    const select = await screen.findByTestId("spine-required-person");
+    expect(screen.getByTestId("spine-send-invite")).toBeDisabled();
+    fireEvent.change(select, {
+      target: { value: "22222222-2222-4222-8222-222222222222" },
+    });
+    fireEvent.click(screen.getByTestId("spine-record-invite"));
+
+    await waitFor(() =>
+      expect(screen.getByTestId("spine-send-invite")).not.toBeDisabled(),
+    );
+    fireEvent.click(screen.getByTestId("spine-send-invite"));
+
+    await waitFor(() =>
+      expect(invitation.send).toHaveBeenCalledWith({
+        decisionCaseId: "11111111-1111-4111-8111-111111111111",
+        name: "Kai Manager",
+        email: "kai@example.com",
+      }),
+    );
+    expect(await screen.findByTestId("spine-invite-status")).toHaveTextContent(
+      /submitted/i,
+    );
+    expect(screen.getByTestId("spine-invite-status")).toHaveTextContent(
+      /decision authority are separate states/i,
+    );
+  });
+
+  it("routes governed evidence through security intake before attaching it to the case", async () => {
+    authHolder.user = { id: "user-1" };
+    authHolder.profile = { role: "reliability_engineer" };
+    renderOpening();
+    openSpine();
     await screen.findByTestId("spine-audit");
-    fireEvent.click(screen.getByTestId("spine-kind-documents"));
+
     fireEvent.change(screen.getByTestId("spine-evidence-body"), {
       target: {
         value:
-          "Controlled inspection procedure supplied by the customer for this decision.",
+          "Customer-provided inspection evidence with source identity and review context.",
       },
     });
     fireEvent.click(screen.getByTestId("spine-ingest-evidence"));
-    await waitFor(() => expect(kb.ingest).toHaveBeenCalledTimes(1));
-    expect(
-      (await screen.findByTestId("spine-evidence-notice")).textContent,
-    ).toMatch(/2 governed chunk/i);
-    fireEvent.click(screen.getByTestId("spine-provenance-toggle"));
-    expect(screen.getByTestId("spine-provenance").textContent).toMatch(
-      /SyncAI governed document intake/i,
+
+    await waitFor(() =>
+      expect(kb.ingest).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: expect.stringMatching(/Work history/i),
+          document_class: "unclassified",
+          content: expect.stringMatching(
+            /Customer-provided inspection evidence/,
+          ),
+        }),
+      ),
     );
-    expect(screen.getByTestId("spine-provenance").textContent).toMatch(
-      /decision-case-dc-1-documents/i,
+    await waitFor(() =>
+      expect(persist.savePersistedDecisionCase).toHaveBeenCalledWith(
+        expect.objectContaining({
+          evidence: expect.arrayContaining([
+            expect.objectContaining({
+              sourceReceipt: expect.objectContaining({
+                sourceId: "decision-case-dc-1-documents",
+                securityStatus: "cleared",
+              }),
+            }),
+          ]),
+        }),
+        "add_evidence",
+      ),
+    );
+    expect(
+      await screen.findByTestId("spine-evidence-notice"),
+    ).toHaveTextContent(/indexed with 2 governed chunk/i);
+  });
+
+  it("exposes approval only to the authenticated bound required person", async () => {
+    const base = buildSpineDecisionCase({
+      question: "May this bounded recommendation proceed?",
+      intent: "coordinate",
+    });
+    const disposition = applyDisposition(
+      {
+        ...base,
+        id: "11111111-1111-4111-8111-111111111111",
+        revision: 3,
+      },
+      "accept",
+      "The bounded recommendation remains inside the reviewed evidence.",
+      {
+        decisionOwner: "Ada Owner",
+        recommendationAuthor: "Riley Author",
+        requiredApprover: "",
+        verificationOwner: "Vera Owner",
+      },
+      { counterfactual: "A contradictory inspection finding." },
+    );
+    disposition.humanDecision = {
+      ...disposition.humanDecision!,
+      actor: {
+        id: "user-1",
+        name: "Ada Owner",
+        role: "reliability_engineer",
+      },
+    };
+    const scheduled = applyVerificationPlan(disposition, {
+      question: "Did the bounded outcome occur?",
+      expected: "No adverse condition change",
+      actual: "",
+      evidence: "",
+      scheduledFor: "2026-10-10",
+      effectiveness: "",
+      attributedTo: "Vera Owner",
+    });
+    const initialCase = recordSourceCheck(
+      applyInvite(scheduled, {
+        userId: "22222222-2222-4222-8222-222222222222",
+        name: "Kai Manager",
+        email: "kai@example.com",
+        authority: "maintenance_manager",
+      }),
+      {
+        ok: false,
+        reason: "No governed integration is connected.",
+      },
+    );
+    authHolder.user = { id: "22222222-2222-4222-8222-222222222222" };
+    render(
+      <MemoryRouter>
+        <DecisionCaseSpine
+          question={initialCase.objective}
+          intent="coordinate"
+          initialCase={initialCase}
+          initiallySaved
+        />
+      </MemoryRouter>,
+    );
+    expect(
+      await screen.findByTestId("spine-required-person-approval"),
+    ).toBeTruthy();
+    fireEvent.change(screen.getByTestId("spine-approval-reason"), {
+      target: { value: "Evidence and conditions were independently reviewed." },
+    });
+    fireEvent.click(screen.getByTestId("spine-approval-approved"));
+    await waitFor(() =>
+      expect(persist.recordDecisionCaseApproval).toHaveBeenCalledWith(
+        expect.objectContaining({ id: initialCase.id }),
+        "approved",
+        "Evidence and conditions were independently reviewed.",
+      ),
+    );
+  });
+
+  it("withholds approval controls until the source-check prerequisite is recorded", async () => {
+    const base = buildSpineDecisionCase({
+      question: "May this bounded recommendation proceed?",
+      intent: "coordinate",
+    });
+    const initialCase = applyInvite(
+      {
+        ...base,
+        id: "11111111-1111-4111-8111-111111111111",
+        revision: 3,
+      },
+      {
+        userId: "22222222-2222-4222-8222-222222222222",
+        name: "Kai Manager",
+        email: "kai@example.com",
+        authority: "maintenance_manager",
+      },
+    );
+    authHolder.user = { id: "22222222-2222-4222-8222-222222222222" };
+    render(
+      <MemoryRouter>
+        <DecisionCaseSpine
+          question={initialCase.objective}
+          intent="coordinate"
+          initialCase={initialCase}
+          initiallySaved
+        />
+      </MemoryRouter>,
+    );
+
+    expect(
+      await screen.findByTestId("spine-approval-prerequisites"),
+    ).toHaveTextContent(/source connection check/i);
+    expect(screen.queryByTestId("spine-approval-reason")).toBeNull();
+    expect(screen.queryByTestId("spine-approval-approved")).toBeNull();
+  });
+
+  it("locks the approved basis and permits only one post-approval outcome", async () => {
+    const base = buildSpineDecisionCase({
+      question: "May this bounded recommendation proceed?",
+      intent: "coordinate",
+    });
+    const disposition = applyDisposition(
+      {
+        ...base,
+        id: "11111111-1111-4111-8111-111111111111",
+        revision: 8,
+      },
+      "accept",
+      "The bounded recommendation remains inside the reviewed evidence.",
+      {
+        decisionOwner: "Ada Owner",
+        recommendationAuthor: "Riley Author",
+        requiredApprover: "",
+        verificationOwner: "Vera Owner",
+      },
+      { counterfactual: "A contradictory inspection finding." },
+    );
+    const scheduled = applyVerificationPlan(disposition, {
+      question: "Did the bounded outcome occur?",
+      expected: "No adverse condition change",
+      actual: "",
+      evidence: "",
+      scheduledFor: "2026-10-10",
+      effectiveness: "",
+      attributedTo: "Vera Owner",
+    });
+    const approved: DecisionCase = {
+      ...scheduled,
+      humanApproval: {
+        decision: "approved",
+        reason: "The reviewed basis is accepted.",
+        recordedAt: "2026-10-03T12:00:00.000Z",
+        basisVersion: 8,
+        basisSha256: "a".repeat(64),
+        approvalVersion: 9,
+        actor: {
+          id: "22222222-2222-4222-8222-222222222222",
+          name: "Kai Manager",
+          role: "maintenance_manager",
+        },
+      },
+    };
+    const view = render(
+      <MemoryRouter>
+        <DecisionCaseSpine
+          question={approved.objective}
+          intent="coordinate"
+          initialCase={approved}
+          initiallySaved
+        />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByTestId("spine-evidence-locked")).toBeTruthy();
+    expect(screen.getByTestId("spine-disposition-locked")).toBeTruthy();
+    expect(screen.getByTestId("spine-required-person-locked")).toBeTruthy();
+    expect(screen.getByTestId("spine-source-check-locked")).toBeTruthy();
+    expect(screen.getByTestId("spine-add-evidence")).toBeDisabled();
+    expect(screen.getByTestId("spine-record-disposition")).toBeDisabled();
+    expect(screen.getByTestId("spine-record-invite")).toBeDisabled();
+    expect(screen.getByTestId("spine-connect-check")).toBeDisabled();
+    expect(screen.getByTestId("spine-verify-expected")).toBeDisabled();
+    expect(screen.getByTestId("spine-verify-date")).toBeDisabled();
+    expect(screen.getByTestId("spine-verify-actual")).not.toBeDisabled();
+    expect(screen.getByTestId("spine-verify-evidence")).not.toBeDisabled();
+    expect(screen.getByTestId("spine-record-verification")).toHaveTextContent(
+      /one-time verification outcome/i,
+    );
+
+    view.unmount();
+    const recorded = applyVerificationPlan(approved, {
+      question: "Did the bounded outcome occur?",
+      expected: "No adverse condition change",
+      actual: "No adverse change observed",
+      evidence: "Signed inspection result",
+      scheduledFor: "2026-10-10",
+      effectiveness: "effective",
+      attributedTo: "Vera Owner",
+    });
+    render(
+      <MemoryRouter>
+        <DecisionCaseSpine
+          question={recorded.objective}
+          intent="coordinate"
+          initialCase={recorded}
+          initiallySaved
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.getByTestId("spine-verify-actual")).toBeDisabled();
+    expect(screen.getByTestId("spine-verify-evidence")).toBeDisabled();
+    expect(screen.getByTestId("spine-record-verification")).toBeDisabled();
+    expect(screen.getByTestId("spine-record-verification")).toHaveTextContent(
+      /already recorded/i,
     );
   });
 
@@ -439,6 +932,9 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     ).toBe("true");
 
     fireEvent.change(screen.getByTestId("spine-person-decisionOwner"), {
+      target: { value: "Ada" },
+    });
+    fireEvent.change(screen.getByTestId("spine-person-verificationOwner"), {
       target: { value: "Ada" },
     });
     fireEvent.click(screen.getByTestId("spine-disp-accept"));

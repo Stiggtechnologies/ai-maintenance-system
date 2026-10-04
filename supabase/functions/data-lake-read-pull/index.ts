@@ -97,12 +97,16 @@ function filesystemUrl(value: string): URL {
 }
 
 interface ServicePrincipal {
+  organizationId: string;
   tenantId: string;
   clientId: string;
   clientSecret: string;
 }
 
-function servicePrincipal(binding: string): ServicePrincipal {
+function servicePrincipal(
+  binding: string,
+  expectedOrganizationId: string,
+): ServicePrincipal {
   let registry: Record<string, unknown>;
   try {
     registry = JSON.parse(CREDENTIALS_JSON) as Record<string, unknown>;
@@ -117,20 +121,25 @@ function servicePrincipal(binding: string): ServicePrincipal {
       "ADLS credential binding must name an Azure service-principal entry in the Edge secret registry.",
     );
   }
+  const organizationId = String(entry.organization_id ?? "").trim();
   const tenantId = String(entry.tenant_id ?? "").trim();
   const clientId = String(entry.client_id ?? "").trim();
   const clientSecret = String(entry.client_secret ?? "");
   const uuid =
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   if (
+    !uuid.test(organizationId) ||
+    organizationId !== expectedOrganizationId ||
     !uuid.test(tenantId) ||
     !uuid.test(clientId) ||
     clientSecret.length < 16 ||
     /[\r\n]/.test(clientSecret)
   ) {
-    throw new Error("ADLS service-principal credential entry is invalid.");
+    throw new Error(
+      "ADLS service-principal credential entry is invalid or belongs to another SyncAI tenant.",
+    );
   }
-  return { tenantId, clientId, clientSecret };
+  return { organizationId, tenantId, clientId, clientSecret };
 }
 
 const tokenCache = new Map<string, { value: string; expiresAt: number }>();
@@ -139,7 +148,8 @@ async function storageToken(
   binding: string,
   credential: ServicePrincipal,
 ): Promise<string> {
-  const cached = tokenCache.get(binding);
+  const cacheKey = `${credential.organizationId}:${binding}:${credential.clientId}`;
+  const cached = tokenCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now() + 60_000) return cached.value;
   const response = await fetch(
     `https://login.microsoftonline.com/${credential.tenantId}/oauth2/v2.0/token`,
@@ -166,7 +176,7 @@ async function storageToken(
   if (value.length < 32)
     throw new Error("Microsoft returned an invalid ADLS token.");
   const seconds = Number(payload?.expires_in ?? 300);
-  tokenCache.set(binding, {
+  tokenCache.set(cacheKey, {
     value,
     expiresAt: Date.now() + Math.max(60, Math.min(seconds, 3600)) * 1000,
   });
@@ -335,22 +345,24 @@ Deno.serve(async (request) => {
       { p_connector_key: connectorKey, p_entity_type: entityType },
     );
     organizationId = String(source.organization_id ?? "");
+    if (source.direction !== "read_only" || source.write_enabled)
+      throw new Error("ADLS source is not governed as read-only.");
     if (
-      !source.enabled ||
-      source.direction !== "read_only" ||
-      source.write_enabled ||
-      source.mapping_status !== "approved"
-    ) {
+      !dryRun &&
+      (!source.enabled ||
+        source.mapping_status !== "approved" ||
+        source.can_commit !== true)
+    )
       throw new Error(
-        "ADLS source is not enabled, read-only and mapping-approved.",
+        "Commit requires an active source, a named-human-approved mapping and a named human operator.",
       );
-    }
     const root = filesystemUrl(String(source.filesystem_url ?? ""));
     const binding = String(source.credential_binding_ref ?? "");
     const prefix = String(source.object_prefix ?? "");
     const format = String(source.object_format ?? "") as DataLakeFormat;
     const maxFiles = Number(source.max_files ?? 0);
     const maxBytes = Number(source.max_bytes ?? 0);
+    const contractHash = String(source.contract_hash ?? "");
     if (
       !organizationId ||
       !binding ||
@@ -361,7 +373,8 @@ Deno.serve(async (request) => {
       maxFiles > 100 ||
       !Number.isSafeInteger(maxBytes) ||
       maxBytes < 1024 * 1024 ||
-      maxBytes > 50 * 1024 * 1024
+      maxBytes > 50 * 1024 * 1024 ||
+      !/^[0-9a-f]{32}$/.test(contractHash)
     ) {
       throw new Error("ADLS source profile is invalid.");
     }
@@ -380,7 +393,7 @@ Deno.serve(async (request) => {
     }
 
     const deadline = Date.now() + MAX_TOTAL_DURATION_MS;
-    const credential = servicePrincipal(binding);
+    const credential = servicePrincipal(binding, organizationId);
     const token = await storageToken(binding, credential);
     const listed = await listPaths(root, prefix, token, deadline);
     const selected = selectAdlsObjects(
@@ -509,6 +522,7 @@ Deno.serve(async (request) => {
         p_manifest: manifest,
         p_cursor_to: selected.cursor,
         p_source_bytes: actualBytes,
+        p_expected_contract_hash: contractHash,
       },
     );
     runId = started.run_id;
@@ -530,6 +544,7 @@ Deno.serve(async (request) => {
       {
         p_organization_id: organizationId,
         p_run_id: runId,
+        p_finished_by: userData.user.id,
         p_status: status,
         p_error: null,
       },
@@ -558,7 +573,8 @@ Deno.serve(async (request) => {
         await rpc(serviceClient, "finish_data_lake_read_run", {
           p_organization_id: organizationId,
           p_run_id: runId,
-          p_status: "failed",
+          p_finished_by: userData.user.id,
+          p_status: "failure",
           p_error: "ADLS adapter failed; inspect Edge Function logs.",
         });
       } catch {

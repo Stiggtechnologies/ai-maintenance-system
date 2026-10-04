@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   mapSapMaterialStock,
+  normalizeSapInventoryPullRequest,
   readSapODataPage,
   sapMaterialStockUrl,
   validateSapNextUrl,
@@ -11,6 +12,28 @@ const root = new URL(
 );
 
 describe("SAP S/4HANA material stock mapper", () => {
+  it("normalizes only a bounded object request with an explicit boolean mode", () => {
+    expect(
+      normalizeSapInventoryPullRequest({
+        connector_key: " north-sap ",
+        dry_run: false,
+      }),
+    ).toEqual({ connectorKey: "north-sap", dryRun: false });
+    expect(
+      normalizeSapInventoryPullRequest({ connector_key: "north-sap" }),
+    ).toEqual({ connectorKey: "north-sap", dryRun: true });
+    expect(() => normalizeSapInventoryPullRequest(null)).toThrow(/JSON object/);
+    expect(() =>
+      normalizeSapInventoryPullRequest({
+        connector_key: "north-sap",
+        dry_run: "false",
+      }),
+    ).toThrow(/true or false/);
+    expect(() =>
+      normalizeSapInventoryPullRequest({ connector_key: "x".repeat(161) }),
+    ).toThrow(/160-character/);
+  });
+
   it("builds the exact unrestricted non-special stock query", () => {
     const url = sapMaterialStockUrl(root, "1000", "0001", 500);
     expect(url.pathname).toBe(
@@ -54,7 +77,7 @@ describe("SAP S/4HANA material stock mapper", () => {
       mapSapMaterialStock(page.rows, {
         plant: "1000",
         storageLocation: "0001",
-        siteId: "00000000-0000-0000-0000-000000000001",
+        siteId: "00000000-0000-4000-8000-000000000001",
         observedAt: "2026-10-02T12:00:00Z",
         maxRows: 100,
       }),
@@ -72,7 +95,7 @@ describe("SAP S/4HANA material stock mapper", () => {
     const scope = {
       plant: "1000",
       storageLocation: "0001",
-      siteId: "site",
+      siteId: "00000000-0000-4000-8000-000000000001",
       observedAt: "2026-10-02T12:00:00Z",
       maxRows: 100,
     };
@@ -109,6 +132,37 @@ describe("SAP S/4HANA material stock mapper", () => {
         scope,
       ),
     ).toThrow(/not unrestricted/i);
+  });
+
+  it("bounds source identities before they can enter staging", () => {
+    const scope = {
+      plant: "1000",
+      storageLocation: "0001",
+      siteId: "00000000-0000-4000-8000-000000000001",
+      observedAt: "2026-10-02T12:00:00Z",
+      maxRows: 100,
+    };
+    expect(() =>
+      mapSapMaterialStock(
+        [
+          {
+            Material: "M".repeat(256),
+            Plant: "1000",
+            StorageLocation: "0001",
+            InventoryStockType: "01",
+            InventorySpecialStockType: "",
+            MaterialBaseUnit: "EA",
+            MatlWrhsStkQtyInMatlBaseUnit: "1",
+          },
+        ],
+        scope,
+      ),
+    ).toThrow(/255-character/);
+    expect(() =>
+      readSapODataPage({
+        d: { results: [], __next: `https://sap.example/${"x".repeat(4096)}` },
+      }),
+    ).toThrow(/4096-character/);
   });
 
   it("keeps OData pagination on the approved resource and query", () => {

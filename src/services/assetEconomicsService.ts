@@ -69,6 +69,8 @@ export interface AssetEconomicsWorkspace {
     itemCount: number;
     mandatoryCount: number;
     governedCandidateCount: number;
+    currency: string | null;
+    currencySpecified: boolean;
     totalCost: number | null;
   }>;
   currency: "USD";

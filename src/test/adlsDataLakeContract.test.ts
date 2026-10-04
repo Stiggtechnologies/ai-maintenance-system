@@ -2,7 +2,11 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270101580000_adls_data_lake_read.sql",
+  "supabase/migrations/20270102140000_adls_data_lake_read.sql",
+  "utf8",
+).toLowerCase();
+const repair = readFileSync(
+  "supabase/migrations/20270102150000_adls_data_lake_provenance_reconciliation.sql",
   "utf8",
 ).toLowerCase();
 const edge = readFileSync(
@@ -37,6 +41,8 @@ describe("C2.14 governed ADLS data-lake adapter", () => {
     expect(edge).toContain("azure_service_principal");
     expect(edge).toContain("dfs\\.core\\.windows\\.net");
     expect(edge).toContain("RECOVERY_CONNECTOR_ALLOWED_HOSTS");
+    expect(edge).toContain("entry.organization_id");
+    expect(edge).toContain("belongs to another SyncAI tenant");
     expect(edge).toContain('method: "GET"');
     expect(edge).toContain('redirect: "error"');
     expect(edge).not.toMatch(/method:\s*"(?:PUT|PATCH|DELETE)"/);
@@ -54,10 +60,6 @@ describe("C2.14 governed ADLS data-lake adapter", () => {
   });
 
   it("proves every row receipt and reconciles transport before watermarking", () => {
-    const repair = readFileSync(
-      "supabase/migrations/20270101581000_adls_data_lake_provenance_reconciliation.sql",
-      "utf8",
-    ).toLowerCase();
     expect(repair).toContain(
       "every adls row requires immutable source provenance",
     );
@@ -65,9 +67,7 @@ describe("C2.14 governed ADLS data-lake adapter", () => {
     expect(repair).toContain("restore_data_lake_staging_provenance");
     expect(repair).toContain("s.payload-'_sync_source'");
     expect(repair).toContain("order by s.received_at desc,s.id desc");
-    expect(repair).toContain(
-      "idx_ingest_staging_latest_accepted_identity",
-    );
+    expect(repair).toContain("idx_ingest_staging_latest_accepted_identity");
     expect(repair).toContain("pg_advisory_xact_lock");
     expect(repair.match(/for update of r/g)).toHaveLength(2);
     expect(repair).toContain("records_duplicate=records_duplicate+1");
@@ -86,6 +86,31 @@ describe("C2.14 governed ADLS data-lake adapter", () => {
     expect(migration).toContain("from public,anon,authenticated");
     expect(migration).toContain("to service_role");
     expect(edge).toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(repair).toContain("p_finished_by uuid");
+    expect(repair).toContain("r.triggered_by=p_finished_by");
+    expect(repair).toContain("r.triggered_by=auth.uid()");
+  });
+
+  it("requires named-human approval and freezes the connector contract", () => {
+    expect(repair).toContain("save_data_lake_read_mapping");
+    expect(repair).toContain("named human administrator");
+    expect(repair).toContain("enforce_data_lake_mapping_authority");
+    expect(repair).toContain("source_disabled");
+    expect(repair).toContain("data_lake_read_contract_hash");
+    expect(migration).toContain("p_expected_contract_hash text");
+    expect(migration).toContain("source_contract_hash");
+    expect(migration).toContain("already running");
+    expect(edge).toContain("p_expected_contract_hash: contractHash");
+    expect(edge).toContain('p_status: "failure"');
+  });
+
+  it("permits write-free inspection but gates every commit", () => {
+    expect(edge).toContain("!dryRun &&");
+    expect(edge).toContain("source.can_commit !== true");
+    expect(edge).toContain("named-human-approved mapping");
+    expect(edge).toContain(
+      "No canonical, staging, run or watermark row was written",
+    );
   });
 
   it("blocks the generic ingest path and refuses cursor regression", () => {
@@ -98,6 +123,7 @@ describe("C2.14 governed ADLS data-lake adapter", () => {
 
   it("ships administrator configuration and operator dry-run/import wiring", () => {
     expect(service).toContain("configure_data_lake_read_source");
+    expect(service).toContain("save_data_lake_read_mapping");
     expect(service).toContain('"data-lake-read-pull"');
     expect(component).toContain("Azure Data Lake Gen2");
     expect(component).toContain("Approved object prefix");

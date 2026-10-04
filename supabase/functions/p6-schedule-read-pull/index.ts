@@ -5,6 +5,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   mapP6ScheduleSnapshot,
+  normalizeP6PullRequest,
   P6_ACTIVITY_FIELDS,
   P6_RELATIONSHIP_FIELDS,
   p6ResourceUrl,
@@ -94,7 +95,7 @@ function baseUrl(value: string): URL {
     host === "localhost" ||
     host.endsWith(".localhost") ||
     host.endsWith(".local") ||
-    host === "::1" ||
+    host.startsWith("[") ||
     privateIpv4
   ) {
     throw new Error(
@@ -139,10 +140,11 @@ async function sha256Hex(bytes: Uint8Array): Promise<string> {
 async function boundedResponseBytes(
   response: Response,
   label: string,
+  maxBytes: number,
 ): Promise<Uint8Array> {
   const declared = Number(response.headers.get("content-length") ?? "0");
-  if (Number.isFinite(declared) && declared > MAX_RESPONSE_BYTES) {
-    throw new Error(`P6 ${label} response exceeds the 15 MB limit.`);
+  if (Number.isFinite(declared) && declared > maxBytes) {
+    throw new Error(`P6 ${label} response exceeds its transport byte limit.`);
   }
   if (!response.body) {
     throw new Error(`P6 ${label} response has no body.`);
@@ -154,9 +156,9 @@ async function boundedResponseBytes(
     const { done, value } = await reader.read();
     if (done) break;
     total += value.byteLength;
-    if (total > MAX_RESPONSE_BYTES) {
+    if (total > maxBytes) {
       await reader.cancel();
-      throw new Error(`P6 ${label} response exceeds the 15 MB limit.`);
+      throw new Error(`P6 ${label} response exceeds its transport byte limit.`);
     }
     chunks.push(value);
   }
@@ -174,6 +176,7 @@ async function fetchRows(
   token: string,
   deadline: number,
   label: string,
+  maxBytes = MAX_RESPONSE_BYTES,
 ): Promise<{ rows: unknown[]; bytes: number; sha256: string }> {
   const remaining = deadline - Date.now();
   if (remaining <= 0) {
@@ -196,7 +199,7 @@ async function fetchRows(
       `P6 ${label} read did not return successful application/json.`,
     );
   }
-  const bytes = await boundedResponseBytes(response, label);
+  const bytes = await boundedResponseBytes(response, label, maxBytes);
   let payload: unknown;
   try {
     payload = JSON.parse(
@@ -221,7 +224,13 @@ async function rpc<T>(
   args: Record<string, unknown>,
 ): Promise<T> {
   const { data, error } = await client.rpc(name, args);
-  if (error) throw new Error(error.message);
+  if (error) {
+    safeLog("rpc_failed", {
+      rpc: name,
+      code: typeof error.code === "string" ? error.code : "unknown",
+    });
+    throw new Error("P6 data operation failed.");
+  }
   const payload = data as { error?: string } | null;
   if (payload?.error) throw new Error(payload.error);
   return data as T;
@@ -255,20 +264,26 @@ Deno.serve(async (request) => {
   ) {
     return json({ error: "request_too_large" }, 413);
   }
-  let body: { connector_key?: unknown; dry_run?: unknown };
+  let body: unknown;
   try {
     const rawBody = await request.text();
     if (new TextEncoder().encode(rawBody).byteLength > MAX_REQUEST_BYTES) {
       return json({ error: "request_too_large" }, 413);
     }
-    body = JSON.parse(rawBody) as typeof body;
+    body = JSON.parse(rawBody);
   } catch {
     return json({ error: "invalid_json" }, 400);
   }
-  const connectorKey =
-    typeof body.connector_key === "string" ? body.connector_key.trim() : "";
-  const dryRun = body.dry_run !== false;
-  if (!connectorKey) return json({ error: "connector_key is required" }, 400);
+  let connectorKey: string;
+  let dryRun: boolean;
+  try {
+    ({ connectorKey, dryRun } = normalizeP6PullRequest(body));
+  } catch (error) {
+    return json(
+      { error: error instanceof Error ? error.message : "invalid_request" },
+      400,
+    );
+  }
 
   const serviceClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { persistSession: false },
@@ -339,6 +354,7 @@ Deno.serve(async (request) => {
       token,
       deadline,
       "relationship",
+      Math.min(MAX_RESPONSE_BYTES, MAX_TOTAL_BYTES - activities.bytes),
     );
     const totalBytes = activities.bytes + relationships.bytes;
     if (totalBytes > MAX_TOTAL_BYTES) {
@@ -360,6 +376,9 @@ Deno.serve(async (request) => {
       maxActivities,
       maxRelationships,
     });
+    if (Date.now() > deadline) {
+      throw new Error("P6 pull exceeded its total transport time limit.");
+    }
     const fetchedAt = new Date().toISOString();
     const manifest = [
       {

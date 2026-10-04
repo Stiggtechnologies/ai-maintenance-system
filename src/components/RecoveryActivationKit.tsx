@@ -78,6 +78,7 @@ export function RecoveryActivationKit({
   const { profile } = useAuth();
   const role = String(profile?.role ?? "").toLowerCase();
   const isAdmin = role === "admin" || role === "ai_admin";
+  const isHumanAdmin = role === "admin";
   const canPlan = [
     "planner",
     "maintenance_manager",
@@ -251,6 +252,9 @@ export function RecoveryActivationKit({
   }
 
   async function configureSource() {
+    const dataLakeHasApprovedMapping = Boolean(
+      selectedSource?.mappings.some((mapping) => mapping.status === "approved"),
+    );
     if (systemKind === "data_lake") {
       await recoveryActivationActions.configureDataLakeSource({
         key: sourceKey,
@@ -262,7 +266,7 @@ export function RecoveryActivationKit({
         maxBytes: Number(maxObjectMb) * 1024 * 1024,
         expectedIntervalMinutes: Number(intervalMinutes),
         credentialBindingRef: credentialRef,
-        enabled: sourceEnabled,
+        enabled: sourceEnabled && dataLakeHasApprovedMapping,
         basis: sourceBasis,
       });
     } else {
@@ -278,7 +282,11 @@ export function RecoveryActivationKit({
         basis: sourceBasis,
       });
     }
-    setMessage("Read-only activation source saved.");
+    setMessage(
+      systemKind === "data_lake" && sourceEnabled && !dataLakeHasApprovedMapping
+        ? "ADLS source saved disabled. Approve an entity mapping, review the contract, then activate it."
+        : "Read-only activation source saved.",
+    );
     await refresh();
   }
 
@@ -329,7 +337,11 @@ export function RecoveryActivationKit({
       constantsText,
       "Constants",
     );
-    await recoveryActivationActions.saveMapping({
+    const save =
+      selectedSource?.system_kind === "data_lake"
+        ? recoveryActivationActions.saveDataLakeMapping
+        : recoveryActivationActions.saveMapping;
+    await save({
       connectorKey: sourceKey,
       entityType,
       sourceArrayPath,
@@ -339,7 +351,11 @@ export function RecoveryActivationKit({
       approve: true,
       basis: mappingBasis,
     });
-    setMessage(`${definition.label} mapping approved with human provenance.`);
+    setMessage(
+      selectedSource?.system_kind === "data_lake"
+        ? `${definition.label} mapping approved with named-human provenance. The ADLS source was disabled; review and reactivate it before commit.`
+        : `${definition.label} mapping approved with human provenance.`,
+    );
     await refresh();
   }
 
@@ -641,10 +657,18 @@ export function RecoveryActivationKit({
               until the deployment host allowlist and opaque secret binding both
               exist.
             </label>
+            {systemKind === "data_lake" && !isHumanAdmin && (
+              <p className="text-xs text-amber-300">
+                ADLS configuration, mapping approval and activation require a
+                named human administrator; AI-admin identities may inspect and
+                dry-run only.
+              </p>
+            )}
             <button
               type="button"
               disabled={
                 working ||
+                (systemKind === "data_lake" && !isHumanAdmin) ||
                 sourceKey.trim().length < 3 ||
                 sourceName.trim().length < 3 ||
                 sourceBasis.trim().length < 20 ||
@@ -822,7 +846,8 @@ export function RecoveryActivationKit({
                 Required mappings still missing: {missingRequired.join(", ")}
               </p>
             )}
-            {isAdmin && (
+            {(isHumanAdmin ||
+              (isAdmin && selectedSource?.system_kind !== "data_lake")) && (
               <button
                 type="button"
                 disabled={

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270101560000_cmms_paginated_read.sql",
+  "supabase/migrations/20270102120000_cmms_paginated_read.sql",
   "utf8",
 );
 const edge = readFileSync("supabase/functions/cmms-read-pull/index.ts", "utf8");
@@ -26,7 +26,25 @@ describe("CMMS paginated read contract", () => {
 
   it("keeps pagination administrator-owned, bounded, and fail-closed", () => {
     expect(migration).toContain(
-      "configuring a CMMS source requires an administrator",
+      "configuring a CMMS source requires a named human administrator",
+    );
+    expect(migration).toContain("coalesce(v_role,'') <> 'admin'");
+    expect(migration).toContain("'can_commit',coalesce(v_role,'') in (");
+    expect(migration).toContain(
+      "a named human administrator must approve the work_order mapping before activation",
+    );
+    expect(migration).toContain("and cr.triggered_by=auth.uid()");
+    expect(migration).toContain("source_contract_hash");
+    expect(migration).toContain("public.cmms_read_contract_hash");
+    expect(migration).toContain(
+      "CMMS source or mapping changed after transport began; run a fresh pull",
+    );
+    expect(migration).toContain(
+      "CMMS source or mapping changed during this run; no further rows were ingested",
+    );
+    expect(migration).toContain("r.triggered_by is distinct from auth.uid()");
+    expect(migration).not.toContain(
+      "array['planner','maintenance_manager','reliability_engineer','admin','ai_admin']",
     );
     expect(migration).toContain(
       "v_profile not in ('sap_pm','maximo','oracle_eam','generic_cmms')",
@@ -34,7 +52,9 @@ describe("CMMS paginated read contract", () => {
     expect(migration).toContain("when 'generic_cmms' then 'cmms'");
     expect(migration).toContain("when 'sap_pm' then 'cmms'");
     expect(migration).toContain("else 'eam'");
-    expect(migration).toContain("'source_profile',v_connector.connector_profile");
+    expect(migration).toContain(
+      "'source_profile',v_connector.connector_profile",
+    );
     expect(migration).toContain("192\\.168\\.");
     expect(migration).toContain("v_ref ~ '[@?=#]'");
     expect(migration).toContain("pagination mode must be none or next_url");
@@ -52,10 +72,17 @@ describe("CMMS paginated read contract", () => {
     expect(migration).toContain(
       "'pagination_max_pages',v_connector.pagination_max_pages",
     );
+    expect(migration).toContain("'credential_tenant_id',v_org");
   });
 
   it("promotes through the canonical external-asset validator with retained outcomes", () => {
-    expect(migration).toContain("public.recovery_activation_validate_row");
+    expect(
+      migration.match(/public\.recovery_activation_validate_row/g)?.length,
+    ).toBeGreaterThanOrEqual(2);
+    expect(migration).toContain(
+      "Dry run used the canonical commit validator and wrote no canonical or staging rows.",
+    );
+    expect(migration).toContain("'duplicate source identity'");
     expect(migration).toContain("and external_id=v_ext");
     expect(migration).toContain("public.work_orders");
     expect(migration).toContain("public.ingest_staging");
@@ -81,6 +108,15 @@ describe("CMMS paginated read contract", () => {
     expect(edge).toContain("Math.min(20_000, remainingMs)");
     expect(edge).toContain('redirect: "error"');
     expect(edge).not.toMatch(/method:\s*["'](?:POST|PUT|PATCH|DELETE)["']/);
+    expect(edge).toContain("source.can_commit !== true");
+    expect(edge).toContain("p_expected_contract_hash");
+    expect(edge).toContain(
+      "Canonical CMMS promotion requires an enabled source and a human-approved mapping.",
+    );
+    expect(edge).toContain("record.tenant_id !== tenantId");
+    expect(edge).toContain(
+      "Configured credential binding is not assigned to the active tenant.",
+    );
   });
 
   it("fetches every page before opening a canonical ingest run", () => {
@@ -99,5 +135,11 @@ describe("CMMS paginated read contract", () => {
     expect(setup).toContain("Same-origin next-link pagination");
     expect(setup).toContain("Next-link JSON path");
     expect(setup).toContain("Maximum pages per pull");
+    expect(setup.indexOf("enabled: false")).toBeLessThan(
+      setup.indexOf("cmmsReadActions.map"),
+    );
+    expect(setup.indexOf("cmmsReadActions.map")).toBeLessThan(
+      setup.indexOf("enabled: true"),
+    );
   });
 });

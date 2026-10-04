@@ -12,7 +12,6 @@ import {
   isSeedDecisionCaseId,
 } from "../decision-case-honesty";
 import type {
-  DecisionApproval,
   DecisionCase,
   DecisionCaseStage,
   DecisionEvidence,
@@ -22,6 +21,8 @@ import type { InvertedIntentId } from "./inverted-opening";
 
 const BANNED_SEED =
   /Fort McMurray|North Ridge Energy|P-101|dc-1048|Copper Ridge/i;
+const PERSISTED_CASE_ID =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export interface WalkthroughSourceReceipt {
   kind: "governed_document" | "manual";
@@ -218,6 +219,18 @@ export const CONNECTION_FAILURE_FALLBACKS: readonly EvidenceMethod[] = [
   "ask_admin",
 ];
 
+export type EvidencePersistence = {
+  /** A durable governed object id may stand in for embedded content. */
+  durableReference?: string;
+  /** False means the browser saw a file but did not persist usable content. */
+  contentPersisted?: boolean;
+};
+
+export type UploadedEvidenceDraft = {
+  body: string;
+  contentPersisted: boolean;
+};
+
 export type SpineDisposition =
   "accept" | "reject" | "need_more_evidence" | "park" | "escalate";
 
@@ -292,12 +305,13 @@ export type DispositionRecord = {
 };
 
 export type LoopGateId =
-  | "decision_loop"
+  | "audit_trail"
   | "evidence_path"
-  | "required_person"
+  | "decision_loop"
   | "invitation_delivery"
   | "verification"
-  | "audit_trail";
+  | "named_approver"
+  | "source_check";
 
 export type LoopGate = {
   id: LoopGateId;
@@ -360,7 +374,7 @@ export function policyAdvisory(requiredAuthority: string): string {
 }
 
 export function inviteCopy(authority: string): string {
-  return `This decision requires approval from someone with ${authority}. Invite them now.`;
+  return `This decision requires approval from someone with ${authority}. Record the required person; invitation delivery is a separate action.`;
 }
 
 export function spineAssumptions(hasSuppliedEvidence: boolean): string[] {
@@ -381,7 +395,9 @@ export function spineAssumptions(hasSuppliedEvidence: boolean): string[] {
 export function computeConfidencePct(evidence: DecisionEvidence[]): number {
   if (evidence.length === 0) return 8;
   const supplied = evidence.filter(
-    (item) => item.quality === "high" || item.quality === "medium",
+    (item) =>
+      (item.quality === "high" || item.quality === "medium") &&
+      item.persistence !== "pending",
   ).length;
   const missing = evidence.filter(
     (item) => item.quality === "missing" || item.quality === "conflict",
@@ -404,6 +420,7 @@ function missingSlots(): DecisionEvidence[] {
     finding: `Missing ${kind.title.toLowerCase()} — required before an asset-specific recommendation.`,
     lineage: `Ask-first spine · ${now} · type asked before system mapping`,
     sourceSystem: "Not connected",
+    persistence: "pending",
   }));
 }
 
@@ -499,6 +516,7 @@ export function attachSpineEvidence(
   kind: EvidenceKind,
   method: EvidenceMethod,
   body: string,
+  persistence: EvidencePersistence = {},
 ): DecisionCase {
   const text = body.trim();
   if (!text && method !== "ask_admin") {
@@ -525,6 +543,44 @@ export function attachSpineEvidence(
       ],
     };
   }
+  const durableReference = persistence.durableReference?.trim();
+  const contentPersisted = persistence.contentPersisted !== false;
+  const substantive = text.length >= 12;
+  if (!contentPersisted || (!substantive && !durableReference)) {
+    const pending: DecisionEvidence = {
+      id: `missing-${kind}`,
+      title: kindMeta?.title ?? kind,
+      summary: text.slice(0, 280) || "Content was not persisted.",
+      quality: "missing",
+      state: "Pending durable evidence",
+      record: `Spine ${method}`,
+      finding:
+        text.slice(0, 400) ||
+        "No extracted content or governed attachment reference was persisted.",
+      lineage: `Pending browser selection · ${method} · ${now}`,
+      sourceSystem: "Not persisted",
+      persistence: "pending",
+    };
+    return {
+      ...decisionCase,
+      updatedAt: now,
+      evidence: [
+        pending,
+        ...decisionCase.evidence.filter((item) => item.id !== pending.id),
+      ],
+      messages: [
+        ...decisionCase.messages,
+        {
+          id: `evidence-pending-${Date.now()}`,
+          role: "system",
+          author: "Evidence",
+          text: `${kindMeta?.title ?? kind} remains missing. The selected file did not yield persisted content or a governed attachment reference.`,
+          createdAt: now,
+          meta: "Evidence pending",
+        },
+      ],
+    };
+  }
   const nextItem: DecisionEvidence = {
     id: `ev-${kind}-${Date.now()}`,
     title: kindMeta?.title ?? kind,
@@ -536,6 +592,8 @@ export function attachSpineEvidence(
     lineage: `Customer-supplied · ${method} · ${now}`,
     sourceSystem:
       method === "connect_source" ? "Connection attempted" : "Manual / file",
+    persistence: durableReference ? "governed_reference" : "embedded",
+    durableReference: durableReference || undefined,
   };
   const evidence = [
     nextItem,
@@ -671,32 +729,18 @@ export function applyPeople(
   decisionCase: DecisionCase,
   people: CasePeople,
 ): DecisionCase {
-  const approvals: DecisionApproval[] = [];
-  if (people.requiredApprover.trim()) {
-    approvals.push({
-      id: "required-approver",
-      initials: initials(people.requiredApprover),
-      name: people.requiredApprover.trim(),
-      role: "Required Approver",
-      responsibility: inferRequiredAuthority(
-        decisionCase.objective,
-        (decisionCase.intakeRole as InvertedIntentId) || "",
-      ),
-      status: "reviewing",
-    });
-  }
   const now = new Date().toISOString();
   const rows: Array<[string, string]> = [
     ["Decision Owner", people.decisionOwner],
     ["Recommendation Author", people.recommendationAuthor],
-    ["Required Approver", people.requiredApprover],
     ["Verification Owner", people.verificationOwner],
   ];
   return {
     ...decisionCase,
     financeSponsor: people.decisionOwner.trim() || decisionCase.financeSponsor,
-    authorityRole: people.requiredApprover.trim() || decisionCase.authorityRole,
-    approvals,
+    // Naming people during disposition does not create or decide an approval.
+    // The required-person command owns that canonical transition.
+    approvals: decisionCase.approvals,
     comments: [
       ...decisionCase.comments.filter(
         (item) =>
@@ -750,16 +794,6 @@ export function applyDisposition(
   const now = new Date().toISOString();
   const option = SPINE_DISPOSITIONS.find((item) => item.id === disposition);
   const withPeople = applyPeople(decisionCase, people);
-  const status =
-    disposition === "accept"
-      ? ("approved" as const)
-      : disposition === "reject"
-        ? ("rejected" as const)
-        : disposition === "escalate"
-          ? ("delegated" as const)
-          : disposition === "need_more_evidence"
-            ? ("changes_requested" as const)
-            : ("reviewing" as const);
   const changeSentence = counterfactual
     ? `What would change this recommendation: ${counterfactual}`
     : "What would change this recommendation was not stated.";
@@ -798,13 +832,19 @@ export function applyDisposition(
   }
   return {
     ...withPeople,
+    updatedAt: now,
+    humanDecision: {
+      disposition,
+      rationale: reason,
+      counterfactual: counterfactual || undefined,
+      expiresOn: expiresOn || undefined,
+      recordedAt: now,
+    },
     stage: disposition === "accept" ? "outcomes" : "authority",
     statusLabel: `${option?.title ?? disposition} · not plant execute`,
-    approvals: withPeople.approvals.map((item) =>
-      item.id === "required-approver"
-        ? { ...item, status, decidedAt: now }
-        : item,
-    ),
+    // A disposition is not the required person's approval. Only the governed
+    // approval command may change approval status or decidedAt.
+    approvals: withPeople.approvals,
     comments: [
       ...withPeople.comments.filter(
         (item) =>
@@ -837,12 +877,14 @@ export function applyVerificationPlan(
   decisionCase: DecisionCase,
   plan: VerificationPlan,
 ): DecisionCase {
-  if (!plan.expected.trim() || !plan.scheduledFor.trim()) {
-    throw new Error("Verification needs Expected and a scheduled date.");
+  const owner = (plan.attributedTo ?? "").trim();
+  if (!plan.expected.trim() || !plan.scheduledFor.trim() || !owner) {
+    throw new Error(
+      "Verification needs an expected outcome, a scheduled date, and a named Verification Owner.",
+    );
   }
   const now = new Date().toISOString();
   const hasOutcome = Boolean(plan.actual.trim() || plan.evidence.trim());
-  const owner = (plan.attributedTo ?? "").trim();
   const attribution = outcomeAttribution(plan, owner);
   const recorded = Boolean(plan.effectiveness && hasOutcome);
   const scheduleText = recorded
@@ -850,11 +892,16 @@ export function applyVerificationPlan(
     : `Verification scheduled for ${plan.scheduledFor}. Question: ${plan.question || "How will we know this worked?"}. Expected: ${plan.expected}.`;
   return {
     ...decisionCase,
+    updatedAt: now,
     stage: recorded ? "learning" : "outcomes",
     statusLabel: recorded
       ? `Verification recorded · ${plan.effectiveness}`
       : `Verification scheduled · ${plan.scheduledFor}`,
     valueMetrics: [
+      ...decisionCase.valueMetrics.filter(
+        (item) =>
+          item.id !== "verify-expected" && item.id !== "verify-evidence",
+      ),
       {
         id: "verify-expected",
         label: "Expected",
@@ -874,21 +921,29 @@ export function applyVerificationPlan(
         verifiedActual: plan.effectiveness || "Scheduled",
       },
     ],
-    comments: hasOutcome
-      ? [
-          ...decisionCase.comments.filter(
-            (item) => item.id !== "outcome-attribution",
-          ),
-          {
-            id: "outcome-attribution",
-            author: "Outcome attribution",
-            text: attribution.line,
-            createdAt: now,
-          },
-        ]
-      : decisionCase.comments.filter(
-          (item) => item.id !== "outcome-attribution",
-        ),
+    comments: [
+      ...decisionCase.comments.filter(
+        (item) =>
+          item.id !== "outcome-attribution" &&
+          item.author !== "Verification Owner",
+      ),
+      {
+        id: `verification-owner-${now}`,
+        author: "Verification Owner",
+        text: owner,
+        createdAt: now,
+      },
+      ...(hasOutcome
+        ? [
+            {
+              id: "outcome-attribution",
+              author: "Outcome attribution",
+              text: attribution.line,
+              createdAt: now,
+            },
+          ]
+        : []),
+    ],
     learningRecord: recorded
       ? {
           id: `learn-${decisionCase.caseNumber}`,
@@ -912,13 +967,16 @@ export function applyVerificationPlan(
 
 export function applyInvite(
   decisionCase: WalkthroughDecisionCase,
-  input: { name: string; email: string; authority: string },
+  input: { userId: string; name: string; email: string; authority: string },
 ): WalkthroughDecisionCase {
+  const userId = input.userId.trim();
   const name = input.name.trim();
   const email = input.email.trim();
   const authority = input.authority.trim() || decisionCase.authorityRole;
-  if (!name && !email) {
-    throw new Error("Invite needs a name or work email.");
+  if (!userId || (!name && !email)) {
+    throw new Error(
+      "Required person must be selected from the tenant directory.",
+    );
   }
   const now = new Date().toISOString();
   const label = name || email;
@@ -927,6 +985,15 @@ export function applyInvite(
   );
   return {
     ...decisionCase,
+    updatedAt: now,
+    requiredPerson: {
+      userId,
+      name: label,
+      email: email || undefined,
+      authorityRole: authority,
+      invitationStatus: "not_sent",
+      recordedAt: now,
+    },
     invitation: {
       name,
       email,
@@ -938,7 +1005,12 @@ export function applyInvite(
     approvals: existing
       ? decisionCase.approvals.map((item) =>
           item.id === "required-approver"
-            ? { ...item, name: label, role: authority }
+            ? {
+                ...item,
+                name: label,
+                role: authority,
+                responsibility: "Required person recorded; invitation not sent",
+              }
             : item,
         )
       : [
@@ -948,8 +1020,8 @@ export function applyInvite(
             initials: initials(label),
             name: label,
             role: authority,
-            responsibility: `Required person recorded · ${email || "no email yet"} · invitation not sent`,
-            status: "next",
+            responsibility: "Required person recorded; invitation not sent",
+            status: "reviewing",
           },
         ],
     messages: [
@@ -958,9 +1030,39 @@ export function applyInvite(
         id: `invite-${Date.now()}`,
         role: "system",
         author: "Required person",
-        text: `${inviteCopy(authority)} Required person recorded as ${label}${email ? ` <${email}>` : ""}. This is not an invitation delivery event.`,
+        text: `${inviteCopy(authority)} Required person recorded as ${label}${email ? ` <${email}>` : ""}. This is not an invitation delivery event; no email or workspace invitation was sent by this action.`,
         createdAt: now,
-        meta: "Person recorded · invitation not sent",
+        meta: "Required person recorded",
+      },
+    ],
+  };
+}
+
+/**
+ * Records an integration-status check on the canonical case. This is not a
+ * connector, data pull, or evidence attachment; it only makes the attempted
+ * journey step replayable after reload.
+ */
+export function recordSourceCheck(
+  decisionCase: WalkthroughDecisionCase,
+  result: ConnectionAttempt,
+): WalkthroughDecisionCase {
+  const now = new Date().toISOString();
+  const detail = result.ok ? result.note : result.reason;
+  return {
+    ...decisionCase,
+    updatedAt: now,
+    messages: [
+      ...decisionCase.messages.filter(
+        (item) => item.meta !== "Source connection check",
+      ),
+      {
+        id: `source-check-${Date.now()}`,
+        role: "system",
+        author: "Connection",
+        text: `${detail} This check is not a data pull and supplies no case evidence.`,
+        createdAt: now,
+        meta: "Source connection check",
       },
     ],
   };
@@ -1024,7 +1126,9 @@ export function lineageFromCase(
     .filter((item) => item.quality === "missing" || item.quality === "conflict")
     .map((item) => item.title);
   const supplied = decisionCase.evidence.filter(
-    (item) => item.quality === "high" || item.quality === "medium",
+    (item) =>
+      (item.quality === "high" || item.quality === "medium") &&
+      item.persistence !== "pending",
   );
   const verificationStatus = verification?.effectiveness
     ? `Recorded · ${verification.effectiveness}`
@@ -1049,53 +1153,89 @@ export function readinessFromCase(
   decisionCase: WalkthroughDecisionCase,
   extras: {
     saved: boolean;
-    disposition?: SpineDisposition | "";
-    verification?: VerificationPlan | null;
   },
 ): SpineReadiness {
-  const lineage = lineageFromCase(decisionCase, extras.verification);
+  const persistedDisposition = dispositionFromCase(decisionCase);
+  const persistedVerification = verificationFromCase(decisionCase);
+  const persistedPeople = peopleFromCase(decisionCase);
+  const lineage = lineageFromCase(decisionCase, persistedVerification);
   const hasAudit =
-    decisionCase.messages.some((item) => item.role === "user") && extras.saved;
+    PERSISTED_CASE_ID.test(decisionCase.id) &&
+    decisionCase.messages.some((item) => item.role === "user") &&
+    extras.saved;
   const verificationMet = Boolean(
-    extras.verification?.scheduledFor || extras.verification?.effectiveness,
+    persistedVerification?.expected.trim() &&
+    persistedVerification.scheduledFor.trim() &&
+    persistedPeople.verificationOwner.trim(),
   );
-  const namedApprover = decisionCase.approvals.some((item) => item.name.trim());
+  const namedApprover = Boolean(
+    decisionCase.requiredPerson?.userId &&
+    decisionCase.requiredPerson?.invitationStatus === "not_sent" &&
+    decisionCase.approvals.some((item) => item.name.trim()) &&
+    decisionCase.messages.some(
+      (item) => item.meta === "Required person recorded",
+    ),
+  );
+  const evidencePath = lineage.evidenceCount > 0;
+  const loopDemonstrated = extras.saved
+    ? Boolean(decisionCase.humanDecision?.actor && persistedDisposition)
+    : Boolean(persistedDisposition);
+  const sourceChecked = decisionCase.messages.some(
+    (item) => item.meta === "Source connection check",
+  );
   const invitationStatus = decisionCase.invitation?.status;
   const invitationMet = Boolean(
     invitationStatus &&
-    ["submitted", "already_member", "accepted", "active"].includes(
-      invitationStatus,
-    ),
+    ["already_member", "accepted", "active"].includes(invitationStatus),
   );
-  const explicitlyDeferredEvidence = decisionCase.messages.some(
-    (item) => item.meta === "Connection fallback",
-  );
-  const evidencePath = lineage.evidenceCount > 0 || explicitlyDeferredEvidence;
-  const loopDemonstrated = Boolean(extras.disposition);
   const gates: LoopGate[] = [
     {
-      id: "decision_loop",
-      title: "Decision loop demonstrated",
-      met: loopDemonstrated,
-      evidence: loopDemonstrated
-        ? `Human disposition recorded: ${extras.disposition}`
-        : "Ask happened; a human disposition is still required",
+      id: "audit_trail",
+      title: "Saved Decision Case",
+      met: hasAudit,
+      evidence: hasAudit
+        ? `${decisionCase.messages.length} case turns retained on the workspace`
+        : "Save successfully before later steps can count as workspace readiness",
     },
     {
       id: "evidence_path",
-      title: "Evidence source or honest manual path",
+      title: "Evidence supplied",
       met: evidencePath,
       evidence: evidencePath
         ? `${lineage.evidenceCount} attached · ${lineage.missing.length} still missing`
-        : "No file, paste, connection, or manual evidence yet",
+        : "No file, paste, or substantive manual evidence is recorded; asking an administrator later does not supply evidence",
     },
     {
-      id: "required_person",
-      title: "Required person named",
+      id: "decision_loop",
+      title: "Human decision recorded",
+      met: loopDemonstrated,
+      evidence: loopDemonstrated
+        ? `Human disposition recorded: ${persistedDisposition}`
+        : "Review the recommendation and record a human disposition",
+    },
+    {
+      id: "verification",
+      title: "Verification defined",
+      met: verificationMet,
+      evidence: verificationMet
+        ? `${lineage.verificationStatus} · owner ${persistedPeople.verificationOwner}`
+        : "Expected outcome, scheduled date, and named Verification Owner are all required",
+    },
+    {
+      id: "named_approver",
+      title: "Required person recorded",
       met: namedApprover,
       evidence: namedApprover
-        ? decisionCase.authorityRole
-        : "Required decision or verification person is not named",
+        ? `${decisionCase.requiredPerson?.authorityRole} · required person recorded; invitation not sent`
+        : "Record the required person after the decision; this does not claim an invitation was sent",
+    },
+    {
+      id: "source_check",
+      title: "Source connection checked",
+      met: sourceChecked,
+      evidence: sourceChecked
+        ? "Integration status check recorded; it is not a data pull or evidence attachment"
+        : "Check available sources after recording the required person; upload, paste, and manual evidence remain valid fallbacks",
     },
     {
       id: "invitation_delivery",
@@ -1105,23 +1245,11 @@ export function readinessFromCase(
         ? `Status: ${invitationStatus?.replaceAll("_", " ")}. Workspace access does not grant decision authority.`
         : decisionCase.invitation?.status === "failed"
           ? `Failed: ${decisionCase.invitation.detail}`
-          : decisionCase.invitation?.status === "recorded_only"
-            ? "Person recorded; no invitation sent"
-            : "No invitation delivery event recorded",
-    },
-    {
-      id: "verification",
-      title: "Verification scheduled or recorded",
-      met: verificationMet,
-      evidence: lineage.verificationStatus,
-    },
-    {
-      id: "audit_trail",
-      title: "Audit trail",
-      met: hasAudit,
-      evidence: hasAudit
-        ? `${decisionCase.messages.length} case turns retained`
-        : "Save the assessment so the trail is on the workspace",
+          : decisionCase.invitation?.status === "submitted"
+            ? "Submitted; acceptance or existing tenant membership is not yet confirmed"
+            : decisionCase.invitation?.status === "recorded_only"
+              ? "Person recorded; no invitation sent"
+              : "No invitation delivery event recorded",
     },
   ];
   const metCount = gates.filter((item) => item.met).length;
@@ -1131,7 +1259,7 @@ export function readinessFromCase(
     total: gates.length,
     headline:
       metCount === gates.length
-        ? "Stage-1 loop maturity: the first Decision Case loop is complete on this workspace."
+        ? "Stage-1 journey state is recorded on this workspace. Invitation delivery, a real source-to-evidence pull, and production acceptance remain separate gates."
         : `Stage-1 loop maturity: ${metCount} of ${gates.length} gates earned — not onboarding-screen ticks.`,
   };
 }
@@ -1145,46 +1273,52 @@ export function nextWalkthroughAction(
       gateId: "complete",
       title: "Review readiness and unresolved evidence",
       detail:
-        "The supported first-decision loop is complete. Review the proof summary and every remaining evidence limitation before sharing it.",
+        "The supported first-decision journey is recorded. Review the proof summary and remaining evidence limitations before sharing it.",
       targetId: "spine-readiness",
     };
   }
   const actions: Record<LoopGateId, Omit<WalkthroughNextAction, "gateId">> = {
-    decision_loop: {
-      title: "Record the human decision",
+    audit_trail: {
+      title: "Save this Decision Case",
       detail:
-        "Choose a disposition, name the accountable people, state the rationale, and record what would change the recommendation.",
-      targetId: "spine-disposition",
+        "A workspace save must succeed before later actions can count toward readiness.",
+      targetId: "spine-save-workspace",
     },
     evidence_path: {
-      title: "Add governed or clearly manual evidence",
+      title: "Add evidence",
       detail:
-        "Ingest a supported document, paste customer data, upload a file, or explicitly continue with a manual evidence note.",
+        "Attach a file, paste customer data, or write a substantive manual evidence note. Asking an administrator later is not evidence.",
       targetId: "spine-evidence",
     },
-    required_person: {
-      title: "Name the required person",
+    decision_loop: {
+      title: "Review the recommendation and decide",
       detail:
-        "Record who owns approval or verification. Naming them does not send an invitation or grant authority.",
+        "Choose a human disposition, state the rationale, and preserve the locked ACTION boundary.",
+      targetId: "spine-disposition",
+    },
+    verification: {
+      title: "Define verification",
+      detail:
+        "Record the expected outcome, scheduled date, and named Verification Owner.",
+      targetId: "spine-verification",
+    },
+    named_approver: {
+      title: "Record the required person",
+      detail:
+        "Name the required approver. This records responsibility; it does not claim invitation delivery.",
       targetId: "spine-invite",
+    },
+    source_check: {
+      title: "Check a connected source",
+      detail:
+        "Check tenant-visible integration status. This does not pull data; use upload, paste, or manual evidence when no source is available.",
+      targetId: "spine-connect-source",
     },
     invitation_delivery: {
       title: "Send or verify the workspace invitation",
       detail:
         "A saved case, work email, AAL2 session, and an authorized administrator or executive are required.",
       targetId: "spine-invite",
-    },
-    verification: {
-      title: "Define how the outcome will be verified",
-      detail:
-        "State the expected result, date, and verification owner. An expected result is not an achieved outcome.",
-      targetId: "spine-verification",
-    },
-    audit_trail: {
-      title: "Save the Decision Case",
-      detail:
-        "Secure the case on the tenant workspace before relying on reload, invitation, or audit continuity.",
-      targetId: "decision-case-spine",
     },
   };
   return { gateId: next.id, ...actions[next.id] };
@@ -1224,13 +1358,19 @@ export function describeUploadedFile(input: {
   type: string;
   size: number;
   text: string | null;
-}): string {
+}): UploadedEvidenceDraft {
   const name = input.name.trim() || "unnamed file";
   const kind = input.type || "unknown type";
   if (input.text && input.text.trim()) {
-    return `File ${name} (${kind}, ${input.size} bytes):\n${input.text.trim().slice(0, 4000)}`;
+    return {
+      body: `File ${name} (${kind}, ${input.size} bytes):\n${input.text.trim().slice(0, 4000)}`,
+      contentPersisted: true,
+    };
   }
-  return `File ${name} attached (${kind}, ${input.size} bytes). Text was not extracted. Paste an excerpt if it should be in the case. No readings were invented from the file.`;
+  return {
+    body: `File ${name} selected (${kind}, ${input.size} bytes). Text was not extracted and the file was not uploaded. Paste an excerpt or attach it through a governed evidence store. No readings were invented from the file.`,
+    contentPersisted: false,
+  };
 }
 
 export type ConnectionAttempt =
@@ -1289,20 +1429,32 @@ function commentText(decisionCase: DecisionCase, id: string): string {
 }
 
 export function counterfactualFromCase(decisionCase: DecisionCase): string {
-  return commentText(decisionCase, "counterfactual");
+  return (
+    decisionCase.humanDecision?.counterfactual ??
+    commentText(decisionCase, "counterfactual")
+  );
 }
 
 export function expiryFromCase(decisionCase: DecisionCase): string {
-  return commentText(decisionCase, "decision-expiry");
+  return (
+    decisionCase.humanDecision?.expiresOn ??
+    commentText(decisionCase, "decision-expiry")
+  );
 }
 
 export function rationaleFromCase(decisionCase: DecisionCase): string {
-  return commentText(decisionCase, "disposition-rationale");
+  return (
+    decisionCase.humanDecision?.rationale ??
+    commentText(decisionCase, "disposition-rationale")
+  );
 }
 
 export function dispositionFromCase(
   decisionCase: DecisionCase,
 ): SpineDisposition | "" {
+  if (decisionCase.humanDecision?.disposition) {
+    return decisionCase.humanDecision.disposition;
+  }
   const stored = commentText(decisionCase, "disposition-id");
   if (SPINE_DISPOSITIONS.some((item) => item.id === stored)) {
     return stored as SpineDisposition;
@@ -1322,7 +1474,8 @@ export function peopleFromCase(decisionCase: DecisionCase): CasePeople {
   return {
     decisionOwner: text("Decision Owner"),
     recommendationAuthor: text("Recommendation Author") || "SyncAI",
-    requiredApprover: text("Required Approver"),
+    requiredApprover:
+      decisionCase.requiredPerson?.name || text("Required Approver"),
     verificationOwner: text("Verification Owner"),
   };
 }

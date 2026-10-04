@@ -76,14 +76,18 @@ declare
 begin
   select role into v_role from public.user_profiles
   where id=auth.uid() and organization_id=v_org;
-  if v_org is null or coalesce(v_role,'') not in ('admin','ai_admin') then
+  if coalesce(v_role,'')='ai_admin' then
+    return jsonb_build_object('error','a named human administrator must configure or enable a P6 schedule source');
+  end if;
+  if v_org is null or coalesce(v_role,'')<>'admin' then
     return jsonb_build_object('error','configuring a P6 schedule source requires an administrator');
   end if;
-  if coalesce(length(trim(p_key)),0)<3 or coalesce(length(trim(p_name)),0)<3 then
-    return jsonb_build_object('error','connector key and name are required');
+  if coalesce(length(trim(p_key)),0) not between 3 and 160
+     or coalesce(length(trim(p_name)),0) not between 3 and 160 then
+    return jsonb_build_object('error','connector key and name must be between 3 and 160 characters');
   end if;
-  if coalesce(length(trim(p_basis)),0)<20 then
-    return jsonb_build_object('error','record a substantive P6 activation and duration-conversion basis');
+  if coalesce(length(trim(p_basis)),0) not between 20 and 2000 then
+    return jsonb_build_object('error','record a substantive bounded P6 activation and duration-conversion basis');
   end if;
   if not exists(
     select 1 from public.development_cases c
@@ -109,15 +113,15 @@ begin
   if coalesce(p_max_relationships,0) not between 1 and 20000 then
     return jsonb_build_object('error','maximum relationships must be between 1 and 20000');
   end if;
-  if coalesce(p_expected_interval_minutes,0)<1 then
-    return jsonb_build_object('error','expected interval must be at least one minute');
+  if coalesce(p_expected_interval_minutes,0) not between 1 and 525600 then
+    return jsonb_build_object('error','expected interval must be between one minute and one year');
   end if;
-  if v_endpoint is null
+  if v_endpoint is null or length(v_endpoint)>2048
      or v_endpoint !~* '^https://[A-Za-z0-9.-]+(:443)?(/[^[:space:]?#]*)?$'
      or v_endpoint ~* '(localhost|127\.0\.0\.1|0\.0\.0\.0|10\.|192\.168\.|172\.(1[6-9]|2[0-9]|3[01])\.|169\.254\.|\[?::1\]?|@|password|token|api[_-]?key|bearer|secret)' then
     return jsonb_build_object('error','P6 base URL must be a credential-free public HTTPS URL without query or fragment; private/local targets are blocked');
   end if;
-  if v_ref is null
+  if v_ref is null or length(v_ref)>500
      or v_ref !~ '^[a-z][a-z0-9+.-]*://[A-Za-z0-9._:/-]+$'
      or v_ref ~ '[@?=#]' then
     return jsonb_build_object('error','credential binding must be an opaque secret-store URI without a value, query or fragment');
@@ -208,7 +212,7 @@ begin
   select role into v_role from public.user_profiles
   where id=auth.uid() and organization_id=v_org;
   if v_org is null or coalesce(v_role,'') not in
-    ('planner','reliability_engineer','maintenance_manager','admin','ai_admin') then
+    ('planner','reliability_engineer','maintenance_manager','admin') then
     return jsonb_build_object('error','P6 schedule source access denied');
   end if;
   select * into v_connector from public.connectors
@@ -274,7 +278,7 @@ begin
   select role into v_role from public.user_profiles
   where id=p_triggered_by and organization_id=p_organization_id;
   if coalesce(v_role,'') not in
-    ('planner','reliability_engineer','maintenance_manager','admin','ai_admin') then
+    ('planner','reliability_engineer','maintenance_manager','admin') then
     return jsonb_build_object('error','P6 run actor is not authorized for this tenant');
   end if;
   select * into v_connector from public.connectors
@@ -405,7 +409,7 @@ begin
   select role into v_role from public.user_profiles
   where id=p_triggered_by and organization_id=p_organization_id;
   if coalesce(v_role,'') not in
-    ('planner','reliability_engineer','maintenance_manager','admin','ai_admin') then
+    ('planner','reliability_engineer','maintenance_manager','admin') then
     return jsonb_build_object('error','P6 ingest actor is not authorized for this tenant');
   end if;
   select c.* into v_connector

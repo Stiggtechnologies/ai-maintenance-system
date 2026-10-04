@@ -12,9 +12,7 @@ export function CmmsReadConnectorSetup({
   onConfigured: () => Promise<void>;
 }) {
   const { profile } = useAuth();
-  const admin = ["admin", "ai_admin"].includes(
-    String(profile?.role ?? "").toLowerCase(),
-  );
+  const admin = String(profile?.role ?? "").toLowerCase() === "admin";
   const [key, setKey] = useState("");
   const [name, setName] = useState("");
   const [kind, setKind] = useState("generic_cmms");
@@ -37,7 +35,7 @@ export function CmmsReadConnectorSetup({
     setBusy(true);
     setMessage(null);
     try {
-      const configured = await cmmsReadActions.configure({
+      const configuration = {
         key,
         name,
         systemKind: kind,
@@ -47,10 +45,16 @@ export function CmmsReadConnectorSetup({
         paginationMode,
         paginationNextPath,
         paginationMaxPages: Number(paginationMaxPages),
-        enabled,
         basis,
+      };
+      const staged = await cmmsReadActions.configure({
+        ...configuration,
+        enabled: false,
       });
       const mapped = await cmmsReadActions.map(key, path, approved, basis);
+      const configured = enabled
+        ? await cmmsReadActions.configure({ ...configuration, enabled: true })
+        : staged;
       setMessage(
         `${String(configured.note ?? "CMMS source saved.")} ${String(mapped.note ?? "")}`,
       );
@@ -101,7 +105,7 @@ export function CmmsReadConnectorSetup({
       </div>
       {!admin ? (
         <p className="mt-4 text-sm text-slate-400">
-          An administrator must configure or enable this source.
+          A named human administrator must configure or enable this source.
         </p>
       ) : (
         <>

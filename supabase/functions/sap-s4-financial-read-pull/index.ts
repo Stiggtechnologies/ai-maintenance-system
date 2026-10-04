@@ -245,6 +245,10 @@ Deno.serve(async (request) => {
     const maxRows = Number(source.max_rows ?? 0);
     const pageSize = Number(source.page_size ?? 0);
     const maxPages = Number(source.max_pages ?? 0);
+    const contractHash = String(source.contract_hash ?? "");
+    if (!/^[0-9a-f]{64}$/.test(contractHash)) {
+      throw new Error("SAP financial source contract hash is invalid.");
+    }
     const firstUrl = sapGlActualsUrl(
       root,
       { ledger, companyCode, postingDateFrom, postingDateTo, mappings },
@@ -347,6 +351,7 @@ Deno.serve(async (request) => {
       mapped_rows: mapped.rows.length,
       pages: manifest.length,
       source_digest: sourceDigest,
+      contract_hash: contractHash,
       missing_mappings: mapped.missingMappings,
     };
     if (dryRun)
@@ -369,6 +374,7 @@ Deno.serve(async (request) => {
         p_organization_id: organizationId,
         p_triggered_by: userData.user.id,
         p_connector_key: connectorKey,
+        p_contract_hash: contractHash,
         p_manifest: manifest,
         p_cursor_to: cursor,
         p_source_bytes: totalBytes,

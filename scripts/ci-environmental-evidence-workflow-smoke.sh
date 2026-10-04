@@ -7,8 +7,8 @@ eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL|JWT_SECRET)=')"
 : "${API_URL:?missing API_URL}" "${ANON_KEY:?missing ANON_KEY}" "${JWT_SECRET:?missing JWT_SECRET}"
 
 uuid(){ python3 -c 'import uuid; print(uuid.uuid4())'; }
-ORG=$(uuid); FOREIGN_ORG=$(uuid); WRITER=$(uuid); VERIFIER=$(uuid); AI=$(uuid); FOREIGN=$(uuid)
-ASSET=$(uuid); FOREIGN_ASSET=$(uuid); SITE=$(uuid); WRITER_FACTOR=$(uuid); AI_FACTOR=$(uuid); FOREIGN_FACTOR=$(uuid)
+ORG=$(uuid); FOREIGN_ORG=$(uuid); WRITER=$(uuid); VERIFIER=$(uuid); VIEWER=$(uuid); AI=$(uuid); FOREIGN=$(uuid)
+ASSET=$(uuid); FOREIGN_ASSET=$(uuid); SITE=$(uuid); SECOND_SITE=$(uuid); WRITER_FACTOR=$(uuid); AI_FACTOR=$(uuid); FOREIGN_FACTOR=$(uuid)
 TODAY=$(python3 -c 'from datetime import date; print(date.today().isoformat())')
 YESTERDAY=$(python3 -c 'from datetime import date,timedelta; print((date.today()-timedelta(days=1)).isoformat())')
 
@@ -41,18 +41,22 @@ insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_co
   phone_change,phone_change_token,reauthentication_token) values
 ('00000000-0000-0000-0000-000000000000','$WRITER','authenticated','authenticated','e10-writer-$WRITER@invalid.syncai.ca','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','',''),
 ('00000000-0000-0000-0000-000000000000','$VERIFIER','authenticated','authenticated','e10-verifier-$VERIFIER@invalid.syncai.ca','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','',''),
+('00000000-0000-0000-0000-000000000000','$VIEWER','authenticated','authenticated','e10-viewer-$VIEWER@invalid.syncai.ca','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','',''),
 ('00000000-0000-0000-0000-000000000000','$AI','authenticated','authenticated','e10-ai-$AI@invalid.syncai.ca','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','',''),
 ('00000000-0000-0000-0000-000000000000','$FOREIGN','authenticated','authenticated','e10-foreign-$FOREIGN@invalid.syncai.ca','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','','');
 insert into user_profiles(id,organization_id,email,full_name,role) values
   ('$WRITER','$ORG','e10-writer-$WRITER@invalid.syncai.ca','Environmental evidence writer','reliability_engineer'),
   ('$VERIFIER','$ORG','e10-verifier-$VERIFIER@invalid.syncai.ca','Environmental evidence verifier','admin'),
+  ('$VIEWER','$ORG','e10-viewer-$VIEWER@invalid.syncai.ca','Read-only evidence viewer','board'),
   ('$AI','$ORG','e10-ai-$AI@invalid.syncai.ca','AI operator','ai_admin'),
   ('$FOREIGN','$FOREIGN_ORG','e10-foreign-$FOREIGN@invalid.syncai.ca','Foreign administrator','admin');
 insert into auth.mfa_factors(id,user_id,friendly_name,factor_type,status,created_at,updated_at) values
   ('$WRITER_FACTOR','$WRITER','CI environment factor','totp','verified',now(),now()),
   ('$AI_FACTOR','$AI','CI AI factor','totp','verified',now(),now()),
   ('$FOREIGN_FACTOR','$FOREIGN','CI foreign factor','totp','verified',now(),now());
-insert into sites(id,organization_id,name,location) values('$SITE','$ORG','North plant','Alberta');
+insert into sites(id,organization_id,name,location) values
+  ('$SITE','$ORG','North plant','Alberta'),
+  ('$SECOND_SITE','$ORG','South plant','Alberta');
 insert into assets(id,organization_id,site_id,name,tag,asset_class,criticality) values
   ('$ASSET','$ORG','$SITE','Process pump P-101','E10-P-101','pump','high'),
   ('$FOREIGN_ASSET','$FOREIGN_ORG',null,'Foreign process pump','X-E10-P','pump','high');
@@ -67,6 +71,7 @@ GLOBAL_EVIDENCE=$(psqlc "insert into evidence_items(organization_id,source_syste
 ASSET_EVIDENCE=$(psqlc "insert into evidence_items(organization_id,asset_id,source_system,evidence_type,description,evidence_class,verification_status,verified_by,verified_at,verification_method) values('$ORG','$ASSET','FIELD-SHEET-2026','environmental_measurement','Verified clean test, meter reading and seal-loss field sheet.','MEASURED','verified','$VERIFIER',now(),'Independent field-sheet review') returning id;")
 SELF_EVIDENCE=$(psqlc "insert into evidence_items(organization_id,asset_id,source_system,evidence_type,description,evidence_class,verification_status,verified_by,verified_at,verification_method) values('$ORG','$ASSET','SELF','environmental_measurement','Self-verified environmental evidence.','MEASURED','verified','$WRITER',now(),'Self review') returning id;")
 AI_VERIFIED_EVIDENCE=$(psqlc "insert into evidence_items(organization_id,asset_id,source_system,evidence_type,description,evidence_class,verification_status,verified_by,verified_at,verification_method) values('$ORG','$ASSET','AI-VERIFY','environmental_measurement','Evidence marked verified by the AI operator.','MEASURED','verified','$AI',now(),'AI review must not grant authority') returning id;")
+VIEWER_VERIFIED_EVIDENCE=$(psqlc "insert into evidence_items(organization_id,asset_id,source_system,evidence_type,description,evidence_class,verification_status,verified_by,verified_at,verification_method) values('$ORG','$ASSET','VIEWER-VERIFY','environmental_measurement','Evidence marked verified by a read-only viewer.','MEASURED','verified','$VIEWER',now(),'Read-only review must not grant authority') returning id;")
 FOREIGN_EVIDENCE=$(psqlc "insert into evidence_items(organization_id,asset_id,source_system,evidence_type,description,evidence_class,verification_status,verified_by,verified_at,verification_method) values('$FOREIGN_ORG','$FOREIGN_ASSET','FOREIGN','environmental_measurement','Foreign environmental evidence.','MEASURED','verified','$FOREIGN',now(),'Foreign review') returning id;")
 
 BASELINE="{\"assetId\":\"$ASSET\",\"metric\":\"specific energy\",\"unit\":\"kWh/m3\",\"designValue\":1.2,\"establishedOn\":\"$YESTERDAY\",\"interventionCost\":5000,\"energyCostPerDay\":120,\"expectedVersion\":0,\"basis\":\"Verified clean-condition test at the approved stable production duty.\",\"sourceReference\":\"TEST-E10-001\",\"evidenceItemId\":\"$ASSET_EVIDENCE\"}"
@@ -81,6 +86,9 @@ expect_error "$SELF_DENIED" 'independently verified'
 AI_VERIFIED_PAYLOAD="${BASELINE//$ASSET_EVIDENCE/$AI_VERIFIED_EVIDENCE}"
 AI_VERIFIER_DENIED=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"efficiency_baseline\",\"p_record\":$AI_VERIFIED_PAYLOAD}")
 expect_error "$AI_VERIFIER_DENIED" 'independently verified'
+VIEWER_VERIFIED_PAYLOAD="${BASELINE//$ASSET_EVIDENCE/$VIEWER_VERIFIED_EVIDENCE}"
+VIEWER_VERIFIER_DENIED=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"efficiency_baseline\",\"p_record\":$VIEWER_VERIFIED_PAYLOAD}")
+expect_error "$VIEWER_VERIFIER_DENIED" 'independently verified'
 FOREIGN_EVIDENCE_PAYLOAD="${BASELINE//$ASSET_EVIDENCE/$FOREIGN_EVIDENCE}"
 FOREIGN_EVIDENCE_DENIED=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"efficiency_baseline\",\"p_record\":$FOREIGN_EVIDENCE_PAYLOAD}")
 expect_error "$FOREIGN_EVIDENCE_DENIED" 'same-tenant independently verified environmental evidence'
@@ -89,13 +97,33 @@ FOREIGN_ASSET_DENIED=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_ki
 expect_error "$FOREIGN_ASSET_DENIED" 'asset is outside the active tenant'
 
 FACTOR=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"emission_factor\",\"p_record\":{\"factorKey\":\"diesel_stationary\",\"label\":\"Stationary diesel combustion\",\"activityUnit\":\"L\",\"factor\":2.7,\"factorUnit\":\"kg CO2e/L\",\"validFrom\":\"$YESTERDAY\",\"gwp\":null,\"basis\":\"Published factor transcribed exactly for the governed reporting period.\",\"sourceReference\":\"REGULATOR-2026\",\"evidenceItemId\":\"$GLOBAL_EVIDENCE\"}}")
-noerr "$FACTOR"
+noerr "$FACTOR"; FACTOR_ID=$(field "$FACTOR" id); test -n "$FACTOR_ID"
+NAN_FACTOR=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"emission_factor\",\"p_record\":{\"factorKey\":\"invalid_nan_factor\",\"label\":\"Invalid non-finite factor\",\"activityUnit\":\"L\",\"factor\":\"NaN\",\"factorUnit\":\"kg CO2e/L\",\"validFrom\":\"$TODAY\",\"gwp\":null,\"basis\":\"Deliberate non-finite factor used to prove the governed refusal path.\",\"sourceReference\":\"REGULATOR-NAN\",\"evidenceItemId\":\"$GLOBAL_EVIDENCE\"}}")
+expect_error "$NAN_FACTOR" 'positive factor'
 BASE_CREATED=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"efficiency_baseline\",\"p_record\":$BASELINE}")
 noerr "$BASE_CREATED"; BASELINE_ID=$(field "$BASE_CREATED" id); test "$(field "$BASE_CREATED" version)" = '1'
+NAN_READING=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"efficiency_reading\",\"p_record\":{\"baselineId\":$BASELINE_ID,\"measuredOn\":\"$TODAY\",\"value\":\"NaN\",\"basis\":\"Deliberate non-finite reading used to prove the governed refusal path.\",\"sourceReference\":\"METER-E10-NAN\",\"evidenceItemId\":\"$ASSET_EVIDENCE\"}}")
+expect_error "$NAN_READING" 'positive value'
 READING=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"efficiency_reading\",\"p_record\":{\"baselineId\":$BASELINE_ID,\"measuredOn\":\"$TODAY\",\"value\":1.35,\"basis\":\"Meter total and throughput were reconciled for the completed operating day.\",\"sourceReference\":\"METER-E10-001\",\"evidenceItemId\":\"$ASSET_EVIDENCE\"}}")
 noerr "$READING"
+NAN_ACTIVITY=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"environmental_activity\",\"p_record\":{\"activityKind\":\"chemical_loss\",\"periodStart\":\"$TODAY\",\"periodEnd\":\"$TODAY\",\"quantity\":\"NaN\",\"unit\":\"L\",\"substance\":\"Test chemical\",\"basis\":\"Deliberate non-finite activity used to prove the governed refusal path.\",\"sourceReference\":\"LOSS-E10-NAN\",\"evidenceItemId\":\"$GLOBAL_EVIDENCE\"}}")
+expect_error "$NAN_ACTIVITY" 'non-negative quantity'
+WRONG_SITE=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"environmental_activity\",\"p_record\":{\"siteId\":\"$SECOND_SITE\",\"assetId\":\"$ASSET\",\"activityKind\":\"lubricant_loss\",\"periodStart\":\"$TODAY\",\"periodEnd\":\"$TODAY\",\"quantity\":1,\"unit\":\"L\",\"substance\":\"ISO VG 46 hydraulic oil\",\"basis\":\"Deliberately mismatched same-tenant site and asset for refusal proof.\",\"sourceReference\":\"LOSS-E10-WRONG-SITE\",\"evidenceItemId\":\"$ASSET_EVIDENCE\"}}")
+expect_error "$WRONG_SITE" 'does not belong'
 LOSS=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"environmental_activity\",\"p_record\":{\"siteId\":\"$SITE\",\"assetId\":\"$ASSET\",\"activityKind\":\"lubricant_loss\",\"periodStart\":\"$TODAY\",\"periodEnd\":\"$TODAY\",\"quantity\":18,\"unit\":\"L\",\"substance\":\"ISO VG 46 hydraulic oil\",\"factorKey\":null,\"scope\":null,\"maintenanceAttributable\":true,\"note\":\"Seal leak recovered and top-up reconciled.\",\"basis\":\"Measured recovered volume and reservoir top-up after the verified seal leak.\",\"sourceReference\":\"INC-E10-001\",\"evidenceItemId\":\"$ASSET_EVIDENCE\"}}")
 noerr "$LOSS"; test "$(field "$LOSS" complianceCertified)" = 'false'; test "$(field "$LOSS" workAuthorized)" = 'false'
+FUEL_ACTIVITY=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"environmental_activity\",\"p_record\":{\"siteId\":\"$SITE\",\"assetId\":\"$ASSET\",\"activityKind\":\"fuel_burn\",\"periodStart\":\"$TODAY\",\"periodEnd\":\"$TODAY\",\"quantity\":10,\"unit\":\"L\",\"factorKey\":\"diesel_stationary\",\"scope\":\"scope_1\",\"maintenanceAttributable\":false,\"basis\":\"Verified fuel issue recorded before a later factor revision is published.\",\"sourceReference\":\"FUEL-E10-003\",\"evidenceItemId\":\"$GLOBAL_EVIDENCE\"}}")
+noerr "$FUEL_ACTIVITY"; FUEL_ACTIVITY_ID=$(field "$FUEL_ACTIVITY" id); test -n "$FUEL_ACTIVITY_ID"
+test "$(psqlc "select emission_factor_id from environmental_activities where organization_id='$ORG' and id=$FUEL_ACTIVITY_ID;")" = "$FACTOR_ID"
+REVISED_FACTOR=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"emission_factor\",\"p_record\":{\"factorKey\":\"diesel_stationary\",\"label\":\"Stationary diesel combustion revision\",\"activityUnit\":\"L\",\"factor\":2.9,\"factorUnit\":\"kg CO2e/L\",\"validFrom\":\"$TODAY\",\"gwp\":null,\"basis\":\"Later published factor retained as a new effective version without rewriting prior activity.\",\"sourceReference\":\"REGULATOR-2026-REV2\",\"evidenceItemId\":\"$GLOBAL_EVIDENCE\"}}")
+noerr "$REVISED_FACTOR"
+ACTIVITIES=$(rpc "$WRITER_AAL2" get_environmental_activities '{"p_limit":50}')
+BODY="$ACTIVITIES" python3 - <<'PY'
+import json,os
+x=json.loads(os.environ['BODY'])
+fuel=[row for row in x if row['activityLabel'].startswith('fuel_burn')]
+assert len(fuel)==1 and float(fuel[0]['factor'])==2.7,fuel
+PY
 HAZARD=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"hazardous_inventory\",\"p_record\":{\"inventoryRef\":\"BAT-E10-001\",\"expectedVersion\":0,\"assetId\":\"$ASSET\",\"substance\":\"Lithium iron phosphate battery\",\"category\":\"battery\",\"quantity\":2,\"unit\":\"each\",\"location\":\"Electrical room ER-1\",\"handlingRequirements\":\"Isolate terminals, prevent short circuit and use the approved fire-response procedure.\",\"emergencyResponseReference\":\"ERP-BAT-04\",\"regulatoryReference\":\"TDG-BATTERY\",\"disposalRouteRequired\":\"Approved battery recycler\",\"endOfLifePlanned\":true,\"basis\":\"Verified equipment register and controlled handling procedure for installed batteries.\",\"sourceReference\":\"BAT-REGISTER-2026\",\"evidenceItemId\":\"$ASSET_EVIDENCE\"}}")
 noerr "$HAZARD"; test "$(field "$HAZARD" version)" = '1'; test "$(field "$HAZARD" reportableInventory)" = 'false'
 
@@ -110,13 +138,14 @@ expect_error "$INCOMPLETE_HAZARD" 'controlled location'
 
 WORKSPACE=$(rpc "$WRITER_AAL2" get_environmental_evidence_workspace '{}')
 noerr "$WORKSPACE"
-BODY="$WORKSPACE" python3 - <<'PY'
+BODY="$WORKSPACE" VIEWER="$VIEWER" AI="$AI" python3 - <<'PY'
 import json,os
 x=json.loads(os.environ['BODY'])
 assert x['canRecord'] is True,x
 assert len(x['baselines'])==1,x
-assert len(x['emissionFactors'])==1,x
+assert len(x['emissionFactors'])==2,x
 assert len(x['hazardousInventory'])==1,x
+assert all(e['verifiedBy'] not in (os.environ['VIEWER'],os.environ['AI']) for e in x['verifiedEvidence']),x
 assert 'do not certify compliance' in x['decisionBoundary'],x
 PY
 LOSSES=$(rpc "$WRITER_AAL2" get_environmental_loss_records '{}')
@@ -129,10 +158,10 @@ grep -qi 'governed E10 writer' <<<"$OUT"
 OUT=$(sql_must_fail "truncate environmental_activities;")
 grep -qi 'cannot be truncated' <<<"$OUT"
 test "$(psqlc "select has_function_privilege('authenticated','public.guard_environmental_evidence_write()','EXECUTE');")" = 'f'
-test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='environmental_evidence';")" = '5'
+test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='environmental_evidence';")" = '7'
 
 # A foreign actor can use the same governed door only for the foreign tenant.
 FOREIGN_RESULT=$(rpc "$FOREIGN_AAL2" get_environmental_evidence_workspace '{}')
 BODY="$FOREIGN_RESULT" FOREIGN_ASSET="$FOREIGN_ASSET" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert len(x['assets'])==1 and x['assets'][0]['id']==os.environ['FOREIGN_ASSET'],x"
 
-echo 'E10 environmental evidence smoke passed: canonical_tables=true tenant_wall=true foreign_evidence_refused=true foreign_asset_refused=true aal2_required=true ai_operator_refused=true ai_verifier_refused=true independent_evidence=true factor_unit_locked=true hazardous_controls_complete=true optimistic_version=true append_only_history=true direct_write_locked=true loss_summary_reachable=true compliance_certified=false reportable_inventory=false authority_granted=false'
+echo 'E10 environmental evidence smoke passed: canonical_tables=true tenant_wall=true foreign_evidence_refused=true foreign_asset_refused=true asset_site_coherence=true aal2_required=true ai_operator_refused=true ai_verifier_refused=true viewer_verifier_refused=true independent_evidence=true finite_numeric_only=true factor_unit_locked=true factor_snapshot_frozen=true hazardous_controls_complete=true optimistic_version=true append_only_history=true direct_write_locked=true loss_summary_reachable=true compliance_certified=false reportable_inventory=false authority_granted=false'

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270101540000_asset_economics_capital_plans.sql",
+  "supabase/migrations/20270102100000_asset_economics_capital_plans.sql",
   "utf8",
 ).toLowerCase();
 const service = readFileSync("src/services/assetEconomicsService.ts", "utf8");
@@ -35,10 +35,13 @@ describe("C2.10 governed asset economics and lifecycle capital plans", () => {
     expect(migration).toContain("the ai operator is refused");
     expect(migration).toContain("e.verification_status='verified'");
     expect(migration).toContain("e.verified_by<>v_actor");
+    expect(migration).toContain("e.verified_by<>auth.uid()");
     expect(migration).toContain("a.organization_id=v_org");
     expect(migration).toContain(
       "exact canonical asset class is not present in the active tenant",
     );
+    expect(migration).toContain("e.asset_class=a.asset_class");
+    expect(component).toContain("snapshot.assetClass === assetClass");
   });
 
   it("requires step-up authentication, optimistic versions and governed-only writes", () => {
@@ -69,6 +72,17 @@ describe("C2.10 governed asset economics and lifecycle capital plans", () => {
     expect(page).toContain("<AssetEconomicsAdministration");
   });
 
+  it("never sums or labels capital-plan money across unknown or different currencies", () => {
+    expect(migration).toContain("group by i.plan_year,i.currency");
+    expect(migration).toContain(
+      "case when i.currency is null then null else sum(i.cost) end total_cost",
+    );
+    expect(migration).toContain("'currencyspecified',p.currency is not null");
+    expect(component).toContain(
+      "total withheld because currency is not recorded",
+    );
+  });
+
   it("never confuses an economic record with expenditure or operational authority", () => {
     for (const boundary of [
       "expenditureAuthorized",
@@ -97,6 +111,7 @@ describe("C2.10 governed asset economics and lifecycle capital plans", () => {
       "optimistic_version=true",
       "direct_write_locked=true",
       "audit_history=true",
+      "currency_safe_capital_totals=true",
       "authority_granted=false",
     ])
       expect(smoke).toContain(proof);
