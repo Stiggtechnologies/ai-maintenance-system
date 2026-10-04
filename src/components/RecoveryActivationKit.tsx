@@ -253,9 +253,7 @@ export function RecoveryActivationKit({
 
   async function configureSource() {
     const dataLakeHasApprovedMapping = Boolean(
-      selectedSource?.mappings.some(
-        (mapping) => mapping.status === "approved",
-      ),
+      selectedSource?.mappings.some((mapping) => mapping.status === "approved"),
     );
     if (systemKind === "data_lake") {
       await recoveryActivationActions.configureDataLakeSource({
@@ -285,9 +283,7 @@ export function RecoveryActivationKit({
       });
     }
     setMessage(
-      systemKind === "data_lake" &&
-        sourceEnabled &&
-        !dataLakeHasApprovedMapping
+      systemKind === "data_lake" && sourceEnabled && !dataLakeHasApprovedMapping
         ? "ADLS source saved disabled. Approve an entity mapping, review the contract, then activate it."
         : "Read-only activation source saved.",
     );

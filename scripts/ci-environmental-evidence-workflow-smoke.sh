@@ -97,7 +97,7 @@ FOREIGN_ASSET_DENIED=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_ki
 expect_error "$FOREIGN_ASSET_DENIED" 'asset is outside the active tenant'
 
 FACTOR=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"emission_factor\",\"p_record\":{\"factorKey\":\"diesel_stationary\",\"label\":\"Stationary diesel combustion\",\"activityUnit\":\"L\",\"factor\":2.7,\"factorUnit\":\"kg CO2e/L\",\"validFrom\":\"$YESTERDAY\",\"gwp\":null,\"basis\":\"Published factor transcribed exactly for the governed reporting period.\",\"sourceReference\":\"REGULATOR-2026\",\"evidenceItemId\":\"$GLOBAL_EVIDENCE\"}}")
-noerr "$FACTOR"
+noerr "$FACTOR"; FACTOR_ID=$(field "$FACTOR" id); test -n "$FACTOR_ID"
 NAN_FACTOR=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"emission_factor\",\"p_record\":{\"factorKey\":\"invalid_nan_factor\",\"label\":\"Invalid non-finite factor\",\"activityUnit\":\"L\",\"factor\":\"NaN\",\"factorUnit\":\"kg CO2e/L\",\"validFrom\":\"$TODAY\",\"gwp\":null,\"basis\":\"Deliberate non-finite factor used to prove the governed refusal path.\",\"sourceReference\":\"REGULATOR-NAN\",\"evidenceItemId\":\"$GLOBAL_EVIDENCE\"}}")
 expect_error "$NAN_FACTOR" 'positive factor'
 BASE_CREATED=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"efficiency_baseline\",\"p_record\":$BASELINE}")
@@ -113,7 +113,8 @@ expect_error "$WRONG_SITE" 'does not belong'
 LOSS=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"environmental_activity\",\"p_record\":{\"siteId\":\"$SITE\",\"assetId\":\"$ASSET\",\"activityKind\":\"lubricant_loss\",\"periodStart\":\"$TODAY\",\"periodEnd\":\"$TODAY\",\"quantity\":18,\"unit\":\"L\",\"substance\":\"ISO VG 46 hydraulic oil\",\"factorKey\":null,\"scope\":null,\"maintenanceAttributable\":true,\"note\":\"Seal leak recovered and top-up reconciled.\",\"basis\":\"Measured recovered volume and reservoir top-up after the verified seal leak.\",\"sourceReference\":\"INC-E10-001\",\"evidenceItemId\":\"$ASSET_EVIDENCE\"}}")
 noerr "$LOSS"; test "$(field "$LOSS" complianceCertified)" = 'false'; test "$(field "$LOSS" workAuthorized)" = 'false'
 FUEL_ACTIVITY=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"environmental_activity\",\"p_record\":{\"siteId\":\"$SITE\",\"assetId\":\"$ASSET\",\"activityKind\":\"fuel_burn\",\"periodStart\":\"$TODAY\",\"periodEnd\":\"$TODAY\",\"quantity\":10,\"unit\":\"L\",\"factorKey\":\"diesel_stationary\",\"scope\":\"scope_1\",\"maintenanceAttributable\":false,\"basis\":\"Verified fuel issue recorded before a later factor revision is published.\",\"sourceReference\":\"FUEL-E10-003\",\"evidenceItemId\":\"$GLOBAL_EVIDENCE\"}}")
-noerr "$FUEL_ACTIVITY"; test -n "$(field "$FUEL_ACTIVITY" emissionFactorId)"
+noerr "$FUEL_ACTIVITY"; FUEL_ACTIVITY_ID=$(field "$FUEL_ACTIVITY" id); test -n "$FUEL_ACTIVITY_ID"
+test "$(psqlc "select emission_factor_id from environmental_activities where organization_id='$ORG' and id=$FUEL_ACTIVITY_ID;")" = "$FACTOR_ID"
 REVISED_FACTOR=$(rpc "$WRITER_AAL2" record_environmental_evidence "{\"p_kind\":\"emission_factor\",\"p_record\":{\"factorKey\":\"diesel_stationary\",\"label\":\"Stationary diesel combustion revision\",\"activityUnit\":\"L\",\"factor\":2.9,\"factorUnit\":\"kg CO2e/L\",\"validFrom\":\"$TODAY\",\"gwp\":null,\"basis\":\"Later published factor retained as a new effective version without rewriting prior activity.\",\"sourceReference\":\"REGULATOR-2026-REV2\",\"evidenceItemId\":\"$GLOBAL_EVIDENCE\"}}")
 noerr "$REVISED_FACTOR"
 ACTIVITIES=$(rpc "$WRITER_AAL2" get_environmental_activities '{"p_limit":50}')

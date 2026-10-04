@@ -89,10 +89,16 @@ describe("E10 governed environmental evidence workflow", () => {
   });
 
   it("refuses non-finite values, serializes normalized baselines and enforces site ownership", () => {
-    expect(migration.match(/sync_is_finite_numeric/g)?.length).toBeGreaterThanOrEqual(6);
+    expect(
+      migration.match(/sync_is_finite_numeric/g)?.length,
+    ).toBeGreaterThanOrEqual(6);
     expect(migration).toContain("pg_advisory_xact_lock");
-    expect(migration).toContain("Multiple legacy baselines share this normalized metric");
-    expect(migration).toContain("asset does not belong to the selected same-tenant site");
+    expect(migration).toContain(
+      "Multiple legacy baselines share this normalized metric",
+    );
+    expect(migration).toContain(
+      "asset does not belong to the selected same-tenant site",
+    );
   });
 
   it("requires the controls claimed for hazardous materials", () => {

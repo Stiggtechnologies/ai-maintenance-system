@@ -79,7 +79,9 @@ export function PlantHistorianConnectorSetup({
         [
           String(configured.note ?? "Historian source saved."),
           String(mapped.note ?? ""),
-          activated ? String(activated.note ?? "Historian source enabled.") : "",
+          activated
+            ? String(activated.note ?? "Historian source enabled.")
+            : "",
         ]
           .filter(Boolean)
           .join(" "),

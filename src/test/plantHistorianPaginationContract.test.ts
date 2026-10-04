@@ -80,7 +80,7 @@ describe("plant historian paginated read contract", () => {
     expect(migration).toContain("public.record_condition_reading(");
     expect(migration).toContain("v_run.source_contract_hash is distinct from");
     expect(edge).toContain("!dryRun &&");
-    expect(edge).toContain("source.mapping_status !== \"approved\"");
+    expect(edge).toContain('source.mapping_status !== "approved"');
   });
 
   it("traverses only bounded same-origin GET pages without silent truncation", () => {

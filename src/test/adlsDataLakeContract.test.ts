@@ -67,9 +67,7 @@ describe("C2.14 governed ADLS data-lake adapter", () => {
     expect(repair).toContain("restore_data_lake_staging_provenance");
     expect(repair).toContain("s.payload-'_sync_source'");
     expect(repair).toContain("order by s.received_at desc,s.id desc");
-    expect(repair).toContain(
-      "idx_ingest_staging_latest_accepted_identity",
-    );
+    expect(repair).toContain("idx_ingest_staging_latest_accepted_identity");
     expect(repair).toContain("pg_advisory_xact_lock");
     expect(repair.match(/for update of r/g)).toHaveLength(2);
     expect(repair).toContain("records_duplicate=records_duplicate+1");
@@ -110,7 +108,9 @@ describe("C2.14 governed ADLS data-lake adapter", () => {
     expect(edge).toContain("!dryRun &&");
     expect(edge).toContain("source.can_commit !== true");
     expect(edge).toContain("named-human-approved mapping");
-    expect(edge).toContain("No canonical, staging, run or watermark row was written");
+    expect(edge).toContain(
+      "No canonical, staging, run or watermark row was written",
+    );
   });
 
   it("blocks the generic ingest path and refuses cursor regression", () => {

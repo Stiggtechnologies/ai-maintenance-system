@@ -154,8 +154,7 @@ export function SafetyCriticalRegulatoryRegister() {
     try {
       const selectedRequirement = mandatoryRequirements.find(
         (requirement) =>
-          requirement.layerId === layerId &&
-          requirement.key === requirementKey,
+          requirement.layerId === layerId && requirement.key === requirementKey,
       );
       if (!linkElement || !selectedRequirement)
         throw new Error(

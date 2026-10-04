@@ -29,9 +29,7 @@ describe("CMMS paginated read contract", () => {
       "configuring a CMMS source requires a named human administrator",
     );
     expect(migration).toContain("coalesce(v_role,'') <> 'admin'");
-    expect(migration).toContain(
-      "'can_commit',coalesce(v_role,'') in (",
-    );
+    expect(migration).toContain("'can_commit',coalesce(v_role,'') in (");
     expect(migration).toContain(
       "a named human administrator must approve the work_order mapping before activation",
     );
@@ -44,9 +42,7 @@ describe("CMMS paginated read contract", () => {
     expect(migration).toContain(
       "CMMS source or mapping changed during this run; no further rows were ingested",
     );
-    expect(migration).toContain(
-      "r.triggered_by is distinct from auth.uid()",
-    );
+    expect(migration).toContain("r.triggered_by is distinct from auth.uid()");
     expect(migration).not.toContain(
       "array['planner','maintenance_manager','reliability_engineer','admin','ai_admin']",
     );
@@ -56,7 +52,9 @@ describe("CMMS paginated read contract", () => {
     expect(migration).toContain("when 'generic_cmms' then 'cmms'");
     expect(migration).toContain("when 'sap_pm' then 'cmms'");
     expect(migration).toContain("else 'eam'");
-    expect(migration).toContain("'source_profile',v_connector.connector_profile");
+    expect(migration).toContain(
+      "'source_profile',v_connector.connector_profile",
+    );
     expect(migration).toContain("192\\.168\\.");
     expect(migration).toContain("v_ref ~ '[@?=#]'");
     expect(migration).toContain("pagination mode must be none or next_url");
