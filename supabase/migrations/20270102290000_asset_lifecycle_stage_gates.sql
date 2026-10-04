@@ -82,15 +82,23 @@ security definer
 set search_path=public,pg_temp
 as $$
 declare
-  v_review_id bigint:=case when tg_table_name='stage_gate_reviews'
-    then case when tg_op='DELETE' then old.id else new.id end
-    else case when tg_op='DELETE' then old.review_id else new.review_id end end;
+  v_review_id bigint;
   r public.stage_gate_reviews%rowtype;
   v_criteria integer;
   v_findings integer;
   v_unique integer;
   v_bad integer;
 begin
+  -- OLD/NEW are table-shaped records. Keep the parent and child field access
+  -- in separate executed statements: PostgreSQL resolves record fields before
+  -- a CASE expression can discard its unreachable branch, so a single CASE
+  -- that mentions both `id` and `review_id` fails on the parent relation.
+  if tg_table_name='stage_gate_reviews' then
+    v_review_id:=case when tg_op='DELETE' then old.id else new.id end;
+  else
+    v_review_id:=case when tg_op='DELETE' then old.review_id else new.review_id end;
+  end if;
+
   select * into r from public.stage_gate_reviews where id=v_review_id;
   if not found or r.asset_id is null or r.development_case_id is not null
      or r.target_stage_key is null then return null; end if;

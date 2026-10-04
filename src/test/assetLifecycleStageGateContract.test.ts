@@ -19,6 +19,15 @@ describe("U4.11/U4.12/U4.14 governed lifecycle stage gates", () => {
     );
   });
 
+  it("resolves parent and child trigger record fields in separate branches", () => {
+    expect(migration).toMatch(
+      /if tg_table_name='stage_gate_reviews' then\s+v_review_id:=case when tg_op='delete' then old\.id else new\.id end;\s+else\s+v_review_id:=case when tg_op='delete' then old\.review_id else new\.review_id end;/,
+    );
+    expect(migration).not.toMatch(
+      /v_review_id bigint:=case when tg_table_name='stage_gate_reviews'/,
+    );
+  });
+
   it("extends the canonical lifecycle, gate, evidence, evaluation and disposal records", () => {
     for (const source of [
       "public.asset_lifecycle_state",
