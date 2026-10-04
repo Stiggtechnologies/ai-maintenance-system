@@ -594,6 +594,9 @@ jobs:
       - name: Smoke — governed SAP S/4HANA financial actuals read
         run: bash scripts/ci-sap-s4-financial-read-smoke.sh
 
+      - name: Smoke — governed Bently System 1 condition-data read
+        run: bash scripts/ci-bently-system1-condition-read-smoke.sh
+
       - name: Smoke — governed environmental evidence workflow
         run: bash scripts/ci-environmental-evidence-workflow-smoke.sh
 
