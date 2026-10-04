@@ -26,7 +26,13 @@ body=f'{h}.{p}'; sig=base64.urlsafe_b64encode(hmac.new(os.environ['JWT_SECRET_VA
 print(f'{body}.{sig}')
 PY
 }
-rpc(){ curl -sS -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d "${3:-{}}"; }
+rpc(){
+  local body='{}'
+  if [ "$#" -ge 3 ]; then body="$3"; fi
+  curl -sS -X POST "$API_URL/rest/v1/rpc/$2" \
+    -H "apikey: $ANON_KEY" -H "Authorization: Bearer $1" \
+    -H 'Content-Type: application/json' -d "$body"
+}
 psqlc(){ PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -qAt -c "$1"; }
 expect_error(){ BODY="$1" WANT="$2" python3 -c "import json,os,sys; x=json.loads(os.environ['BODY']); e=str(x.get('error') or x.get('message') or ''); sys.exit(0) if os.environ['WANT'].lower() in e.lower() else (print('expected',os.environ['WANT'],'got',x) or sys.exit(1))"; }
 noerr(){ BODY="$1" python3 -c "import json,os,sys; x=json.loads(os.environ['BODY']); e=x.get('error') if isinstance(x,dict) else None; print(x,file=sys.stderr) if e else None; sys.exit(1 if e else 0)"; }
