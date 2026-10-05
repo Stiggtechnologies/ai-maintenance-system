@@ -774,10 +774,10 @@
     "backticked": 8
   },
   "C8.02": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 7,
+    "backticked": 7
   },
   "C8.03": {
     "status": "🟡",
