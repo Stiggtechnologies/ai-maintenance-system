@@ -106,4 +106,19 @@ describe("RecommendationFailureBasisDrawer", () => {
       screen.queryByRole("button", { name: "Record governed basis" }),
     ).not.toBeInTheDocument();
   });
+
+  it("makes stale governed provenance explicit to the reviewer", async () => {
+    getBasis.mockResolvedValueOnce({ ...workspace, valid: false });
+    render(
+      <RecommendationFailureBasisDrawer
+        rec={recommendation}
+        canGovern
+        onClose={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      /basis is no longer current/i,
+    );
+  });
 });

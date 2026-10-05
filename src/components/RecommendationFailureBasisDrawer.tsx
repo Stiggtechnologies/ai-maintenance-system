@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link2, Loader2, X } from "lucide-react";
+import { AlertTriangle, Link2, Loader2, X } from "lucide-react";
 import type { RecommendationRow } from "../types/operating";
 import {
   getRecommendationFailureBasis,
@@ -113,6 +113,19 @@ export function RecommendationFailureBasisDrawer({
               )}
               {workspace.note && (
                 <p className="mt-2 text-slate-400">{workspace.note}</p>
+              )}
+              {workspace.kind && !workspace.valid && (
+                <p
+                  role="alert"
+                  className="mt-3 flex items-start gap-2 rounded-lg border border-amber-500/25 bg-amber-500/10 p-3 text-amber-200"
+                >
+                  <AlertTriangle
+                    className="mt-0.5 h-3.5 w-3.5 shrink-0"
+                    aria-hidden
+                  />
+                  This basis is no longer current. A named human must review and
+                  record a valid governed basis before relying on it.
+                </p>
               )}
               <p className="mt-2 text-slate-500">{workspace.boundary}</p>
             </div>
