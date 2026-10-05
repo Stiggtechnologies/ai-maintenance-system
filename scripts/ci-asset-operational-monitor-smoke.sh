@@ -37,6 +37,8 @@ if test -z "$FOREIGN_ASSET"; then
   FOREIGN_ASSET=$(psqlc "insert into public.assets(organization_id,tag,name,status)
     values('$FOREIGN_ORG','C803-FOREIGN-$RUN_KEY','Foreign monitor asset','healthy') returning id")
 fi
+EMPTY_ASSET=$(psqlc "insert into public.assets(organization_id,tag,name,status)
+  values('$ORG','C803-EMPTY-$RUN_KEY','Empty monitor asset','healthy') returning id")
 
 SENSOR=$(psqlc "insert into public.sensors(
   organization_id,asset_id,name,signal_type,unit,warning_limit,alarm_limit,
@@ -144,9 +146,21 @@ x=json.loads(os.environ['BODY'])
 assert x.get('error')=='asset not found',x
 PY
 
+EMPTY=$(rpc "$ENGINEER" get_asset_operational_monitor \
+  "{\"p_asset_id\":\"$EMPTY_ASSET\",\"p_window_days\":30}")
+BODY="$EMPTY" python3 - <<'PY'
+import json,os
+x=json.loads(os.environ['BODY'])
+assert x.get('asset',{}).get('id'),x
+assert x['risk']['summary']['emergingRisks']==0,x
+assert x['risk']['summary']['warningIndicators']==0,x
+assert x['risk']['summary']['criticalIndicators']==0,x
+assert x['risk']['risks']==[],x
+PY
+
 test "$(psqlc "select count(*) from public.work_orders where organization_id='$ORG'")" = "$WORK_BEFORE"
 test "$(psqlc "select count(*) from public.approvals where organization_id='$ORG'")" = "$APPROVALS_BEFORE"
 test "$(psqlc "select count(*) from public.decisions where organization_id='$ORG'")" = "$DECISIONS_BEFORE"
 test "$(psqlc "select count(*) from public.recommendations where organization_id='$ORG'")" = "$RECOMMENDATIONS_BEFORE"
 
-echo 'Asset operational monitor smoke passed: exact_asset=true condition=true work_history=true demonstrated_production_impact=true sensitivity_filtered_risk=true tenant_wall=true read_only=true'
+echo 'Asset operational monitor smoke passed: exact_asset=true condition=true work_history=true demonstrated_production_impact=true sensitivity_filtered_risk=true empty_risk_state=true tenant_wall=true read_only=true'

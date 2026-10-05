@@ -230,8 +230,7 @@ begin
           and i.current_state in ('warning','critical')),'[]'::jsonb)
     ) order by r.risk_velocity desc nulls last,r.current_risk_score desc nulls last,r.id),'[]'::jsonb),
     'basis','Only sensitivity-authorized risks for the exact asset are shown. Emerging means positive velocity, a warning/critical indicator, or a retained emerging-risk event in the selected window; it is not an approval or risk acceptance.'
-  ) into v_risk
-  from visible_risks r;
+  ) into v_risk;
 
   return jsonb_build_object(
     'asset',v_asset,'windowDays',v_days,'windowStart',v_from,
