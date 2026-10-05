@@ -44,8 +44,8 @@ describe("C8.14 governed recommendation failure basis", () => {
   });
 
   it("makes C8.14 visible as advisory posture and binds assumption attestation to it", () => {
-    expect(sql).toContain(
-      "('C8.14','Failure mode, governed risk scenario or explicit not-applicable basis',false",
+    expect(sql).toMatch(
+      /\('C8\.14','Failure mode, governed risk scenario or explicit not-applicable basis',\s*false/,
     );
     expect(sql).toContain("'failureModeLibraryId',r.failure_mode_library_id");
     expect(sql).toContain("'failureBasisKind',r.failure_basis_kind");
