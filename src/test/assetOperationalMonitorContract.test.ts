@@ -52,6 +52,15 @@ describe("C8.03 exact-asset operational monitor contract", () => {
     expect(migration).not.toContain("to anon");
   });
 
+  it("aggregates the visible-risk set without requiring an outer risk row", () => {
+    expect(migration).toMatch(
+      /'risks',coalesce\(\(select jsonb_agg\([\s\S]*?from visible_risks r\),'\[\]'::jsonb\)/,
+    );
+    expect(migration).not.toMatch(
+      /\) into v_risk\s+from visible_risks r;/,
+    );
+  });
+
   it("uses demonstrated production and refuses missing evidence", () => {
     expect(migration).toContain("pt.units/st.running_hours");
     expect(migration).toContain("'demonstrated_rate'");

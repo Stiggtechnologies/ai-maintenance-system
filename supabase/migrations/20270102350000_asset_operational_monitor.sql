@@ -228,7 +228,8 @@ begin
         from public.risk_indicators i
         where i.organization_id=v_org and i.risk_id=r.id and i.active
           and i.current_state in ('warning','critical')),'[]'::jsonb)
-    ) order by r.risk_velocity desc nulls last,r.current_risk_score desc nulls last,r.id),'[]'::jsonb),
+    ) order by r.risk_velocity desc nulls last,r.current_risk_score desc nulls last,r.id)
+      from visible_risks r),'[]'::jsonb),
     'basis','Only sensitivity-authorized risks for the exact asset are shown. Emerging means positive velocity, a warning/critical indicator, or a retained emerging-risk event in the selected window; it is not an approval or risk acceptance.'
   ) into v_risk;
 
