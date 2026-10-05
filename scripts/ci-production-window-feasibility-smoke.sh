@@ -73,7 +73,7 @@ test "$(jqp "$P" "x['not_assessable_work_orders']")" = "2"
 test "$(jqp "$P" "len(x['evidence'])")" = "2"
 
 # An organization-wide full-week availability signal assesses both jobs.
-psqlc "insert into public.operational_constraint_signals(organization_id,signal_kind,signal_key,state,observed_at,valid_until,source_system,source_ref,basis) values('$ORG','production','C808-WINDOW','available','$WEEK'::date-interval '1 day','$WEEK_END'::date+interval '1 day','C808-SMOKE','PLAN-ORG','Approved operating plan records an available maintenance window across the tenant.');" >/dev/null
+psqlc "insert into public.operational_constraint_signals(organization_id,signal_kind,signal_key,state,observed_at,valid_until,source_system,source_ref,basis) values('$ORG','production','C808-WINDOW','available',now()-interval '1 day','$WEEK_END'::date+interval '1 day','C808-SMOKE','PLAN-ORG','Approved operating plan records an available maintenance window across the tenant.');" >/dev/null
 R=$(rpc "$TOKEN" evaluate_schedule_feasibility "{\"p_option_id\":\"$OPT\"}")
 noerr "$R"; P=$(production "$R")
 test "$(jqp "$P" "x['passed']")" = "True"
@@ -82,7 +82,7 @@ test "$(jqp "$P" "all(s['scope']=='organization' for e in x['evidence'] for s in
 
 # A more-specific site signal overrides the same organization key and exposes
 # one real conflict without contaminating the other site.
-psqlc "insert into public.operational_constraint_signals(organization_id,site_id,signal_kind,signal_key,state,observed_at,valid_until,source_system,source_ref,basis) values('$ORG','$SITE_A','production','C808-WINDOW','unavailable','$WEEK'::date-interval '12 hours','$WEEK_END'::date+interval '1 day','C808-SMOKE','PLAN-SITE-A','The approved north-site production campaign conflicts with the proposed maintenance week.');" >/dev/null
+psqlc "insert into public.operational_constraint_signals(organization_id,site_id,signal_kind,signal_key,state,observed_at,valid_until,source_system,source_ref,basis) values('$ORG','$SITE_A','production','C808-WINDOW','unavailable',now()-interval '12 hours','$WEEK_END'::date+interval '1 day','C808-SMOKE','PLAN-SITE-A','The approved north-site production campaign conflicts with the proposed maintenance week.');" >/dev/null
 R=$(rpc "$TOKEN" evaluate_schedule_feasibility "{\"p_option_id\":\"$OPT\"}")
 noerr "$R"; P=$(production "$R")
 test "$(jqp "$P" "x['passed']")" = "False"
