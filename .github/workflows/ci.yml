@@ -409,6 +409,9 @@ jobs:
       - name: Smoke — exact-asset condition, work, production-impact and emerging-risk monitor
         run: bash scripts/ci-asset-operational-monitor-smoke.sh
 
+      - name: Smoke — production-window evidence in the governed weekly schedule door
+        run: bash scripts/ci-production-window-feasibility-smoke.sh
+
       - name: Smoke — corrective-action strategy update linkage
         run: bash scripts/ci-ca-strategy-update-smoke.sh
 
