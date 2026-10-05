@@ -366,40 +366,70 @@ revoke all on function public.recommendation_assumption_context_digest(uuid,uuid
 drop function if exists public.get_recommendation_contract_posture();
 create or replace function public.get_recommendation_contract_posture()
 returns table (
-  register text,label text,blocking boolean,populated bigint,total bigint,
-  share numeric,releasable_rows bigint,blocked_rows bigint
+  register text,
+  label text,
+  blocking boolean,
+  populated bigint,
+  total bigint,
+  share numeric,
+  releasable_rows bigint,
+  blocked_rows bigint
 )
-language sql stable security definer set search_path=public as $$
-  with r as (select * from public.recommendations
-    where organization_id=public.app_current_org()),
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with r as (
+    select * from public.recommendations
+    where organization_id = public.app_current_org()
+  ),
   t as (select count(*) n from r),
-  rel as (select count(*) filter(where c.releasable) ok,
-    count(*) filter(where not c.releasable) blocked
-    from r,lateral public.check_recommendation_contract(r.id)c)
-  select v.reg,v.lab,v.blk,v.pop,t.n,
-    case when t.n>0 then round(v.pop::numeric/t.n,3) else 0 end,
-    rel.ok,rel.blocked
-  from t,rel,lateral(values
-    ('C8.11','Asset/functional location or governed risk context',true,
-      (select count(*) from r rr where rr.asset_id is not null or
-        (rr.risk_id is not null and exists(select 1 from public.risks x
-          where x.id=rr.risk_id and x.organization_id=rr.organization_id and x.context_id is not null)))),
-    ('C8.12','Current condition or problem',true,(select count(*) from r rr where not public.contract_field_blank(rr.issue))),
-    ('C8.13','Evidence used',true,(select count(*) from r rr where not public.contract_field_blank(rr.rationale))),
-    ('C8.14','Failure mode, governed risk scenario or explicit not-applicable basis',false,
-      (select count(*) from r rr where public.recommendation_failure_basis_valid(rr))),
-    ('C5.24','Assumptions and validation plan',true,(select count(*) from r rr where
-      public.recommendation_assumption_packet_valid(rr.assumption_packet) and
-      rr.assumption_context_digest=public.recommendation_assumption_context_digest(rr.organization_id,rr.id))),
-    ('C8.15','Consequence: safety, environmental, production, financial',true,(select count(*) from r rr where not public.contract_narrative_blank(rr.consequence_summary))),
-    ('C8.16','Recommended action',true,(select count(*) from r rr where not public.contract_field_blank(rr.action))),
-    ('C8.17','Alternative actions considered',true,(select count(*) from r rr where not public.contract_narrative_blank(rr.alternatives_considered))),
-    ('C8.18','Required completion date',true,(select count(*) from r rr where rr.required_completion_date is not null)),
-    ('C8.19','Confidence and uncertainty',true,(select count(*) from r rr where rr.confidence is not null)),
-    ('C8.20','Required human approval (named authority)',true,(select count(*) from r rr where not public.contract_field_blank(rr.required_approver_role))),
-    ('C8.21','Method for verifying effectiveness',true,(select count(*) from r rr where not public.contract_narrative_blank(rr.verification_method)))
-  )v(reg,lab,blk,pop)
-  order by 6,1;
+  releasability as (
+    select
+      count(*) filter (where c.releasable) as ok,
+      count(*) filter (where not c.releasable) as blocked
+    from r, lateral check_recommendation_contract(r.id) c
+  )
+  select v.reg, v.lab, v.blk, v.pop, t.n,
+         case when t.n > 0 then round(v.pop::numeric / t.n, 3) else 0 end,
+         rel.ok, rel.blocked
+  from t, releasability rel, lateral (values
+    ('C8.11','Asset/functional location or governed risk context', true,
+      (select count(*) from r where asset_id is not null
+         or (r.risk_id is not null and exists (
+              select 1 from public.risks x
+              where x.id = r.risk_id
+                and x.organization_id = r.organization_id
+                and x.context_id is not null)))),
+    ('C8.12','Current condition or problem', true,
+      (select count(*) from r where not public.contract_field_blank(issue))),
+    ('C8.13','Evidence used', true,
+      (select count(*) from r where not public.contract_field_blank(rationale))),
+    ('C8.14','Failure mode, governed risk scenario or explicit not-applicable basis', false,
+      (select count(*) from r where public.recommendation_failure_basis_valid(r))),
+    ('C5.24','Assumptions and validation plan', true,
+      (select count(*) from r
+       where public.recommendation_assumption_packet_valid(assumption_packet)
+         and assumption_context_digest = public.recommendation_assumption_context_digest(
+           organization_id, id
+         ))),
+    ('C8.15','Consequence: safety, environmental, production, financial', true,
+      (select count(*) from r where not public.contract_narrative_blank(consequence_summary))),
+    ('C8.16','Recommended action', true,
+      (select count(*) from r where not public.contract_field_blank(action))),
+    ('C8.17','Alternative actions considered', true,
+      (select count(*) from r where not public.contract_narrative_blank(alternatives_considered))),
+    ('C8.18','Required completion date', true,
+      (select count(*) from r where required_completion_date is not null)),
+    ('C8.19','Confidence and uncertainty', true,
+      (select count(*) from r where confidence is not null)),
+    ('C8.20','Required human approval (named authority)', true,
+      (select count(*) from r where not public.contract_field_blank(required_approver_role))),
+    ('C8.21','Method for verifying effectiveness', true,
+      (select count(*) from r where not public.contract_narrative_blank(verification_method)))
+  ) as v(reg, lab, blk, pop)
+  order by 6, 1;
 $$;
 
 revoke all on function public.get_recommendation_contract_posture()

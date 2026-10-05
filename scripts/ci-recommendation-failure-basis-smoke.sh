@@ -13,6 +13,8 @@ REC='c8140000-0000-4000-8000-000000000011'
 FM='c8140000-0000-4000-8000-000000000021'
 FOREIGN_FM='c8140000-0000-4000-8000-000000000022'
 RISK='c8140000-0000-4000-8000-000000000031'
+CONTEXT='c8140000-0000-4000-8000-000000000041'
+PROFILE='c8140000-0000-4000-8000-000000000051'
 
 token(){ curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}" | python3 -c "import json,sys; print(json.load(sys.stdin).get('access_token',''))"; }
 rpc(){ curl -sS -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "authorization: Bearer $1" -H 'content-type: application/json' -d "$3"; }
@@ -30,6 +32,9 @@ insert into assets(id,organization_id,name,tag,criticality) values
 ('$ASSET','$ORG','C8.14 pump','C814-P-101','high'),
 ('$OTHER_ASSET','$OTHER','C8.14 foreign pump','C814-X-101','high') on conflict(id) do nothing;
 delete from recommendations where id='$REC';
+delete from risks where id='$RISK';
+delete from risk_criteria_profiles where id='$PROFILE';
+delete from risk_context_nodes where id='$CONTEXT';
 insert into recommendations(id,organization_id,asset_id,title,issue,action,impact,confidence,status,rationale)
 values('$REC','$ORG','$ASSET','C8.14 seal mechanism','Seal failures recur after solids-heavy starts.','Validate the mechanism before changing the PM interval.','Avoid repeat production loss.',78,'pending','Work history supports timing but not mechanism.');
 select set_config('app.governed_rcm_write','granted',false);
@@ -38,9 +43,53 @@ values('$FM','$ORG','$ASSET','Seal face abrasion','Contain process fluid','Loss 
 ('$FOREIGN_FM','$OTHER','$OTHER_ASSET','Foreign bearing seizure','Transmit torque','Loss of rotation','governed_rcm','reviewed',1)
 on conflict(id) do nothing;
 select set_config('app.governed_rcm_write','',false);
-insert into risks(id,organization_id,asset_id,title,event_description,status)
-values('$RISK','$ORG','$ASSET','Seal loss during startup','A solids-heavy startup abrades the seal faces and causes loss of containment.','identified')
-on conflict(id) do nothing;" >/dev/null
+insert into risk_context_nodes(
+  id,organization_id,scope_kind,asset_id,name,mission_or_service,
+  objectives,stakeholders,status,version,created_by
+)
+values(
+  '$CONTEXT','$ORG','asset','$ASSET','C8.14 seal-risk context',
+  'Preserve safe, reliable process-fluid containment.',
+  '[\"prevent startup seal loss\"]','[\"operations\",\"maintenance\",\"reliability\"]',
+  'draft',1,(select id from user_profiles where organization_id='$ORG' and email='demo@syncai.ca')
+);
+insert into risk_criteria_profiles(
+  id,organization_id,context_id,name,status,basis
+)
+values(
+  '$PROFILE','$ORG','$CONTEXT','C8.14 bounded identification criteria','draft',
+  'Fixture criteria exist only to prove a fully scoped identified risk; they do not authorize evaluation or acceptance.'
+);
+insert into risks(
+  id,organization_id,context_id,criteria_profile_id,asset_id,title,kind,
+  objective_at_risk,risk_source,event_description,risk_owner_id,
+  decision_owner_id,scope_decision,scope_expected_outcome,
+  scope_inclusions,scope_exclusions,time_horizon,location_scope,
+  resource_scope,responsibility_scope,relationship_scope,assumptions,biases,
+  bias_review_complete,method_limitations,data_quality,reporting_profile,
+  status,source_kind,created_by
+)
+values(
+  '$RISK','$ORG','$CONTEXT','$PROFILE','$ASSET','Seal loss during startup','threat',
+  'Safe and reliable process-fluid containment during startup.',
+  'Solids-heavy startup exposure and recurring seal work history.',
+  'A solids-heavy startup abrades the seal faces and causes loss of containment.',
+  (select id from user_profiles where organization_id='$ORG' and email='demo@syncai.ca'),
+  (select id from user_profiles where organization_id='$ORG' and email='demo@syncai.ca'),
+  'Decide whether the startup seal mechanism requires further governed investigation.',
+  'Identify a defensible risk scenario without authorizing treatment or operational change.',
+  '[\"C8.14 pump\",\"startup seal mechanism\"]','[\"other assets\",\"treatment approval\"]',
+  'Current bounded investigation window','C8.14 pump startup duty',
+  '[\"authorized work history\"]','[\"reliability engineer\",\"maintenance manager\"]',
+  '[\"startup\",\"seal degradation\",\"loss of containment\"]',
+  '[\"available work history is representative of the observed startup duty\"]',
+  '[\"availability and confirmation bias reviewed\"]',true,
+  '[\"identified scenario only; likelihood and consequence analysis remain unperformed\"]',
+  'bounded and source-limited',
+  '{\"audiences\":[\"reliability\",\"maintenance\"],\"frequency\":\"on material change\",\"method\":\"in-app\",\"timeliness\":\"current\",\"cost_limit\":0}',
+  'identified','human',
+  (select id from user_profiles where organization_id='$ORG' and email='demo@syncai.ca')
+);" >/dev/null
 
 # A reviewed, exact-asset failure mode is accepted and appears in posture.
 R=$(rpc "$TOKEN" record_recommendation_failure_basis "{\"p_recommendation_id\":\"$REC\",\"p_kind\":\"failure_mode\",\"p_subject_id\":\"$FM\",\"p_note\":\"The reviewed mechanism matches the exact asset and repeated startup exposure.\"}")
