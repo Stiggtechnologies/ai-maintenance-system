@@ -406,6 +406,9 @@ jobs:
       - name: Smoke — operational requirements to measurable RAM and lifecycle objectives
         run: bash scripts/ci-operational-ram-objectives-smoke.sh
 
+      - name: Smoke — exact-asset condition, work, production-impact and emerging-risk monitor
+        run: bash scripts/ci-asset-operational-monitor-smoke.sh
+
       - name: Smoke — corrective-action strategy update linkage
         run: bash scripts/ci-ca-strategy-update-smoke.sh
 
