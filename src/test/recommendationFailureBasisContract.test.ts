@@ -29,7 +29,9 @@ describe("C8.14 governed recommendation failure basis", () => {
 
   it("accepts only reviewed failure modes, identified risk events or an explicit not-applicable basis", () => {
     expect(sql).toContain("v_failure.rcm_status is distinct from 'reviewed'");
-    expect(sql).toContain("v_risk.status in ('draft','archived')");
+    expect(sql).toContain("v_risk.status not in (");
+    expect(sql).toContain("'treatment_planned','treatment_active','monitoring','accepted'");
+    expect(sql).not.toContain("status not in ('draft','archived')");
     expect(sql).toContain("length(btrim(coalesce(v_risk.event_description,''))) < 20");
     expect(sql).toContain("'not_applicable'");
     expect(sql).toContain("length(btrim(coalesce(p_note,''))) < 20");

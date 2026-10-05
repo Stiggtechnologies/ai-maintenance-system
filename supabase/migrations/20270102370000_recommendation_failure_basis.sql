@@ -73,7 +73,10 @@ as $$
       from public.risks x
       where x.id = r.risk_id
         and x.organization_id = r.organization_id
-        and x.status not in ('draft','archived')
+        and x.status in (
+          'identified','analyzing','analyzed','evaluated','decision_required',
+          'treatment_planned','treatment_active','monitoring','accepted'
+        )
         and length(btrim(coalesce(x.event_description,''))) >= 20
         and (r.asset_id is null or x.asset_id is null or x.asset_id = r.asset_id)
     )
@@ -201,7 +204,10 @@ begin
     select * into v_risk from public.risks
     where id = p_subject_id and organization_id = v_org;
     if not found then return jsonb_build_object('error','same-tenant risk scenario not found'); end if;
-    if v_risk.status in ('draft','archived')
+    if v_risk.status not in (
+         'identified','analyzing','analyzed','evaluated','decision_required',
+         'treatment_planned','treatment_active','monitoring','accepted'
+       )
        or length(btrim(coalesce(v_risk.event_description,''))) < 20 then
       return jsonb_build_object('error','risk scenario must be identified, current and state a substantive event');
     end if;
@@ -303,7 +309,10 @@ as $$
       'assetId',er.asset_id,'status',er.status) order by er.title)
       from public.risks er
       where er.organization_id=r.organization_id
-        and er.status not in ('draft','archived')
+        and er.status in (
+          'identified','analyzing','analyzed','evaluated','decision_required',
+          'treatment_planned','treatment_active','monitoring','accepted'
+        )
         and length(btrim(coalesce(er.event_description,'')))>=20
         and (r.asset_id is null or er.asset_id is null or er.asset_id=r.asset_id)),'[]'::jsonb),
     'boundary','Classification only; no operational or approval authority.',
