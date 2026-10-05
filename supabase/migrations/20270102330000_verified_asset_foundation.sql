@@ -42,6 +42,30 @@ create unique index if not exists idx_asset_locations_governed_code
 create index if not exists idx_asset_locations_governed_tree
   on public.asset_locations(organization_id,site_id,parent_location_id,location_kind);
 
+-- The legacy tenant policy remains the broad read door for existing locations.
+-- Governed nodes additionally inherit the visibility boundary of the exact
+-- evidence that substantiates them.  A same-tenant user without access to a
+-- risk-scoped evidence item must not recover the node through a direct table
+-- select while the workspace RPC correctly hides it.
+drop policy if exists asset_locations_governed_evidence_read
+  on public.asset_locations;
+create policy asset_locations_governed_evidence_read
+  on public.asset_locations as restrictive for select to authenticated
+  using (
+    verification_status='legacy'
+    or (
+      organization_id=public.app_current_org()
+      and evidence_item_id is not null
+      and exists (
+        select 1 from public.evidence_items hierarchy_evidence
+        where hierarchy_evidence.id=asset_locations.evidence_item_id
+          and hierarchy_evidence.organization_id=asset_locations.organization_id
+          and (hierarchy_evidence.risk_id is null
+            or public.can_read_risk(hierarchy_evidence.risk_id))
+      )
+    )
+  );
+
 create table if not exists public.asset_foundation_verifications (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -569,6 +593,7 @@ declare
   v_location public.asset_locations%rowtype;
   v_area text;
   v_system text;
+  v_identity_result jsonb;
 begin
   if v_org is null or auth.uid() is null then
     return jsonb_build_object('error','authentication required');
@@ -607,8 +632,23 @@ begin
              max(name) filter(where location_kind='system')
       into v_area,v_system from chain;
     perform set_config('app.asset_foundation_write','granted',true);
+
+    -- `assets.functional_location` is also the canonical enterprise identity
+    -- protected by D11.19.  Do not bypass that invariant by copying every
+    -- selected system code into it.  A verified functional-location node is
+    -- recorded through the one sanctioned identity writer, which retains its
+    -- role, uniqueness and audit controls.  A system-level assignment remains
+    -- represented by location_id/system and leaves enterprise identity alone.
+    if v_location.location_kind='functional_location' then
+      v_identity_result:=public.set_asset_enterprise_identity(
+        v_review.asset_id,null,v_location.location_code);
+      if v_identity_result ? 'error' then
+        raise exception '%',v_identity_result->>'error';
+      end if;
+    end if;
+
     update public.assets set site_id=v_location.site_id,location_id=v_location.id,
-      area=v_area,system=v_system,functional_location=v_location.location_code,
+      area=v_area,system=v_system,
       criticality=v_review.criticality_class,foundation_verification_id=v_review.id,
       foundation_verified_by=auth.uid(),foundation_verified_at=now()
     where id=v_review.asset_id and organization_id=v_org;

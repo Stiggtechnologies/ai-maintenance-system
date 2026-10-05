@@ -34,6 +34,15 @@ describe("verified asset foundation contract", () => {
   it("requires evidence and independent named-human verification", () => {
     expect(migration).toContain("verification_status='verified'");
     expect(migration).toContain(
+      "asset_locations_governed_evidence_read",
+    );
+    expect(migration).toContain(
+      "on public.asset_locations as restrictive for select to authenticated",
+    );
+    expect(migration).toContain(
+      "public.can_read_risk(hierarchy_evidence.risk_id)",
+    );
+    expect(migration).toContain(
       "segregation of duties requires an independent hierarchy reviewer",
     );
     expect(migration).toContain(
@@ -52,6 +61,12 @@ describe("verified asset foundation contract", () => {
     expect(migration).toContain("trg_protect_verified_asset_foundation");
     expect(migration).toContain(
       "verified hierarchy, criticality and boundary are changed only by a new independently reviewed foundation revision",
+    );
+    expect(migration).toContain(
+      "v_identity_result:=public.set_asset_enterprise_identity(",
+    );
+    expect(migration).not.toContain(
+      "functional_location=v_location.location_code",
     );
   });
 

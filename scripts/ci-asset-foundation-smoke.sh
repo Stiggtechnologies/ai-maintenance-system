@@ -120,6 +120,18 @@ SYSTEM_REVIEW=$(rpc "$MANAGER" review_asset_hierarchy_node "{
   \"p_review_note\":\"Independent review confirms the system parent, code and site relationship.\"}")
 BODY="$SYSTEM_REVIEW" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x.get('status')=='verified',x"
 
+FUNCTIONAL_LOCATION_RESPONSE=$(rpc "$ENGINEER" propose_asset_hierarchy_node "{
+  \"p_site_id\":\"$SITE\",\"p_parent_location_id\":\"$SYSTEM\",
+  \"p_location_kind\":\"functional_location\",\"p_location_code\":\"C801-AREA-CW-P1\",
+  \"p_name\":\"Cooling water pump P-1 functional location\",
+  \"p_description\":\"Maintainable functional location beneath the independently verified cooling-water system.\",
+  \"p_evidence_item_id\":\"$HIERARCHY_EVIDENCE\"}")
+FUNCTIONAL_LOCATION=$(BODY="$FUNCTIONAL_LOCATION_RESPONSE" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x.get('status')=='proposed',x; print(x['locationId'])")
+FUNCTIONAL_LOCATION_REVIEW=$(rpc "$MANAGER" review_asset_hierarchy_node "{
+  \"p_location_id\":\"$FUNCTIONAL_LOCATION\",\"p_decision\":\"verified\",
+  \"p_review_note\":\"Independent review confirms the functional location belongs beneath the verified system.\"}")
+BODY="$FUNCTIONAL_LOCATION_REVIEW" python3 -c "import json,os; x=json.loads(os.environ['BODY']); assert x.get('status')=='verified',x"
+
 FOREIGN_NODE=$(rpc "$ENGINEER" propose_asset_hierarchy_node "{
   \"p_site_id\":\"$SITE\",\"p_parent_location_id\":null,
   \"p_location_kind\":\"area\",\"p_location_code\":\"C801-FOREIGN\",
@@ -133,7 +145,7 @@ APPROVALS_BEFORE=$(psqlc "select count(*) from public.approvals where organizati
 RECOMMENDATIONS_BEFORE=$(psqlc "select count(*) from public.recommendations where organization_id='$ORG'")
 
 PROPOSAL_RESPONSE=$(rpc "$ENGINEER" propose_asset_foundation_verification "{
-  \"p_asset_id\":\"$ASSET\",\"p_hierarchy_location_id\":\"$SYSTEM\",
+  \"p_asset_id\":\"$ASSET\",\"p_hierarchy_location_id\":\"$FUNCTIONAL_LOCATION\",
   \"p_scores\":{\"safety\":5,\"environmental\":3,\"production\":4,\"financial\":3,\"regulatory\":2},
   \"p_criticality_basis\":\"Loss of containment has a catastrophic personnel consequence, so the highest dimension governs.\",
   \"p_boundary\":{\"name\":\"C8.01 maintainable pump boundary\",
@@ -172,9 +184,12 @@ for key in ('mayChangeWork','mayApprove','mayAcceptRisk','mayCommitSpend','mayCh
 PY
 
 test "$(psqlc "select count(*) from public.assets where id='$ASSET'
-  and site_id='$SITE' and location_id='$SYSTEM' and area='C8.01 process area'
-  and system='Cooling water system' and functional_location='C801-AREA-CW'
+  and site_id='$SITE' and location_id='$FUNCTIONAL_LOCATION' and area='C8.01 process area'
+  and system='Cooling water system' and functional_location='C801-AREA-CW-P1'
   and criticality='critical' and foundation_verification_id='$PROPOSAL'")" = '1'
+test "$(psqlc "select count(*) from public.audit_events where organization_id='$ORG'
+  and entity_type='asset_enterprise_identity'
+  and event_data->>'asset_id'='$ASSET'")" = '1'
 test "$(psqlc "select count(*) from public.audit_events where organization_id='$ORG'
   and entity_type='asset_foundation_verification'
   and event_data->>'verification_id'='$PROPOSAL'")" = '2'
