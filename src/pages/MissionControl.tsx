@@ -22,6 +22,7 @@ import {
   ArrowUpCircle,
   HardHat,
   ClipboardList,
+  Link2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { ChallengeAIModal } from "../components/ChallengeAIModal";
@@ -39,6 +40,7 @@ import { EngineeringModelTracePanel } from "../components/EngineeringModelTraceP
 import { RecommendationEvidenceDrawer } from "../components/RecommendationEvidenceDrawer";
 import { RecommendationContractPosturePanel } from "../components/RecommendationContractPosturePanel";
 import { RecommendationAssumptionsDrawer } from "../components/RecommendationAssumptionsDrawer";
+import { RecommendationFailureBasisDrawer } from "../components/RecommendationFailureBasisDrawer";
 import { FirstRunNextStepStrip } from "../components/help/FirstRunNextStepStrip";
 import { Stage1OperatorRunbook } from "../components/help/Stage1OperatorRunbook";
 import {
@@ -276,6 +278,7 @@ function RecommendationCard({
   onAction,
   onEvidence,
   onAssumptions,
+  onFailureBasis,
   onScenarios,
   onChallenge,
   onCreateWO,
@@ -291,6 +294,7 @@ function RecommendationCard({
   ) => void;
   onEvidence: (r: RecommendationRow) => void;
   onAssumptions: (r: RecommendationRow) => void;
+  onFailureBasis: (r: RecommendationRow) => void;
   onScenarios: (r: RecommendationRow) => void;
   onChallenge: (r: RecommendationRow) => void;
   onCreateWO: (r: RecommendationRow) => void;
@@ -447,6 +451,12 @@ function RecommendationCard({
               <ClipboardList className="w-3 h-3" /> Assumptions
             </button>
             <button
+              onClick={() => onFailureBasis(rec)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
+            >
+              <Link2 className="w-3 h-3" /> Failure / risk basis
+            </button>
+            <button
               onClick={() => onScenarios(rec)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
             >
@@ -560,6 +570,8 @@ export function MissionControl() {
   const [assumptionRec, setAssumptionRec] = useState<RecommendationRow | null>(
     null,
   );
+  const [failureBasisRec, setFailureBasisRec] =
+    useState<RecommendationRow | null>(null);
   const [scenarioRec, setScenarioRec] = useState<RecommendationRow | null>(
     null,
   );
@@ -838,6 +850,7 @@ export function MissionControl() {
                     onSign={handleSignEngineering}
                     onEvidence={setEvidenceRec}
                     onAssumptions={setAssumptionRec}
+                    onFailureBasis={setFailureBasisRec}
                     onScenarios={setScenarioRec}
                     onChallenge={setChallengeRec}
                     onCreateWO={handleCreateWO}
@@ -949,6 +962,13 @@ export function MissionControl() {
           rec={assumptionRec}
           canGovern={canGovernEvidence}
           onClose={() => setAssumptionRec(null)}
+        />
+      )}
+      {failureBasisRec && (
+        <RecommendationFailureBasisDrawer
+          rec={failureBasisRec}
+          canGovern={canGovernEvidence}
+          onClose={() => setFailureBasisRec(null)}
         />
       )}
       {scenarioRec && (

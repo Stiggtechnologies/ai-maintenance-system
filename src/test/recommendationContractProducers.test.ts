@@ -392,13 +392,13 @@ describe("the release gate is stronger than the producers, not weaker", () => {
     }
   });
 
-  it("is the last writer of all three, so nothing downstream reverts it again", () => {
+  it("tracks the intentional last writer of each surface", () => {
     expect(gate?.source).toBe(
       "20270101980000_recommendation_assumption_contract.sql",
     );
     expect(
       finalFunctions.get("get_recommendation_contract_posture")?.source,
-    ).toBe("20270101980000_recommendation_assumption_contract.sql");
+    ).toBe("20270102370000_recommendation_failure_basis.sql");
     expect(finalFunctions.get("recommendation_contract_gaps")?.source).toBe(
       "20270101980000_recommendation_assumption_contract.sql",
     );

@@ -412,6 +412,9 @@ jobs:
       - name: Smoke — production-window evidence in the governed weekly schedule door
         run: bash scripts/ci-production-window-feasibility-smoke.sh
 
+      - name: Smoke — governed recommendation failure-mode or risk basis
+        run: bash scripts/ci-recommendation-failure-basis-smoke.sh
+
       - name: Smoke — corrective-action strategy update linkage
         run: bash scripts/ci-ca-strategy-update-smoke.sh
 

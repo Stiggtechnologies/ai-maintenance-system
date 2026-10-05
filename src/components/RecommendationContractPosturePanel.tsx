@@ -50,8 +50,9 @@ export function RecommendationContractPosturePanel() {
           <p className="mt-1 max-w-3xl text-xs leading-relaxed text-slate-400">
             Every recommendation must state its evidence, assumptions,
             consequence, alternatives, confidence, accountable approver, due
-            date, and how effectiveness will be verified. Coverage explains the
-            backlog; it never overrides the binary release gate.
+            date, and how effectiveness will be verified. Failure mode or risk
+            basis is tracked separately as advisory coverage because some
+            organization-level recommendations are not failure-driven.
           </p>
         </div>
         {total > 0 && (
@@ -92,7 +93,11 @@ export function RecommendationContractPosturePanel() {
                   ) : (
                     <ShieldAlert
                       className="h-3.5 w-3.5 text-amber-300"
-                      aria-label="Release-blocking gaps"
+                      aria-label={
+                        row.blocking
+                          ? "Release-blocking gaps"
+                          : "Advisory coverage gap"
+                      }
                     />
                   )}
                 </div>
@@ -115,9 +120,10 @@ export function RecommendationContractPosturePanel() {
 
       <p className="mt-4 text-xs text-slate-500">
         A recommendation remains blocked if any required field is missing,
-        regardless of its overall percentage. Approval does not prove the
-        outcome; the stated verification method creates the later measurement
-        obligation.
+        regardless of its overall percentage. Rows marked advisory expose
+        provenance coverage without inventing a failure claim. Approval does
+        not prove the outcome; the stated verification method creates the
+        later measurement obligation.
       </p>
     </section>
   );
