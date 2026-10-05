@@ -400,6 +400,9 @@ jobs:
       - name: Smoke — governed maintenance-induced failure identification
         run: bash scripts/ci-maintenance-induced-failure-smoke.sh
 
+      - name: Smoke — verified asset hierarchy, criticality and equipment boundary
+        run: bash scripts/ci-asset-foundation-smoke.sh
+
       - name: Smoke — corrective-action strategy update linkage
         run: bash scripts/ci-ca-strategy-update-smoke.sh
 
