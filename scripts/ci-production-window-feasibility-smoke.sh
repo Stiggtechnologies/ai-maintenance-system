@@ -123,7 +123,10 @@ test "$(psqlc "select status from public.schedule_options where id='$OPT'")" = "
 
 # The obsolete one-argument release overload has no executable privilege, so
 # it cannot bypass feasibility even though its historical definition remains.
-test "$(psqlc "select has_function_privilege('$PLANNER','public.release_schedule_option(uuid)','EXECUTE')")" = "f"
-test "$(psqlc "select has_function_privilege('$PLANNER','public.evaluate_schedule_feasibility_core_20261212(uuid)','EXECUTE')")" = "f"
+# Function ACLs are granted to the shared Postgres `authenticated` role; the
+# planner UUID is an auth subject, not a database role accepted by
+# has_function_privilege().
+test "$(psqlc "select has_function_privilege('authenticated','public.release_schedule_option(uuid)','EXECUTE')")" = "f"
+test "$(psqlc "select has_function_privilege('authenticated','public.evaluate_schedule_feasibility_core_20261212(uuid)','EXECUTE')")" = "f"
 
 echo 'C8.08 production-window feasibility smoke passed: canonical_feed=true tenant_wall=true scope_precedence=true full_week_only=true unknown_visible=true warning_ack=true bypass_closed=true'
