@@ -104,6 +104,16 @@ test "$(jqp "$X" "'same-tenant' in x.get('error','')")" = "True"
 Q=$(rpc "$TOKEN" record_recommendation_failure_basis "{\"p_recommendation_id\":\"$REC\",\"p_kind\":\"risk_scenario\",\"p_subject_id\":\"$RISK\",\"p_note\":\"The identified startup event is the governed risk scenario addressed by this recommendation.\"}")
 test "$(jqp "$Q" "x.get('valid')")" = "True"
 
+# A stale/context-changed risk immediately invalidates the link and cannot be
+# re-attested as current merely because its row still exists.
+psqlc "update risks set status='context_changed' where id='$RISK';" >/dev/null
+S=$(rpc "$TOKEN" record_recommendation_failure_basis "{\"p_recommendation_id\":\"$REC\",\"p_kind\":\"risk_scenario\",\"p_subject_id\":\"$RISK\",\"p_note\":\"This stale context-changed risk must be refused as a current governed basis.\"}")
+test "$(jqp "$S" "'identified, current' in x.get('error','')")" = "True"
+G=$(rpc "$TOKEN" get_recommendation_failure_basis "{\"p_recommendation_id\":\"$REC\"}")
+test "$(jqp "$G" "x['valid']")" = "False"
+test "$(jqp "$G" "all(v['id'] != '$RISK' for v in x['eligibleRiskScenarios'])")" = "True"
+psqlc "update risks set status='identified' where id='$RISK';" >/dev/null
+
 # Direct provenance forgery is rejected and C8.14 is visible but advisory.
 OUT=$(psqlc "update recommendations set failure_basis_note='forged direct basis that must never persist' where id='$REC';" 2>&1 || true)
 grep -q 'must use record_recommendation_failure_basis' <<<"$OUT"
