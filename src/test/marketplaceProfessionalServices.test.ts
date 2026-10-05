@@ -30,6 +30,20 @@ interface ProfessionalServiceOffer {
 interface ProfessionalServicesManifest {
   overallStatus: string;
   claims: Record<string, boolean>;
+  partnerCenterDraftWitness: {
+    observedAt: string;
+    offers: Array<{
+      offerAlias: string;
+      name: string;
+      offerId: string;
+      offerType: string;
+      status: string;
+      listingCopySaved?: boolean;
+      remainingListingValidationErrors?: number;
+    }>;
+    submitted: boolean;
+    published: boolean;
+  };
   marketplaceContract: {
     deliveryMode: string;
     transactionRoute: string;
@@ -106,6 +120,29 @@ describe("SyncAI professional-service offer contract", () => {
         status: "blocked",
       },
     });
+    expect(manifest.partnerCenterDraftWitness).toMatchObject({
+      observedAt: "2026-10-05",
+      offers: [
+        expect.objectContaining({
+          offerId: "syncai-reliability-intelligence-assessment",
+          status: "Draft",
+        }),
+        expect.objectContaining({
+          offerId: "syncai-industrial-decision-proof-of-concept",
+          status: "Draft",
+        }),
+        expect.objectContaining({
+          offerAlias: "SyncAI Implementation and Scale",
+          name: "SyncAI Forward-Deployed Engineering",
+          offerId: "syncai-implementation-and-scale",
+          status: "Draft",
+          listingCopySaved: true,
+          remainingListingValidationErrors: 8,
+        }),
+      ],
+      submitted: false,
+      published: false,
+    });
   });
 
   it("defines exactly the Assessment, Proof of concept and Implementation offers", () => {
@@ -146,10 +183,34 @@ describe("SyncAI professional-service offer contract", () => {
 
   it("places FDE inside implementation without transferring customer authority", () => {
     const fde = manifest.forwardDeployedEngineering;
+    const implementation = manifest.offers.find(
+      ({ key }) => key === fde.attachedOfferKey,
+    );
     expect(fde.attachedOfferKey).toBe("implementation_and_scale");
     expect(fde.isSeparateAdoptionRung).toBe(false);
     expect(fde.isOpenEndedStaffAugmentation).toBe(false);
     expect(fde.deliveryMode).toBe("virtual_only");
+    expect(implementation).toMatchObject({
+      category: "Implementation",
+      proposedOfferId: "syncai-implementation-and-scale",
+      name: "SyncAI Forward-Deployed Engineering",
+      searchSummary:
+        "Operationalize governed industrial AI with a bounded SyncAI forward-deployed engineering team.",
+      keywords: [
+        "forward deployed engineering",
+        "industrial AI implementation",
+        "asset reliability",
+      ],
+    });
+    expect(implementation?.description).toContain("Engagement agenda");
+    expect(implementation?.description).toContain("Mobilize and govern");
+    expect(implementation?.description).toContain("Connect and configure");
+    expect(implementation?.description).toContain("Validate and accept");
+    expect(implementation?.description).toContain("Enable and hand over");
+    expect(implementation?.description).toContain("Decide and scale");
+    expect(implementation?.description).toContain(
+      "not open-ended staff augmentation",
+    );
     expect(fde.allowedWork).toEqual(
       expect.arrayContaining([
         "authorized_data_integration_and_provenance_mapping",
@@ -236,8 +297,8 @@ describe("SyncAI professional-service offer contract", () => {
       builder: "scripts/build-professional-services-pdf.py",
       renderedPdf: "output/pdf/syncai-professional-services-and-fde.pdf",
       pageCount: 4,
-      visualQa: "passed_2026_10_03",
-      textExtractionQa: "passed_2026_10_03",
+      visualQa: "passed_2026_10_05",
+      textExtractionQa: "passed_2026_10_05",
       accessibilityTagReview: "blocked",
       brandApproval: "blocked",
       legalAndClaimsApproval: "blocked",

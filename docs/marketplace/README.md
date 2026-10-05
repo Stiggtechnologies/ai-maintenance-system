@@ -1,6 +1,6 @@
 # Microsoft Marketplace publication package
 
-**Controlled draft — 2026-10-03. This package does not state that the offer is
+**Controlled draft — 2026-10-05. This package does not state that the offer is
 published, certified, transactable, MACC eligible, co-sell ready, or complete.**
 
 This directory is the content and operator package for completing the SyncAI

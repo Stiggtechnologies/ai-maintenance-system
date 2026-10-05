@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
   "artifact": "syncai-partner-center-publication",
-  "asOf": "2026-10-03",
+  "asOf": "2026-10-05",
   "overallStatus": "blocked",
   "statusVocabulary": [
     "verified",
@@ -216,7 +216,7 @@
     "offers": [
       "Reliability Intelligence Assessment",
       "Industrial Decision Proof of Concept",
-      "SyncAI Implementation and Scale"
+      "SyncAI Forward-Deployed Engineering"
     ],
     "forwardDeployedEngineering": "bounded_implementation_workstream",
     "supportingCollateral": {
@@ -225,7 +225,7 @@
     },
     "supportingSoftwareMarketplaceUrl": "blocked",
     "published": false,
-    "status": "draft"
+    "status": "created_drafts_incomplete"
   },
   "blockingActions": [
     {
