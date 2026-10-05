@@ -315,7 +315,7 @@
     "status": "✅",
     "evidence": true,
     "citations": 2,
-    "backticked": 0
+    "backticked": 2
   },
   "C4.07": {
     "status": "✅",
@@ -810,10 +810,10 @@
     "backticked": 8
   },
   "C8.08": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 0
+    "citations": 7,
+    "backticked": 7
   },
   "C8.09": {
     "status": "✅",
