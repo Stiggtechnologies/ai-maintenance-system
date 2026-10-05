@@ -114,11 +114,21 @@ test "$(jqp "$G" "x['valid']")" = "False"
 test "$(jqp "$G" "all(v['id'] != '$RISK' for v in x['eligibleRiskScenarios'])")" = "True"
 psqlc "update risks set status='identified' where id='$RISK';" >/dev/null
 
+# An explicit not-applicable C8.14 disposition does not destroy an independent
+# canonical C8.11 risk context or mislabel that context as the failure basis.
+N=$(rpc "$TOKEN" record_recommendation_failure_basis "{\"p_recommendation_id\":\"$REC\",\"p_kind\":\"not_applicable\",\"p_subject_id\":null,\"p_note\":\"This recommendation is not failure-driven; the existing risk remains context only.\"}")
+test "$(jqp "$N" "x.get('valid')")" = "True"
+test "$(psqlc "select risk_id from recommendations where id='$REC'")" = "$RISK"
+G=$(rpc "$TOKEN" get_recommendation_failure_basis "{\"p_recommendation_id\":\"$REC\"}")
+test "$(jqp "$G" "x['kind']")" = "not_applicable"
+test "$(jqp "$G" "x['riskScenario'] is None")" = "True"
+test "$(jqp "$G" "x['failureMode'] is None")" = "True"
+
 # Direct provenance forgery is rejected and C8.14 is visible but advisory.
 OUT=$(psqlc "update recommendations set failure_basis_note='forged direct basis that must never persist' where id='$REC';" 2>&1 || true)
 grep -q 'must use record_recommendation_failure_basis' <<<"$OUT"
 P=$(rpc "$TOKEN" get_recommendation_contract_posture '{}')
 test "$(jqp "$P" "next(v for v in x if v['register']=='C8.14')['blocking']")" = "False"
-test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='recommendation_failure_basis' and event_data->>'recommendation_id'='$REC'")" -ge 2
+test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='recommendation_failure_basis' and event_data->>'recommendation_id'='$REC'")" -ge 3
 
-echo 'C8.14 recommendation failure-basis smoke passed: canonical_links=true tenant_wall=true asset_scope=true provenance=true advisory_posture=true no_operational_authority=true'
+echo 'C8.14 recommendation failure-basis smoke passed: canonical_links=true context_preserved=true tenant_wall=true asset_scope=true provenance=true advisory_posture=true no_operational_authority=true'

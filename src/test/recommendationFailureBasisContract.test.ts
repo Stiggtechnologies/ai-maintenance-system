@@ -37,6 +37,18 @@ describe("C8.14 governed recommendation failure basis", () => {
     expect(sql).toContain("length(btrim(coalesce(p_note,''))) < 20");
   });
 
+  it("preserves independent risk context and renders only the selected basis kind", () => {
+    expect(sql).toContain(
+      "when 'not_applicable' then r.failure_mode_library_id is null",
+    );
+    expect(sql).toContain(
+      "risk_id = case when p_kind='risk_scenario' then p_subject_id else risk_id end",
+    );
+    expect(sql).toContain("r.failure_basis_kind <> 'failure_mode'");
+    expect(sql).toContain("r.failure_basis_kind <> 'risk_scenario'");
+    expect(sql.match(/'subjectId',p_subject_id/g)).toHaveLength(1);
+  });
+
   it("enforces tenant and asset consistency without operational authority", () => {
     expect(sql).toContain("organization_id = v_org");
     expect(sql).toContain("failure mode belongs to a different asset");

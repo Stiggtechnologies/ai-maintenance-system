@@ -39,7 +39,11 @@ alter table public.recommendations
       and case failure_basis_kind
         when 'failure_mode' then failure_mode_library_id is not null
         when 'risk_scenario' then risk_id is not null
-        when 'not_applicable' then failure_mode_library_id is null and risk_id is null
+        -- risk_id is also the canonical C8.11 recommendation context. A
+        -- not-applicable C8.14 disposition must not erase that independent
+        -- relationship merely because the recommendation is not
+        -- failure-driven.
+        when 'not_applicable' then failure_mode_library_id is null
         else false
       end)
   );
@@ -80,7 +84,7 @@ as $$
         and length(btrim(coalesce(x.event_description,''))) >= 20
         and (r.asset_id is null or x.asset_id is null or x.asset_id = r.asset_id)
     )
-    when 'not_applicable' then r.failure_mode_library_id is null and r.risk_id is null
+    when 'not_applicable' then r.failure_mode_library_id is null
     else false
   end
   and length(btrim(coalesce(r.failure_basis_note,''))) >= 20
@@ -120,7 +124,8 @@ begin
      or new.failure_basis_recorded_by is distinct from old.failure_basis_recorded_by
      or new.failure_basis_recorded_at is distinct from old.failure_basis_recorded_at
      or (new.risk_id is distinct from old.risk_id
-       and (old.failure_basis_kind is not null or new.failure_basis_kind is not null)) then
+       and (old.failure_basis_kind = 'risk_scenario'
+         or new.failure_basis_kind = 'risk_scenario')) then
     raise exception 'recommendation failure basis must use record_recommendation_failure_basis()'
       using errcode = '42501';
   end if;
@@ -232,8 +237,9 @@ begin
   update public.recommendations set
     failure_basis_kind = p_kind,
     failure_mode_library_id = case when p_kind='failure_mode' then p_subject_id else null end,
-    risk_id = case when p_kind='risk_scenario' then p_subject_id
-                   when p_kind='not_applicable' then null else risk_id end,
+    -- Only a risk-scenario basis owns the risk link. Failure-mode and
+    -- not-applicable dispositions preserve any independent C8.11 context.
+    risk_id = case when p_kind='risk_scenario' then p_subject_id else risk_id end,
     failure_basis_note = btrim(p_note),
     failure_basis_recorded_by = auth.uid(),
     failure_basis_recorded_at = now(),
@@ -290,10 +296,12 @@ as $$
     'recordedBy',r.failure_basis_recorded_by,
     'recordedAt',r.failure_basis_recorded_at,
     'valid',public.recommendation_failure_basis_valid(r),
-    'failureMode',case when f.id is null then null else jsonb_build_object(
+    'failureMode',case when r.failure_basis_kind <> 'failure_mode' or f.id is null
+      then null else jsonb_build_object(
       'id',f.id,'failureMode',f.failure_mode,'functionalFailure',f.functional_failure,
       'assetId',f.canonical_asset_id,'status',f.rcm_status) end,
-    'riskScenario',case when x.id is null then null else jsonb_build_object(
+    'riskScenario',case when r.failure_basis_kind <> 'risk_scenario' or x.id is null
+      then null else jsonb_build_object(
       'id',x.id,'title',x.title,'event',x.event_description,
       'assetId',x.asset_id,'status',x.status) end,
     'eligibleFailureModes',coalesce((select jsonb_agg(jsonb_build_object(
