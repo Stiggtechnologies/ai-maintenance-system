@@ -403,6 +403,9 @@ jobs:
       - name: Smoke — verified asset hierarchy, criticality and equipment boundary
         run: bash scripts/ci-asset-foundation-smoke.sh
 
+      - name: Smoke — operational requirements to measurable RAM and lifecycle objectives
+        run: bash scripts/ci-operational-ram-objectives-smoke.sh
+
       - name: Smoke — corrective-action strategy update linkage
         run: bash scripts/ci-ca-strategy-update-smoke.sh
 
