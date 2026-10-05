@@ -34,10 +34,10 @@ describe("verified asset foundation contract", () => {
   it("requires evidence and independent named-human verification", () => {
     expect(migration).toContain("verification_status='verified'");
     expect(migration).toContain(
-      "asset_locations_governed_evidence_read",
+      "drop policy if exists asset_locations_org_read",
     );
     expect(migration).toContain(
-      "on public.asset_locations as restrictive for select to authenticated",
+      "create policy asset_locations_org_read",
     );
     expect(migration).toContain(
       "public.can_read_risk(hierarchy_evidence.risk_id)",

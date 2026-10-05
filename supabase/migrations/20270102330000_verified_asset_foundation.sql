@@ -42,26 +42,29 @@ create unique index if not exists idx_asset_locations_governed_code
 create index if not exists idx_asset_locations_governed_tree
   on public.asset_locations(organization_id,site_id,parent_location_id,location_kind);
 
--- The legacy tenant policy remains the broad read door for existing locations.
--- Governed nodes additionally inherit the visibility boundary of the exact
--- evidence that substantiates them.  A same-tenant user without access to a
--- risk-scoped evidence item must not recover the node through a direct table
--- select while the workspace RPC correctly hides it.
-drop policy if exists asset_locations_governed_evidence_read
+-- Preserve the one-policy read-only contract established by the tenancy
+-- migration, while tightening governed nodes to inherit the visibility
+-- boundary of the exact evidence that substantiates them.  A same-tenant user
+-- without access to risk-scoped evidence must not recover the node through a
+-- direct table SELECT while the workspace RPC correctly hides it.  Legacy
+-- locations retain the canonical tenant-only rule until they are governed.
+drop policy if exists asset_locations_org_read
   on public.asset_locations;
-create policy asset_locations_governed_evidence_read
-  on public.asset_locations as restrictive for select to authenticated
+create policy asset_locations_org_read
+  on public.asset_locations for select to authenticated
   using (
-    verification_status='legacy'
-    or (
-      organization_id=public.app_current_org()
-      and evidence_item_id is not null
-      and exists (
-        select 1 from public.evidence_items hierarchy_evidence
-        where hierarchy_evidence.id=asset_locations.evidence_item_id
-          and hierarchy_evidence.organization_id=asset_locations.organization_id
-          and (hierarchy_evidence.risk_id is null
-            or public.can_read_risk(hierarchy_evidence.risk_id))
+    organization_id=public.app_current_org()
+    and (
+      verification_status='legacy'
+      or (
+        evidence_item_id is not null
+        and exists (
+          select 1 from public.evidence_items hierarchy_evidence
+          where hierarchy_evidence.id=asset_locations.evidence_item_id
+            and hierarchy_evidence.organization_id=asset_locations.organization_id
+            and (hierarchy_evidence.risk_id is null
+              or public.can_read_risk(hierarchy_evidence.risk_id))
+        )
       )
     )
   );
