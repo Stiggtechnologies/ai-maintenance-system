@@ -76,7 +76,7 @@ CRITICALITY_EVIDENCE=$(psqlc "insert into public.evidence_items(
   verification_status,verified_by,verified_at,verification_method)
   values('$ORG','$ASSET','C8.01-SMOKE','consequence_assessment',
   'Verified five-dimension consequence assessment for the governed pump.',
-  'ANALYZED','verified','$MANAGER_ID',now(),'Independent consequence review') returning id")
+  'CALCULATED','verified','$MANAGER_ID',now(),'Independent consequence review') returning id")
 BOUNDARY_EVIDENCE=$(psqlc "insert into public.evidence_items(
   organization_id,asset_id,source_system,evidence_type,description,evidence_class,
   verification_status,verified_by,verified_at,verification_method)

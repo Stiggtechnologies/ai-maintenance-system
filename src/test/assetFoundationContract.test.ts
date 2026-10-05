@@ -5,6 +5,10 @@ const migration = readFileSync(
   "supabase/migrations/20270102330000_verified_asset_foundation.sql",
   "utf8",
 ).toLowerCase();
+const smoke = readFileSync(
+  "scripts/ci-asset-foundation-smoke.sh",
+  "utf8",
+);
 
 describe("verified asset foundation contract", () => {
   it("extends the canonical location and asset stores", () => {
@@ -62,5 +66,32 @@ describe("verified asset foundation contract", () => {
     ]) {
       expect(migration).toContain(marker);
     }
+  });
+
+  it("uses only canonical evidence classes in the hosted runtime fixture", () => {
+    const evidenceClasses = [
+      "MEASURED",
+      "INSPECTED",
+      "CALCULATED",
+      "TESTED",
+      "DOCUMENTED",
+      "HISTORICAL",
+      "EXPERT_JUDGEMENT",
+      "AI_INFERENCE",
+    ];
+    const fixtureClasses = Array.from(
+      smoke.matchAll(/'([A-Z_]+)','verified'/g),
+      (match) => match[1],
+    );
+
+    expect(fixtureClasses).toEqual([
+      "DOCUMENTED",
+      "CALCULATED",
+      "INSPECTED",
+      "DOCUMENTED",
+    ]);
+    expect(fixtureClasses.every((value) => evidenceClasses.includes(value))).toBe(
+      true,
+    );
   });
 });
