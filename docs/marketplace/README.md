@@ -117,9 +117,9 @@ commit or display the secret values.
    all **Not started**. The account owner must complete that financial setup;
    Microsoft says processing can take up to 48 hours.
 8. Do not publish while the live SyncAI Supabase project lacks
-   `AZURE_MARKETPLACE_CLIENT_ID`, `AZURE_MARKETPLACE_CLIENT_SECRET`,
-   `AZURE_MARKETPLACE_TENANT_ID`, `AZURE_MARKETPLACE_PUBLISHER_ID`, and
-   `AZURE_MARKETPLACE_OFFER_ID`.
+   `AZURE_MARKETPLACE_CLIENT_SECRET`. The verified client ID, tenant ID,
+   publisher ID, and offer ID were configured on 2026-10-06; an authenticated
+   preview witness is still required after the secret is added.
 
 ## Source hierarchy
 

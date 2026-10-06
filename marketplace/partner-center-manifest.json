@@ -129,7 +129,16 @@
           "AZURE_MARKETPLACE_PUBLISHER_ID",
           "AZURE_MARKETPLACE_OFFER_ID"
         ],
-        "presentOnLiveProject": [],
+        "presentOnLiveProject": [
+          "AZURE_MARKETPLACE_CLIENT_ID",
+          "AZURE_MARKETPLACE_TENANT_ID",
+          "AZURE_MARKETPLACE_PUBLISHER_ID",
+          "AZURE_MARKETPLACE_OFFER_ID"
+        ],
+        "missingOnLiveProject": [
+          "AZURE_MARKETPLACE_CLIENT_SECRET"
+        ],
+        "configuredAt": "2026-10-06",
         "status": "blocked"
       },
       "partnerCenterDraftSavedAt": "2026-10-06",
@@ -365,7 +374,7 @@
     {
       "id": "PC-010",
       "owner": "Marketplace identity and production secret owner",
-      "action": "Configure the exact publisher application client, tenant, secret, publisher ID, and offer ID as the five AZURE_MARKETPLACE_* secrets on the live SyncAI Supabase project, then run the protected authenticated preview witness.",
+      "action": "Create a new client secret for the verified publisher application and configure AZURE_MARKETPLACE_CLIENT_SECRET on the live SyncAI Supabase project. The verified client ID, tenant ID, publisher ID, and offer ID are already configured. Then run the protected authenticated preview witness.",
       "status": "blocked"
     }
   ],
