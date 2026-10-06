@@ -94,6 +94,21 @@ customer traffic.
 Create a GitHub environment named `azure-production`, apply the organization's
 deployment protection rules, and add these environment secrets:
 
+### Verified bootstrap state — 2026-10-06
+
+The `azure-production` environment exists and is restricted to protected
+branches. Administrators cannot bypass its protection rule. The GitHub API
+reports **zero environment secrets**, so the production workflow is not
+dispatch-ready. Repository-level inventory contains only
+`SUPABASE_ACCESS_TOKEN` and `XAI_API_KEY`; neither supplies the deployment,
+runtime, Entra SSO, or Marketplace publisher contract. The non-secret
+`ENTRA_SSO_TENANT=common` repository variable is present.
+
+This is a name-and-policy inventory only; it does not expose or prove any secret
+value. Do not dispatch the Azure production workflow until all eight environment
+secret names below are present and the Azure identity/resource-scope witness is
+attached.
+
 - `AZURE_CLIENT_ID` — client ID of the Microsoft Entra application or
   user-assigned identity trusted through GitHub OIDC.
 - `AZURE_TENANT_ID` — SyncAI publisher directory ID.
@@ -113,6 +128,27 @@ deployment protection rules, and add these environment secrets:
 - `ENRICH_SHARED_SECRET` — existing governed caller secret. Store the same
   value in the Supabase project and the `azure-production` environment; the
   release places it in Key Vault and uses it to prove the Azure caller boundary.
+
+Bootstrap the protected environment in this order:
+
+1. Obtain action-time approval to create paid Azure production resources and to
+   change the canonical enrichment route after deployment proofs pass.
+2. Pre-create or explicitly approve the `rg-syncai-production` resource group
+   in `canadacentral`, so the deployment identity can be scoped to the resource
+   group rather than granted open-ended subscription authority.
+3. Create the dedicated GitHub OIDC Entra identity and federated credential for
+   `repo:Stiggtechnologies/ai-maintenance-system:environment:azure-production`.
+4. Grant only the resource deployment and scoped role-assignment permissions
+   required by the templates, recording the client, tenant, subscription and
+   principal object IDs without placing credentials in source control.
+5. Populate the eight environment secrets through the GitHub protected-secret
+   interface. Never echo, paste into chat, log or commit the service-role key or
+   shared caller secret.
+6. Re-run a names-only inventory and confirm the workflow's fail-closed
+   prerequisite list exactly matches the environment.
+7. Merge the reviewed deployment machinery to protected `main`, then request a
+   separate action-time confirmation before dispatching the paid production
+   workflow.
 
 Grant the deployment principal the least roles needed at the target resource
 group: resource deployment permission and permission to create the scoped role

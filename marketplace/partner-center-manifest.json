@@ -344,7 +344,7 @@
     {
       "id": "PC-005",
       "owner": "Azure subscription owner",
-      "action": "Current production is not hosted in Azure. Keep the paid transactable path blocked until the Azure edition is deployed and supported by production resource, identity, health, architecture, and commensurate-consumption evidence, or the release owner deliberately switches to listing-only and saves the truthful not-hosted-in-Azure answer.",
+      "action": "Current production is not hosted in Azure. The protected azure-production GitHub environment exists with a protected-branch rule and no administrator bypass, but its names-only inventory contains zero environment secrets. Bootstrap the dedicated OIDC identity, scoped production resource group, and eight required environment secrets; then deploy and support the Azure edition with production resource, identity, health, architecture, and commensurate-consumption evidence. Otherwise, the release owner must deliberately switch to listing-only and save the truthful not-hosted-in-Azure answer.",
       "status": "blocked"
     },
     {
