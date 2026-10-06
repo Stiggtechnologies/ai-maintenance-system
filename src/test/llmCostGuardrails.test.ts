@@ -389,19 +389,19 @@ describe("public rail — spend key is server-derived, browserId never sufficien
   });
 });
 
-describe("enrichment loops record usage fail-soft", () => {
-  it("agent-loop-enrich inserts one llm_usage row per call inside try/catch", () => {
+describe("enrichment loops settle commercially reserved usage", () => {
+  it("agent-loop-enrich settles one reserved llm_usage row per call", () => {
+    expect(loopEnrich).toContain('"check_llm_commercial_quota"');
     expect(loopEnrich).toContain('"record_llm_usage"');
-    const at = loopEnrich.indexOf('"record_llm_usage"');
-    const window = loopEnrich.slice(Math.max(0, at - 400), at);
-    expect(window).toContain("try {");
+    expect(loopEnrich).toContain("p_reservation_id: reservationId");
+    expect(loopEnrich).toContain('"release_llm_reservation"');
   });
 
-  it("onboarding-enrich inserts one llm_usage row per chunk inside try/catch", () => {
+  it("onboarding-enrich settles one reserved llm_usage row per chunk", () => {
+    expect(onboardingEnrich).toContain('"check_llm_commercial_quota"');
     expect(onboardingEnrich).toContain('"record_llm_usage"');
-    const at = onboardingEnrich.indexOf('"record_llm_usage"');
-    const window = onboardingEnrich.slice(Math.max(0, at - 400), at);
-    expect(window).toContain("try {");
+    expect(onboardingEnrich).toContain("p_reservation_id: reservationId");
+    expect(onboardingEnrich).toContain('"release_llm_reservation"');
   });
 });
 

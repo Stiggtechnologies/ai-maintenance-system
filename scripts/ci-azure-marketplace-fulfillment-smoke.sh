@@ -41,6 +41,7 @@ declare
   v_result jsonb;
   v_resolution_id uuid;
   v_billing_id uuid;
+  v_reservation_id bigint;
 begin
   v_resolution := public.record_marketplace_fulfillment_resolution(
     '86666666-6666-4666-8666-666666666666',
@@ -118,6 +119,62 @@ begin
     'request-smoke','correlation-smoke');
   if v_result ? 'error' or v_result->>'internalStatus'<>'active' then
     raise exception 'authoritative subscribed state failed: %',v_result;
+  end if;
+
+  -- The provider may return a dated concrete deployment ID. It must resolve
+  -- to the exact approved canonical model and retain both identifiers.
+  v_result := public.check_llm_commercial_quota(
+    '81111111-1111-4111-8111-111111111111','marketplace-smoke',
+    'gpt-4o-mini',1000,'decision','smoke-approved-model'
+  );
+  if v_result->>'allowed'<>'true' then
+    raise exception 'approved model reservation failed: %',v_result;
+  end if;
+  v_reservation_id := (v_result->>'reservation_id')::bigint;
+  perform public.record_llm_usage(
+    '81111111-1111-4111-8111-111111111111','marketplace-smoke',
+    'gpt-4o-mini-2024-07-18',500,200,v_reservation_id
+  );
+  if not exists (
+    select 1 from private.llm_usage
+    where id=v_reservation_id and requested_model='gpt-4o-mini'
+      and model='gpt-4o-mini-2024-07-18' and priced_model='gpt-4o-mini'
+      and model_policy_status='approved' and cost_status='priced'
+      and inference_cost_cad>0
+  ) then
+    raise exception 'dated provider model was not priced and approved canonically';
+  end if;
+
+  -- A gateway route outside the reservation's approved-model snapshot has
+  -- already incurred cost, so settlement preserves its true cost and model.
+  -- Every later call in the period then fails closed for operator review.
+  v_result := public.check_llm_commercial_quota(
+    '81111111-1111-4111-8111-111111111111','marketplace-smoke',
+    'gpt-4o-mini',1000,'decision','smoke-unapproved-model'
+  );
+  if v_result->>'allowed'<>'true' then
+    raise exception 'pre-mismatch reservation failed: %',v_result;
+  end if;
+  v_reservation_id := (v_result->>'reservation_id')::bigint;
+  perform public.record_llm_usage(
+    '81111111-1111-4111-8111-111111111111','marketplace-smoke',
+    'gpt-5.6-terra',500,200,v_reservation_id
+  );
+  if not exists (
+    select 1 from private.llm_usage
+    where id=v_reservation_id and requested_model='gpt-4o-mini'
+      and model='gpt-5.6-terra' and priced_model='gpt-5.6-terra'
+      and model_policy_status='unapproved_model' and cost_status='priced'
+      and inference_cost_cad>0
+  ) then
+    raise exception 'unapproved actual model was not retained as a priced policy violation';
+  end if;
+  v_result := public.check_llm_commercial_quota(
+    '81111111-1111-4111-8111-111111111111','marketplace-smoke',
+    'gpt-4o-mini',1000,'decision','smoke-frozen-after-mismatch'
+  );
+  if v_result->>'limit'<>'commercial_model_policy_breached' then
+    raise exception 'actual-model mismatch did not freeze later spend: %',v_result;
   end if;
 
   v_resolution := public.record_marketplace_fulfillment_resolution(

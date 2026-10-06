@@ -14,6 +14,11 @@ alter table private.llm_usage
   add column if not exists cost_object_id text,
   add column if not exists billing_subscription_id uuid
     references public.billing_subscriptions(id) on delete set null,
+  add column if not exists requested_model text,
+  add column if not exists priced_model text,
+  add column if not exists commercial_allowed_models_snapshot text[],
+  add column if not exists model_policy_status text not null
+    default 'not_applicable',
   add column if not exists input_cad_per_mtok numeric,
   add column if not exists output_cad_per_mtok numeric,
   add column if not exists price_effective_date date,
@@ -53,6 +58,19 @@ begin
   ) then
     alter table private.llm_usage add constraint llm_usage_cost_status_values
       check (cost_status in ('unsettled','priced','unknown_price'));
+  end if;
+  if not exists (
+    select 1 from pg_constraint
+    where conname='llm_usage_model_policy_status_values'
+      and conrelid='private.llm_usage'::regclass
+  ) then
+    alter table private.llm_usage
+      add constraint llm_usage_model_policy_status_values check (
+        model_policy_status in (
+          'not_applicable','pending','approved','unapproved_model',
+          'reservation_missing'
+        )
+      );
   end if;
 end
 $controls$;
@@ -177,6 +195,40 @@ comment on table private.ai_commercial_plan_policies is
   'inputs are per purchased user and are multiplied by authoritative quantity '
   'when bound. For flat-rate plans they are per subscription. No row is seeded; '
   'configure then explicitly approve.';
+
+-- Provider APIs can return a dated deployment identifier even when the
+-- request used a stable priced alias (for example gpt-4o-mini-2024-07-18).
+-- Only that exact YYYY-MM-DD suffix is normalized. Arbitrary provider or
+-- gateway aliases remain unknown and therefore cannot silently inherit a
+-- price or an approved-model status.
+create or replace function private.resolve_priced_llm_model(p_model text)
+returns text
+language sql
+stable
+security definer
+set search_path=private,pg_temp
+as $$
+  select p.model
+  from private.llm_prices p
+  where btrim(coalesce(p_model,''))=p.model
+    or (
+      btrim(coalesce(p_model,'')) like p.model||'-%'
+      and substring(
+        btrim(coalesce(p_model,''))
+        from char_length(p.model)+2
+      ) ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+    )
+  order by (btrim(coalesce(p_model,''))=p.model) desc,
+    char_length(p.model) desc
+  limit 1
+$$;
+
+revoke all on function private.resolve_priced_llm_model(text)
+  from public,anon,authenticated,service_role;
+
+comment on function private.resolve_priced_llm_model(text) is
+  'Maps an exact priced model or its provider-returned YYYY-MM-DD deployment '
+  'identifier to the canonical priced model. No fuzzy gateway aliasing.';
 
 -- ---------------------------------------------------------------------------
 -- 3. Conservative policy evaluation and draft configuration.
@@ -676,6 +728,7 @@ declare
   v_tokens bigint;
   v_period_calls bigint;
   v_period_tokens bigint;
+  v_model_policy_violations bigint;
   v_estimate integer;
   v_day_start timestamptz;
   v_resets_at timestamptz;
@@ -726,6 +779,20 @@ begin
         'resets_at',v_quota.commercial_period_end
       );
     end if;
+    select count(*) into v_model_policy_violations
+    from private.llm_usage
+    where organization_id=p_organization_id
+      and created_at>=v_quota.commercial_period_start
+      and created_at<v_quota.commercial_period_end
+      and not reserved
+      and model_policy_status in ('unapproved_model','reservation_missing');
+    if v_model_policy_violations>0 then
+      return jsonb_build_object(
+        'allowed',false,'limit','commercial_model_policy_breached',
+        'modelPolicyViolationCalls',v_model_policy_violations,
+        'resets_at',v_quota.commercial_period_end
+      );
+    end if;
     select count(*),coalesce(sum(prompt_tokens+completion_tokens),0)
     into v_period_calls,v_period_tokens from private.llm_usage
     where organization_id=p_organization_id
@@ -768,11 +835,17 @@ begin
 
   insert into private.llm_usage (
     organization_id,fn,model,prompt_tokens,completion_tokens,reserved,
-    billing_subscription_id
+    billing_subscription_id,requested_model,
+    commercial_allowed_models_snapshot,model_policy_status
   ) values (
     p_organization_id,coalesce(nullif(btrim(p_fn),''),'unknown'),
     coalesce(nullif(btrim(p_model),''),'pending'),0,v_estimate,true,
-    v_quota.billing_subscription_id
+    v_quota.billing_subscription_id,
+    coalesce(nullif(btrim(p_model),''),'pending'),
+    case when v_quota.billing_subscription_id is not null
+      then v_policy.allowed_models else null end,
+    case when v_quota.billing_subscription_id is not null
+      then 'pending' else 'not_applicable' end
   ) returning id into v_reservation_id;
   return jsonb_build_object(
     'allowed',true,'reservation_id',v_reservation_id,'calls_used',v_calls,
@@ -905,14 +978,19 @@ language plpgsql security definer set search_path=public,pg_temp
 as $$
 declare
   v_price private.llm_prices%rowtype;
+  v_usage private.llm_usage%rowtype;
   v_prompt integer := greatest(coalesce(p_prompt_tokens,0),0);
   v_completion integer := greatest(coalesce(p_completion_tokens,0),0);
+  v_actual_model text := coalesce(nullif(btrim(p_model),''),'unknown');
+  v_priced_model text;
   v_cost numeric;
   v_status text;
+  v_model_policy_status text;
   v_billing_subscription_id uuid;
 begin
+  v_priced_model := private.resolve_priced_llm_model(v_actual_model);
   select * into v_price from private.llm_prices
-  where model=coalesce(nullif(btrim(p_model),''),'unknown')
+  where model=v_priced_model
     and input_cad_per_mtok is not null and output_cad_per_mtok is not null;
   if found then
     v_cost := (v_prompt::numeric*v_price.input_cad_per_mtok
@@ -924,10 +1002,25 @@ begin
   end if;
 
   if p_reservation_id is not null then
+    select * into v_usage from private.llm_usage
+    where id=p_reservation_id and organization_id=p_organization_id
+      and reserved
+    for update;
+    if found then
+      v_model_policy_status := case
+        when v_usage.billing_subscription_id is null then 'not_applicable'
+        when cardinality(v_usage.commercial_allowed_models_snapshot)>0
+          and v_priced_model=any(v_usage.commercial_allowed_models_snapshot)
+          then 'approved'
+        else 'unapproved_model'
+      end;
+    end if;
     update private.llm_usage set
       fn=coalesce(nullif(btrim(p_fn),''),fn),
-      model=coalesce(nullif(btrim(p_model),''),'unknown'),
+      requested_model=coalesce(requested_model,model),
+      model=v_actual_model,priced_model=v_priced_model,
       prompt_tokens=v_prompt,completion_tokens=v_completion,reserved=false,
+      model_policy_status=v_model_policy_status,
       input_cad_per_mtok=v_price.input_cad_per_mtok,
       output_cad_per_mtok=v_price.output_cad_per_mtok,
       price_effective_date=v_price.effective_date,
@@ -938,14 +1031,29 @@ begin
 
   select billing_subscription_id into v_billing_subscription_id
   from private.llm_org_quotas where organization_id=p_organization_id;
+  if v_billing_subscription_id is null then
+    select id into v_billing_subscription_id
+    from public.billing_subscriptions
+    where organization_id=p_organization_id
+      and billing_source='azure_marketplace' and status='active'
+      and marketplace_status='Subscribed'
+    order by updated_at desc,id
+    limit 1;
+  end if;
+  v_model_policy_status := case
+    when v_billing_subscription_id is null then 'not_applicable'
+    else 'reservation_missing'
+  end;
   insert into private.llm_usage (
     organization_id,fn,model,prompt_tokens,completion_tokens,reserved,
-    billing_subscription_id,input_cad_per_mtok,output_cad_per_mtok,
-    price_effective_date,inference_cost_cad,cost_status
+    billing_subscription_id,priced_model,model_policy_status,
+    input_cad_per_mtok,output_cad_per_mtok,price_effective_date,
+    inference_cost_cad,cost_status
   ) values (
     p_organization_id,coalesce(nullif(btrim(p_fn),''),'unknown'),
-    coalesce(nullif(btrim(p_model),''),'unknown'),v_prompt,v_completion,false,
-    v_billing_subscription_id,v_price.input_cad_per_mtok,
+    v_actual_model,v_prompt,v_completion,false,
+    v_billing_subscription_id,v_priced_model,v_model_policy_status,
+    v_price.input_cad_per_mtok,
     v_price.output_cad_per_mtok,v_price.effective_date,v_cost,v_status
   );
 end
@@ -961,7 +1069,10 @@ grant execute on function public.record_llm_usage(
 comment on function public.record_llm_usage(
   uuid,text,text,integer,integer,bigint
 ) is 'Settles the canonical reservation with actual tokens and an immutable '
-  'snapshot of the exact model price and CAD inference cost. Unknown model '
+  'snapshot of the exact model price and CAD inference cost. The requested '
+  'model and approved-model set remain snapshotted; a different actual model '
+  'is recorded and freezes further commercial-period spend. Provider-returned '
+  'dated model IDs resolve only to their exact canonical price alias. Unknown '
   'price is recorded as unknown_price, never zero cost.';
 
 -- ---------------------------------------------------------------------------
@@ -992,20 +1103,27 @@ begin
   ), decision_rollups as (
     select cost_object_type,cost_object_id,
       sum(inference_cost_cad) filter (where cost_status='priced') cost_cad,
-      count(*) filter (where cost_status<>'priced') unpriced_calls
+      count(*) filter (where cost_status<>'priced') unpriced_calls,
+      count(*) filter (
+        where model_policy_status in ('unapproved_model','reservation_missing')
+      ) model_policy_violations
     from settled
     where cost_object_type in ('decision_case','development_case','decision')
       and cost_object_id is not null
     group by cost_object_type,cost_object_id
   ), decision_costs as (
     select cost_object_type,cost_object_id,cost_cad
-    from decision_rollups where unpriced_calls=0
+    from decision_rollups
+    where unpriced_calls=0 and model_policy_violations=0
   ), totals as (
     select count(*) settled_calls,
       coalesce(sum(prompt_tokens+completion_tokens),0) tokens,
       coalesce(sum(inference_cost_cad) filter (where cost_status='priced'),0) known_cost,
       count(*) filter (where cost_status='unknown_price') unknown_price_calls,
       count(*) filter (where cost_status<>'priced') unpriced_calls,
+      count(*) filter (
+        where model_policy_status in ('unapproved_model','reservation_missing')
+      ) model_policy_violation_calls,
       count(*) filter (where cost_object_id is null) unattributed_calls,
       count(distinct (cost_object_type,cost_object_id)) filter (
         where cost_object_type in ('decision_case','development_case','decision')
@@ -1024,6 +1142,7 @@ begin
     'knownInferenceCostCad',t.known_cost,
     'unknownPriceCalls',t.unknown_price_calls,
     'unpricedCalls',t.unpriced_calls,
+    'modelPolicyViolationCalls',t.model_policy_violation_calls,
     'unattributedCalls',t.unattributed_calls,
     'attributedDecisions',t.attributed_decisions,
     'pricedAttributedDecisions',d.priced_decision_count,
@@ -1033,6 +1152,7 @@ begin
     'priceComplete',t.unpriced_calls=0,
     'decisionAttributionComplete',t.unattributed_calls=0,
     'complete',t.unpriced_calls=0 and t.unattributed_calls=0
+      and t.model_policy_violation_calls=0
   ) into v_report from totals t cross join distribution d;
   return v_report;
 end
@@ -1048,7 +1168,8 @@ grant execute on function public.get_ai_unit_economics(
 comment on function public.get_ai_unit_economics(
   uuid,timestamptz,timestamptz
 ) is 'Service-only measured inference COGS with explicit unknown-price and '
-  'unattributed calls plus average, p50 and p95 cost per decision.';
+  'unattributed calls, actual-model policy violations, and average, p50 and '
+  'p95 cost per decision.';
 
 revoke all on private.llm_usage from public,anon,authenticated,service_role;
 revoke all on private.llm_prices from public,anon,authenticated,service_role;

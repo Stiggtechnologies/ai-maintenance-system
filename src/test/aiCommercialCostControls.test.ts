@@ -17,6 +17,14 @@ const realtime = readFileSync(
   "supabase/functions/sync-realtime-session/index.ts",
   "utf8",
 );
+const agentLoopEnrich = readFileSync(
+  "supabase/functions/agent-loop-enrich/index.ts",
+  "utf8",
+);
+const onboardingEnrich = readFileSync(
+  "supabase/functions/onboarding-enrich/index.ts",
+  "utf8",
+);
 const marketplaceSmokes = [
   "scripts/ci-azure-marketplace-fulfillment-smoke.sh",
   "scripts/ci-azure-marketplace-lifecycle-smoke.sh",
@@ -142,6 +150,14 @@ describe("AI commercial cost controls", () => {
   });
 
   it("snapshots exact price and exposes measured average, p50, and p95 decision cost", () => {
+    expect(migration).toContain("requested_model text");
+    expect(migration).toContain("priced_model text");
+    expect(migration).toContain("commercial_allowed_models_snapshot text[]");
+    expect(migration).toContain(
+      "create or replace function private.resolve_priced_llm_model",
+    );
+    expect(migration).toContain("else 'unapproved_model'");
+    expect(migration).toContain("commercial_model_policy_breached");
     expect(migration).toContain(
       "input_cad_per_mtok=v_price.input_cad_per_mtok",
     );
@@ -154,17 +170,39 @@ describe("AI commercial cost controls", () => {
     expect(migration).toContain("percentile_cont(0.95)");
     expect(migration).toContain("unattributedcalls");
     expect(migration).toContain("unknownpricecalls");
+    expect(migration).toContain("modelpolicyviolationcalls");
+    expect(marketplaceSmokes[0]).toContain(
+      "gpt-4o-mini-2024-07-18",
+    );
+    expect(marketplaceSmokes[0]).toContain(
+      "actual-model mismatch did not freeze later spend",
+    );
   });
 
   it("enforces every paid runtime and attaches cost subjects where the runtime exposes one", () => {
     expect(processor).toContain('"check_llm_quota"');
     expect(migration).toContain("model_not_approved_for_plan");
-    for (const runtime of [investigation, realtime]) {
+    for (const runtime of [
+      investigation,
+      realtime,
+      agentLoopEnrich,
+      onboardingEnrich,
+    ]) {
       expect(runtime).toContain('"check_llm_commercial_quota"');
     }
     expect(investigation).toContain(
       '{ type: "sync_conversation", id: workspaceId }',
     );
+    expect(agentLoopEnrich).toContain(
+      'p_cost_object_type: "recommendation"',
+    );
+    expect(onboardingEnrich).toContain(
+      'p_cost_object_type: "asset_onboarding"',
+    );
+    for (const runtime of [agentLoopEnrich, onboardingEnrich]) {
+      expect(runtime).toContain("p_reservation_id: reservationId");
+      expect(runtime).toContain('"release_llm_reservation"');
+    }
   });
 
   it("keeps every policy and reporting RPC service-only", () => {
