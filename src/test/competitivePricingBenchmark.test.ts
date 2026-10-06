@@ -57,6 +57,11 @@ const unitEconomics = JSON.parse(
 const manifest = JSON.parse(
   readFileSync("marketplace/partner-center-manifest.json", "utf8"),
 ) as {
+  blockingActions: Array<{
+    action: string;
+    id: string;
+    status: string;
+  }>;
   commercialBenchmark: {
     benchmarkRoles: Record<string, string[]>;
     expansionPlanningBands: Array<{
@@ -79,6 +84,31 @@ const manifest = JSON.parse(
       monthlyUsdPerUser?: number;
       pricingModelChangeBeforePublicationRequired?: boolean;
     }>;
+    status: string;
+  };
+  previewAndCertification: {
+    acceptedMeteringWitness: string;
+    authenticatedLifecycleWitness: string;
+    realPreviewPurchasesObserved: number;
+    repositoryHarness: string;
+    repositoryHarnessEvidence: {
+      githubActionsRun: string;
+      head: string;
+      productionOrRealPurchaseEvidence: boolean;
+      pullRequest: string;
+    };
+  };
+  taxAndPayout: {
+    azureMarketplaceAssignment: {
+      paymentCurrency: string;
+      paymentProfileStatus: string;
+      submittedAt: string;
+      taxProfileStatus: string;
+      verificationStatus: string;
+    };
+    partnerCenterPayoutProfile: string;
+    partnerCenterTaxValidationOrAssignment: string;
+    publisherSubmission: string;
     status: string;
   };
 };
@@ -219,6 +249,53 @@ describe("competitive pricing benchmark", () => {
     expect(
       unitEconomics.commercialCompatibility.partnerCenterMutationAuthorized,
     ).toBe(false);
+  });
+
+  it("keeps Partner Center payout state internally consistent", () => {
+    expect(manifest.taxAndPayout).toMatchObject({
+      publisherSubmission: "submitted_pending_validation",
+      partnerCenterTaxValidationOrAssignment: "complete",
+      partnerCenterPayoutProfile: "pending_microsoft_validation",
+      status: "blocked",
+      azureMarketplaceAssignment: {
+        submittedAt: "2026-10-06",
+        taxProfileStatus: "complete",
+        paymentProfileStatus: "pending_microsoft_validation",
+        paymentCurrency: "CAD",
+        verificationStatus: "not_started",
+      },
+    });
+
+    const payoutAction = manifest.blockingActions.find(
+      ({ id }) => id === "PC-009",
+    );
+    expect(payoutAction).toMatchObject({ status: "blocked" });
+    expect(payoutAction?.action).toMatch(/Tax is Complete/);
+    expect(payoutAction?.action).toMatch(/Pending Microsoft validation/);
+    expect(payoutAction?.action).toMatch(/verification is Not started/);
+  });
+
+  it("separates green repository proof from production and purchase evidence", () => {
+    expect(manifest.previewAndCertification).toMatchObject({
+      repositoryHarness: "implemented_and_ci_verified",
+      realPreviewPurchasesObserved: 0,
+      authenticatedLifecycleWitness: "blocked",
+      acceptedMeteringWitness: "blocked",
+      repositoryHarnessEvidence: {
+        pullRequest:
+          "https://github.com/Stiggtechnologies/ai-maintenance-system/pull/634",
+        head: "7072c3d2",
+        githubActionsRun: "37524709308",
+        productionOrRealPurchaseEvidence: false,
+      },
+    });
+
+    const productAction = manifest.blockingActions.find(
+      ({ id }) => id === "PC-003",
+    );
+    expect(productAction).toMatchObject({ status: "blocked" });
+    expect(productAction?.action).toMatch(/not merged or deployed/i);
+    expect(productAction?.action).toMatch(/no commercial values are approved/i);
   });
 
   it("records an expansion path capable of reaching enterprise ACV", () => {

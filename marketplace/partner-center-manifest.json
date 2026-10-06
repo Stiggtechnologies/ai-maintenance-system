@@ -320,13 +320,15 @@
     "status": "draft"
   },
   "taxAndPayout": {
-    "publisherSubmission": "external_action_required",
+    "publisherSubmission": "submitted_pending_validation",
     "standaloneCanadianTaxProfile": "complete",
-    "partnerCenterTaxValidationOrAssignment": "not_started",
-    "partnerCenterPayoutProfile": "not_started",
+    "partnerCenterTaxValidationOrAssignment": "complete",
+    "partnerCenterPayoutProfile": "pending_microsoft_validation",
     "azureMarketplaceAssignment": {
-      "taxProfileStatus": "not_started",
-      "paymentProfileStatus": "not_started",
+      "submittedAt": "2026-10-06",
+      "taxProfileStatus": "complete",
+      "paymentProfileStatus": "pending_microsoft_validation",
+      "paymentCurrency": "CAD",
       "verificationStatus": "not_started"
     },
     "observedEligibilityMessage": "This account is not publish eligible due to either an invalid payout, payout on hold, or invalid tax.",
@@ -364,7 +366,14 @@
     "previewAudience": "external_action_required",
     "realPreviewPurchasesRequired": 2,
     "realPreviewPurchasesObserved": 0,
-    "repositoryHarness": "implemented_not_run",
+    "repositoryHarness": "implemented_and_ci_verified",
+    "repositoryHarnessEvidence": {
+      "pullRequest": "https://github.com/Stiggtechnologies/ai-maintenance-system/pull/634",
+      "head": "7072c3d2",
+      "githubActionsRun": "37524709308",
+      "scope": "synthetic fresh-database migration, fulfillment, lifecycle, quantity-rebinding, entitlement, refusal, metering, preview-certification, and golden-path checks",
+      "productionOrRealPurchaseEvidence": false
+    },
     "authenticatedLifecycleWitness": "blocked",
     "acceptedMeteringWitness": "blocked",
     "partnerCenterCertification": "blocked",
@@ -409,7 +418,7 @@
     {
       "id": "PC-003",
       "owner": "Product and engineering owners",
-      "action": "Prove the deployed runtime can enforce every approved plan and meter boundary.",
+      "action": "PR #634 at head 7072c3d2 passed the fresh-database synthetic enforcement suite in GitHub Actions run 37524709308, including 25-to-10 seat quantity rebinding. It is not merged or deployed, and no commercial values are approved. Obtain independent review, merge and deployment authorization, configure approved policies, and then prove the production runtime enforces every approved plan and meter boundary.",
       "status": "blocked"
     },
     {
