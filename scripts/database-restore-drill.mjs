@@ -11,6 +11,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
+import { StringDecoder } from "node:string_decoder";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   diagnoseSourceFunctionDrift,
@@ -982,6 +983,9 @@ async function command(
       cwd: root,
       stdio: ["pipe", outputFd ?? "pipe", "pipe"],
     });
+    // Pipe chunks are byte boundaries, not UTF-8 character boundaries.
+    const outputDecoder = new StringDecoder("utf8");
+    const diagnosticDecoder = new StringDecoder("utf8");
     let output = "",
       diagnostic = "",
       bytes = 0,
@@ -992,10 +996,11 @@ async function command(
     child.stdout?.on("data", (chunk) => {
       bytes += chunk.length;
       if (bytes > 32 * 1024 * 1024) child.kill("SIGKILL");
-      else output += chunk.toString("utf8");
+      else output += outputDecoder.write(chunk);
     });
     child.stderr.on("data", (chunk) => {
-      if (diagnostic.length < 1024 * 1024) diagnostic += chunk.toString("utf8");
+      if (diagnostic.length < 1024 * 1024)
+        diagnostic += diagnosticDecoder.write(chunk);
     });
     child.stdin.on("error", () => {});
     child.on("error", () => {
@@ -1006,6 +1011,9 @@ async function command(
     child.on("close", async (code) => {
       clearTimeout(timer);
       if (finished) return;
+      output += outputDecoder.end();
+      const diagnosticTail = diagnosticDecoder.end();
+      if (diagnostic.length < 1024 * 1024) diagnostic += diagnosticTail;
       if (code !== 0 || bytes > 32 * 1024 * 1024) {
         if (onFailureDiagnostic) {
           try {

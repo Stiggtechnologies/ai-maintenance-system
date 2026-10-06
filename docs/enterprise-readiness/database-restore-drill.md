@@ -212,6 +212,21 @@ catalog fields' values, session-setting values, OIDs, digests or raw errors.
 These states explain diagnostic availability, not the restore failure's cause,
 and do not change any manifest, strict comparison or recovery acceptance flag.
 
+Subprocess stdout and bounded private stderr use separate lifetime UTF-8
+decoders, flushed at completion. Pipe chunks are not character boundaries;
+decoding each chunk separately can corrupt a split multibyte character while
+leaving its JSON parseable. Synthetic exact-listener regressions reproduce the
+observed one-to-two/three punctuation shape and qualified-but-uncorrelated
+diagnostics using identical input bytes. Streaming decoding preserves those
+bytes' text without normalization; genuinely different Unicode definitions still
+fail the strict comparison. The raw 32 MiB stdout limit, binary-artifact path and
+timeout/subprocess failure guards remain unchanged. Private stderr retains its
+existing pre-append decoded-length threshold; this is not a new hard byte cap,
+and the final accepted chunk can exceed that threshold.
+This repairs a demonstrated transport defect, not a proven attribution or
+closeout of any particular hosted failure; corrected hosted qualification is
+still required. See [Node's StringDecoder contract](https://nodejs.org/api/string_decoder.html).
+
 For a differing, nondeferrable NOT VALID CHECK only, a bounded reference witness
 may reparse the captured source definition on the restored relation in a
 10-second, rollback-only transaction. The original constraint is not dropped,
