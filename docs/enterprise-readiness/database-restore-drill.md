@@ -188,6 +188,58 @@ RTO, RPO, production outage duration or service-level commitment**. Its
 false even when this local drill passes. Unit tests qualify tool boundaries;
 only a real hosted/local restore qualifies the database-drill execution.
 
+## Private production metadata observation
+
+`scripts/database-backup-metadata.mjs` provides a separate **read-only observation**
+of the production provider's backup metadata. It does not run in public CI,
+restore a backup, download backup bytes, change a plan, enable PITR or alter
+any configuration. Its only provider commands are `projects list --output json`
+and `backups list --project-ref <qualified-ref> --output json`.
+
+The target comes from the canonical top-level deployment environment in
+`.github/workflows/deploy-migrations.yml`, parsed as YAML with unique keys.
+Aliases, anchors, tags, merge keys, job/step target overrides and conflicting
+ambient identity are refused. The project must be uniquely present and healthy
+in the authenticated provider catalogue. The public frontend must serve a single
+same-origin `/assets/*.js` module containing that project reference and no
+foreign Supabase reference. Redirects, unsafe paths, duplicate attributes,
+unqualified HTTP/content types and oversized responses are refused. The report
+explicitly does **not** claim that string presence proves the frontend's runtime
+client binding.
+
+To obtain the private output directory without printing its contents:
+
+```sh
+SYNC_DR_PRODUCTION_METADATA=read_only node --input-type=module -e 'const {runProductionBackupMetadata}=await import("./scripts/database-backup-metadata.mjs"); const {output}=await runProductionBackupMetadata(); console.log(output);'
+```
+
+The existing operator's provider authentication is used; credentials must not be
+passed as command-line arguments. Extra CLI targets/options and alternate
+provider endpoint overrides are refused. Provider commands and public GETs are
+bounded by time/size limits. Duplicate JSON keys, malformed dates/configuration,
+duplicate inventory entries or differing project/provider regions fail closed.
+Raw payloads, signed URLs, backup identifiers, project names, other projects,
+asset source and provider diagnostics are never persisted or printed.
+
+The allowlisted report lives in a unique **0700** system-temporary directory,
+with an exclusively created **0600** `report.json`; writing it inside this public
+checkout is refused. Reports contain private configuration observations,
+aggregate inventory counts, insertion timestamps, provider-reported physical
+restore points when available, observer/workflow/bundle digests and fixed
+warnings. Do not commit, attach to a public PR, upload as a public Actions
+artifact or share these reports. Preserve them for the authorized recovery
+custodian under the approved retention policy.
+
+An insertion timestamp is **not** a recoverable-data cutoff. A reported restore
+window is **not** a successful restore or an approved retention policy. Empty,
+uncompleted or future-dated inventories remain observations with warnings.
+`observationStatus` can be `CAPTURED`, but `recoveryQualification` remains
+`UNPROVEN`; every production/byte restoration, retention, custodian/access,
+RPO/RTO and capability-completion proof flag remains false. This closes the
+metadata-capture mechanism, not the E5.13 acceptance requirements below.
+The projected fields follow the provider's
+[backup-list Management API schema](https://supabase.com/docs/reference/api/v1-list-all-backups).
+
 ## Remaining E5.13 acceptance requirements
 
 1. Named recovery owner and approved production recovery objectives, dependency
