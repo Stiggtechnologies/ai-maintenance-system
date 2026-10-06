@@ -4,7 +4,12 @@ import type {
   SurvivalOverlay,
   SurvivalSourceEvent,
   SurvivalScenarioSelection,
+  SurvivalActiveInstance,
+  SurvivalActiveOverlay,
+  SurvivalActiveScenarioSelection,
+  SurvivalCensus,
 } from "../lib/reliability/survival-source";
+import { SURVIVAL_CENSUS_VERSION } from "../lib/reliability/survival-source";
 
 export interface SurvivalCovariate {
   name: string;
@@ -27,9 +32,7 @@ export interface SurvivalCalculation {
   outputs: CoxResult | null;
   refusals: string[];
 }
-export interface SurvivalWorkspace {
-  component: string;
-  events: SurvivalSourceEvent[];
+export interface SurvivalWorkspace extends SurvivalCensus {
   evidence: SurvivalEvidence[];
   calculations: SurvivalCalculation[];
 }
@@ -67,6 +70,16 @@ export async function loadSurvivalWorkspace(
     },
     response.error,
   );
+  if (
+    source.sourceVersion !== SURVIVAL_CENSUS_VERSION ||
+    !Array.isArray(source.events) ||
+    !Array.isArray(source.activeInstances) ||
+    !Array.isArray(source.removedInstances) ||
+    !Array.isArray(source.populationGaps)
+  )
+    throw new Error(
+      "The complete physical-life census is unavailable; completed-only source cannot establish fleet readiness.",
+    );
   // Client RLS remains active, including sensitive-evidence restrictions.
   // A visible verified row is NOT asserted to be source-eligible: the capture
   // RPC independently checks its exact asset, timestamp and source controls.
@@ -124,12 +137,25 @@ export async function runSurvivalAnalysis(
   component: string,
   covariates: SurvivalCovariate[],
   scenario?: SurvivalScenarioSelection,
+  activeScenario?: SurvivalActiveScenarioSelection,
 ): Promise<SurvivalReceipt> {
+  if (scenario !== undefined && activeScenario !== undefined)
+    throw new Error(
+      "Choose one explicit historical or installed-component scenario.",
+    );
   const response = await supabase.functions.invoke("calculation-service", {
     body: {
       action: "reliability_survival",
       component,
       covariates,
+      ...(activeScenario === undefined
+        ? {}
+        : {
+            activeScenario: {
+              componentInstanceId: activeScenario.componentInstanceId,
+              horizonHours: activeScenario.horizonHours,
+            },
+          }),
       ...(scenario === undefined
         ? {}
         : {
@@ -146,4 +172,30 @@ export async function runSurvivalAnalysis(
     response.data as SurvivalReceipt & { error?: string },
     response.error,
   );
+}
+
+export async function captureSurvivalInstalledOverlay(
+  instance: SurvivalActiveInstance,
+  overlay: SurvivalActiveOverlay,
+): Promise<void> {
+  const response = await supabase.rpc("record_survival_installed_overlay", {
+    p_instance_id: instance.id,
+    p_expected_version: instance.overlayVersion,
+    p_overlay: overlay,
+  });
+  unwrap(response.data, response.error);
+}
+
+export async function reviewSurvivalInstalledOverlay(
+  instance: SurvivalActiveInstance,
+  decision: "validated" | "rejected",
+  basis: string,
+): Promise<void> {
+  const response = await supabase.rpc("review_survival_installed_overlay", {
+    p_instance_id: instance.id,
+    p_expected_version: instance.overlayVersion,
+    p_decision: decision,
+    p_basis: basis,
+  });
+  unwrap(response.data, response.error);
 }

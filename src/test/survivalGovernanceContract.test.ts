@@ -59,7 +59,13 @@ describe("C7.14 governed canonical covariates", () => {
   });
   it("executes server-derived observations through the qualified shared kernel and retains runtime proof", () => {
     expect(edge).toContain('body.action === "reliability_survival"');
-    expect(edge).toContain("prepareSurvivalSource(source.events, covariates)");
+    expect(edge).toContain("prepareSurvivalCensus(source, covariates)");
+    expect(edge).toContain("source.sourceVersion !== SURVIVAL_CENSUS_VERSION");
+    expect(edge).toContain("!Array.isArray(source.activeInstances)");
+    expect(edge).toContain("!Array.isArray(source.removedInstances)");
+    expect(edge).toMatch(
+      /prepareActiveSurvivalScenario\(\s*source\.events,\s*covariates,\s*source\.activeInstances/,
+    );
     expect(edge).toMatch(/analyseCoxSurvival\(\s*prepared\.rows/);
     expect(edge).toContain("prepared.clusterBySubject");
     expect(edge).toMatch(/prepareSurvivalScenario\(\s*source\.events/);

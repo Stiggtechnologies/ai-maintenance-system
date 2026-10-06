@@ -7,8 +7,10 @@ import { prepareSurvivalSource } from "../lib/reliability/survival-source";
 import coxInput from "../lib/reliability/fixtures/cox-reference.json";
 import {
   captureSurvivalOverlay,
+  captureSurvivalInstalledOverlay,
   loadSurvivalWorkspace,
   reviewSurvivalOverlay,
+  reviewSurvivalInstalledOverlay,
   runSurvivalAnalysis,
   type SurvivalWorkspace,
 } from "../services/survivalCovariateService";
@@ -16,11 +18,17 @@ import {
 vi.mock("../services/survivalCovariateService", () => ({
   loadSurvivalWorkspace: vi.fn(),
   captureSurvivalOverlay: vi.fn(),
+  captureSurvivalInstalledOverlay: vi.fn(),
   reviewSurvivalOverlay: vi.fn(),
+  reviewSurvivalInstalledOverlay: vi.fn(),
   runSurvivalAnalysis: vi.fn(),
 }));
 
 const workspace = (): SurvivalWorkspace => ({
+  sourceVersion: "survival-census/2/draft",
+  activeInstances: [],
+  removedInstances: [],
+  populationGaps: [],
   component: "synthetic drive",
   evidence: [],
   calculations: [],
@@ -79,9 +87,245 @@ describe("governed covariate survival workbench", () => {
     expect(screen.getByText(/Source gap \/ Approval gap/)).toBeInTheDocument();
     expect(
       screen.getByText(
-        /installed-component census and current meter\/condition capture are not yet connected/,
+        /Current-component scenarios use actual installation and meter facts/,
       ),
     ).toBeInTheDocument();
+  });
+  const installedWorkspace = (): SurvivalWorkspace => {
+    const source = workspace();
+    source.activeInstances = [
+      {
+        id: "aaaaaaaa-0000-0000-0000-000000000001",
+        assetId: "synthetic-asset",
+        component: source.component,
+        position: "left",
+        state: "installed",
+        installedAt: "2026-08-01T00:00:00Z",
+        installedMeterHours: 1000,
+        currentMeter: {
+          id: "bbbbbbbb-0000-0000-0000-000000000001",
+          assetId: "synthetic-asset",
+          kind: "operating_hours",
+          value: 1008,
+          recordedAt: "2026-09-01T00:00:00Z",
+        },
+        overlayVersion: 0,
+        overlayStatus: "unrecorded",
+        overlayAuthor: null,
+        overlayReviewer: null,
+        overlay: null,
+        sourceCurrent: false,
+        approvalCurrent: false,
+      },
+    ];
+    source.evidence = [
+      {
+        id: "install-proof",
+        asset_id: "synthetic-asset",
+        ts: "2026-08-01T00:00:00Z",
+        description: "Synthetic installation evidence",
+        evidence_class: "MEASURED",
+        verified_by: "reviewer",
+      },
+      {
+        id: "meter-proof",
+        asset_id: "synthetic-asset",
+        ts: "2026-09-01T00:00:00Z",
+        description: "Synthetic meter evidence",
+        evidence_class: "MEASURED",
+        verified_by: "reviewer",
+      },
+    ];
+    return source;
+  };
+  const chooseInstalled = (id: string) => {
+    change("Evidence source kind", "installation");
+    change("Canonical component installation", id);
+  };
+  it("captures canonical meter/evidence references with explicit condition inputs, not caller lifecycle identity or age", async () => {
+    const source = installedWorkspace();
+    vi.mocked(loadSurvivalWorkspace).mockResolvedValue(source);
+    render(<CovariateSurvivalWorkbench component="synthetic drive" />);
+    await screen.findByText("Whole-population readiness");
+    chooseInstalled(source.activeInstances[0].id);
+    expect(
+      screen.queryByLabelText("Physical component life reference"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByLabelText("Actual service start (ISO with timezone)"),
+    ).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Interval 1 predictor 1 value")).toHaveValue(
+      null,
+    );
+    change("Predictor 1 name", "synthetic_load");
+    change("Predictor 1 unit", "ratio");
+    change("Approved design / operating stratum", "synthetic-design");
+    change("Observed entry operating hours", "0");
+    change(
+      "Evidence-backed profile valid until (ISO with timezone)",
+      "2030-01-01T00:00:00Z",
+    );
+    change("Installation evidence", "install-proof");
+    change("Latest meter evidence", "meter-proof");
+    change("Interval 1 start hours", "0");
+    change("Interval 1 stop hours", "8");
+    change("Interval 1 actual start (ISO)", "2026-08-01T00:00:00Z");
+    change("Interval 1 actual end (ISO)", "2026-09-01T00:00:00Z");
+    change("Interval 1 predictor 1 evidence", "install-proof");
+    change("Interval 1 predictor 1 value", "0.4");
+    change("Interval 1 predictor 1 observed hours", "0");
+    change("Interval 1 predictor 1 available hours", "0");
+    change("Interval 1 predictor 1 valid through hours", "15");
+    change("Interval 1 predictor 1 available at (ISO)", "2026-08-01T00:00:00Z");
+    change(
+      "Capture evidence basis",
+      "Independent synthetic installation and condition source basis.",
+    );
+    fireEvent.submit(
+      screen
+        .getByRole("button", { name: "Submit exact overlay for review" })
+        .closest("form")!,
+    );
+    await waitFor(() =>
+      expect(captureSurvivalInstalledOverlay).toHaveBeenCalled(),
+    );
+    const [row, overlay] = vi.mocked(captureSurvivalInstalledOverlay).mock
+      .calls[0];
+    expect(row.id).toBe(source.activeInstances[0].id);
+    expect(overlay).toMatchObject({
+      mode: "include",
+      meterReadingId: source.activeInstances[0].currentMeter!.id,
+      installationEvidenceItemId: "install-proof",
+      meterEvidenceItemId: "meter-proof",
+      entryHours: 0,
+      intervals: [{ stopHours: 8, values: [{ value: 0.4 }] }],
+    });
+    expect(overlay).not.toHaveProperty("lifeRef");
+    expect(overlay).not.toHaveProperty("serviceStartedAt");
+    expect(overlay).not.toHaveProperty("originHours");
+    expect(captureSurvivalOverlay).not.toHaveBeenCalled();
+  });
+  it("reviews the persisted installation snapshot and never uses unsaved basis as source facts", async () => {
+    const source = installedWorkspace();
+    const row = source.activeInstances[0];
+    row.overlayVersion = 3;
+    row.overlayStatus = "pending_review";
+    row.overlayAuthor = "synthetic-author";
+    row.overlay = {
+      mode: "exclude",
+      basis: "Persisted independently evidenced disposition.",
+      evidenceItemId: "install-proof",
+    };
+    vi.mocked(loadSurvivalWorkspace).mockResolvedValue(source);
+    render(<CovariateSurvivalWorkbench component="synthetic drive" />);
+    await screen.findByText("Whole-population readiness");
+    chooseInstalled(row.id);
+    change(
+      "Capture evidence basis",
+      "Unsaved new capture basis is not reviewed.",
+    );
+    change(
+      "Independent review basis",
+      "Independent review of exact persisted source snapshot.",
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Validate exact overlay" }),
+    );
+    await waitFor(() =>
+      expect(reviewSurvivalInstalledOverlay).toHaveBeenCalledWith(
+        row,
+        "validated",
+        "Independent review of exact persisted source snapshot.",
+      ),
+    );
+    expect(captureSurvivalInstalledOverlay).not.toHaveBeenCalled();
+    expect(reviewSurvivalOverlay).not.toHaveBeenCalled();
+  });
+  it("sends current-target UUID and horizon only, with no editable current-age field", async () => {
+    const source = installedWorkspace();
+    vi.mocked(loadSurvivalWorkspace).mockResolvedValue(source);
+    vi.mocked(runSurvivalAnalysis).mockResolvedValue({
+      calculationRunId: "synthetic-installed-refusal",
+      agentRunId: "synthetic-run",
+      result: {
+        status: "refused",
+        code: "invalid_input",
+        reason: "Unreviewed current profile.",
+        kernelVersion: "cox-efron/1/draft",
+        authority: "advisory_only",
+      },
+      refusals: ["Unreviewed current profile."],
+      advisory: true,
+      may_change_pm_interval: false,
+      may_create_work: false,
+      may_accept_risk: false,
+      may_return_to_service: false,
+    });
+    render(<CovariateSurvivalWorkbench component="synthetic drive" />);
+    await screen.findByText("Whole-population readiness");
+    change("Predictor 1 name", "synthetic_load");
+    change("Predictor 1 unit", "ratio");
+    fireEvent.click(
+      screen.getByLabelText("Include evidence-backed conditional scenario"),
+    );
+    change("Scenario profile kind", "installation");
+    change("Scenario installed component", source.activeInstances[0].id);
+    change("Scenario horizon operating hours", "12");
+    expect(
+      screen.queryByLabelText("Scenario survival origin operating hours"),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Run retained survival analysis" }),
+    );
+    await waitFor(() =>
+      expect(runSurvivalAnalysis).toHaveBeenCalledWith(
+        "synthetic drive",
+        [{ name: "synthetic_load", unit: "ratio" }],
+        undefined,
+        { componentInstanceId: source.activeInstances[0].id, horizonHours: 12 },
+      ),
+    );
+    await screen.findByText("Retained advisory refused");
+  });
+  it("keeps unmatched removed installations visible as whole-population gaps", async () => {
+    const source = installedWorkspace();
+    source.removedInstances = [
+      { ...source.activeInstances[0], state: "removed", reconciled: false },
+    ];
+    source.activeInstances = [];
+    vi.mocked(loadSurvivalWorkspace).mockResolvedValue(source);
+    render(<CovariateSurvivalWorkbench component="synthetic drive" />);
+    await screen.findByText("Removed life unresolved");
+    expect(
+      screen.getByText(
+        /an exact approved historical link or evidenced exclusion is required/,
+      ),
+    ).toBeInTheDocument();
+    choose();
+    change(
+      "Explicit removed installation link (optional)",
+      source.removedInstances[0].id,
+    );
+    change("Population treatment", "exclude");
+    change("Exclusion evidence", "install-proof");
+    change(
+      "Capture evidence basis",
+      "Independent synthetic exact removed-life reconciliation.",
+    );
+    fireEvent.submit(
+      screen
+        .getByRole("button", { name: "Submit exact overlay for review" })
+        .closest("form")!,
+    );
+    await waitFor(() =>
+      expect(captureSurvivalOverlay).toHaveBeenCalledWith(
+        source.events[0],
+        expect.objectContaining({
+          componentInstanceId: source.removedInstances[0].id,
+          mode: "exclude",
+        }),
+      ),
+    );
   });
   it("sends only scope and declared predictors to the service and displays retained refusal IDs", async () => {
     vi.mocked(runSurvivalAnalysis).mockResolvedValue({

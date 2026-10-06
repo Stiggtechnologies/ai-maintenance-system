@@ -1,14 +1,18 @@
 import { useMemo, useState } from "react";
 import { useAsyncData } from "../hooks/useAsyncData";
 import {
-  prepareSurvivalSource,
+  prepareSurvivalCensus,
   type SurvivalOverlay,
   type SurvivalSourceEvent,
+  type SurvivalActiveInstance,
+  type SurvivalActiveOverlay,
 } from "../lib/reliability/survival-source";
 import {
   captureSurvivalOverlay,
+  captureSurvivalInstalledOverlay,
   loadSurvivalWorkspace,
   reviewSurvivalOverlay,
+  reviewSurvivalInstalledOverlay,
   runSurvivalAnalysis,
   type SurvivalCovariate,
   type SurvivalReceipt,
@@ -208,6 +212,14 @@ export function CovariateSurvivalWorkbench({
     { name: "", unit: "" },
   ]);
   const [eventId, setEventId] = useState("");
+  const [sourceKind, setSourceKind] = useState<"historical" | "installation">(
+    "historical",
+  );
+  const [instanceId, setInstanceId] = useState("");
+  const [componentInstanceLink, setComponentInstanceLink] = useState("");
+  const [installationEvidence, setInstallationEvidence] = useState("");
+  const [meterEvidence, setMeterEvidence] = useState("");
+  const [validUntil, setValidUntil] = useState("");
   const [mode, setMode] = useState<"include" | "exclude">("include");
   const [lifeRef, setLifeRef] = useState("");
   const [stratum, setStratum] = useState("");
@@ -222,18 +234,34 @@ export function CovariateSurvivalWorkbench({
   const [reviewBasis, setReviewBasis] = useState("");
   const [receipt, setReceipt] = useState<SurvivalReceipt | null>(null);
   const [scenarioEnabled, setScenarioEnabled] = useState(false);
+  const [scenarioKind, setScenarioKind] = useState<
+    "historical" | "installation"
+  >("historical");
+  const [scenarioInstanceId, setScenarioInstanceId] = useState("");
   const [scenarioEventId, setScenarioEventId] = useState("");
   const [scenarioIntervalIndex, setScenarioIntervalIndex] = useState("");
   const [scenarioOrigin, setScenarioOrigin] = useState("");
   const [scenarioHorizon, setScenarioHorizon] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const event = data?.events.find((row) => String(row.id) === eventId);
+  const event =
+    sourceKind === "historical"
+      ? data?.events.find((row) => String(row.id) === eventId)
+      : undefined;
+  const instance =
+    sourceKind === "installation"
+      ? [
+          ...(data?.activeInstances ?? []),
+          ...(data?.removedInstances ?? []),
+        ].find((row) => row.id === instanceId)
+      : undefined;
+  const selectedSource = event ?? instance;
   const evidence =
-    data?.evidence.filter((row) => row.asset_id === event?.assetId) ?? [];
+    data?.evidence.filter((row) => row.asset_id === selectedSource?.assetId) ??
+    [];
   const prepared = useMemo(
-    () => prepareSurvivalSource(data?.events ?? [], covariates),
-    [data?.events, covariates],
+    () => prepareSurvivalCensus(data, covariates),
+    [data, covariates],
   );
 
   async function perform(action: () => Promise<void>) {
@@ -261,6 +289,10 @@ export function CovariateSurvivalWorkbench({
   }
   function selectEvent(id: string) {
     setEventId(id);
+    setComponentInstanceLink("");
+    setInstallationEvidence("");
+    setMeterEvidence("");
+    setValidUntil("");
     setReviewBasis("");
     setReceipt(null);
     setMode("include");
@@ -301,8 +333,10 @@ export function CovariateSurvivalWorkbench({
       })),
     );
   }
-  function loadRecordedOverlay(row: SurvivalSourceEvent) {
-    const overlay = row.overlay;
+  function loadRecordedOverlay(
+    row: SurvivalSourceEvent | SurvivalActiveInstance,
+  ) {
+    const overlay: SurvivalOverlay | null = row.overlay;
     if (!overlay) return;
     setMode(overlay.mode);
     setBasis(overlay.basis);
@@ -312,6 +346,12 @@ export function CovariateSurvivalWorkbench({
     setServiceStartedAt(overlay.serviceStartedAt ?? "");
     setTerminalObservedAt(overlay.terminalObservedAt ?? "");
     setExclusionEvidence(overlay.evidenceItemId ?? "");
+    setComponentInstanceLink(overlay.componentInstanceId ?? "");
+    if ("installedAt" in row) {
+      setInstallationEvidence(row.overlay?.installationEvidenceItemId ?? "");
+      setMeterEvidence(row.overlay?.meterEvidenceItemId ?? "");
+      setValidUntil(row.overlay?.validUntil ?? "");
+    }
     const predictors = overlay.intervals?.[0]?.values.map(({ name, unit }) => ({
       name,
       unit,
@@ -349,7 +389,14 @@ export function CovariateSurvivalWorkbench({
         "State a supporting evidence basis of at least 20 characters.",
       );
     if (mode === "exclude")
-      return { mode, basis, evidenceItemId: exclusionEvidence };
+      return {
+        mode,
+        basis,
+        evidenceItemId: exclusionEvidence,
+        ...(event && componentInstanceLink
+          ? { componentInstanceId: componentInstanceLink }
+          : {}),
+      };
     return {
       mode,
       basis,
@@ -357,6 +404,9 @@ export function CovariateSurvivalWorkbench({
       stratum,
       serviceStartedAt,
       terminalObservedAt,
+      ...(event && componentInstanceLink
+        ? { componentInstanceId: componentInstanceLink }
+        : {}),
       entryHours: statedNumber(entryHours),
       intervals: intervals.map((interval) => ({
         startHours: statedNumber(interval.startHours),
@@ -372,6 +422,28 @@ export function CovariateSurvivalWorkbench({
           validThroughHours: statedNumber(measurement.validThroughHours),
         })),
       })),
+    };
+  }
+
+  function buildInstalledOverlay(): SurvivalActiveOverlay {
+    const overlay = buildOverlay();
+    if (overlay.mode === "exclude") return overlay;
+    if (!instance?.currentMeter)
+      throw new Error(
+        "The exact current operating meter is required; no age is inferred.",
+      );
+    // Remove caller-entered lifecycle identity/timestamps. The server binds
+    // canonical installation and meter facts and independently checks intervals.
+    return {
+      mode: overlay.mode,
+      basis: overlay.basis,
+      entryHours: overlay.entryHours,
+      stratum: overlay.stratum,
+      intervals: overlay.intervals,
+      meterReadingId: instance.currentMeter.id,
+      installationEvidenceItemId: installationEvidence,
+      meterEvidenceItemId: meterEvidence,
+      validUntil,
     };
   }
 
@@ -403,10 +475,11 @@ export function CovariateSurvivalWorkbench({
           MFA/AAL2 and different named humans.
         </p>
         <p className="mt-2 text-xs text-amber-200">
-          This application path currently covers recorded completed life events.
-          The installed-component census and current meter/condition capture are
-          not yet connected. A source-ready completed-event cohort does not
-          establish a representative fleet model or a qualified live forecast.
+          The full installed and removed census participates in source
+          readiness. Current-component scenarios use actual installation and
+          meter facts, not a caller-supplied age or condition. A source-ready
+          cohort does not establish a representative fleet model or a qualified
+          live forecast.
         </p>
       </div>
 
@@ -453,11 +526,37 @@ export function CovariateSurvivalWorkbench({
             Include evidence-backed conditional scenario
           </label>
           <p className="text-xs text-amber-200">
-            Use an exact recorded measured interval as a numerical what-if
-            profile. No current operating age, future measurements, condition
-            persistence or live-asset qualification is inferred.
+            Choose an exact historical interval or a reviewed current
+            installation. Current age comes only from canonical meters. No
+            future measurements, condition persistence or live-asset
+            qualification is inferred.
           </p>
           {scenarioEnabled && (
+            <label className="block text-xs text-slate-400">
+              Scenario profile kind
+              <select
+                className={inputClass}
+                value={scenarioKind}
+                onChange={(e) => {
+                  setScenarioKind(
+                    e.target.value as "historical" | "installation",
+                  );
+                  setReceipt(null);
+                  setScenarioEventId("");
+                  setScenarioIntervalIndex("");
+                  setScenarioOrigin("");
+                  setScenarioInstanceId("");
+                  setScenarioHorizon("");
+                }}
+              >
+                <option value="historical">Historical measured interval</option>
+                <option value="installation">
+                  Current canonical installation
+                </option>
+              </select>
+            </label>
+          )}
+          {scenarioEnabled && scenarioKind === "historical" && (
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="text-xs text-slate-400">
                 Scenario reference life
@@ -519,6 +618,42 @@ export function CovariateSurvivalWorkbench({
               />
             </div>
           )}
+          {scenarioEnabled && scenarioKind === "installation" && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-xs text-slate-400">
+                Scenario installed component
+                <select
+                  className={inputClass}
+                  value={scenarioInstanceId}
+                  onChange={(e) => {
+                    setScenarioInstanceId(e.target.value);
+                    setReceipt(null);
+                  }}
+                >
+                  <option value="">Select exact canonical installation</option>
+                  {data?.activeInstances.map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {row.id} · {row.position} · {row.overlayStatus}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <Field
+                label="Scenario horizon operating hours"
+                numeric
+                value={scenarioHorizon}
+                onChange={(value) => {
+                  setScenarioHorizon(value);
+                  setReceipt(null);
+                }}
+              />
+              <p className="text-xs text-slate-400 sm:col-span-2">
+                Measured age, current profile, as-of time and validity are
+                derived and checked by the service. Missing or expired evidence
+                retains a refusal.
+              </p>
+            </div>
+          )}
         </div>
         <div className="flex flex-wrap gap-2">
           <button
@@ -544,14 +679,33 @@ export function CovariateSurvivalWorkbench({
             )}
             onClick={() =>
               perform(async () => {
-                const next = scenarioEnabled
-                  ? await runSurvivalAnalysis(component, covariates, {
-                      eventId: statedNumber(scenarioEventId),
-                      intervalIndex: statedNumber(scenarioIntervalIndex),
-                      originHours: statedNumber(scenarioOrigin),
-                      horizonHours: statedNumber(scenarioHorizon),
-                    })
-                  : await runSurvivalAnalysis(component, covariates);
+                if (
+                  scenarioEnabled &&
+                  scenarioKind === "installation" &&
+                  !scenarioInstanceId
+                )
+                  throw new Error(
+                    "Select an exact installed component for the current scenario.",
+                  );
+                const next =
+                  scenarioEnabled && scenarioKind === "installation"
+                    ? await runSurvivalAnalysis(
+                        component,
+                        covariates,
+                        undefined,
+                        {
+                          componentInstanceId: scenarioInstanceId,
+                          horizonHours: statedNumber(scenarioHorizon),
+                        },
+                      )
+                    : scenarioEnabled
+                      ? await runSurvivalAnalysis(component, covariates, {
+                          eventId: statedNumber(scenarioEventId),
+                          intervalIndex: statedNumber(scenarioIntervalIndex),
+                          originHours: statedNumber(scenarioOrigin),
+                          horizonHours: statedNumber(scenarioHorizon),
+                        })
+                      : await runSurvivalAnalysis(component, covariates);
                 setReceipt(next);
                 setNotice(
                   `Retained ${next.result.status}: calculation ${next.calculationRunId}; agent run ${next.agentRunId}.`,
@@ -609,6 +763,45 @@ export function CovariateSurvivalWorkbench({
                   </td>
                 </tr>
               ))}
+              {[
+                ...(data?.activeInstances ?? []),
+                ...(data?.removedInstances ?? []),
+              ].map((row) => (
+                <tr key={row.id} className="border-t border-white/8">
+                  <td className="p-2">
+                    Installation {row.id}
+                    <br />
+                    {row.assetId ?? "No exact asset"} · {row.position}
+                  </td>
+                  <td className="p-2">
+                    {row.state} · installation meter{" "}
+                    {row.installedMeterHours ?? "unknown"}
+                    <br />
+                    latest meter {row.currentMeter?.value ?? "unknown"} at{" "}
+                    {row.currentMeter?.recordedAt ?? "unknown"}
+                    {row.state === "removed" && (
+                      <p>
+                        Removal meter {row.removedMeterHours ?? "unknown"} at{" "}
+                        {row.removedAt ?? "unknown"}
+                      </p>
+                    )}
+                  </td>
+                  <td className="p-2">
+                    v{row.overlayVersion} · {row.overlayStatus}
+                  </td>
+                  <td className="p-2">
+                    {row.sourceCurrent ? "Current source" : "Source gap"} /{" "}
+                    {row.approvalCurrent ? "Exact approval" : "Approval gap"}
+                    {"reconciled" in row && (
+                      <p>
+                        {row.reconciled
+                          ? "Removed life reconciled"
+                          : "Removed life unresolved"}
+                      </p>
+                    )}
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -618,9 +811,14 @@ export function CovariateSurvivalWorkbench({
         className="space-y-4 rounded-xl border border-white/10 p-4"
         onSubmit={(submit) => {
           submit.preventDefault();
-          if (!event) return;
+          if (!selectedSource) return;
           perform(async () => {
-            await captureSurvivalOverlay(event, buildOverlay());
+            if (instance)
+              await captureSurvivalInstalledOverlay(
+                instance,
+                buildInstalledOverlay(),
+              );
+            else if (event) await captureSurvivalOverlay(event, buildOverlay());
             setReceipt(null);
             setNotice(
               "Exact overlay captured for independent review. This is not an approved model input yet.",
@@ -633,27 +831,111 @@ export function CovariateSurvivalWorkbench({
             Capture or revise canonical life evidence
           </legend>
           <label className="block text-xs text-slate-400">
-            Canonical life event
+            Evidence source kind
             <select
-              required
               className={inputClass}
-              value={eventId}
-              onChange={(change) => selectEvent(change.target.value)}
+              value={sourceKind}
+              onChange={(e) => {
+                setSourceKind(e.target.value as "historical" | "installation");
+                setInstanceId("");
+                selectEvent("");
+                setNotice(null);
+              }}
             >
-              <option value="">Select actual recorded life event</option>
-              {data?.events.map((row) => (
-                <option key={row.id} value={row.id}>
-                  #{row.id} · {row.eventKind} · {row.hoursAtChangeOut} h · v
-                  {row.overlayVersion}
-                </option>
-              ))}
+              <option value="historical">Recorded completed life event</option>
+              <option value="installation">
+                Canonical component installation
+              </option>
             </select>
           </label>
-          {event?.overlay && (
+          {sourceKind === "historical" ? (
+            <label className="block text-xs text-slate-400">
+              Canonical life event
+              <select
+                required
+                className={inputClass}
+                value={eventId}
+                onChange={(change) => selectEvent(change.target.value)}
+              >
+                <option value="">Select actual recorded life event</option>
+                {data?.events.map((row) => (
+                  <option key={row.id} value={row.id}>
+                    #{row.id} · {row.eventKind} · {row.hoursAtChangeOut} h · v
+                    {row.overlayVersion}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <label className="block text-xs text-slate-400">
+              Canonical component installation
+              <select
+                required
+                className={inputClass}
+                value={instanceId}
+                onChange={(e) => {
+                  setInstanceId(e.target.value);
+                  selectEvent("");
+                }}
+              >
+                <option value="">Select actual recorded installation</option>
+                {[
+                  ...(data?.activeInstances ?? []),
+                  ...(data?.removedInstances ?? []),
+                ].map((row) => (
+                  <option key={row.id} value={row.id}>
+                    {row.id} · {row.state} · {row.position} · v
+                    {row.overlayVersion}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {instance && (
+            <p className="text-xs text-slate-300">
+              Canonical installation: {instance.installedAt} · meter{" "}
+              {instance.installedMeterHours ?? "unknown"}; latest meter{" "}
+              {instance.currentMeter?.id ?? "missing"} ·{" "}
+              {instance.currentMeter?.value ?? "unknown"} at{" "}
+              {instance.currentMeter?.recordedAt ?? "unknown"}. Removed or
+              quarantined instances require an evidenced exclusion here;
+              reconcile removed lives to a completed event for inclusion.
+            </p>
+          )}
+          {event && (
+            <label className="block text-xs text-slate-400">
+              Explicit removed installation link (optional)
+              <select
+                className={inputClass}
+                value={componentInstanceLink}
+                onChange={(e) => {
+                  setComponentInstanceLink(e.target.value);
+                  const linked = data?.removedInstances.find(
+                    (row) => row.id === e.target.value,
+                  );
+                  setLifeRef(linked ? `component_instances:${linked.id}` : "");
+                  setServiceStartedAt(linked?.installedAt ?? "");
+                  setTerminalObservedAt(linked?.removedAt ?? "");
+                  setReceipt(null);
+                }}
+              >
+                <option value="">No claimed canonical installation link</option>
+                {data?.removedInstances
+                  .filter((row) => row.assetId === event.assetId)
+                  .map((row) => (
+                    <option key={row.id} value={row.id}>
+                      {row.id} · {row.position} ·{" "}
+                      {row.reconciled ? "reconciled" : "unresolved"}
+                    </option>
+                  ))}
+              </select>
+            </label>
+          )}
+          {selectedSource?.overlay && (
             <button
               type="button"
               className={buttonClass}
-              onClick={() => loadRecordedOverlay(event)}
+              onClick={() => loadRecordedOverlay(selectedSource)}
             >
               Load recorded overlay for revision
             </button>
@@ -693,11 +975,13 @@ export function CovariateSurvivalWorkbench({
           ) : (
             <>
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                <Field
-                  label="Physical component life reference"
-                  value={lifeRef}
-                  onChange={setLifeRef}
-                />
+                {!instance && (
+                  <Field
+                    label="Physical component life reference"
+                    value={lifeRef}
+                    onChange={setLifeRef}
+                  />
+                )}
                 <Field
                   label="Approved design / operating stratum"
                   value={stratum}
@@ -709,16 +993,69 @@ export function CovariateSurvivalWorkbench({
                   onChange={setEntryHours}
                   numeric
                 />
-                <Field
-                  label="Actual service start (ISO with timezone)"
-                  value={serviceStartedAt}
-                  onChange={setServiceStartedAt}
-                />
-                <Field
-                  label="Actual terminal observation (ISO with timezone)"
-                  value={terminalObservedAt}
-                  onChange={setTerminalObservedAt}
-                />
+                {!instance && (
+                  <Field
+                    label="Actual service start (ISO with timezone)"
+                    value={serviceStartedAt}
+                    onChange={setServiceStartedAt}
+                  />
+                )}
+                {!instance && (
+                  <Field
+                    label="Actual terminal observation (ISO with timezone)"
+                    value={terminalObservedAt}
+                    onChange={setTerminalObservedAt}
+                  />
+                )}
+                {instance && (
+                  <>
+                    <Field
+                      label="Evidence-backed profile valid until (ISO with timezone)"
+                      value={validUntil}
+                      onChange={setValidUntil}
+                    />
+                    {(["installation", "meter"] as const).map((kind) => (
+                      <label key={kind} className="text-xs text-slate-400">
+                        {kind === "installation"
+                          ? "Installation evidence"
+                          : "Latest meter evidence"}
+                        <select
+                          required
+                          className={inputClass}
+                          value={
+                            kind === "installation"
+                              ? installationEvidence
+                              : meterEvidence
+                          }
+                          onChange={(e) =>
+                            (kind === "installation"
+                              ? setInstallationEvidence
+                              : setMeterEvidence)(e.target.value)
+                          }
+                        >
+                          <option value="">
+                            Select exact-asset timestamp evidence
+                          </option>
+                          {evidence
+                            .filter(
+                              (row) =>
+                                Date.parse(row.ts) ===
+                                Date.parse(
+                                  kind === "installation"
+                                    ? instance.installedAt
+                                    : (instance.currentMeter?.recordedAt ?? ""),
+                                ),
+                            )
+                            .map((row) => (
+                              <option key={row.id} value={row.id}>
+                                {row.ts} · {row.description ?? row.id}
+                              </option>
+                            ))}
+                        </select>
+                      </label>
+                    ))}
+                  </>
+                )}
               </div>
               {intervals.map((interval, index) => (
                 <fieldset
@@ -888,21 +1225,26 @@ export function CovariateSurvivalWorkbench({
               onChange={(change) => setBasis(change.target.value)}
             />
           </label>
-          <button type="submit" disabled={!event} className={buttonClass}>
+          <button
+            type="submit"
+            disabled={!selectedSource}
+            className={buttonClass}
+          >
             Submit exact overlay for review
           </button>
         </fieldset>
       </form>
 
-      {event?.overlay && (
+      {selectedSource?.overlay && (
         <div className="space-y-3 rounded-xl border border-white/10 p-4">
           <h4 className="font-medium text-white">
-            Independent review · event #{event.id} v{event.overlayVersion}
+            Independent review · {instance ? "installation" : "event #"}
+            {selectedSource.id} v{selectedSource.overlayVersion}
           </h4>
           <p className="text-xs text-slate-400">
-            Author: {event.overlayAuthor}. Review covers the persisted snapshot
-            below, not unsaved form edits. The server refuses self-review, stale
-            versions and changed source evidence.
+            Author: {selectedSource.overlayAuthor}. Review covers the persisted
+            snapshot below, not unsaved form edits. The server refuses
+            self-review, stale versions and changed source evidence.
           </p>
           <details>
             <summary className="cursor-pointer text-sm text-cyan-200">
@@ -911,9 +1253,9 @@ export function CovariateSurvivalWorkbench({
             <pre className="mt-2 max-h-96 overflow-auto whitespace-pre-wrap break-all text-xs text-slate-300">
               {JSON.stringify(
                 {
-                  overlay: event.overlay,
-                  currentSource: event.sourceEvidence,
-                  approvalId: event.approvalId,
+                  overlay: selectedSource.overlay,
+                  currentSource: selectedSource.sourceEvidence,
+                  approvalId: selectedSource.approvalId,
                 },
                 null,
                 2,
@@ -938,12 +1280,19 @@ export function CovariateSurvivalWorkbench({
                 disabled={
                   busy ||
                   loading ||
-                  event.overlayStatus !== "pending_review" ||
+                  selectedSource.overlayStatus !== "pending_review" ||
                   reviewBasis.trim().length < 20
                 }
                 onClick={() =>
                   perform(async () => {
-                    await reviewSurvivalOverlay(event, decision, reviewBasis);
+                    if (instance)
+                      await reviewSurvivalInstalledOverlay(
+                        instance,
+                        decision,
+                        reviewBasis,
+                      );
+                    else if (event)
+                      await reviewSurvivalOverlay(event, decision, reviewBasis);
                     setReceipt(null);
                     setNotice(`Exact overlay review recorded: ${decision}.`);
                   })

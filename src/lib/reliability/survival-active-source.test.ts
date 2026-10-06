@@ -4,11 +4,13 @@ import reference from "./fixtures/cox-reference.json";
 import rReference from "./fixtures/cox-r-reference.json";
 import {
   prepareActiveSurvivalScenario,
+  prepareSurvivalCensus,
   prepareSurvivalScenario,
   prepareSurvivalSource,
   type SurvivalActiveInstance,
   type SurvivalActiveOverlay,
   type SurvivalSourceEvent,
+  type SurvivalCensus,
 } from "./survival-source";
 
 const now = Date.parse("2026-10-05T12:00:00Z");
@@ -69,6 +71,92 @@ const active = (): SurvivalActiveInstance => ({
 });
 
 describe("canonical installed-life survival preparation", () => {
+  const census = (): SurvivalCensus => ({
+    sourceVersion: "survival-census/2/draft",
+    component: "synthetic drive",
+    events: [],
+    activeInstances: [active()],
+    removedInstances: [],
+    populationGaps: [],
+  });
+  it("includes the canonical installed population in the pinned full census", () => {
+    expect(prepareSurvivalCensus(census(), covariates, now).rows).toHaveLength(
+      1,
+    );
+  });
+  it("refuses a population outside the exact declared normalized component scope", () => {
+    const source = census();
+    source.component = "different canonical component";
+    const prepared = prepareSurvivalCensus(source, covariates, now);
+    expect(prepared.rows).toEqual([]);
+    expect(prepared.gaps.join(" ")).toMatch(/requested component scope/);
+  });
+  it.each([
+    "sourceVersion",
+    "events",
+    "activeInstances",
+    "removedInstances",
+    "populationGaps",
+  ])(
+    "does not treat a missing %s as a completed-only or empty census",
+    (key) => {
+      const source = census();
+      delete (source as unknown as Record<string, unknown>)[key];
+      const result = prepareSurvivalCensus(source, covariates, now);
+      expect(result.rows).toEqual([]);
+      expect(result.clusterBySubject.size).toBe(0);
+      expect(result.gaps.join(" ")).toMatch(
+        /pinned complete physical-life census/,
+      );
+    },
+  );
+  it("blocks the entire population for either reported or unreconciled removal gaps", () => {
+    const source = census();
+    source.populationGaps = ["Explicit unlinked removal"];
+    expect(prepareSurvivalCensus(source, covariates, now).rows).toEqual([]);
+    source.populationGaps = [];
+    source.removedInstances = [
+      { ...active(), state: "removed", reconciled: false },
+    ];
+    expect(
+      prepareSurvivalCensus(source, covariates, now).gaps.join(" "),
+    ).toMatch(/exact approved historical link/);
+    expect(prepareSurvivalCensus(source, covariates, now).rows).toEqual([]);
+    source.removedInstances[0].reconciled = true;
+    expect(prepareSurvivalCensus(source, covariates, now).rows).toHaveLength(1);
+  });
+  it.each(["installed", "quarantined"])(
+    "allows only a current independently reviewed evidenced exclusion of a %s instance with unknown exposure",
+    (state) => {
+      const row = active();
+      row.state = state;
+      row.installedMeterHours = null;
+      row.currentMeter = null;
+      row.overlay = {
+        mode: "exclude",
+        basis: "Independent source gaps and disposition reviewed.",
+        evidenceItemId: "exclusion-evidence",
+      };
+      const result = prepareSurvivalSource([], covariates, [row], now);
+      expect(result.gaps).toEqual([]);
+      expect(result.rows).toEqual([]);
+      expect(result.excludedInstanceIds).toEqual([row.id]);
+      row.approvalCurrent = false;
+      expect(
+        prepareSurvivalSource([], covariates, [row], now).gaps.length,
+      ).toBeGreaterThan(0);
+      row.approvalCurrent = true;
+      row.overlayReviewer = row.overlayAuthor;
+      expect(
+        prepareSurvivalSource([], covariates, [row], now).gaps.length,
+      ).toBeGreaterThan(0);
+      row.overlayReviewer = "reviewer";
+      delete row.overlay.evidenceItemId;
+      expect(
+        prepareSurvivalSource([], covariates, [row], now).gaps.length,
+      ).toBeGreaterThan(0);
+    },
+  );
   it.each([
     [1000, 1000.3, 0.3],
     [1e-7, 3e-7, 2e-7],

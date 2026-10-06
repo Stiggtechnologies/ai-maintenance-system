@@ -1,6 +1,8 @@
 import type { CoxInterval } from "./cox.ts";
 import type { CoxScenarioRequest } from "./cox-prediction.ts";
 
+export const SURVIVAL_CENSUS_VERSION = "survival-census/2/draft";
+
 export interface SurvivalMeasurement {
   name: string;
   unit: string;
@@ -17,6 +19,8 @@ export interface SurvivalOverlay {
   mode: "include" | "exclude";
   basis: string;
   evidenceItemId?: string;
+  /** Explicit reviewed reconciliation, never a guessed serial/date match. */
+  componentInstanceId?: string;
   lifeRef?: string;
   serviceStartedAt?: string;
   terminalObservedAt?: string;
@@ -59,6 +63,8 @@ export interface SurvivalActiveInstance {
   state: string;
   installedAt: string;
   installedMeterHours: number | null;
+  removedAt?: string | null;
+  removedMeterHours?: number | null;
   currentMeter: {
     id: string;
     assetId: string;
@@ -86,6 +92,80 @@ export interface SurvivalActiveOverlay extends Omit<
   meterEvidenceItemId?: string;
   /** Explicit reviewed wall-clock freshness, never a platform timeout. */
   validUntil?: string;
+}
+
+/** Complete server-derived physical population; missing arrays are not empty
+ * populations. Removed installations need an approved historical link or an
+ * independently reviewed evidence-backed exclusion.
+ */
+export interface SurvivalCensus {
+  sourceVersion: typeof SURVIVAL_CENSUS_VERSION;
+  component: string;
+  events: SurvivalSourceEvent[];
+  activeInstances: SurvivalActiveInstance[];
+  removedInstances: Array<SurvivalActiveInstance & { reconciled: boolean }>;
+  populationGaps: string[];
+}
+
+export function prepareSurvivalCensus(
+  source: SurvivalCensus | null | undefined,
+  covariates: Array<{ name: string; unit: string }>,
+  now = Date.now(),
+) {
+  if (
+    !source ||
+    source.sourceVersion !== SURVIVAL_CENSUS_VERSION ||
+    !Array.isArray(source.events) ||
+    !Array.isArray(source.activeInstances) ||
+    !Array.isArray(source.removedInstances) ||
+    !Array.isArray(source.populationGaps) ||
+    source.populationGaps.some((gap) => typeof gap !== "string")
+  ) {
+    return {
+      rows: [] as CoxInterval[],
+      gaps: [
+        "The pinned complete physical-life census is unavailable; no completed-only population is fitted.",
+      ],
+      excludedEventIds: [] as number[],
+      excludedInstanceIds: [] as string[],
+      clusterBySubject: new Map<string, string>(),
+    };
+  }
+  const prepared = prepareSurvivalSource(
+    source.events,
+    covariates,
+    source.activeInstances,
+    now,
+  );
+  const gaps = [
+    ...prepared.gaps,
+    ...source.populationGaps,
+    ...[...source.events, ...source.activeInstances, ...source.removedInstances]
+      .filter(
+        (row) =>
+          typeof row?.component !== "string" ||
+          row.component.trim().toLowerCase() !==
+            source.component?.trim().toLowerCase(),
+      )
+      .map(
+        (row) =>
+          `Canonical source ${row?.id ?? "unknown"}: physical population does not match the requested component scope.`,
+      ),
+    ...source.removedInstances
+      .filter((instance) => instance?.reconciled !== true)
+      .map(
+        (instance) =>
+          `Removed installation ${instance?.id ?? "unknown"}: an exact approved historical link or evidenced exclusion is required.`,
+      ),
+  ];
+  return {
+    ...prepared,
+    gaps,
+    rows: gaps.length ? [] : prepared.rows,
+    clusterBySubject: gaps.length
+      ? new Map<string, string>()
+      : prepared.clusterBySubject,
+  };
 }
 
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -141,6 +221,28 @@ function activeExposure(
   const meter = instance?.currentMeter;
   const installed = Date.parse(instance?.installedAt ?? "");
   const measured = Date.parse(meter?.recordedAt ?? "");
+  if (
+    instance &&
+    typeof instance.id === "string" &&
+    uuid.test(instance.id) &&
+    ["installed", "quarantined"].includes(instance.state) &&
+    instance.assetId &&
+    typeof instance.position === "string" &&
+    instance.position.trim() &&
+    typeof instance.component === "string" &&
+    instance.component.trim() &&
+    instance.overlay?.mode === "exclude"
+  ) {
+    // An exact reviewed exclusion may explain unknown meter/installation data;
+    // it never imputes exposure or contributes a numerical row.
+    return {
+      ...instance,
+      kind: "installed",
+      eventKind: "active",
+      exposureStopHours: 0,
+      eventDate: null,
+    };
+  }
   if (
     !instance ||
     typeof instance.id !== "string" ||
