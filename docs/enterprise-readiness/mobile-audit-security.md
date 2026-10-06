@@ -43,6 +43,13 @@ timeout aborts with an `AUTH_FAIL` report instead of silently proceeding.
 Redirected routes are `REDIRECTED`, HTTP failures are `HTTP_FAIL`, navigation
 errors are `LOAD_FAIL`, and inspection/capture failures abort with `AUDIT_FAIL`.
 Diagnostic error strings and credential values are not included in the report.
+Both context and browser closure are attempted even if one fails. Cleanup
+failure adds an `AUDIT_FAIL` row before the exclusive report write, and rejects
+with a fixed sanitized error. Report-write failures also reject with a fixed
+error after both closure attempts; a failed report write is never reported as
+success. These failures do not reveal provider diagnostics or local file paths
+through the CLI error message. A cleanup failure may add a failure row after
+the 49 route rows; consumers must inspect all verdicts, not just route count.
 The CLI exits nonzero if any route is not `PASS`, or if the audit aborts. A known
 intentional redirect is still reported as a redirect, not proof that the
 original route's mobile surface passed.
@@ -61,6 +68,13 @@ artifact names. The browser harness covers the full 49-route sweep, explicit
 credential failures, failed authentication, redirection, HTTP errors, failed
 capture, sanitized reports and resource closure. Screenshot payloads and
 credentials in these tests are synthetic, not customer data.
+
+The four cleanup/report-write regression cases were run against the prior PR
+implementation: all four failed while the original 16 passed. After correction,
+all 20 pass. The cleanup cases use a synthetic provider diagnostic containing a
+synthetic credential; neither is allowed in the thrown message or saved report.
+The report-write case plants a symlink, proves its target remains unchanged and
+proves both resources are closed despite refusal to overwrite the report.
 
 Existing MarkdownRenderer, FieldFailureCapture and booth-fast-path tests are
 also run as bounded triage evidence, not substitutes for browser exploit

@@ -231,6 +231,26 @@ export async function runMobileAudit({
       "Mobile audit did not complete; inspect the private report",
     );
   } finally {
+    // Provider cleanup errors must not escape the sanitized execution boundary.
+    // Always attempt both closures, and persist a failed verdict if either fails.
+    let cleanupFailed = false;
+    try {
+      await context?.close();
+    } catch {
+      cleanupFailed = true;
+    }
+    try {
+      await browser?.close();
+    } catch {
+      cleanupFailed = true;
+    }
+    if (cleanupFailed) {
+      report.push({
+        route: currentRoute,
+        verdict: "AUDIT_FAIL",
+        note: "Browser resource cleanup failed",
+      });
+    }
     try {
       writeAuditArtifact(
         directory,
@@ -238,13 +258,15 @@ export async function runMobileAudit({
         JSON.stringify(report, null, 2),
       );
       log(`report: ${reportPath}`);
-    } finally {
-      try {
-        await context?.close();
-      } finally {
-        await browser?.close();
-      }
+    } catch {
+      throw new Error(
+        "Mobile audit did not complete; private report could not be saved",
+      );
     }
+    if (cleanupFailed)
+      throw new Error(
+        "Mobile audit did not complete; inspect the private report",
+      );
   }
 }
 

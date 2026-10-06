@@ -31,6 +31,8 @@ function mockBrowser({
   redirect = false,
   status = 200,
   screenshotFails = false,
+  contextCloseFails = false,
+  browserCloseFails = false,
 } = {}) {
   let url = "https://app.syncai.ca/signin";
   const page = {
@@ -63,8 +65,20 @@ function mockBrowser({
       return Buffer.from("synthetic-png-not-customer-data");
     }),
   };
-  const context = { newPage: vi.fn(async () => page), close: vi.fn() };
-  const browser = { newContext: vi.fn(async () => context), close: vi.fn() };
+  const context = {
+    newPage: vi.fn(async () => page),
+    close: vi.fn(async () => {
+      if (contextCloseFails)
+        throw new Error(`private cleanup diagnostic ${env.DEMO_PASSWORD}`);
+    }),
+  };
+  const browser = {
+    newContext: vi.fn(async () => context),
+    close: vi.fn(async () => {
+      if (browserCloseFails)
+        throw new Error(`private cleanup diagnostic ${env.DEMO_PASSWORD}`);
+    }),
+  };
   harness.launch.mockResolvedValue(browser);
   return { page, context, browser };
 }
@@ -240,6 +254,71 @@ describe("mobile audit private artifacts and honest execution", () => {
         note: "Route inspection or artifact capture failed",
       },
     ]);
+    expect(context.close).toHaveBeenCalledOnce();
+    expect(browser.close).toHaveBeenCalledOnce();
+  });
+
+  it.each([
+    { contextCloseFails: true },
+    { browserCloseFails: true },
+    { contextCloseFails: true, browserCloseFails: true },
+  ])(
+    "sanitizes cleanup failures and records that the audit did not complete: %j",
+    async (failure) => {
+      const { context, browser } = mockBrowser(failure);
+      let directory = "";
+      await expect(
+        runMobileAudit({
+          env,
+          log: (message: string) => {
+            if (message.startsWith("artifacts: ")) {
+              directory = message.slice(11);
+              directories.push(directory);
+            }
+          },
+        }),
+      ).rejects.toThrow(
+        "Mobile audit did not complete; inspect the private report",
+      );
+      const report = JSON.parse(
+        readFileSync(join(directory, "mobile-audit-report.json"), "utf8"),
+      );
+      expect(report).toHaveLength(50);
+      expect(report.at(-1)).toEqual({
+        route: "/setup",
+        verdict: "AUDIT_FAIL",
+        note: "Browser resource cleanup failed",
+      });
+      expect(JSON.stringify(report)).not.toContain(
+        "private cleanup diagnostic",
+      );
+      expect(JSON.stringify(report)).not.toContain(env.DEMO_PASSWORD);
+      expect(context.close).toHaveBeenCalledOnce();
+      expect(browser.close).toHaveBeenCalledOnce();
+    },
+  );
+
+  it("sanitizes report write failure, preserves a planted target and still closes both resources", async () => {
+    const { context, browser } = mockBrowser();
+    const fixture = mkdtempSync(join(tmpdir(), "syncai-mobile-audit-target-"));
+    directories.push(fixture);
+    const target = join(fixture, "target.json");
+    writeFileSync(target, "untouched", { mode: 0o600 });
+    await expect(
+      runMobileAudit({
+        env,
+        log: (message: string) => {
+          if (message.startsWith("artifacts: ")) {
+            const directory = message.slice(11);
+            directories.push(directory);
+            symlinkSync(target, join(directory, "mobile-audit-report.json"));
+          }
+        },
+      }),
+    ).rejects.toThrow(
+      "Mobile audit did not complete; private report could not be saved",
+    );
+    expect(readFileSync(target, "utf8")).toBe("untouched");
     expect(context.close).toHaveBeenCalledOnce();
     expect(browser.close).toHaveBeenCalledOnce();
   });
