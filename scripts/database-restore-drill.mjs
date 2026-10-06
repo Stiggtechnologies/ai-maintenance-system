@@ -211,11 +211,39 @@ export function diagnosticCategory(diagnostic) {
 
 export function safeDiagnostic(diagnostic) {
   const sqlState = diagnostic.match(/\bERROR:\s+([0-9A-Z]{5})\b/)?.[1];
+  const missingObjectHint = diagnostic
+    .match(
+      /\b(schema|relation|function|database|type|collation|language|operator|tablespace|extension) [^\r\n]{0,200}does not exist/i,
+    )?.[1]
+    .toLowerCase();
+  const canonicalSchemaHint =
+    missingObjectHint === "schema"
+      ? [
+          "public",
+          "auth",
+          "storage",
+          "supabase_migrations",
+          "extensions",
+          "realtime",
+          "_realtime",
+          "vault",
+          "graphql",
+          "graphql_public",
+          "net",
+          "cron",
+        ].find((schema) =>
+          diagnostic.includes(`schema "${schema}" does not exist`),
+        )
+      : undefined;
   const statementHint = [
     [/Command was:\s+DROP DATABASE\b/i, "drop_database"],
     [/Command was:\s+CREATE DATABASE\b/i, "create_database"],
     [/Command was:\s+CREATE EXTENSION\b/i, "create_extension"],
     [/Command was:\s+CREATE SCHEMA\b/i, "create_schema"],
+    [/Command was:\s+CREATE TABLE\b/i, "create_table"],
+    [/Command was:\s+ALTER TABLE\b/i, "alter_table"],
+    [/Command was:\s+CREATE (?:OR REPLACE )?FUNCTION\b/i, "create_function"],
+    [/Command was:\s+ALTER FUNCTION\b/i, "alter_function"],
     [/Command was:\s+COPY\b/i, "copy_data"],
   ].find(([pattern]) => pattern.test(diagnostic))?.[1];
   const permissionHint = [
@@ -237,6 +265,8 @@ export function safeDiagnostic(diagnostic) {
   return {
     category: diagnosticCategory(diagnostic),
     ...(sqlState ? { sqlState } : {}),
+    ...(missingObjectHint ? { missingObjectHint } : {}),
+    ...(canonicalSchemaHint ? { canonicalSchemaHint } : {}),
     ...(statementHint ? { statementHint } : {}),
     ...(permissionHint ? { permissionHint } : {}),
     ...(extensionHint ? { extensionHint } : {}),
@@ -690,6 +720,10 @@ export async function runRestoreDrill({
     report.failedPhase = phase;
     report.failureCategory = error.category ?? "qualification_failure";
     if (error.sqlState) report.sqlState = error.sqlState;
+    if (error.missingObjectHint)
+      report.missingObjectHint = error.missingObjectHint;
+    if (error.canonicalSchemaHint)
+      report.canonicalSchemaHint = error.canonicalSchemaHint;
     if (error.statementHint) report.statementHint = error.statementHint;
     if (error.permissionHint) report.permissionHint = error.permissionHint;
     if (error.extensionHint) report.extensionHint = error.extensionHint;

@@ -131,6 +131,39 @@ describe("database restore-drill boundaries", () => {
     });
   });
   it.each([
+    "schema",
+    "relation",
+    "function",
+    "database",
+    "type",
+    "collation",
+    "language",
+  ])(
+    "reports only the fixed missing %s object class, never its private identifier",
+    (kind) => {
+      expect(
+        drill.safeDiagnostic(
+          `ERROR: ${kind} "private-sensitive-identifier" does not exist\nCommand was: CREATE TABLE private_sensitive_table(id int);`,
+        ),
+      ).toEqual({
+        category: "missing_object",
+        missingObjectHint: kind,
+        statementHint: "create_table",
+      });
+    },
+  );
+  it("allows only a fixed canonical schema hint, not private identifiers", () => {
+    expect(
+      drill.safeDiagnostic(
+        'ERROR: schema "extensions" does not exist sensitive-test-secret',
+      ),
+    ).toEqual({
+      category: "missing_object",
+      missingObjectHint: "schema",
+      canonicalSchemaHint: "extensions",
+    });
+  });
+  it.each([
     [
       "permission denied to grant privileges as role private-grantor",
       "grantor_permission",
