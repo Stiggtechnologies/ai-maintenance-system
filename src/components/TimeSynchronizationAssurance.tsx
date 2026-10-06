@@ -1,9 +1,10 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Clock3, RefreshCw, ShieldCheck, TriangleAlert } from "lucide-react";
 import { useAsyncData } from "../hooks/useAsyncData";
 import {
   timeSynchronizationActions,
   type ConnectorTimeAssurance,
+  type EventTimeAssessment,
 } from "../services/timeSynchronization";
 import { useAuth } from "./AuthProvider";
 import { ErrorState, LoadingState } from "./ui/AsyncStates";
@@ -40,6 +41,48 @@ export function TimeSynchronizationAssurance() {
   const [working, setWorking] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const [eventConnectorId, setEventConnectorId] = useState("");
+  const [eventTime, setEventTime] = useState("");
+  const [assessing, setAssessing] = useState(false);
+  const [assessment, setAssessment] = useState<EventTimeAssessment | null>(
+    null,
+  );
+  const [assessmentError, setAssessmentError] = useState<string | null>(null);
+  const assessmentRequest = useRef(0);
+
+  function clearAssessment() {
+    assessmentRequest.current += 1;
+    setAssessment(null);
+    setAssessmentError(null);
+  }
+
+  async function assessEvent() {
+    clearAssessment();
+    const timestamp = eventTime.trim();
+    if (
+      !/(?:Z|[+-]\d{2}:\d{2})$/i.test(timestamp) ||
+      !Number.isFinite(Date.parse(timestamp))
+    ) {
+      setAssessmentError(
+        "Include an explicit timezone in a valid ISO timestamp, for example 2026-10-03T14:05:12.000Z.",
+      );
+      return;
+    }
+    const requestId = assessmentRequest.current;
+    setAssessing(true);
+    try {
+      const result = await timeSynchronizationActions.evaluateEventTime(
+        eventConnectorId,
+        timestamp,
+      );
+      if (requestId === assessmentRequest.current) setAssessment(result);
+    } catch (caught) {
+      if (requestId === assessmentRequest.current)
+        setAssessmentError((caught as Error).message);
+    } finally {
+      setAssessing(false);
+    }
+  }
 
   const counts = useMemo(
     () => ({
@@ -118,7 +161,7 @@ export function TimeSynchronizationAssurance() {
         Draft clock assurance: an opaque evidence reference is not verified
         engineering approval. Numerical synchronization alone cannot qualify
         time-sensitive evidence. Canonical evidence approval, collector
-        integration and historical contract reconstruction remain pending.
+        integration and production qualification remain pending.
       </p>
 
       <div className="flex flex-wrap gap-3 text-xs text-slate-400">
@@ -192,6 +235,91 @@ export function TimeSynchronizationAssurance() {
               )}
             </article>
           ))}
+        </div>
+      )}
+
+      {connectors.length > 0 && (
+        <div className="space-y-3 rounded-lg border border-industrial-border bg-industrial-graphite p-4">
+          <h4 className="text-sm font-semibold text-white">
+            Assess a recorded event
+          </h4>
+          <p className="text-xs leading-relaxed text-slate-400">
+            Read-only assessment against the clock contract recorded at the
+            event. Later observations or tolerance changes cannot qualify an
+            earlier event. Include a timezone; SyncAI does not rewrite the
+            source timestamp.
+          </p>
+          <div className="grid gap-3 md:grid-cols-2">
+            <select
+              aria-label="Event assessment connector"
+              className={inputClass}
+              value={eventConnectorId}
+              onChange={(event) => {
+                setEventConnectorId(event.target.value);
+                clearAssessment();
+              }}
+            >
+              <option value="">Select connector</option>
+              {connectors.map((row) => (
+                <option key={row.connectorId} value={row.connectorId}>
+                  {row.name}
+                </option>
+              ))}
+            </select>
+            <input
+              aria-label="Event timestamp with timezone"
+              className={inputClass}
+              value={eventTime}
+              placeholder="2026-10-03T14:05:12.000Z"
+              onChange={(event) => {
+                setEventTime(event.target.value);
+                clearAssessment();
+              }}
+            />
+          </div>
+          <button
+            type="button"
+            onClick={() => void assessEvent()}
+            disabled={assessing || !eventConnectorId || !eventTime.trim()}
+            className="rounded-lg border border-signal-cyan/30 px-3 py-2 text-xs font-semibold text-signal-cyan disabled:opacity-40"
+          >
+            {assessing ? "Assessing event time…" : "Assess recorded event time"}
+          </button>
+          {assessmentError && (
+            <p role="alert" className="text-xs text-rose-300">
+              {assessmentError}
+            </p>
+          )}
+          {assessment && (
+            <div
+              role="status"
+              className="space-y-2 rounded-lg border border-amber-500/20 p-3 text-xs text-slate-300"
+            >
+              <p className="font-medium">
+                {assessment.configuration_revision == null
+                  ? "No reconstructable recorded contract"
+                  : `Recorded revision ${assessment.configuration_revision}`}
+                {" · "}
+                {assessment.state}
+              </p>
+              {assessment.configuration_audit_id && (
+                <p className="break-all font-mono text-[11px]">
+                  {assessment.configuration_audit_id}
+                </p>
+              )}
+              {assessment.tolerance_ms != null && (
+                <p>
+                  Recorded tolerance: {assessment.tolerance_ms} ms · freshness:{" "}
+                  {assessment.max_observation_age_minutes} minutes
+                </p>
+              )}
+              {assessment.history_reason && <p>{assessment.history_reason}</p>}
+              <p className="text-amber-200">
+                Time-sensitive evidence remains ineligible. Recorded numerical
+                posture is not engineering approval or operational authority.
+              </p>
+            </div>
+          )}
         </div>
       )}
 

@@ -84,6 +84,43 @@ test("clock assurance is customer-reachable, has no invented defaults and retain
   await expect(
     page.getByRole("region", { name: "Event-time assurance" }),
   ).toBeVisible();
+  const assessmentRegion = page.getByRole("region", {
+    name: "Event-time assurance",
+  });
+  await assessmentRegion
+    .getByLabel("Event assessment connector")
+    .selectOption(options[0]);
+  await assessmentRegion
+    .getByLabel("Event timestamp with timezone")
+    .fill(retained.configuredAt);
+  const assessmentResponse = page.waitForResponse(
+    (r) =>
+      r.url().endsWith("/rpc/evaluate_connector_event_time") &&
+      r.request().method() === "POST",
+  );
+  await assessmentRegion
+    .getByRole("button", { name: "Assess recorded event time" })
+    .click();
+  const assessedResponse = await assessmentResponse;
+  expect(assessedResponse.status()).toBe(200);
+  const assessed = await assessedResponse.json();
+  expect(assessed.error).toBeUndefined();
+  expect(assessed.contract_scope).toBe("recorded_contract_at_event");
+  expect(assessed.history_integrity).toBe("verified_recorded_chain");
+  expect(assessed.configuration_revision).toBe(recorded.configuration_revision);
+  expect(assessed.configuration_audit_id).toBeTruthy();
+  expect(assessed.state).toBe("unproven");
+  expect(assessed.configuration_evidence_verified).toBe(false);
+  expect(assessed.eligible_for_time_sensitive_evidence).toBe(false);
+  expect(assessed.operational_authority).toBe(false);
+  await expect(
+    assessmentRegion.getByText(assessed.configuration_audit_id, {
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    assessmentRegion.getByText(/Time-sensitive evidence remains ineligible/),
+  ).toBeVisible();
   await page
     .getByRole("region", { name: "Event-time assurance" })
     .screenshot({ path: testInfo.outputPath("draft-clock-assurance.png") });

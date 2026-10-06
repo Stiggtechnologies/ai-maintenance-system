@@ -34,11 +34,35 @@ describe("E12.07 governed time-synchronization assurance", () => {
     expect(migration).toContain("for each statement");
   });
 
-  it("refuses hindsight and future event qualification instead of retroactively using current policy", () => {
-    expect(migration).toContain("c.time_configured_at>p_event_time");
+  it("reconstructs the event's recorded contract from the canonical ledger without hindsight", () => {
+    expect(migration).toContain(
+      "'contract_scope','recorded_contract_at_event'",
+    );
+    expect(migration).toContain("public.audit_events");
+    expect(migration).toContain("'clock_contract_version',1");
+    expect(migration).toContain("v_recorded_at<=p_event_time");
     expect(migration).toContain("x.received_at<=p_event_time");
     expect(migration).toContain("p_event_time>clock_timestamp()");
-    expect(migration).toContain("current_contract_only");
+    expect(migration).not.toContain("current_contract_only");
+    expect(migration).toContain("'configuration_audit_id'");
+    expect(migration).toContain(
+      "clock contract history is incomplete or inconsistent",
+    );
+  });
+
+  it("reserves clock configuration audit receipts to the governed RPC, including service writes", () => {
+    expect(migration).toContain("before insert on public.audit_events");
+    expect(migration).toContain("app.time_assurance_audit_write");
+    expect(migration).toContain(
+      "clock configuration audit receipts require the governed configuration rpc",
+    );
+    expect(migration).toContain("new.new_state is distinct from");
+    for (const forbidden of [
+      "create table public.connector_time_contracts",
+      "create table public.connector_time_history",
+      "drop trigger if exists trg_audit_events_append_only",
+    ])
+      expect(migration).not.toContain(forbidden);
   });
 
   it("does not trust a caller-supplied digest as proof that the replayed envelope is identical", () => {

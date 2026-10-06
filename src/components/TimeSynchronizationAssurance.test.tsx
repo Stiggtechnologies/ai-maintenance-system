@@ -4,6 +4,7 @@ import { TimeSynchronizationAssurance } from "./TimeSynchronizationAssurance";
 
 const status = vi.fn();
 const configure = vi.fn();
+const evaluateEventTime = vi.fn();
 let role = "admin";
 
 vi.mock("./AuthProvider", () => ({
@@ -14,6 +15,7 @@ vi.mock("../services/timeSynchronization", () => ({
   timeSynchronizationActions: {
     status: (...args: unknown[]) => status(...args),
     configure: (...args: unknown[]) => configure(...args),
+    evaluateEventTime: (...args: unknown[]) => evaluateEventTime(...args),
   },
 }));
 
@@ -57,9 +59,101 @@ beforeEach(() => {
     ok: true,
     note: "Clock contract recorded. A current service observation is still required.",
   });
+  evaluateEventTime.mockResolvedValue({
+    state: "synchronized",
+    within_clock_contract: true,
+    configuration_revision: 1,
+    tolerance_ms: 20,
+    max_observation_age_minutes: 15,
+    configuration_audit_id: "receipt-at-event",
+    history_integrity: "verified_recorded_chain",
+    configuration_evidence_verified: false,
+    eligible_for_time_sensitive_evidence: false,
+    operational_authority: false,
+  });
 });
 
 describe("TimeSynchronizationAssurance", () => {
+  it("lets an authorized reader inspect a historical revision without granting approval", async () => {
+    role = "reliability_engineer";
+    render(<TimeSynchronizationAssurance />);
+    await screen.findAllByText("Site A OPC UA");
+    fireEvent.change(screen.getByLabelText("Event assessment connector"), {
+      target: { value: workspace.connectors[0].connectorId },
+    });
+    fireEvent.change(screen.getByLabelText("Event timestamp with timezone"), {
+      target: { value: "2026-10-03T11:30:00.000Z" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Assess recorded event time" }),
+    );
+    await waitFor(() =>
+      expect(evaluateEventTime).toHaveBeenCalledWith(
+        workspace.connectors[0].connectorId,
+        "2026-10-03T11:30:00.000Z",
+      ),
+    );
+    expect(
+      await screen.findByText(/Recorded revision 1 · synchronized/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("receipt-at-event")).toBeInTheDocument();
+    expect(
+      screen.getByText(/Time-sensitive evidence remains ineligible/i),
+    ).toBeInTheDocument();
+    expect(configure).not.toHaveBeenCalled();
+  });
+
+  it("refuses ambiguous timezone-free event input before calling the service", async () => {
+    render(<TimeSynchronizationAssurance />);
+    await screen.findAllByText("Site A OPC UA");
+    fireEvent.change(screen.getByLabelText("Event assessment connector"), {
+      target: { value: workspace.connectors[0].connectorId },
+    });
+    fireEvent.change(screen.getByLabelText("Event timestamp with timezone"), {
+      target: { value: "2026-10-03T11:30:00" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Assess recorded event time" }),
+    );
+    expect(
+      await screen.findByText(/Include an explicit timezone/i),
+    ).toBeInTheDocument();
+    expect(evaluateEventTime).not.toHaveBeenCalled();
+  });
+
+  it("does not display an old in-flight result after the event input changes", async () => {
+    let resolve!: (value: unknown) => void;
+    evaluateEventTime.mockReturnValue(
+      new Promise((r) => {
+        resolve = r;
+      }),
+    );
+    render(<TimeSynchronizationAssurance />);
+    await screen.findAllByText("Site A OPC UA");
+    fireEvent.change(screen.getByLabelText("Event assessment connector"), {
+      target: { value: workspace.connectors[0].connectorId },
+    });
+    fireEvent.change(screen.getByLabelText("Event timestamp with timezone"), {
+      target: { value: "2026-10-03T11:30:00Z" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Assess recorded event time" }),
+    );
+    fireEvent.change(screen.getByLabelText("Event timestamp with timezone"), {
+      target: { value: "2026-10-03T11:31:00Z" },
+    });
+    resolve({
+      state: "synchronized",
+      configuration_revision: 1,
+      configuration_audit_id: "wrong-event-receipt",
+    });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Assess recorded event time" }),
+      ).toBeEnabled(),
+    );
+    expect(screen.queryByText("wrong-event-receipt")).not.toBeInTheDocument();
+  });
   it("does not invent a clock tolerance or freshness interval for the customer", async () => {
     render(<TimeSynchronizationAssurance />);
     await screen.findAllByText("Site A OPC UA");

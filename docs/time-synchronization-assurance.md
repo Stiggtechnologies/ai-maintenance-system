@@ -2,8 +2,10 @@
 
 **2026-10-06 — DRAFT, NOT PRODUCTION-QUALIFIED.** This workstream provides
 administrator-recorded clock contracts and immutable numerical observations.
-Canonical evidence approval, real collector integration, downstream enforcement,
-full historical contract reconstruction and production witnesses remain open.
+Canonical evidence approval, real collector integration, downstream enforcement
+and production witnesses remain open. Historical reconstruction now uses complete
+versioned receipts in the canonical audit ledger; exact-head hosted verification
+of this extension is still required.
 Opaque references are not approved engineering evidence. Both eligibility
 outputs stay false until those approval gates are integrated.
 
@@ -46,10 +48,32 @@ The governed states are:
 
 `withinClockContract` / `within_clock_contract` report numerical posture only.
 `eligibleForTimeSensitiveEvidence` / `eligible_for_time_sensitive_evidence`
-remain false pending canonical evidence approval. The event-time RPC explicitly
-reports `current_contract_only`: it refuses future events, events preceding the
-current configuration, and observations received after the event. It does not
-reconstruct superseded contracts or rewrite source timestamps.
+remain false pending canonical evidence approval. The event-time RPC reports
+`recorded_contract_at_event` and returns the selected configuration's audit ID,
+revision, recorded time, tolerance and freshness. It reconstructs the complete
+contiguous revision chain from `audit_events.previous_state/new_state`, validates
+the chain against the current canonical connector, then uses only the contract
+in force at the event and observations received no later than that event.
+Reconfiguration cannot silently apply a newer tolerance to older events.
+
+Snapshots include the original tenant/source identity, reference authority,
+protocol, tolerance, freshness, evidence reference, basis, named administrator
+and server-recorded configuration instant. That instant is serialized in UTC;
+the audit row's transaction-start `created_at` is not its effective time.
+Clock-configuration audit receipts can only be appended through the governed
+configuration RPC; the existing ledger's update/delete/truncate protections are
+not changed. Missing, duplicate, incomplete legacy, malformed or inconsistent
+receipts fail closed, with no invented backfill. Future events and observations
+received after an event remain refused. Currently disabled connectors remain
+ineligible; clock-contract reconstruction does not claim historical operational
+enablement or historical engineering-evidence approval.
+
+The Data Governance panel exposes this read-only assessment to authorized
+readers. Users select a tenant connector and provide an explicit-zone ISO event
+timestamp. The result displays its recorded revision, tolerance/freshness and
+configuration audit ID alongside the ineligible-evidence boundary. Ambiguous
+timezone-free input is refused, and editing the inputs clears stale results,
+including an older in-flight response.
 
 ## Azure IoT Operations and OPC UA
 
@@ -110,7 +134,12 @@ The actual migration also has reproducible fixtures in
 `scripts/tests/time-assurance-postgres-tests.sql`. Apply the bootstrap, actual
 `20270103010000_time_synchronization_assurance.sql`, then tests with
 `psql -v ON_ERROR_STOP=1` in a newly initialized disposable database only.
-The bootstrap deliberately substitutes synthetic identity helpers; it is not a
+Apply the actual `20261121090000_audit_ledger_hardening.sql` between bootstrap and
+the clock migration, then run `scripts/tests/time-assurance-history-postgres-tests.sql`
+after the existing assertions. The historical tests cover revision-specific
+tolerance/freshness, missing history, receipt forgery, shared append-only behavior
+and timezone-independent reconstruction. The bootstrap deliberately substitutes
+synthetic identity helpers; it is not a
 full-chain, GoTrue, deployed-Supabase or production identity witness. It covers
 initial/owner writes, incomplete NULL contracts, identity retention, deletion,
 truncation, every changed replay field, hindsight, future events, stale receipts,

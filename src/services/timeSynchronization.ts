@@ -47,6 +47,27 @@ interface RpcResult {
   [key: string]: unknown;
 }
 
+export interface EventTimeAssessment {
+  connector_id: string;
+  event_time: string;
+  state: TimeAssuranceState;
+  within_clock_contract: boolean;
+  contract_scope: "recorded_contract_at_event";
+  history_integrity: "verified_recorded_chain" | "unproven";
+  history_reason: string | null;
+  configuration_audit_id: string | null;
+  configuration_revision: number | null;
+  configuration_recorded_at: string | null;
+  observation_id: string | null;
+  worst_case_offset_ms: number | null;
+  tolerance_ms: number | null;
+  max_observation_age_minutes: number | null;
+  configuration_evidence_verified: false;
+  eligible_for_time_sensitive_evidence: false;
+  operational_authority: false;
+  note: string;
+}
+
 async function call<T>(
   name: string,
   args: Record<string, unknown>,
@@ -82,7 +103,7 @@ export const timeSynchronizationActions = {
     }),
 
   evaluateEventTime: (connectorId: string, eventTime: string) =>
-    call<RpcResult>("evaluate_connector_event_time", {
+    call<EventTimeAssessment>("evaluate_connector_event_time", {
       p_connector_id: connectorId,
       p_event_time: eventTime,
     }),

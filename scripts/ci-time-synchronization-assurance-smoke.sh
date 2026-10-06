@@ -62,6 +62,12 @@ ok "$CONFIG"
 FOREIGN_CONFIG=$(rpc "$FOREIGN" configure_connector_time_assurance "{\"p_connector_id\":\"$FOREIGN_ID\",\"p_protocol\":\"ntp\",\"p_reference_authority\":\"Foreign tenant NTP\",\"p_tolerance_ms\":100,\"p_max_observation_age_minutes\":5,\"p_evidence_reference\":\"FOREIGN-TIME-STD\",\"p_basis\":\"Foreign tenant engineering standard controls its own clock authority and evidence freshness.\"}")
 ok "$FOREIGN_CONFIG"
 
+# Service bypass of RLS does not grant authority to fabricate a clock-history receipt.
+FORGED_RECEIPT=$(curl -sS -w '\n%{http_code}' -X POST "$API_URL/rest/v1/audit_events" -H "apikey: $SERVICE_ROLE_KEY" -H "authorization: Bearer $SERVICE_ROLE_KEY" -H 'content-type: application/json' -d "{\"organization_id\":\"$ORG\",\"entity_type\":\"connector_time_assurance_configuration\",\"actor\":\"forged-service\",\"event_data\":{\"connector_id\":\"$LOCAL_ID\"},\"new_state\":{}}")
+test "$(status "$FORGED_RECEIPT")" != 200 && test "$(status "$FORGED_RECEIPT")" != 201
+BODY="$(body "$FORGED_RECEIPT")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert 'governed configuration RPC' in x.get('message',''),x"
+test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='connector_time_assurance_configuration' and event_data->>'connector_id'='$LOCAL_ID'")" = 1
+
 # Owner statements exercise the row/statement guards, not just PostgREST ACLs.
 PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -q -v ON_ERROR_STOP=1 <<SQL
 do \$guards\$
@@ -155,11 +161,11 @@ ENVELOPE_CONFLICT=$(service_rpc record_connector_time_observation "{\"p_organiza
 err "$ENVELOPE_CONFLICT" 'same digest but a different observation envelope'
 
 HINDSIGHT=$(rpc "$ADMIN" evaluate_connector_event_time "{\"p_connector_id\":\"$LOCAL_ID\",\"p_event_time\":\"$REFERENCE\"}"); ok "$HINDSIGHT"
-BODY="$(body "$HINDSIGHT")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x['state']=='unproven' and x['observation_id'] is None and not x['eligible_for_time_sensitive_evidence'];assert x['contract_scope']=='current_contract_only'"
+BODY="$(body "$HINDSIGHT")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x['state']=='unproven' and x['observation_id'] is None and not x['eligible_for_time_sensitive_evidence'];assert x['contract_scope']=='recorded_contract_at_event'"
 
 EVENT_NOW=$(psqlc "select to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')")
 EVENT_CURRENT=$(rpc "$ADMIN" evaluate_connector_event_time "{\"p_connector_id\":\"$LOCAL_ID\",\"p_event_time\":\"$EVENT_NOW\"}"); ok "$EVENT_CURRENT"
-BODY="$(body "$EVENT_CURRENT")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x['state']=='synchronized' and x['within_clock_contract'];assert not x['configuration_evidence_verified'] and not x['eligible_for_time_sensitive_evidence']"
+BODY="$(body "$EVENT_CURRENT")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x['state']=='synchronized' and x['within_clock_contract'];assert x['history_integrity']=='verified_recorded_chain' and x['configuration_revision']==1 and x['configuration_audit_id'];assert not x['configuration_evidence_verified'] and not x['eligible_for_time_sensitive_evidence']"
 
 FUTURE_EVENT=$(psqlc "select to_char(('$REFERENCE'::timestamptz+interval '2 minutes') at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')")
 FUTURE=$(rpc "$ADMIN" evaluate_connector_event_time "{\"p_connector_id\":\"$LOCAL_ID\",\"p_event_time\":\"$FUTURE_EVENT\"}"); err "$FUTURE" 'future event time'
@@ -179,7 +185,7 @@ SUPERSEDED_REPLAY=$(service_rpc record_connector_time_observation "{\"p_organiza
 err "$SUPERSEDED_REPLAY" 'superseded clock-contract revision'
 
 OLD_EVENT=$(rpc "$ADMIN" evaluate_connector_event_time "{\"p_connector_id\":\"$LOCAL_ID\",\"p_event_time\":\"$EVENT_NOW\"}"); ok "$OLD_EVENT"
-BODY="$(body "$OLD_EVENT")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x['state']=='unproven' and not x['within_clock_contract'] and x['observation_id'] is None"
+BODY="$(body "$OLD_EVENT")" BEFORE="$(body "$EVENT_CURRENT")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);before=json.loads(os.environ['BEFORE']);assert x['state']=='synchronized' and x['within_clock_contract'];assert x['configuration_revision']==1 and x['configuration_audit_id']==before['configuration_audit_id'] and x['observation_id']==before['observation_id'];assert not x['configuration_evidence_verified'] and not x['eligible_for_time_sensitive_evidence']"
 STALE_REF=$(psqlc "select to_char((clock_timestamp()-interval '2 minutes') at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')")
 STALE_OBS=$(service_rpc record_connector_time_observation "{\"p_organization_id\":\"$ORG\",\"p_connector_key\":\"$LOCAL_KEY\",\"p_delivery_id\":\"stale-002\",\"p_source_clock_at\":\"$STALE_REF\",\"p_reference_clock_at\":\"$STALE_REF\",\"p_round_trip_delay_ms\":4,\"p_measurement_uncertainty_ms\":2,\"p_evidence_reference\":\"AIO-PTP-OBS-STALE\",\"p_payload_sha256\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"}"); ok "$STALE_OBS"
 BODY="$(body "$STALE_OBS")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x['state']=='stale' and not x['eligible_for_time_sensitive_evidence']"
@@ -196,4 +202,4 @@ VISIBLE=$(curl -sS -w '\n%{http_code}' "$API_URL/rest/v1/connector_time_observat
 test "$(status "$VISIBLE")" = 200
 BODY="$(body "$VISIBLE")" ORG="$ORG" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert len(x)>=2 and all(v['organization_id']==os.environ['ORG'] for v in x)"
 
-echo "Time synchronization assurance smoke passed: canonical_connector=true named_human=true service_only=true tenant_wall=true exact_offset=true uncertainty=true replay_safe=true envelope_match=true initial_config_guard=true complete_contract_guard=true owner_write_guard=true identity_retained=true immutable_history=true truncate_refused=true hindsight_refused=true future_refused=true revisioned=true stale_fail_closed=true canonical_evidence_approval=false operational_authority=false"
+echo "Time synchronization assurance smoke passed: canonical_connector=true named_human=true service_only=true tenant_wall=true exact_offset=true uncertainty=true replay_safe=true envelope_match=true initial_config_guard=true complete_contract_guard=true owner_write_guard=true identity_retained=true immutable_history=true truncate_refused=true hindsight_refused=true future_refused=true revisioned=true historical_contract=true audit_receipt_guard=true stale_fail_closed=true canonical_evidence_approval=false operational_authority=false"

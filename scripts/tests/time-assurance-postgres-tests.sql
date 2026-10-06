@@ -86,7 +86,7 @@ begin
   assert r->>'error' like '%future event%',r::text;
   r:=evaluate_connector_event_time('33333333-3333-4333-8333-333333333333',clock_timestamp());
   assert r->>'state'='synchronized' and (r->>'within_clock_contract')::boolean,r::text;
-  assert not (r->>'eligible_for_time_sensitive_evidence')::boolean and r->>'contract_scope'='current_contract_only',r::text;
+  assert not (r->>'eligible_for_time_sensitive_evidence')::boolean and r->>'contract_scope'='recorded_contract_at_event',r::text;
   r:=configure_connector_time_assurance('33333333-3333-4333-8333-333333333333','ptp','Site grandmaster',20,1,'DRAFT-TIME-REF2','Synthetic revision invalidates earlier observations, not customer authority.');
   assert r->>'configuration_revision'='2',r::text;
   r:=record_connector_time_observation('11111111-1111-4111-8111-111111111111','local','good-001',ref+interval '10 milliseconds',ref,4,2,'OBS-DRAFT-0001',repeat('a',64));

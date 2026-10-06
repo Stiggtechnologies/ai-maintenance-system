@@ -27,8 +27,9 @@ create table public.connectors(
   unique(organization_id,connector_key)
 );
 create table public.audit_events(
+  id uuid primary key default gen_random_uuid(),
   organization_id uuid, entity_type text, actor text, event_data jsonb,
-  previous_state jsonb, new_state jsonb
+  previous_state jsonb, new_state jsonb, created_at timestamptz not null default now()
 );
 grant usage on schema public,auth to authenticated,service_role;
 insert into organizations values
@@ -39,4 +40,9 @@ insert into user_profiles values
   ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','22222222-2222-4222-8222-222222222222','admin');
 insert into connectors(id,organization_id,connector_key,name) values
   ('33333333-3333-4333-8333-333333333333','11111111-1111-4111-8111-111111111111','local','Local clock'),
-  ('44444444-4444-4444-8444-444444444444','22222222-2222-4222-8222-222222222222','foreign','Foreign clock');
+  ('44444444-4444-4444-8444-444444444444','22222222-2222-4222-8222-222222222222','foreign','Foreign clock'),
+  ('66666666-6666-4666-8666-666666666666','11111111-1111-4111-8111-111111111111','legacy-malformed','Malformed legacy clock');
+-- Deliberately untrusted PRE-GUARD legacy data; no trigger is disabled to create it.
+insert into audit_events(organization_id,entity_type,actor,event_data,new_state)
+values('11111111-1111-4111-8111-111111111111','connector_time_assurance_configuration','legacy',
+  '{"connector_id":"66666666-6666-4666-8666-666666666666"}','{"revision":"not-an-integer"}');

@@ -205,6 +205,60 @@ create trigger trg_connector_time_observation_truncate
 revoke all on function public.enforce_connector_time_observation()
   from public,anon,authenticated,service_role;
 
+-- Complete, versioned clock snapshots belong in the ONE canonical audit ledger.
+-- This is not an approval assertion or a parallel clock-contract history table.
+create or replace function public.connector_time_contract_snapshot(c public.connectors)
+returns jsonb language sql stable set search_path=public as $$
+  select jsonb_build_object('clock_contract_version',1,
+    'connector_id',c.id,'organization_id',c.organization_id,'connector_key',c.connector_key,
+    'revision',c.time_assurance_revision,'protocol',c.time_sync_protocol,
+    'reference_authority',c.time_reference_authority,'tolerance_ms',c.time_tolerance_ms,
+    'max_observation_age_minutes',c.time_observation_max_age_minutes,
+    'evidence_reference',c.time_evidence_reference,'configuration_basis',c.time_configuration_basis,
+    'configured_by',c.time_configured_by,
+    'configured_at',to_char(c.time_configured_at at time zone 'UTC','YYYY-MM-DD"T"HH24:MI:SS.US"Z"'));
+$$;
+revoke all on function public.connector_time_contract_snapshot(public.connectors)
+  from public,anon,authenticated,service_role;
+
+create or replace function public.enforce_connector_time_audit_receipt()
+returns trigger language plpgsql security definer set search_path=public as $$
+declare c public.connectors%rowtype;
+begin
+  if new.entity_type<>'connector_time_assurance_configuration' then return new; end if;
+  if coalesce(current_setting('app.time_assurance_audit_write',true),'')<>'granted' then
+    raise exception 'clock configuration audit receipts require the governed configuration RPC';
+  end if;
+  select * into c from public.connectors
+    where id::text=new.event_data->>'connector_id' and organization_id=new.organization_id;
+  if not found or c.time_assurance_revision<1
+     or new.actor is distinct from c.time_configured_by::text
+     or new.new_state is distinct from public.connector_time_contract_snapshot(c)
+     or new.previous_state->>'revision' is distinct from (c.time_assurance_revision-1)::text
+     or new.previous_state->>'connector_id' is distinct from c.id::text
+     or new.previous_state->>'organization_id' is distinct from c.organization_id::text
+     or new.previous_state->>'connector_key' is distinct from c.connector_key then
+    raise exception 'clock configuration receipt must match the canonical connector and its prior revision';
+  end if;
+  if exists(select 1 from public.audit_events a
+    where a.organization_id=c.organization_id
+      and a.entity_type='connector_time_assurance_configuration'
+      and a.event_data->>'connector_id'=c.id::text
+      and a.new_state->>'revision'=c.time_assurance_revision::text) then
+    raise exception 'clock configuration receipt already exists for this revision';
+  end if;
+  return new;
+end $$;
+drop trigger if exists trg_connector_time_audit_receipt on public.audit_events;
+create trigger trg_connector_time_audit_receipt
+  before insert on public.audit_events for each row
+  execute function public.enforce_connector_time_audit_receipt();
+revoke all on function public.enforce_connector_time_audit_receipt()
+  from public,anon,authenticated,service_role;
+create index if not exists idx_audit_connector_time_contract
+  on public.audit_events(organization_id,(event_data->>'connector_id'))
+  where entity_type='connector_time_assurance_configuration';
+
 create or replace function public.configure_connector_time_assurance(
   p_connector_id uuid,
   p_protocol text,
@@ -226,6 +280,7 @@ declare
   c public.connectors%rowtype;
   v_protocol text:=lower(btrim(coalesce(p_protocol,'')));
   v_revision integer;
+  v_current public.connectors%rowtype;
 begin
   if v_org is null or v_uid is null or coalesce(v_role,'')<>'admin' then
     return jsonb_build_object('error',
@@ -275,24 +330,20 @@ begin
     time_configured_by=v_uid,
     time_configured_at=clock_timestamp(),
     time_assurance_revision=v_revision
-  where id=c.id;
+  where id=c.id returning * into v_current;
   perform set_config('app.time_assurance_config_write','',true);
 
+  perform set_config('app.time_assurance_audit_write','granted',true);
   insert into public.audit_events(
     organization_id,entity_type,actor,event_data,previous_state,new_state
   ) values(
     v_org,'connector_time_assurance_configuration',v_uid::text,
     jsonb_build_object('connector_id',c.id,'connector_key',c.connector_key,
       'operational_authority',false,'sets_source_clock',false),
-    jsonb_build_object('revision',c.time_assurance_revision,
-      'protocol',c.time_sync_protocol,'tolerance_ms',c.time_tolerance_ms,
-      'max_observation_age_minutes',c.time_observation_max_age_minutes),
-    jsonb_build_object('revision',v_revision,'protocol',v_protocol,
-      'reference_authority',btrim(p_reference_authority),
-      'tolerance_ms',p_tolerance_ms,
-      'max_observation_age_minutes',p_max_observation_age_minutes,
-      'evidence_reference',btrim(p_evidence_reference))
+    public.connector_time_contract_snapshot(c),
+    public.connector_time_contract_snapshot(v_current)
   );
+  perform set_config('app.time_assurance_audit_write','',true);
 
   return jsonb_build_object('ok',true,'connector_id',c.id,
     'configuration_revision',v_revision,'state','unproven',
@@ -328,7 +379,7 @@ as $$
 declare
   c public.connectors%rowtype;
   existing public.connector_time_observations%rowtype;
-  v_received timestamptz:=clock_timestamp();
+  v_received timestamptz;
   v_offset numeric;
   v_id uuid;
   v_worst numeric;
@@ -340,6 +391,9 @@ begin
   select * into c from public.connectors
   where organization_id=p_organization_id and connector_key=btrim(p_connector_key)
   for update;
+  -- Receipt belongs to the serialized, accepted revision, not time spent waiting
+  -- for a concurrent configuration transaction's connector lock.
+  v_received:=clock_timestamp();
   if not found then return jsonb_build_object('error','connector not found in the stated organization'); end if;
   if not c.enabled then return jsonb_build_object('error','connector is disabled'); end if;
   if c.time_sync_protocol is null then
@@ -558,6 +612,17 @@ declare
   o public.connector_time_observations%rowtype;
   v_worst numeric;
   v_state text;
+  a record;
+  v_previous jsonb;
+  v_contract jsonb;
+  v_audit_id uuid;
+  v_history_revision integer:=0;
+  v_recorded_at timestamptz;
+  v_last_recorded_at timestamptz;
+  v_history_good boolean:=true;
+  v_tolerance numeric;
+  v_max_age integer;
+  v_event_revision integer;
 begin
   if v_org is null or auth.uid() is null or coalesce(v_role,'') not in
     ('planner','reliability_engineer','maintenance_manager','executive','admin','ai_admin') then
@@ -574,32 +639,91 @@ begin
   end if;
   if c.time_sync_protocol is null then v_state:='unconfigured';
   elsif not c.enabled then v_state:='disabled';
-  elsif c.time_configured_at>p_event_time then v_state:='unproven';
   else
-    select * into o from public.connector_time_observations x
-    where x.organization_id=v_org and x.connector_id=c.id
-      and x.configuration_revision=c.time_assurance_revision
-      and x.reference_clock_at<=p_event_time
-      and x.received_at<=p_event_time
-    order by x.reference_clock_at desc,x.received_at desc limit 1;
-    if not found then v_state:='unproven';
-    elsif o.reference_clock_at
-      + make_interval(mins=>c.time_observation_max_age_minutes)<p_event_time then
-      v_state:='stale';
+    v_previous:=public.connector_time_contract_snapshot(c)||jsonb_build_object(
+      'revision',0,'protocol',null,'reference_authority',null,'tolerance_ms',null,
+      'max_observation_age_minutes',null,'evidence_reference',null,
+      'configuration_basis',null,'configured_by',null,'configured_at',null);
+    -- Verify a complete contiguous chain and its current canonical endpoint.
+    -- Missing, duplicate, legacy/incomplete, malformed or contradictory receipts
+    -- fail closed; no backfill or inferred historical engineering contract.
+    begin
+      for a in select id,actor,previous_state,new_state from public.audit_events
+        where organization_id=v_org and entity_type='connector_time_assurance_configuration'
+          and event_data->>'connector_id'=c.id::text
+        order by (new_state->>'revision')::integer,id
+      loop
+        v_history_revision:=v_history_revision+1;
+        v_recorded_at:=(a.new_state->>'configured_at')::timestamptz;
+        if a.previous_state is distinct from v_previous
+          or not coalesce(a.new_state ?& array['clock_contract_version','connector_id','organization_id',
+            'connector_key','revision','protocol','reference_authority','tolerance_ms',
+            'max_observation_age_minutes','evidence_reference','configuration_basis','configured_by','configured_at'],false)
+          or a.new_state->>'clock_contract_version' is distinct from '1'
+          or a.new_state->>'revision' is distinct from v_history_revision::text
+          or a.new_state->>'connector_id' is distinct from c.id::text
+          or a.new_state->>'organization_id' is distinct from v_org::text
+          or a.new_state->>'connector_key' is distinct from c.connector_key
+          or a.actor is distinct from a.new_state->>'configured_by'
+          or a.new_state->>'protocol' not in ('ntp','ptp','gnss','vendor_managed','system_managed')
+          or coalesce(length(btrim(a.new_state->>'reference_authority')),0)<5
+          or coalesce(length(btrim(a.new_state->>'evidence_reference')),0)<8
+          or coalesce(length(btrim(a.new_state->>'configuration_basis')),0)<40
+          or coalesce((a.new_state->>'tolerance_ms')::numeric,0)<=0
+          or a.new_state->>'tolerance_ms' in ('NaN','Infinity','-Infinity')
+          or coalesce((a.new_state->>'max_observation_age_minutes')::integer,0)<=0
+          or v_recorded_at is null or not isfinite(v_recorded_at)
+          or v_recorded_at>clock_timestamp()
+          or v_recorded_at<v_last_recorded_at then
+          v_history_good:=false; exit;
+        end if;
+        if v_recorded_at<=p_event_time then
+          v_contract:=a.new_state; v_audit_id:=a.id;
+        end if;
+        v_previous:=a.new_state; v_last_recorded_at:=v_recorded_at;
+      end loop;
+      if v_history_revision<>c.time_assurance_revision
+        or v_previous is distinct from public.connector_time_contract_snapshot(c) then
+        v_history_good:=false;
+      end if;
+    exception when data_exception then v_history_good:=false;
+    end;
+    if not v_history_good then
+      v_contract:=null; v_audit_id:=null; v_state:='unproven';
+    elsif v_contract is null then v_state:='unproven';
     else
-      v_worst:=abs(o.offset_ms)+o.measurement_uncertainty_ms;
-      v_state:=case when v_worst<=c.time_tolerance_ms
-        then 'synchronized' else 'untrusted' end;
+      v_event_revision:=(v_contract->>'revision')::integer;
+      v_tolerance:=(v_contract->>'tolerance_ms')::numeric;
+      v_max_age:=(v_contract->>'max_observation_age_minutes')::integer;
+      select * into o from public.connector_time_observations x
+      where x.organization_id=v_org and x.connector_id=c.id
+        and x.configuration_revision=v_event_revision
+        and x.reference_clock_at<=p_event_time
+        and x.received_at<=p_event_time
+      order by x.reference_clock_at desc,x.received_at desc,x.id desc limit 1;
+      if not found then v_state:='unproven';
+      elsif o.reference_clock_at + make_interval(mins=>v_max_age)<p_event_time then
+        v_state:='stale';
+      else
+        v_worst:=abs(o.offset_ms)+o.measurement_uncertainty_ms;
+        v_state:=case when v_worst<=v_tolerance then 'synchronized' else 'untrusted' end;
+      end if;
     end if;
   end if;
   return jsonb_build_object('connector_id',c.id,'event_time',p_event_time,
     'state',v_state,'within_clock_contract',v_state='synchronized',
-    'contract_scope','current_contract_only',
+    'contract_scope','recorded_contract_at_event',
+    'history_integrity',case when c.time_sync_protocol is null or not c.enabled then 'unproven'
+      when v_history_good then 'verified_recorded_chain' else 'unproven' end,
+    'history_reason',case when not v_history_good then 'Clock contract history is incomplete or inconsistent.' end,
+    'configuration_audit_id',v_audit_id,
     'configuration_evidence_verified',false,'eligible_for_time_sensitive_evidence',false,
-    'observation_id',o.id,'configuration_revision',c.time_assurance_revision,
-    'worst_case_offset_ms',v_worst,'tolerance_ms',c.time_tolerance_ms,
+    'observation_id',o.id,'configuration_revision',v_event_revision,
+    'configuration_recorded_at',v_contract->>'configured_at',
+    'worst_case_offset_ms',v_worst,'tolerance_ms',v_tolerance,
+    'max_observation_age_minutes',v_max_age,
     'operational_authority',false,
-    'note','Numeric clock posture only. Canonical configuration-evidence approval is not yet verified. This does not reconstruct superseded contracts, prove causality or authorize an operational action.');
+    'note','Numerical posture against the recorded contract at event time only. Canonical configuration-evidence approval is not yet verified. A disabled connector remains ineligible; clock history does not reconstruct operational enablement, prove causality or authorize action.');
 end
 $$;
 
