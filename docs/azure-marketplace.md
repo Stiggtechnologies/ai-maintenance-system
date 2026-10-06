@@ -131,6 +131,30 @@ inventory still contains only `SUPABASE_ACCESS_TOKEN` and `XAI_API_KEY`; neither
 supplies the deployment, runtime, Entra SSO, or Marketplace publisher contract.
 The non-secret `ENTRA_SSO_TENANT=common` repository variable is present.
 
+### Cost-controlled subscription decision
+
+Do not default directly to a pay-as-you-go production subscription. Use this
+order:
+
+1. Inspect any Azure-credit entitlement already attached to the Microsoft AI
+   Cloud Partner Program account.
+2. Apply to Microsoft for Startups Founders Hub if Stigg Technologies is
+   eligible. Microsoft currently describes it as no-cost to join with staged
+   access to as much as US$150,000 in Azure credits; neither eligibility nor an
+   award is assumed.
+3. If an immediate paid partner route is required, compare the current Partner
+   Launch Benefits package (US$350/year with US$700 in bulk Azure credits) with
+   the forecast first-year Azure burn before purchase.
+4. Use pay-as-you-go only when the credit routes are unavailable or delay is
+   more expensive than the cash outlay, and obtain explicit financial approval
+   before creating the subscription.
+
+The currently signed-in Partner Center user cannot inspect or redeem Azure
+benefits because the account does not hold the `Microsoft AI Cloud Partner
+Program Partner Admin` role. Granting that role changes cloud-account
+permissions and requires separate action-time approval. No package,
+subscription, or benefit has been purchased or activated.
+
 This is a name-and-policy inventory only; it does not expose or prove any secret
 value. Do not dispatch the Azure production workflow until all eight environment
 secret names below are present, the federation is saved, a real subscription
@@ -382,6 +406,9 @@ evidence until the incident review authorizes their removal.
 - [Microsoft Entra and transactable SaaS](https://learn.microsoft.com/en-us/partner-center/marketplace-offers/azure-ad-saas)
 - [Co-sell requirements](https://learn.microsoft.com/en-us/partner-center/referrals/co-sell-requirements)
 - [GitHub Actions OIDC to Azure](https://learn.microsoft.com/en-us/azure/developer/github/connect-from-azure-openid-connect)
+- [Microsoft partner benefit packages and current Azure-credit amounts](https://partner.microsoft.com/en-US/partnership/partner-benefits-packages-benefits)
+- [Use Azure credits in Partner Center](https://learn.microsoft.com/en-us/partner-center/benefits/mpn-benefits-azure-cloud)
+- [Microsoft partner-program comparison and Founders Hub](https://partner.microsoft.com/en-us/partnership/compare-programs/)
 
 These URLs describe current external rules; Partner Center validation remains
 the authority at submission time.
