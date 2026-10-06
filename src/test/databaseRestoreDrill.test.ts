@@ -24,6 +24,80 @@ const local = {
 
 describe("database restore-drill boundaries", () => {
   afterEach(() => vi.unstubAllEnvs());
+  it("reparses captured NOT VALID CHECKs only in a bounded rollback-only reference transaction", () => {
+    const entry = {
+      kind: "constraint",
+      key: "public.evidence.positive",
+      value: [false, false, false, "CHECK ((value > 1)) NOT VALID"],
+    };
+    const script = drill.constraintReferenceScript(entry, "a".repeat(32));
+    expect(script).toContain(
+      'ALTER TABLE ONLY "public"."evidence" ADD CONSTRAINT "syncai_dr_ref_aaaaaaaaaaaaaaaa" CHECK ((value > 1)) NOT VALID;',
+    );
+    expect(script).toContain("SET LOCAL search_path=pg_catalog;");
+    expect(script).toContain("SET LOCAL statement_timeout='10s';");
+    expect(script.trim()).toMatch(/^BEGIN;[\s\S]*ROLLBACK;$/);
+    expect(script).not.toContain("VALIDATE CONSTRAINT");
+    expect(script).not.toContain("DROP");
+    expect(script).not.toContain("COMMIT");
+    for (const invalid of [
+      { ...entry, key: "private.evidence.positive" },
+      { ...entry, key: "public.evidence;unsafe.positive" },
+      { ...entry, value: [true, false, false, entry.value[3]] },
+      {
+        ...entry,
+        value: [
+          false,
+          false,
+          false,
+          "FOREIGN KEY (value) REFERENCES public.evidence(value) NOT VALID",
+        ],
+      },
+    ])
+      expect(() =>
+        drill.constraintReferenceScript(invalid, "a".repeat(32)),
+      ).toThrow("Unqualified");
+  });
+  it("accepts only the database-reparsed source definition when identity, type and every control match the restored constraint", () => {
+    const source = {
+      kind: "constraint",
+      key: "public.evidence.positive",
+      value: [false, false, false, "CHECK ((value > 1)) NOT VALID"],
+    };
+    const target = {
+      ...source,
+      value: [false, false, false, "CHECK (value > 1) NOT VALID"],
+    };
+    const reference = {
+      key: source.key,
+      checkType: true,
+      relationMatches: true,
+      value: target.value,
+    };
+    expect(drill.qualifyConstraintReference(source, target, reference)).toEqual(
+      target,
+    );
+    for (const invalid of [
+      { ...reference, key: "public.evidence.other" },
+      { ...reference, checkType: false },
+      { ...reference, relationMatches: false },
+      { ...reference, value: [true, false, false, target.value[3]] },
+      {
+        ...reference,
+        value: [false, false, false, "CHECK (value > 2) NOT VALID"],
+      },
+    ])
+      expect(() =>
+        drill.qualifyConstraintReference(source, target, invalid),
+      ).toThrow("reference");
+    expect(() =>
+      drill.qualifyConstraintReference(
+        source,
+        { ...target, value: [true, false, false, target.value[3]] },
+        reference,
+      ),
+    ).toThrow("reference");
+  });
   it("reconstructs only captured owner-granted GraphQL schema privileges without widening them", () => {
     const entry = {
       kind: "platform_schema_acl",

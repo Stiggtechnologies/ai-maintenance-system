@@ -288,6 +288,60 @@ export function definitionDifferenceShape(source, target) {
   };
 }
 
+export function constraintReferenceScript(entry, runId) {
+  const identity = entry?.key?.match(
+    /^(public|auth|storage|supabase_migrations)\.([a-z_][a-z0-9_]*)\.([a-z_][a-z0-9_]*)$/,
+  );
+  if (
+    entry?.kind !== "constraint" ||
+    !identity ||
+    !/^[a-f0-9]{32}$/.test(runId) ||
+    !Array.isArray(entry.value) ||
+    entry.value.length !== 4 ||
+    entry.value.slice(0, 3).some((value) => value !== false) ||
+    typeof entry.value[3] !== "string" ||
+    !entry.value[3].startsWith("CHECK (") ||
+    !entry.value[3].endsWith(" NOT VALID") ||
+    entry.value[3].includes("\0")
+  )
+    throw new Error("Unqualified CHECK reference input");
+  const [, schema, table] = identity;
+  const alias = `syncai_dr_ref_${runId.slice(0, 16)}`;
+  // Source SQL comes only from pg_get_constraintdef on the trusted migrated
+  // local source, never from a supplied backup or external expression.
+  return `BEGIN;
+SET LOCAL search_path=pg_catalog;
+SET LOCAL timezone='UTC';
+SET LOCAL extra_float_digits=3;
+SET LOCAL statement_timeout='10s';
+ALTER TABLE ONLY "${schema}"."${table}" ADD CONSTRAINT "${alias}" ${entry.value[3]};
+SELECT jsonb_build_object('key','${entry.key}','checkType',contype='c','relationMatches',conrelid='"${schema}"."${table}"'::regclass,'value',jsonb_build_array(convalidated,condeferrable,condeferred,pg_get_constraintdef(oid))) FROM pg_constraint WHERE conrelid='"${schema}"."${table}"'::regclass AND conname='${alias}';
+ROLLBACK;\n`;
+}
+
+export function qualifyConstraintReference(source, restored, reference) {
+  constraintReferenceScript(source, "0".repeat(32));
+  if (
+    restored?.kind !== "constraint" ||
+    restored.key !== source.key ||
+    reference?.key !== source.key ||
+    reference.checkType !== true ||
+    reference.relationMatches !== true ||
+    !Array.isArray(reference.value) ||
+    reference.value.length !== 4 ||
+    fingerprint(reference.value.slice(0, 3)) !==
+      fingerprint(source.value.slice(0, 3)) ||
+    fingerprint(reference.value) !== fingerprint(restored.value)
+  )
+    throw new Error("Constraint reference did not qualify");
+  // Only the compiler-confirmed representation of the captured source CHECK
+  // changes. Never substitute a restored predicate without this runtime proof.
+  return {
+    ...source,
+    value: [...source.value.slice(0, 3), reference.value[3]],
+  };
+}
+
 export function databaseRestoreArgs(targetId, bootstrap, stage = "full") {
   if (
     !/^[a-f0-9]{64}$/.test(targetId) ||
@@ -380,7 +434,7 @@ export function createPrivateOutput(parent = tmpdir()) {
 
 export function writePrivateArtifact(output, name, value) {
   if (
-    !/^(report\.json|source-inventory\.json|restored-inventory\.json|roles\.sql|database\.dump|graphql-overlay\.sql|graphql-schema-acl\.sql)$/.test(
+    !/^(report\.json|source-inventory\.json|restored-inventory\.json|post-reference-inventory\.json|constraint-references\.json|roles\.sql|database\.dump|graphql-overlay\.sql|graphql-schema-acl\.sql)$/.test(
       name,
     )
   ) {
@@ -1346,9 +1400,77 @@ export async function runRestoreDrill({
       "restored-inventory.json",
       JSON.stringify(after),
     );
+    const comparisonBefore = [...before],
+      constraintReferences = [];
+    try {
+      await timed("constraint_reference", async () => {
+        const restoredByKey = new Map(
+          after
+            .filter((entry) => entry.kind === "constraint")
+            .map((entry) => [entry.key, entry]),
+        );
+        for (let index = 0; index < before.length; index++) {
+          const entry = before[index],
+            restored = restoredByKey.get(entry.key);
+          if (
+            entry.kind !== "constraint" ||
+            !restored ||
+            fingerprint(entry.value) === fingerprint(restored.value) ||
+            fingerprint(entry.value.slice(0, 3)) !==
+              fingerprint(restored.value.slice(0, 3)) ||
+            !entry.value[3].startsWith("CHECK (") ||
+            !entry.value[3].endsWith(" NOT VALID") ||
+            entry.value.slice(0, 3).some((value) => value !== false)
+          )
+            continue;
+          validateTarget(await inspect(targetId), runId);
+          const reference = JSON.parse(
+            await sql(
+              targetId,
+              bootstrap,
+              "/tmp",
+              constraintReferenceScript(entry, runId),
+            ),
+          );
+          comparisonBefore[index] = qualifyConstraintReference(
+            entry,
+            restored,
+            reference,
+          );
+          constraintReferences.push(reference);
+        }
+      });
+    } catch (error) {
+      report.inventoryMismatchSummary = inventoryMismatchSummary(before, after);
+      throw error;
+    }
+    if (constraintReferences.length) {
+      const artifact = JSON.stringify(constraintReferences);
+      writePrivateArtifact(output, "constraint-references.json", artifact);
+      report.constraintReferencesSha256 = sha(artifact);
+      const afterReference = await timed("post_reference_inventory", async () =>
+        parseInventory(
+          await sql(
+            targetId,
+            bootstrap,
+            "/tmp",
+            `begin isolation level repeatable read read only;\n${inventorySql}\ncommit;`,
+          ),
+        ),
+      );
+      writePrivateArtifact(
+        output,
+        "post-reference-inventory.json",
+        JSON.stringify(afterReference),
+      );
+      compareManifests(after, afterReference);
+      report.constraintsReparsed = constraintReferences.length;
+      report.constraintParserWitness = true;
+      report.referenceRollbackInventoryUnchanged = true;
+    }
     try {
       report.comparison = await timed("inventory_comparison", async () =>
-        compareManifests(before, after),
+        compareManifests(comparisonBefore, after),
       );
     } catch (error) {
       report.inventoryMismatchSummary = inventoryMismatchSummary(before, after);

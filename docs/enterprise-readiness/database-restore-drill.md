@@ -116,6 +116,19 @@ counts only; unknown names become `other`. Constraint-definition diagnostics
 report fixed constraint types and NOT VALID booleans only, never expressions.
 Definition deltas report changed-span lengths and fixed character classes only;
 they do not print changed values or normalize a definition mismatch away.
+
+For a differing, nondeferrable NOT VALID CHECK only, a bounded reference witness
+may reparse the captured source definition on the restored relation in a
+10-second, rollback-only transaction. The original constraint is not dropped,
+changed or validated. PostgreSQL must produce the exact restored definition and
+the same validation/deferrability state; identity, relation and CHECK type must
+also match. Only that compiler-proven representation is used for comparison.
+An altered predicate or control fails; unsupported kinds, identifiers or states
+remain failures. A full post-rollback inventory must equal the pre-witness
+restored inventory. Original source/restored inventories and compiler evidence
+remain in private artifacts; the uploaded report contains counts/digests only.
+This is an explicit logical representation qualification, not a waiver of a
+constraint or an operational approval.
 The target's expected bootstrap-superuser identity is checked before restoring
 roles. A permission failure is not bypassed by dropping grants or ownership.
 The local source's OID-10 bootstrap identity must be `postgres` or
@@ -180,6 +193,11 @@ The partitioning follows
 and its [archive selection implementation](https://github.com/postgres/postgres/blob/REL_17_STABLE/src/bin/pg_dump/pg_backup_archiver.c).
 PostgreSQL's [column catalog documentation](https://www.postgresql.org/docs/17/catalog-pg-attribute.html)
 distinguishes live columns from inaccessible physical dropped-column entries.
+Its [catalog information functions](https://www.postgresql.org/docs/17/functions-info.html)
+describe `pg_get_constraintdef` as a reconstructed creating command, not original
+SQL text. The [NOT VALID constraint semantics](https://www.postgresql.org/docs/17/sql-altertable.html)
+allow the reference to be parsed without scanning or modifying existing rows;
+the transaction is rolled back and its inventory effects are verified absent.
 Synthetic socket-only PostgreSQL 16 probes reproduced the missing-member ACL
 failure and passed after reconstruction; a separate phased restore retained
 database owner/ACL/settings and rejected changed grant options and null-to-empty
