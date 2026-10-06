@@ -116,6 +116,31 @@ describe("C4.08 evidence-linked verification contract", () => {
     expect(migration).toContain("historical completed outcomes predate that gate");
   });
 
+  it("leaves shared requirement and pre-gate citation governance with its existing provenance wall", () => {
+    const planGuard = migration.slice(
+      migration.indexOf("create or replace function public.enforce_verification_plan_write()"),
+      migration.indexOf("revoke all on function public.enforce_verification_plan_write()"),
+    );
+    expect(planGuard).toContain("if old.recommendation_id is null then");
+    const sourceGuard = migration.slice(
+      migration.indexOf("create or replace function public.enforce_verification_evidence_link()"),
+      migration.indexOf("revoke all on function public.enforce_verification_evidence_link()"),
+    );
+    expect(sourceGuard).toContain(
+      "if new.recommendation_id is null or not new.evidence_required then",
+    );
+    expect(sourceGuard.indexOf("new.evidence_required:=true")).toBeLessThan(
+      sourceGuard.indexOf("if new.recommendation_id is null or not new.evidence_required then"),
+    );
+    expect(sourceGuard).toContain(
+      "cmms work-order evidence is supported only for recommendation outcome verification",
+    );
+    // The existing guard still freezes closed methods and records FK citation
+    // severance. This slice must not replace or disable that backstop.
+    expect(migration).not.toContain("drop trigger if exists trg_verification_result_provenance");
+    expect(migration).not.toContain("disable trigger trg_verification_result_provenance");
+  });
+
   it("enforces tenancy and immutability behind the RPC door", () => {
     expect(migration).toContain("trg_verification_evidence_link");
     expect(migration).toContain(

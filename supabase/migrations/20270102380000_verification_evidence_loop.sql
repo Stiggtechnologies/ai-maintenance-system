@@ -350,6 +350,12 @@ as $$
 declare
   v_marker text:=coalesce(current_setting('app.verification_plan_write',true),'');
 begin
+  -- Requirement verification shares this table, but has its own immutable
+  -- method/criteria and result wall. Do not intercept that established path
+  -- with the recommendation-only planning marker.
+  if old.recommendation_id is null then
+    return new;
+  end if;
   if (new.method is distinct from old.method
       or new.acceptance_criteria is distinct from old.acceptance_criteria
       or new.intended_outcome is distinct from old.intended_outcome
@@ -595,6 +601,17 @@ begin
     where w.id=new.work_order_id and w.organization_id=new.organization_id
   ) then
     raise exception 'verification work-order evidence must belong to the same organization';
+  end if;
+
+  -- Existing requirement and pre-gate recommendation citations retain the
+  -- original provenance trigger, including audited ON DELETE SET NULL. That
+  -- trigger still blocks direct results, subject changes and closed-method
+  -- edits. Only evidence-ratcheted recommendations use the stronger gate.
+  if new.recommendation_id is null or not new.evidence_required then
+    if new.work_order_id is not null then
+      raise exception 'CMMS work-order evidence is supported only for recommendation outcome verification';
+    end if;
+    return new;
   end if;
 
   if tg_op='INSERT' then
