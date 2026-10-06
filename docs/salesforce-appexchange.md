@@ -13,13 +13,20 @@ events from the License Management App (LMA) flow into our backend.
 
 ## Offer summary
 
-- **Type:** Managed Package (AppExchange)
-- **Pricing model:** Per-seat, monthly recurring
-- **Plans:** Starter · Professional · Enterprise. Per-seat prices are
-  under commercial review and are set in the AppExchange listing at
-  publication time; no price is committed in this document.
+- **Current feasible listing surface:** A gated consulting-service visibility
+  listing is the only evidenced near-term AppExchange experiment. It still
+  requires the correct Salesforce partner status and Manage Listings access,
+  and it is a lead surface rather than a software purchase or installation.
+- **Managed-package path:** Future engineering work only. No package, released
+  version, pricing, security-review submission, or LMA connection is evidenced.
+- **Pricing:** No AppExchange price is approved. Do not transpose Microsoft
+  plan names or per-user observations into Salesforce.
 
-## Intended activation flow
+Portal-ready, non-submittable service-listing copy and the managed-package
+release gates are controlled in
+[`marketplace/salesforce-listing-draft.json`](../marketplace/salesforce-listing-draft.json).
+
+## Future managed-package activation flow
 
 Salesforce doesn't redirect with a token after install (unlike Microsoft
 and AWS). The flow is:

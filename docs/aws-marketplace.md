@@ -20,13 +20,25 @@ This is the AWS counterpart of [`azure-marketplace.md`](./azure-marketplace.md)
 
 ## Offer summary
 
-- **Listing type:** SaaS Listing (not SaaS Contract or AMI)
-- **Pricing model:** Per-seat, monthly recurring, billed via AWS invoice
-- **Plans:** Starter · Professional · Enterprise (private offer). Per-seat
-  prices are under commercial review and are set in AWS Marketplace at
-  listing time; no price is committed in this document.
+- **Product type:** SaaS product draft. This is not an AMI and does not deploy
+  software into the buyer's AWS account.
+- **Offer and pricing model:** Owner decision required before the initial
+  limited listing. AWS SaaS subscription, contract, and contract-with-usage
+  models have different billing and integration contracts, and AWS does not
+  permit the pricing model to be changed after the product is published to
+  limited visibility. The repository does not prove an approved model or
+  dimension.
+- **Plans:** Starter, Professional, and Enterprise names exist in the Microsoft
+  draft, but no AWS plans, dimensions, prices, or private offers have been
+  created or approved. Do not transpose the Microsoft per-user observations
+  into AWS.
 - **EDP eligibility:** Not evidenced. Do not claim eligibility before AWS
   confirms the published product's program treatment.
+
+Portal-ready, non-submittable metadata and acquisition variants are controlled
+in [`marketplace/aws-listing-draft.json`](../marketplace/aws-listing-draft.json).
+They reduce data-entry time after seller access is available; they do not
+select the irreversible pricing model or establish listing readiness.
 
 ## Intended activation flow
 

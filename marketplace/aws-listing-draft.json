@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 1,
+  "asOf": "2026-10-06",
+  "channel": "aws_marketplace",
+  "status": "portal_entry_draft_only",
+  "submissionAuthorized": false,
+  "publicationAuthorized": false,
+  "transactionReady": false,
+  "sourceOfTruth": {
+    "productEntries": "src/lib/product-entry-paths.ts",
+    "claims": "docs/enterprise-readiness/claims-and-evidence-register.md",
+    "channelReadiness": "marketplace/channel-readiness.json"
+  },
+  "product": {
+    "productType": "saas",
+    "productTitle": "SyncAI Industrial Engineering Intelligence",
+    "proposedSku": "syncai-industrial-engineering-intelligence",
+    "shortDescription": "Governed industrial reliability software that turns condition readings, work history, operating context, and engineering evidence into traceable, human-approved decisions.",
+    "longDescription": "SyncAI gives industrial asset teams one governed workspace for condition monitoring, FRACAS and failure analysis, asset onboarding, downtime-recovery coordination, deterministic reliability methods, and auditable decision cases. Teams can begin with customer-provided exports and use scoped integration patterns through APIs, database views, file exchange, event streams, or a customer-side gateway. Analyses keep data-quality, applicability, conflicts, uncertainty, and missing evidence visible. Named people retain engineering and operating authority: SyncAI does not autonomously change limits, maintenance intervals, work orders, schedules, asset state, or return equipment to service. Production integrations and outcome claims require customer-specific validation. No savings, uptime, failure-avoidance, accuracy, certification, or ROI result is guaranteed.",
+    "highlights": [
+      "Trace recommendations to supplied evidence, explicit gaps, accountable owners, and human approval gates.",
+      "Coordinate failure investigation, maintenance decisions, execution readiness, recovery, and value verification in one platform.",
+      "Start read-only from exports or scoped integration patterns; validate every production connector in the customer environment."
+    ],
+    "searchKeywords": [
+      "asset reliability",
+      "condition monitoring",
+      "maintenance engineering"
+    ],
+    "categories": {
+      "status": "owner_select_from_current_portal_taxonomy",
+      "maximum": 3,
+      "rule": "Select only categories that directly describe the software; do not use categories as pain-copy variants."
+    }
+  },
+  "commercial": {
+    "pricingModel": null,
+    "pricingModelDecision": "Required before the initial limited product because the AWS pricing model cannot be changed after that point.",
+    "dimensions": [],
+    "prices": [],
+    "freeTrial": false,
+    "privateOffers": false,
+    "decisionRule": "Choose subscription, contract, or contract-with-usage only after entitlement, metering, refund, test-price, and plan semantics are approved and implemented."
+  },
+  "customerAccess": {
+    "registrationUrl": "https://app.syncai.ca/marketplace/aws/signup",
+    "status": "blocked",
+    "reason": "AWS posts x-amzn-marketplace-token to the registration URL, while the current production SPA does not provide a conforming server-side POST registration handler.",
+    "supportEmail": "support@syncai.ca",
+    "supportUrl": null,
+    "supportUrlAction": "Publish and verify a customer-facing support route.",
+    "eulaPdfUrl": null,
+    "eulaAction": "Approve an EULA and host the PDF at the AWS-required public location.",
+    "logoUrl": null,
+    "logoAction": "Approve a compliant product logo and host it at the AWS-required public location.",
+    "architectureDesignationClaimed": false,
+    "architectureNote": "Do not claim the AWS deployed-on-AWS designation; the current production application and control planes are not evidenced as running entirely on AWS."
+  },
+  "acquisitionExperiments": [
+    {
+      "entry": "downtime-reduction",
+      "priority": "primary",
+      "headline": "Reduce repeat unplanned downtime with evidence-governed decisions",
+      "promise": "Turn failure history, work orders, observations, and available evidence into a reviewable downtime-reduction case with hypotheses, gaps, actions, owners, and approval gates.",
+      "successMetric": "Unplanned downtime hours, repeat-event rate, and verified avoided downtime",
+      "claimsBoundary": "SyncAI does not guarantee downtime elimination or claim a root cause that the supplied evidence cannot establish.",
+      "attributedDestination": "https://app.syncai.ca/solutions/downtime-reduction?source=aws-marketplace&campaign=pain-entry&variant=downtime-reduction"
+    },
+    {
+      "entry": "recovery-coordination",
+      "priority": "primary",
+      "headline": "Coordinate a controlled return to stable service",
+      "promise": "Bring work, labour, materials, constraints, permits, custody, approvals, execution evidence, and return-to-service gates into one governed recovery event.",
+      "successMetric": "Time to return to service, blocker delay, first-time-right, recovered hours, and separately verified value",
+      "claimsBoundary": "SyncAI cannot self-release work, clear isolations, accept return to service, or invent missing duration and readiness evidence.",
+      "attributedDestination": "https://app.syncai.ca/solutions/recovery-coordination?source=aws-marketplace&campaign=pain-entry&variant=recovery-coordination"
+    },
+    {
+      "entry": "maintenance-cost-reduction",
+      "priority": "secondary",
+      "headline": "Find avoidable or mistimed maintenance work without automating the decision",
+      "promise": "Review PM tasks, intervals, failure history, execution records, and operating context to identify evidence-bounded cost-reduction candidates and a verification plan.",
+      "successMetric": "Maintenance labour and material cost, emergency-work ratio, task yield, and failure recurrence",
+      "claimsBoundary": "No interval is adopted automatically; accountable engineering authority retains the decision.",
+      "attributedDestination": "https://app.syncai.ca/solutions/maintenance-cost-reduction?source=aws-marketplace&campaign=pain-entry&variant=maintenance-cost-reduction"
+    }
+  ],
+  "releaseGates": [
+    "Approved AWS Marketplace seller account with tax, bank, and identity requirements complete",
+    "Owner-approved immutable pricing model, dimensions, public prices, refund policy, and EULA",
+    "Server-side POST registration handler and buyer email/account path",
+    "Active production schema, ResolveCustomer, entitlement or metering integration, and lifecycle delivery",
+    "Subscription status and support controls visible in the product",
+    "Limited-listing end-to-end preview purchase with entitlement and cancellation witnesses",
+    "AWS review approval followed by separate owner authorization for public visibility"
+  ]
+}

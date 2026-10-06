@@ -68,7 +68,8 @@
       "buyerPath": null,
       "verifiedEvidence": [
         "Marketing and SPA activation routes return HTTP 200",
-        "ResolveCustomer and lifecycle receiver source files exist"
+        "ResolveCustomer and lifecycle receiver source files exist",
+        "Claims-bounded product metadata and three attributed pain-entry experiments are prepared in marketplace/aws-listing-draft.json"
       ],
       "blockers": [
         "Seller registration and product listing are not verified",
@@ -88,7 +89,8 @@
       "buyerPath": null,
       "verifiedEvidence": [
         "Marketing and setup routes return HTTP 200",
-        "License receiver source file exists"
+        "License receiver source file exists",
+        "A non-installable consulting-service visibility draft and three attributed pain-entry experiments are prepared in marketplace/salesforce-listing-draft.json"
       ],
       "blockers": [
         "No Salesforce package source or released package version is evidenced",

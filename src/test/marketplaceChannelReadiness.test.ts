@@ -11,6 +11,20 @@ interface Channel {
   blockers: string[];
 }
 
+interface ListingDraft {
+  channel: string;
+  status: string;
+  submissionAuthorized: boolean;
+  publicationAuthorized: boolean;
+  transactionReady: boolean;
+  acquisitionExperiments: Array<{
+    entry: string;
+    claimsBoundary: string;
+    attributedDestination: string;
+  }>;
+  releaseGates: string[];
+}
+
 const manifest = JSON.parse(
   readFileSync("marketplace/channel-readiness.json", "utf8"),
 ) as { channels: Channel[] };
@@ -27,7 +41,9 @@ describe("marketplace channel readiness", () => {
       "salesforce_appexchange",
     ]);
     expect(
-      manifest.channels.filter((channel) => channel.marketplaceTransactionReady),
+      manifest.channels.filter(
+        (channel) => channel.marketplaceTransactionReady,
+      ),
     ).toEqual([]);
     expect(
       manifest.channels.filter((channel) => channel.selfServeCheckoutReady),
@@ -66,5 +82,58 @@ describe("marketplace channel readiness", () => {
       "The SyncAI managed package is installed in your Salesforce org.",
     );
     expect(page).toContain("This page does not prove");
+  });
+
+  it.each([
+    ["aws_marketplace", "marketplace/aws-listing-draft.json"],
+    ["salesforce_appexchange", "marketplace/salesforce-listing-draft.json"],
+  ])(
+    "keeps the %s portal package non-submittable and tied to supported entries",
+    (channel, path) => {
+      const draft = JSON.parse(readFileSync(path, "utf8")) as ListingDraft;
+      expect(draft.channel).toBe(channel);
+      expect(draft.status).toBe("portal_entry_draft_only");
+      expect(draft.submissionAuthorized).toBe(false);
+      expect(draft.publicationAuthorized).toBe(false);
+      expect(draft.transactionReady).toBe(false);
+      expect(draft.releaseGates.length).toBeGreaterThanOrEqual(6);
+
+      expect(draft.acquisitionExperiments.map(({ entry }) => entry)).toEqual([
+        "downtime-reduction",
+        "recovery-coordination",
+        "maintenance-cost-reduction",
+      ]);
+      for (const experiment of draft.acquisitionExperiments) {
+        expect(experiment.claimsBoundary.length).toBeGreaterThan(40);
+        expect(experiment.attributedDestination).toContain(
+          `source=${channel.replace("_", "-")}`,
+        );
+        expect(experiment.attributedDestination).toContain(
+          `variant=${experiment.entry}`,
+        );
+      }
+    },
+  );
+
+  it("does not present the Salesforce service experiment as an app install", () => {
+    const draft = JSON.parse(
+      readFileSync("marketplace/salesforce-listing-draft.json", "utf8"),
+    ) as ListingDraft & {
+      installableAppReady: boolean;
+      recommendedFirstSurface: { type: string; commercialBoundary: string };
+      futureManagedPackage: { status: string; listingCopyAuthorized: boolean };
+    };
+
+    expect(draft.installableAppReady).toBe(false);
+    expect(draft.recommendedFirstSurface.type).toBe(
+      "consulting_service_visibility_listing",
+    );
+    expect(draft.recommendedFirstSurface.commercialBoundary).toMatch(
+      /not AppExchange software checkout/i,
+    );
+    expect(draft.futureManagedPackage).toMatchObject({
+      status: "not_ready",
+      listingCopyAuthorized: false,
+    });
   });
 });
