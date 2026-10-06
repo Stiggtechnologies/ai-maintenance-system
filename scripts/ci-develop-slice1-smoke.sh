@@ -697,6 +697,12 @@ R=$(rpc "$TECH" bind_recommendation_to_case "{\"p_recommendation_id\":\"$REC\",\
 expect_err "$R" 'planning'
 R=$(rpc "$PLANNER" bind_recommendation_to_case "{\"p_recommendation_id\":\"$REC\",\"p_case_id\":\"$CASE\"}")
 noerr "$R"
+# C4.08 is also a binary release gate. The outcome horizon is distinct from
+# the 90-day action due date and must be named by a human rather than derived.
+MANAGER_ID=$(psqlc "select id from user_profiles where organization_id='$ORG' and email='manager@syncai.ca'")
+VERIFY_DUE=$(psqlc "select (current_date+120)::text")
+R=$(rpc "$MANAGER" record_recommendation_verification_plan "{\"p_recommendation_id\":\"$REC\",\"p_method\":\"Compare the 90-day liner inspection with the accepted wear-rate model and trial baseline.\",\"p_acceptance_criteria\":\"Measured liner wear remains within 10 percent of the accepted model at the 90-day inspection.\",\"p_intended_outcome\":\"The composite liner trial controls the repeat crusher liner wear exposure.\",\"p_due_date\":\"$VERIFY_DUE\",\"p_owner_id\":\"$MANAGER_ID\"}")
+noerr "$R"
 # C5.24 is a binary release gate: the fixture has no material hidden premise,
 # but that conclusion must itself be an explicit named-human engineering act.
 R=$(rpc "$MANAGER" record_recommendation_assumptions "{\"p_recommendation_id\":\"$REC\",\"p_packet\":{\"disposition\":\"none_identified\",\"basis\":\"The case evidence, alternatives, consequence statement and verification plan were reviewed together; no additional material premise is required for this bounded trial decision.\",\"items\":[]},\"p_note\":\"Maintenance management completed the assumption review before approving the action.\"}")

@@ -104,6 +104,43 @@ test.describe("Golden path: the buyer-value loop", () => {
     // named-human workflow a customer uses before approving the recommendation.
     await page.getByText(C22_REC_TITLE).click();
     await page
+      .getByRole("button", { name: "Verification plan", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Outcome verification plan" }),
+    ).toBeVisible({ timeout: 15_000 });
+    await page
+      .getByLabel("Verification method", { exact: true })
+      .fill(
+        "Compare post-replacement vibration and temperature with the accepted pre-work baseline at equivalent load.",
+      );
+    await page
+      .getByLabel("Intended outcome", { exact: true })
+      .fill(
+        "The bearing replacement removes the short-horizon degradation condition without repeat alarm.",
+      );
+    await page
+      .getByLabel("Acceptance criteria", { exact: true })
+      .fill(
+        "Vibration remains below 10.0 mm/s and temperature remains below 85 degrees C through 168 operating hours.",
+      );
+    const verificationDate = new Date();
+    verificationDate.setUTCDate(verificationDate.getUTCDate() + 14);
+    await page
+      .getByLabel("Outcome verification date", { exact: true })
+      .fill(verificationDate.toISOString().slice(0, 10));
+    await page
+      .getByLabel("Named verification owner", { exact: true })
+      .selectOption({ label: "Demo Reliability Engineer · reliability engineer" });
+    await page
+      .getByRole("button", { name: "Record governed verification plan" })
+      .click();
+    await expect(page.getByText(/Verification plan recorded/)).toBeVisible({
+      timeout: 20_000,
+    });
+    await page.getByRole("button", { name: "Close", exact: true }).click();
+
+    await page
       .getByRole("button", { name: "Assumptions", exact: true })
       .click();
     await expect(
