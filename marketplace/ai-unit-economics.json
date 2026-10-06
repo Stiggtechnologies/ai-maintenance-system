@@ -11,6 +11,8 @@
         "organization_id",
         "fn",
         "model",
+        "requested_model",
+        "priced_model",
         "billing_subscription_id",
         "cost_object_type",
         "cost_object_id"
@@ -20,7 +22,9 @@
         "output_cad_per_mtok",
         "price_effective_date",
         "inference_cost_cad",
-        "cost_status"
+        "cost_status",
+        "commercial_allowed_models_snapshot",
+        "model_policy_status"
       ],
       "storesPromptOrCompletionText": false,
       "unattributedCallsReported": true
@@ -32,6 +36,17 @@
       "unit": "per_million_tokens",
       "requiresPeriodicRefresh": true,
       "unknownPriceTreatedAsFree": false
+    },
+    "actualModelBoundary": {
+      "status": "implemented",
+      "requestedModelRetained": true,
+      "actualProviderModelRetained": true,
+      "approvedModelSetSnapshottedAtReservation": true,
+      "datedDeploymentNormalization": "exact_canonical_model_plus_yyyy_mm_dd_suffix_only",
+      "fuzzyGatewayAliasAllowed": false,
+      "unapprovedActualModelCostRetained": true,
+      "unapprovedActualModelFreezesLaterCommercialPeriodSpend": true,
+      "paidCallWithoutReservationFreezesLaterCommercialPeriodSpend": true
     },
     "organizationQuota": {
       "status": "implemented",
@@ -53,7 +68,8 @@
       "requiresNamedAdministrativeApprover": true,
       "perUserAutomaticMeteredOverageAllowed": false,
       "hardStopUnpricedOverageAllowed": false,
-      "allowedModelEnforcement": true
+      "requestedModelEnforcement": true,
+      "actualSettledModelEnforcement": true
     },
     "commercialPlanToQuotaBinding": {
       "status": "implemented_for_azure_marketplace",
@@ -83,6 +99,7 @@
         "known_inference_cost_cad",
         "unknown_price_calls",
         "unpriced_calls",
+        "model_policy_violation_calls",
         "unattributed_calls",
         "attributed_decisions",
         "priced_attributed_decisions",
@@ -136,7 +153,7 @@
     "canonicalFormula": "input_tokens * input_cad_per_mtok / 1000000 + completion_tokens * output_cad_per_mtok / 1000000",
     "currentGranularity": "model_call_with_supported_cost_object_rollup",
     "perDecisionCostAvailable": true,
-    "perDecisionCostCoverage": "supported runtime paths only; unattributed calls are explicit and remain inside the hard token ceiling",
+    "perDecisionCostCoverage": "governed decision-capable paid runtime paths; recommendation enrichment and asset onboarding are separately attributed, while any remaining unattributed call stays explicit and inside the hard token ceiling",
     "rawTokenMeterIsModelCostWeighted": false,
     "warning": "Equal token quantities can have materially different inference cost under different model routes.",
     "commercialAllowanceApproved": false,
