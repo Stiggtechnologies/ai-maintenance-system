@@ -15,6 +15,7 @@ import {
   type LifeDataRunReceipt,
 } from "../services/reliabilityLifeDataService";
 import { ErrorState, LoadingState } from "./ui/AsyncStates";
+import { CovariateSurvivalWorkbench } from "./CovariateSurvivalWorkbench";
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -43,6 +44,7 @@ export function ReliabilityLifeDataWorkbench() {
   const [sourceReference, setSourceReference] = useState("manual field entry");
   const [evidenceBasis, setEvidenceBasis] = useState("");
   const [showCapture, setShowCapture] = useState(false);
+  const [showSurvival, setShowSurvival] = useState(false);
   const [busy, setBusy] = useState<"capture" | "run" | null>(null);
   const [notice, setNotice] = useState<{
     kind: "success" | "error";
@@ -449,6 +451,25 @@ export function ReliabilityLifeDataWorkbench() {
             </button>
           </div>
         </form>
+      )}
+      <div className="border-t border-white/10 px-5 py-4">
+        <button
+          type="button"
+          onClick={() => setShowSurvival((value) => !value)}
+          disabled={!component.trim()}
+          aria-expanded={showSurvival}
+          className="rounded-lg border border-cyan-400/25 bg-cyan-400/10 px-3 py-2 text-sm text-cyan-200 disabled:opacity-40"
+        >
+          {showSurvival
+            ? "Close covariate survival workbench"
+            : "Open covariate survival workbench"}
+        </button>
+      </div>
+      {showSurvival && component.trim() && (
+        <CovariateSurvivalWorkbench
+          key={component.trim().toLowerCase()}
+          component={component.trim()}
+        />
       )}
     </section>
   );
