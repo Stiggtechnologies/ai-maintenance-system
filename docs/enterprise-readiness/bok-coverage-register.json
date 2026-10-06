@@ -1,0 +1,346 @@
+{
+  "$comment": "Body-of-knowledge coverage register. Every method gap found by the 2026-10-06 BoK gap analysis is an item here and may never be removed. Enforced by src/test/bok-coverage.test.ts: kernel_verified items must have code, exports and tests that exercise each export and a refusal path; owned_by_open_pr items must name the PR and the handover; open items must state the next step; no critical item may be open; register rows tied to a kernel may not be green until the kernel is customer-reachable; every BOK tag in src/lib must resolve to an item here.",
+  "sourceAnalysis": "https://claude.ai/code/artifact/581ad850-d5a6-42e7-95f2-9a8f9a4959ae",
+  "reviewed": "2026-10-06",
+  "items": [
+    {
+      "id": "BOK-01",
+      "title": "Confidence bounds on Weibull life data, B-lives and Weibayes",
+      "severity": "critical",
+      "references": [
+        "Meeker & Escobar 1998 ch. 8",
+        "Abernethy, New Weibull Handbook §5–6",
+        "IEC 61649"
+      ],
+      "status": "kernel_verified",
+      "module": "src/lib/reliability/life-data-bounds.ts",
+      "exports": [
+        "weibullFisherBounds",
+        "weibullBLife",
+        "weibullReliabilityBounds",
+        "weibayes",
+        "weibullObservedInformation",
+        "weibullLogLikelihood"
+      ],
+      "testFile": "src/lib/reliability/bok-life-data.test.ts",
+      "consumers": ["src/lib/optimization/interval-under-uncertainty.ts"],
+      "registerRows": [],
+      "customerReachable": false,
+      "nextStep": "Wire weibullFisherBounds into runReliabilityLifeDataAgent so every life-data report carries the beta interval and B10 bounds."
+    },
+    {
+      "id": "BOK-02",
+      "title": "Repairable-system trend tests, renewal gate and mean cumulative function",
+      "severity": "critical",
+      "references": [
+        "Ascher & Feingold 1984",
+        "MIL-HDBK-189C §5",
+        "Nelson 2003 (MCF)"
+      ],
+      "status": "kernel_verified",
+      "module": "src/lib/reliability/trend-tests.ts",
+      "exports": [
+        "laplaceTest",
+        "lewisRobinsonTest",
+        "milHdbk189Test",
+        "renewalGate",
+        "meanCumulativeFunction"
+      ],
+      "testFile": "src/lib/reliability/bok-life-data.test.ts",
+      "registerRows": [],
+      "customerReachable": false,
+      "nextStep": "Call renewalGate before any Weibull fit on inter-arrival times in the life-data agent and surface the verdict on /reliability."
+    },
+    {
+      "id": "BOK-03",
+      "title": "JA1011 RCM decision logic and quantitative FMECA mode criticality (IEC 60812 / MIL-STD-1629A)",
+      "severity": "critical",
+      "references": [
+        "SAE JA1011 / JA1012",
+        "Moubray RCM II",
+        "MIL-STD-1629A",
+        "IEC 60812:2018"
+      ],
+      "status": "owned_by_open_pr",
+      "pr": 624,
+      "handover": "PR #624 (agent/rcm-decision-logic) owns RCM and FMEA. Its diff implements the seven-question workflow, consequence branches and tenant-scale FMECA ranks. It does not contain quantitative mode criticality (Cm = beta x alpha x lambda x t). Handed over to #624 rather than built in parallel.",
+      "registerRows": ["C7.09"],
+      "customerReachable": false,
+      "nextStep": "Confirm with #624 whether quantitative mode criticality lands there or in a follow-up kernel."
+    },
+    {
+      "id": "BOK-04",
+      "title": "Failure-finding interval for hidden failures of non-SIF protective devices",
+      "severity": "critical",
+      "references": ["SAE JA1011 §5.7", "Moubray ch. 8", "IEC 61511"],
+      "status": "owned_by_open_pr",
+      "pr": 624,
+      "handover": "PR #624 owns the hidden-failure gate in the RCM workflow; its diff has no failure-finding interval calculation (target unavailability from device MTBF). The calculation belongs inside that hidden-failure branch, so it is handed over to #624.",
+      "registerRows": ["C7.09"],
+      "customerReachable": false,
+      "nextStep": "Add an FFI kernel (single and redundant devices) consumed by #624's hidden-failure branch."
+    },
+    {
+      "id": "BOK-05",
+      "title": "Quantitative risk-based inspection planning (API RP 580-aligned)",
+      "severity": "critical",
+      "references": [
+        "API RP 580 4th ed. 2023",
+        "API RP 581 4th ed. 2025 Part 1 §4",
+        "API 571"
+      ],
+      "status": "kernel_verified",
+      "module": "src/lib/integrity/rbi.ts",
+      "exports": ["planRiskBasedInspection"],
+      "testFile": "src/lib/bok-decision-kernels.test.ts",
+      "registerRows": ["E2.06"],
+      "customerReachable": false,
+      "nextStep": "Feed PressureIntegrity circuits, CML corrosion rates and owner-licensed API 581 values into planRiskBasedInspection, and adopt the result through record_inspection_plan."
+    },
+    {
+      "id": "BOK-06",
+      "title": "Layer of Protection Analysis deriving SIL targets",
+      "severity": "critical",
+      "references": ["CCPS LOPA 2001", "IEC 61511-3 Annex F"],
+      "status": "kernel_verified",
+      "module": "src/lib/process-safety/lopa.ts",
+      "exports": ["analyseLopa", "sifMeetsLopa"],
+      "testFile": "src/lib/bok-decision-kernels.test.ts",
+      "registerRows": [],
+      "customerReachable": false,
+      "nextStep": "Persist LOPA scenarios against safety_instrumented_functions and show the LOPA target next to verifySIF on ProcessSafety."
+    },
+    {
+      "id": "BOK-07",
+      "title": "Discounted life-cycle cost and equivalent annual cost",
+      "severity": "critical",
+      "references": [
+        "IEC 60300-3-3:2017 §5.4",
+        "Blanchard & Fabrycky ch. 17",
+        "DoD O&S Cost-Estimating Guide"
+      ],
+      "status": "kernel_verified",
+      "module": "src/lib/lifecycle/discounted-lcc.ts",
+      "exports": [
+        "presentValue",
+        "capitalRecoveryFactor",
+        "compareLifeCycleOptions"
+      ],
+      "testFile": "src/lib/bok-decision-kernels.test.ts",
+      "registerRows": ["C8.09"],
+      "customerReachable": false,
+      "nextStep": "Use compareLifeCycleOptions in the lifecycle repair/replace evaluation once the finance owner records a governed discount rate (asset economics, PR #612)."
+    },
+    {
+      "id": "BOK-08",
+      "title": "Life-distribution choice (exponential, Weibull, lognormal) by AIC",
+      "severity": "high",
+      "references": ["Meeker & Escobar 1998 ch. 8", "Burnham & Anderson 2002"],
+      "status": "kernel_verified",
+      "module": "src/lib/reliability/distribution-fit.ts",
+      "exports": [
+        "chooseLifeDistribution",
+        "fitExponential",
+        "fitLognormal",
+        "lognormalLogLikelihood",
+        "logNormalSurvival"
+      ],
+      "testFile": "src/lib/reliability/bok-life-data.test.ts",
+      "registerRows": [],
+      "customerReachable": false,
+      "nextStep": "Report the family comparison alongside every life-data fit."
+    },
+    {
+      "id": "BOK-08B",
+      "title": "3-parameter Weibull and mixed / competing-mode Weibull",
+      "severity": "medium",
+      "references": ["Meeker & Escobar 1998 ch. 11", "Abernethy §3"],
+      "status": "open",
+      "registerRows": [],
+      "customerReachable": false,
+      "nextStep": "Add a location-parameter MLE with a profile-likelihood guard and a competing-risks fit by failure mode."
+    },
+    {
+      "id": "BOK-09",
+      "title": "Bayesian failure-rate update from cited generic priors",
+      "severity": "high",
+      "references": ["NUREG/CR-6823 §6.2", "Hamada et al. 2008 ch. 3", "OREDA"],
+      "status": "kernel_verified",
+      "module": "src/lib/reliability/bayesian-rate.ts",
+      "exports": ["gammaPriorFromMeanAndErrorFactor", "updateFailureRate"],
+      "testFile": "src/lib/reliability/bok-life-data.test.ts",
+      "registerRows": [],
+      "customerReachable": false,
+      "nextStep": "Offer the update when the life-data agent refuses for insufficient failures."
+    },
+    {
+      "id": "BOK-09B",
+      "title": "Generic failure-rate library (licensed OREDA / ISO 14224-class data)",
+      "severity": "medium",
+      "references": ["OREDA Handbook", "ISO 14224:2016"],
+      "status": "open",
+      "registerRows": [],
+      "customerReachable": false,
+      "nextStep": "Decide licensing; ingest only licensed or customer-owned rates as governed reference data with source and edition."
+    },
+    {
+      "id": "BOK-10",
+      "title": "Reliability growth planning (idealized curve)",
+      "severity": "low",
+      "references": ["MIL-HDBK-189C §5.2"],
+      "status": "kernel_verified",
+      "module": "src/lib/reliability/growth-planning.ts",
+      "exports": ["idealizedMtbf", "timeToReachMtbf", "requiredGrowthRate"],
+      "testFile": "src/lib/reliability/bok-life-data.test.ts",
+      "registerRows": [],
+      "customerReachable": false,
+      "nextStep": "Expose planning alongside Crow-AMSAA tracking for early-life programmes (E8.13)."
+    },
+    {
+      "id": "BOK-11",
+      "title": "Block replacement with numerically solved renewal function",
+      "severity": "medium",
+      "references": ["Barlow & Proschan 1965", "Jardine & Tsang 2013 §2.6"],
+      "status": "kernel_verified",
+      "module": "src/lib/optimization/interval-under-uncertainty.ts",
+      "exports": [
+        "optimalBlockReplacement",
+        "weibullRenewalFunction",
+        "ageReplacementUnderUncertainty"
+      ],
+      "testFile": "src/lib/bok-decision-kernels.test.ts",
+      "registerRows": ["C7.08"],
+      "customerReachable": false,
+      "nextStep": "Offer block replacement next to age replacement in the asset-strategy agent's interval advice."
+    },
+    {
+      "id": "BOK-11B",
+      "title": "Opportunistic grouping and multi-component maintenance policies",
+      "severity": "medium",
+      "references": ["Dekker 1996", "Wang 2002"],
+      "status": "open",
+      "registerRows": ["C7.08"],
+      "customerReachable": false,
+      "nextStep": "Model grouping against shutdown windows using the turnaround schedule graph."
+    },
+    {
+      "id": "BOK-12",
+      "title": "Rotable spares pipeline (Palm) and system-level marginal allocation",
+      "severity": "high",
+      "references": ["Sherbrooke 2004 ch. 2–3", "Muckstadt 2005"],
+      "status": "kernel_verified",
+      "module": "src/lib/spares/rotable-pipeline.ts",
+      "exports": [
+        "pipelineMean",
+        "expectedBackorders",
+        "fillRate",
+        "fleetAvailability",
+        "optimiseRotableStock"
+      ],
+      "testFile": "src/lib/bok-decision-kernels.test.ts",
+      "registerRows": [],
+      "customerReachable": false,
+      "nextStep": "Feed repairable history from PR #592 (repairable material history) into pipelineMean."
+    },
+    {
+      "id": "BOK-12B",
+      "title": "Multi-echelon METRIC / VARI-METRIC (depot and site)",
+      "severity": "medium",
+      "references": ["Sherbrooke 2004 ch. 4–5"],
+      "status": "open",
+      "registerRows": [],
+      "customerReachable": false,
+      "nextStep": "Extend the single-site model to a depot plus sites once multi-site stock data is reachable."
+    },
+    {
+      "id": "BOK-13",
+      "title": "Human error probability (HEART)",
+      "severity": "medium",
+      "references": ["Williams 1986/1988", "HSE RR679 2009"],
+      "status": "kernel_verified",
+      "module": "src/lib/human-factors/heart.ts",
+      "exports": ["heartHep"],
+      "testFile": "src/lib/bok-decision-kernels.test.ts",
+      "registerRows": [],
+      "customerReachable": false,
+      "nextStep": "Allow LOPA layers and fault-tree basic events to cite a HEART assessment as their probability basis."
+    },
+    {
+      "id": "BOK-13B",
+      "title": "THERP human reliability analysis",
+      "severity": "low",
+      "references": ["NUREG/CR-1278"],
+      "status": "open",
+      "registerRows": [],
+      "customerReachable": false,
+      "nextStep": "Only if a nuclear or regulated-process customer requires THERP specifically; HEART covers general maintenance tasks."
+    },
+    {
+      "id": "BOK-14",
+      "title": "Proportional-hazards / covariate CBM model and remaining useful life",
+      "severity": "medium",
+      "references": ["Jardine, Lin & Banjevic 2006", "ISO 13381-1"],
+      "status": "owned_by_open_pr",
+      "pr": 636,
+      "handover": "PR #636 (agent/covariate-survival-models) owns C7.14 and is building Cox models with confidence and prediction uncertainty in src/lib/reliability/cox*.ts. Not duplicated here.",
+      "registerRows": ["C7.14"],
+      "customerReachable": false,
+      "nextStep": "Track #636 to merge."
+    },
+    {
+      "id": "BOK-15",
+      "title": "ISO 55001:2024 Strategic Asset Management Plan and AM-policy line of sight",
+      "severity": "medium",
+      "references": ["ISO 55001:2024 cl. 6.2.1", "ISO 55000:2024"],
+      "status": "open",
+      "registerRows": [],
+      "customerReachable": false,
+      "nextStep": "Feature-lane workstream: a governed SAMP artefact linking organisational objectives to asset objectives and plans."
+    },
+    {
+      "id": "BOK-16",
+      "title": "HAZOP and STPA as executable structured workflows",
+      "severity": "medium",
+      "references": ["IEC 61882", "Leveson & Thomas, STPA Handbook 2018"],
+      "status": "open",
+      "registerRows": [],
+      "customerReachable": false,
+      "nextStep": "Feature-lane workstream: node/guideword (HAZOP) and control-structure/UCA (STPA) records feeding the risk operating system."
+    },
+    {
+      "id": "BOK-17",
+      "title": "Product support analysis, LORA and logistics product data (defence/OEM)",
+      "severity": "low",
+      "references": [
+        "SAE TA-STD-0017A",
+        "SAE GEIA-STD-0007C",
+        "SAE AS1390",
+        "ASD S3000L"
+      ],
+      "status": "open",
+      "registerRows": [],
+      "customerReachable": false,
+      "nextStep": "Build only if a defence or OEM buyer is targeted; start with LORA as a kernel."
+    },
+    {
+      "id": "BOK-18",
+      "title": "Testability and fault-isolation logic",
+      "severity": "low",
+      "references": ["MIL-HDBK-2165"],
+      "status": "open",
+      "registerRows": [],
+      "customerReachable": false,
+      "nextStep": "Diagnostic trees from FMEA effects to shorten MTTR."
+    },
+    {
+      "id": "BOK-19",
+      "title": "MIL-STD-882E hazard risk index profile",
+      "severity": "low",
+      "references": ["MIL-STD-882E w/ Change 1 (2023)"],
+      "status": "open",
+      "registerRows": [],
+      "customerReachable": false,
+      "nextStep": "Add as a risk-criteria profile in the risk operating system for defence customers."
+    }
+  ]
+}
