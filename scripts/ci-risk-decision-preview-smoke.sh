@@ -7,3 +7,4 @@ trap 'echo "Governed risk decision preview smoke FAILED at line $LINENO"' ERR
 test "${GITHUB_ACTIONS:-}" = true
 PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres \
   -X -v ON_ERROR_STOP=1 -f scripts/tests/risk-decision-preview-postgres-tests.sql
+node scripts/tests/risk-decision-preview-http-smoke.mjs
