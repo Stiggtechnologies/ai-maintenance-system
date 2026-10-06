@@ -251,7 +251,7 @@ end $$;
 -- current RLS, actual secondary read RPC and information/evidence writer.
 do $$
 declare f record; parent uuid; child uuid; scenario uuid; receipt jsonb;
-  option jsonb; evidence_receipt jsonb; refused boolean; baseline bigint;
+  option jsonb; evidence_receipt jsonb; refused boolean; baseline bigint; affected bigint;
 begin
   select * into f from risk_preview_fixture;
   for parent in select f.restricted_risk union all
@@ -286,18 +286,30 @@ begin
     if evidence_receipt ? 'error' or public.sync_text_as_uuid(evidence_receipt->>'evidence_id') is null then
       raise exception 'canonical child evidence writer failed';
     end if;
-    refused:=false;
+    -- Ordinary RLS may legitimately refuse an UPDATE by affecting zero rows.
+    -- Prove no mutation AND the exact preserved origin; this is not a claim
+    -- that its trigger executed. Privileged probes below prove each trigger.
+    refused:=false; affected:=0;
     begin update risks set secondary_to_risk_id=null where id=child;
-    exception when check_violation then refused:=true; end;
-    if not refused then raise exception 'child parent origin was severed'; end if;
-    refused:=false;
+      get diagnostics affected=row_count;
+    exception when check_violation or insufficient_privilege then refused:=true; end;
+    if affected<>0 or (select secondary_to_risk_id from risks where id=child) is distinct from parent then
+      raise exception 'child parent origin was severed'; end if;
+    raise notice 'ordinary parent-origin refusal: exception=%, changed_rows=%',refused,affected;
+    refused:=false; affected:=0;
     begin update risks set arising_from_scenario_id=null where id=child;
-    exception when check_violation then refused:=true; end;
-    if not refused then raise exception 'child scenario origin was severed'; end if;
-    refused:=false;
+      get diagnostics affected=row_count;
+    exception when check_violation or insufficient_privilege then refused:=true; end;
+    if affected<>0 or (select arising_from_scenario_id from risks where id=child) is distinct from scenario then
+      raise exception 'child scenario origin was severed'; end if;
+    raise notice 'ordinary treatment-origin refusal: exception=%, changed_rows=%',refused,affected;
+    refused:=false; affected:=0;
     begin update scenarios set risk_id=f.incomplete_risk where id=scenario;
-    exception when check_violation then refused:=true; end;
-    if not refused then raise exception 'canonical originating scenario was reparented'; end if;
+      get diagnostics affected=row_count;
+    exception when check_violation or insufficient_privilege then refused:=true; end;
+    if affected<>0 or (select risk_id from scenarios where id=scenario) is distinct from parent then
+      raise exception 'canonical originating scenario was reparented'; end if;
+    raise notice 'ordinary scenario-parent refusal: exception=%, changed_rows=%',refused,affected;
     -- State-preservation proof under ordinary authenticated RLS. A zero-row
     -- DELETE is a valid refusal here; a separate privileged probe below proves
     -- the actual trigger independently of that policy.
@@ -332,6 +344,34 @@ declare f record; c record; a record; refused boolean; detail text; baseline big
 begin
   select * into f from risk_preview_fixture;
   for c in select * from risk_preview_children loop
+    if (select secondary_to_risk_id from risks where id=c.id) is distinct from c.parent_id
+      or (select arising_from_scenario_id from risks where id=c.id) is distinct from c.scenario_id
+      or (select risk_id from scenarios where id=c.scenario_id) is distinct from c.parent_id then
+      raise exception 'canonical origin trigger target is not bound'; end if;
+    refused:=false;
+    begin update risks set secondary_to_risk_id=null where id=c.id;
+    exception when check_violation then
+      get stacked diagnostics detail=message_text;
+      refused:=detail='Secondary risk parent provenance cannot be severed or replaced';
+    end;
+    if not refused or (select secondary_to_risk_id from risks where id=c.id) is distinct from c.parent_id then
+      raise exception 'actual child-parent origin trigger failed'; end if;
+    refused:=false;
+    begin update risks set arising_from_scenario_id=null where id=c.id;
+    exception when check_violation then
+      get stacked diagnostics detail=message_text;
+      refused:=detail='Secondary risk treatment provenance cannot be severed or replaced';
+    end;
+    if not refused or (select arising_from_scenario_id from risks where id=c.id) is distinct from c.scenario_id then
+      raise exception 'actual child-treatment origin trigger failed'; end if;
+    refused:=false;
+    begin update scenarios set risk_id=f.incomplete_risk where id=c.scenario_id;
+    exception when check_violation then
+      get stacked diagnostics detail=message_text;
+      refused:=detail='A secondary risk treatment origin identity, tenant and parent are immutable';
+    end;
+    if not refused or (select risk_id from scenarios where id=c.scenario_id) is distinct from c.parent_id then
+      raise exception 'actual scenario-parent origin trigger failed'; end if;
     select * into a from audit_events where entity_type='risk_secondary_created'
       and event_data->>'risk_id'=c.id::text and organization_id=f.org;
     if not found then raise exception 'canonical creation lacks actual origin receipt'; end if;
@@ -371,8 +411,18 @@ do $$ declare child uuid; parent uuid; payload jsonb; begin
     raise exception 'ordinary child could not be read before parent reclassification'; end if;
 end $$;
 select set_config('request.jwt.claim.sub',administrator::text,true) from risk_preview_fixture;
-update risks set information_sensitivity='restricted'
-where id=(select risk_id from risk_preview_cases where label='exact sixty');
+-- Require an actual one-row change, not an authenticated zero-row UPDATE.
+-- This fixture owner changes only its random, transaction-local parent.
+reset role;
+do $$ declare target uuid; affected bigint; begin
+  select risk_id into target from risk_preview_cases where label='exact sixty';
+  if target is null or (select information_sensitivity from risks where id=target) is distinct from 'internal' then
+    raise exception 'parent reclassification lacks the actual ordinary target'; end if;
+  update risks set information_sensitivity='restricted' where id=target;
+  get diagnostics affected=row_count;
+  if affected<>1 or (select information_sensitivity from risks where id=target) is distinct from 'restricted' then
+    raise exception 'parent reclassification did not change its actual target'; end if;
+end $$;
 
 -- Same-tenant ordinary reader: the risk and its canonical ledger payloads are
 -- denied together; ordinary unrelated ledger entries remain tenant-readable.

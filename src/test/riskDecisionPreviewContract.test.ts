@@ -24,6 +24,92 @@ function functionBody(name: string): string {
 }
 
 describe("R4.02 / U18.02 / R5.03 governed decision previews", () => {
+  it("proves ordinary origin refusals by row count and preserved canonical state", () => {
+    const ordinary = runtimeFixture.split(
+      "-- Controlled privileged fixture probes",
+    )[0];
+    for (const field of ["secondary_to_risk_id", "arising_from_scenario_id"]) {
+      expect(ordinary).toContain(
+        `(select ${field} from risks where id=child) is distinct from`,
+      );
+    }
+    expect(ordinary).toContain(
+      "(select risk_id from scenarios where id=scenario) is distinct from parent",
+    );
+    expect(ordinary.match(/get diagnostics affected=row_count/g)).toHaveLength(
+      3,
+    );
+    expect(ordinary.match(/if affected<>0 or/g)).toHaveLength(3);
+  });
+
+  it("independently exercises privileged origin triggers rather than an RLS zero-row refusal", () => {
+    const privileged = runtimeFixture
+      .split("-- Controlled privileged fixture probes")[1]
+      ?.split("set local role authenticated;")[0];
+    expect(privileged).toContain(
+      "canonical origin trigger target is not bound",
+    );
+    for (const message of [
+      "Secondary risk parent provenance cannot be severed or replaced",
+      "Secondary risk treatment provenance cannot be severed or replaced",
+      "A secondary risk treatment origin identity, tenant and parent are immutable",
+      "A secondary risk treatment origin cannot be deleted",
+      "A secondary risk canonical origin receipt already exists",
+    ])
+      expect(privileged).toContain(`refused:=detail='${message}'`);
+    expect(privileged).toContain(
+      "(select secondary_to_risk_id from risks where id=c.id) is distinct from c.parent_id",
+    );
+    expect(privileged).toContain(
+      "(select arising_from_scenario_id from risks where id=c.id) is distinct from c.scenario_id",
+    );
+    expect(privileged).toContain(
+      "(select risk_id from scenarios where id=c.scenario_id) is distinct from c.parent_id",
+    );
+  });
+
+  it("witnesses an actual parent reclassification before claiming inherited-access refusal", () => {
+    const reclassification = runtimeFixture
+      .split("-- The ordinary derived row is initially visible.")[1]
+      ?.split("-- Same-tenant ordinary reader:")[0];
+    expect(reclassification).toContain("get diagnostics affected=row_count");
+    expect(reclassification).toContain("if affected<>1 or");
+    expect(reclassification).toContain(
+      "parent reclassification did not change its actual target",
+    );
+  });
+
+  it("fails fast with rollback-only SQL while retaining the full late SQL and real HTTP gate", () => {
+    const workflow = readFileSync(".github/workflows/ci.yml", "utf8");
+    const script = readFileSync(
+      "scripts/ci-risk-decision-preview-smoke.sh",
+      "utf8",
+    );
+    const preflight = workflow.indexOf(
+      "bash scripts/ci-risk-decision-preview-smoke.sh --sql-preflight",
+    );
+    expect(preflight).toBeGreaterThan(-1);
+    expect(preflight).toBeLessThan(
+      workflow.indexOf("Smoke — Sync Develop slice 1"),
+    );
+    expect(
+      workflow.match(
+        /run: bash scripts\/ci-risk-decision-preview-smoke\.sh\s*\n/g,
+      ),
+    ).toHaveLength(1);
+    expect(script).toContain("1:--sql-preflight");
+    expect(script).toContain('test "${GITHUB_ACTIONS:-}" = true');
+    expect(script).toContain("env -i");
+    expect(script).toContain('if [[ "${1:-}" != --sql-preflight ]]');
+    expect(script).toContain(
+      "node scripts/tests/risk-decision-preview-http-smoke.mjs",
+    );
+    const transactionEnd = runtimeFixture.split(/\brollback;/i);
+    expect(transactionEnd).toHaveLength(2);
+    // Only the literal success receipt may follow the transaction rollback.
+    expect(transactionEnd[1].trim()).toMatch(/^select '[^']*';$/);
+  });
+
   it("does not shadow PL/pgSQL fixture records with SQL relation aliases", () => {
     const blocks = [...runtimeFixture.matchAll(/\bdo\s+\$\$([\s\S]*?)\$\$;/gi)];
     expect(blocks.length).toBeGreaterThan(0);
