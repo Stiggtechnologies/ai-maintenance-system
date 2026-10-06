@@ -74,10 +74,15 @@ test("actual installed-life browser capture, independent review, complete census
   expect(aal1.error).toBeNull();
   expect(aal1.data.error).toMatch(/verified MFA and AAL2/);
   await panel
-    .getByLabel("Evidence source kind", { exact: true })
+    // Wrapped select labels include option text for getByLabel; the browser's
+    // accessible combobox name excludes it and remains exact as options change.
+    .getByRole("combobox", { name: "Evidence source kind", exact: true })
     .selectOption("installation");
   await panel
-    .getByLabel("Canonical component installation", { exact: true })
+    .getByRole("combobox", {
+      name: "Canonical component installation",
+      exact: true,
+    })
     .selectOption(instanceId);
   await expect(
     panel.getByLabel("Physical component life reference", { exact: true }),
@@ -103,13 +108,16 @@ test("actual installed-life browser capture, independent review, complete census
       "Actual browser synthetic installation, meter and condition source witness; not qualified customer data.",
   };
   await panel
-    .getByLabel("Installation evidence", { exact: true })
+    .getByRole("combobox", { name: "Installation evidence", exact: true })
     .selectOption(fixture.evidenceId);
   await panel
-    .getByLabel("Latest meter evidence", { exact: true })
+    .getByRole("combobox", { name: "Latest meter evidence", exact: true })
     .selectOption(fixture.meterEvidenceId);
   await panel
-    .getByLabel("Interval 1 predictor 1 evidence", { exact: true })
+    .getByRole("combobox", {
+      name: "Interval 1 predictor 1 evidence",
+      exact: true,
+    })
     .selectOption(fixture.evidenceId);
   for (const [label, value] of Object.entries(fields))
     await panel.getByLabel(label, { exact: true }).fill(value);
@@ -159,10 +167,13 @@ test("actual installed-life browser capture, independent review, complete census
     const reviewerPage = await reviewerContext.newPage();
     const reviewPanel = await openWorkbench(reviewerPage, component);
     await reviewPanel
-      .getByLabel("Evidence source kind", { exact: true })
+      .getByRole("combobox", { name: "Evidence source kind", exact: true })
       .selectOption("installation");
     await reviewPanel
-      .getByLabel("Canonical component installation", { exact: true })
+      .getByRole("combobox", {
+        name: "Canonical component installation",
+        exact: true,
+      })
       .selectOption(instanceId);
     await reviewPanel
       .getByText("Inspect exact recorded overlay and current source", {
@@ -230,10 +241,13 @@ test("actual installed-life browser capture, independent review, complete census
     .getByLabel("Include evidence-backed conditional scenario", { exact: true })
     .check();
   await panel
-    .getByLabel("Scenario profile kind", { exact: true })
+    .getByRole("combobox", { name: "Scenario profile kind", exact: true })
     .selectOption("installation");
   await panel
-    .getByLabel("Scenario installed component", { exact: true })
+    .getByRole("combobox", {
+      name: "Scenario installed component",
+      exact: true,
+    })
     .selectOption(instanceId);
   await panel
     .getByLabel("Scenario horizon operating hours", { exact: true })

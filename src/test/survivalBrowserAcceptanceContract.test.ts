@@ -120,4 +120,18 @@ describe("actual installed-life browser acceptance boundary", () => {
     ])
       expect(acceptance).toContain(witness);
   });
+  it("targets wrapped selects by their exact accessible combobox name, not option-inclusive label text", () => {
+    // Hosted 38e10614 rendered an enabled select but exact getByLabel could
+    // not find it because the wrapping label also contains every option.
+    // Actual Chromium reproduction: exact label 0, exact role 1.
+    const selections = [
+      ...acceptance.matchAll(/\.(getBy\w+)\(([^)]*)\)\s*\.selectOption\(/g),
+    ];
+    expect(selections).toHaveLength(9);
+    for (const [, method, args] of selections) {
+      expect(method).toBe("getByRole");
+      expect(args).toContain('"combobox"');
+      expect(args).toContain("exact: true");
+    }
+  });
 });
