@@ -82,7 +82,10 @@
       "promptOrCompletionTextStoredByBoundary": false
     },
     "pricingModeBoundary": {
-      "status": "implemented_pending_hosted_verification_and_configuration",
+      "status": "implemented_hosted_verified_not_configured",
+      "verifiedHead": "5a1eccc143bb622530e2289b218e378c614d525e",
+      "verifiedRun": "37539451597",
+      "verifiedResult": "success",
       "standardRateModelPricesImplemented": true,
       "planPolicyProviderCostMultiplierRequired": true,
       "minimumProviderCostMultiplier": 1,

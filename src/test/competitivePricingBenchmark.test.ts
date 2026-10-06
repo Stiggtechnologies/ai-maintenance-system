@@ -86,6 +86,26 @@ const manifest = JSON.parse(
     }>;
     status: string;
   };
+  offerInventory: {
+    draftCount: number;
+    offers: Array<{
+      canonicalRecurringPath: boolean;
+      partnerCenterName: string;
+      status: string;
+      type: string;
+    }>;
+    publishedCount: number;
+    submitOrPublishEnabled: boolean;
+  };
+  plans: Array<{
+    autoActivation: boolean;
+    name: string;
+    observedPricing: {
+      markets: number;
+      ownerApprovalRecorded: boolean;
+    };
+    partnerCenterPageStatus: string;
+  }>;
   previewAndCertification: {
     acceptedMeteringWitness: string;
     authenticatedLifecycleWitness: string;
@@ -97,6 +117,15 @@ const manifest = JSON.parse(
       pullRequest: string;
       verifiedImplementationCommit: string;
     };
+  };
+  supplementalContent: {
+    commercialConsequence: string;
+    draftSaveAuthorized: boolean;
+    partnerCenterDraftSavedAt: string | null;
+    portalOptionLabel: string;
+    selectedScenario: string | null;
+    status: string;
+    truthfulCurrentScenario: string;
   };
   taxAndPayout: {
     azureMarketplaceAssignment: {
@@ -273,6 +302,58 @@ describe("competitive pricing benchmark", () => {
     expect(payoutAction?.action).toMatch(/Tax is Complete/);
     expect(payoutAction?.action).toMatch(/Pending Microsoft validation/);
     expect(payoutAction?.action).toMatch(/verification is Not started/);
+  });
+
+  it("records the live offer inventory without promoting any draft to a product", () => {
+    expect(manifest.offerInventory).toMatchObject({
+      draftCount: 4,
+      publishedCount: 0,
+      submitOrPublishEnabled: false,
+    });
+    expect(
+      manifest.offerInventory.offers.filter(
+        ({ canonicalRecurringPath }) => canonicalRecurringPath,
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        partnerCenterName: "SyncAI Predictive Maintenance",
+        type: "saas",
+        status: "draft",
+      }),
+    ]);
+    expect(
+      manifest.offerInventory.offers.filter(
+        ({ type }) => type === "professional_service",
+      ),
+    ).toHaveLength(3);
+  });
+
+  it("keeps the truthful non-Azure declaration unsaved until action-time approval", () => {
+    expect(manifest.supplementalContent).toMatchObject({
+      selectedScenario: null,
+      truthfulCurrentScenario: "not_hosted_in_azure",
+      portalOptionLabel: "SaaS solution is not hosted in Azure",
+      draftSaveAuthorized: false,
+      partnerCenterDraftSavedAt: null,
+      status: "blocked",
+    });
+    expect(manifest.supplementalContent.commercialConsequence).toMatch(
+      /primarily platformed on Azure/i,
+    );
+    expect(manifest.supplementalContent.commercialConsequence).toMatch(
+      /purchasable within Azure portal/i,
+    );
+    expect(manifest.plans).toHaveLength(3);
+    for (const plan of manifest.plans) {
+      expect(plan.partnerCenterPageStatus).toBe(
+        "incomplete_account_publish_eligibility",
+      );
+      expect(plan.autoActivation).toBe(false);
+      expect(plan.observedPricing).toMatchObject({
+        markets: 141,
+        ownerApprovalRecorded: false,
+      });
+    }
   });
 
   it("separates green repository proof from production and purchase evidence", () => {

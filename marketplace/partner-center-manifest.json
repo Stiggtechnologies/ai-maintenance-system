@@ -14,9 +14,50 @@
     "published": false,
     "microsoftCertified": false,
     "transactableBuyerProven": false,
+    "azurePortalPurchaseEligibilityProven": false,
     "primarilyPlatformedOnAzureProven": false,
     "maccEligible": false,
     "coSellReady": false
+  },
+  "offerInventory": {
+    "observedAt": "2026-10-06",
+    "draftCount": 4,
+    "publishedCount": 0,
+    "submitOrPublishEnabled": false,
+    "offers": [
+      {
+        "partnerCenterName": "SyncAI Predictive Maintenance",
+        "offerId": "771d0f8e-11f8-4ac3-9325-7ee01ce6fe6b",
+        "type": "saas",
+        "status": "draft",
+        "publicListingName": "SyncAI Industrial Engineering Intelligence",
+        "canonicalRecurringPath": true
+      },
+      {
+        "partnerCenterName": "Reliability Intelligence Assessment",
+        "offerId": "82535999-46d1-4810-8bbb-b2650b9a4e3a",
+        "type": "professional_service",
+        "status": "draft",
+        "observedMarkets": 0,
+        "observedPrice": null,
+        "canonicalRecurringPath": false
+      },
+      {
+        "partnerCenterName": "Industrial Decision Proof of Concept",
+        "offerId": "6c1a18a9-d71b-4207-aea0-a1c73042691c",
+        "type": "professional_service",
+        "status": "draft",
+        "canonicalRecurringPath": false
+      },
+      {
+        "partnerCenterName": "SyncAI Implementation and Scale",
+        "offerId": "12c6243a-ab61-4e59-8bcc-9d8d6135fd3b",
+        "type": "professional_service",
+        "status": "draft",
+        "canonicalRecurringPath": false
+      }
+    ],
+    "status": "verified"
   },
   "technicalConfiguration": {
     "status": "blocked",
@@ -155,6 +196,8 @@
       "proposedPlanId": "starter",
       "listingCopy": "verified",
       "partnerCenterDraftSavedAt": "2026-10-06",
+      "partnerCenterPageStatus": "incomplete_account_publish_eligibility",
+      "autoActivation": false,
       "observedPricing": {
         "model": "per_user",
         "minimumUsers": 1,
@@ -180,6 +223,8 @@
       "proposedPlanId": "professional",
       "listingCopy": "verified",
       "partnerCenterDraftSavedAt": "2026-10-06",
+      "partnerCenterPageStatus": "incomplete_account_publish_eligibility",
+      "autoActivation": false,
       "observedPricing": {
         "model": "per_user",
         "minimumUsers": 3,
@@ -205,6 +250,8 @@
       "proposedPlanId": "enterprise",
       "listingCopy": "verified",
       "partnerCenterDraftSavedAt": "2026-10-06",
+      "partnerCenterPageStatus": "incomplete_account_publish_eligibility",
+      "autoActivation": false,
       "observedPricing": {
         "model": "per_user",
         "minimumUsers": 10,
@@ -339,17 +386,25 @@
     "status": "blocked"
   },
   "supplementalContent": {
-    "narrative": "prepared_not_saved",
-    "selectedScenario": "partially_hosted",
-    "selectedModel": "other",
-    "azureSubscriptionId": "owner_decision_required",
-    "deployedAzureResourceEvidence": "blocked",
-    "azureConsumptionEvidence": "blocked",
-    "architectureDiagram": "blocked",
+    "narrative": "live_form_inspected_not_saved",
+    "selectedScenario": null,
+    "selectedModel": null,
+    "truthfulCurrentScenario": "not_hosted_in_azure",
+    "portalOptionLabel": "SaaS solution is not hosted in Azure",
+    "draftSaveAuthorized": false,
+    "partnerCenterDraftSavedAt": null,
+    "commercialConsequence": "The truthful non-Azure declaration can be saved, but current Microsoft SaaS policy requires a SaaS offer to be primarily platformed on Azure to be purchasable within Azure portal. Preserve the transactable draft as blocked until the primary Azure workload is deployed and evidenced, or deliberately convert to a non-purchasable listing path.",
+    "azureSubscriptionId": "not_applicable_for_current_truthful_scenario",
+    "deployedAzureResourceEvidence": "not_present",
+    "azureConsumptionEvidence": "not_present",
+    "architectureDiagram": "not_evaluated_for_unselected_scenario",
     "externalDependenciesDisclosed": true,
     "status": "blocked"
   },
   "listing": {
+    "partnerCenterOfferName": "SyncAI Predictive Maintenance",
+    "publicOfferName": "SyncAI Industrial Engineering Intelligence",
+    "offerId": "771d0f8e-11f8-4ac3-9325-7ee01ce6fe6b",
     "offerCopy": "verified",
     "gettingStarted": "verified",
     "keywords": "verified",
@@ -430,7 +485,7 @@
     {
       "id": "PC-005",
       "owner": "Azure subscription owner",
-      "action": "Current production is not hosted in Azure. The protected azure-production GitHub environment exists with a protected-branch rule and no administrator bypass, but its names-only inventory contains zero environment secrets. Bootstrap the dedicated OIDC identity, scoped production resource group, and eight required environment secrets; then deploy and support the Azure edition with production resource, identity, health, architecture, and commensurate-consumption evidence. Otherwise, the release owner must deliberately switch to listing-only and save the truthful not-hosted-in-Azure answer.",
+      "action": "Current production is Vercel/Supabase and not hosted in Azure. Under action-time authorization, save the truthful 'SaaS solution is not hosted in Azure' Supplemental Content answer; this records but does not clear the paid-purchase blocker. To retain a SaaS offer purchasable within Azure portal, separately authorize an Azure subscription and scoped production deployment, complete the existing 6-of-8 protected bootstrap, and evidence Azure-primary resource, identity, health, architecture and commensurate consumption. Otherwise deliberately convert to a compliant non-purchasable listing path.",
       "status": "blocked"
     },
     {
@@ -461,6 +516,12 @@
       "id": "PC-010",
       "owner": "Marketplace identity and production secret owner",
       "action": "Create a new client secret for the verified publisher application and configure AZURE_MARKETPLACE_CLIENT_SECRET on the live SyncAI Supabase project. The verified client ID, tenant ID, publisher ID, and offer ID are already configured. Then run the protected authenticated preview witness.",
+      "status": "blocked"
+    },
+    {
+      "id": "PC-011",
+      "owner": "Marketplace release owner",
+      "action": "Obtain action-time authorization to select 'SaaS solution is not hosted in Azure' in Supplemental Content and save the draft only. This representation does not authorize submission or publication.",
       "status": "blocked"
     }
   ],
