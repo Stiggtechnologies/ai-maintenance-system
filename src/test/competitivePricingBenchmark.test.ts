@@ -46,10 +46,20 @@ const unitEconomics = JSON.parse(
     };
     productionCogsReporting: { status: string };
   };
+  observedProductionConfiguration: {
+    currentFirstProviderClass: string;
+    directProviderConfigurationNamePresent: string;
+    gatewayConfigurationNamesPresent: string[];
+    gatewayCostScheduleEvidenced: boolean;
+    providerCostMultiplierOneReleaseEligible: boolean;
+    secretValuesInspected: boolean;
+    sharedProviderChainOrderWhenConfigured: string[];
+  };
   pending: {
     approvedCommercialPolicy: { status: string };
     directChannelActivationGate: { status: string };
     productionMeasurementEvidence: { status: string };
+    providerAndPricingTierEvidence: { reason: string; status: string };
     realtimeUsageSettlement: { status: string };
   };
 };
@@ -260,6 +270,28 @@ describe("competitive pricing benchmark", () => {
         status: "commercially_blocked",
         unmeasuredPaidUsageAllowed: false,
       }),
+    );
+  });
+
+  it("refuses a 1.0 production multiplier while the live route is gateway-first and unpriced", () => {
+    expect(unitEconomics.observedProductionConfiguration).toMatchObject({
+      secretValuesInspected: false,
+      gatewayConfigurationNamesPresent: ["LLM_BASE_URL", "LLM_API_KEY"],
+      directProviderConfigurationNamePresent: "OPENAI_API_KEY",
+      sharedProviderChainOrderWhenConfigured: [
+        "stigg-gateway",
+        "openai-direct",
+      ],
+      currentFirstProviderClass: "external_gateway",
+      gatewayCostScheduleEvidenced: false,
+      providerCostMultiplierOneReleaseEligible: false,
+    });
+    expect(unitEconomics.pending.providerAndPricingTierEvidence).toMatchObject({
+      status:
+        "gateway_first_configuration_evidenced_cost_schedule_not_evidenced",
+    });
+    expect(unitEconomics.pending.providerAndPricingTierEvidence.reason).toMatch(
+      /multiplier of 1\.0 is not release-eligible/i,
     );
   });
 

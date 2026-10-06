@@ -167,8 +167,8 @@
       "status": "not_evidenced"
     },
     "providerAndPricingTierEvidence": {
-      "status": "configuration_not_evidenced",
-      "reason": "The policy now requires and applies an explicit provider cost multiplier, but no production plan has an approved standard-rate route or sourced gateway/provider-tier multiplier."
+      "status": "gateway_first_configuration_evidenced_cost_schedule_not_evidenced",
+      "reason": "A 2026-10-06 names-only inventory of the live SyncAI project shows LLM_BASE_URL, LLM_API_KEY, and OPENAI_API_KEY configured. The shared provider chain leads with stigg-gateway when the first two names are present and falls back to direct OpenAI. No gateway pricing schedule or approved gateway/provider-tier multiplier is evidenced, so a production multiplier of 1.0 is not release-eligible. No secret value was inspected."
     },
     "directChannelActivationGate": {
       "status": "not_implemented",
@@ -178,6 +178,23 @@
       "status": "not_implemented",
       "reason": "Paid realtime remains blocked until terminal provider usage can be settled to the canonical ledger."
     }
+  },
+  "observedProductionConfiguration": {
+    "observedAt": "2026-10-06",
+    "scope": "live SyncAI Supabase secret-name inventory only",
+    "secretValuesInspected": false,
+    "gatewayConfigurationNamesPresent": [
+      "LLM_BASE_URL",
+      "LLM_API_KEY"
+    ],
+    "directProviderConfigurationNamePresent": "OPENAI_API_KEY",
+    "sharedProviderChainOrderWhenConfigured": [
+      "stigg-gateway",
+      "openai-direct"
+    ],
+    "currentFirstProviderClass": "external_gateway",
+    "gatewayCostScheduleEvidenced": false,
+    "providerCostMultiplierOneReleaseEligible": false
   },
   "commercialCompatibility": {
     "observedMicrosoftDraftPricingModel": "per_user",
