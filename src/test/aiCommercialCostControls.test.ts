@@ -235,6 +235,13 @@ describe("AI commercial cost controls", () => {
       commercialUsageBoundary.indexOf('"record_llm_usage"'),
     );
     expect(commercialUsageBoundary).toContain('"release_llm_reservation"');
+    expect(commercialUsageBoundary).toContain("paidCommercialProviders(");
+    expect(commercialUsageBoundary).toContain(
+      'provider.name === "openai-direct"',
+    );
+    expect(commercialUsageBoundary).toContain(
+      "provider.model === requestedModel",
+    );
     for (const runtime of developPaidRuntimes) {
       expect(runtime.source).toContain("callWithCommercialBoundary(");
       expect(runtime.source).toContain(`functionName: "${runtime.name}"`);

@@ -40,6 +40,18 @@ const unitEconomics = JSON.parse(
       defaultMaxCallsPerUtcDay: number;
       defaultMaxTokensPerUtcDay: number;
     };
+    paidCommercialProviderRoute: {
+      commercialBindingSignal: string;
+      crossModelSafetyFallbackAllowedForBoundPaidPlan: boolean;
+      externalGatewayAllowedForBoundPaidPlan: boolean;
+      noExactDirectRouteBehavior: string;
+      requiredProviderBaseUrl: string;
+      requiredProviderName: string;
+      requiresExactRequestedModel: boolean;
+      source: string;
+      status: string;
+      unboundEngineeringTrafficRetainsGatewayResilience: boolean;
+    };
     paidRealtime: {
       status: string;
       unmeasuredPaidUsageAllowed: boolean;
@@ -68,6 +80,8 @@ const unitEconomics = JSON.parse(
     modelOverrideConfigurationNamesPresent: string[];
     proposedAllowedModels: string[];
     providerCostMultiplierOneReleaseEligible: boolean;
+    releaseCandidateDeployed: boolean;
+    releaseCandidatePinsBoundPaidPlansToExactDirectModel: boolean;
     requestedAndGatewayModelIdentityMatch: boolean;
     secretValuesInspected: boolean;
     sharedProviderChainOrderWhenConfigured: string[];
@@ -313,6 +327,8 @@ describe("competitive pricing benchmark", () => {
       proposedAllowedModels: ["gpt-5.6-terra", "gpt-5.6-luna", "gpt-4o-mini"],
       allConfiguredGatewayOutcomesPricedAndApproved: false,
       currentRouteCompatibleWithProposedPolicy: false,
+      releaseCandidatePinsBoundPaidPlansToExactDirectModel: true,
+      releaseCandidateDeployed: false,
       gatewayCostScheduleEvidenced: false,
       providerCostMultiplierOneReleaseEligible: false,
     });
@@ -340,6 +356,22 @@ describe("competitive pricing benchmark", () => {
       unitEconomics.observedProductionConfiguration.gatewayModelEvidence
         .responseModelContract,
     ).toMatch(/concrete model used after fallback/i);
+  });
+
+  it("pins bound paid traffic to the exact direct model without claiming deployment", () => {
+    expect(unitEconomics.implemented.paidCommercialProviderRoute).toEqual({
+      status: "implemented_not_reviewed_merged_or_deployed",
+      source: "supabase/functions/_shared/llm-commercial-usage.ts",
+      commercialBindingSignal:
+        "nonempty commercialPlanId returned by the atomic quota reservation",
+      requiredProviderName: "openai-direct",
+      requiredProviderBaseUrl: "https://api.openai.com",
+      requiresExactRequestedModel: true,
+      externalGatewayAllowedForBoundPaidPlan: false,
+      crossModelSafetyFallbackAllowedForBoundPaidPlan: false,
+      noExactDirectRouteBehavior: "release_reservation_refuse_provider_contact",
+      unboundEngineeringTrafficRetainsGatewayResilience: true,
+    });
   });
 
   it("does not preserve the stale claim that the public gateway is undeployed or priced", () => {

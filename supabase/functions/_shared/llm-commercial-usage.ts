@@ -84,6 +84,25 @@ function errorDetail(error: unknown): unknown {
   return error;
 }
 
+/**
+ * A bound customer-paid plan may spend only through the direct provider whose
+ * configured model exactly matches the canonical model approved at quota
+ * reservation. Availability failover is intentionally sacrificed here: an
+ * opaque gateway or a different direct safety model would invalidate the
+ * plan's price and model-policy snapshot.
+ */
+export function paidCommercialProviders(
+  providers: LlmProvider[],
+  requestedModel: string,
+): LlmProvider[] {
+  return providers.filter(
+    (provider) =>
+      provider.name === "openai-direct" &&
+      provider.baseUrl.replace(/\/$/, "") === "https://api.openai.com" &&
+      provider.model === requestedModel,
+  );
+}
+
 async function releaseReservation(
   rpc: CommercialRpc,
   reservationId: number,
@@ -153,11 +172,34 @@ export async function callWithCommercialBoundary(
     };
   }
 
+  const hasCommercialPlan =
+    typeof verdict.commercialPlanId === "string" &&
+    verdict.commercialPlanId.trim().length > 0;
+  const providersForCall = hasCommercialPlan
+    ? paidCommercialProviders(providers, boundary.requestedModel)
+    : providers;
+  if (hasCommercialPlan && providersForCall.length === 0) {
+    await releaseReservation(rpc, reservationId, boundary.functionName);
+    return {
+      status: "provider_failed",
+      events: [
+        {
+          provider: "(commercial-direct-route)",
+          outcome: "exhausted",
+          status: null,
+          detail:
+            "No direct provider exactly matches the plan-approved requested model; gateway and cross-model failover are closed for paid traffic.",
+        },
+      ],
+      error: "commercial_direct_route_unavailable",
+    };
+  }
+
   let providerResult: LlmResult;
   try {
     providerResult = await callWithResilience(
       fetchLike,
-      providers,
+      providersForCall,
       providerOptions,
     );
   } catch (error) {

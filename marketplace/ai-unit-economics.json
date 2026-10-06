@@ -2,7 +2,7 @@
   "schemaVersion": 4,
   "asOf": "2026-10-06",
   "scope": "AI inference cost controls and Microsoft Marketplace commercial compatibility",
-  "finding": "commercial_cost_controls_implemented_proposed_policy_not_release_executable_on_gateway_first_route",
+  "finding": "commercial_cost_controls_and_paid_direct_route_pin_implemented_not_reviewed_merged_deployed_or_configured",
   "implemented": {
     "usageLedger": {
       "status": "implemented",
@@ -96,6 +96,18 @@
       "externalGatewayMarkupExplicitlyModeled": false,
       "externalGatewayOrPremiumTierCanBeStressPriced": true,
       "releaseRule": "Every approved policy must state a provider cost multiplier of at least 1. A multiplier of exactly 1 is valid only for a verified standard-rate direct route with prompts bounded below premium context tiers; otherwise the multiplier must come from a separately approved gateway/provider-tier cost schedule. Opaque gateway economics cannot be treated as the model list price."
+    },
+    "paidCommercialProviderRoute": {
+      "status": "implemented_not_reviewed_merged_or_deployed",
+      "source": "supabase/functions/_shared/llm-commercial-usage.ts",
+      "commercialBindingSignal": "nonempty commercialPlanId returned by the atomic quota reservation",
+      "requiredProviderName": "openai-direct",
+      "requiredProviderBaseUrl": "https://api.openai.com",
+      "requiresExactRequestedModel": true,
+      "externalGatewayAllowedForBoundPaidPlan": false,
+      "crossModelSafetyFallbackAllowedForBoundPaidPlan": false,
+      "noExactDirectRouteBehavior": "release_reservation_refuse_provider_contact",
+      "unboundEngineeringTrafficRetainsGatewayResilience": true
     },
     "commercialPlanPolicy": {
       "status": "implemented_not_configured",
@@ -214,6 +226,8 @@
     "proposedAllowedModels": ["gpt-5.6-terra", "gpt-5.6-luna", "gpt-4o-mini"],
     "allConfiguredGatewayOutcomesPricedAndApproved": false,
     "currentRouteCompatibleWithProposedPolicy": false,
+    "releaseCandidatePinsBoundPaidPlansToExactDirectModel": true,
+    "releaseCandidateDeployed": false,
     "gatewayCostScheduleEvidenced": false,
     "providerCostMultiplierOneReleaseEligible": false
   },
@@ -236,7 +250,7 @@
     "rawTokenMeterIsModelCostWeighted": false,
     "warning": "Equal token quantities can have materially different inference cost under different model routes.",
     "pricingModeWarning": "The margin evaluator now applies an explicit policy-level provider cost multiplier to standard model rates. A value of 1 requires a verified standard-rate route; premium context, regional-processing, explicit cache-write, or external-gateway adjustments require a sourced multiplier or technical exclusion from the paid route.",
-    "gatewayModelWarning": "The proposed GPT allowlist is not executable on the observed gateway-first route. The gateway default alias can resolve to Claude, GPT, or Gemini models, and the exact provider-returned model is what SyncAI settles. Paid traffic must either be pinned to the verified direct GPT route or use an approved gateway policy that prices and allows every reachable primary and fallback, normalizes USD rates to CAD, allocates gateway infrastructure, and proves the deployed response identity.",
+    "gatewayModelWarning": "The live observed gateway-first route is not executable for the proposed GPT allowlist. The release candidate now pins a bound paid plan to the exact requested model on openai-direct and refuses provider contact when that route is unavailable; it preserves gateway resilience for unbound engineering traffic. This source control is not reviewed, merged, deployed, or production-proven. A gateway-based paid policy would still need every reachable primary and fallback priced and approved, USD rates normalized to CAD, gateway infrastructure allocated, and deployed response identity proved.",
     "commercialAllowanceApproved": false,
     "overagePriceApproved": false,
     "grossMarginThresholdApproved": false

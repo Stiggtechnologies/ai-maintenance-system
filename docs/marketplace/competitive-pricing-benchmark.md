@@ -89,6 +89,16 @@ either pin customer-paid calls to the verified direct GPT route or approve and
 price every reachable gateway primary and fallback, including CAD conversion,
 gateway infrastructure allocation, and a deployed response-identity witness.
 
+The release candidate now implements the first path for bound paid plans. Once
+the atomic reservation returns a nonempty commercial plan ID, the shared caller
+removes the gateway and every cross-model fallback, retaining only
+`openai-direct` at `https://api.openai.com` when its configured model exactly
+matches the policy-approved requested model. If no exact direct route exists,
+it releases the reservation and contacts no provider. Unbound engineering
+traffic retains the resilient gateway chain. This closes the source-level
+alias mismatch without claiming that the change is reviewed, merged, deployed,
+priced for premium context, or proven in production.
+
 No price, allowance, model set, overage rate, non-inference cost, or margin
 threshold was seeded or approved. Microsoft activation fails closed when the
 approved policy is absent. Direct-channel activation is not yet covered by that

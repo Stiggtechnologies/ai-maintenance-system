@@ -53,6 +53,13 @@ and key are present; a production cost multiplier of 1.0 remains ineligible
 until a direct standard-rate route is independently proven or a sourced
 gateway/tier schedule is approved.
 
+The current commercial release candidate narrows only a bound paid-plan call:
+after its quota reservation returns a commercial plan ID, the shared caller
+uses the exact requested model on the canonical `openai-direct` endpoint and
+refuses provider contact if that route is absent. The ordinary unbound
+engineering path remains gateway-first. This code is not reviewed, merged,
+deployed, or a production pricing witness.
+
 ## Governed verification and activation runbook
 
 1. Under authorized Fly access, inspect the existing application, deployment

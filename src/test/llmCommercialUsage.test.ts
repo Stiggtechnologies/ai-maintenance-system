@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import {
   callWithCommercialBoundary,
   estimateLlmCallTokens,
+  paidCommercialProviders,
   type CommercialRpc,
 } from "../../supabase/functions/_shared/llm-commercial-usage";
 
@@ -40,6 +41,138 @@ function successResponse(): Response {
 }
 
 describe("commercial LLM usage boundary", () => {
+  it("pins a bound paid plan to the exact direct model and excludes the gateway", async () => {
+    const gateway = {
+      name: "stigg-gateway",
+      baseUrl: "https://gateway.example",
+      apiKey: "gateway-key",
+      model: "stigg/fast",
+    };
+    const direct = {
+      name: "openai-direct",
+      baseUrl: "https://api.openai.com",
+      apiKey: "direct-key",
+      model: "gpt-4o-mini",
+    };
+    const safety = {
+      ...direct,
+      name: "openai-safety",
+      model: "gpt-5.6-luna",
+    };
+    expect(
+      paidCommercialProviders([gateway, safety, direct], "gpt-4o-mini"),
+    ).toEqual([direct]);
+
+    const rpc: CommercialRpc = vi.fn(async (name) => ({
+      data:
+        name === "check_llm_commercial_quota"
+          ? {
+              allowed: true,
+              reservation_id: 40,
+              commercialPlanId: "professional",
+            }
+          : null,
+      error: null,
+    }));
+    const fetchLike = vi.fn(async (url: string, init: RequestInit) => {
+      expect(url).toBe("https://api.openai.com/v1/chat/completions");
+      expect(JSON.parse(String(init.body))).toMatchObject({
+        model: "gpt-4o-mini",
+      });
+      return successResponse();
+    });
+
+    const result = await callWithCommercialBoundary(
+      rpc,
+      fetchLike,
+      [gateway, safety, direct],
+      options,
+      boundary,
+    );
+
+    expect(result.status).toBe("ok");
+    expect(fetchLike).toHaveBeenCalledTimes(1);
+  });
+
+  it("retains gateway-first resilience for an unbound engineering call", async () => {
+    const rpc: CommercialRpc = vi.fn(async (name) => ({
+      data:
+        name === "check_llm_commercial_quota"
+          ? { allowed: true, reservation_id: 39 }
+          : null,
+      error: null,
+    }));
+    const fetchLike = vi.fn(async (url: string, init: RequestInit) => {
+      expect(url).toBe("https://gateway.example/v1/chat/completions");
+      expect(JSON.parse(String(init.body))).toMatchObject({
+        model: "stigg/fast",
+      });
+      return successResponse();
+    });
+
+    const result = await callWithCommercialBoundary(
+      rpc,
+      fetchLike,
+      [
+        {
+          name: "stigg-gateway",
+          baseUrl: "https://gateway.example",
+          apiKey: "gateway-key",
+          model: "stigg/fast",
+        },
+        {
+          name: "openai-direct",
+          baseUrl: "https://api.openai.com",
+          apiKey: "direct-key",
+          model: "gpt-4o-mini",
+        },
+      ],
+      options,
+      boundary,
+    );
+
+    expect(result.status).toBe("ok");
+    expect(fetchLike).toHaveBeenCalledTimes(1);
+  });
+
+  it("releases the reservation without provider spend when a paid plan has no exact direct route", async () => {
+    const rpc: CommercialRpc = vi.fn(async (name) => ({
+      data:
+        name === "check_llm_commercial_quota"
+          ? {
+              allowed: true,
+              reservation_id: 41,
+              commercialPlanId: "starter",
+            }
+          : null,
+      error: null,
+    }));
+    const fetchLike = vi.fn(async () => successResponse());
+    const result = await callWithCommercialBoundary(
+      rpc,
+      fetchLike,
+      [
+        {
+          ...provider,
+          name: "stigg-gateway",
+          baseUrl: "https://gateway.example",
+          model: "stigg/fast",
+        },
+      ],
+      options,
+      boundary,
+    );
+
+    expect(result).toMatchObject({
+      status: "provider_failed",
+      error: "commercial_direct_route_unavailable",
+    });
+    expect(fetchLike).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith("release_llm_reservation", {
+      p_reservation_id: 41,
+    });
+  });
+
   it("reserves before provider spend and settles actual usage before exposing output", async () => {
     const order: string[] = [];
     const rpc: CommercialRpc = vi.fn(async (name, args) => {
