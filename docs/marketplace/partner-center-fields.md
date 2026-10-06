@@ -87,8 +87,8 @@ Length: 90 characters.
 
 | Field | Controlled value | Status and operator note |
 | --- | --- | --- |
-| Landing page URL | `https://app.syncai.ca/marketplace/activate` | Custom-domain HTTP 200 and signed-out activation UI observed; use no fragment; source-commit aliasing, first purchase, and returning manage flow remain unproven |
-| Connection webhook | `https://app.syncai.ca/api/marketplace/webhook` | **Blocked before entry by PC-000.** Custom-domain `GET` returns `405` with `Allow: POST` and unsigned JSON `POST` returns the proxy's expected `401`, but those paths do not resolve or confirm the upstream project |
+| Landing page URL | `https://app.syncai.ca/marketplace/activate` | Saved in the Partner Center draft on 2026-10-06. Custom-domain HTTP 200 and signed-out activation UI observed; source-commit aliasing, first purchase, and returning manage flow remain unproven |
+| Connection webhook | `https://app.syncai.ca/api/marketplace/webhook` | Saved in the Partner Center draft on 2026-10-06. Custom-domain `GET` returns `405` with `Allow: POST` and unsigned JSON `POST` returns the proxy's expected `401`, but those paths do not resolve or confirm the upstream project |
 | Microsoft Entra tenant ID | `[OWNER VERIFY: exact publisher tenant GUID already configured]` | Must match server secret and webhook token validation |
 | Microsoft Entra application ID | `[OWNER VERIFY: exact Marketplace publisher application GUID already configured]` | Must match webhook audience and publisher credentials |
 | Auto activation | `No / Off` | Required by the current manual-activation contract |
@@ -107,17 +107,17 @@ Merged PR #602 implements these controlled same-origin values:
 Custom-domain route observations passed on 2026-10-03: the activation path
 visibly rendered the bounded Marketplace no-token state, webhook `GET` returned
 `405` with `Allow: POST`, and an unsigned JSON `POST` returned the proxy's `401`
-token refusal. Repository evidence records the full merge SHA and the immutable
-Vercel status URLs available for PR #602, but no authoritative evidence yet ties
-`app.syncai.ca` to a specific deployment or proves that the production proxy
-targets the intended Supabase project.
+token refusal. On 2026-10-06, Vercel project inventory and a redacted production
+environment witness verified that `app.syncai.ca` is the production URL of the
+`syncai-github` project and that the proxy targets the active Supabase project
+named `SyncAI`. The upstream project has active Marketplace fulfillment,
+webhook, and metering functions.
 
-The landing-page value may be prepared after offer-identity confirmation. Do
-not enter the webhook or complete PC-001 until a production deployment owner
-records authoritative upstream-project evidence and marks PC-000 verified. The
-direct Supabase URL previously probed is an unconfirmed historical candidate,
-not a permitted fallback. Even after PC-000, an authenticated purchase,
-lifecycle, metering, and certification witness remains separately blocked.
+Both URLs were saved to the correct Partner Center offer draft on 2026-10-06.
+That draft entry and the upstream witness are evidence of configuration, not of
+a working paid purchase. The live SyncAI Supabase project does not currently
+list the five required `AZURE_MARKETPLACE_*` secrets, so authenticated
+resolution, activation, lifecycle, metering, and certification remain blocked.
 
 ## Plans
 
@@ -216,19 +216,18 @@ dimension contract; plan copy cannot establish that capability.
 
 ## CSP reseller audience
 
-Select **No partners in the CSP program** for the initial publication.
+The Partner Center draft currently selects **Any partner in the CSP program**.
+That choice was saved on 2026-10-06 to support the owner's explicit broad-channel
+test strategy. It is a distribution experiment, not evidence that partner-led
+demand or delivery readiness has been validated.
 
-Reason: Microsoft makes the publisher responsible for break-fix support and
-recommends documentation, training, and service-health/outage communications
-for CSP partners. Those channel operations and reseller commercial terms are
-not evidenced in the repository. An unrestricted **Any partner** selection
-would create a support and representation channel that is not yet controlled.
-
-After the offer is live and the following evidence exists, the recommended
-next posture is **Specific partners in the CSP program I select**, beginning
-with one named pilot partner. Move to **Any partner** only after channel support
-capacity, training, commercial rules, escalation ownership, and regional
-coverage have been reviewed.
+Before publication, assign channel support ownership and publish a minimum CSP
+enablement pack covering positioning, qualification, implementation boundary,
+break-fix routing, service-health communications, pricing rules, and escalation.
+Microsoft keeps the publisher responsible for product support; unrestricted
+reach therefore creates real representation and support obligations. If those
+controls cannot be staffed before release, narrow the audience to **Specific
+partners** rather than silently removing the channel test.
 
 ## Tax and payout status
 
@@ -238,6 +237,16 @@ Keep two independent records:
 | --- | --- | --- |
 | Publisher/user submission | `[OWNER EVIDENCE: form/profile submitted, by whom, when, and receipt if available]` | Records only that information was submitted |
 | Partner Center status | `[PARTNER CENTER EVIDENCE: exact displayed validation/assignment state, account, timestamp and screenshot/export]` | Records Microsoft's current processing/assignment result |
+
+On 2026-10-06, every plan's Pricing and availability page displayed: **“This
+account is not publish eligible due to either an invalid payout, payout on hold,
+or invalid tax.”** Account settings then resolved the ambiguity: the Canadian
+tax profile itself is **Complete**, while the Azure Marketplace program
+assignment shows **Not started** for tax profile, payment profile, and
+verification; the payment profile also shows **Not started**. Treat that
+unassigned payment/tax enrollment as the binding Microsoft account release
+gate. Microsoft states that processing can take up to 48 hours after the
+information is completed.
 
 Do not mark tax or payout setup complete from an email, verbal report, or a
 submitted form alone. The Marketplace release owner must verify that the

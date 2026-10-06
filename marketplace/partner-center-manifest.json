@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
   "artifact": "syncai-partner-center-publication",
-  "asOf": "2026-10-03",
+  "asOf": "2026-10-06",
   "overallStatus": "blocked",
   "statusVocabulary": [
     "verified",
@@ -51,11 +51,21 @@
           "result": "success"
         }
       ],
-      "statusEvidenceScope": "The Vercel status contexts are immutable successful deployment records attached to merge commit a0c4186efd1d449fbd80d67d5150d63f18684875. They do not prove that app.syncai.ca aliases any listed deployment or source commit.",
-      "customDomainAliasToMergeCommit": "blocked"
+      "statusEvidenceScope": "The Vercel status contexts are immutable successful deployment records attached to merge commit a0c4186efd1d449fbd80d67d5150d63f18684875. Separate 2026-10-06 production inventory proves that app.syncai.ca is the production URL of the syncai-github project and identifies its configured Supabase upstream; an exact custom-domain-to-source-commit witness remains unavailable.",
+      "customDomainAliasToMergeCommit": "blocked",
+      "productionAliasEvidence": {
+        "observedAt": "2026-10-06",
+        "vercelProject": "syncai-github",
+        "productionUrl": "https://app.syncai.ca",
+        "supabaseProjectRef": "pjvoswbwomesuwhygpby",
+        "supabaseProjectName": "SyncAI",
+        "supabaseProjectStatus": "ACTIVE_HEALTHY",
+        "status": "verified"
+      }
     },
     "landingPage": {
-      "configuredUrl": "https://syncai.ca/marketplace/activate",
+      "configuredUrl": "https://app.syncai.ca/marketplace/activate",
+      "previousConfiguredUrl": "https://syncai.ca/marketplace/activate",
       "configuredUrlProbe": {
         "date": "2026-10-03",
         "method": "GET",
@@ -70,21 +80,19 @@
         "httpStatus": 200,
         "browserWitness": "Marketplace activation UI rendered the bounded no-token state"
       },
-      "status": "external_action_required"
+      "partnerCenterDraftSavedAt": "2026-10-06",
+      "status": "verified"
     },
     "connectionWebhook": {
-      "configuredUrl": "https://syncai.ca/api/marketplace/webhook",
+      "configuredUrl": "https://app.syncai.ca/api/marketplace/webhook",
+      "previousConfiguredUrl": "https://syncai.ca/api/marketplace/webhook",
       "configuredUrlProbe": {
         "date": "2026-10-03",
         "method": "GET",
         "httpStatus": 404
       },
       "controlledReplacement": "https://app.syncai.ca/api/marketplace/webhook",
-      "unconfirmedHistoricalDirectCandidate": {
-        "url": "https://pjvoswbwomesuwhygpby.supabase.co/functions/v1/marketplace-webhook",
-        "permittedAsFallback": false,
-        "status": "blocked"
-      },
+      "productionUpstream": "https://pjvoswbwomesuwhygpby.supabase.co/functions/v1/marketplace-webhook",
       "implementationMergeCommit": "a0c4186efd1d449fbd80d67d5150d63f18684875",
       "replacementProbe": {
         "date": "2026-10-03",
@@ -102,11 +110,29 @@
         ]
       },
       "productionProjectConfirmation": {
-        "requiredBeforePartnerCenterUpdate": true,
-        "intendedSupabaseProject": "owner_decision_required",
-        "authoritativeEvidence": "blocked",
+        "requiredBeforePartnerCenterUpdate": false,
+        "requiredBeforePublication": true,
+        "intendedSupabaseProject": "pjvoswbwomesuwhygpby",
+        "authoritativeEvidence": "Vercel production environment witness plus Supabase project inventory",
+        "status": "verified"
+      },
+      "deployedFunctions": [
+        "marketplace-fulfillment",
+        "marketplace-webhook",
+        "marketplace-metering"
+      ],
+      "runtimeSecrets": {
+        "required": [
+          "AZURE_MARKETPLACE_CLIENT_ID",
+          "AZURE_MARKETPLACE_CLIENT_SECRET",
+          "AZURE_MARKETPLACE_TENANT_ID",
+          "AZURE_MARKETPLACE_PUBLISHER_ID",
+          "AZURE_MARKETPLACE_OFFER_ID"
+        ],
+        "presentOnLiveProject": [],
         "status": "blocked"
       },
+      "partnerCenterDraftSavedAt": "2026-10-06",
       "authenticatedUpstreamLifecycleWitness": "blocked",
       "status": "blocked"
     },
@@ -120,7 +146,18 @@
     {
       "name": "Starter",
       "proposedPlanId": "starter",
-      "listingCopy": "draft",
+      "listingCopy": "verified",
+      "partnerCenterDraftSavedAt": "2026-10-06",
+      "observedPricing": {
+        "model": "per_user",
+        "minimumUsers": 1,
+        "maximumUsers": 5,
+        "monthlyUsdPerUser": 99,
+        "annualUsdPerUserPerMonth": 89,
+        "markets": 141,
+        "visibility": "public",
+        "ownerApprovalRecorded": false
+      },
       "featureBoundary": "owner_decision_required",
       "price": "owner_decision_required",
       "billingTerm": "owner_decision_required",
@@ -134,7 +171,18 @@
     {
       "name": "Professional",
       "proposedPlanId": "professional",
-      "listingCopy": "draft",
+      "listingCopy": "verified",
+      "partnerCenterDraftSavedAt": "2026-10-06",
+      "observedPricing": {
+        "model": "per_user",
+        "minimumUsers": 3,
+        "maximumUsers": 25,
+        "monthlyUsdPerUser": 199,
+        "annualUsdPerUserPerMonth": 179,
+        "markets": 141,
+        "visibility": "public",
+        "ownerApprovalRecorded": false
+      },
       "featureBoundary": "owner_decision_required",
       "price": "owner_decision_required",
       "billingTerm": "owner_decision_required",
@@ -148,7 +196,18 @@
     {
       "name": "Enterprise",
       "proposedPlanId": "enterprise",
-      "listingCopy": "draft",
+      "listingCopy": "verified",
+      "partnerCenterDraftSavedAt": "2026-10-06",
+      "observedPricing": {
+        "model": "per_user",
+        "minimumUsers": 10,
+        "maximumUsers": null,
+        "monthlyUsdPerUser": 349,
+        "annualUsdPerUserPerMonth": 299,
+        "markets": 141,
+        "visibility": "public",
+        "ownerApprovalRecorded": false
+      },
       "featureBoundary": "owner_decision_required",
       "price": "owner_decision_required",
       "billingTerm": "owner_decision_required",
@@ -166,22 +225,35 @@
     "reason": "Repository history identifies these values and their limits as commercially unconfirmed and superseded."
   },
   "cspResale": {
-    "recommendedInitialSelection": "no_partners",
-    "nextControlledSelection": "specific_partners",
-    "unrestrictedAnyPartnerApproved": false,
+    "selectedDraftAudience": "any_partner",
+    "selectionSavedAt": "2026-10-06",
+    "strategy": "broad_channel_experiment",
+    "fallbackIfControlsNotReady": "specific_partners",
+    "unrestrictedAnyPartnerApproved": true,
     "channelSupportEvidencePresent": false,
-    "status": "external_action_required"
+    "status": "draft"
   },
   "taxAndPayout": {
     "publisherSubmission": "external_action_required",
-    "partnerCenterTaxValidationOrAssignment": "blocked",
-    "partnerCenterPayoutProfile": "blocked",
+    "standaloneCanadianTaxProfile": "complete",
+    "partnerCenterTaxValidationOrAssignment": "not_started",
+    "partnerCenterPayoutProfile": "not_started",
+    "azureMarketplaceAssignment": {
+      "taxProfileStatus": "not_started",
+      "paymentProfileStatus": "not_started",
+      "verificationStatus": "not_started"
+    },
+    "observedEligibilityMessage": "This account is not publish eligible due to either an invalid payout, payout on hold, or invalid tax.",
+    "observedAt": "2026-10-06",
+    "microsoftProcessingWindow": "up_to_48_hours_after_completion",
     "taxRemittedMarketSelection": "owner_decision_required",
     "submissionImpliesPartnerCenterCompletion": false,
     "status": "blocked"
   },
   "supplementalContent": {
-    "narrative": "draft",
+    "narrative": "prepared_not_saved",
+    "selectedScenario": "partially_hosted",
+    "selectedModel": "other",
     "azureSubscriptionId": "owner_decision_required",
     "deployedAzureResourceEvidence": "blocked",
     "azureConsumptionEvidence": "blocked",
@@ -190,9 +262,10 @@
     "status": "blocked"
   },
   "listing": {
-    "offerCopy": "draft",
-    "gettingStarted": "draft",
-    "keywords": "draft",
+    "offerCopy": "verified",
+    "gettingStarted": "verified",
+    "keywords": "verified",
+    "partnerCenterDraftSavedAt": "2026-10-06",
     "privacyPolicyUrl": "blocked",
     "termsOrContract": "owner_decision_required",
     "supportEmail": "support@syncai.ca",
@@ -231,15 +304,15 @@
     {
       "id": "PC-000",
       "owner": "Production deployment owner",
-      "action": "Authoritatively confirm and record that the app.syncai.ca Vercel production proxy resolves to the intended production Supabase project. Public 405/401 probes and deployment status contexts are insufficient.",
-      "status": "blocked"
+      "action": "Authoritatively confirm and record that the app.syncai.ca Vercel production proxy resolves to the intended production Supabase project. Closed by the 2026-10-06 Vercel production-environment and Supabase project inventory witness.",
+      "status": "verified"
     },
     {
       "id": "PC-001",
       "owner": "Partner Center operator",
-      "action": "After PC-000 is verified, replace the two 404 Partner Center values with the controlled app.syncai.ca activation and webhook URLs, then save an export or screenshot.",
+      "action": "The controlled app.syncai.ca activation and webhook URLs were saved in Partner Center. Preserve the draft and close PC-000 plus authenticated lifecycle validation before publication.",
       "dependsOn": ["PC-000"],
-      "status": "blocked"
+      "status": "verified"
     },
     {
       "id": "PC-002",
@@ -286,7 +359,13 @@
     {
       "id": "PC-009",
       "owner": "Partner Center account owner",
-      "action": "Verify Microsoft's current tax validation/assignment and payout-profile statuses separately from any publisher-submitted tax information.",
+      "action": "Complete the Azure Marketplace payment/tax profile assignment and verification. The Canadian tax profile is complete, but the payment profile and all Azure Marketplace assignment statuses are Not started; allow Microsoft's stated processing window of up to 48 hours.",
+      "status": "blocked"
+    },
+    {
+      "id": "PC-010",
+      "owner": "Marketplace identity and production secret owner",
+      "action": "Configure the exact publisher application client, tenant, secret, publisher ID, and offer ID as the five AZURE_MARKETPLACE_* secrets on the live SyncAI Supabase project, then run the protected authenticated preview witness.",
       "status": "blocked"
     }
   ],

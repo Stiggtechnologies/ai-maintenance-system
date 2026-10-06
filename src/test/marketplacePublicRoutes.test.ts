@@ -71,10 +71,8 @@ describe("Marketplace app-domain routes", () => {
         "https://app.syncai.ca/api/marketplace/webhook",
       implementationMergeCommit:
         "a0c4186efd1d449fbd80d67d5150d63f18684875",
-      unconfirmedHistoricalDirectCandidate: {
-        permittedAsFallback: false,
-        status: "blocked",
-      },
+      productionUpstream:
+        "https://pjvoswbwomesuwhygpby.supabase.co/functions/v1/marketplace-webhook",
       replacementProbe: {
         get: { httpStatus: 405, allow: "POST" },
         unsignedJsonPost: {
@@ -83,8 +81,12 @@ describe("Marketplace app-domain routes", () => {
         },
       },
       productionProjectConfirmation: {
-        requiredBeforePartnerCenterUpdate: true,
-        authoritativeEvidence: "blocked",
+        requiredBeforePartnerCenterUpdate: false,
+        requiredBeforePublication: true,
+        status: "verified",
+      },
+      runtimeSecrets: {
+        presentOnLiveProject: [],
         status: "blocked",
       },
       authenticatedUpstreamLifecycleWitness: "blocked",
@@ -92,12 +94,13 @@ describe("Marketplace app-domain routes", () => {
     });
     expect(manifest.blockingActions).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: "PC-000", status: "blocked" }),
+        expect.objectContaining({ id: "PC-000", status: "verified" }),
         expect.objectContaining({
           id: "PC-001",
           dependsOn: ["PC-000"],
-          status: "blocked",
+          status: "verified",
         }),
+        expect.objectContaining({ id: "PC-010", status: "blocked" }),
       ]),
     );
     expect(manifest.claims).toMatchObject({

@@ -1,6 +1,6 @@
 # Microsoft Marketplace publication package
 
-**Controlled draft — 2026-10-03. This package does not state that the offer is
+**Controlled draft — 2026-10-06. This package does not state that the offer is
 published, certified, transactable, MACC eligible, co-sell ready, or complete.**
 
 This directory is the content and operator package for completing the SyncAI
@@ -19,16 +19,16 @@ the recurring SaaS plans and is controlled by
 
 | Area                    | Status                                                  | What can be done now                                                        | Remaining authority or evidence                                                                                                                                                      |
 | ----------------------- | ------------------------------------------------------- | --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Starter plan            | Draft copy ready                                        | Paste the controlled description                                            | Owner must approve the boundary, Plan ID, price, term, markets, allowances, metered dimensions and support level                                                                     |
-| Professional plan       | Draft copy ready                                        | Paste the controlled description                                            | Same commercial decisions; no legacy `PRO` price or limits may be reused                                                                                                             |
-| Enterprise plan         | Draft copy ready                                        | Paste the controlled description                                            | Same commercial decisions; Enterprise does not imply SSO, private hosting, certifications or an SLA                                                                                  |
-| Technical configuration | Public routes observed; production upstream unconfirmed | The landing-page value can be prepared; keep the webhook and PC-001 blocked | A production owner must prove the Vercel proxy targets the intended production Supabase project before either URL set is treated as complete; authenticated preview remains separate |
-| CSP resale              | Recommendation ready                                    | Select **No partners in the CSP program** for first publication             | Owner may later authorize named partners after channel support and commercial terms exist                                                                                            |
-| Supplemental content    | Draft answers ready                                     | Paste the architecture narrative                                            | Owner must supply the Azure subscription ID and deployed consumption evidence; current Azure-primary posture is not proven                                                           |
-| Tax and payout profile  | Externally unverified                                   | Record any user-submitted tax form as a submission fact only                | A Partner Center operator must separately capture Microsoft's current validation/assignment status and payout-profile readiness                                                      |
-| Offer listing           | Draft copy ready                                        | Paste the listing text and contacts                                         | Privacy policy must be reachable at a stable public URL; marketing PDF and media must be produced and reviewed                                                                       |
+| Starter plan            | Controlled description saved in Partner Center draft   | Preserve the saved description and observed per-user pricing                | Account is not publish eligible; commercial boundary and runtime enforcement still require validation                                                                               |
+| Professional plan       | Controlled description saved in Partner Center draft   | Preserve the saved description and observed per-user pricing                | Same account gate; no legacy `PRO` claims or unproved tier limits may be introduced                                                                                                  |
+| Enterprise plan         | Controlled description saved in Partner Center draft   | Preserve the saved description and observed per-user pricing                | Same account gate; Enterprise does not imply SSO, private hosting, certifications or an SLA                                                                                          |
+| Technical configuration | URLs and production upstream verified                   | Keep the saved `app.syncai.ca` activation and webhook values                 | Configure the five required `AZURE_MARKETPLACE_*` secrets on the live SyncAI Supabase project; authenticated preview remains separate                                                |
+| CSP resale              | **Any partner** saved as a draft channel experiment     | Build the minimum enablement, support, pricing, and escalation controls      | Publisher support obligations remain; narrow to specific partners if the controls cannot be staffed before release                                                                   |
+| Supplemental content    | Mixed-cloud answer prepared but not saved               | Save the truthful **Other** architecture narrative                           | Current Azure-primary posture is not proven; do not claim it                                                                                                                         |
+| Tax and payout profile  | Exact Microsoft account gate identified                 | Complete the Azure Marketplace payment/tax assignment and verification       | Tax profile is complete, but payment profile and all Azure Marketplace assignment statuses are **Not started**; Microsoft allows up to 48 hours to process                           |
+| Offer listing           | Capability-audited copy and caption saved in draft      | Preserve the governed condition-monitoring and reliability wording           | Privacy/terms and collateral controls remain; listing is not public                                                                                                                   |
 | Preview/certification   | Checklist ready                                         | Configure preview audience and execute the checklist                        | Requires Partner Center access, two real preview purchases and Microsoft-side evidence                                                                                               |
-| Publish control         | Blocked                                                 | None                                                                        | Partner Center sections must be complete and every blocking item below closed                                                                                                        |
+| Publish control         | Disabled                                                | Close every validation item, then request action-time publish approval       | Microsoft account eligibility and incomplete required sections currently prevent submission                                                                                          |
 
 ## Copy-ready artifacts
 
@@ -49,17 +49,19 @@ the recurring SaaS plans and is controlled by
   — rendered four-page collateral; visual and text-extraction QA passed, while
   accessibility tagging and brand/legal/claims approvals remain blocked.
 
-## Immediate corrections in Partner Center
+## Partner Center changes saved on 2026-10-06
 
-The values below have field-specific gates. Confirm the offer identity and save
-a screenshot/export of every Partner Center change. Do not enter the webhook
-until a production owner closes PC-000 in the manifest.
+The correct offer identity was confirmed and the following draft values were
+saved. They remain unpublished and do not prove transaction readiness.
 
-| Field              | Current value                                                   | Controlled replacement                                           | Evidence                                                                                                                                                  |
-| ------------------ | --------------------------------------------------------------- | ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Landing page URL   | `https://syncai.ca/marketplace/activate` (404 on 2026-10-03)    | `https://app.syncai.ca/marketplace/activate`                     | The custom domain returned HTTP 200 and a signed-out browser rendered the bounded Marketplace no-token state                                              |
-| Connection webhook | `https://syncai.ca/api/marketplace/webhook` (404 on 2026-10-03) | `https://app.syncai.ca/api/marketplace/webhook` **after PC-000** | The custom domain returned 405/`Allow: POST` for `GET` and the expected unsigned 401; neither probe reaches or identifies the configured upstream project |
-| Auto activation    | Unknown                                                         | **Off** for every plan                                           | The implemented offer contract is manual activation                                                                                                       |
+| Field              | Saved draft value                                      | Evidence scope                                                                                                                                             |
+| ------------------ | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Landing page URL   | `https://app.syncai.ca/marketplace/activate`           | Partner Center save succeeded; custom-domain HTTP 200 and bounded signed-out UI observed, but no paid activation witness exists                            |
+| Connection webhook | `https://app.syncai.ca/api/marketplace/webhook`         | Partner Center save succeeded; 405/401 refusal boundary observed, but no Microsoft-signed lifecycle event or authenticated upstream witness exists         |
+| Offer listing      | `SyncAI Industrial Engineering Intelligence` copy set  | Saved copy is repository-backed and explicitly bounded; it remains a private draft                                                                         |
+| Plan descriptions  | Starter, Professional, and Enterprise controlled copy  | All three descriptions saved; existing pricing was observed and left unchanged                                                                              |
+| CSP audience       | `Any partner in the CSP program`                       | Saved as a user-directed acquisition experiment; support and channel enablement remain release controls                                                     |
+| Auto activation    | **Off** for every plan                                 | Observed configuration matches the implemented manual-activation contract                                                                                   |
 
 Merged PR #602 contains the same-origin route implementation at merge commit
 `a0c4186efd1d449fbd80d67d5150d63f18684875`. Its Vercel status records identify
@@ -71,24 +73,20 @@ status URLs are recorded in the manifest. Those records prove the deployment
 statuses and their commit association; they do not prove that `app.syncai.ca`
 aliases one of those deployments.
 
-The custom-domain observations on 2026-10-03 prove only public routing and the
-unauthenticated refusal boundary. A fresh signed-out browser reached the
-Marketplace activation UI; webhook `GET` returned `405` with `Allow: POST`; and
-an unsigned JSON `POST` returned
-`marketplace_webhook_token_required` with `no-store` and `nosniff`. Because both
-webhook requests return before the proxy resolves its upstream URL, they do
-**not** prove the intended production Supabase project, Microsoft token
-validation, subscription resolution, activation, lifecycle processing,
-metering, or a Partner Center purchase. The historical direct Supabase URL is
-an unconfirmed candidate, not a fallback. PC-000 and all authenticated preview
-gates remain blocked.
+The custom-domain observations on 2026-10-03 proved public routing and the
+unauthenticated refusal boundary. On 2026-10-06, Vercel project inventory and a
+redacted production-environment witness additionally established that
+`app.syncai.ca` is the production URL of the `syncai-github` project and that
+its `VITE_SUPABASE_URL` points to the active Supabase project named `SyncAI`.
+That project has active `marketplace-fulfillment`, `marketplace-webhook`, and
+`marketplace-metering` functions. PC-000 is therefore closed.
 
-PC-000 requires owner-controlled evidence that names the Vercel project and
-production environment, identifies the intended Supabase project reference,
-and shows that the proxy's production `SUPABASE_URL` or `VITE_SUPABASE_URL`
-resolves to that project. Store only a redacted export, checksum, or signed
-attestation; never commit the URL value if it contains credentials or any
-secret.
+This still does **not** prove a paid purchase. The live SyncAI Supabase project
+does not currently list any of the five required `AZURE_MARKETPLACE_*` secret
+names. Until the publisher application credentials and exact publisher/offer
+identifiers are configured there, token acquisition, subscription resolution,
+activation, lifecycle processing, and metering cannot be buyer-proven. Never
+commit or display the secret values.
 
 ## Non-negotiable blockers
 
@@ -113,6 +111,15 @@ secret.
 6. Do not translate “tax information submitted” into “validated,” “assigned,”
    or “complete.” User submission state and Partner Center's tax/payout status
    are separate evidence fields.
+7. Partner Center currently states that the publisher account is not publish
+   eligible. The Canadian tax profile is complete, but the payment profile and
+   the Azure Marketplace tax/payment assignment and verification statuses are
+   all **Not started**. The account owner must complete that financial setup;
+   Microsoft says processing can take up to 48 hours.
+8. Do not publish while the live SyncAI Supabase project lacks
+   `AZURE_MARKETPLACE_CLIENT_ID`, `AZURE_MARKETPLACE_CLIENT_SECRET`,
+   `AZURE_MARKETPLACE_TENANT_ID`, `AZURE_MARKETPLACE_PUBLISHER_ID`, and
+   `AZURE_MARKETPLACE_OFFER_ID`.
 
 ## Source hierarchy
 

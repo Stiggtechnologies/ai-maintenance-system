@@ -45,7 +45,7 @@ evidence.
 
 ### Mandatory qualification immediately following that description
 
-> As of 2026-10-03, the repository contains the Azure deployment and validation
+> As of 2026-10-06, the repository contains the Azure deployment and validation
 > machinery, but production deployment and commensurate Azure consumption have
 > not been evidenced in this package. Existing Supabase/Vercel production
 > remains authoritative during the controlled transition. SyncAI must not be
@@ -56,6 +56,25 @@ evidence.
 If the Partner Center form does not permit this qualification next to the
 architecture description, do not submit a misleading answer. Close the Azure
 deployment evidence first.
+
+### Partner Center **Other** scenario explanation
+
+Use this exact answer for the current mixed-cloud production posture:
+
+> SyncAI's current production service uses a mixed-cloud architecture. The
+> customer-facing web application and authoritative data plane currently use
+> Vercel and Supabase. The repository also contains an Azure edition deployment
+> design and validation machinery for Azure Container Apps, Azure Container
+> Registry, managed identities, Key Vault, Log Analytics/Application Insights,
+> and Azure OpenAI. Production Azure deployment and customer-correlated Azure
+> consumption have not yet been evidenced, so SyncAI is not represented as
+> primarily platformed on Azure. Microsoft Marketplace fulfillment uses
+> Microsoft Entra identity and the SaaS Fulfillment APIs, but those commerce
+> integrations do not by themselves make the product Azure-platformed.
+
+On 2026-10-06 the Partner Center draft had **partially hosted** and **Other**
+selected, but this explanation had not yet been saved. Preserve that distinction
+until the draft save is visibly confirmed.
 
 ## Azure service inventory
 
