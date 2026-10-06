@@ -40,7 +40,8 @@ export interface VerificationPosture {
   unplannedOpen: number;
   /** Completed recommendation outcomes that cite exactly one governed source. */
   evidenceBackedCompleted: number;
-  /** Historical outcomes retained honestly without invented evidence links. */
+  /** Historical outcomes that predate the governed evidence gate, including
+   *  legacy links that did not receive the current independent source review. */
   legacyCompletedWithoutEvidence: number;
 }
 
@@ -115,6 +116,10 @@ export function assessLoop(p: VerificationPosture | null): LoopAssessment {
         : ``) +
       (p.unplannedOpen > 0
         ? `${p.unplannedOpen} open obligation(s) require an explicit human verification plan before they can close. `
+        : ``) +
+      `${p.evidenceBackedCompleted} completed outcome(s) passed the governed evidence gate. ` +
+      (p.legacyCompletedWithoutEvidence > 0
+        ? `${p.legacyCompletedWithoutEvidence} historical outcome(s) predate that gate and remain legacy; their recorded results are not proof of current evidence review. `
         : ``) +
       (p.overdue > 0
         ? `${p.overdue} obligation(s) are past due. Overdue is the number to escalate: a verification that never happens is indistinguishable from one that passed.`

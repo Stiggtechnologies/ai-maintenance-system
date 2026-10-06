@@ -568,6 +568,12 @@ declare
   v_plan_marker text:=coalesce(current_setting('app.verification_plan_write',true),'');
   v_result_marker text:=coalesce(current_setting('app.verification_result_write',true),'');
 begin
+  if tg_op='INSERT' and new.recommendation_id is not null then
+    -- The default remains false for requirement verifications, but every new
+    -- recommendation obligation uses the evidence ratchet even when a writer
+    -- supplies false explicitly. Only pre-migration completed rows are legacy.
+    new.evidence_required:=true;
+  end if;
   if new.verification_owner_id is not null and not exists(
     select 1 from public.user_profiles p
     where p.id=new.verification_owner_id
@@ -1117,15 +1123,15 @@ as $$
         select 1 from o where o.recommendation_id=r.id)) as unwatched_n,
       (select count(*)::int from o where status='open'
         and not public.verification_obligation_plan_valid(id)) as unplanned_n,
-      (select count(*)::int from o where status='completed'
+      (select count(*)::int from o where status='completed' and evidence_required
         and ((evidence_id is not null)::int+(work_order_id is not null)::int)=1) as backed_n,
       (select count(*)::int from o where status='completed'
-        and not evidence_required and evidence_id is null and work_order_id is null) as legacy_n
+        and not evidence_required) as legacy_n
   )
   select actioned,watched,open_n,overdue_n,achieved_n,failed_n,
     inconclusive_n,waived_n,unwatched_n,unplanned_n,backed_n,legacy_n,
     format(
-      'Of %s actioned recommendation(s), %s carry an obligation and %s remain unwatched. %s are open, %s overdue, and %s require an explicit human plan before closure. %s completed outcomes cite governed evidence; %s historical completed outcomes do not and remain labelled legacy.',
+      'Of %s actioned recommendation(s), %s carry an obligation and %s remain unwatched. %s are open, %s overdue, and %s require an explicit human plan before closure. %s completed outcomes passed the governed evidence gate; %s historical completed outcomes predate that gate and remain labelled legacy.',
       actioned,watched,unwatched_n,open_n,overdue_n,unplanned_n,backed_n,legacy_n
     )
   from n;

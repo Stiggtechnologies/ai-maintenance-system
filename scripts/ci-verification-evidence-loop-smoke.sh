@@ -158,8 +158,9 @@ done
 
 echo '— legacy open debt cannot close until a human explicitly replans it —'
 psqlc "insert into public.verification_obligations(organization_id,recommendation_id,asset_id,method,intended_outcome,due_date,due_date_assumed,acceptance_criteria,evidence_required)
-values('$ORG','$REC_LEGACY','$ASSET','Historical placeholder method','Historical placeholder outcome',current_date+30,true,null,true);" >/dev/null
+values('$ORG','$REC_LEGACY','$ASSET','Historical placeholder method','Historical placeholder outcome',current_date+30,true,null,false);" >/dev/null
 LEGACY_OBL=$(psqlc "select id from verification_obligations where recommendation_id='$REC_LEGACY'")
+test "$(psqlc "select evidence_required::text from verification_obligations where id='$LEGACY_OBL'")" = 'true'
 R=$(rpc "$RE" record_verification_result "{\"p_obligation_id\":\"$LEGACY_OBL\",\"p_result\":\"achieved\",\"p_measured_note\":\"Measured result was inside the historical placeholder threshold.\",\"p_evidence_id\":null,\"p_work_order_id\":null}")
 expect_contains "$R" 'predates the governed verification plan'
 R=$(rpc "$MANAGER" record_recommendation_verification_plan "{\"p_recommendation_id\":\"$REC_LEGACY\",\"p_method\":\"Compare the completed exact-asset inspection with the accepted condition threshold.\",\"p_acceptance_criteria\":\"The completed inspection records no visible leakage and no unresolved repeat-failure indication.\",\"p_intended_outcome\":\"The older approved action is shown to have removed the repeat condition.\",\"p_due_date\":\"$DUE\",\"p_owner_id\":\"$RE_ID\"}")

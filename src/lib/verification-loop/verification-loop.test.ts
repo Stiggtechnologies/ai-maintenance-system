@@ -74,6 +74,16 @@ describe("assessLoop — the three open states must never render alike", () => {
     expect(assessLoop(null).healthiest).toBe("empty");
   });
 
+  it("distinguishes legacy recorded outcomes from evidence-gated outcomes", () => {
+    const r = assessLoop(posture({
+      evidenceBackedCompleted: 1,
+      legacyCompletedWithoutEvidence: 3,
+    }));
+    expect(r.loopClosureRate).toBeCloseTo(0.4);
+    expect(r.reason).toContain("1 completed outcome(s) passed the governed evidence gate");
+    expect(r.reason).toContain("3 historical outcome(s) predate that gate and remain legacy");
+  });
+
   it("does not claim a success rate before anything executed", () => {
     const r = assessLoop(
       posture({

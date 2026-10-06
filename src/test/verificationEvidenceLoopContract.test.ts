@@ -111,6 +111,9 @@ describe("C4.08 evidence-linked verification contract", () => {
     expect(migration).toContain("new.ts is distinct from old.ts");
     expect(migration).toContain("new.description is distinct from old.description");
     expect(migration).toContain("p_result is null or p_result not in");
+    expect(migration).toContain("new.evidence_required:=true");
+    expect(migration).toContain("where status='completed' and evidence_required");
+    expect(migration).toContain("historical completed outcomes predate that gate");
   });
 
   it("enforces tenancy and immutability behind the RPC door", () => {
