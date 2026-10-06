@@ -60,7 +60,11 @@ describe("C7.14 governed canonical covariates", () => {
   it("executes server-derived observations through the qualified shared kernel and retains runtime proof", () => {
     expect(edge).toContain('body.action === "reliability_survival"');
     expect(edge).toContain("prepareSurvivalSource(source.events, covariates)");
-    expect(edge).toMatch(/fitCox\(\s*prepared\.rows/);
+    expect(edge).toMatch(/fitCoxWithDiagnostics\(\s*prepared\.rows/);
+    expect(edge).toContain("prepared.clusterBySubject");
+    expect(smoke).toContain('MULTI_FIT=$(calculate "$AUTHOR_SESSION")');
+    expect(smoke).toContain("diagnostic['clusterCount']==3");
+    expect(smoke).toContain("outputs->'diagnostics'->>'diagnosticVersion'");
     expect(edge).toContain('"record_survival_calculation"');
     expect(workflow).toContain("bash scripts/ci-survival-covariate-smoke.sh");
     for (const invariant of [

@@ -1,6 +1,8 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CovariateSurvivalWorkbench } from "./CovariateSurvivalWorkbench";
+import { fitCoxWithDiagnostics } from "../lib/reliability/cox";
+import coxInput from "../lib/reliability/fixtures/cox-reference.json";
 import {
   captureSurvivalOverlay,
   loadSurvivalWorkspace,
@@ -69,7 +71,7 @@ describe("governed covariate survival workbench", () => {
     );
     expect(
       screen.getByText(
-        /repeated-asset uncertainty and predictive calibration remain unqualified/,
+        /independent-asset adequacy and predictive calibration remain unproven/,
       ),
     ).toBeInTheDocument();
     expect(screen.getByText(/Source gap \/ Approval gap/)).toBeInTheDocument();
@@ -146,6 +148,59 @@ describe("governed covariate survival workbench", () => {
     expect(
       await screen.findByText(/not an approved model input yet/),
     ).toBeInTheDocument();
+  });
+  it("renders formal diagnostics with retained predictor labels and clears stale fits after form edits", async () => {
+    const rows = coxInput.cases[0].rows.map((row) => ({
+      ...row,
+      covariates: [row.covariates[0]],
+    }));
+    const result = fitCoxWithDiagnostics(
+      rows,
+      ["synthetic_retained_load"],
+      new Map(
+        rows.map((row, i) => [
+          row.subjectId,
+          `synthetic-asset-${Math.floor(i / 3)}`,
+        ]),
+      ),
+    );
+    expect(result.status).toBe("fitted");
+    vi.mocked(runSurvivalAnalysis).mockResolvedValue({
+      calculationRunId: "synthetic-diag-calc",
+      agentRunId: "synthetic-diag-run",
+      result,
+      refusals: ["Predictive calibration unproven."],
+      advisory: true,
+      may_change_pm_interval: false,
+      may_create_work: false,
+      may_accept_risk: false,
+      may_return_to_service: false,
+    });
+    render(<CovariateSurvivalWorkbench component="synthetic drive" />);
+    await screen.findByText("Whole-population readiness");
+    change("Predictor 1 name", "synthetic_retained_load");
+    change("Predictor 1 unit", "ratio");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Run retained survival analysis" }),
+    );
+    await screen.findByText("Retained advisory fitted");
+    expect(
+      screen.getByText(/synthetic_retained_load: log-hazard coefficient/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Canonical-asset clustered uncertainty.*24 assets/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Formal PH score tests/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/non-significant test is not proof/),
+    ).toBeInTheDocument();
+    change("Predictor 1 name", "unsaved_different_variable");
+    expect(
+      screen.queryByText("Retained advisory fitted"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByText(/unsaved_different_variable: log-hazard coefficient/),
+    ).not.toBeInTheDocument();
   });
   it("reviews the selected persisted version, never unsaved form edits", async () => {
     const data = workspace();
