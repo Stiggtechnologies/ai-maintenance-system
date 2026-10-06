@@ -26,27 +26,41 @@ The promise and the product must remain distinct:
 
 ## AI cost-control finding
 
-The repository already contains most of the technical cost-control substrate.
-It must be reused, not rebuilt:
+The first audit was directionally right that the repository already contained
+the cost-control foundation. The missing commercial layer now extends those
+canonical controls instead of creating a second ledger or quota system:
 
-| Control                                                                | Evidence in the repository                                                              | Status                                        |
-| ---------------------------------------------------------------------- | --------------------------------------------------------------------------------------- | --------------------------------------------- |
-| Tenant/model/function token ledger                                     | `private.llm_usage`                                                                     | Built                                         |
-| Versioned CAD input/output price table with provenance                 | `private.llm_prices`                                                                    | Built                                         |
-| Atomic check-and-reserve quota gate                                    | `check_llm_quota()`                                                                     | Built                                         |
-| Per-organization quota overrides                                       | `private.llm_org_quotas`                                                                | Built                                         |
-| Anonymous public-rail abuse allowance                                  | `consume_public_reliability_ip_allowance()`                                             | Built                                         |
-| Marketplace usage aggregation and idempotent hourly events             | `private.marketplace_meter_definitions` and `public.marketplace_hourly_metering_events` | Built but unconfigured and not live-certified |
-| Cost attributed to a governed decision or case                         | No decision/case key exists on `private.llm_usage`                                      | Missing                                       |
-| Paid plan or entitlement automatically mapped to an organization quota | No canonical plan-to-quota binding found                                                | Missing                                       |
-| Production COGS and p50/p95 cost-to-serve report                       | No canonical report found                                                               | Missing                                       |
-| Gross-margin release gate against approved plan revenue                | No enforceable gate found                                                               | Missing                                       |
+| Control                                                     | Evidence in the repository                                                              | Status                                                       |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| Tenant/model/function token ledger                          | `private.llm_usage`                                                                     | Built                                                        |
+| Versioned CAD input/output price table with provenance      | `private.llm_prices`                                                                    | Built                                                        |
+| Atomic check-and-reserve quota gate                         | `check_llm_quota()`                                                                     | Built                                                        |
+| Per-organization quota overrides                            | `private.llm_org_quotas`                                                                | Built                                                        |
+| Anonymous public-rail abuse allowance                       | `consume_public_reliability_ip_allowance()`                                             | Built                                                        |
+| Decision/case/work cost subject and exact price snapshot    | Extended fields on `private.llm_usage`                                                  | Built on supported runtime paths; unattributed calls exposed |
+| Paid Microsoft plan mapped to a commercial period allowance | `apply_ai_commercial_plan_allowance()` and subscription triggers                        | Built; no policy values configured or approved               |
+| Production COGS and p50/p95 cost-to-serve report            | `get_ai_unit_economics()`                                                               | Built; no production distribution evidenced                  |
+| Pre-activation variable-cost margin gate                    | `evaluate_ai_commercial_plan_policy()` and explicit approval                            | Built; commercial inputs remain owner decisions              |
+| Marketplace usage aggregation and idempotent hourly events  | `private.marketplace_meter_definitions` and `public.marketplace_hourly_metering_events` | Built but unconfigured and not live-certified                |
+| Paid realtime usage settlement                              | Realtime provider terminal usage                                                        | Missing; paid realtime is therefore blocked                  |
 
-The default 5,184 calls and 22 million tokens per organization per UTC day are
-explicitly documented as **abuse caps with engineering headroom**. They are not
-customer entitlements, included usage, or evidence that a plan has positive
-gross margin. A model call is also not a decision: one governed decision can
-invoke several model calls, and usage cannot yet be rolled up by decision.
+The default 5,184 calls and 22 million tokens per organization per UTC day
+remain **abuse caps with engineering headroom**. They are not customer
+entitlements, included usage, or evidence that a plan has positive gross
+margin. The commercial policy adds a separate calls, tokens, and decision
+boundary. Supported runtimes attach model calls to a governed cost object so
+several calls can roll up into one decision; unattributed and unknown-price
+calls remain explicit in the report and still count against the hard token cap.
+
+The gross-margin gate is a conservative variable-cost gate: it uses the
+worst-priced allowed model plus an explicitly supplied non-inference variable
+cost. It is not a substitute for a complete company gross-margin model.
+
+No price, allowance, model set, overage rate, non-inference cost, or margin
+threshold was seeded or approved. Microsoft activation fails closed when the
+approved policy is absent. Direct-channel activation is not yet covered by that
+automatic trigger, and remains a named release gap rather than a completed
+claim.
 
 The controlled machine-readable record is
 [`ai-unit-economics.json`](../../marketplace/ai-unit-economics.json).
@@ -100,7 +114,7 @@ buyer claim or infer success from traffic alone.
 | Appropriate buyer               | A reliability or maintenance team with an identified failure problem and enough evidence to begin without a services-led readiness engagement                                         |
 | AI usage boundary               | A hard bundled allowance enforced through the tenant quota system; stop or upgrade when consumed                                                                                      |
 | Microsoft overage               | Not available under a per-user plan; no automatic token overage may be promised                                                                                                       |
-| Publication boundary            | Appropriate only as a separately bounded narrow-agent offer after plan-to-quota enforcement and cost validation                                                                       |
+| Publication boundary            | Appropriate only after an approved hard-stop plan policy, measured cost validation, and pre-publication verification                                                                  |
 
 This recommendation preserves the currently observed Starter draft price as an
 A/B-test candidate. It does not approve that price, and it is not commercially
@@ -214,7 +228,8 @@ a winner.
   are evidenced.
 - Do not use the 5,184-call or 22-million-token engineering abuse caps as a
   commercial allowance.
-- Do not describe the current usage ledger as per-decision cost attribution.
+- Describe per-decision cost only for supported attributed runtime paths, and
+  disclose unattributed calls separately.
 - Do not enable Microsoft metering until an approved flat-rate plan, immutable
   dimension, included allowance, overage price, entitlement binding, and
   protected-preview certification all exist.

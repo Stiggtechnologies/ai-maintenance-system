@@ -14,19 +14,38 @@ const unitEconomics = JSON.parse(
     commercialAllowanceApproved: boolean;
     currentGranularity: string;
     perDecisionCostAvailable: boolean;
+    perDecisionCostCoverage: string;
   };
   implemented: {
+    commercialPlanPolicy: {
+      seededCommercialValues: boolean;
+      status: string;
+    };
+    commercialPlanToQuotaBinding: {
+      azureMarketplaceActivationFailsClosedWithoutApprovedPolicy: boolean;
+      directSubscriptionActivationFailsClosedWithoutApprovedPolicy: boolean;
+      status: string;
+    };
+    grossMarginReleaseGate: {
+      isTotalCompanyGrossMarginModel: boolean;
+      status: string;
+    };
     organizationQuota: {
       defaultCapsAreCommercialEntitlements: boolean;
       defaultMaxCallsPerUtcDay: number;
       defaultMaxTokensPerUtcDay: number;
     };
+    paidRealtime: {
+      status: string;
+      unmeasuredPaidUsageAllowed: boolean;
+    };
+    productionCogsReporting: { status: string };
   };
-  missing: {
-    commercialPlanToQuotaBinding: { implemented: boolean };
-    decisionLevelCostAttribution: { implemented: boolean };
-    grossMarginReleaseGate: { implemented: boolean };
-    productionCogsReporting: { implemented: boolean };
+  pending: {
+    approvedCommercialPolicy: { status: string };
+    directChannelActivationGate: { status: string };
+    productionMeasurementEvidence: { status: string };
+    realtimeUsageSettlement: { status: string };
   };
 };
 
@@ -133,24 +152,45 @@ describe("competitive pricing benchmark", () => {
       defaultCapsAreCommercialEntitlements: false,
     });
     expect(unitEconomics.economicsModel).toMatchObject({
-      currentGranularity: "model_call",
-      perDecisionCostAvailable: false,
+      currentGranularity: "model_call_with_supported_cost_object_rollup",
+      perDecisionCostAvailable: true,
       commercialAllowanceApproved: false,
     });
+    expect(unitEconomics.economicsModel.perDecisionCostCoverage).toMatch(
+      /supported runtime paths only/i,
+    );
   });
 
-  it("records the actual commercial gaps instead of claiming the control stack is complete", () => {
-    expect(unitEconomics.missing.decisionLevelCostAttribution.implemented).toBe(
-      false,
+  it("separates implemented controls from unapproved commercial configuration", () => {
+    expect(unitEconomics.implemented.commercialPlanPolicy).toMatchObject({
+      status: "implemented_not_configured",
+      seededCommercialValues: false,
+    });
+    expect(
+      unitEconomics.implemented.commercialPlanToQuotaBinding,
+    ).toMatchObject({
+      status: "implemented_for_azure_marketplace",
+      azureMarketplaceActivationFailsClosedWithoutApprovedPolicy: true,
+      directSubscriptionActivationFailsClosedWithoutApprovedPolicy: false,
+    });
+    expect(unitEconomics.implemented.productionCogsReporting.status).toBe(
+      "implemented_no_production_distribution_evidenced",
     );
-    expect(unitEconomics.missing.commercialPlanToQuotaBinding.implemented).toBe(
-      false,
-    );
-    expect(unitEconomics.missing.productionCogsReporting.implemented).toBe(
-      false,
-    );
-    expect(unitEconomics.missing.grossMarginReleaseGate.implemented).toBe(
-      false,
+    expect(unitEconomics.implemented.grossMarginReleaseGate).toMatchObject({
+      status: "implemented_not_configured",
+      isTotalCompanyGrossMarginModel: false,
+    });
+    expect(unitEconomics.pending).toMatchObject({
+      approvedCommercialPolicy: { status: "not_evidenced" },
+      productionMeasurementEvidence: { status: "not_evidenced" },
+      directChannelActivationGate: { status: "not_implemented" },
+      realtimeUsageSettlement: { status: "not_implemented" },
+    });
+    expect(unitEconomics.implemented.paidRealtime).toEqual(
+      expect.objectContaining({
+        status: "commercially_blocked",
+        unmeasuredPaidUsageAllowed: false,
+      }),
     );
   });
 

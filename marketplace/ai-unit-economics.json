@@ -1,25 +1,42 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "asOf": "2026-10-06",
   "scope": "AI inference cost controls and Microsoft Marketplace commercial compatibility",
-  "finding": "technical_cost_substrate_exists_commercial_binding_incomplete",
+  "finding": "commercial_cost_controls_implemented_configuration_and_production_evidence_pending",
   "implemented": {
     "usageLedger": {
       "status": "implemented",
       "source": "private.llm_usage",
-      "attribution": ["organization_id", "fn", "model"],
-      "storesPromptOrCompletionText": false
+      "attribution": [
+        "organization_id",
+        "fn",
+        "model",
+        "billing_subscription_id",
+        "cost_object_type",
+        "cost_object_id"
+      ],
+      "priceSnapshot": [
+        "input_cad_per_mtok",
+        "output_cad_per_mtok",
+        "price_effective_date",
+        "inference_cost_cad",
+        "cost_status"
+      ],
+      "storesPromptOrCompletionText": false,
+      "unattributedCallsReported": true
     },
     "modelPriceTable": {
       "status": "implemented",
       "source": "private.llm_prices",
       "currency": "CAD",
       "unit": "per_million_tokens",
-      "requiresPeriodicRefresh": true
+      "requiresPeriodicRefresh": true,
+      "unknownPriceTreatedAsFree": false
     },
     "organizationQuota": {
       "status": "implemented",
-      "gate": "check_llm_quota",
+      "gate": "check_llm_commercial_quota",
+      "underlyingAtomicReservation": "check_llm_quota",
       "settlement": "record_llm_usage",
       "failureRelease": "release_llm_reservation",
       "atomicReservation": true,
@@ -29,33 +46,75 @@
       "defaultCapsAreCommercialEntitlements": false,
       "defaultCapsPurpose": "abuse_protection_with_engineering_headroom"
     },
+    "commercialPlanPolicy": {
+      "status": "implemented_not_configured",
+      "source": "private.ai_commercial_plan_policies",
+      "seededCommercialValues": false,
+      "requiresNamedAdministrativeApprover": true,
+      "perUserAutomaticMeteredOverageAllowed": false,
+      "hardStopUnpricedOverageAllowed": false,
+      "allowedModelEnforcement": true
+    },
+    "commercialPlanToQuotaBinding": {
+      "status": "implemented_for_azure_marketplace",
+      "source": "apply_ai_commercial_plan_allowance",
+      "azureMarketplaceActivationFailsClosedWithoutApprovedPolicy": true,
+      "directSubscriptionActivationFailsClosedWithoutApprovedPolicy": false,
+      "directPoliciesBindExistingActiveSubscriptionsWhenApproved": true
+    },
+    "grossMarginReleaseGate": {
+      "status": "implemented_not_configured",
+      "source": "evaluate_ai_commercial_plan_policy",
+      "basis": "worst-priced allowed model plus explicitly supplied non-inference variable cost",
+      "appliesToBaseAllowance": true,
+      "appliesToMeteredOverageUnit": true,
+      "isTotalCompanyGrossMarginModel": false
+    },
+    "productionCogsReporting": {
+      "status": "implemented_no_production_distribution_evidenced",
+      "source": "get_ai_unit_economics",
+      "measures": [
+        "settled_calls",
+        "total_tokens",
+        "known_inference_cost_cad",
+        "unknown_price_calls",
+        "unpriced_calls",
+        "unattributed_calls",
+        "attributed_decisions",
+        "priced_attributed_decisions",
+        "average_cost_per_decision_cad",
+        "p50_cost_per_decision_cad",
+        "p95_cost_per_decision_cad"
+      ]
+    },
     "marketplaceUsageAggregation": {
       "status": "implemented_not_configured_or_live_certified",
       "sourceMetric": "llm_total_tokens",
       "supportsIncludedQuantity": true,
       "idempotentHourlyEvents": true,
       "liveAcceptedMeterEventEvidenced": false
+    },
+    "paidRealtime": {
+      "status": "commercially_blocked",
+      "reason": "WebRTC negotiation currently lacks terminal provider usage settlement",
+      "unmeasuredPaidUsageAllowed": false
     }
   },
-  "missing": {
-    "decisionLevelCostAttribution": {
-      "implemented": false,
-      "reason": "private.llm_usage has no governed decision or case identifier"
-    },
-    "commercialPlanToQuotaBinding": {
-      "implemented": false,
-      "reason": "no canonical entitlement-to-private.llm_org_quotas mapping was found"
-    },
-    "productionCogsReporting": {
-      "implemented": false,
-      "reason": "no canonical usage-times-model-price report by organization and plan was found"
-    },
-    "grossMarginReleaseGate": {
-      "implemented": false,
-      "reason": "no enforceable comparison of approved plan revenue to measured p50/p95 cost-to-serve was found"
+  "pending": {
+    "approvedCommercialPolicy": {
+      "status": "not_evidenced",
+      "reason": "No price, included allowance, maximum allowance, allowed model set, non-inference variable cost, or margin threshold was invented or approved."
     },
     "productionMeasurementEvidence": {
       "status": "not_evidenced"
+    },
+    "directChannelActivationGate": {
+      "status": "not_implemented",
+      "reason": "Direct-plan activation remains outside the automatic fail-closed subscription trigger to avoid retroactively interrupting unaudited legacy direct plans."
+    },
+    "realtimeUsageSettlement": {
+      "status": "not_implemented",
+      "reason": "Paid realtime remains blocked until terminal provider usage can be settled to the canonical ledger."
     }
   },
   "commercialCompatibility": {
@@ -71,10 +130,11 @@
   },
   "economicsModel": {
     "canonicalFormula": "input_tokens * input_cad_per_mtok / 1000000 + completion_tokens * output_cad_per_mtok / 1000000",
-    "currentGranularity": "model_call",
-    "perDecisionCostAvailable": false,
+    "currentGranularity": "model_call_with_supported_cost_object_rollup",
+    "perDecisionCostAvailable": true,
+    "perDecisionCostCoverage": "supported runtime paths only; unattributed calls are explicit and remain inside the hard token ceiling",
     "rawTokenMeterIsModelCostWeighted": false,
-    "warning": "equal token quantities can have materially different inference cost under different model routes",
+    "warning": "Equal token quantities can have materially different inference cost under different model routes.",
     "commercialAllowanceApproved": false,
     "overagePriceApproved": false,
     "grossMarginThresholdApproved": false
@@ -82,20 +142,23 @@
   "requiredReleaseGates": [
     "approved_offer_wide_pricing_model",
     "approved_commercial_unit_and_included_allowance",
-    "plan_entitlement_to_quota_binding",
-    "decision_or_case_cost_attribution_or_an_explicitly_accepted_proxy",
-    "measured_production_cost_distribution",
+    "approved_allowed_model_set_and_price_refresh_process",
+    "approved_non_inference_variable_cost_input",
     "approved_gross_margin_threshold",
-    "protected_marketplace_meter_certification",
-    "live_accepted_metering_event"
+    "measured_production_cost_distribution",
+    "protected_marketplace_meter_certification_if_metered",
+    "live_accepted_metering_event_if_metered",
+    "paid_realtime_usage_settlement_before_realtime_enablement"
   ],
   "sources": {
     "repository": [
       "supabase/migrations/20260916000000_llm_cost_guardrails.sql",
       "supabase/migrations/20261229100000_azure_marketplace_metering.sql",
       "supabase/migrations/20261230110000_azure_marketplace_metering_clock_consistency.sql",
+      "supabase/migrations/20270103020000_ai_commercial_cost_controls.sql",
       "src/test/llmCostGuardrails.test.ts",
-      "src/test/azureMarketplaceMetering.test.ts"
+      "src/test/azureMarketplaceMetering.test.ts",
+      "src/test/aiCommercialCostControls.test.ts"
     ],
     "microsoft": [
       "https://learn.microsoft.com/en-us/partner-center/marketplace-offers/saas-metered-billing",

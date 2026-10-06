@@ -90,6 +90,8 @@ export function WorkOrderDetailPage() {
         {
           body: {
             agentType: "ReliabilityAgent",
+            costObjectType: "work_order",
+            costObjectId: workOrderId,
             depth: "standard",
             query:
               `Draft a reliability assessment for this work order. Return STRICT JSON only: ` +
@@ -202,6 +204,8 @@ export function WorkOrderDetailPage() {
         {
           body: {
             agentType: "ReliabilityAgent",
+            costObjectType: "work_order",
+            costObjectId: workOrderId,
             depth: "standard",
             query:
               `Classify the failure mode for this work order using standard FMEA taxonomy. Return STRICT JSON only: ` +

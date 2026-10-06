@@ -14,7 +14,8 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const MODEL_DELIVERABLE = Deno.env.get("MODEL_DELIVERABLE") ?? "gpt-5.6-terra";
 const MODEL_CHAT = Deno.env.get("MODEL_CHAT") ?? "gpt-5.6-luna";
 const MODEL_STRUCTURED = Deno.env.get("MODEL_STRUCTURED") ?? "gpt-5.6-luna";
-const MODEL_RELIABILITY = Deno.env.get("MODEL_RELIABILITY") ?? MODEL_DELIVERABLE;
+const MODEL_RELIABILITY =
+  Deno.env.get("MODEL_RELIABILITY") ?? MODEL_DELIVERABLE;
 const MODEL_PUBLIC_FRONTIER =
   Deno.env.get("MODEL_PUBLIC_FRONTIER") ?? "gpt-5.6-terra";
 const MODEL_SAFETY = "gpt-4o-mini";
@@ -80,6 +81,8 @@ interface LegacyAgentRequest {
   depth?: "standard" | "deliverable";
   publicOnly?: boolean;
   maxOutputTokens?: number;
+  costObjectType?: string;
+  costObjectId?: string;
 }
 
 interface TypedAgentRequest {
@@ -179,13 +182,16 @@ async function checkOrgQuota(
   organizationId: string,
   requestedModel: string,
   estimatedTokens: number,
+  costObject?: { type: string; id: string },
 ): Promise<QuotaGateResult> {
   try {
-    const { data, error } = await admin.rpc("check_llm_quota", {
+    const { data, error } = await admin.rpc("check_llm_commercial_quota", {
       p_organization_id: organizationId,
       p_fn: "ai-agent-processor",
       p_model: requestedModel,
       p_estimated_tokens: Math.max(0, Math.ceil(estimatedTokens)),
+      p_cost_object_type: costObject?.type ?? null,
+      p_cost_object_id: costObject?.id ?? null,
     });
     if (error) throw error;
     const verdict = (data ?? {}) as QuotaVerdict;
@@ -591,17 +597,18 @@ async function handleLegacy(
   const deliverable =
     body.depth === "deliverable" ||
     /\b(fmea|rca|fracas|rcm|register|assessment|report|plan)\b/i.test(query);
-  const model = agentType === "ReliabilityAgent"
-    ? body.publicOnly
-      ? MODEL_PUBLIC_FRONTIER
-      : MODEL_RELIABILITY
-    : body.publicOnly
-      ? deliverable
+  const model =
+    agentType === "ReliabilityAgent"
+      ? body.publicOnly
         ? MODEL_PUBLIC_FRONTIER
-        : MODEL_CHAT
-      : deliverable
-        ? MODEL_DELIVERABLE
-        : MODEL_CHAT;
+        : MODEL_RELIABILITY
+      : body.publicOnly
+        ? deliverable
+          ? MODEL_PUBLIC_FRONTIER
+          : MODEL_CHAT
+        : deliverable
+          ? MODEL_DELIVERABLE
+          : MODEL_CHAT;
   const defaultMaxTokens = deliverable ? 12_000 : 1_500;
   const requestedMaxTokens = Number(body.maxOutputTokens);
   const maxTokens = Number.isFinite(requestedMaxTokens)
@@ -627,6 +634,9 @@ async function handleLegacy(
       auth.organizationId,
       model,
       estimatedTokens,
+      body.costObjectType && body.costObjectId
+        ? { type: body.costObjectType, id: body.costObjectId }
+        : undefined,
     );
     if (quota.refusal) return quota.refusal;
     quotaReservationId = quota.reservationId;
@@ -642,9 +652,10 @@ async function handleLegacy(
     deliverable,
     body.publicOnly ? "public" : "authenticated",
   );
-  const systemPrompt = agentType === "ReliabilityAgent"
-    ? appendApprovedReliabilityContext(basePrompt, kb.promptContext)
-    : `${basePrompt}${kb.promptContext ? `\n\nApproved reliability reference passages:\n${kb.promptContext}\nUse only the exact bracket labels supplied for citations.` : ""}`;
+  const systemPrompt =
+    agentType === "ReliabilityAgent"
+      ? appendApprovedReliabilityContext(basePrompt, kb.promptContext)
+      : `${basePrompt}${kb.promptContext ? `\n\nApproved reliability reference passages:\n${kb.promptContext}\nUse only the exact bracket labels supplied for citations.` : ""}`;
   const started = Date.now();
   let content: string;
   let usage: Record<string, number>;
@@ -710,7 +721,8 @@ async function handleLegacy(
     modelUsed: answeredBy,
     requestedModel: model,
     depth: deliverable ? "deliverable" : "standard",
-    promptVersion: agentType === "ReliabilityAgent" ? RELIABILITY_PROMPT_VERSION : undefined,
+    promptVersion:
+      agentType === "ReliabilityAgent" ? RELIABILITY_PROMPT_VERSION : undefined,
     knowledgeBaseUsed: kb.knowledgeBaseUsed,
     citations: kb.citations.map((citation) => ({
       title: citation.title,
@@ -796,7 +808,13 @@ async function handleTyped(
   // and provider call. Typed calls always resolve an organizationId above.
   // Estimate: the 1,800 completion cap plus ~1,200 prompt tokens — the same
   // ~3,000-token typed-call figure the migration's sizing arithmetic uses.
-  const quota = await checkOrgQuota(admin, organizationId, MODEL_STRUCTURED, 3_000);
+  const quota = await checkOrgQuota(
+    admin,
+    organizationId,
+    MODEL_STRUCTURED,
+    3_000,
+    { type: "work_order", id: body.input.work_order_id },
+  );
   if (quota.refusal) return quota.refusal;
   const quotaReservationId = quota.reservationId;
 
@@ -852,7 +870,9 @@ async function handleTyped(
       assetResult.data.manufacturer,
       assetResult.data.model,
       body.input.trigger_reason,
-    ].filter(Boolean).join(" ");
+    ]
+      .filter(Boolean)
+      .join(" ");
     const kb = await retrieveReliabilityContext(admin, typedQuery, {
       organizationId,
     });
