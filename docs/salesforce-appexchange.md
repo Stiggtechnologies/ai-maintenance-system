@@ -19,8 +19,8 @@ events from the License Management App (LMA) flow into our backend.
   and it is a lead surface rather than a software purchase or installation.
 - **Managed-package path:** Future engineering work only. No package, released
   version, pricing, security-review submission, or LMA connection is evidenced.
-- **Pricing:** No AppExchange price is approved. Do not transpose Microsoft
-  plan names or per-user observations into Salesforce.
+- **Pricing:** Under commercial review; no AppExchange price is approved. Do
+  not transpose Microsoft plan names or per-user observations into Salesforce.
 
 Portal-ready, non-submittable service-listing copy and the managed-package
 release gates are controlled in

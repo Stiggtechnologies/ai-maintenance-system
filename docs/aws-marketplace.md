@@ -22,12 +22,12 @@ This is the AWS counterpart of [`azure-marketplace.md`](./azure-marketplace.md)
 
 - **Product type:** SaaS product draft. This is not an AMI and does not deploy
   software into the buyer's AWS account.
-- **Offer and pricing model:** Owner decision required before the initial
-  limited listing. AWS SaaS subscription, contract, and contract-with-usage
-  models have different billing and integration contracts, and AWS does not
-  permit the pricing model to be changed after the product is published to
-  limited visibility. The repository does not prove an approved model or
-  dimension.
+- **Offer and pricing model:** Under commercial review and subject to an owner
+  decision before the initial limited listing. AWS SaaS subscription, contract,
+  and contract-with-usage models have different billing and integration
+  contracts, and AWS does not permit the pricing model to be changed after the
+  product is published to limited visibility. The repository does not prove an
+  approved model or dimension.
 - **Plans:** Starter, Professional, and Enterprise names exist in the Microsoft
   draft, but no AWS plans, dimensions, prices, or private offers have been
   created or approved. Do not transpose the Microsoft per-user observations
