@@ -172,3 +172,15 @@ omitted/NULL/non-positive revisions, an earlier measurement with a new delivery
 ID after reconfiguration, unrecorded future revisions, unchanged refused-row
 counts, explicit active-revision acceptance/replay, subsequent invalidation and
 the revised function's actual anon/authenticated/service-role execute privileges.
+
+`scripts/tests/time-assurance-concurrency-postgres.mjs` adds an actual two-session
+witness, with a third session inspecting PostgreSQL's blocking relationship.
+It accepts only an explicitly marked owned Unix-socket test cluster and a
+`clock_*` database with the synthetic identity helpers and no `auth.users`.
+Run it after the above fixtures with Node and arguments
+`--disposable-clock-fixture <owned-socket-directory> <port> <clock-database>`.
+When configuration wins, the older declared measurement waits and is refused
+without an insert. When observation wins, its original revision is retained and
+the waiting new contract remains unproven. The fixture retains its two new
+configuration receipts and one synthetic observation; no records are deleted.
+This witness is not a GoTrue, real collector or production concurrency claim.
