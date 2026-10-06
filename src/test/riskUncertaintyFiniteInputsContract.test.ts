@@ -141,7 +141,7 @@ describe("U18 local finite/object/date refusal source contract", () => {
     expect(submit).not.toContain("AT TIME ZONE");
   });
 
-  it("preserves original numerical bounds, sensitivity math and server-rounded VOI classifier", () => {
+  it("preserves original numerical bounds and sensitivity math while matching canonical unrounded VOI classification", () => {
     for (const original of [
       "v_probability_lower<0 or v_probability_upper>1",
       "v_probability_lower<=v_probability_central and v_probability_central<=v_probability_upper",
@@ -153,9 +153,11 @@ describe("U18 local finite/object/date refusal source contract", () => {
       "round(abs(high_output-low_output),4)",
       "v_uncertainty_reduction not between 0 and 1",
       "v_change_probability not between 0 and 1",
-      "v_voi_expected:=round(v_wrong_cost*v_uncertainty_reduction*v_change_probability,2)",
-      "v_voi_net:=round(v_voi_expected-v_info_cost,2)",
-      "v_voi_net>0 then 'GATHER_INFORMATION' else 'DECIDE_WITH_CURRENT_INFORMATION'",
+      "v_voi_expected_raw:=v_wrong_cost*v_uncertainty_reduction*v_change_probability",
+      "v_voi_net_raw:=v_voi_expected_raw-v_info_cost",
+      "v_voi_expected:=round(v_voi_expected_raw,2)",
+      "v_voi_net:=round(v_voi_net_raw,2)",
+      "v_voi_net_raw>0 then 'GATHER_INFORMATION' else 'DECIDE_WITH_CURRENT_INFORMATION'",
     ])
       expect(submit).toContain(original);
   });

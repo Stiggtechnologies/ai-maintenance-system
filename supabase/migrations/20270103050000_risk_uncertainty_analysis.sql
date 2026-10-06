@@ -251,6 +251,7 @@ declare
   v_confidence_level numeric; v_ci_lower numeric; v_ci_upper numeric;
   v_best numeric; v_expected numeric; v_worst numeric; v_currency text;
   v_info_cost numeric; v_wrong_cost numeric; v_uncertainty_reduction numeric; v_change_probability numeric;
+  v_voi_expected_raw numeric; v_voi_net_raw numeric;
   v_voi_expected numeric; v_voi_net numeric; v_voi_recommendation text; v_review_due timestamptz;
 begin
   if v_user is null or v_org is null then
@@ -427,9 +428,13 @@ begin
     and e.organization_id=v_org and e.risk_id=r.id and e.verification_status='verified')<>cardinality(v_evidence_ids) then
     return jsonb_build_object('error','all cited inputs must be verified evidence linked to this exact risk');
   end if;
-  v_voi_expected:=round(v_wrong_cost*v_uncertainty_reduction*v_change_probability,2);
-  v_voi_net:=round(v_voi_expected-v_info_cost,2);
-  v_voi_recommendation:=case when v_voi_net>0 then 'GATHER_INFORMATION' else 'DECIDE_WITH_CURRENT_INFORMATION' end;
+  -- Match canonical record_risk_value_of_information: classify the unrounded
+  -- numeric benefit minus cost before independently rounding either display.
+  v_voi_expected_raw:=v_wrong_cost*v_uncertainty_reduction*v_change_probability;
+  v_voi_net_raw:=v_voi_expected_raw-v_info_cost;
+  v_voi_recommendation:=case when v_voi_net_raw>0 then 'GATHER_INFORMATION' else 'DECIDE_WITH_CURRENT_INFORMATION' end;
+  v_voi_expected:=round(v_voi_expected_raw,2);
+  v_voi_net:=round(v_voi_net_raw,2);
   select coalesce(max(version),0)+1 into v_version from public.risk_uncertainty_analyses
   where organization_id=v_org and risk_id=r.id;
   perform set_config('app.risk_uncertainty_write','granted',true);
@@ -470,7 +475,10 @@ begin
     'operational_authorization',false));
   return jsonb_build_object('riskId',r.id,'analysisId',v_id,'version',v_version,
     'analysisDigest',v_digest,'validationStatus','pending_review',
-    'valueOfInformation',jsonb_build_object('expectedValue',v_voi_expected,'netValue',v_voi_net,'recommendation',v_voi_recommendation),
+    'valueOfInformation',jsonb_build_object(
+      'informationCost',v_info_cost,'decisionCostIfWrong',v_wrong_cost,
+      'uncertaintyReduction',v_uncertainty_reduction,'probabilityDecisionChanges',v_change_probability,
+      'expectedValue',v_voi_expected,'netValue',v_voi_net,'recommendation',v_voi_recommendation),
     'operationalAuthorization',false);
 end $$;
 

@@ -186,6 +186,81 @@ do $$ declare f record; result jsonb; baseline jsonb; bad jsonb;
   end loop;
 end $$;
 -- U18 FINITE INPUT REFUSALS END
+-- U18 VOI PARITY BEGIN
+-- Specification-only until the complete-chain CI actually executes this file.
+-- Each canonical writer/uncertainty pair uses the same random fixture and is
+-- subtransaction-rolled back before the original acceptance ledger continues.
+do $$ declare f record; sample record; baseline jsonb; canonical jsonb;
+  result jsonb; input jsonb; qualified boolean; attempts integer:=0; begin
+  select * into f from u18_fixture;
+  baseline:=pg_temp.u18_state();
+  for sample in select * from (values
+    ('large_positive_cents',100000000000000.03::numeric,0::numeric,0.999::numeric,1::numeric,99900000000000.03::numeric,99900000000000.03::numeric,'GATHER_INFORMATION'),
+    ('large_negative_cents',0,100000000000000.03,1,1,0,-100000000000000.03,'DECIDE_WITH_CURRENT_INFORMATION'),
+    ('finite_scientific_positive',1e307::numeric,0,1,1,1e307::numeric,1e307::numeric,'GATHER_INFORMATION'),
+    ('finite_scientific_negative',0,1e307::numeric,1,1,0,-1e307::numeric,'DECIDE_WITH_CURRENT_INFORMATION'),
+    ('maximum_finite_positive',1.7976931348623157e308::numeric,0,1,1,1.7976931348623157e308::numeric,1.7976931348623157e308::numeric,'GATHER_INFORMATION'),
+    ('maximum_finite_negative',0,1.7976931348623157e308::numeric,1,1,0,-1.7976931348623157e308::numeric,'DECIDE_WITH_CURRENT_INFORMATION'),
+    ('previous_false_overflow_witness',1e308::numeric,10,0.5,0.5,2.5e307::numeric,(2.5e307::numeric-10),'GATHER_INFORMATION'),
+    ('maximum_finite_equality',1.7976931348623157e308::numeric,1.7976931348623157e308::numeric,1,1,1.7976931348623157e308::numeric,0,'DECIDE_WITH_CURRENT_INFORMATION'),
+    ('positive_sub_cent',1.004::numeric,1::numeric,1::numeric,1::numeric,1::numeric,0::numeric,'GATHER_INFORMATION'),
+    ('exact_equality',1,1,1,1,1,0,'DECIDE_WITH_CURRENT_INFORMATION'),
+    ('negative_sub_cent',0.996,1,1,1,1,0,'DECIDE_WITH_CURRENT_INFORMATION'),
+    ('sub_cent_benefit',0.004,0,1,1,0,0,'GATHER_INFORMATION'),
+    ('positive_half_cent',0.005,0,1,1,0.01,0.01,'GATHER_INFORMATION'),
+    ('negative_half_cent',0,0.005,1,1,0,-0.01,'DECIDE_WITH_CURRENT_INFORMATION'),
+    ('normal',250000,10000,0.5,0.3,37500,27500,'GATHER_INFORMATION'),
+    ('fractional_exact_equality',0.1,0.006,0.2,0.3,0.01,0,'DECIDE_WITH_CURRENT_INFORMATION'),
+    ('no_intermediate_rounding',0.014,0.004,0.5,1,0.01,0,'GATHER_INFORMATION')
+  ) q(case_name,decision_cost,information_cost,uncertainty_reduction,decision_probability,expected_display,net_display,recommendation) loop
+    qualified:=false;
+    begin
+      canonical:=public.record_risk_value_of_information(f.risk,jsonb_build_object(
+        'information_action','Synthetic CI parity enquiry, not an operational authorization',
+        'information_cost',sample.information_cost,'decision_cost_if_wrong',sample.decision_cost,
+        'uncertainty_reduction',sample.uncertainty_reduction,
+        'probability_decision_changes',sample.decision_probability,'currency','CAD'));
+      if canonical ? 'error' or (canonical->>'expected_value')::numeric is distinct from sample.expected_display
+        or (canonical->>'net_value')::numeric is distinct from sample.net_display
+        or canonical->>'recommendation' is distinct from sample.recommendation
+        or canonical->'human_decision_required' is distinct from 'true'::jsonb
+        or canonical->'advisory_only' is distinct from 'true'::jsonb then
+        raise exception 'canonical VOI parity control failed'; end if;
+      input:=f.input||jsonb_build_object('voi_information_cost',sample.information_cost,
+        'voi_decision_cost_if_wrong',sample.decision_cost,
+        'voi_uncertainty_reduction',sample.uncertainty_reduction,
+        'voi_probability_decision_changes',sample.decision_probability);
+      result:=public.submit_risk_uncertainty_analysis(f.risk,input,array[f.verified]);
+      if result ? 'error' or result->>'riskId' is distinct from f.risk::text
+        or result->>'analysisId' is null or result->>'analysisId' !~ '^[0-9a-f-]{36}$'
+        or result->>'analysisDigest' is null or result->>'analysisDigest' !~ '^[0-9a-f]{64}$'
+        or result->'version' is distinct from '1'::jsonb
+        or result->>'validationStatus' is distinct from 'pending_review'
+        or result->'operationalAuthorization' is distinct from 'false'::jsonb
+        or result->'valueOfInformation' is distinct from jsonb_build_object(
+          'informationCost',sample.information_cost,'decisionCostIfWrong',sample.decision_cost,
+          'uncertaintyReduction',sample.uncertainty_reduction,'probabilityDecisionChanges',sample.decision_probability,
+          'expectedValue',sample.expected_display,'netValue',sample.net_display,'recommendation',sample.recommendation)
+        or not exists(select 1 from risk_uncertainty_analyses a
+          where a.id=(result->>'analysisId')::uuid and a.organization_id=f.org and a.risk_id=f.risk
+            and a.author_id=f.author and a.status='pending_review' and a.version=1
+            and a.analysis_digest=result->>'analysisDigest'
+            and a.voi_information_cost=sample.information_cost and a.voi_decision_cost_if_wrong=sample.decision_cost
+            and a.voi_uncertainty_reduction=sample.uncertainty_reduction and a.voi_probability_decision_changes=sample.decision_probability
+            and a.voi_expected_value=sample.expected_display and a.voi_net_value=sample.net_display
+            and a.voi_recommendation=sample.recommendation) then
+        raise exception 'bound uncertainty VOI parity receipt or canonical packet failed'; end if;
+      qualified:=true;
+      raise exception using errcode='ZX002',message='U18 VOI parity fixture rollback';
+    exception when sqlstate 'ZX002' then null;
+    end;
+    if not qualified or pg_temp.u18_state() is distinct from baseline then
+      raise exception 'VOI parity qualification or full no-artifact rollback witness failed'; end if;
+    attempts:=attempts+1;
+  end loop;
+  if attempts<>17 then raise exception 'VOI parity case coverage count failed'; end if;
+end $$;
+-- U18 VOI PARITY END
 do $$ declare f record; result jsonb; baseline jsonb; bad jsonb; evidence uuid; begin
   select * into f from u18_fixture;
   baseline:=pg_temp.u18_state();
@@ -202,7 +277,7 @@ do $$ declare f record; result jsonb; baseline jsonb; bad jsonb; evidence uuid; 
   if result ? 'error' or result->>'riskId' is distinct from f.risk::text
     or result->>'validationStatus' is distinct from 'pending_review'
     or result->'operationalAuthorization' is distinct from 'false'::jsonb
-    or result->'valueOfInformation' is distinct from '{"expectedValue":37500,"netValue":27500,"recommendation":"GATHER_INFORMATION"}'::jsonb
+    or result->'valueOfInformation' is distinct from '{"informationCost":10000,"decisionCostIfWrong":250000,"uncertaintyReduction":0.5,"probabilityDecisionChanges":0.3,"expectedValue":37500,"netValue":27500,"recommendation":"GATHER_INFORMATION"}'::jsonb
     or result->>'analysisId' !~ '^[0-9a-f-]{36}$' or result->>'analysisDigest' !~ '^[0-9a-f]{64}$'
     or result->>'analysisId' is null or result->>'analysisDigest' is null
     or not exists(select 1 from risk_uncertainty_analyses where id=(result->>'analysisId')::uuid

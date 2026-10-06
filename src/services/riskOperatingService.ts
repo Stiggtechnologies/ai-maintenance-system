@@ -234,9 +234,44 @@ export async function submitRiskUncertaintyAnalysis(
   evidenceItemIds: string[],
 ): Promise<RpcResult> {
   if (!uncertaintyUuid(riskId)) fail("A canonical risk identifier is required");
+  if (!uncertaintyRecord(analysis))
+    fail(
+      "Finite bounded value-of-information inputs are required before submission",
+    );
+  const proposal = { ...analysis };
+  const voiInputs = {
+    informationCost: proposal.voi_information_cost,
+    decisionCostIfWrong: proposal.voi_decision_cost_if_wrong,
+    uncertaintyReduction: proposal.voi_uncertainty_reduction,
+    probabilityDecisionChanges: proposal.voi_probability_decision_changes,
+  };
+  if (
+    !Object.values(voiInputs).every(
+      (value) => typeof value === "number" && Number.isFinite(value),
+    ) ||
+    voiInputs.informationCost < 0 ||
+    voiInputs.decisionCostIfWrong < 0 ||
+    voiInputs.uncertaintyReduction < 0 ||
+    voiInputs.uncertaintyReduction > 1 ||
+    voiInputs.probabilityDecisionChanges < 0 ||
+    voiInputs.probabilityDecisionChanges > 1
+  )
+    fail(
+      "Finite bounded value-of-information inputs are required before submission",
+    );
+  // The canonical calculator classifies the exact unrounded decimal fraction,
+  // independently of its rounded displays. Capture this basis before dispatch.
+  const expected = evaluateValueOfInformation(voiInputs);
+  if (
+    !Number.isFinite(expected.expectedValue) ||
+    !Number.isFinite(expected.netValue)
+  )
+    fail(
+      "Value-of-information calculation must have finite representable displays before submission",
+    );
   const data = await uncertaintyMutation("submit_risk_uncertainty_analysis", {
     p_risk_id: riskId,
-    p_analysis: analysis,
+    p_analysis: proposal,
     p_evidence_item_ids: evidenceItemIds,
   });
   const voi = data.valueOfInformation;
@@ -249,16 +284,19 @@ export async function submitRiskUncertaintyAnalysis(
     data.validationStatus !== "pending_review" ||
     data.operationalAuthorization !== false ||
     !uncertaintyRecord(voi) ||
+    voi.informationCost !== voiInputs.informationCost ||
+    voi.decisionCostIfWrong !== voiInputs.decisionCostIfWrong ||
+    voi.uncertaintyReduction !== voiInputs.uncertaintyReduction ||
+    voi.probabilityDecisionChanges !== voiInputs.probabilityDecisionChanges ||
     typeof voi.expectedValue !== "number" ||
     !Number.isFinite(voi.expectedValue) ||
     voi.expectedValue < 0 ||
     typeof voi.netValue !== "number" ||
     !Number.isFinite(voi.netValue) ||
     voi.netValue > voi.expectedValue ||
-    voi.recommendation !==
-      (voi.netValue > 0
-        ? "GATHER_INFORMATION"
-        : "DECIDE_WITH_CURRENT_INFORMATION")
+    voi.expectedValue !== expected.expectedValue ||
+    voi.netValue !== expected.netValue ||
+    voi.recommendation !== expected.recommendation
   ) {
     throw new RiskUncertaintyOutcomeUnknownError();
   }

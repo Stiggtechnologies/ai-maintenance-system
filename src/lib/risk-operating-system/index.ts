@@ -684,7 +684,13 @@ function roundFractionToCents(value: DecimalFraction): number {
   const scaled = magnitude * 100n;
   let cents = scaled / value.denominator;
   if ((scaled % value.denominator) * 2n >= value.denominator) cents += 1n;
-  return Number(negative ? -cents : cents) / 100;
+  // Decode the exact rounded decimal once, just as a NUMERIC JSON receipt is
+  // decoded. Converting the larger cent integer to Number first can lose cents
+  // or overflow even though the final amount is finite. Raw classification
+  // remains in the exact fraction above; this changes display conversion only.
+  const whole = cents / 100n;
+  const fraction = (cents % 100n).toString().padStart(2, "0");
+  return Number(`${negative && cents !== 0n ? "-" : ""}${whole}.${fraction}`);
 }
 
 function peakConsequence(

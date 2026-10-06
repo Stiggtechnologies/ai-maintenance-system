@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { AlertTriangle, BarChart3, BadgeCheck, Scale } from "lucide-react";
 import { useAsyncData } from "../../hooks/useAsyncData";
 import { evaluateValueOfInformation } from "../../lib/risk-operating-system";
@@ -25,6 +32,7 @@ interface Props {
   riskId: string;
   currentUserId: string | null;
   currentUserRole: string | null;
+  currentOrganizationId: string | null;
   onChanged?: () => void | Promise<void>;
 }
 
@@ -82,12 +90,37 @@ export function RiskUncertaintyPanel({
   riskId,
   currentUserId,
   currentUserRole,
+  currentOrganizationId,
   onChanged,
 }: Props) {
-  const workspace = useAsyncData(
-    () => getRiskUncertaintyWorkspace(riskId),
-    [riskId, currentUserId, currentUserRole],
+  // Observed canonical profile context only, never tenant authority. A monotonic
+  // generation suppresses late effects even after an A -> B -> A transition.
+  const identity = JSON.stringify([
+    riskId,
+    currentUserId,
+    currentUserRole,
+    currentOrganizationId,
+  ]);
+  // Role/generation changes invalidate effects, not a known acknowledgment of
+  // this same canonical action by the same actor in the same organization.
+  const actionIdentity = JSON.stringify([
+    riskId,
+    currentUserId,
+    currentOrganizationId,
+  ]);
+  const context = useRef({ identity, generation: 0 });
+  if (context.current.identity !== identity) {
+    context.current = { identity, generation: context.current.generation + 1 };
+  }
+  const scope = JSON.stringify([identity, context.current.generation]);
+  const contextAvailable = Boolean(
+    currentUserId && currentOrganizationId?.trim(),
   );
+  const workspace = useAsyncData(async () => {
+    if (!contextAvailable)
+      throw new Error("Canonical organization context unavailable");
+    return { scope, data: await getRiskUncertaintyWorkspace(riskId) };
+  }, [scope]);
   const [method, setMethod] = useState("");
   const [basis, setBasis] = useState("");
   const [probability, setProbability] = useState(["", "", ""]);
@@ -119,7 +152,6 @@ export function RiskUncertaintyPanel({
       mounted.current = false;
     };
   }, []);
-  const scope = JSON.stringify([riskId, currentUserId, currentUserRole]);
   const activeScope = useRef(scope);
   activeScope.current = scope;
   const [message, setMessage] = useState<{
@@ -127,7 +159,29 @@ export function RiskUncertaintyPanel({
     text: string;
   } | null>(null);
 
-  const canGovern = GOVERNANCE_ROLES.has(currentUserRole ?? "");
+  // Clear tenant-bound draft values; do not reset unknown/ACK guards or an
+  // in-flight mutex when the observed context changes.
+  useLayoutEffect(() => {
+    setMethod("");
+    setBasis("");
+    setProbability(["", "", ""]);
+    setConfidence(["", "", ""]);
+    setLoss(["", "", ""]);
+    setCurrency("");
+    setReviewDue("");
+    setTriggers("");
+    setSensitivity([emptySensitivity()]);
+    setVoiAction("");
+    setVoi(["", "", "", ""]);
+    setSelectedEvidence([]);
+    setReviewing(null);
+    setReviewDecision("validated");
+    setReviewNote("");
+    setMessage(null);
+  }, [scope]);
+
+  const canGovern =
+    contextAvailable && GOVERNANCE_ROLES.has(currentUserRole ?? "");
   const preview = useMemo(() => {
     if (voi.some((value) => value === "" || Number.isNaN(Number(value))))
       return null;
@@ -139,6 +193,14 @@ export function RiskUncertaintyPanel({
     });
   }, [voi]);
 
+  if (!contextAvailable) {
+    return (
+      <ErrorState
+        message="Canonical organization context unavailable"
+        onRetry={workspace.refetch}
+      />
+    );
+  }
   if (workspace.loading) {
     return <LoadingState label="Loading governed uncertainty analysis…" />;
   }
@@ -151,13 +213,27 @@ export function RiskUncertaintyPanel({
     );
   }
 
-  const data = workspace.data;
+  // useAsyncData retains data while reloading. Hide that data synchronously,
+  // before its effect can update loading, unless this exact generation owns it.
+  if (workspace.data.scope !== scope) {
+    return <LoadingState label="Loading governed uncertainty analysis…" />;
+  }
+  const data = workspace.data.data;
   const workspaceBound = data.risk.id === riskId;
   const verified = data.evidence.filter(
     (item) => item.verificationStatus === "verified",
   );
   const latest = data.analyses[0];
+  const reviewingPacket = data.analyses.find((item) => item.id === reviewing);
   const adopted = data.criteria?.status === "adopted";
+  const reviewActionKey = (packet: { id: string; analysisDigest: string }) =>
+    JSON.stringify([
+      "review",
+      actionIdentity,
+      riskId,
+      packet.id,
+      packet.analysisDigest,
+    ]);
 
   async function run(
     action: () => Promise<unknown>,
@@ -227,6 +303,24 @@ export function RiskUncertaintyPanel({
 
   function submit(event: FormEvent) {
     event.preventDefault();
+    if (
+      !contextAvailable ||
+      scope !== activeScope.current ||
+      !mounted.current ||
+      !workspaceBound ||
+      !canGovern ||
+      mutationLock.current ||
+      outcomeUnknown
+    )
+      return;
+    const due = new Date(reviewDue);
+    if (!reviewDue || !Number.isFinite(due.getTime())) {
+      setMessage({
+        scope,
+        text: "A valid reassessment review date is required before submission.",
+      });
+      return;
+    }
     const sensitivityPayload: RiskUncertaintySensitivityInput[] =
       sensitivity.map((item) => ({
         name: item.name,
@@ -256,7 +350,7 @@ export function RiskUncertaintyPanel({
         .split("\n")
         .map((item) => item.trim())
         .filter(Boolean),
-      review_due_at: new Date(reviewDue).toISOString(),
+      review_due_at: due.toISOString(),
       voi_action: voiAction,
       voi_information_cost: number(voi[0]),
       voi_decision_cost_if_wrong: number(voi[1]),
@@ -265,6 +359,7 @@ export function RiskUncertaintyPanel({
     };
     const actionKey = JSON.stringify([
       "submit",
+      actionIdentity,
       riskId,
       // A reviewed/reassessed canonical version may legitimately reuse inputs.
       latest
@@ -301,7 +396,7 @@ export function RiskUncertaintyPanel({
           analysisDigest: packet.analysisDigest,
         }),
       "Independent packet review recorded without accepting risk or authorizing operation.",
-      `review:${riskId}:${packet.id}`,
+      reviewActionKey(packet),
     ).then((success) => {
       if (success && mounted.current && scope === activeScope.current) {
         setReviewing(null);
@@ -730,7 +825,7 @@ export function RiskUncertaintyPanel({
                     <button
                       type="button"
                       disabled={acknowledgedActions.current.has(
-                        `review:${riskId}:${item.id}`,
+                        reviewActionKey(item),
                       )}
                       onClick={() => {
                         setReviewing(item.id);
@@ -750,7 +845,8 @@ export function RiskUncertaintyPanel({
             ))}
 
         {reviewing &&
-          !acknowledgedActions.current.has(`review:${riskId}:${reviewing}`) &&
+          reviewingPacket &&
+          !acknowledgedActions.current.has(reviewActionKey(reviewingPacket)) &&
           workspaceBound &&
           data.analyses.some(
             (item) =>

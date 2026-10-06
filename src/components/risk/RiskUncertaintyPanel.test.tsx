@@ -133,6 +133,7 @@ describe("RiskUncertaintyPanel", () => {
   it("shows governed ranges, sensitivity, VOI, thresholds and stale state", async () => {
     render(
       <RiskUncertaintyPanel
+        currentOrganizationId="a1820000-0000-4000-8000-000000000020"
         riskId="risk-1"
         currentUserId="viewer-1"
         currentUserRole="viewer"
@@ -158,6 +159,7 @@ describe("RiskUncertaintyPanel", () => {
   it("keeps viewer and author boundaries visible and non-operational", async () => {
     render(
       <RiskUncertaintyPanel
+        currentOrganizationId="a1820000-0000-4000-8000-000000000020"
         riskId="risk-1"
         currentUserId="viewer-1"
         currentUserRole="viewer"
@@ -189,6 +191,7 @@ describe("RiskUncertaintyPanel", () => {
     getWorkspace.mockResolvedValue(data);
     const view = render(
       <RiskUncertaintyPanel
+        currentOrganizationId="a1820000-0000-4000-8000-000000000020"
         riskId={riskId}
         currentUserId="reviewer-1"
         currentUserRole="reliability_engineer"
@@ -218,29 +221,7 @@ describe("RiskUncertaintyPanel", () => {
     return { view, riskId, analysisId, note, button, form, receipt, data };
   }
 
-  async function openSubmission() {
-    const data = await getWorkspace();
-    const riskId = "a1820000-0000-4000-8000-000000000002";
-    data.risk.id = riskId;
-    Object.assign(data.analyses[0], {
-      validationStatus: "validated",
-      currentDigest: data.analyses[0].analysisDigest,
-    });
-    const onChanged = vi
-      .fn()
-      .mockRejectedValue(new Error("view callback failed"));
-    const view = render(
-      <RiskUncertaintyPanel
-        riskId={riskId}
-        currentUserId="author-1"
-        currentUserRole="reliability_engineer"
-        onChanged={onChanged}
-      />,
-    );
-    const button = await screen.findByRole("button", {
-      name: "Submit for independent review",
-    });
-    const form = button.closest("form")!;
+  function fillSubmission(form: HTMLFormElement) {
     for (const placeholder of [
       "Method",
       "Source, assumption and method basis",
@@ -261,6 +242,33 @@ describe("RiskUncertaintyPanel", () => {
       target: { value: "2026-11-01T09:00" },
     });
     fireEvent.click(screen.getByRole("checkbox"));
+  }
+
+  async function openSubmission() {
+    const data = await getWorkspace();
+    const riskId = "a1820000-0000-4000-8000-000000000002";
+    data.risk.id = riskId;
+    Object.assign(data.analyses[0], {
+      validationStatus: "validated",
+      currentDigest: data.analyses[0].analysisDigest,
+    });
+    const onChanged = vi
+      .fn()
+      .mockRejectedValue(new Error("view callback failed"));
+    const view = render(
+      <RiskUncertaintyPanel
+        currentOrganizationId="a1820000-0000-4000-8000-000000000020"
+        riskId={riskId}
+        currentUserId="author-1"
+        currentUserRole="reliability_engineer"
+        onChanged={onChanged}
+      />,
+    );
+    const button = await screen.findByRole("button", {
+      name: "Submit for independent review",
+    });
+    const form = button.closest("form")!;
+    fillSubmission(form);
     const receipt = {
       riskId,
       analysisId: "a1820000-0000-4000-8000-000000000014",
@@ -268,6 +276,10 @@ describe("RiskUncertaintyPanel", () => {
       analysisDigest: "c".repeat(64),
       validationStatus: "pending_review",
       valueOfInformation: {
+        informationCost: 1,
+        decisionCostIfWrong: 1,
+        uncertaintyReduction: 1,
+        probabilityDecisionChanges: 1,
         expectedValue: 1,
         netValue: 0,
         recommendation: "DECIDE_WITH_CURRENT_INFORMATION",
@@ -309,6 +321,7 @@ describe("RiskUncertaintyPanel", () => {
     });
     view.rerender(
       <RiskUncertaintyPanel
+        currentOrganizationId="a1820000-0000-4000-8000-000000000020"
         riskId={riskId}
         currentUserId="author-1"
         currentUserRole="maintenance_manager"
@@ -324,11 +337,15 @@ describe("RiskUncertaintyPanel", () => {
       },
       error: null,
     });
-    fireEvent.submit(
-      screen
-        .getByRole("button", { name: "Submit for independent review" })
-        .closest("form")!,
-    );
+    const reassessmentForm = screen
+      .getByRole("button", { name: "Submit for independent review" })
+      .closest("form")!;
+    // The observed role change correctly invalidates its prior draft. Re-enter
+    // identical inputs for the newly reviewed canonical version; do not weaken
+    // the original exact-payload or legitimate-reassessment assertion.
+    expect(screen.getByPlaceholderText("Method")).toHaveValue("");
+    fillSubmission(reassessmentForm);
+    fireEvent.submit(reassessmentForm);
     await waitFor(() => expect(rpc).toHaveBeenCalledTimes(2));
     expect(rpc.mock.calls[1]).toEqual(firstArgs);
   });
@@ -356,6 +373,7 @@ describe("RiskUncertaintyPanel", () => {
     });
     view.rerender(
       <RiskUncertaintyPanel
+        currentOrganizationId="a1820000-0000-4000-8000-000000000020"
         riskId={nextRisk}
         currentUserId="reviewer-1"
         currentUserRole="reliability_engineer"
@@ -459,6 +477,7 @@ describe("RiskUncertaintyPanel", () => {
     getWorkspace.mockImplementation(() => new Promise(() => {}));
     view.rerender(
       <RiskUncertaintyPanel
+        currentOrganizationId="a1820000-0000-4000-8000-000000000020"
         riskId="a1820000-0000-4000-8000-000000000011"
         currentUserId="reviewer-1"
         currentUserRole="reliability_engineer"

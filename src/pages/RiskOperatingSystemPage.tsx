@@ -528,12 +528,14 @@ function RiskDetail({
   onAction,
   currentUserId,
   currentUserRole,
+  currentOrganizationId,
   onChanged,
 }: {
   risk: RiskRecord;
   onAction: (action: ActionKind, targetId?: string) => void;
   currentUserId: string | null;
   currentUserRole: string | null;
+  currentOrganizationId: string | null;
   onChanged: () => void;
 }) {
   const views = risk.stakeholder_views
@@ -706,6 +708,7 @@ function RiskDetail({
         riskId={risk.id}
         currentUserId={currentUserId}
         currentUserRole={currentUserRole}
+        currentOrganizationId={currentOrganizationId}
         onChanged={onChanged}
       />
 
@@ -4592,6 +4595,17 @@ export function RiskOperatingSystemPage() {
   const auth = useOptionalAuth();
   const profile = auth?.profile ?? null;
   const user = auth?.user ?? null;
+  // Reuse the actual canonical profile-row scope, as TimeSynchronizationAssurance
+  // does. Metadata/JWT tenant guesses and alternate cached resolvers are not used.
+  const profileBound = Boolean(user && profile?.id === user.id);
+  const currentOrganizationId =
+    profileBound &&
+    profile &&
+    "organization_id" in profile &&
+    typeof profile.organization_id === "string" &&
+    profile.organization_id.trim()
+      ? profile.organization_id
+      : null;
   const [tab, setTab] = useState<Tab>("cockpit");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [setupOpen, setSetupOpen] = useState(false);
@@ -5146,8 +5160,11 @@ export function RiskOperatingSystemPage() {
                 <RiskDetail
                   risk={selected}
                   onAction={(kind, targetId) => setAction({ kind, targetId })}
-                  currentUserId={user?.id ?? null}
-                  currentUserRole={profile?.role ?? null}
+                  currentUserId={profileBound ? (user?.id ?? null) : null}
+                  currentUserRole={
+                    profileBound ? (profile?.role ?? null) : null
+                  }
+                  currentOrganizationId={currentOrganizationId}
                   onChanged={refetch}
                 />
               ) : (

@@ -9,8 +9,11 @@ finite-input repairs were independently source-reviewed at local checkpoints
 composed on main `0e3ef27d`; unrelated stacked workstreams and historical register
 claims are not imported. The composition passes 1,362 local tests in eight files,
 including the current-main tenancy and definer guards, and application TypeScript
-using the existing Vitest 4.1.10 runtime. No new native PostgreSQL, real HTTP,
-concurrent-session or production qualification has run for these repairs.
+using the existing Vitest 4.1.10 runtime. Published composition `788a7082`
+subsequently passed core CI run `37529983468`, including the isolated PostgreSQL
+preflight, full uncertainty SQL/real HTTP smoke, browser tests and cleanup.
+Those receipts qualify only that earlier head, not the subsequent local tenant
+and VOI repairs, concurrent-session behavior or production deployment.
 
 Publication remains a draft, not approval to ship the full U18 family. The old,
 unapplied `20270101960000` draft is replaced in this composition by the forward
@@ -22,17 +25,21 @@ and adds both uncertainty families. Current-main shared security assertions are
 inherited unchanged; no historical weaker or failing guard was copied. These
 source-policy checks do not establish database runtime isolation.
 
-Independent composition review also identifies a retained client gap: the panel
-scope includes risk, actor and role, but not current organization identity.
-Same-actor/same-role tenant changes therefore require coordinated canonical
-tenant-context wiring and late-read/late-acknowledgment tests before release.
-The page's optional authentication context is not proof that this gap is closed.
+Independent composition review identified missing organization identity in the
+panel scope. The subsequent local source repair consumes the actual canonical
+profile organization ID only when profile and authenticated actor match. Its
+scope generation suppresses late reads and acknowledgments, including A→B→A;
+tenant-bound draft values clear while known-acknowledgment and unknown-outcome
+guards remain intact. This covers **observed** context changes only. Shared page
+cockpit freshness and global authentication-profile refresh/cancellation remain
+separate coordinated holds; no immediate detection of unobserved server-side
+membership, role or entitlement changes is claimed.
 
 Remaining qualification includes ancestor/stakeholder privacy and actual
 post-wait authority races; typed source approval, claim purpose and supersession
 eligibility; stronger content/source and current-threshold digest standing;
 authorized stale-pending replacement with retained history; native execution of
-finite/object/date refusals; and parity with the canonical unrounded
+finite/object/date refusals; and runtime parity with the canonical unrounded
 value-of-information sign.
 An ordinary verified evidence item is not proof of source approval or fitness
 for every claim. A child-row lock plus a fresh visibility check does not freeze
@@ -42,9 +49,46 @@ contained baseline harness establish those broader guarantees.
 The subsequent local finite/object/date phase passes 109 focused source,
 client and containment tests after independent review. Its additive native
 transcript specifies 84 exact refusals with full artifact preservation and
-three rollback-only timezone compatibility controls. Those PostgreSQL cases
-have **not** executed; neither their presence nor the source tests clear native
-qualification or the remaining digest, replacement, standing and VOI gaps.
+three rollback-only timezone compatibility controls. At that local checkpoint,
+those PostgreSQL cases had **not** executed; neither their presence nor the
+source tests clear native qualification of a later source revision or the
+remaining digest, replacement, standing and VOI gaps. The original 84 refusals and three controls later executed
+on published composition `788a7082` in the CI run above; no broader standing or
+concurrency guarantee is inferred from them.
+
+The local VOI/observed-context phase passes 1,561 tests in 14 files, application
+TypeScript and scoped lint using the same existing runtime. Six tenant-context
+failure tests preceded the repair; nine context regression cases now pass.
+The VOI SDK repair had 19 failing cases before implementation, plus a separate
+failing native-transcript source contract. It freezes four finite bounded input
+echoes before dispatch and qualifies the receipt using the existing exact-decimal
+canonical calculator. SQL classifies the unrounded numeric benefit minus cost,
+then rounds displays independently; additive native parity pairs specify
+comparison with the existing canonical writer and full subtransaction rollback.
+Those database pairs and the revised real HTTP transcript have **not** executed.
+These local results are not fresh-CI, production or full U18 completion evidence.
+
+Independent review then reproduced cent loss and intermediate overflow in the
+existing canonical TypeScript display conversion. The bounded correction retains
+the exact-decimal calculation and raw-sign classification, converts the rounded
+decimal string to a JavaScript number once, and normalizes rounded zero. It does
+not add an arbitrary financial ceiling or claim cent-exact accounting at every
+JavaScript-number magnitude. Ten new source/SDK cases failed before this repair;
+the first revised 16-file cohort passed 1,609 tests plus application TypeScript
+and scoped lint. Previous huge-finite refusal expectations represented the
+overflow defect, not an engineering limit: compensating tests retain zero-RPC
+refusal of NaN/±Infinity and qualify unchanged large/MAX finite proposals with
+all authority and receipt guards intact. The native transcript now specifies
+17 canonical-writer/uncertainty pairs, including maximum finite equality and the
+original `1e308` fractional witness, preserving all prior refusal, privacy,
+ledger and rollback assertions. Independent review corrected the latter native
+fixture to retain exact NUMERIC subtraction of the information cost, even when
+JavaScript-number decoding cannot distinguish net from expected at that scale.
+The final 16-file source cohort passes 1,612 tests, application TypeScript and
+scoped lint. These revised native cases require fresh CI. A separate inherited
+canonical-writer NUMERIC-special-value concern has source evidence but still
+requires direct SQL/HTTP reproduction and a steward-owned forward repair;
+SDK nonfinite refusal is not proof of server refusal through every public door.
 
 SyncAI U18.02 adds versioned uncertainty packets to the canonical Risk Operating System. It supports bounded probability estimates, confidence intervals, best/expected/worst loss cases, ranked one-at-a-time sensitivity inputs, value-of-information analysis, adopted decision-threshold snapshots and measurable reassessment triggers.
 

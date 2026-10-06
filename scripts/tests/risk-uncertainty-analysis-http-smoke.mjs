@@ -227,6 +227,10 @@ async function run() {
   assert.equal(submitted.validationStatus, "pending_review");
   assert.equal(submitted.operationalAuthorization, false);
   assert.deepEqual(submitted.valueOfInformation, {
+    informationCost: 10000,
+    decisionCostIfWrong: 250000,
+    uncertaintyReduction: 0.5,
+    probabilityDecisionChanges: 0.3,
     expectedValue: 37500,
     netValue: 27500,
     recommendation: "GATHER_INFORMATION",
