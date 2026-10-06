@@ -1,6 +1,11 @@
 import { readFileSync } from "node:fs";
+import { createHmac } from "node:crypto";
+import type { Session } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
-import { requireLocalEndpoint } from "./support/survivalBrowserBoundary";
+import {
+  assuranceFixture,
+  requireLocalEndpoint,
+} from "./support/survivalBrowserBoundary";
 
 const workflow = readFileSync(".github/workflows/ci.yml", "utf8");
 const acceptance = readFileSync("tests/e2e/covariate-survival.spec.ts", "utf8");
@@ -10,6 +15,49 @@ const fixture = readFileSync(
 );
 
 describe("actual installed-life browser acceptance boundary", () => {
+  it("declares HS256 for the synthetic HMAC signature without copying an asymmetric key ID", () => {
+    const encode = (value: unknown) =>
+      Buffer.from(JSON.stringify(value)).toString("base64url");
+    const original = {
+      sub: "synthetic-user",
+      session_id: "actual-session-id",
+      aud: "authenticated",
+      role: "authenticated",
+      iss: "http://127.0.0.1:54321/auth/v1",
+      aal: "aal1",
+      amr: [{ method: "password", timestamp: 1 }],
+    };
+    const session = {
+      access_token: `${encode({ alg: "ES256", kid: "asymmetric-key" })}.${encode(original)}.original`,
+      refresh_token: "synthetic-refresh",
+      user: { id: original.sub },
+    } as Session;
+    const key = "explicit-nonsecret-unit-fixture-key";
+    const signed = assuranceFixture(session, key);
+    const [header, body, signature] = signed.access_token.split(".");
+    const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
+    expect(
+      JSON.parse(Buffer.from(header, "base64url").toString("utf8")),
+    ).toEqual({
+      alg: "HS256",
+      typ: "JWT",
+    });
+    expect(signature).toBe(
+      createHmac("sha256", key).update(`${header}.${body}`).digest("base64url"),
+    );
+    expect(payload).toMatchObject({
+      ...original,
+      aal: "aal2",
+      amr: [...original.amr, { method: "totp", timestamp: payload.iat }],
+    });
+    expect(payload.exp - payload.iat).toBe(3600);
+    expect(payload.exp).toBeGreaterThan(Math.floor(Date.now() / 1000));
+    expect(signed.expires_at).toBe(payload.exp);
+    expect(signed.user).toBe(session.user);
+    expect(signed.refresh_token).toBe(session.refresh_token);
+    expect(session.access_token.endsWith(".original")).toBe(true);
+    expect(original.aal).toBe("aal1");
+  });
   it("fails closed on nonlocal endpoints before disposable fixture writes", () => {
     expect(requireLocalEndpoint("http://localhost:5173", "5173").origin).toBe(
       "http://localhost:5173",
