@@ -49,6 +49,10 @@ data. They are not uploaded by CI. Provider diagnostics and raw SQL/row payloads
 are not printed. The only uploaded artifact is a bounded summary: source commit,
 migration-chain digest, immutable database image, backup digests, comparison
 counts, phase durations, witness result, exclusions and cleanup result.
+On failure it records only a SQLSTATE and fixed allowlisted diagnostic hints;
+verbose provider errors remain in memory and are never printed or uploaded.
+The target's expected bootstrap-superuser identity is checked before restoring
+roles. A permission failure is not bypassed by dropping grants or ownership.
 
 The report records measured local database-drill durations, **not an approved
 RTO, RPO, production outage duration or service-level commitment**. Its

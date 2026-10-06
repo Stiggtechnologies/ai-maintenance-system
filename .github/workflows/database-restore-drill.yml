@@ -51,7 +51,7 @@ jobs:
             import { writeFileSync } from "node:fs";
             await runRestoreDrill({ onReport: (report) => {
               writeFileSync("drill-summary.json", JSON.stringify(report, null, 2), {flag:"wx",mode:0o600});
-              console.log(JSON.stringify({verdict:report.verdict,failedPhase:report.failedPhase,failureCategory:report.failureCategory,sqlState:report.sqlState,extensionHint:report.extensionHint,targetRemoved:report.targetRemoved}));
+              console.log(JSON.stringify({verdict:report.verdict,failedPhase:report.failedPhase,failureCategory:report.failureCategory,sqlState:report.sqlState,permissionHint:report.permissionHint,extensionHint:report.extensionHint,targetRemoved:report.targetRemoved}));
             }});
           '
       # Only the redacted report. Never upload database.dump, roles.sql, catalog

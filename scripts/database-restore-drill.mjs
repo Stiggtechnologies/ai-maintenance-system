@@ -63,7 +63,8 @@ export function validateTarget(target, runId) {
     !/^[a-f0-9]{64}$/.test(target.Id) ||
     target.HostConfig?.NetworkMode !== "none" ||
     Object.keys(target.HostConfig?.PortBindings ?? {}).length ||
-    target.Mounts?.some(
+    !Array.isArray(target.Mounts) ||
+    target.Mounts.some(
       (mount) => mount.Type === "bind" || mount.Type === "volume",
     )
   ) {
@@ -138,7 +139,7 @@ export function diagnosticCategory(diagnostic) {
     [/role [^\r\n]{0,200} does not exist/i, "missing_role"],
     [/already exists/i, "existing_object"],
     [
-      /must be owner|must be superuser|permission denied|not permitted/i,
+      /must be owner|must be superuser|permission denied|not permitted|must have admin option|reserved role/i,
       "permission_denied",
     ],
     [
@@ -154,6 +155,13 @@ export function diagnosticCategory(diagnostic) {
 
 export function safeDiagnostic(diagnostic) {
   const sqlState = diagnostic.match(/\bERROR:\s+([0-9A-Z]{5})\b/)?.[1];
+  const permissionHint = [
+    [/permission denied to grant privileges as role/i, "grantor_permission"],
+    [/must have admin option/i, "role_admin_option"],
+    [/must be superuser/i, "superuser_required"],
+    [/permission denied to set parameter/i, "parameter_permission"],
+    [/reserved role/i, "reserved_role"],
+  ].find(([pattern]) => pattern.test(diagnostic))?.[1];
   const extensionHint = [
     "pg_cron",
     "pg_net",
@@ -166,6 +174,7 @@ export function safeDiagnostic(diagnostic) {
   return {
     category: diagnosticCategory(diagnostic),
     ...(sqlState ? { sqlState } : {}),
+    ...(permissionHint ? { permissionHint } : {}),
     ...(extensionHint ? { extensionHint } : {}),
   };
 }
@@ -229,7 +238,7 @@ const psqlArgs = (id, user, host) => [
   "-v",
   "ON_ERROR_STOP=1",
   "-v",
-  "VERBOSITY=sqlstate",
+  "VERBOSITY=verbose",
   "-U",
   user,
   "-h",
@@ -549,6 +558,19 @@ export async function runRestoreDrill({
       }
       throw new Error("Isolated target did not start");
     });
+    await timed("target_authority", async () => {
+      const authority = await sql(
+        targetId,
+        bootstrap,
+        "/tmp",
+        "select current_user='syncai_dr_bootstrap' and rolsuper from pg_roles where rolname=current_user;",
+      );
+      if (authority !== "t")
+        throw new Error(
+          "Isolated restore bootstrap is not the expected superuser",
+        );
+      report.targetBootstrapSuperuser = true;
+    });
     await timed("restore", async () => {
       phase = "restore_roles";
       await sql(
@@ -609,6 +631,7 @@ export async function runRestoreDrill({
     report.failedPhase = phase;
     report.failureCategory = error.category ?? "qualification_failure";
     if (error.sqlState) report.sqlState = error.sqlState;
+    if (error.permissionHint) report.permissionHint = error.permissionHint;
     if (error.extensionHint) report.extensionHint = error.extensionHint;
   } finally {
     if (snapshotSession) {

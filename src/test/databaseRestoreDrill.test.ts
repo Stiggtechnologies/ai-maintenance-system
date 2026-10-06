@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   mkdtempSync,
   readFileSync,
@@ -23,6 +23,22 @@ const local = {
 };
 
 describe("database restore-drill boundaries", () => {
+  afterEach(() => vi.unstubAllEnvs());
+  it.each(["DOCKER_HOST", "DOCKER_CONTEXT"])(
+    "cannot hide actual process %s through a partial environment argument",
+    async (key) => {
+      vi.stubEnv(
+        key,
+        key === "DOCKER_HOST" ? "tcp://production.example:2376" : "remote",
+      );
+      await expect(
+        drill.runRestoreDrill({
+          env: { SYNC_DR_LOCAL_SOURCE: "supabase_db_ai-maintenance-system" },
+          log: () => {},
+        }),
+      ).rejects.toThrow("overrides");
+    },
+  );
   it("extracts only a fixed SQLSTATE and allowlisted extension hint", () => {
     expect(
       drill.safeDiagnostic(
@@ -41,6 +57,35 @@ describe("database restore-drill boundaries", () => {
       ),
     ).toBe('{"category":"permission_denied"}');
   });
+  it.each([
+    [
+      "permission denied to grant privileges as role private-grantor",
+      "grantor_permission",
+    ],
+    ["must have admin option on role private-role", "role_admin_option"],
+    ["must be superuser to alter superuser roles", "superuser_required"],
+    [
+      "permission denied to set parameter private_parameter",
+      "parameter_permission",
+    ],
+    [
+      "private-role is a reserved role, only superusers can modify it",
+      "reserved_role",
+    ],
+  ])(
+    "classifies permission failures without disclosing their identifiers: %s",
+    (reason, permissionHint) => {
+      expect(
+        drill.safeDiagnostic(
+          `psql:<stdin>:19: ERROR: 42501: ${reason}; password=sensitive-test-secret`,
+        ),
+      ).toEqual({
+        category: "permission_denied",
+        sqlState: "42501",
+        permissionHint,
+      });
+    },
+  );
   it("reports only fixed failure categories, not database diagnostics or secrets", () => {
     const privateDiagnostic =
       'ERROR: permission denied for password="sensitive-test-secret" at /private/provider/path';
@@ -238,6 +283,7 @@ describe("database restore-drill boundaries", () => {
         HostConfig: { NetworkMode: "none", PortBindings: { "5432/tcp": [{}] } },
       },
       { ...target, Mounts: [{ Type: "bind", Source: "/private/data" }] },
+      { ...target, Mounts: undefined },
     ]) {
       expect(() => drill.validateTarget(candidate, runId)).toThrow();
     }
