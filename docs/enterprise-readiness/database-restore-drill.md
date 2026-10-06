@@ -159,6 +159,39 @@ Source-after-backup inventory and exact sequence values remain private. The
 summary contains only the source-stability result and counts of compared
 sequences/materialized views, never their identities, counters or row digests.
 
+The source inventory backends also collect diagnostic-only raw routine catalogs,
+reconstructed definitions and rendering-session settings. These observations
+are stored separately in exclusive **0600** `source-function-diagnostics.json`,
+`source-after-backup-function-diagnostics.json` and, after a function mismatch,
+`source-current-function-diagnostics.json` artifacts. They are not authoritative
+restore manifests and are never uploaded by the workflow.
+
+After a function-definition mismatch, one bounded read-only fresh catalog read
+can add fixed drift/equality flags to the public summary. It reuses the actual
+inventory's validated rendering-setting preamble rather than depending on a
+fresh backend's default search path; its statement timeout is shortened to
+30 seconds. An incomplete, duplicate or non-setting preamble fails closed.
+Function identities,
+OIDs, raw SQL, catalog tuples, settings and identity digests remain private.
+Missing, malformed or uncorrelated observations are `UNAVAILABLE`, never assumed
+equal. These flags classify observations only: they do not establish a harmless
+cause, authorize source changes, normalize definitions or turn any mismatch
+into PASS. Diagnostic failure preserves the original qualification failure.
+Raw catalog OIDs are correlated as exact canonical decimal strings, matching
+PostgreSQL's JSON serialization rather than coercing private catalog values.
+A fixed synthetic OID constant checks this engine representation in each
+source observation; only its boolean witness is included in the public report.
+Missing or false representation evidence makes drift hints unavailable.
+The post-reference rollback comparison also records the existing fixed
+mismatch summary, marked `post_reference_rollback`, then rethrows its original
+failure. A summary-formatting failure cannot replace that failure. Neither
+manifest, the rollback acceptance check nor any recovery claim is changed.
+
+The source function-definition instability seen in two October 6 CI runs is
+still unqualified until its actual cause and a successful strict restore are
+demonstrated. No PostgreSQL rendering or concurrent-DDL hypothesis is asserted
+as the incident's proven cause.
+
 For a differing, nondeferrable NOT VALID CHECK only, a bounded reference witness
 may reparse the captured source definition on the restored relation in a
 10-second, rollback-only transaction. The original constraint is not dropped,
