@@ -494,8 +494,9 @@ declare
   v_subscription record;
 begin
   if not exists (
-    select 1 from public.user_profiles
-    where id=p_approved_by and role in ('admin','ai_admin')
+    select 1 from public.user_profiles profile
+    join auth.users identity on identity.id=profile.id
+    where profile.id=p_approved_by and profile.role in ('admin','ai_admin')
   ) then
     raise exception 'A named administrative commercial owner is required';
   end if;

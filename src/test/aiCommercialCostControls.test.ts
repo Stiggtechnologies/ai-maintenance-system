@@ -71,7 +71,10 @@ describe("AI commercial cost controls", () => {
     expect(migration).toContain("overage_margin_below_threshold");
     expect(migration).toContain("ai gross-margin gate failed");
     expect(migration).toContain(
-      "where id=p_approved_by and role in ('admin','ai_admin')",
+      "join auth.users identity on identity.id=profile.id",
+    );
+    expect(migration).toContain(
+      "where profile.id=p_approved_by and profile.role in ('admin','ai_admin')",
     );
   });
 

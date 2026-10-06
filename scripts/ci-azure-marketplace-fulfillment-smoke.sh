@@ -10,10 +10,26 @@ insert into public.organizations(id,name,industry) values
   ('81111111-1111-4111-8111-111111111111','Marketplace Smoke Tenant','technology'),
   ('82222222-2222-4222-8222-222222222222','Marketplace Foreign Tenant','technology');
 
+insert into auth.users (
+  instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,
+  created_at,updated_at,raw_app_meta_data,raw_user_meta_data,
+  confirmation_token,recovery_token,email_change,email_change_token_new,
+  email_change_token_current,phone_change,phone_change_token,reauthentication_token
+) values (
+  '00000000-0000-0000-0000-000000000000',
+  '83333333-3333-4333-8333-333333333333','authenticated','authenticated',
+  'market-admin@syncai.invalid',extensions.crypt('MarketplaceSmoke123!',extensions.gen_salt('bf')),
+  now(),now(),now(),'{"provider":"email","providers":["email"]}','{}',
+  '','','','','','','',''
+);
+
 insert into public.user_profiles(id,organization_id,email,full_name,role) values
   ('83333333-3333-4333-8333-333333333333','81111111-1111-4111-8111-111111111111','market-admin@syncai.invalid','Marketplace Admin','admin'),
   ('84444444-4444-4444-8444-444444444444','81111111-1111-4111-8111-111111111111','market-engineer@syncai.invalid','Marketplace Engineer','reliability_engineer'),
-  ('85555555-5555-4555-8555-555555555555','82222222-2222-4222-8222-222222222222','foreign-admin@syncai.invalid','Foreign Admin','admin');
+  ('85555555-5555-4555-8555-555555555555','82222222-2222-4222-8222-222222222222','foreign-admin@syncai.invalid','Foreign Admin','admin')
+on conflict(id) do update set
+  organization_id=excluded.organization_id,email=excluded.email,
+  full_name=excluded.full_name,role=excluded.role;
 
 set local role service_role;
 
