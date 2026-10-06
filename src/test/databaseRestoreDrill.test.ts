@@ -199,6 +199,47 @@ GRANT EXECUTE ON FUNCTION private_function() TO private_recipient;`),
 ERROR: function private_uuid_generate_v4() does not exist`),
     ).toEqual({ category: "missing_object", missingObjectHint: "function" });
   });
+  it("does not mistake earlier verbose extension messages for the failing dependency", () => {
+    expect(
+      drill.safeDiagnostic(`pg_restore: creating EXTENSION pg_cron
+pg_restore: from TOC entry 3; 0 0 ACL FUNCTION private_name() private_owner
+pg_restore: error: ERROR: function private_name() does not exist
+Command was: GRANT EXECUTE ON FUNCTION private_name() TO private_role;`),
+    ).toEqual({
+      category: "missing_object",
+      missingObjectHint: "function",
+      restoreObjectTypeHint: "ACL",
+      statementHint: "grant",
+    });
+  });
+  it("reports only fixed platform extension names for actual version differences", () => {
+    expect(
+      drill.platformExtensionVersionMismatches(
+        [
+          {
+            kind: "extension",
+            key: "pg_stat_statements",
+            value: ["1.10", "extensions", "postgres"],
+          },
+          {
+            kind: "extension",
+            key: "pg_cron",
+            value: ["1.6", "pg_catalog", "postgres"],
+          },
+          {
+            kind: "extension",
+            key: "private_name",
+            value: ["sensitive", "public", "postgres"],
+          },
+        ],
+        [
+          { name: "pg_stat_statements", version: "1.11" },
+          { name: "pg_cron", version: "1.6" },
+          { name: "private_name", version: "other" },
+        ],
+      ),
+    ).toEqual(["pg_stat_statements"]);
+  });
   it.each([
     [
       "permission denied to grant privileges as role private-grantor",

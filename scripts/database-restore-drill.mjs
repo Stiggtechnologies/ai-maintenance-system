@@ -36,6 +36,29 @@ export function fingerprint(value) {
   return sha(JSON.stringify(canonical(value)));
 }
 
+export function platformExtensionVersionMismatches(source, target) {
+  const platforms = [
+    "pg_stat_statements",
+    "pg_cron",
+    "pg_net",
+    "pgsodium",
+    "supabase_vault",
+    "postgis",
+    "vector",
+    "pg_graphql",
+    "pgcrypto",
+    "uuid-ossp",
+    "pgjwt",
+  ];
+  return platforms.filter((name) => {
+    const before = source.find(
+      (entry) => entry.kind === "extension" && entry.key === name,
+    );
+    const after = target.find((entry) => entry.name === name);
+    return before && after && before.value[0] !== after.version;
+  });
+}
+
 export function prepareRolesRestore(script, bootstrap) {
   if (!["postgres", "supabase_admin"].includes(bootstrap))
     throw new Error("Unqualified source bootstrap identity");
@@ -211,6 +234,8 @@ export function diagnosticCategory(diagnostic) {
 }
 
 export function safeDiagnostic(diagnostic) {
+  const tocContext = diagnostic.lastIndexOf("pg_restore: from TOC entry ");
+  if (tocContext >= 0) diagnostic = diagnostic.slice(tocContext);
   const sqlState = diagnostic.match(/\bERROR:\s+([0-9A-Z]{5})\b/)?.[1];
   const missingObjectHint = diagnostic
     .match(
@@ -724,9 +749,30 @@ export async function runRestoreDrill({
       report.rolesRestoreSha256 = sha(rolesRestore);
       await sql(targetId, bootstrap, "/tmp", rolesRestore);
       phase = "restore_database";
-      await command("docker", databaseRestoreArgs(targetId, bootstrap), {
-        input: readFileSync(join(output, "database.dump")),
-      });
+      try {
+        await command("docker", databaseRestoreArgs(targetId, bootstrap), {
+          input: readFileSync(join(output, "database.dump")),
+        });
+      } catch (error) {
+        // Read-only diagnosis of the partial throwaway target. A regular archive
+        // uses the installed default extension version, not necessarily the source
+        // version. Return fixed platform names only, never private catalog values.
+        try {
+          const targetExtensions = JSON.parse(
+            await sql(
+              targetId,
+              bootstrap,
+              "/tmp",
+              "select coalesce(jsonb_agg(jsonb_build_object('name',extname,'version',extversion)),'[]'::jsonb) from pg_extension;",
+            ),
+          );
+          report.extensionVersionMismatchHints =
+            platformExtensionVersionMismatches(before, targetExtensions);
+        } catch {
+          report.extensionVersionDiagnosticUnavailable = true;
+        }
+        throw error;
+      }
     });
     const after = await timed("restored_inventory", async () =>
       parseInventory(
