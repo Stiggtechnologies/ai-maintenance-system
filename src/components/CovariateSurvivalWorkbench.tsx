@@ -15,6 +15,46 @@ import {
 } from "../services/survivalCovariateService";
 import { ErrorState, LoadingState } from "./ui/AsyncStates";
 import type { CoxDiagnostics } from "../lib/reliability/cox";
+import type { CoxConditionalScenario } from "../lib/reliability/cox-prediction";
+
+function ConditionalScenarioSummary({
+  scenario,
+}: {
+  scenario: CoxConditionalScenario | undefined;
+}) {
+  if (!scenario) return null;
+  if (scenario.status === "refused")
+    return (
+      <p className="text-amber-200">
+        Conditional scenario refused: {scenario.reason}
+      </p>
+    );
+  return (
+    <div className="space-y-2 rounded-lg border border-white/10 p-3">
+      <h5 className="font-medium text-white">
+        Numerical conditional scenario · not a live asset forecast
+      </h5>
+      <p>
+        Given survival to {scenario.profile.originHours} operating hours, the
+        conditional failure point estimate through{" "}
+        {scenario.profile.horizonHours} hours is{" "}
+        {(100 * scenario.conditionalFailureProbability).toPrecision(6)}%.
+      </p>
+      <p className="text-xs text-slate-400">
+        {scenario.scenarioVersion} · {scenario.eventTimesInWindow} observed
+        event times in the window · profile source life{" "}
+        {scenario.profile.source?.eventId ?? "not retained"}, version{" "}
+        {scenario.profile.source?.overlayVersion ?? "unknown"}
+      </p>
+      <p className="text-xs text-amber-200">
+        Unqualified calibration; no predictive confidence interval. This
+        historical measured profile is a numerical scenario, not a forecast for
+        a currently installed component, a held-out validation result or
+        authority to change maintenance.
+      </p>
+    </div>
+  );
+}
 
 function DiagnosticSummary({
   diagnostics,
@@ -75,7 +115,8 @@ function DiagnosticSummary({
         A non-significant test is not proof of proportional hazards. Cluster
         adequacy, measurement applicability and predictive calibration still
         require review; no automatic acceptance threshold or operational
-        authority.
+        authority. PH p-values use model-based information, not
+        within-asset-adjusted inference.
       </p>
     </div>
   );
@@ -178,6 +219,11 @@ export function CovariateSurvivalWorkbench({
   ]);
   const [reviewBasis, setReviewBasis] = useState("");
   const [receipt, setReceipt] = useState<SurvivalReceipt | null>(null);
+  const [scenarioEnabled, setScenarioEnabled] = useState(false);
+  const [scenarioEventId, setScenarioEventId] = useState("");
+  const [scenarioIntervalIndex, setScenarioIntervalIndex] = useState("");
+  const [scenarioOrigin, setScenarioOrigin] = useState("");
+  const [scenarioHorizon, setScenarioHorizon] = useState("");
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const event = data?.events.find((row) => String(row.id) === eventId);
@@ -386,6 +432,86 @@ export function CovariateSurvivalWorkbench({
             />
           </div>
         ))}
+        <div className="space-y-3 rounded-lg border border-white/10 p-3">
+          <label className="flex items-center gap-2 text-sm text-slate-300">
+            <input
+              type="checkbox"
+              checked={scenarioEnabled}
+              onChange={(e) => {
+                setScenarioEnabled(e.target.checked);
+                setReceipt(null);
+              }}
+            />
+            Include evidence-backed conditional scenario
+          </label>
+          <p className="text-xs text-amber-200">
+            Use an exact recorded measured interval as a numerical what-if
+            profile. No current operating age, future measurements, condition
+            persistence or live-asset qualification is inferred.
+          </p>
+          {scenarioEnabled && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="text-xs text-slate-400">
+                Scenario reference life
+                <select
+                  className={inputClass}
+                  value={scenarioEventId}
+                  onChange={(e) => {
+                    setScenarioEventId(e.target.value);
+                    setScenarioIntervalIndex("");
+                    setReceipt(null);
+                  }}
+                >
+                  <option value="">Select a recorded life</option>
+                  {data?.events.map((row) => (
+                    <option key={row.id} value={row.id}>
+                      Life {row.id} · {row.overlayStatus} · {row.eventKind}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="text-xs text-slate-400">
+                Scenario measured interval
+                <select
+                  className={inputClass}
+                  value={scenarioIntervalIndex}
+                  onChange={(e) => {
+                    setScenarioIntervalIndex(e.target.value);
+                    setReceipt(null);
+                  }}
+                >
+                  <option value="">Select an exact interval</option>
+                  {data?.events
+                    .find((row) => String(row.id) === scenarioEventId)
+                    ?.overlay?.intervals?.map((interval, index) => (
+                      <option key={index} value={index}>
+                        Interval {index + 1} · {interval.startHours}–
+                        {interval.stopHours} operating hours
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <Field
+                label="Scenario survival origin operating hours"
+                numeric
+                value={scenarioOrigin}
+                onChange={(value) => {
+                  setScenarioOrigin(value);
+                  setReceipt(null);
+                }}
+              />
+              <Field
+                label="Scenario horizon operating hours"
+                numeric
+                value={scenarioHorizon}
+                onChange={(value) => {
+                  setScenarioHorizon(value);
+                  setReceipt(null);
+                }}
+              />
+            </div>
+          )}
+        </div>
         <div className="flex flex-wrap gap-2">
           <button
             className={buttonClass}
@@ -410,7 +536,14 @@ export function CovariateSurvivalWorkbench({
             )}
             onClick={() =>
               perform(async () => {
-                const next = await runSurvivalAnalysis(component, covariates);
+                const next = scenarioEnabled
+                  ? await runSurvivalAnalysis(component, covariates, {
+                      eventId: statedNumber(scenarioEventId),
+                      intervalIndex: statedNumber(scenarioIntervalIndex),
+                      originHours: statedNumber(scenarioOrigin),
+                      horizonHours: statedNumber(scenarioHorizon),
+                    })
+                  : await runSurvivalAnalysis(component, covariates);
                 setReceipt(next);
                 setNotice(
                   `Retained ${next.result.status}: calculation ${next.calculationRunId}; agent run ${next.agentRunId}.`,
@@ -861,6 +994,9 @@ export function CovariateSurvivalWorkbench({
               <DiagnosticSummary
                 diagnostics={receipt.result.diagnostics}
                 names={receipt.result.covariateNames}
+              />
+              <ConditionalScenarioSummary
+                scenario={receipt.result.conditionalScenario}
               />
             </div>
           ) : (

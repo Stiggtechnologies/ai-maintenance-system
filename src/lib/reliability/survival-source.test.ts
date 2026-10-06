@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   prepareSurvivalSource,
+  prepareSurvivalScenario,
   type SurvivalSourceEvent,
 } from "./survival-source";
 
@@ -52,6 +53,67 @@ const source = (): SurvivalSourceEvent[] => [
 ];
 
 describe("canonical survival source preparation", () => {
+  it("derives scenario measurements and source references from the exact approved interval, not forged browser values", () => {
+    const request = {
+      eventId: 1,
+      intervalIndex: 0,
+      originHours: 20,
+      horizonHours: 100,
+      stratum: "forged",
+      covariates: [999],
+      validThroughHours: 9999,
+    };
+    const result = prepareSurvivalScenario(
+      source(),
+      [{ name: "temperature", unit: "degC" }],
+      request,
+    );
+    expect(result).toMatchObject({
+      stratum: "same-design",
+      originHours: 20,
+      horizonHours: 100,
+      path: [{ covariates: [45], validThroughHours: 120 }],
+      source: {
+        eventId: 1,
+        overlayVersion: 1,
+        intervalIndex: 0,
+        evidenceItemIds: ["evidence-one"],
+      },
+    });
+  });
+  it("refuses invalid or absent scenario identities, interval overrun and a changed complete population", () => {
+    const base = {
+      eventId: 1,
+      intervalIndex: 0,
+      originHours: 20,
+      horizonHours: 100,
+    };
+    for (const selection of [
+      null,
+      [],
+      { ...base, eventId: 2 },
+      { ...base, intervalIndex: 1 },
+      { ...base, horizonHours: 121 },
+      { ...base, originHours: 100 },
+      { ...base, originHours: "20" },
+    ])
+      expect(
+        prepareSurvivalScenario(
+          source(),
+          [{ name: "temperature", unit: "degC" }],
+          selection,
+        ),
+      ).toHaveProperty("refusal");
+    const changed = source();
+    changed[0].sourceCurrent = false;
+    expect(
+      prepareSurvivalScenario(
+        changed,
+        [{ name: "temperature", unit: "degC" }],
+        base,
+      ),
+    ).toHaveProperty("refusal");
+  });
   it("preserves scheduled working removal as censoring and physical-life identity", () => {
     const result = prepareSurvivalSource(source(), [
       { name: "temperature", unit: "degC" },

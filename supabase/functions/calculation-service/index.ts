@@ -14,11 +14,12 @@ import {
 import { selectWeibullMethod } from "../../../src/lib/reliability/method-selection.ts";
 import {
   COX_KERNEL_VERSION,
-  fitCoxWithDiagnostics,
   type CoxResult,
 } from "../../../src/lib/reliability/cox.ts";
+import { analyseCoxSurvival } from "../../../src/lib/reliability/cox-prediction.ts";
 import {
   prepareSurvivalSource,
+  prepareSurvivalScenario,
   type SurvivalSourceEvent,
 } from "../../../src/lib/reliability/survival-source.ts";
 import {
@@ -295,10 +296,17 @@ Deno.serve(async (request) => {
             kernelVersion: COX_KERNEL_VERSION,
             authority: "advisory_only",
           }
-        : fitCoxWithDiagnostics(
+        : analyseCoxSurvival(
             prepared.rows,
             covariates.map((item) => item.name),
             prepared.clusterBySubject,
+            body.scenario === undefined
+              ? undefined
+              : prepareSurvivalScenario(
+                  source.events,
+                  covariates,
+                  body.scenario,
+                ),
           );
       const refusals = prepared.gaps.length
         ? prepared.gaps
@@ -312,6 +320,13 @@ Deno.serve(async (request) => {
                     result.diagnostics.phIdentity.status === "refused"
                   ? [result.diagnostics.phIdentity.reason]
                   : []),
+              ...(result.conditionalScenario
+                ? [
+                    result.conditionalScenario.status === "refused"
+                      ? result.conditionalScenario.reason
+                      : "The retained conditional scenario is not a live-asset forecast or predictive calibration; no operational authority is granted.",
+                  ]
+                : []),
             ];
       const { data: receiptData, error: receiptError } = await service.rpc(
         "record_survival_calculation",

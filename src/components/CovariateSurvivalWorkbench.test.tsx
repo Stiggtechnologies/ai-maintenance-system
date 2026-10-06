@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CovariateSurvivalWorkbench } from "./CovariateSurvivalWorkbench";
 import { fitCoxWithDiagnostics } from "../lib/reliability/cox";
+import { analyseCoxSurvival } from "../lib/reliability/cox-prediction";
+import { prepareSurvivalSource } from "../lib/reliability/survival-source";
 import coxInput from "../lib/reliability/fixtures/cox-reference.json";
 import {
   captureSurvivalOverlay,
@@ -200,6 +202,154 @@ describe("governed covariate survival workbench", () => {
     ).not.toBeInTheDocument();
     expect(
       screen.queryByText(/unsaved_different_variable: log-hazard coefficient/),
+    ).not.toBeInTheDocument();
+  });
+  it("never pre-fills scenario exposure or sends an incomplete scenario to the service", async () => {
+    render(<CovariateSurvivalWorkbench component="synthetic drive" />);
+    await screen.findByText("Whole-population readiness");
+    change("Predictor 1 name", "synthetic_load");
+    change("Predictor 1 unit", "ratio");
+    fireEvent.click(
+      screen.getByLabelText("Include evidence-backed conditional scenario"),
+    );
+    expect(
+      screen.getByLabelText("Scenario survival origin operating hours"),
+    ).toHaveValue(null);
+    expect(
+      screen.getByLabelText("Scenario horizon operating hours"),
+    ).toHaveValue(null);
+    fireEvent.click(
+      screen.getByRole("button", { name: "Run retained survival analysis" }),
+    );
+    await screen.findByText(
+      /Every operating-hour boundary and measurement needs an explicit finite value/,
+    );
+    expect(runSurvivalAnalysis).not.toHaveBeenCalled();
+  });
+  it("sends only exact scenario selection and renders a retained unqualified conditional estimate", async () => {
+    const data = workspace();
+    data.events = coxInput.cases[0].rows.map((row, index) => ({
+      id: index + 1,
+      assetId: `synthetic-asset-${Math.floor(index / 3)}`,
+      component: "synthetic drive",
+      hoursAtChangeOut: row.stop,
+      eventKind: row.failed ? "failure" : "scheduled",
+      eventDate: "2026-09-01",
+      overlayVersion: 1,
+      overlayStatus: "validated",
+      overlayAuthor: "synthetic-author",
+      overlayReviewer: "synthetic-reviewer",
+      sourceCurrent: true,
+      approvalCurrent: true,
+      overlay: {
+        mode: "include",
+        basis:
+          "Independently reviewed synthetic measurement and physical-life boundary.",
+        lifeRef: row.subjectId,
+        stratum: row.stratum,
+        entryHours: 0,
+        serviceStartedAt: "2026-08-01T00:00:00Z",
+        terminalObservedAt: "2026-09-01T00:00:00Z",
+        intervals: [
+          {
+            startHours: 0,
+            stopHours: row.stop,
+            startedAt: "2026-08-01T00:00:00Z",
+            endedAt: "2026-09-01T00:00:00Z",
+            values: [
+              {
+                name: "synthetic_load",
+                unit: "ratio",
+                value: row.covariates[0],
+                evidenceItemId: `synthetic-evidence-${index}`,
+                observedAtHours: 0,
+                availableAtHours: 0,
+                validThroughHours: row.stop,
+                observedAt: "2026-08-01T00:00:00Z",
+                availableAt: "2026-08-01T00:00:00Z",
+              },
+            ],
+          },
+        ],
+      },
+    }));
+    const prepared = prepareSurvivalSource(data.events, [
+      { name: "synthetic_load", unit: "ratio" },
+    ]);
+    expect(prepared.gaps).toEqual([]);
+    const result = analyseCoxSurvival(
+      prepared.rows,
+      ["synthetic_load"],
+      prepared.clusterBySubject,
+      {
+        stratum: "A",
+        originHours: 3,
+        horizonHours: 12,
+        path: [
+          {
+            startHours: 3,
+            stopHours: 12,
+            covariates: [coxInput.cases[0].rows[1].covariates[0]],
+            observedAtHours: 0,
+            availableAtHours: 0,
+            validThroughHours: 22,
+          },
+        ],
+        source: {
+          eventId: 2,
+          overlayVersion: 1,
+          intervalIndex: 0,
+          evidenceItemIds: ["synthetic-evidence-1"],
+        },
+      },
+    );
+    vi.mocked(loadSurvivalWorkspace).mockResolvedValue(data);
+    vi.mocked(runSurvivalAnalysis).mockResolvedValue({
+      calculationRunId: "synthetic-scenario-calc",
+      agentRunId: "synthetic-scenario-run",
+      result,
+      refusals: ["Scenario calibration unqualified."],
+      advisory: true,
+      may_change_pm_interval: false,
+      may_create_work: false,
+      may_accept_risk: false,
+      may_return_to_service: false,
+    });
+    render(<CovariateSurvivalWorkbench component="synthetic drive" />);
+    await screen.findByText("Whole-population readiness");
+    change("Predictor 1 name", "synthetic_load");
+    change("Predictor 1 unit", "ratio");
+    fireEvent.click(
+      screen.getByLabelText("Include evidence-backed conditional scenario"),
+    );
+    change("Scenario reference life", "2");
+    change("Scenario measured interval", "0");
+    change("Scenario survival origin operating hours", "3");
+    change("Scenario horizon operating hours", "12");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Run retained survival analysis" }),
+    );
+    await screen.findByText(
+      "Numerical conditional scenario · not a live asset forecast",
+    );
+    expect(runSurvivalAnalysis).toHaveBeenCalledWith(
+      "synthetic drive",
+      [{ name: "synthetic_load", unit: "ratio" }],
+      { eventId: 2, intervalIndex: 0, originHours: 3, horizonHours: 12 },
+    );
+    expect(
+      screen.getByText(/Given survival to 3 operating hours/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /Unqualified calibration; no predictive confidence interval/,
+      ),
+    ).toBeInTheDocument();
+    change("Scenario horizon operating hours", "11");
+    expect(
+      screen.queryByText(
+        "Numerical conditional scenario · not a live asset forecast",
+      ),
     ).not.toBeInTheDocument();
   });
   it("reviews the selected persisted version, never unsaved form edits", async () => {

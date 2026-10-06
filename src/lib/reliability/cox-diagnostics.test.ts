@@ -101,6 +101,9 @@ describe("independent R survival diagnostics qualification", () => {
       );
       expect(result.authority).toBe("advisory_only");
       expect(result.limitations.join(" ")).toContain("not proof");
+      expect(result.limitations.join(" ")).toContain(
+        "not adjusted for within-asset dependence",
+      );
     });
   }
   it("refuses missing, extra, empty or single-asset cluster mappings instead of fabricating independence", () => {

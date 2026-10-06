@@ -190,7 +190,8 @@ test "$MULTI_AFTER_REVIEWS" = "$((MULTI_BEFORE_APPROVALS+12))"
 SINGLE_REQUEST="$REQUEST"
 # Forged client diagnostic/cluster values must have no authority over the
 # actual server-derived canonical asset map and qualified deterministic fit.
-REQUEST="{\"action\":\"reliability_survival\",\"component\":\"$MULTI_COMPONENT\",\"covariates\":[{\"name\":\"synthetic_load\",\"unit\":\"ratio\"}],\"diagnostics\":{\"status\":\"computed\",\"clusterCount\":999},\"clusterBySubject\":{\"fabricated-life\":\"fabricated-asset\"}}"
+REQUEST="{\"action\":\"reliability_survival\",\"component\":\"$MULTI_COMPONENT\",\"covariates\":[{\"name\":\"synthetic_load\",\"unit\":\"ratio\"}],\"diagnostics\":{\"status\":\"computed\",\"clusterCount\":999},\"clusterBySubject\":{\"fabricated-life\":\"fabricated-asset\"},\"scenario\":{\"eventId\":$MULTI_EVENT_ID,\"intervalIndex\":0,\"originHours\":2,\"horizonHours\":10,\"covariates\":[999],\"validThroughHours\":9999}}"
+MULTI_REQUEST="$REQUEST"
 MULTI_FIT=$(calculate "$AUTHOR_SESSION"); noerr "$MULTI_FIT"
 REQUEST="$SINGLE_REQUEST"
 BODY="$MULTI_FIT" python3 - <<'PY'
@@ -205,10 +206,25 @@ assert diagnostic['phIdentity']['status']=='computed',x
 for test in diagnostic['phIdentity']['covariates']+[diagnostic['phIdentity']['global']]:
  assert test['degreesOfFreedom']==1 and math.isfinite(test['statistic']) and 0<=test['pValue']<=1,x
 assert result['phAssumptionValidated'] is False and x['refusals'],x
+scenario=result['conditionalScenario']
+assert scenario['status']=='estimated' and scenario['scenarioVersion']=='cox-conditional/1/draft',x
+assert scenario['liveAssetForecast'] is False and scenario['calibration']=='unqualified' and scenario['confidenceInterval'] is None,x
+assert scenario['profile']['originHours']==2 and scenario['profile']['horizonHours']==10,x
+assert scenario['profile']['path'][0]['covariates']==[.4] and scenario['profile']['path'][0]['validThroughHours']==12,x
+assert scenario['eventTimesInWindow']==5 and 0<scenario['conditionalFailureProbability']<1,x
 for key in ['may_change_pm_interval','may_create_work','may_accept_risk','may_return_to_service']: assert x[key] is False,x
 PY
 MULTI_CALCULATION=$(field "$MULTI_FIT" calculationRunId)
 test "$(psqlc "select count(*) from calculation_runs where id='$MULTI_CALCULATION' and status='computed_with_refusals' and outputs->'diagnostics'->>'diagnosticVersion'='cox-diagnostics/1/draft' and outputs->'diagnostics'->>'clusterCount'='3' and outputs->'phAssumptionValidated'='false'::jsonb;")" = '1'
+test "$(psqlc "select count(*) from calculation_runs where id='$MULTI_CALCULATION' and outputs->'conditionalScenario'->>'status'='estimated' and outputs#>>'{conditionalScenario,profile,source,eventId}'='$MULTI_EVENT_ID' and outputs#>>'{conditionalScenario,liveAssetForecast}'='false';")" = '1'
+# Beyond the actual selected interval, the scenario is refused and retained;
+# the numerical model must not silently carry a condition forward or trim its cohort.
+REQUEST="${MULTI_REQUEST//\"horizonHours\":10/\"horizonHours\":13}"
+SCENARIO_REFUSAL=$(calculate "$AUTHOR_SESSION"); noerr "$SCENARIO_REFUSAL"
+REQUEST="$SINGLE_REQUEST"
+BODY="$SCENARIO_REFUSAL" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); r=x["result"]; assert r["status"]=="fitted" and r["subjects"]==12 and r["conditionalScenario"]["status"]=="refused" and "selected measured interval" in r["conditionalScenario"]["reason"] and x["calculationRunId"],x'
+SCENARIO_REFUSAL_ID=$(field "$SCENARIO_REFUSAL" calculationRunId)
+test "$(psqlc "select count(*) from calculation_runs where id='$SCENARIO_REFUSAL_ID' and outputs->'conditionalScenario'->>'status'='refused';")" = '1'
 test "$(psqlc "select count(*) from approvals where organization_id='$ORG';")" = "$MULTI_AFTER_REVIEWS"
 
 denied "$(rpc "$AUTHOR_TOKEN" record_survival_covariate_overlay "{\"p_event_id\":$FIRST_ID,\"p_expected_version\":0,\"p_overlay\":$FIRST_OVERLAY}")"

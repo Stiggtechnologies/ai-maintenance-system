@@ -1,4 +1,5 @@
 import type { CoxInterval } from "./cox.ts";
+import type { CoxScenarioRequest } from "./cox-prediction.ts";
 
 export interface SurvivalMeasurement {
   name: string;
@@ -47,6 +48,104 @@ export interface SurvivalSourceEvent {
   approvalCurrent: boolean;
   sourceEvidence?: unknown;
   approvalId?: string | null;
+}
+
+export interface SurvivalScenarioSelection {
+  eventId: number;
+  intervalIndex: number;
+  originHours: number;
+  horizonHours: number;
+}
+
+/** The browser selects a historical measured profile and a numerical window,
+ * never supplies trusted covariates, freshness, approvals or model outputs.
+ * This is intentionally NOT a currently installed component forecast.
+ */
+export function prepareSurvivalScenario(
+  events: SurvivalSourceEvent[],
+  covariates: Array<{ name: string; unit: string }>,
+  selection: unknown,
+): CoxScenarioRequest {
+  const refused = (refusal: string): CoxScenarioRequest => ({ refusal });
+  if (!selection || typeof selection !== "object" || Array.isArray(selection))
+    return refused(
+      "Select an exact reviewed life interval and state the conditional scenario window.",
+    );
+  const request = selection as SurvivalScenarioSelection;
+  if (
+    !Number.isSafeInteger(request.eventId) ||
+    request.eventId <= 0 ||
+    !Number.isSafeInteger(request.intervalIndex) ||
+    request.intervalIndex < 0 ||
+    !Number.isFinite(request.originHours) ||
+    request.originHours < 0 ||
+    !Number.isFinite(request.horizonHours) ||
+    request.horizonHours <= request.originHours
+  )
+    return refused(
+      "The scenario needs an exact life/interval identity and explicit finite ordered operating hours.",
+    );
+  const prepared = prepareSurvivalSource(events, covariates);
+  if (prepared.gaps.length)
+    return refused(
+      "The complete canonical population is not source-ready; no selected-profile subset is used.",
+    );
+  const event = events.find((row) => row.id === request.eventId);
+  const overlay = event?.overlay;
+  const interval = overlay?.intervals?.[request.intervalIndex];
+  if (!event || overlay?.mode !== "include" || !interval)
+    return refused(
+      "The selected reviewed measured interval does not exist in this complete component population.",
+    );
+  if (
+    request.originHours < interval.startHours ||
+    request.horizonHours > interval.stopHours
+  )
+    return refused(
+      "The scenario exceeds the selected measured interval; no assumed condition persistence or carry-forward is provided.",
+    );
+  const values = covariates.map((c) =>
+    interval.values.find((value) => value.name === c.name)!,
+  );
+  if (
+    values.some(
+      (value) =>
+        value.availableAtHours > request.originHours ||
+        value.validThroughHours < request.horizonHours,
+    )
+  )
+    return refused(
+      "Measurements must already be available at origin and explicitly valid through the requested horizon.",
+    );
+  return {
+    stratum: overlay.stratum!,
+    originHours: request.originHours,
+    horizonHours: request.horizonHours,
+    path: [
+      {
+        startHours: request.originHours,
+        stopHours: request.horizonHours,
+        covariates: values.map((value) => value.value),
+        observedAtHours: Math.max(
+          ...values.map((value) => value.observedAtHours),
+        ),
+        availableAtHours: Math.max(
+          ...values.map((value) => value.availableAtHours),
+        ),
+        validThroughHours: Math.min(
+          ...values.map((value) => value.validThroughHours),
+        ),
+      },
+    ],
+    source: {
+      eventId: event.id,
+      overlayVersion: event.overlayVersion,
+      intervalIndex: request.intervalIndex,
+      evidenceItemIds: [
+        ...new Set(values.map((value) => value.evidenceItemId)),
+      ],
+    },
+  };
 }
 
 export function prepareSurvivalSource(
