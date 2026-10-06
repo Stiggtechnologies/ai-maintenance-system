@@ -89,6 +89,10 @@ migration-chain digest, immutable database image, backup digests, comparison
 counts, phase durations, witness result, exclusions and cleanup result.
 On failure it records only a SQLSTATE and fixed allowlisted diagnostic hints;
 verbose provider errors remain in memory and are never printed or uploaded.
+Comparison failures report only fixed inventory classes, fixed field labels and
+aggregate changed/missing/unexpected/duplicate counts. Object identities, SQL,
+owners, ACL values and row digests remain private. This diagnostic summary does
+not change the strict comparison or turn a mismatch into a pass.
 The target's expected bootstrap-superuser identity is checked before restoring
 roles. A permission failure is not bypassed by dropping grants or ownership.
 The local source's OID-10 bootstrap identity must be `postgres` or

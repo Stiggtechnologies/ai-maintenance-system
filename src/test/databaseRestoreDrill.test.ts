@@ -453,6 +453,133 @@ Command was: GRANT EXECUTE ON FUNCTION private_name() TO private_role;`),
       drill.compareManifests(entries.slice(1), entries.slice(1)),
     ).toThrow("namespace");
   });
+  it("reports only fixed inventory classes, field labels and aggregate counts, never identities or values", () => {
+    const source = [
+      {
+        kind: "extension",
+        key: "private extension",
+        value: ["1", "private schema", "private owner"],
+      },
+      {
+        kind: "data",
+        key: "private table",
+        value: { count: 3, digest: "private digest" },
+      },
+      { kind: "private kind", key: "private object", value: "private value" },
+      {
+        kind: "schema",
+        key: "private absent schema",
+        value: ["private owner", null],
+      },
+    ];
+    const target = [
+      {
+        kind: "extension",
+        key: "private extension",
+        value: ["1", "private schema", "changed private owner"],
+      },
+      {
+        kind: "data",
+        key: "private table",
+        value: { count: 3, digest: "changed private digest" },
+      },
+      {
+        kind: "private kind",
+        key: "private object",
+        value: "changed private value",
+      },
+      {
+        kind: "schema",
+        key: "private new schema",
+        value: ["private owner", null],
+      },
+    ];
+    expect(drill.inventoryMismatchSummary(source, target)).toEqual({
+      sourceEntries: 4,
+      restoredEntries: 4,
+      differences: [
+        {
+          kind: "data",
+          missing: 0,
+          unexpected: 0,
+          changed: 1,
+          duplicates: 0,
+          fields: { digest: 1 },
+        },
+        {
+          kind: "extension",
+          missing: 0,
+          unexpected: 0,
+          changed: 1,
+          duplicates: 0,
+          fields: { owner: 1 },
+        },
+        {
+          kind: "other",
+          missing: 0,
+          unexpected: 0,
+          changed: 1,
+          duplicates: 0,
+          fields: { value: 1 },
+        },
+        {
+          kind: "schema",
+          missing: 1,
+          unexpected: 1,
+          changed: 0,
+          duplicates: 0,
+          fields: {},
+        },
+      ],
+    });
+    expect(
+      JSON.stringify(drill.inventoryMismatchSummary(source, target)),
+    ).not.toContain("private");
+    expect(() => drill.compareManifests(source, target)).toThrow("differs");
+  });
+  it("counts duplicate inventory identities without exposing their keys or suppressing the qualification failure", () => {
+    const entry = { kind: "role", key: "private role", value: [true] };
+    expect(
+      drill.inventoryMismatchSummary([entry, entry], [entry]).differences,
+    ).toEqual([
+      {
+        kind: "role",
+        missing: 0,
+        unexpected: 0,
+        changed: 0,
+        duplicates: 1,
+        fields: {},
+      },
+    ]);
+    expect(() => drill.compareManifests([entry, entry], [entry])).toThrow(
+      "Duplicate",
+    );
+  });
+  it("retains missing-field differences and never treats inherited object keys as diagnostic classes", () => {
+    const before = [
+      {
+        kind: "platform_function",
+        key: "private function",
+        value: { owner: "private owner", acl: null },
+      },
+    ];
+    const after = [
+      {
+        kind: "platform_function",
+        key: "private function",
+        value: { owner: "private owner" },
+      },
+    ];
+    expect(
+      drill.inventoryMismatchSummary(before, after).differences[0].fields,
+    ).toEqual({ acl: 1 });
+    expect(
+      drill.inventoryMismatchSummary(
+        [{ kind: "toString", key: "private key", value: 1 }],
+        [],
+      ).differences[0].kind,
+    ).toBe("other");
+  });
   it("refuses missing, unexpected, duplicate and altered restored entries", () => {
     const entries = ["public", "auth", "storage", "supabase_migrations"].map(
       (schema) => ({

@@ -328,6 +328,133 @@ export function compareManifests(source, target) {
   };
 }
 
+// Diagnostics must not expose source identities, SQL, owners, ACLs or digests.
+// These labels describe the fixed inventory contract; values remain private.
+export function inventoryMismatchSummary(source, target) {
+  const layouts = {
+    database: [
+      "owner",
+      "encoding",
+      "collation",
+      "ctype",
+      "template",
+      "allowConnections",
+      "connectionLimit",
+      "acl",
+    ],
+    database_role_setting: null,
+    parameter_acl: null,
+    role: [
+      "superuser",
+      "inherit",
+      "createRole",
+      "createDatabase",
+      "login",
+      "replication",
+      "bypassRls",
+      "connectionLimit",
+      "validUntil",
+      "settings",
+    ],
+    membership: ["grantor", "adminOption", "inheritOption", "setOption"],
+    default_acl: null,
+    extension: ["version", "schema", "owner"],
+    platform_function: {
+      definition: "definition",
+      owner: "owner",
+      securityDefiner: "securityDefiner",
+      searchPath: "searchPath",
+      extension: "extension",
+      acl: "acl",
+    },
+    schema: ["owner", "acl"],
+    relation: [
+      "kind",
+      "persistence",
+      "owner",
+      "rowSecurity",
+      "forceRowSecurity",
+      "acl",
+      "options",
+    ],
+    view: null,
+    column: [
+      "position",
+      "type",
+      "notNull",
+      "identity",
+      "generated",
+      "acl",
+      "default",
+    ],
+    policy: ["command", "permissive", "roles", "using", "withCheck"],
+    function: ["owner", "securityDefiner", "searchPath", "acl", "definition"],
+    constraint: ["validated", "deferrable", "deferred", "definition"],
+    trigger: ["enabled", "definition"],
+    index: null,
+    data: { count: "count", digest: "digest" },
+  };
+  const groups = new Map();
+  const group = (entry) => {
+    const kind = Object.hasOwn(layouts, entry.kind) ? entry.kind : "other";
+    if (!groups.has(kind))
+      groups.set(kind, {
+        kind,
+        missing: 0,
+        unexpected: 0,
+        changed: 0,
+        duplicates: 0,
+        fields: {},
+      });
+    return groups.get(kind);
+  };
+  const index = (entries) => {
+    const result = new Map();
+    for (const entry of entries) {
+      const key = `${entry.kind}:${entry.key}`;
+      if (result.has(key)) group(entry).duplicates++;
+      else result.set(key, entry);
+    }
+    return result;
+  };
+  const before = index(source),
+    after = index(target);
+  for (const [key, entry] of before) {
+    const restored = after.get(key);
+    if (!restored) {
+      group(entry).missing++;
+      continue;
+    }
+    if (fingerprint(entry.value) === fingerprint(restored.value)) continue;
+    const difference = group(entry);
+    difference.changed++;
+    const layout = Object.hasOwn(layouts, entry.kind)
+      ? layouts[entry.kind]
+      : null;
+    const changedFields = [];
+    if (layout) {
+      for (const [position, label] of Object.entries(layout)) {
+        if (
+          fingerprint({ value: entry.value?.[position] }) !==
+          fingerprint({ value: restored.value?.[position] })
+        )
+          changedFields.push(label);
+      }
+    }
+    for (const field of changedFields.length ? changedFields : ["value"])
+      difference.fields[field] = (difference.fields[field] ?? 0) + 1;
+  }
+  for (const [key, entry] of after)
+    if (!before.has(key)) group(entry).unexpected++;
+  return {
+    sourceEntries: source.length,
+    restoredEntries: target.length,
+    differences: [...groups.values()].sort((a, b) =>
+      a.kind.localeCompare(b.kind),
+    ),
+  };
+}
+
 // Never invoke a shell or propagate provider diagnostics. Raw SQL and database
 // bytes stay in an exclusive 0600 artifact, not terminal/Actions output.
 export function diagnosticCategory(diagnostic) {
@@ -1003,7 +1130,14 @@ export async function runRestoreDrill({
       "restored-inventory.json",
       JSON.stringify(after),
     );
-    report.comparison = compareManifests(before, after);
+    try {
+      report.comparison = await timed("inventory_comparison", async () =>
+        compareManifests(before, after),
+      );
+    } catch (error) {
+      report.inventoryMismatchSummary = inventoryMismatchSummary(before, after);
+      throw error;
+    }
     const witness = await timed("tenant_runtime", () =>
       sql(targetId, bootstrap, "/tmp", restoredWitness),
     );
