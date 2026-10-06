@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { mkdtempSync, readFileSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -85,6 +85,170 @@ function fixtures() {
 }
 
 describe("private production backup metadata observation", () => {
+  // Synthetic-only tests run in CI, but production execution must inspect the
+  // actual environment even when dependency-injection options are provided.
+  beforeEach(() => {
+    for (const key of [
+      "CI",
+      "GITHUB_ACTIONS",
+      "VERCEL",
+      "TF_BUILD",
+      "TEAMCITY_VERSION",
+      "JENKINS_URL",
+      "GITLAB_CI",
+      "SUPABASE_PROJECT_ID",
+      "SUPABASE_PROJECT_REF",
+      "APP_URL",
+      ...Object.keys(process.env).filter((key) =>
+        key.startsWith("SUPABASE_API_"),
+      ),
+    ])
+      vi.stubEnv(key, "");
+  });
+  afterEach(() => vi.unstubAllEnvs());
+  it.each([
+    ["CI", "true"],
+    ["GITHUB_ACTIONS", "true"],
+    ["VERCEL", "true"],
+    ["TF_BUILD", "true"],
+    ["TEAMCITY_VERSION", "true"],
+    ["JENKINS_URL", "true"],
+    ["GITLAB_CI", "true"],
+    ["SUPABASE_API_HOST", "https://foreign.example"],
+    ["SUPABASE_PROJECT_ID", foreignRef],
+    ["SUPABASE_PROJECT_REF", foreignRef],
+    ["APP_URL", "https://foreign.example"],
+  ])(
+    "cannot hide actual process authority with supplied env: %s",
+    async (key, value) => {
+      const f = fixtures();
+      vi.stubEnv(key, value);
+      await expect(
+        auditor.runProductionBackupMetadata(f.options),
+      ).rejects.toThrow();
+      expect(f.runSupabase).not.toHaveBeenCalled();
+      expect(f.fetchImpl).not.toHaveBeenCalled();
+    },
+  );
+  it.each([":443", "?ignored=1", "#ignored"])(
+    "refuses foreign URL authority boundary %s",
+    async (suffix) => {
+      const f = fixtures();
+      f.fetchImpl.mockImplementation(
+        async (url) =>
+          new Response(
+            url.endsWith(".js")
+              ? `const a="https://${ref}.supabase.co", b="https://${foreignRef}.supabase.co${suffix}"`
+              : '<script type="module" src="/assets/index-test.js"></script>',
+            {
+              headers: {
+                "content-type": url.endsWith(".js")
+                  ? "application/javascript"
+                  : "text/html",
+              },
+            },
+          ),
+      );
+      await expect(
+        auditor.runProductionBackupMetadata(f.options),
+      ).rejects.toThrow();
+      expect(f.runSupabase).toHaveBeenCalledTimes(1);
+    },
+  );
+  it.each([
+    "text/html-not-a-real-type",
+    "text/plain;fake=javascript",
+    "application/javascript-invalid",
+  ])("refuses deceptive MIME qualification: %s", async (type) => {
+    const f = fixtures();
+    f.fetchImpl.mockImplementation(
+      async (url) =>
+        new Response(
+          url.endsWith(".js")
+            ? `const a="https://${ref}.supabase.co"`
+            : '<script type="module" src="/assets/index-test.js"></script>',
+          {
+            headers: {
+              "content-type": url.endsWith(".js")
+                ? type.startsWith("text/html")
+                  ? "application/javascript"
+                  : type
+                : type.startsWith("text/html")
+                  ? type
+                  : "text/html",
+            },
+          },
+        ),
+    );
+    await expect(
+      auditor.runProductionBackupMetadata(f.options),
+    ).rejects.toThrow();
+    expect(f.runSupabase).toHaveBeenCalledTimes(1);
+  });
+  it.each(["application/javascript", "text/javascript"])(
+    "accepts exact MIME types with charset: %s",
+    async (type) => {
+      const f = fixtures();
+      f.fetchImpl.mockImplementation(
+        async (url) =>
+          new Response(
+            url.endsWith(".js")
+              ? `const a="https://${ref}.supabase.co"`
+              : '<script type="module" src="/assets/index-test.js"></script>',
+            {
+              headers: {
+                "content-type": `${url.endsWith(".js") ? type : "text/html"}; charset=utf-8`,
+              },
+            },
+          ),
+      );
+      await expect(
+        auditor.runProductionBackupMetadata(f.options),
+      ).resolves.toMatchObject({ report: { observationStatus: "CAPTURED" } });
+    },
+  );
+  it("preserves sub-millisecond future timestamps without inventing age", () => {
+    const raw = provider();
+    raw.backups[1].inserted_at = "2026-10-06T12:00:00.000999Z";
+    const report = auditor.projectBackupMetadata(raw, context);
+    expect(report.backups.newestCompletedInsertedAt).toBe(
+      "2026-10-06T12:00:00.000999Z",
+    );
+    expect(report.backups.futureTimestampCount).toBe(1);
+    expect(report.backups.newestCompletedInsertionAgeHours).toBeNull();
+    expect(report.warnings).toContain("provider_clock_anomaly_observed");
+  });
+  it("orders distinct same-millisecond insertions without conflating identities", () => {
+    const raw = provider();
+    raw.backups[0].inserted_at = "2026-10-06T11:00:00.0002Z";
+    raw.backups[1].inserted_at = "2026-10-06T11:00:00.0001Z";
+    const report = auditor.projectBackupMetadata(raw, context);
+    expect(report.backups.oldestCompletedInsertedAt).toBe(
+      "2026-10-06T11:00:00.000100Z",
+    );
+    expect(report.backups.newestCompletedInsertedAt).toBe(
+      "2026-10-06T11:00:00.000200Z",
+    );
+    expect(report.backups.newestCompletedInsertionAgeHours).toBeCloseTo(
+      1 - 0.0002 / 3600,
+      12,
+    );
+  });
+  it("rejects timezone-equivalent duplicate microsecond instants", () => {
+    const raw = provider();
+    raw.backups[0].inserted_at = "2026-10-06T11:00:00.0001Z";
+    raw.backups[1].inserted_at = "2026-10-06T13:00:00.000100+02:00";
+    expect(() => auditor.projectBackupMetadata(raw, context)).toThrow();
+  });
+  it("normalizes a timezone offset without losing microseconds", () => {
+    const raw = provider();
+    raw.backups[1].inserted_at = "2026-10-06T13:00:00.000123+02:00";
+    const report = auditor.projectBackupMetadata(raw, context);
+    expect(report.backups.newestCompletedInsertedAt).toBe(
+      "2026-10-06T11:00:00.000123Z",
+    );
+    expect(report.backups.futureTimestampCount).toBe(0);
+  });
   it.each([
     workflow.replace(
       "    runs-on: ubuntu-latest",

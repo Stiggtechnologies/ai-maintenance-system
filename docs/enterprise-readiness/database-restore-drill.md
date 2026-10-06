@@ -216,8 +216,13 @@ SYNC_DR_PRODUCTION_METADATA=read_only node --input-type=module -e 'const {runPro
 The existing operator's provider authentication is used; credentials must not be
 passed as command-line arguments. Extra CLI targets/options and alternate
 provider endpoint overrides are refused. Provider commands and public GETs are
-bounded by time/size limits. Duplicate JSON keys, malformed dates/configuration,
+bounded by time/size limits. Both the actual process environment and any supplied
+environment are checked; injected options cannot hide CI, endpoint or identity
+overrides inherited by the CLI. HTTP qualification uses exact media types before
+parameters, not substring matches. Duplicate JSON keys, malformed dates/configuration,
 duplicate inventory entries or differing project/provider regions fail closed.
+Accepted timestamp fractions retain up to six digits for identity, ordering and
+future-clock checks; microseconds are not silently rounded to milliseconds.
 Raw payloads, signed URLs, backup identifiers, project names, other projects,
 asset source and provider diagnostics are never persisted or printed.
 

@@ -128,7 +128,17 @@ function instant(value) {
   }
   const ms = Date.parse(value);
   if (!Number.isFinite(ms)) throw refused();
-  return { ms, iso: new Date(ms).toISOString() };
+  // Date.parse truncates provider microseconds. Keep an exact integer instant
+  // for identity, ordering and anomaly detection; no BigInt enters the report.
+  const fraction = (match[7] ?? "").padEnd(6, "0");
+  const us = BigInt(Math.floor(ms / 1000) * 1000) * 1000n + BigInt(fraction);
+  const iso = new Date(ms).toISOString();
+  return {
+    us,
+    iso: fraction.endsWith("000")
+      ? iso
+      : iso.replace(/\.\d{3}Z$/, `.${fraction}Z`),
+  };
 }
 
 function recoveryWindow(raw, observed) {
@@ -151,7 +161,7 @@ function recoveryWindow(raw, observed) {
     observationStatus: "PROVIDER_REPORTED",
     earliestReportedRestorePoint: new Date(early * 1000).toISOString(),
     latestReportedRestorePoint: new Date(late * 1000).toISOString(),
-    futureTimestampObserved: late * 1000 > observed,
+    futureTimestampObserved: BigInt(late) * 1000000n > observed,
     restoreExecutionProven: false,
   };
 }
@@ -185,7 +195,7 @@ export function projectBackupMetadata(raw, context) {
     )
       throw refused();
     const inserted = instant(entry.inserted_at);
-    const identity = `${inserted.ms}:${entry.is_physical_backup}`;
+    const identity = `${inserted.us}:${entry.is_physical_backup}`;
     if (seen.has(identity)) throw refused();
     seen.add(identity);
     return {
@@ -196,11 +206,17 @@ export function projectBackupMetadata(raw, context) {
   });
   const completed = entries
     .filter((entry) => entry.completed)
-    .sort((a, b) => a.inserted.ms - b.inserted.ms);
+    .sort((a, b) =>
+      a.inserted.us < b.inserted.us
+        ? -1
+        : a.inserted.us > b.inserted.us
+          ? 1
+          : 0,
+    );
   const newest = completed.at(-1)?.inserted;
-  const window = recoveryWindow(raw.physical_backup_data, observed.ms);
+  const window = recoveryWindow(raw.physical_backup_data, observed.us);
   const futureTimestampCount = entries.filter(
-    (entry) => entry.inserted.ms > observed.ms,
+    (entry) => entry.inserted.us > observed.us,
   ).length;
   const warnings = ["backup_insertion_time_is_not_recoverable_data_cut"];
   if (!completed.length) warnings.push("no_completed_backups_observed");
@@ -229,8 +245,8 @@ export function projectBackupMetadata(raw, context) {
       oldestCompletedInsertedAt: completed[0]?.inserted.iso ?? null,
       newestCompletedInsertedAt: newest?.iso ?? null,
       newestCompletedInsertionAgeHours:
-        newest && newest.ms <= observed.ms
-          ? (observed.ms - newest.ms) / 3600000
+        newest && newest.us <= observed.us
+          ? Number(observed.us - newest.us) / 3600000000
           : null,
     },
     physicalRecoveryWindow: window,
@@ -299,11 +315,20 @@ async function publicText(fetchImpl, url, type, limit) {
     signal: AbortSignal.timeout(30000),
     cache: "no-store",
   });
+  const mediaType = response?.headers
+    .get("content-type")
+    ?.split(";")[0]
+    .trim()
+    .toLowerCase();
+  const allowedTypes =
+    type === "text/html"
+      ? ["text/html"]
+      : ["application/javascript", "text/javascript"];
   if (
     !response ||
     response.status !== 200 ||
     (response.url && response.url !== url) ||
-    !response.headers.get("content-type")?.includes(type)
+    !allowedTypes.includes(mediaType)
   )
     throw refused();
   const declared = response.headers.get("content-length");
@@ -365,21 +390,29 @@ function modulePath(html) {
 export async function runProductionBackupMetadata(options = {}) {
   // Intentionally never a public CI observation or artifact.
   const env = options.env ?? process.env;
+  const authorities = [process.env, env];
   if (
+    !record(env) ||
     env.SYNC_DR_PRODUCTION_METADATA !== "read_only" ||
-    [
-      "CI",
-      "GITHUB_ACTIONS",
-      "VERCEL",
-      "TF_BUILD",
-      "TEAMCITY_VERSION",
-      "JENKINS_URL",
-      "GITLAB_CI",
-    ].some((key) => Boolean(env[key]))
+    authorities.some((authority) =>
+      [
+        "CI",
+        "GITHUB_ACTIONS",
+        "VERCEL",
+        "TF_BUILD",
+        "TEAMCITY_VERSION",
+        "JENKINS_URL",
+        "GITLAB_CI",
+      ].some((key) => Boolean(authority[key])),
+    )
   )
     throw refused();
   if (
-    Object.keys(env).some((key) => key.startsWith("SUPABASE_API_") && env[key])
+    authorities.some((authority) =>
+      Object.keys(authority).some(
+        (key) => key.startsWith("SUPABASE_API_") && authority[key],
+      ),
+    )
   )
     throw refused();
   try {
@@ -390,6 +423,8 @@ export async function runProductionBackupMetadata(options = {}) {
         "utf8",
       );
     const identity = parseProductionIdentity(workflowSource, env);
+    // The real CLI inherits process.env; injected env must never hide it.
+    parseProductionIdentity(workflowSource, process.env);
     const observerSource = readFileSync(fileURLToPath(import.meta.url));
     const runSupabase = options.runSupabase ?? defaultRunSupabase;
     const fetchImpl = options.fetchImpl ?? fetch;
@@ -422,7 +457,7 @@ export async function runProductionBackupMetadata(options = {}) {
     const refs = new Set(
       [
         ...bundle.matchAll(
-          /(?:https?|wss?):\/\/([a-z0-9-]+)\.supabase\.co(?=[/"'`\s]|$)/gi,
+          /(?:https?|wss?):\/\/([a-z0-9-]+)\.supabase\.co(?=[:/?#"'`\s]|$)/gi,
         ),
       ].map((match) => match[1]),
     );
