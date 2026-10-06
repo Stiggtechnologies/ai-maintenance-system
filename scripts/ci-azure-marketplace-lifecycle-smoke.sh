@@ -340,7 +340,7 @@ begin
       and status='cancelled' and marketplace_status='Unsubscribed'
   ) then raise exception 'canonical billing record did not preserve unsubscribe state'; end if;
   if (select count(*) from public.marketplace_fulfillment_operations
-      where marketplace_subscription_id='93333333-3333-4333-8333-333333333333')<>4 then
+      where marketplace_subscription_id='93333333-3333-4333-8333-333333333333')<>5 then
     raise exception 'idempotency inbox cardinality is wrong';
   end if;
   if not exists (
@@ -356,4 +356,4 @@ $privileges$;
 rollback;
 SQL
 
-echo 'Azure Marketplace lifecycle smoke passed: signed-boundary-contract=true authoritative-operation=true idempotent=true conflict-refusal=true suspend-lockout=true reinstate=true unsubscribe-lockout=true no-delete=true canonical-audit=true'
+echo 'Azure Marketplace lifecycle smoke passed: signed-boundary-contract=true authoritative-operation=true idempotent=true conflict-refusal=true suspend-lockout=true reinstate=true quantity-rebind=true unsubscribe-lockout=true no-delete=true canonical-audit=true'
