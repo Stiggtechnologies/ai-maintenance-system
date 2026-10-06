@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "source": "package-lock.json",
-  "lockfileSha256": "c7b05b0596e2f9dd85599283fc6ec7db4ca930e3f32873bfd6cbf6c2ac7e84e4",
+  "lockfileSha256": "5ca9e0ee1b64ad6a3c0296b81299cc1b3a929f1c05cbdf7420b0aa1875cbde65",
   "packageInstances": 405,
   "directProductionDependencies": 14,
   "directDevelopmentDependencies": 27,
@@ -1160,49 +1160,49 @@
     },
     {
       "name": "@vitest/expect",
-      "version": "4.1.10",
+      "version": "4.1.11",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@vitest/expect"
     },
     {
       "name": "@vitest/mocker",
-      "version": "4.1.10",
+      "version": "4.1.11",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@vitest/mocker"
     },
     {
       "name": "@vitest/pretty-format",
-      "version": "4.1.10",
+      "version": "4.1.11",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@vitest/pretty-format"
     },
     {
       "name": "@vitest/runner",
-      "version": "4.1.10",
+      "version": "4.1.11",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@vitest/runner"
     },
     {
       "name": "@vitest/snapshot",
-      "version": "4.1.10",
+      "version": "4.1.11",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@vitest/snapshot"
     },
     {
       "name": "@vitest/spy",
-      "version": "4.1.10",
+      "version": "4.1.11",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@vitest/spy"
     },
     {
       "name": "@vitest/utils",
-      "version": "4.1.10",
+      "version": "4.1.11",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@vitest/utils"
@@ -2581,7 +2581,7 @@
     },
     {
       "name": "tinyrainbow",
-      "version": "3.1.0",
+      "version": "3.1.1",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/tinyrainbow"
@@ -2700,7 +2700,7 @@
     },
     {
       "name": "vitest",
-      "version": "4.1.10",
+      "version": "4.1.11",
       "license": "MIT",
       "direct": "development",
       "packagePath": "node_modules/vitest"
