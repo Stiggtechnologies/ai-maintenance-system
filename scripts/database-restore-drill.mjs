@@ -235,17 +235,47 @@ export function safeDiagnostic(diagnostic) {
           diagnostic.includes(`schema "${schema}" does not exist`),
         )
       : undefined;
+  const restoreObjectTypeHint = diagnostic.match(
+    /from TOC entry \d+; \d+ \d+ (DEFAULT ACL|EVENT TRIGGER|TABLE DATA|ACL|COMMENT|FUNCTION|EXTENSION|DATABASE|SCHEMA|TABLE|SEQUENCE|VIEW|INDEX|CONSTRAINT|TRIGGER|POLICY)\b/,
+  )?.[1];
+  const platformFunctionHint =
+    missingObjectHint === "function"
+      ? [
+          "gen_random_uuid",
+          "uuid_generate_v4",
+          "digest",
+          "hmac",
+          "uuid_generate_v1",
+          "uuid_generate_v1mc",
+          "uuid_generate_v3",
+          "uuid_generate_v5",
+        ].find((name) =>
+          new RegExp(
+            `\\bfunction (?:(?:extensions|public|pg_catalog)\\.)?${name}\\([^\\r\\n]{0,200}\\) does not exist`,
+          ).test(diagnostic),
+        )
+      : undefined;
+  // pg_restore can prefix a command with archive comments. Never return those
+  // comments, the command text, TOC names or arbitrary function identifiers.
+  const restoreCommand = (diagnostic.split(/Command was:\s*/)[1] ?? "").replace(
+    /^(?:--[^\r\n]*\r?\n\s*)+/,
+    "",
+  );
   const statementHint = [
-    [/Command was:\s+DROP DATABASE\b/i, "drop_database"],
-    [/Command was:\s+CREATE DATABASE\b/i, "create_database"],
-    [/Command was:\s+CREATE EXTENSION\b/i, "create_extension"],
-    [/Command was:\s+CREATE SCHEMA\b/i, "create_schema"],
-    [/Command was:\s+CREATE TABLE\b/i, "create_table"],
-    [/Command was:\s+ALTER TABLE\b/i, "alter_table"],
-    [/Command was:\s+CREATE (?:OR REPLACE )?FUNCTION\b/i, "create_function"],
-    [/Command was:\s+ALTER FUNCTION\b/i, "alter_function"],
-    [/Command was:\s+COPY\b/i, "copy_data"],
-  ].find(([pattern]) => pattern.test(diagnostic))?.[1];
+    [/^DROP DATABASE\b/i, "drop_database"],
+    [/^CREATE DATABASE\b/i, "create_database"],
+    [/^CREATE EXTENSION\b/i, "create_extension"],
+    [/^CREATE SCHEMA\b/i, "create_schema"],
+    [/^CREATE TABLE\b/i, "create_table"],
+    [/^ALTER TABLE\b/i, "alter_table"],
+    [/^CREATE (?:OR REPLACE )?FUNCTION\b/i, "create_function"],
+    [/^ALTER FUNCTION\b/i, "alter_function"],
+    [/^CREATE EVENT TRIGGER\b/i, "create_event_trigger"],
+    [/^COMMENT\b/i, "comment"],
+    [/^GRANT\b/i, "grant"],
+    [/^REVOKE\b/i, "revoke"],
+    [/^COPY\b/i, "copy_data"],
+  ].find(([pattern]) => pattern.test(restoreCommand))?.[1];
   const permissionHint = [
     [/permission denied to grant privileges as role/i, "grantor_permission"],
     [/must have admin option/i, "role_admin_option"],
@@ -267,6 +297,8 @@ export function safeDiagnostic(diagnostic) {
     ...(sqlState ? { sqlState } : {}),
     ...(missingObjectHint ? { missingObjectHint } : {}),
     ...(canonicalSchemaHint ? { canonicalSchemaHint } : {}),
+    ...(restoreObjectTypeHint ? { restoreObjectTypeHint } : {}),
+    ...(platformFunctionHint ? { platformFunctionHint } : {}),
     ...(statementHint ? { statementHint } : {}),
     ...(permissionHint ? { permissionHint } : {}),
     ...(extensionHint ? { extensionHint } : {}),
@@ -725,6 +757,10 @@ export async function runRestoreDrill({
     if (error.canonicalSchemaHint)
       report.canonicalSchemaHint = error.canonicalSchemaHint;
     if (error.statementHint) report.statementHint = error.statementHint;
+    if (error.restoreObjectTypeHint)
+      report.restoreObjectTypeHint = error.restoreObjectTypeHint;
+    if (error.platformFunctionHint)
+      report.platformFunctionHint = error.platformFunctionHint;
     if (error.permissionHint) report.permissionHint = error.permissionHint;
     if (error.extensionHint) report.extensionHint = error.extensionHint;
   } finally {

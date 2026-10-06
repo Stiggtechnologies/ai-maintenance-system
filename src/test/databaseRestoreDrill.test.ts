@@ -163,6 +163,39 @@ describe("database restore-drill boundaries", () => {
       canonicalSchemaHint: "extensions",
     });
   });
+  it("classifies an archive object and commented restore statement without leaking identifiers", () => {
+    expect(
+      drill.safeDiagnostic(`pg_restore: from TOC entry 912; 0 0 ACL FUNCTION private_function() private_owner
+pg_restore: error: could not execute query: ERROR: function private_function() does not exist
+Command was: -- private object comment
+GRANT EXECUTE ON FUNCTION private_function() TO private_recipient;`),
+    ).toEqual({
+      category: "missing_object",
+      missingObjectHint: "function",
+      restoreObjectTypeHint: "ACL",
+      statementHint: "grant",
+    });
+  });
+  it.each(["gen_random_uuid", "uuid_generate_v4", "digest"])(
+    "identifies only approved platform primitive %s",
+    (name) => {
+      expect(
+        drill.safeDiagnostic(
+          `ERROR: function extensions.${name}() does not exist`,
+        ),
+      ).toEqual({
+        category: "missing_object",
+        missingObjectHint: "function",
+        platformFunctionHint: name,
+      });
+    },
+  );
+  it("does not disclose unknown TOC types or private function identifiers", () => {
+    expect(
+      drill.safeDiagnostic(`pg_restore: from TOC entry 1; 0 0 SECRET_TYPE private_identifier
+ERROR: function private_uuid_generate_v4() does not exist`),
+    ).toEqual({ category: "missing_object", missingObjectHint: "function" });
+  });
   it.each([
     [
       "permission denied to grant privileges as role private-grantor",
