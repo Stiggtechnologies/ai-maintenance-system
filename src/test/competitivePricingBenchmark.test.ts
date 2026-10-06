@@ -47,10 +47,22 @@ const unitEconomics = JSON.parse(
     productionCogsReporting: { status: string };
   };
   observedProductionConfiguration: {
+    allConfiguredGatewayOutcomesPricedAndApproved: boolean;
     currentFirstProviderClass: string;
+    currentRouteCompatibleWithProposedPolicy: boolean;
     directProviderConfigurationNamePresent: string;
+    gatewayModelEvidence: {
+      configuredContextWindowFallbacks: string[];
+      configuredFallbacks: string[];
+      configuredPrimary: string;
+      exactDeployedMappingEvidenced: boolean;
+      requestedAlias: string;
+      responseModelContract: string;
+      scope: string;
+    };
     gatewayConfigurationNamesPresent: string[];
     gatewayCostScheduleEvidenced: boolean;
+    proposedAllowedModels: string[];
     providerCostMultiplierOneReleaseEligible: boolean;
     secretValuesInspected: boolean;
     sharedProviderChainOrderWhenConfigured: string[];
@@ -275,7 +287,7 @@ describe("competitive pricing benchmark", () => {
     );
   });
 
-  it("refuses a 1.0 production multiplier while the live route is gateway-first and unpriced", () => {
+  it("refuses the proposed model policy and a 1.0 multiplier on the unproved gateway-first route", () => {
     expect(unitEconomics.observedProductionConfiguration).toMatchObject({
       secretValuesInspected: false,
       gatewayConfigurationNamesPresent: ["LLM_BASE_URL", "LLM_API_KEY"],
@@ -285,16 +297,36 @@ describe("competitive pricing benchmark", () => {
         "openai-direct",
       ],
       currentFirstProviderClass: "external_gateway",
+      proposedAllowedModels: ["gpt-5.6-terra", "gpt-5.6-luna", "gpt-4o-mini"],
+      allConfiguredGatewayOutcomesPricedAndApproved: false,
+      currentRouteCompatibleWithProposedPolicy: false,
       gatewayCostScheduleEvidenced: false,
       providerCostMultiplierOneReleaseEligible: false,
     });
     expect(unitEconomics.pending.providerAndPricingTierEvidence).toMatchObject({
       status:
-        "gateway_first_configuration_evidenced_cost_schedule_not_evidenced",
+        "gateway_first_route_not_release_executable_for_proposed_model_policy",
     });
     expect(unitEconomics.pending.providerAndPricingTierEvidence.reason).toMatch(
-      /multiplier of 1\.0 is not release-eligible/i,
+      /proposed model policy (?:is|are) not release-eligible/i,
     );
+    expect(
+      unitEconomics.observedProductionConfiguration.gatewayModelEvidence,
+    ).toMatchObject({
+      requestedAlias: "stigg/fast",
+      configuredPrimary: "claude-haiku-4-5-20251001",
+      configuredFallbacks: [
+        "claude-sonnet-5",
+        "gpt-5.6-luna",
+        "gemini-2.5-flash",
+      ],
+      configuredContextWindowFallbacks: ["claude-sonnet-5", "gemini-2.5-pro"],
+      exactDeployedMappingEvidenced: false,
+    });
+    expect(
+      unitEconomics.observedProductionConfiguration.gatewayModelEvidence
+        .responseModelContract,
+    ).toMatch(/concrete model used after fallback/i);
   });
 
   it("does not preserve the stale claim that the public gateway is undeployed or priced", () => {

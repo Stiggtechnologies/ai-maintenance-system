@@ -30,19 +30,19 @@ The first audit was directionally right that the repository already contained
 the cost-control foundation. The missing commercial layer now extends those
 canonical controls instead of creating a second ledger or quota system:
 
-| Control                                                     | Evidence in the repository                                                              | Status                                                       |
-| ----------------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
-| Tenant/model/function token ledger                          | `private.llm_usage`                                                                     | Built                                                        |
-| Versioned CAD input/output price table with provenance      | `private.llm_prices`                                                                    | Built                                                        |
-| Atomic check-and-reserve quota gate                         | `check_llm_quota()`                                                                     | Built                                                        |
-| Per-organization quota overrides                            | `private.llm_org_quotas`                                                                | Built                                                        |
-| Anonymous public-rail abuse allowance                       | `consume_public_reliability_ip_allowance()`                                             | Built                                                        |
-| Decision/case/work cost subject and exact price snapshot    | Extended fields on `private.llm_usage`                                                  | Built; all seven deployed Develop model callers are settlement-fail-closed at exact head `9b103177`, while other bounded paid paths can remain unattributed |
-| Paid Microsoft plan mapped to a commercial period allowance | `apply_ai_commercial_plan_allowance()` and subscription triggers                        | Built; no policy values configured or approved               |
-| Production COGS and p50/p95 cost-to-serve report            | `get_ai_unit_economics()`                                                               | Built; no production distribution evidenced                  |
+| Control                                                     | Evidence in the repository                                                              | Status                                                                                                                                                             |
+| ----------------------------------------------------------- | --------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Tenant/model/function token ledger                          | `private.llm_usage`                                                                     | Built                                                                                                                                                              |
+| Versioned CAD input/output price table with provenance      | `private.llm_prices`                                                                    | Built                                                                                                                                                              |
+| Atomic check-and-reserve quota gate                         | `check_llm_quota()`                                                                     | Built                                                                                                                                                              |
+| Per-organization quota overrides                            | `private.llm_org_quotas`                                                                | Built                                                                                                                                                              |
+| Anonymous public-rail abuse allowance                       | `consume_public_reliability_ip_allowance()`                                             | Built                                                                                                                                                              |
+| Decision/case/work cost subject and exact price snapshot    | Extended fields on `private.llm_usage`                                                  | Built; all seven deployed Develop model callers are settlement-fail-closed at exact head `9b103177`, while other bounded paid paths can remain unattributed        |
+| Paid Microsoft plan mapped to a commercial period allowance | `apply_ai_commercial_plan_allowance()` and subscription triggers                        | Built; no policy values configured or approved                                                                                                                     |
+| Production COGS and p50/p95 cost-to-serve report            | `get_ai_unit_economics()`                                                               | Built; no production distribution evidenced                                                                                                                        |
 | Pre-activation variable-cost margin gate                    | `evaluate_ai_commercial_plan_policy()` and explicit approval                            | Built; standard model rate is multiplied by an explicit provider/pricing-tier factor for both base allowance and overage; commercial inputs remain owner decisions |
-| Marketplace usage aggregation and idempotent hourly events  | `private.marketplace_meter_definitions` and `public.marketplace_hourly_metering_events` | Built but unconfigured and not live-certified                |
-| Paid realtime usage settlement                              | Realtime provider terminal usage                                                        | Missing; paid realtime is therefore blocked                  |
+| Marketplace usage aggregation and idempotent hourly events  | `private.marketplace_meter_definitions` and `public.marketplace_hourly_metering_events` | Built but unconfigured and not live-certified                                                                                                                      |
+| Paid realtime usage settlement                              | Realtime provider terminal usage                                                        | Missing; paid realtime is therefore blocked                                                                                                                        |
 
 The default 5,184 calls and 22 million tokens per organization per UTC day
 remain **abuse caps with engineering headroom**. They are not customer
@@ -72,6 +72,19 @@ premium context tier. Otherwise, the multiplier must come from a separately
 approved cost schedule for gateway markup and premium processing. An opaque
 gateway alias cannot inherit the public model list price merely because it
 returns the same model name.
+
+The current policy candidate is therefore **not release-executable on the
+observed gateway-first route**. The local gateway configuration requests
+`stigg/fast`, maps it to `claude-haiku-4-5-20251001`, and can fall back across
+Claude, GPT, and Gemini models. Gateway documentation says the concrete model
+lands in `response.model`; SyncAI settles that exact returned identity. The
+candidate allowlist contains only `gpt-5.6-terra`, `gpt-5.6-luna`, and
+`gpt-4o-mini`, so most configured gateway outcomes are intentionally unknown or
+unapproved. This is safe failure behavior, not a sellable configuration. The
+exact deployed gateway revision is still unverified. Before paid activation,
+either pin customer-paid calls to the verified direct GPT route or approve and
+price every reachable gateway primary and fallback, including CAD conversion,
+gateway infrastructure allocation, and a deployed response-identity witness.
 
 No price, allowance, model set, overage rate, non-inference cost, or margin
 threshold was seeded or approved. Microsoft activation fails closed when the

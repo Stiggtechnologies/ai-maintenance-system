@@ -1,8 +1,8 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "asOf": "2026-10-06",
   "scope": "AI inference cost controls and Microsoft Marketplace commercial compatibility",
-  "finding": "commercial_cost_controls_implemented_configuration_and_production_evidence_pending",
+  "finding": "commercial_cost_controls_implemented_proposed_policy_not_release_executable_on_gateway_first_route",
   "implemented": {
     "usageLedger": {
       "status": "implemented",
@@ -167,8 +167,8 @@
       "status": "not_evidenced"
     },
     "providerAndPricingTierEvidence": {
-      "status": "gateway_first_configuration_evidenced_cost_schedule_not_evidenced",
-      "reason": "A 2026-10-06 names-only inventory of the live SyncAI project shows LLM_BASE_URL, LLM_API_KEY, and OPENAI_API_KEY configured. The shared provider chain leads with stigg-gateway when the first two names are present and falls back to direct OpenAI. No gateway pricing schedule or approved gateway/provider-tier multiplier is evidenced, so a production multiplier of 1.0 is not release-eligible. No secret value was inspected."
+      "status": "gateway_first_route_not_release_executable_for_proposed_model_policy",
+      "reason": "A 2026-10-06 names-only inventory of the live SyncAI project shows LLM_BASE_URL, LLM_API_KEY, and OPENAI_API_KEY configured. The shared provider chain leads with stigg-gateway when the first two names are present and falls back to direct OpenAI. The gateway repository maps the default stigg/fast request to a Claude primary and Claude, GPT, and Gemini fallbacks, while the proposed policy allows only three canonical GPT models. SyncAI settles the provider-returned concrete model and refuses fuzzy alias pricing, so an unpriced or unapproved gateway result is recorded as a policy violation and freezes later commercial-period spend. The exact deployed gateway revision, returned model identity, CAD-normalized price schedule, fixed infrastructure allocation, and approved provider multiplier are not evidenced. A production multiplier of 1.0 and the proposed model policy are not release-eligible. No secret value was inspected."
     },
     "directChannelActivationGate": {
       "status": "not_implemented",
@@ -190,6 +190,22 @@
       "openai-direct"
     ],
     "currentFirstProviderClass": "external_gateway",
+    "gatewayModelEvidence": {
+      "scope": "local stigg-ai-gateway repository configuration; exact deployed revision not verified",
+      "requestedAlias": "stigg/fast",
+      "configuredPrimary": "claude-haiku-4-5-20251001",
+      "configuredFallbacks": [
+        "claude-sonnet-5",
+        "gpt-5.6-luna",
+        "gemini-2.5-flash"
+      ],
+      "configuredContextWindowFallbacks": ["claude-sonnet-5", "gemini-2.5-pro"],
+      "responseModelContract": "gateway documentation states response.model contains the concrete model used after fallback; SyncAI settles data.model rather than the requested alias",
+      "exactDeployedMappingEvidenced": false
+    },
+    "proposedAllowedModels": ["gpt-5.6-terra", "gpt-5.6-luna", "gpt-4o-mini"],
+    "allConfiguredGatewayOutcomesPricedAndApproved": false,
+    "currentRouteCompatibleWithProposedPolicy": false,
     "gatewayCostScheduleEvidenced": false,
     "providerCostMultiplierOneReleaseEligible": false
   },
@@ -212,6 +228,7 @@
     "rawTokenMeterIsModelCostWeighted": false,
     "warning": "Equal token quantities can have materially different inference cost under different model routes.",
     "pricingModeWarning": "The margin evaluator now applies an explicit policy-level provider cost multiplier to standard model rates. A value of 1 requires a verified standard-rate route; premium context, regional-processing, explicit cache-write, or external-gateway adjustments require a sourced multiplier or technical exclusion from the paid route.",
+    "gatewayModelWarning": "The proposed GPT allowlist is not executable on the observed gateway-first route. The gateway default alias can resolve to Claude, GPT, or Gemini models, and the exact provider-returned model is what SyncAI settles. Paid traffic must either be pinned to the verified direct GPT route or use an approved gateway policy that prices and allows every reachable primary and fallback, normalizes USD rates to CAD, allocates gateway infrastructure, and proves the deployed response identity.",
     "commercialAllowanceApproved": false,
     "overagePriceApproved": false,
     "grossMarginThresholdApproved": false
@@ -221,6 +238,7 @@
     "approved_commercial_unit_and_included_allowance",
     "approved_allowed_model_set_and_price_refresh_process",
     "verified_standard_rate_provider_route_or_approved_provider_tier_cost_schedule",
+    "verified_deployed_gateway_model_identity_and_complete_primary_fallback_allowlist_or_direct_route_pin",
     "verified_prompt_ceiling_below_any_premium_context_tier",
     "approved_non_inference_variable_cost_input",
     "approved_gross_margin_threshold",
