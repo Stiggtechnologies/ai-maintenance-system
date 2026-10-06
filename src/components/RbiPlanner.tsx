@@ -140,14 +140,19 @@ export function RbiPlanner() {
     setBusy(true);
     setError(null);
     try {
-      const { data, error: rpcError } = await (
+      const {
+        data,
+        error: rpcError,
+        status,
+      } = await (
         supabase as unknown as {
           rpc: (
             name: string,
             args: Record<string, unknown>,
           ) => Promise<{
             data: Record<string, unknown> | null;
-            error: { message: string } | null;
+            error: { message: string; code?: string } | null;
+            status?: number;
           }>;
         }
       ).rpc("record_inspection_plan", {
@@ -160,9 +165,34 @@ export function RbiPlanner() {
       });
       // A response belongs only to the immutable proposal actually submitted.
       if (currentProposal.current !== submitted) return;
-      if (rpcError) setError(rpcError.message);
-      else {
+      if (rpcError) {
+        // The SDK resolves fetch/abort failures as status 0, and gateways can
+        // fail after commit. Only this door's qualified SQL refusals establish
+        // rollback; every other error requires reconciliation, not resubmission.
         if (
+          data !== null ||
+          ![400, 401, 403, 409, 422].includes(status ?? 0) ||
+          ![
+            "42501",
+            "P0001",
+            "22P02",
+            "22003",
+            "23502",
+            "23503",
+            "23505",
+            "23514",
+          ].includes(rpcError.code ?? "") ||
+          typeof rpcError.message !== "string" ||
+          !rpcError.message.trim()
+        )
+          throw new Error("Unqualified inspection-plan refusal");
+        setError(rpcError.message);
+      } else {
+        if (
+          typeof status !== "number" ||
+          !Number.isInteger(status) ||
+          status < 200 ||
+          status > 299 ||
           data?.status !== "recorded" ||
           !(
             typeof data.id === "string" ||

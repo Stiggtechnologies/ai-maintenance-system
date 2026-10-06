@@ -11,6 +11,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createClient } from "@supabase/supabase-js";
 import { RbiPlanner } from "./RbiPlanner";
 
 const rpc = vi.fn();
@@ -54,6 +55,7 @@ describe("RbiPlanner", () => {
     rpc.mockResolvedValue({
       data: { id: 42, status: "recorded" },
       error: null,
+      status: 200,
     });
     render(<RbiPlanner />);
     fillValid();
@@ -103,7 +105,8 @@ describe("RbiPlanner", () => {
   it("surfaces a server refusal from the governed door", async () => {
     rpc.mockResolvedValue({
       data: null,
-      error: { message: "process-safety authority is required" },
+      error: { message: "process-safety authority is required", code: "42501" },
+      status: 403,
     });
     render(<RbiPlanner />);
     fillValid();
@@ -191,6 +194,7 @@ describe("RbiPlanner", () => {
       rpc.mockResolvedValue({
         data: { id: 42, status: "recorded" },
         error: null,
+        status: 200,
       });
       render(<RbiPlanner />);
       fillValid();
@@ -246,6 +250,7 @@ describe("RbiPlanner", () => {
       rpc.mockReturnValueOnce(pending).mockResolvedValueOnce({
         data: { id: 43, status: "recorded" },
         error: null,
+        status: 200,
       });
       render(<RbiPlanner />);
       fillValid();
@@ -262,8 +267,12 @@ describe("RbiPlanner", () => {
       await act(async () =>
         resolve(
           outcome === "success"
-            ? { data: { id: 42, status: "recorded" }, error: null }
-            : { data: null, error: { message: "OLD_REQUEST_REFUSAL" } },
+            ? { data: { id: 42, status: "recorded" }, error: null, status: 200 }
+            : {
+                data: null,
+                error: { message: "OLD_REQUEST_REFUSAL", code: "42501" },
+                status: 403,
+              },
         ),
       );
       expect(screen.queryByText("Inspection plan 42 recorded.")).toBeNull();
@@ -301,7 +310,11 @@ describe("RbiPlanner", () => {
     fireEvent.click(button);
     expect(rpc).toHaveBeenCalledTimes(1);
     await act(async () =>
-      resolve({ data: { id: 42, status: "recorded" }, error: null }),
+      resolve({
+        data: { id: 42, status: "recorded" },
+        error: null,
+        status: 200,
+      }),
     );
     expect(button).toBeDisabled();
     fireEvent.click(button);
@@ -331,7 +344,175 @@ describe("RbiPlanner", () => {
   ])(
     "does not assert a saved plan without an exact governed acknowledgement %j",
     async (data) => {
-      rpc.mockResolvedValue({ data, error: null });
+      rpc.mockResolvedValue({ data, error: null, status: 200 });
+      render(<RbiPlanner />);
+      fillValid();
+      fireEvent.click(screen.getByText("Calculate risk"));
+      fireEvent.click(await screen.findByText("Adopt as inspection plan"));
+      expect((await screen.findByRole("alert")).textContent).toMatch(
+        /outcome.*unknown/i,
+      );
+      expect(screen.queryByText(/Inspection plan .* recorded/)).toBeNull();
+      expect(screen.queryByText("Adopt as inspection plan")).toBeNull();
+    },
+  );
+  it.each(["fetch", "abort"])(
+    "handles the actual Supabase SDK's resolved %s failure after a synthetic commit without duplicate POST",
+    async (failure) => {
+      let committed = 0;
+      const fetch = vi.fn(
+        async (_url: RequestInfo | URL, init?: RequestInit) => {
+          expect(init?.method).toBe("POST");
+          committed += 1;
+          if (failure === "abort")
+            throw new DOMException("Synthetic lost response", "AbortError");
+          throw new TypeError("Synthetic response lost after commit");
+        },
+      );
+      const client = createClient(
+        "https://synthetic.invalid",
+        "synthetic-test-key",
+        {
+          auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+            detectSessionInUrl: false,
+            storageKey: `rbi-${failure}`,
+          },
+          global: { fetch },
+        },
+      );
+      rpc.mockImplementation((name: string, args: Record<string, unknown>) =>
+        client.rpc(name, args),
+      );
+      render(<RbiPlanner />);
+      fillValid();
+      fireEvent.click(screen.getByText("Calculate risk"));
+      fireEvent.click(await screen.findByText("Adopt as inspection plan"));
+      expect((await screen.findByRole("alert")).textContent).toMatch(
+        /outcome.*unknown/i,
+      );
+      expect(screen.queryByText("Adopt as inspection plan")).toBeNull();
+      expect(screen.getByText("Calculate risk")).toBeEnabled();
+      expect(committed).toBe(1);
+      expect(fetch).toHaveBeenCalledTimes(1);
+      expect(rpc).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([
+    [0, ""],
+    [502, "P0001"],
+    [503, "42501"],
+    [504, ""],
+    [403, "PGRST301"],
+    [400, ""],
+    [undefined, "42501"],
+  ])(
+    "treats unqualified RPC outcome status=%s code=%s as unknown",
+    async (status, code) => {
+      rpc.mockResolvedValue({
+        data: null,
+        error: { message: "Unqualified provider response", code },
+        status,
+      });
+      render(<RbiPlanner />);
+      fillValid();
+      fireEvent.click(screen.getByText("Calculate risk"));
+      fireEvent.click(await screen.findByText("Adopt as inspection plan"));
+      expect((await screen.findByRole("alert")).textContent).toMatch(
+        /outcome.*unknown/i,
+      );
+      expect(screen.queryByText("Adopt as inspection plan")).toBeNull();
+      expect(rpc).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it("retains the qualified governed SQL refusal without claiming a saved plan", async () => {
+    rpc.mockResolvedValue({
+      data: null,
+      error: { message: "process-safety authority is required", code: "42501" },
+      status: 403,
+    });
+    render(<RbiPlanner />);
+    fillValid();
+    fireEvent.click(screen.getByText("Calculate risk"));
+    fireEvent.click(await screen.findByText("Adopt as inspection plan"));
+    expect((await screen.findByRole("alert")).textContent).toMatch(
+      /process-safety authority/,
+    );
+    expect(screen.queryByText(/Inspection plan .* recorded/)).toBeNull();
+    expect(screen.getByText("Adopt as inspection plan")).toBeEnabled();
+  });
+
+  it.each(["recorded", "refused"])(
+    "qualifies the actual SDK's %s response",
+    async (outcome) => {
+      const fetch = vi.fn(
+        async () =>
+          new Response(
+            JSON.stringify(
+              outcome === "recorded"
+                ? { id: "9223372036854775807", status: "recorded" }
+                : {
+                    code: "42501",
+                    message: "process-safety authority is required",
+                    details: null,
+                    hint: null,
+                  },
+            ),
+            {
+              status: outcome === "recorded" ? 200 : 403,
+              headers: { "Content-Type": "application/json" },
+            },
+          ),
+      );
+      const client = createClient(
+        "https://synthetic.invalid",
+        "synthetic-test-key",
+        {
+          auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+            detectSessionInUrl: false,
+            storageKey: `rbi-${outcome}`,
+          },
+          global: { fetch },
+        },
+      );
+      rpc.mockImplementation((name: string, args: Record<string, unknown>) =>
+        client.rpc(name, args),
+      );
+      render(<RbiPlanner />);
+      fillValid();
+      fireEvent.click(screen.getByText("Calculate risk"));
+      fireEvent.click(await screen.findByText("Adopt as inspection plan"));
+      if (outcome === "recorded") {
+        expect(
+          await screen.findByText(
+            "Inspection plan 9223372036854775807 recorded.",
+          ),
+        ).toBeTruthy();
+        expect(screen.getByText("Adopt as inspection plan")).toBeDisabled();
+      } else {
+        expect((await screen.findByRole("alert")).textContent).toMatch(
+          /process-safety authority/,
+        );
+        expect(screen.getByText("Adopt as inspection plan")).toBeEnabled();
+        expect(screen.queryByText(/Inspection plan .* recorded/)).toBeNull();
+      }
+      expect(fetch).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([undefined, 0, 403, 500, 200.5])(
+    "requires a qualified success status %s as well as a saved-plan body",
+    async (status) => {
+      rpc.mockResolvedValue({
+        data: { id: 42, status: "recorded" },
+        error: null,
+        status,
+      });
       render(<RbiPlanner />);
       fillValid();
       fireEvent.click(screen.getByText("Calculate risk"));
