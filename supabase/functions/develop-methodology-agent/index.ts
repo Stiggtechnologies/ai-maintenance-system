@@ -27,9 +27,13 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   buildProviderChain,
-  callWithResilience,
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
+import {
+  callWithCommercialBoundary,
+  DEFAULT_COMMERCIALLY_PRICED_MODEL,
+  estimateLlmCallTokens,
+} from "../_shared/llm-commercial-usage.ts";
 import {
   buildMethodologyPrompts,
   parseFrameworkProposal,
@@ -46,13 +50,19 @@ const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "";
 // indirection — so an environment that names no model gets the chain's default
 // rather than this file's opinion, and this file has no opinion to drift.
 const MODEL = Deno.env.get("DEVELOP_AGENT_MODEL") || undefined;
+const COMMERCIAL_MODEL = MODEL ?? DEFAULT_COMMERCIALLY_PRICED_MODEL;
 const GATEWAY_MODEL = Deno.env.get("LLM_GATEWAY_MODEL") || undefined;
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
+const ALLOWED_ORIGIN =
+  Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
 
 // The governance content a framework document carries sits in the analysis
 // and maintenance-task claim families; asking across all of them and taking
 // the best chunks is the same contract the evidence agent retrieves under.
-const KB_CLAIM_TYPES = ["analysis_method", "maintenance_task", "component_structure"];
+const KB_CLAIM_TYPES = [
+  "analysis_method",
+  "maintenance_task",
+  "component_structure",
+];
 
 // websearch_to_tsquery syntax: `or` between quoted phrases and bare words
 // yields a DISJUNCTION. Bare words separated by spaces are AND-ed, which is
@@ -107,9 +117,8 @@ async function authenticate(req: Request): Promise<AuthContext | null> {
   if (!token) return null;
   try {
     const admin = serviceClient();
-    const { data: userResult, error: userError } = await admin.auth.getUser(
-      token,
-    );
+    const { data: userResult, error: userError } =
+      await admin.auth.getUser(token);
     if (userError || !userResult.user) return null;
     const { data: profile } = await admin
       .from("user_profiles")
@@ -190,7 +199,10 @@ Deno.serve(async (req: Request) => {
     (r: { stage_key: string }) => r.stage_key,
   );
   if (canonicalStageKeys.length === 0) {
-    return json({ error: "the canonical lifecycle stage vocabulary is unavailable" }, 500);
+    return json(
+      { error: "the canonical lifecycle stage vocabulary is unavailable" },
+      500,
+    );
   }
 
   // Retrieval, on the governed rail.
@@ -288,29 +300,62 @@ Deno.serve(async (req: Request) => {
     excerpts,
     canonicalStageKeys,
   });
-  const result = await callWithResilience(fetch, providers, {
+  const providerOptions = {
     systemPrompt: prompts.systemPrompt,
     userContent: prompts.userContent,
     maxTokens: 1600,
     timeoutMs: 60_000,
-  });
+  };
+  const commercial = await callWithCommercialBoundary(
+    (functionName, args) => admin.rpc(functionName, args),
+    fetch,
+    providers,
+    providerOptions,
+    {
+      organizationId: auth.organizationId,
+      functionName: "develop-methodology-agent",
+      requestedModel: COMMERCIAL_MODEL,
+      estimatedTokens: estimateLlmCallTokens(providerOptions),
+      costObject: { type: "kb_document", id: documentId },
+    },
+  );
+  if (commercial.status !== "ok") {
+    if (commercial.status === "settlement_failed") {
+      console.error("develop-methodology-agent usage settlement failed", {
+        model: commercial.model,
+        error: commercial.error,
+      });
+    } else if (
+      commercial.status === "provider_failed" &&
+      commercial.events.length > 0
+    ) {
+      console.error(
+        "develop-methodology-agent provider trail",
+        JSON.stringify(commercial.events),
+      );
+    }
+    const reason =
+      commercial.status === "quota_refused"
+        ? `the commercial usage boundary refused this call (${commercial.limit})`
+        : commercial.status === "settlement_failed"
+          ? "the model answered but usage accounting failed, so its unaccounted output was discarded"
+          : "the model call failed";
+    return json({
+      advisory: true,
+      documentId,
+      documentTitle: doc.title,
+      proposal: null,
+      refusal: `${reason}; no framework was proposed.`,
+      recorded: null,
+    });
+  }
+  const result = commercial.result;
   if (result.events.length > 1 || !result.ok) {
     console.error(
       "develop-methodology-agent provider trail",
       JSON.stringify(result.events),
     );
   }
-  if (!result.ok) {
-    return json({
-      advisory: true,
-      documentId,
-      documentTitle: doc.title,
-      proposal: null,
-      refusal: "the model call failed, so no framework was proposed.",
-      recorded: null,
-    });
-  }
-
   const parsed = parseFrameworkProposal(result.content, canonicalStageKeys);
   if (!parsed.ok) {
     return json({

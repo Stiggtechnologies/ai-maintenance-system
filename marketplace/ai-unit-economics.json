@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "asOf": "2026-10-06",
   "scope": "AI inference cost controls and Microsoft Marketplace commercial compatibility",
   "finding": "commercial_cost_controls_implemented_configuration_and_production_evidence_pending",
@@ -60,6 +60,24 @@
       "defaultMaxTokensPerUtcDay": 22000000,
       "defaultCapsAreCommercialEntitlements": false,
       "defaultCapsPurpose": "abuse_protection_with_engineering_headroom"
+    },
+    "deployedDevelopAgentBoundary": {
+      "status": "implemented_pending_hosted_verification",
+      "sharedBoundary": "supabase/functions/_shared/llm-commercial-usage.ts",
+      "coveredFunctions": [
+        "develop-evidence-agent",
+        "develop-change-impact-agent",
+        "develop-contract-strategy-agent",
+        "develop-gate-agent",
+        "develop-methodology-agent",
+        "develop-requirements-agent",
+        "develop-risk-agent"
+      ],
+      "reservationBeforeProviderSpend": true,
+      "actualUsageSettlementBeforeOutputConsumption": true,
+      "providerFailureReleasesReservation": true,
+      "settlementFailureDiscardsOutputAndRetainsReservation": true,
+      "promptOrCompletionTextStoredByBoundary": false
     },
     "commercialPlanPolicy": {
       "status": "implemented_not_configured",
@@ -153,7 +171,7 @@
     "canonicalFormula": "input_tokens * input_cad_per_mtok / 1000000 + completion_tokens * output_cad_per_mtok / 1000000",
     "currentGranularity": "model_call_with_supported_cost_object_rollup",
     "perDecisionCostAvailable": true,
-    "perDecisionCostCoverage": "governed decision-capable paid runtime paths; recommendation enrichment and asset onboarding are separately attributed, while any remaining unattributed call stays explicit and inside the hard token ceiling",
+    "perDecisionCostCoverage": "supported runtime paths only: governed decision-capable paid runtimes, including the deployed Develop evidence, change-impact, contract-strategy, gate, and requirements agents; risk, methodology, recommendation enrichment, and asset onboarding carry their own canonical work subjects; any remaining unattributed call stays explicit and inside the hard token ceiling",
     "rawTokenMeterIsModelCostWeighted": false,
     "warning": "Equal token quantities can have materially different inference cost under different model routes.",
     "commercialAllowanceApproved": false,
@@ -177,6 +195,8 @@
       "supabase/migrations/20261229100000_azure_marketplace_metering.sql",
       "supabase/migrations/20261230110000_azure_marketplace_metering_clock_consistency.sql",
       "supabase/migrations/20270103040001_ai_commercial_cost_controls.sql",
+      "supabase/functions/_shared/llm-commercial-usage.ts",
+      "src/test/llmCommercialUsage.test.ts",
       "src/test/llmCostGuardrails.test.ts",
       "src/test/azureMarketplaceMetering.test.ts",
       "src/test/aiCommercialCostControls.test.ts"

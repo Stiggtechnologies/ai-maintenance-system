@@ -42,9 +42,13 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   buildProviderChain,
-  callWithResilience,
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
+import {
+  callWithCommercialBoundary,
+  DEFAULT_COMMERCIALLY_PRICED_MODEL,
+  estimateLlmCallTokens,
+} from "../_shared/llm-commercial-usage.ts";
 import {
   buildRequirementsPrompts,
   parseRequirementInconsistencies,
@@ -62,8 +66,10 @@ const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "";
 // an environment that names no model gets the chain's default rather than
 // this file's opinion, and this file has no opinion to drift.
 const MODEL = Deno.env.get("DEVELOP_AGENT_MODEL") || undefined;
+const COMMERCIAL_MODEL = MODEL ?? DEFAULT_COMMERCIALLY_PRICED_MODEL;
 const GATEWAY_MODEL = Deno.env.get("LLM_GATEWAY_MODEL") || undefined;
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
+const ALLOWED_ORIGIN =
+  Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
@@ -194,7 +200,11 @@ Deno.serve(async (req: Request) => {
     .eq("development_case_id", caseId)
     .order("requirement_ref");
   const requirements = (reqRows ?? []).map(
-    (r: { requirement_ref: string; category: string; requirement: string }) => ({
+    (r: {
+      requirement_ref: string;
+      category: string;
+      requirement: string;
+    }) => ({
       ref: r.requirement_ref,
       category: r.category,
       statement: r.requirement,
@@ -227,44 +237,76 @@ Deno.serve(async (req: Request) => {
       "semantic inconsistency needs at least two requirements to compare — not attempted, and NOT reported as 'no contradictions found'";
   } else {
     const prompts = buildRequirementsPrompts({ reading, requirements });
-    const result = await callWithResilience(fetch, providers, {
+    const providerOptions = {
       systemPrompt: prompts.systemPrompt,
       userContent: prompts.userContent,
       maxTokens: 900,
       timeoutMs: 30_000,
-    });
-    if (result.events.length > 1 || !result.ok) {
-      console.error(
-        "develop-requirements-agent provider trail",
-        JSON.stringify(result.events),
-      );
-    }
-    if (result.ok) {
-      narrative = result.content;
-      model = result.model;
-      const parsed = parseRequirementInconsistencies(
-        result.content,
-        requirements.map((r) => r.ref),
-      );
-      if (parsed.ok) {
-        aiFindings = parsed.inconsistencies;
-        aiDropped = parsed.dropped;
-        // ASKED AND FOUND NOTHING is not the same as NEVER ASKED, and with no
-        // note the two were indistinguishable on screen — the "0 findings
-        // reads as healthy" failure this slice refuses everywhere else.
-        if (aiFindings.length === 0) {
-          providerNote =
-            `${result.model} was asked whether any two requirement statements contradict ` +
-            "each other in meaning and returned none. That is a model's reading of the " +
-            "statements, not a finding that no contradiction exists — the deterministic " +
-            "findings above are the ones that stand on a query.";
-        }
-      } else {
-        providerNote = parsed.refusal;
+    };
+    const commercialAdmin = serviceClient();
+    const commercial = await callWithCommercialBoundary(
+      (functionName, args) => commercialAdmin.rpc(functionName, args),
+      fetch,
+      providers,
+      providerOptions,
+      {
+        organizationId: auth.organizationId,
+        functionName: "develop-requirements-agent",
+        requestedModel: COMMERCIAL_MODEL,
+        estimatedTokens: estimateLlmCallTokens(providerOptions),
+        costObject: { type: "development_case", id: caseId },
+      },
+    );
+    if (commercial.status === "quota_refused") {
+      providerNote = `semantic inconsistency check skipped by the commercial usage boundary (${commercial.limit}); the deterministic findings above stand on their own`;
+    } else if (commercial.status === "settlement_failed") {
+      console.error("develop-requirements-agent usage settlement failed", {
+        model: commercial.model,
+        error: commercial.error,
+      });
+      providerNote =
+        "the model answered but usage accounting failed, so its unaccounted output was discarded; the deterministic findings above stand on their own";
+    } else if (commercial.status === "provider_failed") {
+      if (commercial.events.length > 0) {
+        console.error(
+          "develop-requirements-agent provider trail",
+          JSON.stringify(commercial.events),
+        );
       }
-    } else {
       providerNote =
         "the model call failed — the deterministic findings above stand on their own";
+    } else {
+      const result = commercial.result;
+      if (result.events.length > 1 || !result.ok) {
+        console.error(
+          "develop-requirements-agent provider trail",
+          JSON.stringify(result.events),
+        );
+      }
+      if (result.ok) {
+        narrative = result.content;
+        model = result.model;
+        const parsed = parseRequirementInconsistencies(
+          result.content,
+          requirements.map((r) => r.ref),
+        );
+        if (parsed.ok) {
+          aiFindings = parsed.inconsistencies;
+          aiDropped = parsed.dropped;
+          // ASKED AND FOUND NOTHING is not the same as NEVER ASKED, and with no
+          // note the two were indistinguishable on screen — the "0 findings
+          // reads as healthy" failure this slice refuses everywhere else.
+          if (aiFindings.length === 0) {
+            providerNote =
+              `${result.model} was asked whether any two requirement statements contradict ` +
+              "each other in meaning and returned none. That is a model's reading of the " +
+              "statements, not a finding that no contradiction exists — the deterministic " +
+              "findings above are the ones that stand on a query.";
+          }
+        } else {
+          providerNote = parsed.refusal;
+        }
+      }
     }
   }
 

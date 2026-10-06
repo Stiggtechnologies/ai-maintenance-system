@@ -25,6 +25,23 @@ const onboardingEnrich = readFileSync(
   "supabase/functions/onboarding-enrich/index.ts",
   "utf8",
 );
+const commercialUsageBoundary = readFileSync(
+  "supabase/functions/_shared/llm-commercial-usage.ts",
+  "utf8",
+);
+const developPaidRuntimeNames = [
+  "develop-evidence-agent",
+  "develop-change-impact-agent",
+  "develop-contract-strategy-agent",
+  "develop-gate-agent",
+  "develop-methodology-agent",
+  "develop-requirements-agent",
+  "develop-risk-agent",
+] as const;
+const developPaidRuntimes = developPaidRuntimeNames.map((name) => ({
+  name,
+  source: readFileSync(`supabase/functions/${name}/index.ts`, "utf8"),
+}));
 const marketplaceSmokes = [
   "scripts/ci-azure-marketplace-fulfillment-smoke.sh",
   "scripts/ci-azure-marketplace-lifecycle-smoke.sh",
@@ -171,15 +188,13 @@ describe("AI commercial cost controls", () => {
     expect(migration).toContain("unattributedcalls");
     expect(migration).toContain("unknownpricecalls");
     expect(migration).toContain("modelpolicyviolationcalls");
-    expect(marketplaceSmokes[0]).toContain(
-      "gpt-4o-mini-2024-07-18",
-    );
+    expect(marketplaceSmokes[0]).toContain("gpt-4o-mini-2024-07-18");
     expect(marketplaceSmokes[0]).toContain(
       "actual-model mismatch did not freeze later spend",
     );
   });
 
-  it("enforces every paid runtime and attaches cost subjects where the runtime exposes one", () => {
+  it("enforces the known customer-paid runtime surfaces and attaches their cost subjects", () => {
     expect(processor).toContain('"check_llm_quota"');
     expect(migration).toContain("model_not_approved_for_plan");
     for (const runtime of [
@@ -193,15 +208,39 @@ describe("AI commercial cost controls", () => {
     expect(investigation).toContain(
       '{ type: "sync_conversation", id: workspaceId }',
     );
-    expect(agentLoopEnrich).toContain(
-      'p_cost_object_type: "recommendation"',
-    );
+    expect(agentLoopEnrich).toContain('p_cost_object_type: "recommendation"');
     expect(onboardingEnrich).toContain(
       'p_cost_object_type: "asset_onboarding"',
     );
     for (const runtime of [agentLoopEnrich, onboardingEnrich]) {
       expect(runtime).toContain("p_reservation_id: reservationId");
       expect(runtime).toContain('"release_llm_reservation"');
+    }
+    expect(
+      commercialUsageBoundary.indexOf('"check_llm_commercial_quota"'),
+    ).toBeLessThan(commercialUsageBoundary.indexOf("callWithResilience("));
+    expect(commercialUsageBoundary.indexOf("callWithResilience(")).toBeLessThan(
+      commercialUsageBoundary.indexOf('"record_llm_usage"'),
+    );
+    expect(commercialUsageBoundary).toContain('"release_llm_reservation"');
+    for (const runtime of developPaidRuntimes) {
+      expect(runtime.source).toContain("callWithCommercialBoundary(");
+      expect(runtime.source).toContain(`functionName: "${runtime.name}"`);
+      expect(runtime.source).toContain("estimatedTokens:");
+      expect(runtime.source).not.toContain("callWithResilience(");
+    }
+    for (const runtime of developPaidRuntimes.filter(({ name }) =>
+      [
+        "develop-evidence-agent",
+        "develop-change-impact-agent",
+        "develop-contract-strategy-agent",
+        "develop-gate-agent",
+        "develop-requirements-agent",
+      ].includes(name),
+    )) {
+      expect(runtime.source).toContain(
+        'costObject: { type: "development_case", id: caseId }',
+      );
     }
   });
 
