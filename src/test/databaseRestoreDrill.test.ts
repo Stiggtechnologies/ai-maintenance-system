@@ -24,6 +24,119 @@ const local = {
 
 describe("database restore-drill boundaries", () => {
   afterEach(() => vi.unstubAllEnvs());
+  it("reconstructs only captured owner-granted GraphQL schema privileges without widening them", () => {
+    const entry = {
+      kind: "platform_schema_acl",
+      key: "graphql",
+      value: {
+        owner: "supabase_admin",
+        defaultAcl: false,
+        privileges: [
+          {
+            grantee: 'reader"role',
+            grantor: "supabase_admin",
+            privilege: "USAGE",
+            isGrantable: true,
+          },
+        ],
+      },
+    };
+    const script = drill.graphqlSchemaAclScript([entry], "supabase_admin");
+    expect(script).toContain('SET LOCAL ROLE "supabase_admin";');
+    expect(script).toContain(
+      'REVOKE ALL ON SCHEMA "graphql" FROM PUBLIC, "supabase_admin", "reader""role";',
+    );
+    expect(script).toContain(
+      'GRANT USAGE ON SCHEMA "graphql" TO "reader""role" WITH GRANT OPTION;',
+    );
+    expect(script).toContain("nspacl IS NULL");
+    expect(script).not.toContain("GRANT ALL");
+    expect(script).not.toContain("SUPERUSER");
+    for (const invalid of [
+      { ...entry, key: "public" },
+      { ...entry, value: { ...entry.value, owner: "other" } },
+      {
+        ...entry,
+        value: {
+          ...entry.value,
+          privileges: [{ ...entry.value.privileges[0], grantor: "other" }],
+        },
+      },
+      {
+        ...entry,
+        value: {
+          ...entry.value,
+          privileges: [{ ...entry.value.privileges[0], privilege: "EXECUTE" }],
+        },
+      },
+    ])
+      expect(() =>
+        drill.graphqlSchemaAclScript([invalid], "supabase_admin"),
+      ).toThrow("Unqualified");
+    expect(() =>
+      drill.graphqlSchemaAclScript([entry, entry], "supabase_admin"),
+    ).toThrow("Unqualified");
+  });
+  it("keeps default schema ACLs untouched and PUBLIC distinct from a quoted role", () => {
+    const entry = {
+      kind: "platform_schema_acl",
+      key: "graphql_public",
+      value: { owner: "postgres", defaultAcl: true, privileges: [] },
+    };
+    expect(drill.graphqlSchemaAclScript([entry], "postgres")).not.toContain(
+      "REVOKE",
+    );
+    const script = drill.graphqlSchemaAclScript(
+      [
+        {
+          ...entry,
+          value: {
+            ...entry.value,
+            defaultAcl: false,
+            privileges: [
+              {
+                grantee: null,
+                grantor: "postgres",
+                privilege: "USAGE",
+                isGrantable: false,
+              },
+              {
+                grantee: "PUBLIC",
+                grantor: "postgres",
+                privilege: "CREATE",
+                isGrantable: false,
+              },
+            ],
+          },
+        },
+      ],
+      "postgres",
+    );
+    expect(script).toContain(
+      'GRANT USAGE ON SCHEMA "graphql_public" TO PUBLIC;',
+    );
+    expect(script).toContain(
+      'GRANT CREATE ON SCHEMA "graphql_public" TO "PUBLIC";',
+    );
+  });
+  it("describes definition deltas using counts and fixed character classes only, never changed values", () => {
+    expect(
+      drill.definitionDifferenceShape("CHECK(x > 17)", "CHECK(x > 18)"),
+    ).toEqual({
+      sourceChangedLength: 1,
+      restoredChangedLength: 1,
+      sourceClasses: ["digit"],
+      restoredClasses: ["digit"],
+    });
+    expect(
+      drill.definitionDifferenceShape("private old", "private new"),
+    ).toEqual({
+      sourceChangedLength: 3,
+      restoredChangedLength: 3,
+      sourceClasses: ["letter"],
+      restoredClasses: ["letter"],
+    });
+  });
   it("inventories live column order rather than physical tombstone slots, retaining all column controls", () => {
     const inventory = readFileSync(
       new URL("../../scripts/database-restore-inventory.sql", import.meta.url),

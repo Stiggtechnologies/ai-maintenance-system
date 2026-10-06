@@ -62,6 +62,18 @@ overlay script reconstructs the captured definition and owner, never an invented
 replacement body or new grants; the archive applies the original ACL afterward.
 The full comparison includes this platform function and fails on any difference.
 
+The source snapshot also captures the exact privileges on `graphql` and
+`graphql_public`. The platform's initial grants may be absent from a logical
+archive when they are recorded as extension initialization privileges. A private
+script reconstructs those captured schema grants after extension creation and
+before the remaining archive entries. It preserves recipient, owner-grantor,
+USAGE/CREATE privileges, PUBLIC versus a role named PUBLIC, and grant options.
+No role or privilege is invented. This bounded path requires the verified source
+bootstrap owner, owner-issued grants and a fresh target's null/default schema
+ACL; other owners/grantors, duplicate identities, unsupported privileges or
+unexpected target permissions fail closed. Default source ACLs are untouched.
+The schema and captured privilege inventories must still match afterward.
+
 Every archive entry is assigned exactly once to two exhaustive TOC partitions.
 The first restores the database (including properties, ACL, comments and security
 labels), schema definitions and extension definitions. The captured wrapper is
@@ -102,6 +114,8 @@ not change the strict comparison or turn a mismatch into a pass.
 For unresolved schema ACLs it reports fixed platform namespace/role hints and
 counts only; unknown names become `other`. Constraint-definition diagnostics
 report fixed constraint types and NOT VALID booleans only, never expressions.
+Definition deltas report changed-span lengths and fixed character classes only;
+they do not print changed values or normalize a definition mismatch away.
 The target's expected bootstrap-superuser identity is checked before restoring
 roles. A permission failure is not bypassed by dropping grants or ownership.
 The local source's OID-10 bootstrap identity must be `postgres` or

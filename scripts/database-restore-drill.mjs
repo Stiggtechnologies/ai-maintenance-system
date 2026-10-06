@@ -191,6 +191,103 @@ DO $overlay$ BEGIN
 END $overlay$;\n`;
 }
 
+export function graphqlSchemaAclScript(entries, bootstrap) {
+  if (
+    !Array.isArray(entries) ||
+    !["postgres", "supabase_admin"].includes(bootstrap)
+  )
+    throw new Error("Unqualified GraphQL schema ACL capture");
+  if (!entries.length) return "";
+  const seen = new Set(),
+    statements = ["BEGIN;"];
+  const role = (name) => {
+    if (typeof name !== "string" || !name.length || name.includes("\0"))
+      throw new Error("Unqualified GraphQL ACL role");
+    return `"${name.replaceAll('"', '""')}"`;
+  };
+  for (const entry of entries) {
+    const value = entry.value,
+      schema = entry.key;
+    if (
+      entry.kind !== "platform_schema_acl" ||
+      !["graphql", "graphql_public"].includes(schema) ||
+      seen.has(schema) ||
+      !value ||
+      value.owner !== bootstrap ||
+      typeof value.defaultAcl !== "boolean" ||
+      !Array.isArray(value.privileges) ||
+      (value.defaultAcl && value.privileges.length)
+    )
+      throw new Error("Unqualified GraphQL schema ACL capture");
+    seen.add(schema);
+    statements.push(
+      `DO $schema_guard$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_namespace WHERE nspname='${schema}' AND nspowner='${bootstrap}'::regrole AND nspacl IS NULL) THEN RAISE EXCEPTION 'Unqualified target schema ACL baseline'; END IF; END $schema_guard$;`,
+    );
+    if (value.defaultAcl) continue;
+    const grantees = new Set(["PUBLIC", role(bootstrap)]);
+    for (const grant of value.privileges) {
+      if (
+        !grant ||
+        grant.grantor !== bootstrap ||
+        !["USAGE", "CREATE"].includes(grant.privilege) ||
+        typeof grant.isGrantable !== "boolean" ||
+        (grant.grantee === null && grant.isGrantable)
+      )
+        throw new Error("Unqualified GraphQL ACL grant");
+      grantees.add(grant.grantee === null ? "PUBLIC" : role(grant.grantee));
+    }
+    statements.push(
+      `SET LOCAL ROLE ${role(bootstrap)};`,
+      `REVOKE ALL ON SCHEMA "${schema}" FROM ${[...grantees].join(", ")};`,
+    );
+    for (const grant of value.privileges)
+      statements.push(
+        `GRANT ${grant.privilege} ON SCHEMA "${schema}" TO ${grant.grantee === null ? "PUBLIC" : role(grant.grantee)}${grant.isGrantable ? " WITH GRANT OPTION" : ""};`,
+      );
+  }
+  statements.push("COMMIT;");
+  return statements.join("\n") + "\n";
+}
+
+export function definitionDifferenceShape(source, target) {
+  let prefix = 0,
+    suffix = 0;
+  while (
+    prefix < source.length &&
+    prefix < target.length &&
+    source[prefix] === target[prefix]
+  )
+    prefix++;
+  while (
+    suffix < source.length - prefix &&
+    suffix < target.length - prefix &&
+    source[source.length - 1 - suffix] === target[target.length - 1 - suffix]
+  )
+    suffix++;
+  const before = source.slice(prefix, source.length - suffix),
+    after = target.slice(prefix, target.length - suffix);
+  const classes = (value) =>
+    [
+      ...new Set(
+        [...value].map((c) =>
+          /\s/.test(c)
+            ? "whitespace"
+            : /[0-9]/.test(c)
+              ? "digit"
+              : /[a-zA-Z_]/.test(c)
+                ? "letter"
+                : "punctuation",
+        ),
+      ),
+    ].sort();
+  return {
+    sourceChangedLength: before.length,
+    restoredChangedLength: after.length,
+    sourceClasses: classes(before),
+    restoredClasses: classes(after),
+  };
+}
+
 export function databaseRestoreArgs(targetId, bootstrap, stage = "full") {
   if (
     !/^[a-f0-9]{64}$/.test(targetId) ||
@@ -283,7 +380,7 @@ export function createPrivateOutput(parent = tmpdir()) {
 
 export function writePrivateArtifact(output, name, value) {
   if (
-    !/^(report\.json|source-inventory\.json|restored-inventory\.json|roles\.sql|database\.dump|graphql-overlay\.sql)$/.test(
+    !/^(report\.json|source-inventory\.json|restored-inventory\.json|roles\.sql|database\.dump|graphql-overlay\.sql|graphql-schema-acl\.sql)$/.test(
       name,
     )
   ) {
@@ -367,6 +464,11 @@ export function inventoryMismatchSummary(source, target) {
       extension: "extension",
       acl: "acl",
     },
+    platform_schema_acl: {
+      owner: "owner",
+      defaultAcl: "defaultAcl",
+      privileges: "privileges",
+    },
     schema: ["owner", "acl"],
     relation: [
       "kind",
@@ -396,7 +498,8 @@ export function inventoryMismatchSummary(source, target) {
   };
   const groups = new Map(),
     schemaAclHints = [],
-    constraintDefinitionHints = [];
+    constraintDefinitionHints = [],
+    definitionShapeHints = [];
   const roleHint = (name) =>
     [
       "postgres",
@@ -522,6 +625,24 @@ export function inventoryMismatchSummary(source, target) {
           recovered.replace(/ NOT VALID$/, ""),
       });
     }
+    if (
+      ["constraint", "function", "platform_function"].includes(entry.kind) &&
+      changedFields.includes("definition")
+    ) {
+      const position =
+        entry.kind === "constraint"
+          ? 3
+          : entry.kind === "function"
+            ? 4
+            : "definition";
+      definitionShapeHints.push({
+        kind: entry.kind,
+        ...definitionDifferenceShape(
+          entry.value[position],
+          restored.value[position],
+        ),
+      });
+    }
   }
   for (const [key, entry] of after)
     if (!before.has(key)) group(entry).unexpected++;
@@ -533,6 +654,7 @@ export function inventoryMismatchSummary(source, target) {
     ),
     ...(schemaAclHints.length ? { schemaAclHints } : {}),
     ...(constraintDefinitionHints.length ? { constraintDefinitionHints } : {}),
+    ...(definitionShapeHints.length ? { definitionShapeHints } : {}),
   };
 }
 
@@ -964,6 +1086,14 @@ export async function runRestoreDrill({
       writePrivateArtifact(output, "graphql-overlay.sql", graphqlScript);
       report.graphqlOverlaySha256 = sha(graphqlScript);
     }
+    const graphqlAclScript = graphqlSchemaAclScript(
+      before.filter((entry) => entry.kind === "platform_schema_acl"),
+      bootstrap,
+    );
+    if (graphqlAclScript) {
+      writePrivateArtifact(output, "graphql-schema-acl.sql", graphqlAclScript);
+      report.graphqlSchemaAclSha256 = sha(graphqlAclScript);
+    }
     await timed("backup", async () => {
       for (const [name, args] of [
         [
@@ -1138,6 +1268,11 @@ export async function runRestoreDrill({
           databaseRestoreArgs(targetId, bootstrap, "bootstrap"),
           { input: archive },
         );
+        if (graphqlAclScript) {
+          phase = "restore_graphql_schema_acl";
+          await sql(targetId, bootstrap, "/tmp", graphqlAclScript);
+          report.graphqlSchemaAclRestored = true;
+        }
         if (graphqlScript) {
           phase = "restore_graphql_overlay";
           await sql(targetId, bootstrap, "/tmp", graphqlScript);

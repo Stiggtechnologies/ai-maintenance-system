@@ -50,6 +50,18 @@ from pg_proc p join pg_depend d on d.classid='pg_proc'::regclass and d.objid=p.o
 join pg_extension e on e.oid=d.refobjid
 where p.oid=to_regprocedure('graphql_public.graphql(text,text,jsonb,jsonb)') and e.extname='pg_graphql';
 
+-- The platform trigger's initial GraphQL schema grants are not reproduced by
+-- bare extension installation. Capture their exact grantor/recipient/options.
+select jsonb_build_object('kind','platform_schema_acl','key',n.nspname,'value',
+  jsonb_build_object('owner',pg_get_userbyid(n.nspowner),'defaultAcl',n.nspacl is null,
+    'privileges',coalesce((select jsonb_agg(jsonb_build_object(
+      'grantee',case when x.grantee=0 then null else pg_get_userbyid(x.grantee) end,
+      'grantor',pg_get_userbyid(x.grantor),'privilege',x.privilege_type,'isGrantable',x.is_grantable)
+      order by case when x.grantee=0 then '' else pg_get_userbyid(x.grantee) end,
+        pg_get_userbyid(x.grantor),x.privilege_type,x.is_grantable)
+      from aclexplode(n.nspacl) x),'[]'::jsonb)))
+from pg_namespace n where n.nspname in ('graphql','graphql_public') order by n.nspname;
+
 select jsonb_build_object('kind','schema','key',nspname,'value',
   jsonb_build_array(pg_get_userbyid(nspowner),
     case when nspacl is null then null else array(select x::text from unnest(nspacl) x order by x::text) end))
