@@ -23,6 +23,24 @@ const local = {
 };
 
 describe("database restore-drill boundaries", () => {
+  it("extracts only a fixed SQLSTATE and allowlisted extension hint", () => {
+    expect(
+      drill.safeDiagnostic(
+        "ERROR: 42501 sensitive-test-secret pg_cron /private/path",
+      ),
+    ).toEqual({
+      category: "subprocess_failure",
+      sqlState: "42501",
+      extensionHint: "pg_cron",
+    });
+    expect(
+      JSON.stringify(
+        drill.safeDiagnostic(
+          "ERROR: permission denied sensitive-test-secret unapproved_private_extension",
+        ),
+      ),
+    ).toBe('{"category":"permission_denied"}');
+  });
   it("reports only fixed failure categories, not database diagnostics or secrets", () => {
     const privateDiagnostic =
       'ERROR: permission denied for password="sensitive-test-secret" at /private/provider/path';

@@ -15,7 +15,7 @@ select jsonb_build_object('kind','membership','key',
 from pg_auth_members order by roleid,member;
 
 select jsonb_build_object('kind','default_acl','key',
-  pg_get_userbyid(defaclrole)||':'||coalesce(n.nspname,'*')||':'||defaclobjtype,'value',defaclacl::text)
+  pg_get_userbyid(defaclrole)||':'||coalesce(n.nspname,'*')||':'||defaclobjtype::text,'value',defaclacl::text)
 from pg_default_acl a left join pg_namespace n on n.oid=a.defaclnamespace
 order by pg_get_userbyid(defaclrole),n.nspname,defaclobjtype;
 

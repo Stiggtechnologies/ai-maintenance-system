@@ -135,21 +135,39 @@ export function diagnosticCategory(diagnostic) {
       /preloaded|shared_preload_libraries|unrecognized configuration parameter/i,
       "preload_configuration",
     ],
-    [/role .* does not exist/i, "missing_role"],
+    [/role [^\r\n]{0,200} does not exist/i, "missing_role"],
     [/already exists/i, "existing_object"],
     [
       /must be owner|must be superuser|permission denied|not permitted/i,
       "permission_denied",
     ],
     [
-      /extension.*not available|could not open extension control file/i,
+      /extension[^\r\n]{0,200}not available|could not open extension control file/i,
       "missing_extension",
     ],
     [/does not exist/i, "missing_object"],
-    [/violates .*constraint/i, "constraint_failure"],
+    [/violates [^\r\n]{0,200}constraint/i, "constraint_failure"],
   ])
     if (pattern.test(diagnostic)) return category;
   return "subprocess_failure";
+}
+
+export function safeDiagnostic(diagnostic) {
+  const sqlState = diagnostic.match(/\bERROR:\s+([0-9A-Z]{5})\b/)?.[1];
+  const extensionHint = [
+    "pg_cron",
+    "pg_net",
+    "pgsodium",
+    "supabase_vault",
+    "postgis",
+    "vector",
+    "pg_graphql",
+  ].find((name) => diagnostic.includes(name));
+  return {
+    category: diagnosticCategory(diagnostic),
+    ...(sqlState ? { sqlState } : {}),
+    ...(extensionHint ? { extensionHint } : {}),
+  };
 }
 async function command(
   binary,
@@ -188,7 +206,7 @@ async function command(
       if (code !== 0 || bytes > 32 * 1024 * 1024)
         reject(
           Object.assign(new Error("Recovery subprocess failed"), {
-            category: diagnosticCategory(diagnostic),
+            ...safeDiagnostic(diagnostic),
           }),
         );
       else resolve(output.trim());
@@ -210,6 +228,8 @@ const psqlArgs = (id, user, host) => [
   "-XqAt",
   "-v",
   "ON_ERROR_STOP=1",
+  "-v",
+  "VERBOSITY=sqlstate",
   "-U",
   user,
   "-h",
@@ -322,7 +342,9 @@ export async function runRestoreDrill({
   if (
     env.SYNC_DR_LOCAL_SOURCE !== sourceName ||
     env.DOCKER_HOST ||
-    env.DOCKER_CONTEXT
+    env.DOCKER_CONTEXT ||
+    process.env.DOCKER_HOST ||
+    process.env.DOCKER_CONTEXT
   ) {
     throw new Error(
       "Explicit local Supabase source is required; Docker overrides are refused",
@@ -586,6 +608,8 @@ export async function runRestoreDrill({
     failure = true;
     report.failedPhase = phase;
     report.failureCategory = error.category ?? "qualification_failure";
+    if (error.sqlState) report.sqlState = error.sqlState;
+    if (error.extensionHint) report.extensionHint = error.extensionHint;
   } finally {
     if (snapshotSession) {
       try {
