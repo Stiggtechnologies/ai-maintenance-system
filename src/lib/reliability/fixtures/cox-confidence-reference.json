@@ -1,0 +1,585 @@
+{
+  "provenance": {
+    "data": "Entirely synthetic. Mathematical transformation qualification only, not empirical coverage, customer calibration, model adequacy, a future-event prediction interval or operational authority.",
+    "R": "4.6.0",
+    "WebR": "0.6.0",
+    "input": {
+      "path": "src/lib/reliability/fixtures/cox-uncertainty-reference.json",
+      "sha256": "6e1ff5477ffa18fd392a1d896dd8ca3e1edbabb7c7eaadf1e7d0af2aeec63047"
+    },
+    "nominalConfidenceLevel": 0.95,
+    "criticalValue": 1.9599639845400536,
+    "method": "Pointwise asymptotic log-cumulative-hazard delta method using full asset case-weight variance; exp(log(H) +/- qnorm(0.975)*sqrt(V)/H), monotonically transformed to failure and survival probabilities. No clipping and no survfit variance substitution.",
+    "sources": [
+      "https://stat.ethz.ch/R-manual/R-devel/library/survival/html/survfit.formula.html",
+      "https://stat.ethz.ch/R-manual/R-devel/library/stats/html/Normal.html"
+    ]
+  },
+  "cases": [
+    {
+      "name": "tied-right-censored",
+      "scenarios": [
+        {
+          "scenarioIndex": 0,
+          "cumulativeHazardIncrement": 2.704799921937985,
+          "cumulativeHazardVariance": 0.4183811131119704,
+          "logHazardHalfWidth": 0.4687043469049028,
+          "logCumulativeHazard": {
+            "lower": 0.5263235966460862,
+            "upper": 1.4637322904558918
+          },
+          "cumulativeHazard": {
+            "lower": 1.6926978154589394,
+            "upper": 4.322060648333835
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.8159776047489954,
+            "upper": 0.9867274946223454
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.013272505377654589,
+            "upper": 0.1840223952510046
+          }
+        },
+        {
+          "scenarioIndex": 1,
+          "cumulativeHazardIncrement": 0.391737555454597,
+          "cumulativeHazardVariance": 0.012132661064202866,
+          "logHazardHalfWidth": 0.5511006393102691,
+          "logCumulativeHazard": {
+            "lower": -1.4882638041094154,
+            "upper": -0.3860625254888771
+          },
+          "cumulativeHazard": {
+            "lower": 0.22576428649348604,
+            "upper": 0.6797280240246109
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.2020938432406804,
+            "upper": 0.49324520124459886
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.5067547987554011,
+            "upper": 0.7979061567593196
+          }
+        },
+        {
+          "scenarioIndex": 2,
+          "cumulativeHazardIncrement": 2.13791009290979,
+          "cumulativeHazardVariance": 0.3553301188785411,
+          "logHazardHalfWidth": 0.5464804929262721,
+          "logCumulativeHazard": {
+            "lower": 0.2133482668324992,
+            "upper": 1.3063092526850433
+          },
+          "cumulativeHazard": {
+            "lower": 1.2378156663264448,
+            "upper": 3.692520372544826
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.7099829794947409,
+            "upper": 0.975090857458106
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.02490914254189401,
+            "upper": 0.2900170205052591
+          }
+        },
+        {
+          "scenarioIndex": 3,
+          "cumulativeHazardIncrement": 2.630168044807898,
+          "cumulativeHazardVariance": 0.4226215681317622,
+          "logHazardHalfWidth": 0.48444047643763777,
+          "logCumulativeHazard": {
+            "lower": 0.48260726307503343,
+            "upper": 1.451488215950309
+          },
+          "cumulativeHazard": {
+            "lower": 1.6202934309772021,
+            "upper": 4.269463673475782
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.8021593620061667,
+            "upper": 0.9860107160342382
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.013989283965761833,
+            "upper": 0.1978406379938333
+          }
+        },
+        {
+          "scenarioIndex": 4,
+          "cumulativeHazardIncrement": 2.5732741318609125,
+          "cumulativeHazardVariance": 0.19475910498545548,
+          "logHazardHalfWidth": 0.3361328221585643,
+          "logCumulativeHazard": {
+            "lower": 0.609046247191843,
+            "upper": 1.2813118915089716
+          },
+          "cumulativeHazard": {
+            "lower": 1.8386769189698489,
+            "upper": 3.601361223055152
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.8409723064996135,
+            "upper": 0.9727134459306895
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.027286554069310444,
+            "upper": 0.15902769350038645
+          }
+        }
+      ]
+    },
+    {
+      "name": "stratified-delayed-entry",
+      "scenarios": [
+        {
+          "scenarioIndex": 0,
+          "cumulativeHazardIncrement": 2.5030519364376627,
+          "cumulativeHazardVariance": 0.540191434498203,
+          "logHazardHalfWidth": 0.575508943219088,
+          "logCumulativeHazard": {
+            "lower": 0.3420018186907322,
+            "upper": 1.493019705128908
+          },
+          "cumulativeHazard": {
+            "lower": 1.407762857797037,
+            "upper": 4.450514489570105
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.7553099222036144,
+            "upper": 0.9883274399851141
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.011672560014885881,
+            "upper": 0.2446900777963856
+          }
+        },
+        {
+          "scenarioIndex": 1,
+          "cumulativeHazardIncrement": 0.30333525487521745,
+          "cumulativeHazardVariance": 0.01498330587385723,
+          "logHazardHalfWidth": 0.7909135664244333,
+          "logCumulativeHazard": {
+            "lower": -1.9838301998303847,
+            "upper": -0.402003066981518
+          },
+          "cumulativeHazard": {
+            "lower": 0.1375414160173581,
+            "upper": 0.6689786939419101
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.12850174473715456,
+            "upper": 0.48776854417918525
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.5122314558208148,
+            "upper": 0.8714982552628454
+          }
+        },
+        {
+          "scenarioIndex": 2,
+          "cumulativeHazardIncrement": 2.035317604333712,
+          "cumulativeHazardVariance": 0.4282541263265612,
+          "logHazardHalfWidth": 0.6301829952934008,
+          "logCumulativeHazard": {
+            "lower": 0.08046888234901461,
+            "upper": 1.3408348729358162
+          },
+          "cumulativeHazard": {
+            "lower": 1.0837951209592078,
+            "upper": 3.822233252761282
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.6616908379554073,
+            "upper": 0.9781211147867642
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.02187888521323577,
+            "upper": 0.3383091620445927
+          }
+        },
+        {
+          "scenarioIndex": 3,
+          "cumulativeHazardIncrement": 2.4261631932533643,
+          "cumulativeHazardVariance": 0.5228043043169441,
+          "logHazardHalfWidth": 0.5841140577242969,
+          "logCumulativeHazard": {
+            "lower": 0.3021970189825294,
+            "upper": 1.4704251344311232
+          },
+          "cumulativeHazard": {
+            "lower": 1.352827733198734,
+            "upper": 4.351084543764785
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.7414917661695428,
+            "upper": 0.9871071778346474
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.012892822165352537,
+            "upper": 0.25850823383045723
+          }
+        },
+        {
+          "scenarioIndex": 4,
+          "cumulativeHazardIncrement": 2.1656089052402123,
+          "cumulativeHazardVariance": 0.3484804138383232,
+          "logHazardHalfWidth": 0.5342656459188809,
+          "logCumulativeHazard": {
+            "lower": 0.23843592552592174,
+            "upper": 1.3069672173636837
+          },
+          "cumulativeHazard": {
+            "lower": 1.2692623761116322,
+            "upper": 3.6949507199788267
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.7189611536913012,
+            "upper": 0.9751513218242958
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.02484867817570428,
+            "upper": 0.2810388463086988
+          }
+        },
+        {
+          "scenarioIndex": 5,
+          "cumulativeHazardIncrement": 0.4129856361608448,
+          "cumulativeHazardVariance": 0.02276763756709688,
+          "logHazardHalfWidth": 0.7160974525246911,
+          "logCumulativeHazard": {
+            "lower": -1.6004399184221705,
+            "upper": -0.1682450133727882
+          },
+          "cumulativeHazard": {
+            "lower": 0.2018077195304897,
+            "upper": 0.8451467370623027
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.18274794555568946,
+            "upper": 0.5705056691497572
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.42949433085024274,
+            "upper": 0.8172520544443106
+          }
+        },
+        {
+          "scenarioIndex": 6,
+          "cumulativeHazardIncrement": 1.5990701036220893,
+          "cumulativeHazardVariance": 0.28838536899081335,
+          "logHazardHalfWidth": 0.6582141264396446,
+          "logCumulativeHazard": {
+            "lower": -0.18879185138370802,
+            "upper": 1.127636401495581
+          },
+          "cumulativeHazard": {
+            "lower": 0.8279588272442071,
+            "upper": 3.088348251336129
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.5630597527618078,
+            "upper": 0.9544228256979063
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.04557717430209378,
+            "upper": 0.43694024723819225
+          }
+        },
+        {
+          "scenarioIndex": 7,
+          "cumulativeHazardIncrement": 2.1079894269199317,
+          "cumulativeHazardVariance": 0.3427187471597041,
+          "logHazardHalfWidth": 0.544312858016008,
+          "logCumulativeHazard": {
+            "lower": 0.2014217569578972,
+            "upper": 1.2900474729899134
+          },
+          "cumulativeHazard": {
+            "lower": 1.223140531082624,
+            "upper": 3.6329590190859706
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.7056955581966174,
+            "upper": 0.97356216151615
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.02643783848384996,
+            "upper": 0.29430444180338255
+          }
+        },
+        {
+          "scenarioIndex": 8,
+          "cumulativeHazardIncrement": 2.6596931664455865,
+          "cumulativeHazardVariance": 0.5365459001959785,
+          "logHazardHalfWidth": 0.5397839834077893,
+          "logCumulativeHazard": {
+            "lower": 0.43842678177207883,
+            "upper": 1.5179947485876575
+          },
+          "cumulativeHazard": {
+            "lower": 1.550266391692594,
+            "upper": 4.563065920505398
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.7878085597398837,
+            "upper": 0.9895699677768401
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.0104300322231599,
+            "upper": 0.21219144026011627
+          }
+        },
+        {
+          "scenarioIndex": 9,
+          "cumulativeHazardIncrement": 2.1997775541815123,
+          "cumulativeHazardVariance": 0.2052929647512439,
+          "logHazardHalfWidth": 0.4036977770742362,
+          "logCumulativeHazard": {
+            "lower": 0.3846584664422216,
+            "upper": 1.192054020590694
+          },
+          "cumulativeHazard": {
+            "lower": 1.4691124845353305,
+            "upper": 3.293839878715171
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.7698703618083775,
+            "upper": 0.9628889265705091
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.03711107342949091,
+            "upper": 0.23012963819162252
+          }
+        }
+      ]
+    },
+    {
+      "name": "piecewise-time-varying",
+      "scenarios": [
+        {
+          "scenarioIndex": 0,
+          "cumulativeHazardIncrement": 0.5015656604412023,
+          "cumulativeHazardVariance": 0.02119632821914109,
+          "logHazardHalfWidth": 0.568919230487283,
+          "logCumulativeHazard": {
+            "lower": -1.2589399825396548,
+            "upper": -0.12110152156508891
+          },
+          "cumulativeHazard": {
+            "lower": 0.28395486413896315,
+            "upper": 0.8859440126044326
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.2471993777563382,
+            "upper": 0.5876752502632676
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.4123247497367324,
+            "upper": 0.7528006222436618
+          }
+        },
+        {
+          "scenarioIndex": 1,
+          "cumulativeHazardIncrement": 0.1724179119285583,
+          "cumulativeHazardVariance": 0.00718801214021814,
+          "logHazardHalfWidth": 0.9637626927121858,
+          "logCumulativeHazard": {
+            "lower": -2.7215967213642633,
+            "upper": -0.7940713359398917
+          },
+          "cumulativeHazard": {
+            "lower": 0.06576965472844075,
+            "upper": 0.45200079697162904
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.06365347755326631,
+            "upper": 0.36364633743093017
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.6363536625690699,
+            "upper": 0.9363465224467337
+          }
+        },
+        {
+          "scenarioIndex": 2,
+          "cumulativeHazardIncrement": 0.32914774851264406,
+          "cumulativeHazardVariance": 0.011698431355953514,
+          "logHazardHalfWidth": 0.6440521255132505,
+          "logCumulativeHazard": {
+            "lower": -1.7553006709128294,
+            "upper": -0.4671964198863283
+          },
+          "cumulativeHazard": {
+            "lower": 0.17285526192822498,
+            "upper": 0.6267569707882439
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.1587406317079397,
+            "upper": 0.4656781844969694
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.5343218155030306,
+            "upper": 0.8412593682920603
+          }
+        },
+        {
+          "scenarioIndex": 3,
+          "cumulativeHazardIncrement": 0.4033011698494404,
+          "cumulativeHazardVariance": 0.01553739154513027,
+          "logHazardHalfWidth": 0.6057698642937344,
+          "logCumulativeHazard": {
+            "lower": -1.5138415407078711,
+            "upper": -0.3023018121204025
+          },
+          "cumulativeHazard": {
+            "lower": 0.2200629712333183,
+            "upper": 0.7391149573704435
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.19753173604487925,
+            "upper": 0.5224636314076619
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.477536368592338,
+            "upper": 0.8024682639551207
+          }
+        },
+        {
+          "scenarioIndex": 4,
+          "cumulativeHazardIncrement": 0.6094765588405372,
+          "cumulativeHazardVariance": 0.027486729129091454,
+          "logHazardHalfWidth": 0.5331539308527582,
+          "logCumulativeHazard": {
+            "lower": -1.0283087213077344,
+            "upper": 0.03799914039778196
+          },
+          "cumulativeHazard": {
+            "lower": 0.3576112697180937,
+            "upper": 1.0387303399832097
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.30065512129421235,
+            "upper": 0.6460962657522451
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.35390373424775484,
+            "upper": 0.6993448787057877
+          }
+        },
+        {
+          "scenarioIndex": 5,
+          "cumulativeHazardIncrement": 0.10347635393347118,
+          "cumulativeHazardVariance": 0.003222955628051946,
+          "logHazardHalfWidth": 1.0753111191451574,
+          "logCumulativeHazard": {
+            "lower": -3.3437232759347464,
+            "upper": -1.1931010376444315
+          },
+          "cumulativeHazard": {
+            "lower": 0.03530526147259018,
+            "upper": 0.303279323725667
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.034689300888557754,
+            "upper": 0.26160718307017783
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.7383928169298222,
+            "upper": 0.9653106991114423
+          }
+        },
+        {
+          "scenarioIndex": 6,
+          "cumulativeHazardIncrement": 0.5060002049070661,
+          "cumulativeHazardVariance": 0.023215045131194417,
+          "logHazardHalfWidth": 0.5901768423772592,
+          "logCumulativeHazard": {
+            "lower": -1.2713950471173368,
+            "upper": -0.09104136236281823
+          },
+          "cumulativeHazard": {
+            "lower": 0.28044012157806714,
+            "upper": 0.9129799471104533
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.24454882208767742,
+            "upper": 0.5986734914139991
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.40132650858600094,
+            "upper": 0.7554511779123226
+          }
+        },
+        {
+          "scenarioIndex": 7,
+          "cumulativeHazardIncrement": 0.5416682496952031,
+          "cumulativeHazardVariance": 0.026277123526944727,
+          "logHazardHalfWidth": 0.586548086765172,
+          "logCumulativeHazard": {
+            "lower": -1.1996496371416303,
+            "upper": -0.0265534636112863
+          },
+          "cumulativeHazard": {
+            "lower": 0.3012997576657883,
+            "upper": 0.9737959797940458
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.2601440379925571,
+            "upper": 0.6223532257106499
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.3776467742893501,
+            "upper": 0.7398559620074429
+          }
+        },
+        {
+          "scenarioIndex": 8,
+          "cumulativeHazardIncrement": 0.3353983809612415,
+          "cumulativeHazardVariance": 0.006491077615910649,
+          "logHazardHalfWidth": 0.470809839097356,
+          "logCumulativeHazard": {
+            "lower": -1.5632460958897472,
+            "upper": -0.621626417695035
+          },
+          "cumulativeHazard": {
+            "lower": 0.2094550552832342,
+            "upper": 0.5370702263514503
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.18897391004814046,
+            "upper": 0.41554192367692494
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.5844580763230751,
+            "upper": 0.8110260899518595
+          }
+        },
+        {
+          "scenarioIndex": 9,
+          "cumulativeHazardIncrement": 0.5999557716741408,
+          "cumulativeHazardVariance": 0.02689588144513226,
+          "logHazardHalfWidth": 0.5357618014778669,
+          "logCumulativeHazard": {
+            "lower": -1.0466611418372909,
+            "upper": 0.024862461118442925
+          },
+          "cumulativeHazard": {
+            "lower": 0.35110809434233137,
+            "upper": 1.0251741095269782
+          },
+          "conditionalFailureProbability": {
+            "lower": 0.296092338692603,
+            "upper": 0.6412659990389364
+          },
+          "conditionalSurvivalProbability": {
+            "lower": 0.3587340009610636,
+            "upper": 0.703907661307397
+          }
+        }
+      ]
+    }
+  ]
+}

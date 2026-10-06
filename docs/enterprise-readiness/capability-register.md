@@ -194,6 +194,38 @@ repair still requires fresh hosted browser evidence; C7.14 remains yellow and
 customer calibration, confidence-bound qualification, independent review and
 production verification remain incomplete.
 
+**C7.14 next draft increment:** `coxModelConfidenceBounds` applies a pointwise
+nominal 95% log-cumulative-hazard transform to the full joint physical-asset
+variance, independently witnessed by actually executed R 4.6.0 transforms for
+all 25 retained synthetic scenarios (`cox-confidence-reference.json`). Bounds
+are versioned separately and retained through the canonical calculation ledger;
+the workbench distinguishes computed, refused and absent historical bounds.
+Nonfinite, nonpositive, overflowing, boundary-saturated and unresolvable
+zero-width bounds are explicitly refused rather than clipped. This is model
+sampling confidence, not validated coverage or a future-event prediction
+interval: predictive confidence remains null, calibration unqualified and
+live-asset/operational authority false. Mathematical, UI and refusal tests pass
+locally; fresh hosted acceptance for this increment is not yet proven. The
+method and remaining acceptance are documented in
+`docs/reliability-engineer/covariate-survival-confidence.md`. C7.14 remains yellow;
+customer applicability/calibration, independent review and production proof
+remain incomplete.
+
+**C7.14 acceptance checkpoint — 2026-10-06 UTC:** exact `95c51828` run
+`37418066331` completed with four primary jobs passing, including the full
+migration/auth chain. The browser job passed the 14 pre-existing scenarios and
+the full single-asset capture/review/census/refusal workflow, but failed the
+three-asset fixture's exact latest-meter assertion: its backdated observation
+was older than the first case's final meter. The next test-only repair reads
+the disposable local database clock and latest canonical meter together,
+requires a strictly newer real observation, and refuses equal, future or
+invalid prior times instead of inventing a future timestamp. Both browser cases
+and all exact source, authentication, independent review and freshness gates
+remain required. The final application confidence increment passed 647 files /
+8,252 tests before this clock regression was added; the regression and final
+combined head still require their own complete local and hosted verification.
+No three-asset browser pass, merge or production deployment is claimed.
+
 ### C8 — Operating mandate (management system + recommendation contract)
 
 | ID    | Capability                                                                                                                         | Status                                                                                                                                                                                                                                                                                                                                                                                              |

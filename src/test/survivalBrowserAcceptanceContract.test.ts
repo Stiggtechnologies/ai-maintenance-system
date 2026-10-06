@@ -4,6 +4,7 @@ import type { Session } from "@supabase/supabase-js";
 import { describe, expect, it } from "vitest";
 import {
   assuranceFixture,
+  freshMeterTimestamp,
   requireLocalEndpoint,
 } from "./support/survivalBrowserBoundary";
 
@@ -15,6 +16,40 @@ const fixture = readFileSync(
 );
 
 describe("actual installed-life browser acceptance boundary", () => {
+  it("uses database observation time strictly after prior meters without fabricating a future timestamp", () => {
+    const databaseNow = "2026-10-06T05:30:22.100+00:00";
+    expect(freshMeterTimestamp(databaseNow, null)).toBe(
+      "2026-10-06T05:30:22.100Z",
+    );
+    expect(freshMeterTimestamp(databaseNow, "2026-10-06T05:30:21.100Z")).toBe(
+      "2026-10-06T05:30:22.100Z",
+    );
+    for (const previous of [
+      databaseNow,
+      "2026-10-06T05:30:23.100Z",
+      "not-a-time",
+    ])
+      expect(() => freshMeterTimestamp(databaseNow, previous)).toThrow();
+    expect(() => freshMeterTimestamp("not-a-time", null)).toThrow();
+    // Sub-millisecond database values must not silently round to the same
+    // browser timestamp. Refuse rather than moving an observation into future.
+    expect(() =>
+      freshMeterTimestamp(
+        "2026-10-06T05:30:22.1009Z",
+        "2026-10-06T05:30:22.1001Z",
+      ),
+    ).toThrow();
+    expect(fixture).toContain("clock_timestamp()");
+    expect(fixture).toContain("max(recorded_at)");
+    expect(fixture).toContain(
+      "const meterTime = freshLocalSurvivalMeterTimestamp()",
+    );
+    expect(acceptance).toContain(
+      "p_recorded_at: freshLocalSurvivalMeterTimestamp()",
+    );
+    expect(fixture).not.toContain("Date.now() - 60_000");
+    expect(acceptance).not.toContain("Date.now() - 1_000");
+  });
   it("declares HS256 for the synthetic HMAC signature without copying an asymmetric key ID", () => {
     const encode = (value: unknown) =>
       Buffer.from(JSON.stringify(value)).toString("base64url");
@@ -116,6 +151,10 @@ describe("actual installed-life browser acceptance boundary", () => {
       "liveAssetForecast: false",
       "confidenceInterval: null",
       "Joint conditional hazard sampling uncertainty · 3 assets",
+      "Pointwise nominal 95% model confidence bounds",
+      'boundsVersion: "cox-model-confidence/1/draft"',
+      "coverageValidated: false",
+      "futureEventPredictionInterval: false",
       'uncertaintyVersion: "cox-joint-asset/1/draft"',
       "record_asset_meter_reading",
       "Source gap",

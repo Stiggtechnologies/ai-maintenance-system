@@ -284,10 +284,18 @@ assert u['cumulativeHazardVariance']>0 and len(u['clusterInfluences'])==3,x
 assert {a['clusterId'] for a in u['clusterInfluences']}=={a['clusterId'] for a in r['diagnostics']['clusterInfluences']},x
 assert abs(u['cumulativeHazardStandardError']**2-u['cumulativeHazardVariance'])<1e-12,x
 assert abs(sum(a['influence']**2 for a in u['clusterInfluences'])-u['cumulativeHazardVariance'])<1e-12,x
+b=u['modelConfidenceBounds']
+assert b['status']=='computed' and b['boundsVersion']=='cox-model-confidence/1/draft' and b['authority']=='advisory_only',x
+assert b['nominalConfidenceLevel']==.95 and b['coverageValidated'] is False and b['futureEventPredictionInterval'] is False,x
+assert b['method']=='pointwise_asymptotic_log_cumulative_hazard',x
+assert 0<b['conditionalFailureProbability']['lower']<s['conditionalFailureProbability']<b['conditionalFailureProbability']['upper']<1,x
+assert 0<b['conditionalSurvivalProbability']['lower']<s['conditionalSurvivalProbability']<b['conditionalSurvivalProbability']['upper']<1,x
+assert abs(b['conditionalFailureProbability']['lower']+b['conditionalSurvivalProbability']['upper']-1)<1e-12,x
 for key in ['may_change_pm_interval','may_create_work','may_accept_risk','may_return_to_service']: assert x[key] is False,x
 PY
 INSTALLED_CALCULATION=$(field "$INSTALLED_FIT" calculationRunId)
 test "$(psqlc "select count(*) from calculation_runs where id='$INSTALLED_CALCULATION' and outputs#>>'{conditionalScenario,predictionUncertainty,uncertaintyVersion}'='cox-joint-asset/1/draft' and outputs#>>'{conditionalScenario,predictionUncertainty,status}'='computed';")" = '1'
+test "$(psqlc "select count(*) from calculation_runs where id='$INSTALLED_CALCULATION' and outputs#>>'{conditionalScenario,predictionUncertainty,modelConfidenceBounds,boundsVersion}'='cox-model-confidence/1/draft' and outputs#>>'{conditionalScenario,predictionUncertainty,modelConfidenceBounds,coverageValidated}'='false' and outputs#>>'{conditionalScenario,predictionUncertainty,modelConfidenceBounds,status}'='computed';")" = '1'
 test "$(psqlc "select count(*) from calculation_runs r where r.id='$INSTALLED_CALCULATION' and r.inputs#>>'{source,sourceVersion}'='survival-census/2/draft' and r.input_refs @> '[{\"table\":\"component_instances\",\"id\":\"$INSTANCE_ID\"},{\"table\":\"asset_meter_readings\",\"id\":\"$METER_ID\"},{\"table\":\"evidence_items\",\"id\":\"$METER_EVIDENCE\"}]'::jsonb;")" = '1'
 INSTALLED_SOURCE=$(rpc "$AUTHOR_TOKEN" get_survival_covariate_workspace "{\"p_component\":\"$MULTI_COMPONENT\"}")
 BODY="$INSTALLED_SOURCE" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert len(x["events"])==12 and len(x["activeInstances"])==1 and x["removedInstances"]==[] and x["populationGaps"]==[],x'

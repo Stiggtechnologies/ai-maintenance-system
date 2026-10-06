@@ -76,6 +76,14 @@ describe("C7.14 governed canonical covariates", () => {
     expect(edge).toContain(
       "result.conditionalScenario.predictionUncertainty.reason",
     );
+    expect(edge).toMatch(
+      /result\.conditionalScenario\.predictionUncertainty\s*\.modelConfidenceBounds\.reason/,
+    );
+    expect(smoke).toContain("b['coverageValidated'] is False");
+    expect(smoke).toContain("b['futureEventPredictionInterval'] is False");
+    expect(smoke).toContain(
+      "modelConfidenceBounds,boundsVersion}'='cox-model-confidence/1/draft'",
+    );
     expect(smoke).toContain(
       "u['uncertaintyVersion']=='cox-joint-asset/1/draft'",
     );
