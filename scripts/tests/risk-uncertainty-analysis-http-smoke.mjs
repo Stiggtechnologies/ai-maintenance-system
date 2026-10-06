@@ -199,6 +199,50 @@ async function run() {
     'work',(select count(*) from work_orders where organization_id='${f.org}'))`),
     );
   let before = state();
+  // U18 CANONICAL VOI FINITE HTTP BEGIN
+  // Keep quoted specials intact; JS NaN/Infinity would stringify to null.
+  let canonicalFiniteRefusals = 0;
+  for (const field of [
+    "information_cost",
+    "decision_cost_if_wrong",
+    "uncertainty_reduction",
+    "probability_decision_changes",
+  ]) {
+    for (const special of ["NaN", "+Infinity", "-Infinity"]) {
+      const response = await rpc("record_risk_value_of_information", author, {
+        p_risk_id: f.risk,
+        p_analysis: {
+          information_action: "Synthetic public finite-input refusal witness",
+          information_cost: 10,
+          decision_cost_if_wrong: 250000,
+          uncertainty_reduction: 0.5,
+          probability_decision_changes: 0.3,
+          currency: "CAD",
+          [field]: special,
+        },
+      });
+      assert.equal(response.status, 200);
+      assert.ok(response.body && typeof response.body === "object");
+      assert.equal(Array.isArray(response.body), false);
+      assert.deepEqual(Object.keys(response.body), ["error"]);
+      assert.equal(typeof response.body.error, "string");
+      assert.ok(response.body.error.trim());
+      const expectedError =
+        ["information_cost", "decision_cost_if_wrong"].includes(field) &&
+        ["NaN", "+Infinity"].includes(special)
+          ? "value-of-information inputs must be finite numbers"
+          : "costs must be non-negative and probability inputs must be between 0 and 1";
+      refused(response, expectedError);
+      assert.deepEqual(
+        state(),
+        before,
+        "canonical finite refusal created artifacts",
+      );
+      canonicalFiniteRefusals += 1;
+    }
+  }
+  assert.equal(canonicalFiniteRefusals, 12);
+  // U18 CANONICAL VOI FINITE HTTP END
   refused(
     await submit(
       {
@@ -277,14 +321,27 @@ async function run() {
   assert.ok(uuid(review.approvalId) && uuid(review.derivedEvidenceItemId));
   assert.equal(review.operationalAuthorization, false);
   const workspace = good(await read(author));
+  assert.equal(workspace.organizationId, f.org);
+  assert.equal(workspace.actorId, f.author);
   assert.equal(workspace.risk.id, f.risk);
+  assert.equal(workspace.risk.organizationId, f.org);
   assert.equal(workspace.criteria.id, f.criteria);
+  assert.equal(workspace.criteria.organizationId, f.org);
   assert.equal(workspace.criteria.status, "adopted");
+  assert.ok(Array.isArray(workspace.evidence));
+  assert.ok(workspace.evidence.some((evidence) => evidence.id === f.verified));
+  for (const evidence of workspace.evidence) {
+    assert.equal(evidence.organizationId, f.org);
+    assert.equal(evidence.riskId, f.risk);
+  }
   const item = workspace.analyses.find(
     (packet) => packet.id === submitted.analysisId,
   );
   assert.ok(item);
   assert.equal(item.validationStatus, "validated");
+  assert.equal(item.storedStatus, "validated");
+  assert.equal(item.organizationId, f.org);
+  assert.equal(item.riskId, f.risk);
   assert.deepEqual(item.decisionThresholds, {
     escalateAbove: 16,
     stopAbove: 24,
@@ -315,6 +372,9 @@ async function run() {
   );
   assert.ok(stale);
   assert.equal(stale.validationStatus, "stale");
+  assert.equal(stale.storedStatus, "validated");
+  assert.equal(stale.organizationId, f.org);
+  assert.equal(stale.riskId, f.risk);
   assert.notEqual(stale.analysisDigest, stale.currentDigest);
   before = state();
   refused(await read(foreign), "risk not found in this organization");
@@ -333,6 +393,62 @@ async function run() {
   );
   // TODO: inherited sensitive reads, source standing, post-wait authority and
   // stale replacement require coordinated backend tests. No false completion.
+  // U18 READ REPRESENTATION HTTP BEGIN
+  // Separate pre-existing synthetic CI risk, not a customer, operational action
+  // or rewrite of the reviewed primary packet. Retain it only until CI cleanup.
+  const representation = good(
+    await rpc("submit_risk_uncertainty_analysis", author, {
+      p_risk_id: f.other_risk,
+      p_analysis: {
+        ...f.input,
+        confidence_level: "1e-999",
+        review_due_at: "280000-01-01T00:00:00+00:00",
+      },
+      p_evidence_item_ids: [f.wrong_risk],
+    }),
+  );
+  assert.equal(representation.riskId, f.other_risk);
+  assert.ok(uuid(representation.analysisId));
+  assert.match(representation.analysisDigest ?? "", /^[0-9a-f]{64}$/);
+  assert.equal(representation.version, 1);
+  assert.equal(representation.validationStatus, "pending_review");
+  assert.equal(representation.operationalAuthorization, false);
+  const representationWorkspace = good(
+    await rpc("get_risk_uncertainty_workspace", author, {
+      p_risk_id: f.other_risk,
+    }),
+  );
+  assert.equal(representationWorkspace.organizationId, f.org);
+  assert.equal(representationWorkspace.actorId, f.author);
+  assert.equal(representationWorkspace.risk.id, f.other_risk);
+  const representationPacket = representationWorkspace.analyses.find(
+    (packet) => packet.id === representation.analysisId,
+  );
+  assert.ok(representationPacket);
+  assert.equal(representationPacket.organizationId, f.org);
+  assert.equal(representationPacket.riskId, f.other_risk);
+  assert.equal(representationPacket.validationStatus, "pending_review");
+  assert.equal(representationPacket.storedStatus, "pending_review");
+  assert.equal(representationPacket.confidence.level, 0);
+  assert.equal(representationPacket.reviewDueAt, "280000-01-01T00:00:00+00:00");
+  assert.equal(representationPacket.operationalAuthorization, false);
+  assert.equal(
+    sql(`select count(*) from risk_uncertainty_analyses where id='${representation.analysisId}'
+    and organization_id='${f.org}' and risk_id='${f.other_risk}' and author_id='${f.author}'
+    and confidence_level=1e-999::numeric and review_due_at='280000-01-01T00:00:00+00:00'::timestamptz`),
+    "1",
+  );
+  assert.equal(
+    sql(`select concat_ws('|',
+    (select count(*) from risk_uncertainty_analyses where id='${representation.analysisId}' and organization_id='${f.org}' and risk_id='${f.other_risk}' and status='pending_review'),
+    (select count(*) from audit_events where organization_id='${f.org}' and entity_type='risk_uncertainty_analysis_submitted' and event_data->>'analysis_id'='${representation.analysisId}'),
+    (select count(*) from approvals where organization_id='${f.org}' and risk_id='${f.other_risk}'),
+    (select count(*) from decisions where organization_id='${f.org}' and risk_id='${f.other_risk}'),
+    (select count(*) from work_orders where organization_id='${f.org}' and risk_id='${f.other_risk}'))`),
+    "1|1|0|0|0",
+    "representation-only pending authority ledger",
+  );
+  // U18 READ REPRESENTATION HTTP END
   console.log(
     "U18 isolated HTTP baseline PASS: real GoTrue/PostgREST; original evidence/order/self-review/tenant refusals without artifacts; exact threshold/probability/sensitivity/VOI and bound receipts; native guard gate retained; 1|2|1|0|0 authority ledger. New synthetic tenants remain only in disposable CI until Stop Supabase; broader U18 qualification remains partial.",
   );

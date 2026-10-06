@@ -119,7 +119,13 @@ export function RiskUncertaintyPanel({
   const workspace = useAsyncData(async () => {
     if (!contextAvailable)
       throw new Error("Canonical organization context unavailable");
-    return { scope, data: await getRiskUncertaintyWorkspace(riskId) };
+    return {
+      scope,
+      data: await getRiskUncertaintyWorkspace(riskId, {
+        organizationId: currentOrganizationId!,
+        actorId: currentUserId!,
+      }),
+    };
   }, [scope]);
   const [method, setMethod] = useState("");
   const [basis, setBasis] = useState("");

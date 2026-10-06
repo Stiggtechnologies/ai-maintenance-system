@@ -85,10 +85,64 @@ ledger and rollback assertions. Independent review corrected the latter native
 fixture to retain exact NUMERIC subtraction of the information cost, even when
 JavaScript-number decoding cannot distinguish net from expected at that scale.
 The final 16-file source cohort passes 1,612 tests, application TypeScript and
-scoped lint. These revised native cases require fresh CI. A separate inherited
-canonical-writer NUMERIC-special-value concern has source evidence but still
-requires direct SQL/HTTP reproduction and a steward-owned forward repair;
-SDK nonfinite refusal is not proof of server refusal through every public door.
+scoped lint. Published repair `cd5b4156` subsequently passed the fresh isolated
+PostgreSQL preflight in core run `37532535926` at `2026-10-06T21:23:25Z`, executing
+those 17 parity pairs and the preserved refusal/date controls. That core run
+subsequently completed successfully, including full uncertainty SQL and real
+GoTrue/PostgREST HTTP smoke, browser acceptance and both cleanup paths. All
+required automated checks and three previews passed for that immutable head;
+this does not qualify the subsequent read/finite-door source changes below.
+
+The next local phase passes 1,824 tests in 19 files, application TypeScript and
+scoped lint. The uncertainty-only workspace reader now captures canonical
+observed risk/organization/actor identities before dispatch, qualifies root and
+nested scope echoes and stored lifecycle, and refuses malformed or rebound data
+with a fixed error. Its 181 new actual-SDK cases include the hook/panel path,
+empty or draft workspaces, nullable legacy evidence, stale histories, historical
+criteria/currency, microsecond dates and preserved raw sensitivity strings.
+The initial reader suite had 107 failures before implementation, with additional
+test-first capture, Unicode/calendar and decimal-precision regressions. All
+pre-existing SDK bodies except the targeted reader, including proposal-bound
+mutation acknowledgment checks and #561 methods, remain unchanged.
+
+Read qualification preserves the authoritative server snapshot; it does not
+recompute raw NUMERIC arithmetic from lossy JSON-number operands. A precise
+positive NUMERIC difference can legitimately produce decoded operands of 1/1,
+displayed benefit/net of 1/0 and `GATHER_INFORMATION`. Finite output bounds and
+known recommendations remain required: positive displayed net requires gather,
+negative displayed net requires decide, while zero can retain either raw-sign
+classification. This is not an independent arithmetic proof, source approval,
+digest-content proof, current historical-evidence-membership proof or completed
+reconciliation. No epsilon, coercion or new financial ceiling is introduced.
+
+Independent review reproduced two additional legitimate PostgreSQL read cases:
+finite timestamps beyond JavaScript Date's range, and a positive NUMERIC
+confidence of `1e-999` decoded as JSON-number zero. Three regressions preceded
+their correction. A private Gregorian/BigInt comparison preserves calendar,
+offset and microsecond chronology through PostgreSQL's finite UTC range without
+changing the shared clock engine. Read confidence admits decoded zero while
+explicitly not proving exact positivity; server constraints and mutation
+preflight/acknowledgment remain unchanged. A rollback-only native control and a
+separate synthetic-risk real HTTP pending packet specify exact persisted
+confidence/date plus a `1|1|0|0|0` pending/audit/approval/decision/work ledger.
+Six adversarial contained transcript cases reject lost or rebound receipts,
+incorrect representations, absent persistence and authority changes without
+retry. These are source/contained qualifications, not yet execution of those
+new controls through real PostgreSQL/HTTP.
+
+The inherited canonical-writer NUMERIC-special-value concern also has a local
+forward repair: the single private writer renamed by #561 is recreated in the
+unapplied migration with only the shared `sync_is_finite_numeric` guard added
+before calculation/DML, after preserved null/range refusals. A source contract
+checks the complete original body after removing that sole guard/name change;
+public governance wrapper, private ACLs, formula, evidence and audit writes are
+preserved. Three source contracts failed before implementation. Twelve quoted
+special-value direct-SQL cases and twelve real HTTP cases now specify the exact
+finite/range refusal matrix with unchanged full canonical artifact snapshots;
+an unrelated authorization refusal cannot falsely pass the harness. These new
+database/API witnesses and additive workspace scope/lifecycle echoes still
+require fresh runtime qualification. Applied migrations and production are
+unchanged; U18.02 remains partial.
 
 SyncAI U18.02 adds versioned uncertainty packets to the canonical Risk Operating System. It supports bounded probability estimates, confidence intervals, best/expected/worst loss cases, ranked one-at-a-time sensitivity inputs, value-of-information analysis, adopted decision-threshold snapshots and measurable reassessment triggers.
 

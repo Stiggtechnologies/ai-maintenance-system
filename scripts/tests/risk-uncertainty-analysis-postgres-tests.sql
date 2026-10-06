@@ -186,6 +186,33 @@ do $$ declare f record; result jsonb; baseline jsonb; bad jsonb;
   end loop;
 end $$;
 -- U18 FINITE INPUT REFUSALS END
+-- U18 CANONICAL VOI FINITE DOOR BEGIN
+-- Quoted JSON numeric specials exercise the public SQL door, not SDK coercion.
+-- The legitimate synthetic human remains authenticated; no owner bypass.
+do $$ declare f record; result jsonb; baseline jsonb; input jsonb;
+  field text; special text; expected_error text; attempts integer:=0; begin
+  select * into f from u18_fixture;
+  baseline:=pg_temp.u18_state();
+  foreach field in array array['information_cost','decision_cost_if_wrong',
+    'uncertainty_reduction','probability_decision_changes'] loop
+    foreach special in array array['NaN','+Infinity','-Infinity'] loop
+      input:=jsonb_build_object('information_action','Synthetic public finite-input refusal witness',
+        'information_cost',10,'decision_cost_if_wrong',250000,
+        'uncertainty_reduction',0.5,'probability_decision_changes',0.3,'currency','CAD');
+      input:=jsonb_set(input,array[field],to_jsonb(special));
+      expected_error:=case when field in ('information_cost','decision_cost_if_wrong')
+        and special in ('NaN','+Infinity') then 'value-of-information inputs must be finite numbers'
+        else 'costs must be non-negative and probability inputs must be between 0 and 1' end;
+      result:=public.record_risk_value_of_information(f.risk,input);
+      if result is distinct from jsonb_build_object('error',expected_error)
+        or pg_temp.u18_state() is distinct from baseline then
+        raise exception 'canonical VOI finite refusal or full no-artifact witness failed'; end if;
+      attempts:=attempts+1;
+    end loop;
+  end loop;
+  if attempts<>12 then raise exception 'canonical VOI finite refusal coverage count failed'; end if;
+end $$;
+-- U18 CANONICAL VOI FINITE DOOR END
 -- U18 VOI PARITY BEGIN
 -- Specification-only until the complete-chain CI actually executes this file.
 -- Each canonical writer/uncertainty pair uses the same random fixture and is
@@ -261,6 +288,40 @@ do $$ declare f record; sample record; baseline jsonb; canonical jsonb;
   if attempts<>17 then raise exception 'VOI parity case coverage count failed'; end if;
 end $$;
 -- U18 VOI PARITY END
+-- U18 READ REPRESENTATION CONTROL BEGIN
+-- Legitimate finite PostgreSQL values; no browser representation limit is
+-- silently promoted into a server engineering constraint. Full rollback only.
+do $$ declare f record; baseline jsonb; input jsonb; result jsonb; item jsonb;
+  qualified boolean:=false; begin
+  select * into f from u18_fixture;
+  baseline:=pg_temp.u18_state();
+  begin
+    input:=f.input||jsonb_build_object('confidence_level',1e-999::numeric,
+      'review_due_at','280000-01-01T00:00:00+00:00');
+    result:=public.submit_risk_uncertainty_analysis(f.risk,input,array[f.verified]);
+    if result ? 'error' or result->>'riskId' is distinct from f.risk::text
+      or result->>'validationStatus' is distinct from 'pending_review'
+      or result->'operationalAuthorization' is distinct from 'false'::jsonb then
+      raise exception 'finite PostgreSQL read representation control refused'; end if;
+    select x into item from jsonb_array_elements(public.get_risk_uncertainty_workspace(f.risk)->'analyses') x
+      where x->>'id'=result->>'analysisId';
+    if item is null or item->>'organizationId' is distinct from f.org::text
+      or item->>'riskId' is distinct from f.risk::text
+      or item->>'storedStatus' is distinct from 'pending_review'
+      or (item->'confidence'->>'level')::numeric is distinct from 1e-999::numeric
+      or (item->>'reviewDueAt')::timestamptz is distinct from '280000-01-01T00:00:00+00:00'::timestamptz
+      or not exists(select 1 from risk_uncertainty_analyses a where a.id=(result->>'analysisId')::uuid
+        and a.organization_id=f.org and a.risk_id=f.risk and a.author_id=f.author
+        and a.confidence_level=1e-999::numeric and a.status='pending_review') then
+      raise exception 'exact PostgreSQL read representation was not retained'; end if;
+    qualified:=true;
+    raise exception using errcode='ZX003',message='U18 read representation fixture rollback';
+  exception when sqlstate 'ZX003' then null;
+  end;
+  if not qualified or pg_temp.u18_state() is distinct from baseline then
+    raise exception 'read representation qualification or no-artifact rollback failed'; end if;
+end $$;
+-- U18 READ REPRESENTATION CONTROL END
 do $$ declare f record; result jsonb; baseline jsonb; bad jsonb; evidence uuid; begin
   select * into f from u18_fixture;
   baseline:=pg_temp.u18_state();
@@ -343,7 +404,17 @@ do $$ declare f record; packet uuid; result jsonb; workspace jsonb; item jsonb; 
     raise exception 'independent review receipt lacks bound canonical artifacts'; end if;
   workspace:=public.get_risk_uncertainty_workspace(f.risk);
   select x into item from jsonb_array_elements(workspace->'analyses') x where x->>'id'=packet::text;
-  if item is null or item->>'validationStatus' is distinct from 'validated'
+  if workspace->>'organizationId' is distinct from f.org::text
+    or workspace->>'actorId' is distinct from f.reviewer::text
+    or workspace->'risk'->>'id' is distinct from f.risk::text
+    or workspace->'risk'->>'organizationId' is distinct from f.org::text
+    or workspace->'criteria'->>'organizationId' is distinct from f.org::text
+    or exists(select 1 from jsonb_array_elements(workspace->'evidence') e
+      where e->>'organizationId' is distinct from f.org::text or e->>'riskId' is distinct from f.risk::text)
+    or item is null or item->>'validationStatus' is distinct from 'validated'
+    or item->>'storedStatus' is distinct from 'validated'
+    or item->>'organizationId' is distinct from f.org::text
+    or item->>'riskId' is distinct from f.risk::text
     or item->'decisionThresholds' is distinct from '{"escalateAbove":16,"stopAbove":24}'::jsonb
     or item->'probability' is distinct from '{"lower":0.15,"central":0.30,"upper":0.55}'::jsonb
     or item->'sensitivityResults'->0->>'name' is distinct from 'Startup exposure'

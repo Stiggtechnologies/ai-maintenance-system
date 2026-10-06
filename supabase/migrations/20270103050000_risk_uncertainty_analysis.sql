@@ -13,6 +13,80 @@
 -- pass. Post-wait checks do not freeze ancestor sensitivity/stakeholder
 -- changes and are not a complete race qualification.
 
+-- Forward-only repair of the single canonical VOI writer renamed by #561.
+-- Preserve its exact calculation, receipt and evidence/audit writes; the only
+-- behavioral delta rejects special NUMERIC values before calculation or DML.
+-- Existing null/range refusals and the public role/visibility wrapper remain.
+create or replace function public.record_risk_value_of_information_authoritative_internal(
+  p_risk_id uuid,
+  p_analysis jsonb
+)
+returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare
+  v_org uuid:=app_current_org();
+  r risks%rowtype;
+  v_information_cost numeric;
+  v_decision_cost numeric;
+  v_uncertainty_reduction numeric;
+  v_change_probability numeric;
+  v_expected numeric;
+  v_net numeric;
+  v_recommendation text;
+  v_evidence uuid;
+  v_result jsonb;
+begin
+  select * into r from risks where id=p_risk_id and organization_id=v_org;
+  if not found then return jsonb_build_object('error','risk not found in this organization'); end if;
+  v_information_cost:=nullif(p_analysis->>'information_cost','')::numeric;
+  v_decision_cost:=nullif(p_analysis->>'decision_cost_if_wrong','')::numeric;
+  v_uncertainty_reduction:=nullif(p_analysis->>'uncertainty_reduction','')::numeric;
+  v_change_probability:=nullif(p_analysis->>'probability_decision_changes','')::numeric;
+  if v_information_cost is null or v_decision_cost is null or
+     v_uncertainty_reduction is null or v_change_probability is null or
+     v_information_cost<0 or v_decision_cost<0 or
+     v_uncertainty_reduction not between 0 and 1 or
+     v_change_probability not between 0 and 1 then
+    return jsonb_build_object('error','costs must be non-negative and probability inputs must be between 0 and 1');
+  end if;
+  if not public.sync_is_finite_numeric(v_information_cost)
+     or not public.sync_is_finite_numeric(v_decision_cost)
+     or not public.sync_is_finite_numeric(v_uncertainty_reduction)
+     or not public.sync_is_finite_numeric(v_change_probability) then
+    return jsonb_build_object('error','value-of-information inputs must be finite numbers');
+  end if;
+  if coalesce(length(btrim(p_analysis->>'information_action')),0)<10 then
+    return jsonb_build_object('error','describe the inspection, test or enquiry being valued');
+  end if;
+  v_expected:=v_decision_cost*v_uncertainty_reduction*v_change_probability;
+  v_net:=v_expected-v_information_cost;
+  v_recommendation:=case when v_net>0 then 'GATHER_INFORMATION'
+    else 'DECIDE_WITH_CURRENT_INFORMATION' end;
+  v_result:=jsonb_build_object(
+    'information_action',btrim(p_analysis->>'information_action'),
+    'information_cost',v_information_cost,'decision_cost_if_wrong',v_decision_cost,
+    'uncertainty_reduction',v_uncertainty_reduction,
+    'probability_decision_changes',v_change_probability,
+    'expected_value',round(v_expected,2),'net_value',round(v_net,2),
+    'recommendation',v_recommendation,'currency',coalesce(p_analysis->>'currency',r.value_currency),
+    'recorded_at',now(),'human_decision_required',true);
+  update risks set value_of_information=v_result,updated_at=now() where id=r.id;
+  insert into evidence_items(organization_id,risk_id,asset_id,source_system,evidence_type,
+    description,confidence_contribution,data_quality,ts,signal_kind,source_reference,provenance)
+  values(v_org,r.id,r.asset_id,'risk_operating_system','value_of_information',
+    format('%s: expected information value %s, net %s. %s',v_recommendation,
+      round(v_expected,2),round(v_net,2),btrim(p_analysis->>'information_action')),
+    0,coalesce(r.data_quality,'unknown'),now(),'value_of_information',null,
+    jsonb_build_object('calculation',v_result)) returning id into v_evidence;
+  insert into audit_events(organization_id,entity_type,actor,event_data)
+  values(v_org,'risk_value_of_information',coalesce((select role from user_profiles where id=auth.uid()),'unknown'),
+    jsonb_build_object('risk_id',r.id,'evidence_id',v_evidence,'result',v_result));
+  return v_result || jsonb_build_object('evidence_id',v_evidence);
+end;
+$$;
+revoke all on function public.record_risk_value_of_information_authoritative_internal(uuid, jsonb)
+  from public, anon, authenticated, service_role;
+
 create table if not exists public.risk_uncertainty_analyses (
   id uuid primary key default gen_random_uuid(),
   organization_id uuid not null references public.organizations(id) on delete cascade,
@@ -598,16 +672,19 @@ begin
   if not found then return jsonb_build_object('error','risk not found in this organization'); end if;
   select * into c from public.risk_criteria_profiles where id=r.criteria_profile_id and organization_id=v_org;
   return jsonb_build_object(
-    'risk',jsonb_build_object('id',r.id,'title',r.title,'status',r.status,'currency',r.value_currency),
-    'criteria',case when c.id is null then null else jsonb_build_object('id',c.id,'name',c.name,
+    'organizationId',v_org,'actorId',auth.uid(),
+    'risk',jsonb_build_object('id',r.id,'organizationId',r.organization_id,'title',r.title,'status',r.status,'currency',r.value_currency),
+    'criteria',case when c.id is null then null else jsonb_build_object('id',c.id,'organizationId',c.organization_id,'name',c.name,
       'version',c.version,'status',c.status,'decisionThresholds',c.decision_thresholds) end,
     'evidence',coalesce((select jsonb_agg(jsonb_build_object(
-      'id',e.id,'description',e.description,'sourceSystem',e.source_system,'sourceReference',e.source_reference,
+      'id',e.id,'organizationId',e.organization_id,'riskId',e.risk_id,
+      'description',e.description,'sourceSystem',e.source_system,'sourceReference',e.source_reference,
       'verificationStatus',e.verification_status,'verifiedBy',e.verified_by,'verifiedAt',e.verified_at,
       'evidenceClass',e.evidence_class,'qualityGrade',e.quality_grade,'applicabilityGrade',e.applicability_grade
     ) order by e.ts desc) from public.evidence_items e where e.organization_id=v_org and e.risk_id=r.id),'[]'::jsonb),
     'analyses',coalesce((select jsonb_agg(jsonb_build_object(
-      'id',a.id,'version',a.version,'validationStatus',case
+      'id',a.id,'organizationId',a.organization_id,'riskId',a.risk_id,
+      'version',a.version,'storedStatus',a.status,'validationStatus',case
         when a.analysis_digest is distinct from v_current then 'stale'
         else a.status end,'method',a.method,'basis',a.basis,
       'probability',jsonb_build_object('lower',a.probability_lower,'central',a.probability_central,'upper',a.probability_upper),

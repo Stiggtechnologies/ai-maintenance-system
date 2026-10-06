@@ -219,6 +219,7 @@ describe("U18 isolated CI transport qualification", () => {
     const h = harness({ GITHUB_ACTIONS: "true" });
     const f = h.fixture as Record<string, unknown>;
     const packet = "00000000-0000-4000-8000-000000000021";
+    const representationPacket = "00000000-0000-4000-8000-000000000031";
     const approval = "00000000-0000-4000-8000-000000000022";
     const derived = "00000000-0000-4000-8000-000000000023";
     const digest = "a".repeat(64);
@@ -237,6 +238,20 @@ describe("U18 isolated CI transport qualification", () => {
         stale = true;
         return { status: 0, stdout: "1" };
       }
+      if (
+        statement.includes("concat_ws") &&
+        statement.includes(representationPacket)
+      )
+        return {
+          status: 0,
+          stdout:
+            mode === "representation-authority" ? "1|1|1|0|0" : "1|1|0|0|0",
+        };
+      if (statement.includes("confidence_level=1e-999::numeric"))
+        return {
+          status: 0,
+          stdout: mode === "representation-persistence" ? "0" : "1",
+        };
       if (statement.includes("concat_ws"))
         return { status: 0, stdout: "1|2|1|0|0" };
       if (statement.includes("select count(*) from risks where id in"))
@@ -252,7 +267,42 @@ describe("U18 isolated CI transport qualification", () => {
       });
       if (url.includes("/auth/"))
         return respond(200, { access_token: `synthetic-${args.email}` });
+      if (url.endsWith("record_risk_value_of_information")) {
+        if (mode === "canonical-finite-forbidden")
+          return respond(200, { error: "forbidden" });
+        if (mode === "canonical-finite-lost")
+          throw new Error("synthetic lost finite-refusal response");
+        if (mode === "canonical-finite-success")
+          return respond(200, { evidence_id: derived });
+        if (mode === "canonical-finite-malformed")
+          return respond(200, { error: "", evidence_id: derived });
+        const specialCost = ["information_cost", "decision_cost_if_wrong"].some(
+          (field) => ["NaN", "+Infinity"].includes(args.p_analysis[field]),
+        );
+        return respond(200, {
+          error: specialCost
+            ? "value-of-information inputs must be finite numbers"
+            : "costs must be non-negative and probability inputs must be between 0 and 1",
+        });
+      }
       if (url.endsWith("submit_risk_uncertainty_analysis")) {
+        if (args.p_risk_id === f.other_risk) {
+          expect(args.p_evidence_item_ids).toEqual([f.wrong_risk]);
+          expect(args.p_analysis.confidence_level).toBe("1e-999");
+          expect(args.p_analysis.review_due_at).toBe(
+            "280000-01-01T00:00:00+00:00",
+          );
+          if (mode === "representation-lost")
+            throw new Error("synthetic lost representation response");
+          return respond(200, {
+            riskId: mode === "representation-identity" ? f.risk : f.other_risk,
+            analysisId: representationPacket,
+            analysisDigest: digest,
+            version: 1,
+            validationStatus: "pending_review",
+            operationalAuthorization: false,
+          });
+        }
         if (args.p_analysis.probability_lower === 0.7)
           return respond(200, {
             error:
@@ -311,14 +361,43 @@ describe("U18 isolated CI transport qualification", () => {
           : respond(403, { code: "42501" });
       if (headers.authorization.includes(String(f.foreign_user)))
         return respond(200, { error: "risk not found in this organization" });
+      if (args.p_risk_id === f.other_risk)
+        return respond(200, {
+          organizationId: f.org,
+          actorId: f.author,
+          risk: { id: f.other_risk, organizationId: f.org },
+          analyses: [
+            {
+              id: representationPacket,
+              organizationId: f.org,
+              riskId: f.other_risk,
+              validationStatus: "pending_review",
+              storedStatus: "pending_review",
+              confidence: {
+                level: mode === "representation-confidence" ? 1 : 0,
+              },
+              reviewDueAt:
+                mode === "representation-date"
+                  ? "2026-01-01T00:00:00+00:00"
+                  : "280000-01-01T00:00:00+00:00",
+              operationalAuthorization: false,
+            },
+          ],
+        });
       return respond(200, {
-        risk: { id: f.risk },
-        criteria: { id: f.criteria, status: "adopted" },
+        organizationId: f.org,
+        actorId: f.author,
+        risk: { id: f.risk, organizationId: f.org },
+        criteria: { id: f.criteria, organizationId: f.org, status: "adopted" },
+        evidence: [{ id: f.verified, organizationId: f.org, riskId: f.risk }],
         operationalAuthorization: false,
         boundary: "It does not verify an unverified source",
         analyses: [
           {
             id: packet,
+            organizationId: f.org,
+            riskId: f.risk,
+            storedStatus: "validated",
             validationStatus: stale ? "stale" : "validated",
             analysisDigest: digest,
             currentDigest: stale ? "b".repeat(64) : digest,
@@ -339,8 +418,11 @@ describe("U18 isolated CI transport qualification", () => {
     const h = transcript();
     await expect(h.run()).resolves.toBeUndefined();
     expect(
-      h.fetch.mock.calls.filter(([url]) =>
-        url.endsWith("submit_risk_uncertainty_analysis"),
+      h.fetch.mock.calls.filter(
+        ([url, options]) =>
+          url.endsWith("submit_risk_uncertainty_analysis") &&
+          JSON.parse(String(options.body)).p_risk_id ===
+            (h.fixture as Record<string, unknown>).risk,
       ),
     ).toHaveLength(4);
     expect(
@@ -348,10 +430,107 @@ describe("U18 isolated CI transport qualification", () => {
         url.endsWith("review_risk_uncertainty_analysis"),
       ),
     ).toHaveLength(2);
+    expect(
+      h.fetch.mock.calls.filter(
+        ([url, options]) =>
+          url.endsWith("submit_risk_uncertainty_analysis") &&
+          JSON.parse(String(options.body)).p_risk_id ===
+            (h.fixture as Record<string, unknown>).other_risk,
+      ),
+    ).toHaveLength(1);
+    expect(
+      h.fetch.mock.calls.filter(
+        ([url, options]) =>
+          url.endsWith("get_risk_uncertainty_workspace") &&
+          JSON.parse(String(options.body)).p_risk_id ===
+            (h.fixture as Record<string, unknown>).other_risk,
+      ),
+    ).toHaveLength(1);
+    const finiteCalls = h.fetch.mock.calls.filter(([url]) =>
+      url.endsWith("record_risk_value_of_information"),
+    );
+    expect(finiteCalls).toHaveLength(12);
+    const quotedSpecials = finiteCalls.map(([, options]) => {
+      const args = JSON.parse(String(options.body));
+      const identity = h.fixture as Record<string, unknown>;
+      expect(args.p_risk_id).toBe(identity.risk);
+      expect(options.headers).toMatchObject({
+        authorization: expect.stringContaining(String(identity.author)),
+      });
+      return Object.entries(args.p_analysis).filter(
+        ([key]) => key !== "information_action" && key !== "currency",
+      );
+    });
+    for (const field of [
+      "information_cost",
+      "decision_cost_if_wrong",
+      "uncertainty_reduction",
+      "probability_decision_changes",
+    ])
+      for (const special of ["NaN", "+Infinity", "-Infinity"])
+        expect(
+          quotedSpecials.filter((entries) =>
+            entries.some(([key, value]) => key === field && value === special),
+          ),
+        ).toHaveLength(1);
     for (const [url, options] of h.fetch.mock.calls) {
       expect(url).toMatch(/^http:\/\/127\.0\.0\.1:54321\//);
       expect(options.redirect).toBe("error");
     }
+  });
+
+  it.each([
+    "representation-lost",
+    "representation-identity",
+    "representation-confidence",
+    "representation-date",
+    "representation-persistence",
+    "representation-authority",
+  ])(
+    "rejects %s without replaying the secondary pending write or approving it",
+    async (mode) => {
+      const h = transcript(mode);
+      await expect(h.run()).rejects.toThrow(
+        "U18.02 isolated CI qualification failed",
+      );
+      expect(
+        h.fetch.mock.calls.filter(
+          ([url, options]) =>
+            url.endsWith("submit_risk_uncertainty_analysis") &&
+            JSON.parse(String(options.body)).p_risk_id ===
+              (h.fixture as Record<string, unknown>).other_risk,
+        ),
+      ).toHaveLength(1);
+      expect(
+        h.fetch.mock.calls.filter(([url]) =>
+          url.endsWith("review_risk_uncertainty_analysis"),
+        ),
+      ).toHaveLength(2);
+    },
+  );
+
+  it.each([
+    "canonical-finite-lost",
+    "canonical-finite-success",
+    "canonical-finite-malformed",
+    "canonical-finite-forbidden",
+  ])("stops on %s without retry or later uncertainty writes", async (mode) => {
+    const h = transcript(mode);
+    await expect(h.run()).rejects.toThrow(
+      "U18.02 isolated CI qualification failed",
+    );
+    expect(
+      h.fetch.mock.calls.filter(([url]) =>
+        url.endsWith("record_risk_value_of_information"),
+      ),
+    ).toHaveLength(1);
+    expect(
+      h.fetch.mock.calls.filter(
+        ([url]) =>
+          url.endsWith("submit_risk_uncertainty_analysis") ||
+          url.endsWith("review_risk_uncertainty_analysis"),
+      ),
+    ).toHaveLength(0);
   });
 
   it.each(["lost", "malformed", "identity-error", "wrong-risk", "gateway"])(

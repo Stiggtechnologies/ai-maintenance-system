@@ -15,8 +15,10 @@ type RpcResult = Record<string, unknown> & { error?: string };
 
 export interface RiskUncertaintyEvidence {
   id: string;
-  description: string;
-  sourceSystem: string;
+  organizationId: string;
+  riskId: string;
+  description: string | null;
+  sourceSystem: string | null;
   sourceReference: string | null;
   verificationStatus: string;
   verifiedBy: string | null;
@@ -37,6 +39,18 @@ export interface RiskUncertaintySensitivityInput {
   high_output: number;
 }
 
+/** Persisted JSON is not normalized by the canonical SQL writer. */
+export interface RiskUncertaintySensitivitySnapshot {
+  name: string;
+  basis: string;
+  low_input: number | string;
+  base_input: number | string;
+  high_input: number | string;
+  low_output: number | string;
+  base_output: number | string;
+  high_output: number | string;
+}
+
 export interface RiskUncertaintySensitivityResult {
   name: string;
   basis: string;
@@ -51,7 +65,10 @@ export interface RiskUncertaintySensitivityResult {
 
 export interface RiskUncertaintyAnalysis {
   id: string;
+  organizationId: string;
+  riskId: string;
   version: number;
+  storedStatus: "pending_review" | "validated" | "rejected";
   validationStatus: "pending_review" | "validated" | "rejected" | "stale";
   method: string;
   basis: string;
@@ -63,7 +80,7 @@ export interface RiskUncertaintyAnalysis {
     worst: number;
     currency: string;
   };
-  sensitivityInputs: RiskUncertaintySensitivityInput[];
+  sensitivityInputs: RiskUncertaintySensitivitySnapshot[];
   sensitivityResults: RiskUncertaintySensitivityResult[];
   thresholdProfileId: string;
   decisionThresholds: Record<string, unknown>;
@@ -93,9 +110,18 @@ export interface RiskUncertaintyAnalysis {
 }
 
 export interface RiskUncertaintyWorkspace {
-  risk: { id: string; title: string; status: string; currency: string };
+  organizationId: string;
+  actorId: string;
+  risk: {
+    id: string;
+    organizationId: string;
+    title: string;
+    status: string;
+    currency: string;
+  };
   criteria: {
     id: string;
+    organizationId: string;
     name: string;
     version: number;
     status: string;
@@ -105,6 +131,11 @@ export interface RiskUncertaintyWorkspace {
   analyses: RiskUncertaintyAnalysis[];
   boundary: string;
   operationalAuthorization: false;
+}
+
+export interface RiskUncertaintyWorkspaceContext {
+  organizationId: string;
+  actorId: string;
 }
 
 export interface RiskUncertaintySubmission {
@@ -215,17 +246,571 @@ export async function getRiskOperatingCockpit(): Promise<RiskCockpit> {
   return data as RiskCockpit;
 }
 
+const UNCERTAINTY_READ_FAILURE =
+  "Could not load the governed uncertainty workspace";
+const UNCERTAINTY_READ_BOUNDARY =
+  "Independent review validates the analysis packet. It does not verify an unverified source, accept risk, authorize operation, release work or commit spend.";
+
+function uncertaintySameUuid(value: unknown, expected: string): boolean {
+  return (
+    uncertaintyUuid(value) && value.toLowerCase() === expected.toLowerCase()
+  );
+}
+
+function uncertaintyFinite(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function uncertaintyText(value: unknown, minimum = 0): value is string {
+  // Canonical SQL uses length(btrim(text)): Unicode codepoints, ASCII spaces.
+  return (
+    typeof value === "string" &&
+    Array.from(value.replace(/^ +| +$/g, "")).length >= minimum
+  );
+}
+
+function uncertaintyNullableText(value: unknown): boolean {
+  return value === null || typeof value === "string";
+}
+
+function uncertaintyNullableUuid(value: unknown): boolean {
+  return value === null || uncertaintyUuid(value);
+}
+
+function uncertaintyVersion(value: unknown): value is number {
+  // Canonical versions are PostgreSQL INTEGER, never floating point IDs.
+  return (
+    typeof value === "number" &&
+    Number.isInteger(value) &&
+    value > 0 &&
+    value <= 2147483647
+  );
+}
+
+function uncertaintyEnum(value: unknown, choices: readonly string[]): boolean {
+  return typeof value === "string" && choices.includes(value);
+}
+
+function uncertaintyJson(value: unknown): boolean {
+  if (value === null || typeof value === "string" || typeof value === "boolean")
+    return true;
+  if (typeof value === "number") return Number.isFinite(value);
+  if (Array.isArray(value)) return value.every(uncertaintyJson);
+  return (
+    uncertaintyRecord(value) && Object.values(value).every(uncertaintyJson)
+  );
+}
+
+function uncertaintyJsonObject(
+  value: unknown,
+): value is Record<string, unknown> {
+  return uncertaintyRecord(value) && uncertaintyJson(value);
+}
+
+function uncertaintyGregorianDaysBeforeYear(year: bigint): bigint {
+  const previous = year - 1n;
+  return previous * 365n + previous / 4n - previous / 100n + previous / 400n;
+}
+
+/** Qualify the finite PostgreSQL timestamp, not JavaScript Date's smaller range. */
+function uncertaintyTimestamp(value: unknown): bigint | null {
+  if (typeof value !== "string") return null;
+  const parts =
+    /^(\d{4,6})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2})(?:\.(\d{1,6}))?(Z|[+-]\d{2}:\d{2})$/.exec(
+      value,
+    );
+  if (!parts) return null;
+  const [year, month, day, hour, minute, second] = parts
+    .slice(1, 7)
+    .map(Number);
+  if (
+    year < 1 ||
+    month < 1 ||
+    month > 12 ||
+    day < 1 ||
+    day > 31 ||
+    hour > 23 ||
+    minute > 59 ||
+    second > 59
+  )
+    return null;
+  const leap = year % 4 === 0 && (year % 100 !== 0 || year % 400 === 0);
+  const months = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (day > months[month - 1]) return null;
+  const days =
+    uncertaintyGregorianDaysBeforeYear(BigInt(year)) +
+    BigInt(
+      months.slice(0, month - 1).reduce((sum, length) => sum + length, 0) +
+        day -
+        1,
+    );
+  let offset = 0;
+  if (parts[8] !== "Z") {
+    const offsetHour = Number(parts[8].slice(1, 3));
+    const offsetMinute = Number(parts[8].slice(4, 6));
+    if (offsetHour > 23 || offsetMinute > 59) return null;
+    offset = (offsetHour * 60 + offsetMinute) * (parts[8][0] === "+" ? 1 : -1);
+  }
+  const microseconds =
+    days * 86400000000n +
+    BigInt(hour * 3600 + minute * 60 + second - offset * 60) * 1000000n +
+    BigInt((parts[7] ?? "").padEnd(6, "0"));
+  // TIMESTAMPTZ wire dates retain PostgreSQL's physical finite upper bound;
+  // this is not a new review-date policy, a Date limit, or a source rewrite.
+  return microseconds <
+    uncertaintyGregorianDaysBeforeYear(294277n) * 86400000000n
+    ? microseconds
+    : null;
+}
+
+interface UncertaintySnapshotNumber {
+  sign: number;
+  digits: string;
+  place: number;
+}
+
+/** Read-only lexical qualification. The original stored number|string is retained. */
+function uncertaintySnapshotNumber(
+  value: unknown,
+): UncertaintySnapshotNumber | null {
+  if (
+    (typeof value !== "number" && typeof value !== "string") ||
+    !Number.isFinite(Number(value))
+  )
+    return null;
+  const parts =
+    /^[ \t\r\n\f\v]*([+-]?)(?:(\d+)(?:\.(\d*))?|\.(\d+))(?:[eE]([+-]?\d+))?[ \t\r\n\f\v]*$/.exec(
+      String(value),
+    );
+  if (!parts) return null;
+  const fraction = parts[3] ?? parts[4] ?? "";
+  const raw = `${parts[2] ?? ""}${fraction}`;
+  const digits = raw.replace(/^0+/, "");
+  if (!digits) return { sign: 0, digits: "0", place: 0 };
+  const exponent = Number(parts[5] ?? "0");
+  const place = digits.length - fraction.length + exponent;
+  if (!Number.isSafeInteger(exponent) || !Number.isSafeInteger(place))
+    return null;
+  return {
+    sign: parts[1] === "-" ? -1 : 1,
+    digits: digits.replace(/0+$/, ""),
+    place,
+  };
+}
+
+function uncertaintyCompareSnapshot(
+  left: UncertaintySnapshotNumber,
+  right: UncertaintySnapshotNumber,
+): number {
+  if (left.sign !== right.sign) return left.sign - right.sign;
+  if (left.sign === 0) return 0;
+  if (left.place !== right.place)
+    return (left.place < right.place ? -1 : 1) * left.sign;
+  const width = Math.max(left.digits.length, right.digits.length);
+  const a = left.digits.padEnd(width, "0");
+  const b = right.digits.padEnd(width, "0");
+  return (a === b ? 0 : a < b ? -1 : 1) * left.sign;
+}
+
+function uncertaintySensitivitySnapshot(value: unknown): boolean {
+  if (
+    !uncertaintyRecord(value) ||
+    !uncertaintyText(value.name, 2) ||
+    !uncertaintyText(value.basis, 20)
+  )
+    return false;
+  const numbers = [
+    "low_input",
+    "base_input",
+    "high_input",
+    "low_output",
+    "base_output",
+    "high_output",
+  ].map((key) => uncertaintySnapshotNumber(value[key]));
+  if (numbers.some((item) => item === null)) return false;
+  const [low, base, high, lowOutput, baseOutput, highOutput] =
+    numbers as UncertaintySnapshotNumber[];
+  return (
+    uncertaintyCompareSnapshot(low, base) <= 0 &&
+    uncertaintyCompareSnapshot(base, high) <= 0 &&
+    [lowOutput, baseOutput, highOutput].every((item) => item.sign >= 0)
+  );
+}
+
+function uncertaintySensitivityResult(value: unknown): boolean {
+  if (
+    !uncertaintyRecord(value) ||
+    !uncertaintyText(value.name, 2) ||
+    !uncertaintyText(value.basis, 20)
+  )
+    return false;
+  const {
+    lowInput,
+    baseInput,
+    highInput,
+    lowOutput,
+    baseOutput,
+    highOutput,
+    swing,
+  } = value;
+  return (
+    [
+      lowInput,
+      baseInput,
+      highInput,
+      lowOutput,
+      baseOutput,
+      highOutput,
+      swing,
+    ].every(uncertaintyFinite) &&
+    (lowInput as number) <= (baseInput as number) &&
+    (baseInput as number) <= (highInput as number) &&
+    [lowOutput, baseOutput, highOutput, swing].every(
+      (item) => (item as number) >= 0,
+    )
+  );
+}
+
+function uncertaintyUuidList(
+  value: unknown,
+  minimum: number,
+  maximum?: number,
+): value is string[] {
+  return (
+    Array.isArray(value) &&
+    value.length >= minimum &&
+    (maximum === undefined || value.length <= maximum) &&
+    value.every(uncertaintyUuid) &&
+    new Set(value.map((id: string) => id.toLowerCase())).size === value.length
+  );
+}
+
+function uncertaintyEvidence(
+  value: unknown,
+  riskId: string,
+  organizationId: string,
+): boolean {
+  if (
+    !uncertaintyRecord(value) ||
+    !uncertaintyUuid(value.id) ||
+    !uncertaintySameUuid(value.organizationId, organizationId) ||
+    !uncertaintySameUuid(value.riskId, riskId)
+  )
+    return false;
+  if (
+    ![value.description, value.sourceSystem, value.sourceReference].every(
+      uncertaintyNullableText,
+    ) ||
+    !uncertaintyEnum(value.verificationStatus, [
+      "unverified",
+      "verified",
+      "rejected",
+    ]) ||
+    !uncertaintyNullableUuid(value.verifiedBy) ||
+    !(
+      value.verifiedAt === null ||
+      uncertaintyTimestamp(value.verifiedAt) !== null
+    )
+  )
+    return false;
+  if (
+    value.verificationStatus !== "unverified" &&
+    (!uncertaintyUuid(value.verifiedBy) ||
+      uncertaintyTimestamp(value.verifiedAt) === null)
+  )
+    return false;
+  return (
+    (value.evidenceClass === null ||
+      uncertaintyEnum(value.evidenceClass, [
+        "MEASURED",
+        "INSPECTED",
+        "CALCULATED",
+        "TESTED",
+        "DOCUMENTED",
+        "HISTORICAL",
+        "EXPERT_JUDGEMENT",
+        "AI_INFERENCE",
+      ])) &&
+    (value.qualityGrade === null ||
+      uncertaintyEnum(value.qualityGrade, ["high", "moderate", "low"])) &&
+    (value.applicabilityGrade === null ||
+      uncertaintyEnum(value.applicabilityGrade, [
+        "direct",
+        "analogous",
+        "indirect",
+      ]))
+  );
+}
+
+function uncertaintyAnalysis(
+  value: unknown,
+  riskId: string,
+  organizationId: string,
+): boolean {
+  if (
+    !uncertaintyRecord(value) ||
+    !uncertaintyUuid(value.id) ||
+    !uncertaintySameUuid(value.organizationId, organizationId) ||
+    !uncertaintySameUuid(value.riskId, riskId) ||
+    !uncertaintyVersion(value.version) ||
+    !uncertaintyEnum(value.storedStatus, [
+      "pending_review",
+      "validated",
+      "rejected",
+    ]) ||
+    !uncertaintyText(value.method, 3) ||
+    !uncertaintyText(value.basis, 20) ||
+    value.operationalAuthorization !== false
+  )
+    return false;
+  if (
+    !uncertaintyDigest(value.analysisDigest) ||
+    !uncertaintyDigest(value.currentDigest) ||
+    value.validationStatus !==
+      (value.analysisDigest === value.currentDigest
+        ? value.storedStatus
+        : "stale")
+  )
+    return false;
+  if (
+    !uncertaintyUuid(value.authorId) ||
+    !uncertaintyNullableUuid(value.reviewerId) ||
+    !uncertaintyNullableUuid(value.approvalId) ||
+    !uncertaintyNullableUuid(value.derivedEvidenceItemId)
+  )
+    return false;
+  if (value.storedStatus === "pending_review") {
+    if (
+      [
+        value.reviewerId,
+        value.reviewedAt,
+        value.reviewNote,
+        value.approvalId,
+        value.derivedEvidenceItemId,
+      ].some((item) => item !== null)
+    )
+      return false;
+  } else if (
+    !uncertaintyUuid(value.reviewerId) ||
+    uncertaintySameUuid(value.reviewerId, value.authorId) ||
+    uncertaintyTimestamp(value.reviewedAt) === null ||
+    !uncertaintyText(value.reviewNote, 20) ||
+    !uncertaintyUuid(value.approvalId) ||
+    (value.storedStatus === "validated" &&
+      !uncertaintyUuid(value.derivedEvidenceItemId))
+  )
+    return false;
+  const created = uncertaintyTimestamp(value.createdAt);
+  const due = uncertaintyTimestamp(value.reviewDueAt);
+  if (created === null || due === null || due <= created) return false;
+  const { probability, confidence, lossCases, valueOfInformation: voi } = value;
+  if (
+    !uncertaintyRecord(probability) ||
+    !uncertaintyRecord(confidence) ||
+    !uncertaintyRecord(lossCases) ||
+    !uncertaintyRecord(voi)
+  )
+    return false;
+  if (
+    ![
+      probability.lower,
+      probability.central,
+      probability.upper,
+      confidence.level,
+      confidence.lower,
+      confidence.upper,
+      lossCases.best,
+      lossCases.expected,
+      lossCases.worst,
+    ].every(uncertaintyFinite)
+  )
+    return false;
+  if (
+    (probability.lower as number) < 0 ||
+    (probability.upper as number) > 1 ||
+    (probability.lower as number) > (probability.central as number) ||
+    (probability.central as number) > (probability.upper as number) ||
+    // A positive canonical NUMERIC can underflow to JSON number zero. This
+    // READ cannot prove exact positivity; the unchanged server constraint can.
+    (confidence.level as number) < 0 ||
+    (confidence.level as number) > 1 ||
+    (confidence.lower as number) < 0 ||
+    (confidence.upper as number) > 1 ||
+    (confidence.lower as number) > (confidence.upper as number) ||
+    (lossCases.best as number) < 0 ||
+    (lossCases.best as number) > (lossCases.expected as number) ||
+    (lossCases.expected as number) > (lossCases.worst as number) ||
+    typeof lossCases.currency !== "string" ||
+    !/^[A-Z]{3}$/.test(lossCases.currency)
+  )
+    return false;
+  if (
+    !Array.isArray(value.sensitivityInputs) ||
+    value.sensitivityInputs.length < 1 ||
+    value.sensitivityInputs.length > 20 ||
+    !value.sensitivityInputs.every(uncertaintySensitivitySnapshot) ||
+    !Array.isArray(value.sensitivityResults) ||
+    value.sensitivityResults.length !== value.sensitivityInputs.length ||
+    !value.sensitivityResults.every(uncertaintySensitivityResult)
+  )
+    return false;
+  if (
+    !uncertaintyUuid(value.thresholdProfileId) ||
+    !uncertaintyJsonObject(value.decisionThresholds) ||
+    !Array.isArray(value.reassessmentTriggers) ||
+    value.reassessmentTriggers.length < 1 ||
+    value.reassessmentTriggers.length > 20 ||
+    !value.reassessmentTriggers.every(
+      (item) => uncertaintyText(item, 10) && Array.from(item).length <= 500,
+    ) ||
+    !uncertaintyUuidList(value.evidenceItemIds, 1, 20)
+  )
+    return false;
+  if (
+    !uncertaintyText(voi.action, 10) ||
+    ![
+      voi.informationCost,
+      voi.decisionCostIfWrong,
+      voi.uncertaintyReduction,
+      voi.probabilityDecisionChanges,
+      voi.expectedValue,
+      voi.netValue,
+    ].every(uncertaintyFinite) ||
+    (voi.informationCost as number) < 0 ||
+    (voi.decisionCostIfWrong as number) < 0 ||
+    (voi.uncertaintyReduction as number) < 0 ||
+    (voi.uncertaintyReduction as number) > 1 ||
+    (voi.probabilityDecisionChanges as number) < 0 ||
+    (voi.probabilityDecisionChanges as number) > 1
+  )
+    return false;
+  // A READ preserves authoritative SQL output, like risk decision previews.
+  // NUMERIC operands may lose precision on the JSON number wire. Do not infer
+  // raw arithmetic from those rounded operands or classify displayed zero.
+  // Proposal-bound mutation ACKs intentionally retain their stronger checks.
+  return (
+    (voi.expectedValue as number) >= 0 &&
+    (voi.netValue as number) <= (voi.expectedValue as number) &&
+    uncertaintyEnum(voi.recommendation, [
+      "GATHER_INFORMATION",
+      "DECIDE_WITH_CURRENT_INFORMATION",
+    ]) &&
+    ((voi.netValue as number) > 0
+      ? voi.recommendation === "GATHER_INFORMATION"
+      : (voi.netValue as number) < 0
+        ? voi.recommendation === "DECIDE_WITH_CURRENT_INFORMATION"
+        : true)
+  );
+}
+
+function uncertaintyWorkspace(
+  value: unknown,
+  riskId: string,
+  observed: RiskUncertaintyWorkspaceContext,
+): value is RiskUncertaintyWorkspace {
+  if (
+    !uncertaintyRecord(value) ||
+    Object.hasOwn(value, "error") ||
+    !uncertaintySameUuid(value.organizationId, observed.organizationId) ||
+    !uncertaintySameUuid(value.actorId, observed.actorId) ||
+    value.operationalAuthorization !== false ||
+    value.boundary !== UNCERTAINTY_READ_BOUNDARY
+  )
+    return false;
+  const { risk, criteria, evidence, analyses } = value;
+  if (
+    !uncertaintyRecord(risk) ||
+    !uncertaintySameUuid(risk.id, riskId) ||
+    !uncertaintySameUuid(risk.organizationId, observed.organizationId) ||
+    !uncertaintyText(risk.title) ||
+    !uncertaintyText(risk.currency) ||
+    !uncertaintyEnum(risk.status, [
+      "draft",
+      "identified",
+      "analyzed",
+      "evaluated",
+      "treatment_active",
+      "monitoring",
+      "closed",
+      "archived",
+    ])
+  )
+    return false;
+  if (
+    criteria !== null &&
+    (!uncertaintyRecord(criteria) ||
+      !uncertaintyUuid(criteria.id) ||
+      !uncertaintySameUuid(criteria.organizationId, observed.organizationId) ||
+      !uncertaintyText(criteria.name) ||
+      !uncertaintyVersion(criteria.version) ||
+      !uncertaintyEnum(criteria.status, ["draft", "adopted", "superseded"]) ||
+      !uncertaintyJsonObject(criteria.decisionThresholds))
+  )
+    return false;
+  if (
+    !Array.isArray(evidence) ||
+    !evidence.every((item) =>
+      uncertaintyEvidence(item, riskId, observed.organizationId),
+    ) ||
+    !Array.isArray(analyses) ||
+    !analyses.every((item) =>
+      uncertaintyAnalysis(item, riskId, observed.organizationId),
+    )
+  )
+    return false;
+  const evidenceIds = evidence.map((item) => (item.id as string).toLowerCase());
+  const analysisIds = analyses.map((item) => (item.id as string).toLowerCase());
+  return (
+    new Set(evidenceIds).size === evidenceIds.length &&
+    new Set(analysisIds).size === analysisIds.length &&
+    analyses.every(
+      (item, index) =>
+        index === 0 || item.version < analyses[index - 1].version,
+    ) &&
+    analyses.filter((item) => item.storedStatus === "pending_review").length <=
+      1
+  );
+}
+
 export async function getRiskUncertaintyWorkspace(
   riskId: string,
+  context: RiskUncertaintyWorkspaceContext,
 ): Promise<RiskUncertaintyWorkspace> {
-  const { data, error } = await supabase.rpc("get_risk_uncertainty_workspace", {
-    p_risk_id: riskId,
-  });
-  return unwrap(
-    data as (RiskUncertaintyWorkspace & RpcResult) | null,
-    error,
-    "Could not load the governed uncertainty workspace",
-  );
+  if (!uncertaintyUuid(riskId) || !uncertaintyRecord(context))
+    fail(
+      "Canonical risk, organization and actor identifiers are required before loading uncertainty",
+    );
+  const observed = {
+    organizationId: context.organizationId,
+    actorId: context.actorId,
+  };
+  if (
+    !uncertaintyUuid(observed.organizationId) ||
+    !uncertaintyUuid(observed.actorId)
+  )
+    fail(
+      "Canonical risk, organization and actor identifiers are required before loading uncertainty",
+    );
+  try {
+    const { data, error, status } = await supabase.rpc(
+      "get_risk_uncertainty_workspace",
+      { p_risk_id: riskId },
+    );
+    if (
+      error ||
+      !Number.isInteger(status) ||
+      status < 200 ||
+      status >= 300 ||
+      !uncertaintyWorkspace(data, riskId, observed)
+    )
+      fail(UNCERTAINTY_READ_FAILURE);
+    // Shape/context qualification is not independent raw arithmetic proof,
+    // source standing, digest recomputation, completed reconciliation, approval
+    // of the source, or operational authority.
+    return data;
+  } catch {
+    fail(UNCERTAINTY_READ_FAILURE);
+  }
 }
 
 export async function submitRiskUncertaintyAnalysis(
