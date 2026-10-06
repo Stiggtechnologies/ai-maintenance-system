@@ -135,15 +135,6 @@ begin
     '81111111-1111-4111-8111-111111111111','marketplace-smoke',
     'gpt-4o-mini-2024-07-18',500,200,v_reservation_id
   );
-  if not exists (
-    select 1 from private.llm_usage
-    where id=v_reservation_id and requested_model='gpt-4o-mini'
-      and model='gpt-4o-mini-2024-07-18' and priced_model='gpt-4o-mini'
-      and model_policy_status='approved' and cost_status='priced'
-      and inference_cost_cad>0
-  ) then
-    raise exception 'dated provider model was not priced and approved canonically';
-  end if;
 
   -- A gateway route outside the reservation's approved-model snapshot has
   -- already incurred cost, so settlement preserves its true cost and model.
@@ -160,15 +151,6 @@ begin
     '81111111-1111-4111-8111-111111111111','marketplace-smoke',
     'gpt-5.6-terra',500,200,v_reservation_id
   );
-  if not exists (
-    select 1 from private.llm_usage
-    where id=v_reservation_id and requested_model='gpt-4o-mini'
-      and model='gpt-5.6-terra' and priced_model='gpt-5.6-terra'
-      and model_policy_status='unapproved_model' and cost_status='priced'
-      and inference_cost_cad>0
-  ) then
-    raise exception 'unapproved actual model was not retained as a priced policy violation';
-  end if;
   v_result := public.check_llm_commercial_quota(
     '81111111-1111-4111-8111-111111111111','marketplace-smoke',
     'gpt-4o-mini',1000,'decision','smoke-frozen-after-mismatch'
@@ -205,6 +187,34 @@ end
 $test$;
 
 reset role;
+
+-- The runtime above deliberately executes as service_role, which must not
+-- receive direct SELECT access to the private ledger. Verify the persisted
+-- settlement evidence only after returning to the privileged CI fixture role.
+do $usage_evidence$
+begin
+  if not exists (
+    select 1 from private.llm_usage
+    where organization_id='81111111-1111-4111-8111-111111111111'
+      and fn='marketplace-smoke' and requested_model='gpt-4o-mini'
+      and model='gpt-4o-mini-2024-07-18' and priced_model='gpt-4o-mini'
+      and model_policy_status='approved' and cost_status='priced'
+      and inference_cost_cad>0
+  ) then
+    raise exception 'dated provider model was not priced and approved canonically';
+  end if;
+  if not exists (
+    select 1 from private.llm_usage
+    where organization_id='81111111-1111-4111-8111-111111111111'
+      and fn='marketplace-smoke' and requested_model='gpt-4o-mini'
+      and model='gpt-5.6-terra' and priced_model='gpt-5.6-terra'
+      and model_policy_status='unapproved_model' and cost_status='priced'
+      and inference_cost_cad>0
+  ) then
+    raise exception 'unapproved actual model was not retained as a priced policy violation';
+  end if;
+end
+$usage_evidence$;
 
 do $privileges$
 begin
