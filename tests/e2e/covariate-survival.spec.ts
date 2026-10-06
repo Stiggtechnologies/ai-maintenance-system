@@ -430,6 +430,18 @@ for (const multipleAssets of [false, true]) {
       path: testInfo.outputPath("installed-derived-scenario.png"),
       fullPage: false,
     });
+    if (multipleAssets) {
+      await panel
+        .getByRole("heading", {
+          name: "Pointwise nominal 95% model confidence bounds",
+          exact: true,
+        })
+        .scrollIntoViewIfNeeded();
+      await page.screenshot({
+        path: testInfo.outputPath("installed-model-confidence-bounds.png"),
+        fullPage: false,
+      });
+    }
 
     await panel
       .getByLabel("Scenario horizon operating hours", { exact: true })
