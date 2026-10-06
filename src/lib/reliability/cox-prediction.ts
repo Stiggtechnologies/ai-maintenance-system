@@ -3,6 +3,10 @@ import {
   type CoxInterval,
   type CoxResult,
 } from "./cox.ts";
+import {
+  coxModelConfidenceBounds,
+  type CoxModelConfidenceBounds,
+} from "./cox-confidence.ts";
 
 export interface CoxConditionalProfile {
   stratum: string;
@@ -51,6 +55,8 @@ export type CoxJointHazardUncertainty =
       cumulativeHazardVariance: number;
       cumulativeHazardStandardError: number;
       clusterInfluences: Array<{ clusterId: string; influence: number }>;
+      /** Optional for historical receipts; never reconstructed on read. */
+      modelConfidenceBounds?: CoxModelConfidenceBounds;
       limitations: string[];
     };
 export type CoxConditionalScenario =
@@ -341,11 +347,12 @@ function jointHazardUncertainty(
     cumulativeHazardVariance: variance,
     cumulativeHazardStandardError: Math.sqrt(variance),
     clusterInfluences,
+    modelConfidenceBounds: coxModelConfidenceBounds(hazard, variance),
     limitations: [
       "Full joint Efron baseline/coefficient physical-asset case-weight uncertainty, not the survfit variance convention or coefficient uncertainty alone.",
       "Asymptotic sampling uncertainty assumes independent asset clusters and a suitable model; cluster count alone does not prove adequacy.",
       "This is not a future-event prediction interval, customer calibration, validated coverage, physical applicability or operational authority.",
-      "No confidence bounds are supplied until their transformation and qualification are implemented.",
+      "Retained model sampling-confidence bounds are nominal and pointwise; they do not establish empirical predictive coverage or a qualified live forecast.",
     ],
   };
 }

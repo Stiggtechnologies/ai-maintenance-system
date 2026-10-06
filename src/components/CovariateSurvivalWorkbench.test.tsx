@@ -598,6 +598,17 @@ describe("governed covariate survival workbench", () => {
       screen.getByText(/Cumulative hazard standard error/),
     ).toBeInTheDocument();
     expect(
+      screen.getByRole("heading", {
+        name: "Pointwise nominal 95% model confidence bounds",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Conditional failure model probability/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Nominal 95% is not validated coverage/),
+    ).toBeInTheDocument();
+    expect(
       screen.getByText(
         /not a future-event prediction interval or validated customer coverage/,
       ),
@@ -614,8 +625,14 @@ describe("governed covariate survival workbench", () => {
       ),
     ).not.toBeInTheDocument();
   });
-  for (const mode of ["historical", "refused"] as const) {
-    it(`does not invent joint uncertainty for a ${mode} receipt`, async () => {
+  for (const mode of [
+    "historical",
+    "refused",
+    "bounds-historical",
+    "bounds-refused",
+    "bounds-rounded",
+  ] as const) {
+    it(`preserves retained uncertainty semantics for a ${mode} receipt`, async () => {
       const rows = coxInput.cases[0].rows.map((row) => ({
         ...row,
         covariates: [row.covariates[0]],
@@ -649,13 +666,43 @@ describe("governed covariate survival workbench", () => {
         throw new Error(JSON.stringify(result));
       if (mode === "historical")
         delete result.conditionalScenario.predictionUncertainty;
-      else
+      else if (mode === "refused")
         result.conditionalScenario.predictionUncertainty = {
           status: "refused",
           uncertaintyVersion: "cox-joint-asset/1/draft",
           authority: "advisory_only",
           reason: "Retained independent asset uncertainty is unresolvable.",
         };
+      else {
+        const uncertainty = result.conditionalScenario.predictionUncertainty;
+        if (uncertainty?.status !== "computed")
+          throw new Error("Computed historical uncertainty required");
+        if (mode === "bounds-historical")
+          delete uncertainty.modelConfidenceBounds;
+        else if (mode === "bounds-refused")
+          uncertainty.modelConfidenceBounds = {
+            status: "refused",
+            boundsVersion: "cox-model-confidence/1/draft",
+            authority: "advisory_only",
+            reason:
+              "Retained model confidence probabilities have boundary saturation.",
+          };
+        else {
+          const bounds = uncertainty.modelConfidenceBounds;
+          if (bounds?.status !== "computed")
+            throw new Error("Computed bounds required");
+          // Synthetic display witness only. Retained endpoints must not be
+          // rounded into certain survival/failure or recomputed on read.
+          bounds.conditionalFailureProbability = {
+            lower: 1e-280,
+            upper: 1 - 1e-12,
+          };
+          bounds.conditionalSurvivalProbability = {
+            lower: 1e-12,
+            upper: 1 - 1e-12,
+          };
+        }
+      }
       vi.mocked(runSurvivalAnalysis).mockResolvedValue({
         calculationRunId: "synthetic-receipt",
         agentRunId: "synthetic-run",
@@ -677,16 +724,41 @@ describe("governed covariate survival workbench", () => {
       await screen.findByText(
         "Numerical conditional scenario · not a live asset forecast",
       );
-      expect(
-        screen.getByText(
-          mode === "historical"
-            ? /No retained joint hazard uncertainty exists/
-            : /Joint conditional hazard uncertainty refused/,
-        ),
-      ).toBeInTheDocument();
-      expect(
-        screen.queryByText(/Cumulative hazard standard error/),
-      ).not.toBeInTheDocument();
+      if (mode === "bounds-rounded") {
+        expect(
+          screen.getByText(
+            /Conditional failure model probability 1\.00000e-278% — <100%/,
+          ),
+        ).toBeInTheDocument();
+        expect(
+          screen.getByText(
+            /Conditional survival model probability 1\.00000e-10% — <100%/,
+          ),
+        ).toBeInTheDocument();
+      } else {
+        expect(
+          screen.getByText(
+            mode === "historical"
+              ? /No retained joint hazard uncertainty exists/
+              : mode === "refused"
+                ? /Joint conditional hazard uncertainty refused/
+                : mode === "bounds-historical"
+                  ? /No retained model confidence bounds exist/
+                  : /Model confidence bounds refused/,
+          ),
+        ).toBeInTheDocument();
+        expect(
+          screen.queryByText(/Conditional failure model probability/),
+        ).not.toBeInTheDocument();
+      }
+      if (mode === "historical" || mode === "refused")
+        expect(
+          screen.queryByText(/Cumulative hazard standard error/),
+        ).not.toBeInTheDocument();
+      else
+        expect(
+          screen.getByText(/Cumulative hazard standard error/),
+        ).toBeInTheDocument();
       expect(
         screen.getByText(
           /Unqualified calibration; no predictive confidence interval/,

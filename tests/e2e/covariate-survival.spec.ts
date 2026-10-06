@@ -2,6 +2,7 @@ import { test, expect, type Page } from "@playwright/test";
 import {
   actualRpc,
   createSurvivalBrowserFixture,
+  freshLocalSurvivalMeterTimestamp,
   installLocalBrowserSession,
 } from "./fixtures/covariate-survival";
 
@@ -301,6 +302,15 @@ for (const multipleAssets of [false, true]) {
       await expect(
         panel.getByText(/Cumulative hazard standard error/),
       ).toBeVisible();
+      await expect(
+        panel.getByRole("heading", {
+          name: "Pointwise nominal 95% model confidence bounds",
+          exact: true,
+        }),
+      ).toBeVisible();
+      await expect(
+        panel.getByText(/Nominal 95% is not validated coverage/),
+      ).toBeVisible();
     } else {
       await expect(
         panel.getByText(/^Joint conditional hazard uncertainty refused:/),
@@ -309,6 +319,9 @@ for (const multipleAssets of [false, true]) {
       );
       await expect(
         panel.getByText(/Cumulative hazard standard error/),
+      ).toHaveCount(0);
+      await expect(
+        panel.getByText(/Conditional failure model probability/),
       ).toHaveCount(0);
     }
     const retained = await author.client
@@ -386,6 +399,26 @@ for (const multipleAssets of [false, true]) {
         uncertainty.cumulativeHazardVariance,
         10,
       );
+      expect(uncertainty.modelConfidenceBounds).toMatchObject({
+        status: "computed",
+        boundsVersion: "cox-model-confidence/1/draft",
+        authority: "advisory_only",
+        nominalConfidenceLevel: 0.95,
+        coverageValidated: false,
+        futureEventPredictionInterval: false,
+      });
+      expect(
+        uncertainty.modelConfidenceBounds.conditionalFailureProbability.lower,
+      ).toBeLessThan(
+        retained.data!.outputs.conditionalScenario
+          .conditionalFailureProbability,
+      );
+      expect(
+        uncertainty.modelConfidenceBounds.conditionalFailureProbability.upper,
+      ).toBeGreaterThan(
+        retained.data!.outputs.conditionalScenario
+          .conditionalFailureProbability,
+      );
     }
     await panel
       .getByRole("heading", {
@@ -415,7 +448,7 @@ for (const multipleAssets of [false, true]) {
     await actualRpc(author.client, "record_asset_meter_reading", {
       p_asset_id: fixture.assetId,
       p_value: fixture.installMeter + 8,
-      p_recorded_at: new Date(Date.now() - 1_000).toISOString(),
+      p_recorded_at: freshLocalSurvivalMeterTimestamp(),
       p_source_system: "Browser synthetic newer meter",
       p_basis:
         "New actual meter must invalidate the earlier approved source snapshot.",

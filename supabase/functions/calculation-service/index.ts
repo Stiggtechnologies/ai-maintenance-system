@@ -351,6 +351,16 @@ Deno.serve(async (request) => {
                 "refused"
                 ? [result.conditionalScenario.predictionUncertainty.reason]
                 : []),
+              ...(result.conditionalScenario?.status === "estimated" &&
+              result.conditionalScenario.predictionUncertainty?.status ===
+                "computed" &&
+              result.conditionalScenario.predictionUncertainty
+                .modelConfidenceBounds?.status === "refused"
+                ? [
+                    result.conditionalScenario.predictionUncertainty
+                      .modelConfidenceBounds.reason,
+                  ]
+                : []),
             ];
       const { data: receiptData, error: receiptError } = await service.rpc(
         "record_survival_calculation",

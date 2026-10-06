@@ -21,6 +21,13 @@ import { ErrorState, LoadingState } from "./ui/AsyncStates";
 import type { CoxDiagnostics } from "../lib/reliability/cox";
 import type { CoxConditionalScenario } from "../lib/reliability/cox-prediction";
 
+function modelBoundPercent(probability: number) {
+  const label = (100 * probability).toPrecision(6);
+  // Display rounding must not turn a strictly interior retained bound into
+  // the false claim of certain survival/failure. This changes no stored value.
+  return Number(label) === 100 ? "<100" : label;
+}
+
 function ConditionalScenarioSummary({
   scenario,
 }: {
@@ -88,6 +95,60 @@ function ConditionalScenarioSummary({
             interval or validated customer coverage. Independent-asset adequacy
             and model applicability still require review.
           </p>
+          {!uncertainty.modelConfidenceBounds ? (
+            <p className="text-xs text-amber-200">
+              No retained model confidence bounds exist for this historical
+              scenario.
+            </p>
+          ) : uncertainty.modelConfidenceBounds.status === "refused" ? (
+            <p className="text-xs text-amber-200">
+              Model confidence bounds refused:{" "}
+              {uncertainty.modelConfidenceBounds.reason}
+            </p>
+          ) : (
+            <div className="space-y-2 border-t border-white/10 pt-2">
+              <h6 className="font-medium text-white">
+                Pointwise nominal 95% model confidence bounds
+              </h6>
+              <p>
+                Conditional failure model probability{" "}
+                {modelBoundPercent(
+                  uncertainty.modelConfidenceBounds
+                    .conditionalFailureProbability.lower,
+                )}
+                %{" — "}
+                {modelBoundPercent(
+                  uncertainty.modelConfidenceBounds
+                    .conditionalFailureProbability.upper,
+                )}
+                %
+              </p>
+              <p>
+                Conditional survival model probability{" "}
+                {modelBoundPercent(
+                  uncertainty.modelConfidenceBounds
+                    .conditionalSurvivalProbability.lower,
+                )}
+                %{" — "}
+                {modelBoundPercent(
+                  uncertainty.modelConfidenceBounds
+                    .conditionalSurvivalProbability.upper,
+                )}
+                %
+              </p>
+              <p className="text-xs text-slate-400">
+                {uncertainty.modelConfidenceBounds.boundsVersion} · pointwise
+                log-cumulative-hazard transform
+              </p>
+              <p className="text-xs text-amber-200">
+                Nominal 95% is not validated coverage. These are model
+                sampling-confidence bounds, not a future-event prediction
+                interval, a simultaneous band or a qualified live-asset
+                forecast. Model suitability and held-out customer calibration
+                remain unproven; no maintenance authority is granted.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>

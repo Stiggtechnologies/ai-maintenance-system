@@ -8,6 +8,7 @@ import {
 import type { BrowserContext } from "@playwright/test";
 import {
   assuranceFixture,
+  freshMeterTimestamp,
   requireLocalEndpoint,
 } from "../../../src/test/support/survivalBrowserBoundary";
 
@@ -77,6 +78,19 @@ function sql(statement: string): string {
       stdio: ["pipe", "pipe", "pipe"],
     },
   ).trim();
+}
+
+export function freshLocalSurvivalMeterTimestamp(): string {
+  // The two acceptance cases (and retries) share this canonical local asset.
+  // Read its actual latest observation and the database clock together. Never
+  // backdate relative to another case or invent future time to become latest.
+  const clock = JSON.parse(
+    sql(`select jsonb_build_object('databaseNow',clock_timestamp(),
+      'latestRecordedAt',max(recorded_at)) from asset_meter_readings
+      where organization_id='${ORG}' and asset_id='${ASSET}'
+      and meter_kind='operating_hours';`),
+  ) as { databaseNow: string; latestRecordedAt: string | null };
+  return freshMeterTimestamp(clock.databaseNow, clock.latestRecordedAt);
 }
 
 export async function actualRpc<T = Record<string, unknown>>(
@@ -261,7 +275,7 @@ export async function createSurvivalBrowserFixture(
     sql(`select coalesce(max(value),0)+1000 from asset_meter_readings
     where organization_id='${ORG}' and asset_id='${ASSET}' and meter_kind='operating_hours';`),
   );
-  const meterTime = new Date(Date.now() - 60_000).toISOString();
+  const meterTime = freshLocalSurvivalMeterTimestamp();
   const validUntil = new Date(Date.now() + 86_400_000).toISOString();
   const instance = await actualRpc<{ component_instance_id: string }>(
     author.client,

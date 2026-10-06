@@ -1,6 +1,25 @@
 import { createHmac } from "node:crypto";
 import type { Session } from "@supabase/supabase-js";
 
+/** Test observations use actual database time, never a synthetic future offset. */
+export function freshMeterTimestamp(
+  databaseNow: string,
+  latestRecordedAt: string | null,
+): string {
+  const observedAt = new Date(databaseNow).getTime();
+  const previous =
+    latestRecordedAt === null ? null : new Date(latestRecordedAt).getTime();
+  if (
+    !Number.isFinite(observedAt) ||
+    (previous !== null &&
+      (!Number.isFinite(previous) || observedAt <= previous))
+  )
+    throw new Error(
+      "Actual local database observation time must be strictly after existing meters",
+    );
+  return new Date(observedAt).toISOString();
+}
+
 /** Pure test-only boundary; never permits remote disposable-fixture writes. */
 export function requireLocalEndpoint(value: string, port: string): URL {
   const url = new URL(value);
