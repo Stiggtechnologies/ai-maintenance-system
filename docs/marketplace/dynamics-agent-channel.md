@@ -47,6 +47,44 @@ tests a genuinely installable, per-user agent. Do not launch five offers at once
 Advance the next candidate only after the first two produce comparable funnel,
 activation, usage and expansion evidence.
 
+## Market-size evidence and $100M scale math
+
+Microsoft does not publish a current standalone total for Dynamics 365 active
+users or paid seats. Do not repeat third-party estimates as fact. The latest
+explicit official adjacent-population figure found is **56 million monthly
+active Power Platform users** in Microsoft FY2025 Q3. Power Platform overlaps
+the Dynamics ecosystem but is broader than Dynamics 365, so 56 million is a
+reach indicator and scenario denominator—not a Dynamics user count, serviceable
+market, forecast, or demand witness.
+
+The following arithmetic shows that this channel is large enough to test. It
+does not approve pricing or predict conversion:
+
+| Scenario | Pure arithmetic | Evidence boundary |
+| --- | --- | --- |
+| Adjacent-user reach illustration | 0.1% of 56 million = 56,000 users | Not a forecast; the relevant Dynamics and asset-intensive subset is unknown |
+| Seat-led $100M illustration | 56,000 × US$150/month × 12 = US$100.8M ARR | US$150 is a scenario input, not approved SyncAI agent pricing |
+| Enterprise expansion path A | 100 customers × US$1M ARR = US$100M ARR | Requires full-platform enterprise value and renewals, not agent installs alone |
+| Enterprise expansion path B | 250 customers × US$400k ARR = US$100M ARR | Requires repeatable multi-site expansion |
+| Enterprise expansion path C | 500 customers × US$200k ARR = US$100M ARR | Requires efficient acquisition and durable retention |
+| Enterprise expansion path D | 1,000 customers × US$100k ARR = US$100M ARR | Requires a much broader sales and support engine |
+
+The operating thesis is therefore **agent entry, platform expansion**. Measure
+each offer through one comparable funnel:
+
+1. Marketplace impression and listing view;
+2. qualified lead, trial, or install by a target maintenance, reliability,
+   materials, planning, operations, or asset-management buyer;
+3. authorized tenant connection and first governed agent activation;
+4. first bounded decision case completed with sufficient evidence;
+5. paid agent entitlement or core SaaS purchase;
+6. expansion to additional agents, sites, assets, or enterprise scope; and
+7. retained usage, verified customer outcome, renewal and net revenue retention.
+
+The channel remains unvalidated until real observations populate that funnel.
+Raw Marketplace traffic, free installs and the 56-million ecosystem figure do
+not count as revenue evidence.
+
 ## Shared product and commercial rules
 
 1. The listing name may foreground one agent and one pain, but the customer
@@ -98,3 +136,4 @@ authorize Partner Center submission or publication.
 - [Microsoft Marketplace listing options](https://learn.microsoft.com/en-us/partner-center/marketplace-offers/determine-your-listing-type)
 - [Microsoft Marketplace transaction capabilities](https://learn.microsoft.com/en-us/partner-center/marketplace/marketplace-commercial-transaction-capabilities-and-considerations)
 - [Publish and release an AI app or agent](https://learn.microsoft.com/en-us/partner-center/marketplace-offers/artificial-intelligence-app-agent-publish-release)
+- [Microsoft FY2025 Q3 earnings call — 56 million monthly active Power Platform users](https://www.microsoft.com/en-us/investor/events/fy-2025/earnings-fy-2025-q3)

@@ -73,6 +73,9 @@ describe("marketplace channel readiness", () => {
     expect(strategy).toMatch(/MRO Readiness Agent/);
     expect(strategy).toMatch(/FRACAS Investigation Agent/);
     expect(strategy).toMatch(/same governed SyncAI platform/);
+    expect(strategy).toMatch(/56 million monthly active Power Platform users/);
+    expect(strategy).toMatch(/not a Dynamics user count/i);
+    expect(strategy).toMatch(/US\$100\.8M ARR/);
     expect(strategy).toMatch(
       /does not\s+authorize Partner Center submission/i,
     );
