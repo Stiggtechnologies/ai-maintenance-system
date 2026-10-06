@@ -42,20 +42,38 @@ Name every offer with the pattern **SyncAI + buyer problem or outcome + Agent**.
 Do not lead with an internal module name, an unexplained reliability acronym, or
 an autonomy claim. In particular:
 
-- do not use `Copilot` in a SyncAI product name;
+- use **Agent** for the commercial product and Marketplace offer name;
+- use **copilot** only as a descriptive experience term, or the exact
+  **works with Microsoft 365 Copilot** compatibility statement after a real
+  Microsoft 365 package and integration are proven;
+- do not use `Copilot` in an owned SyncAI product name without Microsoft
+  trademark review;
 - do not use `autonomous` while consequential actions remain human-approved;
 - keep FRACAS, RCA, MRO, RCM and PM as search keywords or explanatory copy
   unless the target buyer routinely uses the acronym; and
 - use `for Dynamics 365 Supply Chain Management` as a listing subtitle or
   compatibility statement, not as part of the owned product-line name.
 
+The two terms therefore have different jobs:
+
+- **Agents are what customers discover, evaluate, buy, activate and govern.**
+  Each agent has a bounded job, evidence contract and named-human approval
+  boundary.
+- **The copilot is how a person can converse with those agents.** It is a shared
+  interface or Microsoft host, not a second product catalogue. A customer can
+  ask the copilot to start a failure investigation, while the Failure
+  Investigation Agent performs the bounded workflow and creates the auditable
+  decision case.
+
 This is a commercial naming decision, not trademark clearance. Targeted web and
 Marketplace checks found that `Maintenance Planning Agent`, `Asset Strategy
 Agent`, `Parts Readiness Agent`, `PM Optimization Agent`, and generic
 `Reliability Agent` naming are already used by other industrial-software
-vendors. `Failure Elimination Agent` and the complete umbrella phrase `SyncAI
-Industrial Reliability Agents` were materially less crowded in the same
-checks. Legal and trademark review remains a release gate.
+vendors. No exact Microsoft Marketplace match was found for `Failure
+Investigation Agent` in the targeted check, and the complete umbrella phrase
+`SyncAI Industrial Reliability Agents` was materially less crowded in the same
+checks. Search results are not legal clearance; legal and trademark review
+remains a release gate.
 
 ## Best-fit customer population
 
@@ -81,7 +99,7 @@ hypotheses—not proof of customer demand.
 | -------------------------------------------- | -------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ | --------------------------------------------------------------------------------------------------- |
 | Maintenance planner or supervisor            | Work cannot start because scope, parts, labour, tools, permits, or timing are not ready                        | **SyncAI Maintenance Readiness Agent**           | Planning, materials, scheduling, handover, Recovery and governed decision cases                     |
 | MRO, inventory, or procurement manager       | Critical spares are missing while excess and obsolete stock consume working capital                            | **SyncAI Maintenance Readiness Agent**           | Materials evidence, supplier/delivery risk, asset strategy and site expansion                       |
-| Reliability engineer or reliability manager  | The same failures recur because evidence, causes, actions, and effectiveness are not closed                    | **SyncAI Failure Elimination Agent**             | FRACAS/RCA, condition evidence, strategy updates, verified outcomes and fleet learning              |
+| Reliability engineer or reliability manager  | The same failures recur because evidence, causes, actions, and effectiveness are not closed                    | **SyncAI Failure Investigation Agent**           | FRACAS/RCA, condition evidence, strategy updates, verified outcomes and fleet learning              |
 | Site maintenance or operations manager       | A disruption lasts longer because blockers, decisions, handoffs, and return-to-service evidence are fragmented | **SyncAI Downtime Recovery Agent**               | Recovery control, scheduling, materials, shift handover, economics and multi-site operating cadence |
 | Asset strategy or maintenance-program owner  | Static PM intervals create avoidable work or leave material failure risk untreated                             | **SyncAI Preventive Maintenance Decision Agent** | Asset strategy, lifecycle economics, condition monitoring and governed programme change             |
 | Plant, maintenance, or reliability executive | Leaders cannot see the evidence, exposure, decision owner, cost track, and verified result in one view         | **SyncAI Reliability Briefing Agent**            | Enterprise roll-up and cross-site expansion after the core executive role is proven complete        |
@@ -99,7 +117,7 @@ managing spare parts—direct alignment with the first two entry agents.
 | Sequence | Agent-shaped offer                               | Microsoft surface                                                                                                                               | Existing SyncAI capability basis                                                                                                                                                                                | What must be built before listing                                                                                                                                              |
 | -------- | ------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 1        | **SyncAI Maintenance Readiness Agent**           | Dynamics 365 Operations Apps, aimed at Supply Chain Management and Asset Management users                                                       | Governed MRO Materials plus Planning and Scheduling capabilities; exact catalogue, stock, demand, BOM, supplier, delivery and work-plan evidence; no autonomous purchasing, stock mutation, or schedule release | Dynamics-native launch surface, authenticated tenant binding, read-only Dynamics contracts, install/remove path, support runbook, trial or lead handoff and Marketplace assets |
-| 2        | **SyncAI Failure Elimination Agent**             | Dynamics 365 apps on Dataverse and Power Apps, with Field Service as the first workflow hypothesis; pain-led core-SaaS landing path in parallel | Governed FRACAS/RCA workflow on `/reliability`; immutable investigation evidence, recurrence measurement and named-human corrective-action/effectiveness handoff                                                | Dataverse solution package, schema and permission model, environment install/remove proof, per-user licensing, app-license checks and certification evidence                   |
+| 2        | **SyncAI Failure Investigation Agent**           | Dynamics 365 apps on Dataverse and Power Apps, with Field Service as the first workflow hypothesis; pain-led core-SaaS landing path in parallel | Governed FRACAS/RCA workflow on `/reliability`; immutable investigation evidence, recurrence measurement and named-human corrective-action/effectiveness handoff                                                | Dataverse solution package, schema and permission model, environment install/remove proof, per-user licensing, app-license checks and certification evidence                   |
 | 3        | **SyncAI Downtime Recovery Agent**               | Dynamics 365 apps on Dataverse and Power Apps; Microsoft 365/Teams notification surface only after the canonical workflow is preserved          | Governed Sync Recovery control, optimize and learn surfaces; blocker, handoff, parts-risk, timing, counterfactual and economic evidence with human return-to-service authority                                  | Native incident/restoration case surface, authorized event and work-order mapping, notification boundary, install/remove proof and clean handoff to canonical Recovery         |
 | 4        | **SyncAI Preventive Maintenance Decision Agent** | Dynamics 365 Operations Apps                                                                                                                    | Governed Asset Strategy Agent on `/reliability/intervals`; PM interval, condition-inspection and run-to-failure screening with fail-closed safety and cost evidence                                             | Native asset/maintenance-plan context, source-version binding, review experience and certification evidence                                                                    |
 | 5        | **SyncAI Reliability Briefing Agent**            | Microsoft 365 and Copilot, linked to the core SaaS offer                                                                                        | Site Maintenance Manager handover is governed and live; the broader Maintenance Executive capability is still incomplete in the current capability register                                                     | Close the core executive role, produce a Microsoft 365/Copilot manifest, prove tenant-safe retrieval and link licensing to the published SaaS offer                            |
@@ -109,8 +127,14 @@ champions while entering the same platform:
 
 - **Readiness message:** reduce avoidable downtime caused by missing parts and
   incomplete work plans.
-- **Failure-elimination message:** stop repeat failures by closing the evidence,
-  action and effectiveness loop.
+- **Failure-investigation message:** investigate repeat failures and close the
+  evidence-to-action and effectiveness loop.
+
+`Failure Investigation` is the product job; `failure elimination` is a desired
+and measurable customer outcome. The listing may test outcome-led copy such as
+"from failure investigation to verified failure elimination," but it must not
+promise root-cause certainty, recurrence elimination or savings before customer
+evidence verifies the result.
 
 Keep the product names and downstream experience stable; randomize the approved
 listing/landing message and preserve source, offer and variant attribution. Do
@@ -207,6 +231,9 @@ authorize Partner Center submission or publication.
 - [Microsoft Marketplace listing options](https://learn.microsoft.com/en-us/partner-center/marketplace-offers/determine-your-listing-type)
 - [Microsoft Marketplace transaction capabilities](https://learn.microsoft.com/en-us/partner-center/marketplace/marketplace-commercial-transaction-capabilities-and-considerations)
 - [Publish and release an AI app or agent](https://learn.microsoft.com/en-us/partner-center/marketplace-offers/artificial-intelligence-app-agent-publish-release)
+- [Microsoft 365 app model — agents are apps](https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/agents-are-apps)
+- [Publish agents for Microsoft 365 Copilot](https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/publish)
+- [Declarative-agent naming and experience guidance](https://learn.microsoft.com/en-us/microsoft-365/copilot/extensibility/declarative-agent-best-practices)
 - [Microsoft FY2025 Q3 earnings call — 56 million monthly active Power Platform users](https://www.microsoft.com/en-us/investor/events/fy-2025/earnings-fy-2025-q3)
 - [Dynamics 365 Supply Chain Management product page — downtime, OEE, maintenance and spare-parts positioning](https://www.microsoft.com/en-us/dynamics-365/products/supply-chain-management)
 - [Microsoft Asset Management process — stakeholder and maintenance-process map](https://learn.microsoft.com/en-us/dynamics365/guidance/business-processes/acquire-to-dispose-maintain-repair-internal-asset)

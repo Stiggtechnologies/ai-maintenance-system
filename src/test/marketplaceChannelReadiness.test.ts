@@ -72,7 +72,10 @@ describe("marketplace channel readiness", () => {
     );
     expect(strategy).toMatch(/SyncAI Industrial Reliability Agents/);
     expect(strategy).toMatch(/Maintenance Readiness Agent/);
-    expect(strategy).toMatch(/Failure Elimination Agent/);
+    expect(strategy).toMatch(/Failure Investigation Agent/);
+    expect(strategy).toMatch(/Agents are what customers discover/);
+    expect(strategy).toMatch(/copilot is how a person can converse/i);
+    expect(strategy).toMatch(/failure elimination` is a desired/);
     expect(strategy).toMatch(/Downtime Recovery Agent/);
     expect(strategy).toMatch(/Preventive Maintenance Decision Agent/);
     expect(strategy).toMatch(/not trademark clearance/i);
