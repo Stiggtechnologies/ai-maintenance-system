@@ -8,6 +8,7 @@
  * Model-based covariance assumes independent physical lives and a suitable
  * proportional-hazards specification. It is not cluster-robust covariance.
  */
+import type { CoxConditionalScenario } from "./cox-prediction.ts";
 export const COX_KERNEL_VERSION = "cox-efron/1/draft";
 
 export interface CoxInterval {
@@ -54,6 +55,7 @@ export type CoxResult =
       phAssumptionValidated: false;
       limitations: string[];
       diagnostics?: CoxDiagnostics;
+      conditionalScenario?: CoxConditionalScenario;
     };
 
 export interface CoxScoreTest {
@@ -511,6 +513,7 @@ function diagnoseFittedCox(
     phIdentity,
     limitations: [
       "The identity-time formal score test is one declared diagnostic, not proof of proportional hazards or an automatic model-acceptance threshold.",
+      "PH score-test information is model-based, not adjusted for within-asset dependence; clustered coefficient covariance does not make these PH p-values cluster-robust.",
       "Clustered infinitesimal-jackknife covariance relies on genuinely independent asset clusters; sufficient clusters and engineering applicability still require review.",
       "Repeated physical lives remain clustered by their actual assets; no independence is invented from row identifiers.",
       "No predictive calibration, causal effect, PM interval, risk acceptance or return-to-service authority is established.",

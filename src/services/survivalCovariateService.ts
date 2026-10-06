@@ -3,6 +3,7 @@ import type { CoxResult } from "../lib/reliability/cox";
 import type {
   SurvivalOverlay,
   SurvivalSourceEvent,
+  SurvivalScenarioSelection,
 } from "../lib/reliability/survival-source";
 
 export interface SurvivalCovariate {
@@ -122,9 +123,24 @@ export async function reviewSurvivalOverlay(
 export async function runSurvivalAnalysis(
   component: string,
   covariates: SurvivalCovariate[],
+  scenario?: SurvivalScenarioSelection,
 ): Promise<SurvivalReceipt> {
   const response = await supabase.functions.invoke("calculation-service", {
-    body: { action: "reliability_survival", component, covariates },
+    body: {
+      action: "reliability_survival",
+      component,
+      covariates,
+      ...(scenario === undefined
+        ? {}
+        : {
+            scenario: {
+              eventId: scenario.eventId,
+              intervalIndex: scenario.intervalIndex,
+              originHours: scenario.originHours,
+              horizonHours: scenario.horizonHours,
+            },
+          }),
+    },
   });
   return unwrap(
     response.data as SurvivalReceipt & { error?: string },

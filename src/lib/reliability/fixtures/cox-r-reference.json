@@ -12,6 +12,7 @@
     "method": "survival::coxph Efron; clustered infinitesimal-jackknife covariance; survival::cox.zph actual score test, identity time transform.",
     "phTableColumns": ["chisq", "df", "p"],
     "phTableRows": "Covariates in fixture order followed by GLOBAL.",
+    "conditionalMethod": "R predict.coxph type=expected and type=survival over explicit (origin,horizon] counting-process intervals; not customer calibration or live forecasts.",
     "noPredictiveQualification": true,
     "noOperationalAuthority": true,
     "sources": [
@@ -107,6 +108,96 @@
       "clusterIds": [
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
         20, 21, 22, 23
+      ],
+      "conditionalScenarios": [
+        {
+          "profile": {
+            "stratum": "A",
+            "originHours": 0,
+            "horizonHours": 22,
+            "path": [
+              {
+                "startHours": 0,
+                "stopHours": 22,
+                "covariates": [0.15729113347633916, 0],
+                "observedAtHours": 0,
+                "availableAtHours": 0,
+                "validThroughHours": 22
+              }
+            ]
+          },
+          "expected": {
+            "cumulativeHazardIncrement": 2.704799921937985,
+            "conditionalSurvivalProbability": 0.0668837044699353,
+            "conditionalFailureProbability": 0.9331162955300647
+          }
+        },
+        {
+          "profile": {
+            "stratum": "A",
+            "originHours": 5.5,
+            "horizonHours": 11,
+            "path": [
+              {
+                "startHours": 5.5,
+                "stopHours": 11,
+                "covariates": [0.15729113347633916, 0],
+                "observedAtHours": 0,
+                "availableAtHours": 0,
+                "validThroughHours": 22
+              }
+            ]
+          },
+          "expected": {
+            "cumulativeHazardIncrement": 0.391737555454597,
+            "conditionalSurvivalProbability": 0.6758814720919605,
+            "conditionalFailureProbability": 0.3241185279080395
+          }
+        },
+        {
+          "profile": {
+            "stratum": "A",
+            "originHours": 11,
+            "horizonHours": 22,
+            "path": [
+              {
+                "startHours": 11,
+                "stopHours": 22,
+                "covariates": [0.15729113347633916, 0],
+                "observedAtHours": 0,
+                "availableAtHours": 0,
+                "validThroughHours": 22
+              }
+            ]
+          },
+          "expected": {
+            "cumulativeHazardIncrement": 2.13791009290979,
+            "conditionalSurvivalProbability": 0.11790098783270998,
+            "conditionalFailureProbability": 0.88209901216729
+          }
+        },
+        {
+          "profile": {
+            "stratum": "A",
+            "originHours": 3,
+            "horizonHours": 22,
+            "path": [
+              {
+                "startHours": 3,
+                "stopHours": 22,
+                "covariates": [0.15729113347633916, 0],
+                "observedAtHours": 0,
+                "availableAtHours": 0,
+                "validThroughHours": 22
+              }
+            ]
+          },
+          "expected": {
+            "cumulativeHazardIncrement": 2.630168044807898,
+            "conditionalSurvivalProbability": 0.0720663508450825,
+            "conditionalFailureProbability": 0.9279336491549175
+          }
+        }
       ],
       "expected": {
         "coefficients": [0.1757181405685557, -0.02173541564366741],
@@ -238,6 +329,184 @@
       "clusterIds": [
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
         20, 21, 22, 23
+      ],
+      "conditionalScenarios": [
+        {
+          "profile": {
+            "stratum": "A",
+            "originHours": 0,
+            "horizonHours": 22,
+            "path": [
+              {
+                "startHours": 0,
+                "stopHours": 22,
+                "covariates": [-0.9602020462826122, 0],
+                "observedAtHours": 0,
+                "availableAtHours": 0,
+                "validThroughHours": 22
+              }
+            ]
+          },
+          "expected": {
+            "cumulativeHazardIncrement": 2.5030519364376627,
+            "conditionalSurvivalProbability": 0.08183486231981746,
+            "conditionalFailureProbability": 0.9181651376801825
+          }
+        },
+        {
+          "profile": {
+            "stratum": "A",
+            "originHours": 5.5,
+            "horizonHours": 11,
+            "path": [
+              {
+                "startHours": 5.5,
+                "stopHours": 11,
+                "covariates": [-0.9602020462826122, 0],
+                "observedAtHours": 0,
+                "availableAtHours": 0,
+                "validThroughHours": 22
+              }
+            ]
+          },
+          "expected": {
+            "cumulativeHazardIncrement": 0.30333525487521745,
+            "conditionalSurvivalProbability": 0.7383515189256847,
+            "conditionalFailureProbability": 0.26164848107431526
+          }
+        },
+        {
+          "profile": {
+            "stratum": "A",
+            "originHours": 11,
+            "horizonHours": 22,
+            "path": [
+              {
+                "startHours": 11,
+                "stopHours": 22,
+                "covariates": [-0.9602020462826122, 0],
+                "observedAtHours": 0,
+                "availableAtHours": 0,
+                "validThroughHours": 22
+              }
+            ]
+          },
+          "expected": {
+            "cumulativeHazardIncrement": 2.035317604333712,
+            "conditionalSurvivalProbability": 0.1306389844067868,
+            "conditionalFailureProbability": 0.8693610155932132
+          }
+        },
+        {
+          "profile": {
+            "stratum": "A",
+            "originHours": 3,
+            "horizonHours": 22,
+            "path": [
+              {
+                "startHours": 3,
+                "stopHours": 22,
+                "covariates": [-0.9602020462826122, 0],
+                "observedAtHours": 0,
+                "availableAtHours": 0,
+                "validThroughHours": 22
+              }
+            ]
+          },
+          "expected": {
+            "cumulativeHazardIncrement": 2.4261631932533643,
+            "conditionalSurvivalProbability": 0.08837526172401372,
+            "conditionalFailureProbability": 0.9116247382759863
+          }
+        },
+        {
+          "profile": {
+            "stratum": "B",
+            "originHours": 0,
+            "horizonHours": 22,
+            "path": [
+              {
+                "startHours": 0,
+                "stopHours": 22,
+                "covariates": [0.15729113347633916, 0],
+                "observedAtHours": 0,
+                "availableAtHours": 0,
+                "validThroughHours": 22
+              }
+            ]
+          },
+          "expected": {
+            "cumulativeHazardIncrement": 2.1656089052402123,
+            "conditionalSurvivalProbability": 0.11468008402913513,
+            "conditionalFailureProbability": 0.8853199159708649
+          }
+        },
+        {
+          "profile": {
+            "stratum": "B",
+            "originHours": 5.5,
+            "horizonHours": 11,
+            "path": [
+              {
+                "startHours": 5.5,
+                "stopHours": 11,
+                "covariates": [0.15729113347633916, 0],
+                "observedAtHours": 0,
+                "availableAtHours": 0,
+                "validThroughHours": 22
+              }
+            ]
+          },
+          "expected": {
+            "cumulativeHazardIncrement": 0.4129856361608448,
+            "conditionalSurvivalProbability": 0.6616717869067114,
+            "conditionalFailureProbability": 0.33832821309328864
+          }
+        },
+        {
+          "profile": {
+            "stratum": "B",
+            "originHours": 11,
+            "horizonHours": 22,
+            "path": [
+              {
+                "startHours": 11,
+                "stopHours": 22,
+                "covariates": [0.15729113347633916, 0],
+                "observedAtHours": 0,
+                "availableAtHours": 0,
+                "validThroughHours": 22
+              }
+            ]
+          },
+          "expected": {
+            "cumulativeHazardIncrement": 1.5990701036220893,
+            "conditionalSurvivalProbability": 0.2020843481532086,
+            "conditionalFailureProbability": 0.7979156518467914
+          }
+        },
+        {
+          "profile": {
+            "stratum": "B",
+            "originHours": 3,
+            "horizonHours": 22,
+            "path": [
+              {
+                "startHours": 3,
+                "stopHours": 22,
+                "covariates": [0.15729113347633916, 0],
+                "observedAtHours": 0,
+                "availableAtHours": 0,
+                "validThroughHours": 22
+              }
+            ]
+          },
+          "expected": {
+            "cumulativeHazardIncrement": 2.1079894269199317,
+            "conditionalSurvivalProbability": 0.12148196943571225,
+            "conditionalFailureProbability": 0.8785180305642878
+          }
+        }
       ],
       "expected": {
         "coefficients": [0.17000272167455918, -0.04497298230234127],
@@ -371,6 +640,184 @@
       "clusterIds": [
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19,
         20, 21, 22, 23
+      ],
+      "conditionalScenarios": [
+        {
+          "profile": {
+            "stratum": "A",
+            "originHours": 0,
+            "horizonHours": 9,
+            "path": [
+              {
+                "startHours": 0,
+                "stopHours": 9,
+                "covariates": [-0.7408309714336054, 0],
+                "observedAtHours": 0,
+                "availableAtHours": 0,
+                "validThroughHours": 9
+              }
+            ]
+          },
+          "expected": {
+            "cumulativeHazardIncrement": 0.5015656604412023,
+            "conditionalSurvivalProbability": 0.6055817816565944,
+            "conditionalFailureProbability": 0.39441821834340557
+          }
+        },
+        {
+          "profile": {
+            "stratum": "A",
+            "originHours": 2.25,
+            "horizonHours": 4.5,
+            "path": [
+              {
+                "startHours": 2.25,
+                "stopHours": 4.5,
+                "covariates": [-0.7408309714336054, 0],
+                "observedAtHours": 0,
+                "availableAtHours": 0,
+                "validThroughHours": 9
+              }
+            ]
+          },
+          "expected": {
+            "cumulativeHazardIncrement": 0.1724179119285583,
+            "conditionalSurvivalProbability": 0.841627373544185,
+            "conditionalFailureProbability": 0.15837262645581496
+          }
+        },
+        {
+          "profile": {
+            "stratum": "A",
+            "originHours": 4.5,
+            "horizonHours": 9,
+            "path": [
+              {
+                "startHours": 4.5,
+                "stopHours": 9,
+                "covariates": [-0.7408309714336054, 0],
+                "observedAtHours": 0,
+                "availableAtHours": 0,
+                "validThroughHours": 9
+              }
+            ]
+          },
+          "expected": {
+            "cumulativeHazardIncrement": 0.32914774851264406,
+            "conditionalSurvivalProbability": 0.7195366984160974,
+            "conditionalFailureProbability": 0.28046330158390265
+          }
+        },
+        {
+          "profile": {
+            "stratum": "A",
+            "originHours": 3,
+            "horizonHours": 9,
+            "path": [
+              {
+                "startHours": 3,
+                "stopHours": 9,
+                "covariates": [-0.7408309714336054, 0],
+                "observedAtHours": 0,
+                "availableAtHours": 0,
+                "validThroughHours": 9
+              }
+            ]
+          },
+          "expected": {
+            "cumulativeHazardIncrement": 0.4033011698494404,
+            "conditionalSurvivalProbability": 0.6681108541752344,
+            "conditionalFailureProbability": 0.33188914582476553
+          }
+        },
+        {
+          "profile": {
+            "stratum": "B",
+            "originHours": 0,
+            "horizonHours": 9,
+            "path": [
+              {
+                "startHours": 0,
+                "stopHours": 9,
+                "covariates": [0.4029712686801754, 0],
+                "observedAtHours": 0,
+                "availableAtHours": 0,
+                "validThroughHours": 9
+              }
+            ]
+          },
+          "expected": {
+            "cumulativeHazardIncrement": 0.6094765588405372,
+            "conditionalSurvivalProbability": 0.5436353557329209,
+            "conditionalFailureProbability": 0.4563646442670791
+          }
+        },
+        {
+          "profile": {
+            "stratum": "B",
+            "originHours": 2.25,
+            "horizonHours": 4.5,
+            "path": [
+              {
+                "startHours": 2.25,
+                "stopHours": 4.5,
+                "covariates": [0.4029712686801754, 0],
+                "observedAtHours": 0,
+                "availableAtHours": 0,
+                "validThroughHours": 9
+              }
+            ]
+          },
+          "expected": {
+            "cumulativeHazardIncrement": 0.10347635393347118,
+            "conditionalSurvivalProbability": 0.9016973440851586,
+            "conditionalFailureProbability": 0.09830265591484141
+          }
+        },
+        {
+          "profile": {
+            "stratum": "B",
+            "originHours": 4.5,
+            "horizonHours": 9,
+            "path": [
+              {
+                "startHours": 4.5,
+                "stopHours": 9,
+                "covariates": [0.4029712686801754, 0],
+                "observedAtHours": 0,
+                "availableAtHours": 0,
+                "validThroughHours": 9
+              }
+            ]
+          },
+          "expected": {
+            "cumulativeHazardIncrement": 0.5060002049070661,
+            "conditionalSurvivalProbability": 0.6029022479648987,
+            "conditionalFailureProbability": 0.39709775203510134
+          }
+        },
+        {
+          "profile": {
+            "stratum": "B",
+            "originHours": 3,
+            "horizonHours": 9,
+            "path": [
+              {
+                "startHours": 3,
+                "stopHours": 9,
+                "covariates": [0.4029712686801754, 0],
+                "observedAtHours": 0,
+                "availableAtHours": 0,
+                "validThroughHours": 9
+              }
+            ]
+          },
+          "expected": {
+            "cumulativeHazardIncrement": 0.5416682496952031,
+            "conditionalSurvivalProbability": 0.5817768932396555,
+            "conditionalFailureProbability": 0.4182231067603445
+          }
+        }
       ],
       "expected": {
         "coefficients": [0.07217959422530945, -0.5837404480529355],

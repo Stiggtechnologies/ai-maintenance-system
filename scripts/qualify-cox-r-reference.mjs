@@ -110,11 +110,80 @@ try {
         );
       }
     });
+    const conditionalScenarios = [];
+    for (const stratum of [...new Set(rows.map((row) => row.stratum))]) {
+      const selected = rows
+        .filter((row) => row.stratum === stratum && row.start === 0)
+        .sort((a, b) => b.stop - a.stop)[0];
+      if (!selected)
+        throw new Error("Explicit synthetic pre-origin profile required.");
+      const bound = Math.min(
+        selected.stop,
+        Math.max(
+          ...rows
+            .filter((row) => row.stratum === stratum && row.failed)
+            .map((row) => row.stop),
+        ),
+      );
+      const firstEvent = Math.min(
+        ...rows
+          .filter((row) => row.stratum === stratum && row.failed)
+          .map((row) => row.stop),
+      );
+      const windows = [
+        [0, bound],
+        [bound / 4, bound / 2],
+        [bound / 2, bound],
+      ];
+      if (firstEvent < bound) windows.push([firstEvent, bound]);
+      for (const [originHours, horizonHours] of windows) {
+        const covariates = selected.covariates;
+        await r.evalRVoid(
+          `nd <- data.frame(start=${originHours},stop=${horizonHours},failed=0,stratum=${JSON.stringify(stratum)},${covariates.map((value, j) => `x${j + 1}=${value}`).join(",")})`,
+        );
+        const cumulativeHazardIncrement = await r.evalRNumber(
+          'as.double(predict(fit,newdata=nd,type="expected"))',
+        );
+        const conditionalSurvivalProbability = await r.evalRNumber(
+          'as.double(predict(fit,newdata=nd,type="survival"))',
+        );
+        if (
+          !Number.isFinite(cumulativeHazardIncrement) ||
+          !Number.isFinite(conditionalSurvivalProbability)
+        )
+          throw new Error("Independent conditional prediction must be finite.");
+        conditionalScenarios.push({
+          profile: {
+            stratum,
+            originHours,
+            horizonHours,
+            path: [
+              {
+                startHours: originHours,
+                stopHours: horizonHours,
+                covariates,
+                observedAtHours: 0,
+                availableAtHours: 0,
+                validThroughHours: selected.stop,
+              },
+            ],
+          },
+          expected: {
+            cumulativeHazardIncrement,
+            conditionalSurvivalProbability,
+            conditionalFailureProbability: -Math.expm1(
+              -cumulativeHazardIncrement,
+            ),
+          },
+        });
+      }
+    }
     cases.push({
       name: fixture.name,
       covariateNames: names,
       assetClusters,
       clusterIds: clusters,
+      conditionalScenarios,
       expected: {
         coefficients,
         covariance: await matrix("vcov(fit)", p, p),
@@ -150,6 +219,8 @@ try {
         "survival::coxph Efron; clustered infinitesimal-jackknife covariance; survival::cox.zph actual score test, identity time transform.",
       phTableColumns: ["chisq", "df", "p"],
       phTableRows: "Covariates in fixture order followed by GLOBAL.",
+      conditionalMethod:
+        "R predict.coxph type=expected and type=survival over explicit (origin,horizon] counting-process intervals; not customer calibration or live forecasts.",
       noPredictiveQualification: true,
       noOperationalAuthority: true,
       sources: [
