@@ -136,4 +136,16 @@ describe("actual installed-life browser acceptance boundary", () => {
       expect(args).toContain("exact: true");
     }
   });
+  it("retains the single-asset refusal alongside a separate three-asset success with exact-asset evidence", () => {
+    expect(acceptance).toContain("for (const multipleAssets of [false, true])");
+    expect(acceptance).toContain(
+      "Clustered uncertainty cannot be estimated from a single independent asset cluster.",
+    );
+    expect(acceptance).toContain('status: "refused"');
+    expect(acceptance).toContain('status: "computed"');
+    expect(acceptance).toContain("fixture.assetIds");
+    expect(fixture).toContain("multipleAssets = false");
+    expect(fixture).toContain("assetEvidenceIds.get(eventAssetId)");
+    expect(fixture).toContain("p_asset_id: eventAssetId");
+  });
 });

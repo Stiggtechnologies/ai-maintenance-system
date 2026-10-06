@@ -120,7 +120,10 @@ export async function installLocalBrowserSession(
   );
 }
 
-export async function createSurvivalBrowserFixture(baseURL: string) {
+export async function createSurvivalBrowserFixture(
+  baseURL: string,
+  { multipleAssets = false }: { multipleAssets?: boolean } = {},
+) {
   requireLocalEndpoint(baseURL, "5173");
   if (new URL(baseURL).hostname !== "localhost")
     throw new Error("Expected local browser origin");
@@ -171,19 +174,37 @@ export async function createSurvivalBrowserFixture(baseURL: string) {
   }
   const author = await login(authorId);
   const reviewer = await login(reviewerId);
-  const evidenceId = randomUUID();
-  sql(`insert into evidence_items(id,organization_id,asset_id,source_system,evidence_type,description,
+  // A repeated component life is not an independent physical asset. Keep the
+  // single-asset fixture for the refusal; separately exercise three canonical
+  // assets without altering a claimed cluster map in a browser request.
+  const assetIds = multipleAssets
+    ? [
+        ASSET,
+        "aaaaaaaa-0000-0000-0000-000000000001",
+        "aaaaaaaa-0000-0000-0000-000000000003",
+      ]
+    : [ASSET];
+  const assetEvidenceIds = new Map<string, string>();
+  for (const assetId of assetIds) {
+    const id = randomUUID();
+    assetEvidenceIds.set(assetId, id);
+    sql(`insert into evidence_items(id,organization_id,asset_id,source_system,evidence_type,description,
     evidence_class,ts,verification_status,verified_by,verified_at,verification_method)
-    values('${evidenceId}','${ORG}','${ASSET}','Browser synthetic observations','synthetic_covariates',
+    values('${id}','${ORG}','${assetId}','Browser synthetic observations','synthetic_covariates',
     'Synthetic browser installation and condition evidence, not customer engineering data.',
     'MEASURED','${START}','verified','${reviewerId}',now(),'Independent synthetic fixture review');`);
+  }
+  const evidenceId = assetEvidenceIds.get(ASSET)!;
   const xs = [0.2, -0.4, 1, 0, 0.7, -0.8, 0.2, 0.5, -0.1, 0.9, -0.3, 0.4];
   for (let index = 1; index <= 12; index++) {
+    // Group four lives per canonical asset so each has failures and censoring.
+    const eventAssetId =
+      assetIds[Math.floor((index - 1) / 4) % assetIds.length];
     const event = await actualRpc<{ event_id: number }>(
       author.client,
       "record_component_life_event",
       {
-        p_asset_id: ASSET,
+        p_asset_id: eventAssetId,
         p_component: component,
         p_hours_at_change_out: index,
         p_event_kind: index % 3 === 0 ? "scheduled" : "failure",
@@ -216,7 +237,7 @@ export async function createSurvivalBrowserFixture(baseURL: string) {
                 name: "synthetic_load",
                 unit: "ratio",
                 value: xs[index - 1],
-                evidenceItemId: evidenceId,
+                evidenceItemId: assetEvidenceIds.get(eventAssetId),
                 observedAtHours: 0,
                 availableAtHours: 0,
                 validThroughHours: index,
@@ -289,6 +310,7 @@ export async function createSurvivalBrowserFixture(baseURL: string) {
     validUntil,
     installMeter,
     assetId: ASSET,
+    assetIds,
     startedAt: START,
   };
 }
