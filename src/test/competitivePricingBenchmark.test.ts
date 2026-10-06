@@ -64,6 +64,8 @@ const unitEconomics = JSON.parse(
   };
 };
 
+const enrichmentRunbook = readFileSync("docs/llm-enrichment.md", "utf8");
+
 const manifest = JSON.parse(
   readFileSync("marketplace/partner-center-manifest.json", "utf8"),
 ) as {
@@ -292,6 +294,19 @@ describe("competitive pricing benchmark", () => {
     });
     expect(unitEconomics.pending.providerAndPricingTierEvidence.reason).toMatch(
       /multiplier of 1\.0 is not release-eligible/i,
+    );
+  });
+
+  it("does not preserve the stale claim that the public gateway is undeployed or priced", () => {
+    expect(enrichmentRunbook).not.toMatch(
+      /stigg-ai-gateway\.fly\.dev` does not exist/i,
+    );
+    expect(enrichmentRunbook).toMatch(/returns HTTP 401 without credentials/i);
+    expect(enrichmentRunbook).toMatch(
+      /no gateway\s+invoice or pricing schedule is evidenced/i,
+    );
+    expect(enrichmentRunbook).toMatch(
+      /production cost multiplier of 1\.0 remains ineligible/i,
     );
   });
 
