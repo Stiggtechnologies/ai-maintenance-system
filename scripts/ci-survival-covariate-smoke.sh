@@ -48,11 +48,18 @@ insert into user_profiles(id,organization_id,email,full_name,role) values
 ('$REVIEWER','$ORG','survival-$REVIEWER@invalid.syncai.ca','Synthetic reviewer','reliability_engineer'),
 ('$AI','$ORG','survival-$AI@invalid.syncai.ca','Synthetic AI operator','ai_admin'),
 ('$FOREIGN','$FOREIGN_ORG','survival-$FOREIGN@invalid.syncai.ca','Synthetic foreign author','reliability_engineer');
-insert into auth.mfa_factors(id,user_id,friendly_name,factor_type,status,created_at,updated_at) values
-('$AUTHOR_FACTOR','$AUTHOR','Synthetic factor','totp','verified',now(),now()),
-('$REVIEWER_FACTOR','$REVIEWER','Synthetic factor','totp','verified',now(),now()),
-('$AI_FACTOR','$AI','Synthetic factor','totp','verified',now(),now()),
-('$FOREIGN_FACTOR','$FOREIGN','Synthetic factor','totp','verified',now(),now());
+-- GoTrue reads secret into a non-null string even during password login.
+-- These are explicit assurance fixtures, NOT real authenticator enrollment.
+-- Local config disables TOTP enrollment/verification; do not change that
+-- shared authentication configuration from this survival workstream.
+insert into auth.mfa_factors(id,user_id,friendly_name,factor_type,status,secret,created_at,updated_at) values
+('$AUTHOR_FACTOR','$AUTHOR','Synthetic factor','totp','verified','',now(),now()),
+('$REVIEWER_FACTOR','$REVIEWER','Synthetic factor','totp','verified','',now(),now()),
+('$AI_FACTOR','$AI','Synthetic factor','totp','verified','',now(),now()),
+('$FOREIGN_FACTOR','$FOREIGN','Synthetic factor','totp','verified','',now(),now());
+insert into auth.identities(id,user_id,provider_id,identity_data,provider,created_at,updated_at,last_sign_in_at)
+select gen_random_uuid(),u.id,u.id,jsonb_build_object('sub',u.id::text,'email',u.email),'email',now(),now(),now()
+from auth.users u where u.id in ('$AUTHOR','$REVIEWER','$AI','$FOREIGN');
 PSQL
 # RPC assurance fixtures above/below are signed only for this local stack.
 # Edge functions also validate a live GoTrue session; obtain real password
@@ -85,6 +92,11 @@ print(json.dumps({'mode':'include','basis':'Independent synthetic observation, s
 PY
 )
   PAYLOAD="{\"p_event_id\":$EVENT_ID,\"p_expected_version\":0,\"p_overlay\":$OVERLAY}"
+  if [ "$INDEX" = '2' ]; then
+    DUPLICATE_PAYLOAD="${PAYLOAD//synthetic-serial-2/ synthetic-serial-1 }"
+    DUPLICATE=$(rpc "$AUTHOR_TOKEN" record_survival_covariate_overlay "$DUPLICATE_PAYLOAD")
+    BODY="$DUPLICATE" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert "physical component life already" in x.get("error",""),x'
+  fi
   if [ "$INDEX" = '1' ]; then
     FIRST_ID="$EVENT_ID"; FIRST_OVERLAY="$OVERLAY"
     denied "$(rpc "$AUTHOR_AAL1" record_survival_covariate_overlay "$PAYLOAD")"
@@ -135,12 +147,26 @@ PY
 CALCULATION=$(field "$FITTED" calculationRunId)
 test "$(psqlc "select count(*) from calculation_runs where id='$CALCULATION' and calculation_key='component_covariate_survival' and status='computed_with_refusals' and code_version='cox-efron/1/draft';")" = '1'
 test "$(psqlc "select count(*) from approvals where organization_id='$ORG';")" = "$BEFORE_APPROVALS"
+# Exercise the same real REST columns/filter used by retained-history UI.
+history(){ curl -sS --get "$API_URL/rest/v1/calculation_runs" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $1" --data-urlencode 'select=id,computed_at,status,code_version,inputs,outputs,refusals' --data-urlencode "id=eq.$CALCULATION" --data-urlencode 'calculation_key=eq.component_covariate_survival' --data-urlencode "inputs->source->>component=eq.$COMPONENT"; }
+HISTORY=$(history "$AUTHOR_SESSION")
+BODY="$HISTORY" CALCULATION="$CALCULATION" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert len(x)==1 and x[0]["id"]==os.environ["CALCULATION"] and x[0]["computed_at"] and x[0]["outputs"]["status"]=="fitted",x'
+FOREIGN_HISTORY=$(history "$FOREIGN_SESSION")
+BODY="$FOREIGN_HISTORY" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert x==[],x'
 denied "$(rpc "$AUTHOR_TOKEN" record_survival_covariate_overlay "{\"p_event_id\":$FIRST_ID,\"p_expected_version\":0,\"p_overlay\":$FIRST_OVERLAY}")"
 denied "$(rpc "$AUTHOR_TOKEN" record_survival_calculation '{}')"
 FORGE=$(sql_must_fail "begin; set local role authenticated; set local request.jwt.claims='{\"sub\":\"$AUTHOR\",\"role\":\"authenticated\",\"aal\":\"aal2\"}'; update component_life_events set survival_version=999 where id=$FIRST_ID; commit;")
 grep -Eqi 'governed covariate|permission denied' <<<"$FORGE"
 FROZEN=$(sql_must_fail "update component_life_events set hours_at_change_out=99 where id=$FIRST_ID;")
 grep -qi 'source facts are frozen' <<<"$FROZEN"
+
+# Explicitly retain a legacy whitespace/case variant without an overlay.
+# It belongs in the same COMPLETE population and must refuse the whole fit.
+LEGACY_ID=$(psqlc "insert into component_life_events(organization_id,asset_id,component,hours_at_change_out,event_kind,event_date,source_file,source_basis) values('$ORG','$ASSET','  $(printf '%s' "$COMPONENT" | tr '[:lower:]' '[:upper:]')  ',13,'scheduled','2026-09-01','Synthetic legacy fixture','Synthetic legacy population reconciliation witness.') returning id;")
+LEGACY_SOURCE=$(rpc "$AUTHOR_TOKEN" get_survival_covariate_workspace "{\"p_component\":\"$COMPONENT\"}")
+BODY="$LEGACY_SOURCE" LEGACY_ID="$LEGACY_ID" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert len(x["events"])==13 and any(str(e["id"])==os.environ["LEGACY_ID"] and e["overlay"] is None for e in x["events"]),x'
+LEGACY_REFUSAL=$(calculate "$AUTHOR_SESSION"); noerr "$LEGACY_REFUSAL"
+BODY="$LEGACY_REFUSAL" LEGACY_ID="$LEGACY_ID" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert x["result"]["status"]=="refused" and x["calculationRunId"] and any("Life event "+os.environ["LEGACY_ID"] in gap for gap in x["refusals"]),x'
 
 # These are explicitly synthetic document fixtures on the canonical intake
 # rail. Actual quarantine and claim-purpose gates are exercised, not mocked.
@@ -195,4 +221,4 @@ test "$(psqlc "select count(*) from calculation_runs where id='$REFUSAL_ID' and 
 test "$(psqlc "select has_function_privilege('authenticated','public.survival_evidence_snapshot_internal(uuid,uuid,uuid,jsonb)','EXECUTE');")" = 'f'
 test "$(psqlc "select has_function_privilege('authenticated','public.record_survival_calculation(uuid,uuid,text,jsonb,jsonb,jsonb,jsonb)','EXECUTE');")" = 'f'
 
-echo 'Survival covariate smoke passed: canonical_cohort=true censoring_preserved=true independent_exact_review=true aal2_required=true ai_refused=true tenant_wall=true exact_asset_and_timestamp=true optimistic_version=true direct_metadata_forgery_refused=true source_facts_frozen=true quarantine_refused=true claim_purpose_preserved=true draft_source_refused=true superseded_source_refused=true stale_evidence_refused=true retained_fit=true retained_refusal=true predictive_qualification=false operational_authority=false'
+echo 'Survival covariate smoke passed: canonical_cohort=true censoring_preserved=true independent_exact_review=true aal2_required=true ai_refused=true tenant_wall=true exact_asset_and_timestamp=true optimistic_version=true direct_metadata_forgery_refused=true source_facts_frozen=true quarantine_refused=true claim_purpose_preserved=true draft_source_refused=true superseded_source_refused=true stale_evidence_refused=true retained_fit=true retained_refusal=true history_rls=true legacy_population_reconciled=true duplicate_life_refused=true mfa_enrollment_verified=false predictive_qualification=false operational_authority=false'

@@ -31,8 +31,8 @@ alter table public.component_life_events add constraint cle_survival_overlay_sha
 ),false));
 
 create unique index cle_survival_physical_life_unique
-  on public.component_life_events(organization_id,asset_id,lower(component),
-    (survival_overlay->>'lifeRef'))
+  on public.component_life_events(organization_id,asset_id,lower(btrim(component)),
+    (btrim(survival_overlay->>'lifeRef')))
   where survival_overlay->>'mode'='include';
 
 create or replace function public.guard_survival_life_overlay()
@@ -289,7 +289,7 @@ begin
   if not coalesce((v_control->>'allowed')::boolean,false) then
     return jsonb_build_object('error','Adopted Reliability Engineer controls refuse this analysis'); end if;
   if (select count(*) from public.component_life_events e where e.organization_id=p_organization_id
-      and lower(e.component)=lower(btrim(p_component)))>2000 then
+      and lower(btrim(e.component))=lower(btrim(p_component)))>2000 then
     return jsonb_build_object('error','Complete component population exceeds bounded ingestion; no sampled subset is returned'); end if;
   select coalesce(jsonb_agg(jsonb_build_object(
     'id',e.id,'assetId',e.asset_id,'component',e.component,'hoursAtChangeOut',e.hours_at_change_out,
@@ -311,7 +311,7 @@ begin
   left join public.approvals a on a.id=e.survival_approval_id
   cross join lateral (select public.survival_evidence_snapshot_internal(
     p_organization_id,e.survival_recorded_by,e.asset_id,e.survival_overlay) as value) current_evidence
-  where e.organization_id=p_organization_id and lower(e.component)=lower(btrim(p_component));
+  where e.organization_id=p_organization_id and lower(btrim(e.component))=lower(btrim(p_component));
   return jsonb_build_object('component',btrim(p_component),'events',v_rows,
     'agentId',v_agent,'agentControl',v_control,'kernelVersion','cox-efron/1/draft');
 end $$;
@@ -364,7 +364,7 @@ begin
     order by d.id for share;
   perform 1 from public.approvals a where a.organization_id=p_organization_id
     and a.id in (select e.survival_approval_id from public.component_life_events e
-      where e.organization_id=p_organization_id and lower(e.component)=lower(btrim(p_component)))
+      where e.organization_id=p_organization_id and lower(btrim(e.component))=lower(btrim(p_component)))
     order by a.id for share;
   perform 1 from public.agent_control_profiles p where p.organization_id=p_organization_id
     and p.agent_id=(v_source->>'agentId')::uuid order by p.id for share;
