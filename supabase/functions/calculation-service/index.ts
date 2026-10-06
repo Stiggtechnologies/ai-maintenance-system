@@ -14,7 +14,7 @@ import {
 import { selectWeibullMethod } from "../../../src/lib/reliability/method-selection.ts";
 import {
   COX_KERNEL_VERSION,
-  fitCox,
+  fitCoxWithDiagnostics,
   type CoxResult,
 } from "../../../src/lib/reliability/cox.ts";
 import {
@@ -295,16 +295,23 @@ Deno.serve(async (request) => {
             kernelVersion: COX_KERNEL_VERSION,
             authority: "advisory_only",
           }
-        : fitCox(
+        : fitCoxWithDiagnostics(
             prepared.rows,
             covariates.map((item) => item.name),
+            prepared.clusterBySubject,
           );
       const refusals = prepared.gaps.length
         ? prepared.gaps
         : result.status === "refused"
           ? [result.reason]
           : [
-              "Proportional hazards, clustered uncertainty and predictive calibration remain unqualified; no maintenance decision is authorized.",
+              "Formal identity-time PH diagnostics and canonical-asset clustered uncertainty are not customer predictive calibration or model acceptance; no maintenance decision is authorized.",
+              ...(result.diagnostics?.status === "refused"
+                ? [result.diagnostics.reason]
+                : result.diagnostics?.status === "computed" &&
+                    result.diagnostics.phIdentity.status === "refused"
+                  ? [result.diagnostics.phIdentity.reason]
+                  : []),
             ];
       const { data: receiptData, error: receiptError } = await service.rpc(
         "record_survival_calculation",

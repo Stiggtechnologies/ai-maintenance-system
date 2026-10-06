@@ -141,6 +141,8 @@ import json,os
 x=json.loads(os.environ['BODY']); assert x['result']['status']=='fitted',x
 assert x['result']['failures']==8 and x['result']['subjects']==12,x
 assert x['result']['phAssumptionValidated'] is False and x['refusals'],x
+assert x['result']['covariateNames']==['synthetic_load'],x
+assert x['result']['diagnostics']['status']=='refused' and 'single independent asset' in x['result']['diagnostics']['reason'],x
 for key in ['may_change_pm_interval','may_create_work','may_accept_risk','may_return_to_service']: assert x[key] is False,x
 assert x['calculationRunId'] and x['agentRunId'],x
 PY
@@ -153,6 +155,62 @@ HISTORY=$(history "$AUTHOR_SESSION")
 BODY="$HISTORY" CALCULATION="$CALCULATION" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert len(x)==1 and x[0]["id"]==os.environ["CALCULATION"] and x[0]["computed_at"] and x[0]["outputs"]["status"]=="fitted",x'
 FOREIGN_HISTORY=$(history "$FOREIGN_SESSION")
 BODY="$FOREIGN_HISTORY" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert x==[],x'
+
+# A distinct complete synthetic component cohort exercises COMPUTED diagnostics
+# through the real server and ledger, not just the single-asset refusal above.
+# These seeded assets are canonical same-tenant records, not row-ID clusters.
+MULTI_COMPONENT="CI clustered survival $(uuid)"
+MULTI_BEFORE_APPROVALS=$(psqlc "select count(*) from approvals where organization_id='$ORG';")
+MULTI_ASSET_B='aaaaaaaa-0000-0000-0000-000000000001'
+MULTI_ASSET_C='aaaaaaaa-0000-0000-0000-000000000003'
+test "$(psqlc "select count(*) from assets where organization_id='$ORG' and id in ('$ASSET','$MULTI_ASSET_B','$MULTI_ASSET_C');")" = '3'
+MULTI_EVIDENCE_B=$(psqlc "insert into evidence_items(organization_id,asset_id,source_system,evidence_type,description,evidence_class,ts,verification_status,verified_by,verified_at,verification_method) values('$ORG','$MULTI_ASSET_B','CI synthetic clustered measurements','synthetic_covariates','Synthetic exact-asset covariates; not customer calibration.','MEASURED','2026-08-01T00:00:00Z','verified','$REVIEWER',now(),'Independent synthetic fixture review') returning id;")
+MULTI_EVIDENCE_C=$(psqlc "insert into evidence_items(organization_id,asset_id,source_system,evidence_type,description,evidence_class,ts,verification_status,verified_by,verified_at,verification_method) values('$ORG','$MULTI_ASSET_C','CI synthetic clustered measurements','synthetic_covariates','Synthetic exact-asset covariates; not customer calibration.','MEASURED','2026-08-01T00:00:00Z','verified','$REVIEWER',now(),'Independent synthetic fixture review') returning id;")
+for INDEX in $(seq 1 12); do
+  MULTI_ASSET="$ASSET"; MULTI_EVIDENCE="$EVIDENCE"
+  if [ "$INDEX" -gt 8 ]; then MULTI_ASSET="$MULTI_ASSET_C"; MULTI_EVIDENCE="$MULTI_EVIDENCE_C"
+  elif [ "$INDEX" -gt 4 ]; then MULTI_ASSET="$MULTI_ASSET_B"; MULTI_EVIDENCE="$MULTI_EVIDENCE_B"; fi
+  KIND='failure'; case "$INDEX" in 3|6|9|12) KIND='scheduled';; esac
+  MULTI_EVENT=$(rpc "$AUTHOR_TOKEN" record_component_life_event "{\"p_asset_id\":\"$MULTI_ASSET\",\"p_component\":\"$MULTI_COMPONENT\",\"p_hours_at_change_out\":$INDEX,\"p_event_kind\":\"$KIND\",\"p_event_date\":\"2026-09-01\",\"p_source_file\":\"CI synthetic clustered source\",\"p_source_basis\":\"Synthetic diagnostic persistence witness, not customer qualification.\"}")
+  noerr "$MULTI_EVENT"; MULTI_EVENT_ID=$(field "$MULTI_EVENT" event_id)
+  MULTI_OVERLAY=$(BASE="$FIRST_OVERLAY" INDEX="$INDEX" EVIDENCE="$MULTI_EVIDENCE" python3 - <<'PY'
+import json,os
+i=int(os.environ['INDEX']); x=[.2,-.4,1,0,.7,-.8,.2,.5,-.1,.9,-.3,.4][i-1]
+overlay=json.loads(os.environ['BASE']); overlay['lifeRef']=f'synthetic-diagnostic-serial-{i}'
+interval=overlay['intervals'][0]; interval['stopHours']=i
+value=interval['values'][0]; value.update(value=x,validThroughHours=i,evidenceItemId=os.environ['EVIDENCE'])
+print(json.dumps(overlay))
+PY
+)
+  noerr "$(rpc "$AUTHOR_TOKEN" record_survival_covariate_overlay "{\"p_event_id\":$MULTI_EVENT_ID,\"p_expected_version\":0,\"p_overlay\":$MULTI_OVERLAY}")"
+  noerr "$(rpc "$REVIEWER_TOKEN" review_survival_covariate_overlay "{\"p_event_id\":$MULTI_EVENT_ID,\"p_expected_version\":1,\"p_decision\":\"validated\",\"p_basis\":\"Independent synthetic exact-asset timing and measurement review; no operational qualification.\"}")"
+done
+MULTI_AFTER_REVIEWS=$(psqlc "select count(*) from approvals where organization_id='$ORG';")
+test "$MULTI_AFTER_REVIEWS" = "$((MULTI_BEFORE_APPROVALS+12))"
+SINGLE_REQUEST="$REQUEST"
+# Forged client diagnostic/cluster values must have no authority over the
+# actual server-derived canonical asset map and qualified deterministic fit.
+REQUEST="{\"action\":\"reliability_survival\",\"component\":\"$MULTI_COMPONENT\",\"covariates\":[{\"name\":\"synthetic_load\",\"unit\":\"ratio\"}],\"diagnostics\":{\"status\":\"computed\",\"clusterCount\":999},\"clusterBySubject\":{\"fabricated-life\":\"fabricated-asset\"}}"
+MULTI_FIT=$(calculate "$AUTHOR_SESSION"); noerr "$MULTI_FIT"
+REQUEST="$SINGLE_REQUEST"
+BODY="$MULTI_FIT" python3 - <<'PY'
+import json,os,math
+x=json.loads(os.environ['BODY']); result=x['result']; diagnostic=result['diagnostics']
+assert result['status']=='fitted' and result['subjects']==12 and result['failures']==8,x
+assert diagnostic['status']=='computed' and diagnostic['clusterCount']==3,x
+assert diagnostic['diagnosticVersion']=='cox-diagnostics/1/draft' and diagnostic['authority']=='advisory_only',x
+assert len(diagnostic['clusterInfluences'])==3 and len(diagnostic['scoreResiduals'])==12,x
+assert math.isfinite(diagnostic['clusteredStandardErrors'][0]) and diagnostic['clusteredStandardErrors'][0]>0,x
+assert diagnostic['phIdentity']['status']=='computed',x
+for test in diagnostic['phIdentity']['covariates']+[diagnostic['phIdentity']['global']]:
+ assert test['degreesOfFreedom']==1 and math.isfinite(test['statistic']) and 0<=test['pValue']<=1,x
+assert result['phAssumptionValidated'] is False and x['refusals'],x
+for key in ['may_change_pm_interval','may_create_work','may_accept_risk','may_return_to_service']: assert x[key] is False,x
+PY
+MULTI_CALCULATION=$(field "$MULTI_FIT" calculationRunId)
+test "$(psqlc "select count(*) from calculation_runs where id='$MULTI_CALCULATION' and status='computed_with_refusals' and outputs->'diagnostics'->>'diagnosticVersion'='cox-diagnostics/1/draft' and outputs->'diagnostics'->>'clusterCount'='3' and outputs->'phAssumptionValidated'='false'::jsonb;")" = '1'
+test "$(psqlc "select count(*) from approvals where organization_id='$ORG';")" = "$MULTI_AFTER_REVIEWS"
+
 denied "$(rpc "$AUTHOR_TOKEN" record_survival_covariate_overlay "{\"p_event_id\":$FIRST_ID,\"p_expected_version\":0,\"p_overlay\":$FIRST_OVERLAY}")"
 denied "$(rpc "$AUTHOR_TOKEN" record_survival_calculation '{}')"
 # RLS can reject a client update by exposing no writable rows (UPDATE 0),

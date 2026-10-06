@@ -60,6 +60,9 @@ describe("canonical survival source preparation", () => {
     expect(result.rows[0].failed).toBe(false);
     expect(result.rows[0].subjectId).toBe("asset-one:drive:serial-123-life-1");
     expect(result.rows[0].covariates).toEqual([45]);
+    expect(result.clusterBySubject.get(result.rows[0].subjectId)).toBe(
+      "asset-one",
+    );
   });
   it.each(["sourceCurrent", "approvalCurrent"] as const)(
     "refuses changed or revoked %s",
@@ -211,5 +214,6 @@ describe("canonical survival source preparation", () => {
     ]);
     expect(result.rows).toEqual([]);
     expect(result.gaps).not.toEqual([]);
+    expect(result.clusterBySubject.size).toBe(0);
   });
 });

@@ -14,6 +14,72 @@ import {
   type SurvivalReceipt,
 } from "../services/survivalCovariateService";
 import { ErrorState, LoadingState } from "./ui/AsyncStates";
+import type { CoxDiagnostics } from "../lib/reliability/cox";
+
+function DiagnosticSummary({
+  diagnostics,
+  names,
+}: {
+  diagnostics: CoxDiagnostics | undefined;
+  names: string[] | undefined;
+}) {
+  if (!diagnostics)
+    return (
+      <p className="text-xs text-amber-200">
+        No retained clustered/PH diagnostic exists for this historical fit.
+      </p>
+    );
+  if (diagnostics.status === "refused")
+    return (
+      <p className="text-xs text-amber-200">
+        Diagnostic refused: {diagnostics.reason}
+      </p>
+    );
+  return (
+    <div className="space-y-2 rounded-lg border border-white/10 p-3">
+      <h5 className="font-medium text-white">
+        Canonical-asset clustered uncertainty · {diagnostics.clusterCount}{" "}
+        assets
+      </h5>
+      <p className="text-xs text-slate-400">
+        {diagnostics.diagnosticVersion} · Efron infinitesimal jackknife
+      </p>
+      {diagnostics.clusteredStandardErrors.map((value, i) => (
+        <p key={i}>
+          {names?.[i] ?? `Predictor ${i + 1}`}: clustered standard error{" "}
+          {value.toPrecision(6)}
+        </p>
+      ))}
+      <h5 className="font-medium text-white">
+        Formal PH score tests · identity time transform
+      </h5>
+      {diagnostics.phIdentity.status === "refused" ? (
+        <p className="text-amber-200">{diagnostics.phIdentity.reason}</p>
+      ) : (
+        <>
+          {diagnostics.phIdentity.covariates.map((test, i) => (
+            <p key={i}>
+              {names?.[i] ?? `Predictor ${i + 1}`}: χ²{" "}
+              {test.statistic.toPrecision(6)} · df {test.degreesOfFreedom} · p{" "}
+              {test.pValue.toPrecision(6)}
+            </p>
+          ))}
+          <p>
+            Global: χ² {diagnostics.phIdentity.global.statistic.toPrecision(6)}{" "}
+            · df {diagnostics.phIdentity.global.degreesOfFreedom} · p{" "}
+            {diagnostics.phIdentity.global.pValue.toPrecision(6)}
+          </p>
+        </>
+      )}
+      <p className="text-xs text-amber-200">
+        A non-significant test is not proof of proportional hazards. Cluster
+        adequacy, measurement applicability and predictive calibration still
+        require review; no automatic acceptance threshold or operational
+        authority.
+      </p>
+    </div>
+  );
+}
 
 const inputClass =
   "mt-1 w-full rounded-lg border border-white/15 bg-[#0b1620] p-2 text-sm text-white focus:border-cyan-400";
@@ -277,10 +343,10 @@ export function CovariateSurvivalWorkbench({
           Covariate survival · governed draft
         </h3>
         <p className="mt-2 text-sm leading-6 text-amber-200">
-          Numerical association only. Proportional-hazards suitability,
-          repeated-asset uncertainty and predictive calibration remain
-          unqualified. No PM change, work execution, risk acceptance or
-          return-to-service authority.
+          Numerical association only. Model suitability, independent-asset
+          adequacy and predictive calibration remain unproven. Numerical
+          diagnostics are not model acceptance. No PM change, work execution,
+          risk acceptance or return-to-service authority.
         </p>
         <p className="mt-2 text-xs text-slate-400">
           Actual component lives and complete exposure intervals are required.
@@ -777,8 +843,12 @@ export function CovariateSurvivalWorkbench({
               </p>
               {receipt.result.coefficients.map((coefficient, index) => (
                 <p key={index}>
-                  {covariates[index].name}: log-hazard coefficient{" "}
-                  {coefficient.toPrecision(6)} · model-based standard error{" "}
+                  {receipt.result.status === "fitted"
+                    ? (receipt.result.covariateNames?.[index] ??
+                      `Predictor ${index + 1}`)
+                    : ""}
+                  : log-hazard coefficient {coefficient.toPrecision(6)} ·
+                  model-based standard error{" "}
                   {receipt.result.status === "fitted"
                     ? receipt.result.standardErrors[index].toPrecision(6)
                     : ""}
@@ -788,6 +858,10 @@ export function CovariateSurvivalWorkbench({
                 These standard errors assume independent lives. They are not
                 cluster-robust or calibrated predictive uncertainty.
               </p>
+              <DiagnosticSummary
+                diagnostics={receipt.result.diagnostics}
+                names={receipt.result.covariateNames}
+              />
             </div>
           ) : (
             <p className="mt-2 text-sm text-amber-200">

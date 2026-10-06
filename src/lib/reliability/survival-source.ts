@@ -52,10 +52,16 @@ export interface SurvivalSourceEvent {
 export function prepareSurvivalSource(
   events: SurvivalSourceEvent[],
   covariates: Array<{ name: string; unit: string }>,
-): { rows: CoxInterval[]; gaps: string[]; excludedEventIds: number[] } {
+): {
+  rows: CoxInterval[];
+  gaps: string[];
+  excludedEventIds: number[];
+  clusterBySubject: Map<string, string>;
+} {
   const gaps: string[] = [];
   const rows: CoxInterval[] = [];
   const excludedEventIds: number[] = [];
+  const clusterBySubject = new Map<string, string>();
   if (
     !Array.isArray(events) ||
     !Array.isArray(covariates) ||
@@ -77,6 +83,7 @@ export function prepareSurvivalSource(
         "Select 1–8 unique named covariates with explicit matching units.",
       ],
       excludedEventIds: [],
+      clusterBySubject,
     };
   }
   if (!events.length || events.length > 2000)
@@ -84,6 +91,7 @@ export function prepareSurvivalSource(
       rows: [],
       gaps: ["A bounded complete canonical source population is required."],
       excludedEventIds: [],
+      clusterBySubject,
     };
   const seenEvents = new Set<number>();
   const seenLives = new Set<string>();
@@ -254,7 +262,10 @@ export function prepareSurvivalSource(
       gaps.push(
         `${label}: missing covariates, mixed units, evidence leakage, expired validity or incomplete exposure coverage.`,
       );
-    else rows.push(...local);
+    else {
+      rows.push(...local);
+      clusterBySubject.set(subjectId, event.assetId!);
+    }
   }
   if (rows.length > 2000)
     gaps.push(
@@ -262,5 +273,10 @@ export function prepareSurvivalSource(
     );
   // Refuse the entire population. Passing the valid subset would bias the
   // cohort and convert unresolved evidence gaps into silent exclusions.
-  return { rows: gaps.length ? [] : rows, gaps, excludedEventIds };
+  return {
+    rows: gaps.length ? [] : rows,
+    gaps,
+    excludedEventIds,
+    clusterBySubject: gaps.length ? new Map() : clusterBySubject,
+  };
 }
