@@ -127,6 +127,16 @@ results must be recorded at the exact PR head before claiming those gates.
 Mocks and source-contract assertions do not prove deployed database behavior.
 The full E12.07 capability remains yellow even if these prerequisite tests pass.
 
+The actual browser test uses two explicit CI-only synthetic manual-file sources,
+one enabled and one disabled. Setup is restricted to the disposable GitHub Actions
+loopback database and an explicit fixture marker; existing demo connectors are not
+enabled or altered. The enabled case proves persisted draft configuration and
+recorded-chain assessment without an observation or evidence eligibility. The
+disabled case independently proves refusal after the same configuration workflow.
+These fixtures do not represent live feeds, collectors or production clocks.
+The preceding checkpoint's browser failure exposed an arbitrary first-option
+selection of a disabled demo source, not permission to weaken that refusal.
+
 ### Isolated PostgreSQL adversarial witness
 
 The actual migration also has reproducible fixtures in

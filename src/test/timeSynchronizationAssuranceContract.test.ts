@@ -13,6 +13,33 @@ const component = readFileSync(
 const governance = readFileSync("src/components/DataGovernance.tsx", "utf8");
 
 describe("E12.07 governed time-synchronization assurance", () => {
+  it("uses explicit CI-only browser sources and tests disabled refusal without enabling demo feeds", () => {
+    const fixture = readFileSync(
+      "scripts/tests/time-assurance-browser-fixture.sql",
+      "utf8",
+    );
+    const workflow = readFileSync(".github/workflows/ci.yml", "utf8");
+    const browser = readFileSync(
+      "tests/e2e/time-synchronization-assurance.spec.ts",
+      "utf8",
+    );
+    expect(workflow).toContain('test "${GITHUB_ACTIONS:-}" = true');
+    expect(workflow).toContain("time-assurance-browser-fixture.sql");
+    expect(fixture).toContain("e12-browser-enabled-synthetic");
+    expect(fixture).toContain("e12-browser-disabled-synthetic");
+    expect(fixture.toLowerCase()).not.toMatch(
+      /update\s+(?:public\.)?connectors/,
+    );
+    expect(fixture.toLowerCase()).not.toContain("on conflict");
+    expect(browser).not.toContain("options[0]");
+    expect(browser).toContain('expectedState: "disabled"');
+    expect(browser).toContain('expectedState: "unproven"');
+    expect(browser).toContain("initial.enabled");
+    expect(browser).toContain(
+      "eligible_for_time_sensitive_evidence).toBe(false)",
+    );
+  });
+
   it("keeps numerical posture distinct from approved engineering evidence", () => {
     expect(migration).toContain(
       "'configurationevidenceverified',false,'eligiblefortimesensitiveevidence',false",
