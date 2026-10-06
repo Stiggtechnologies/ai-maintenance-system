@@ -1,4 +1,5 @@
 -- E12.07 — governed time-synchronization assurance.
+-- Unapplied draft serialized after every currently open migration (including #634).
 --
 -- SyncAI does not set or discipline plant clocks.  It records the tenant's
 -- administrator-recorded clock contract on the ONE canonical connector, accepts immutable

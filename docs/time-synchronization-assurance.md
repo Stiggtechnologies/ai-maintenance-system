@@ -188,7 +188,7 @@ selection of a disabled demo source, not permission to weaken that refusal.
 The actual migration also has reproducible fixtures in
 `scripts/tests/time-assurance-postgres-bootstrap.sql` and
 `scripts/tests/time-assurance-postgres-tests.sql`. Apply the bootstrap, actual
-`20270103010000_time_synchronization_assurance.sql`, then tests with
+`20270103030000_time_synchronization_assurance.sql`, then tests with
 `psql -v ON_ERROR_STOP=1` in a newly initialized disposable database only.
 Apply the actual `20261121090000_audit_ledger_hardening.sql` between bootstrap and
 the clock migration, then run `scripts/tests/time-assurance-history-postgres-tests.sql`
