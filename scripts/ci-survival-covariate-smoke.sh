@@ -155,7 +155,20 @@ FOREIGN_HISTORY=$(history "$FOREIGN_SESSION")
 BODY="$FOREIGN_HISTORY" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert x==[],x'
 denied "$(rpc "$AUTHOR_TOKEN" record_survival_covariate_overlay "{\"p_event_id\":$FIRST_ID,\"p_expected_version\":0,\"p_overlay\":$FIRST_OVERLAY}")"
 denied "$(rpc "$AUTHOR_TOKEN" record_survival_calculation '{}')"
-FORGE=$(sql_must_fail "begin; set local role authenticated; set local request.jwt.claims='{\"sub\":\"$AUTHOR\",\"role\":\"authenticated\",\"aal\":\"aal2\"}'; update component_life_events set survival_version=999 where id=$FIRST_ID; commit;")
+# RLS can reject a client update by exposing no writable rows (UPDATE 0),
+# which is a successful SQL command but NOT a successful forgery.
+CLIENT_FORGE=$(curl -sS -w '\n%{http_code}' -X PATCH "$API_URL/rest/v1/component_life_events?id=eq.$FIRST_ID" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $AUTHOR_SESSION" -H 'Content-Type: application/json' -H 'Prefer: return=representation' -d '{"survival_version":999}')
+CLIENT_STATUS=${CLIENT_FORGE##*$'\n'}; CLIENT_BODY=${CLIENT_FORGE%$'\n'*}
+case "$CLIENT_STATUS" in
+  200) test "$CLIENT_BODY" = '[]';;
+  403) denied "$CLIENT_BODY";;
+  400) BODY="$CLIENT_BODY" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert "governed covariate" in x.get("message",""),x';;
+  *) echo "Unexpected authenticated metadata PATCH status: $CLIENT_STATUS"; exit 1;;
+esac
+test "$(psqlc "select survival_version from component_life_events where id=$FIRST_ID;")" = '1'
+# A privileged row-visible writer must independently hit the governed-writer
+# trigger; RLS zero-row protection is not used as trigger coverage.
+FORGE=$(sql_must_fail "update component_life_events set survival_version=999 where id=$FIRST_ID;")
 grep -Eqi 'governed covariate|permission denied' <<<"$FORGE"
 FROZEN=$(sql_must_fail "update component_life_events set hours_at_change_out=99 where id=$FIRST_ID;")
 grep -qi 'source facts are frozen' <<<"$FROZEN"
