@@ -150,12 +150,21 @@ export function RecommendationVerificationPlanDrawer({
             >
               <p className="flex items-center gap-2 font-semibold">
                 <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
-                {plan.planComplete
-                  ? "Plan complete"
-                  : plan.legacyDebt
-                    ? "Legacy obligation requires an explicit plan"
-                    : "Approval is blocked until this plan is complete"}
+                {plan.state === "closed"
+                  ? "Plan closed — read-only record"
+                  : plan.planComplete
+                    ? "Plan complete"
+                    : plan.legacyDebt
+                      ? "Legacy obligation requires an explicit plan"
+                      : "Approval is blocked until this plan is complete"}
               </p>
+              {plan.state === "closed" && (
+                <p className="mt-2 text-slate-400">
+                  A closed plan does not prove a verified outcome. Consult the
+                  recorded result and governed evidence; historical outcomes
+                  remain labelled separately.
+                </p>
+              )}
               <p className="mt-2 text-slate-400">
                 Planning and verification do not authorize work, change plant
                 settings or accept operational risk. The customer retains those

@@ -131,4 +131,24 @@ describe("RecommendationVerificationPlanDrawer", () => {
     );
     expect(await screen.findByText(/Approval will snapshot it/)).toBeTruthy();
   });
+
+  it("does not present a closed historical plan as a pending approval blocker", async () => {
+    getPlan.mockResolvedValue({ ...EMPTY_PLAN, state: "closed" });
+    render(
+      <RecommendationVerificationPlanDrawer
+        recommendationId="rec-1"
+        recommendationTitle="Historical seal intervention"
+        canGovern
+        onClose={() => undefined}
+      />,
+    );
+
+    expect(await screen.findByText("Plan closed — read-only record")).toBeTruthy();
+    expect(screen.queryByText(/Approval is blocked/)).toBeNull();
+    expect(screen.getByText(/does not prove a verified outcome/)).toBeTruthy();
+    expect(screen.getByLabelText("Verification method")).toBeDisabled();
+    expect(
+      screen.queryByRole("button", { name: "Record governed verification plan" }),
+    ).toBeNull();
+  });
 });
