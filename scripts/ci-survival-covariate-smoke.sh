@@ -12,6 +12,8 @@ rpc(){ curl -sS -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "Aut
 field(){ BODY="$1" KEY="$2" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); print(x.get(os.environ["KEY"],""))'; }
 noerr(){ BODY="$1" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert isinstance(x,dict) and not x.get("error") and not x.get("message"),x'; }
 denied(){ BODY="$1" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert x.get("error") or x.get("message"),x'; }
+token(){ curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' -d "{\"email\":\"survival-$1@invalid.syncai.ca\",\"password\":\"SyntheticSurvival123!\"}" | python3 -c 'import json,sys; x=json.load(sys.stdin); assert x.get("access_token"),x; print(x["access_token"])'; }
+authenticated(){ local response; response=$(curl -sS "$API_URL/auth/v1/user" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $1"); BODY="$response" SUBJECT="$2" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert x.get("id")==os.environ["SUBJECT"],x'; }
 sql_must_fail(){ local result code; set +e; result=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -c "$1" 2>&1); code=$?; set -e; test "$code" != 0; printf '%s' "$result"; }
 jwt(){ SUBJECT="$1" ASSURANCE="$2" SIGNING_KEY="$JWT_SECRET" python3 - <<'PY'
 import base64,hashlib,hmac,json,os,time
@@ -52,6 +54,14 @@ insert into auth.mfa_factors(id,user_id,friendly_name,factor_type,status,created
 ('$AI_FACTOR','$AI','Synthetic factor','totp','verified',now(),now()),
 ('$FOREIGN_FACTOR','$FOREIGN','Synthetic factor','totp','verified',now(),now());
 PSQL
+# RPC assurance fixtures above/below are signed only for this local stack.
+# Edge functions also validate a live GoTrue session; obtain real password
+# sessions rather than relaxing the production getUser authentication gate.
+psqlc "update auth.users set encrypted_password=crypt('SyntheticSurvival123!',gen_salt('bf')) where id in ('$AUTHOR','$AI','$FOREIGN');" >/dev/null
+AUTHOR_SESSION=$(token "$AUTHOR"); AI_SESSION=$(token "$AI"); FOREIGN_SESSION=$(token "$FOREIGN")
+authenticated "$AUTHOR_SESSION" "$AUTHOR"
+authenticated "$AI_SESSION" "$AI"
+authenticated "$FOREIGN_SESSION" "$FOREIGN"
 AUTHOR_TOKEN=$(jwt "$AUTHOR" aal2); AUTHOR_AAL1=$(jwt "$AUTHOR" aal1)
 REVIEWER_TOKEN=$(jwt "$REVIEWER" aal2); AI_TOKEN=$(jwt "$AI" aal2); FOREIGN_TOKEN=$(jwt "$FOREIGN" aal2)
 EVIDENCE=$(psqlc "insert into evidence_items(organization_id,asset_id,source_system,evidence_type,description,evidence_class,ts,verification_status,verified_by,verified_at,verification_method) values('$ORG','$ASSET','CI synthetic measurements','synthetic_covariates','Explicitly synthetic quantitative observations; not OEM data or operational engineering limits.','MEASURED','2026-08-01T00:00:00Z','verified','$REVIEWER',now(),'Independent synthetic fixture review') returning id;")
@@ -107,9 +117,13 @@ assert sum(r['eventKind']=='scheduled' for r in x['events'])==4,x
 PY
 REQUEST="{\"action\":\"reliability_survival\",\"component\":\"$COMPONENT\",\"covariates\":[{\"name\":\"synthetic_load\",\"unit\":\"ratio\"}]}"
 calculate(){ curl -sS -X POST "$API_URL/functions/v1/calculation-service" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d "$REQUEST"; }
-denied "$(calculate "$AI_TOKEN")"; denied "$(calculate "$FOREIGN_TOKEN")"
+analysis_denied(){ local response status body; response=$(curl -sS -w '\n%{http_code}' -X POST "$API_URL/functions/v1/calculation-service" -H "apikey: $ANON_KEY" -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d "$REQUEST"); status=${response##*$'\n'}; body=${response%$'\n'*}; test "$status" = '403'; BODY="$body" EXPECTED="$2" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert os.environ["EXPECTED"] in x.get("error","").lower(),x'; }
+analysis_denied "$AI_SESSION" 'named same-tenant'
+# The foreign human is valid in their own tenant, which has no adopted RE
+# profile. The server must derive that tenant, never use our requested scope.
+analysis_denied "$FOREIGN_SESSION" 'adopted reliability engineer controls'
 BEFORE_APPROVALS=$(psqlc "select count(*) from approvals where organization_id='$ORG';")
-FITTED=$(calculate "$AUTHOR_TOKEN"); noerr "$FITTED"
+FITTED=$(calculate "$AUTHOR_SESSION"); noerr "$FITTED"
 BODY="$FITTED" python3 - <<'PY'
 import json,os
 x=json.loads(os.environ['BODY']); assert x['result']['status']=='fitted',x
@@ -170,7 +184,7 @@ denied "$(rpc "$REVIEWER_TOKEN" review_survival_covariate_overlay "{\"p_event_id
 
 # An altered source cannot reuse its old approval. Refusals are retained too.
 psqlc "update evidence_items set description='Changed synthetic source must invalidate every prior exact approval.' where id='$EVIDENCE';" >/dev/null
-REFUSED=$(calculate "$AUTHOR_TOKEN"); noerr "$REFUSED"
+REFUSED=$(calculate "$AUTHOR_SESSION"); noerr "$REFUSED"
 BODY="$REFUSED" python3 - <<'PY'
 import json,os
 x=json.loads(os.environ['BODY']); assert x['result']['status']=='refused' and x['refusals'],x

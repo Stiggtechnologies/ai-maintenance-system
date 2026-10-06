@@ -66,4 +66,15 @@ describe("C7.14 governed canonical covariates", () => {
       expect(smoke).toContain(invariant);
     }
   });
+  it("proves edge authorization with authenticated sessions, not incidental authentication failures", () => {
+    expect(edge).toContain("userClient.auth.getUser()");
+    expect(smoke).toContain("/auth/v1/token?grant_type=password");
+    expect(smoke).toContain("/auth/v1/user");
+    expect(smoke).toContain('authenticated "$FOREIGN_SESSION" "$FOREIGN"');
+    expect(smoke).toContain("test \"$status\" = '403'");
+    expect(smoke).toContain('analysis_denied "$AI_SESSION"');
+    expect(smoke).toContain('analysis_denied "$FOREIGN_SESSION"');
+    expect(smoke).toContain('FITTED=$(calculate "$AUTHOR_SESSION")');
+    expect(smoke).not.toContain('denied "$(calculate');
+  });
 });
