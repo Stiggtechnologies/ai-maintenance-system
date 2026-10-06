@@ -201,6 +201,19 @@ create trigger trg_recommendation_verification_plan_on_release
   before update of status on public.recommendations
   for each row execute function public.enforce_recommendation_verification_plan_on_release();
 
+-- A client must not skip the update-based approval, authority and verification
+-- gates by inserting an already actioned recommendation. Restrict only the
+-- client INSERT door: canonical definer producers and historical privileged
+-- imports retain their existing contracts, and ordinary pending drafts remain
+-- writable under the standing organization and role policies.
+drop policy if exists recommendations_no_actioned_client_insert on public.recommendations;
+create policy recommendations_no_actioned_client_insert on public.recommendations
+  as restrictive for insert to authenticated
+  with check (
+    organization_id=public.app_current_org()
+    and status not in ('approved','released','scheduled','completed')
+  );
+
 -- Re-plan existing open debt, recover unwatched actioned debt, or plan a
 -- pending recommendation. A recovered obligation begins now, with no invented
 -- result and no backdated observation window. The same

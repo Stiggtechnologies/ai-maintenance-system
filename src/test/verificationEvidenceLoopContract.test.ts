@@ -46,6 +46,15 @@ describe("C4.08 evidence-linked verification contract", () => {
     expect(migration).toContain("coalesce(planner.role,'')<>'ai_admin'");
   });
 
+  it("does not let a client skip update-based approval gates with an actioned insert", () => {
+    expect(migration).toContain("recommendations_no_actioned_client_insert");
+    expect(migration).toContain("as restrictive for insert to authenticated");
+    expect(migration).toContain("organization_id=public.app_current_org()");
+    expect(migration).toContain(
+      "status not in ('approved','released','scheduled','completed')",
+    );
+  });
+
   it("never derives a new recommendation verification date from plus 30 days", () => {
     const triggerStart = migration.indexOf(
       "create or replace function public.create_verification_obligation()",

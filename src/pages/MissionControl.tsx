@@ -276,6 +276,8 @@ function RecommendationCard({
   rec,
   busy,
   canAct,
+  expanded,
+  onToggle,
   onApprove,
   onAction,
   onEvidence,
@@ -290,6 +292,8 @@ function RecommendationCard({
   rec: RecommendationRow;
   busy: boolean;
   canAct: boolean;
+  expanded: boolean;
+  onToggle: () => void;
   onApprove: (r: RecommendationRow) => void;
   onAction: (
     r: RecommendationRow,
@@ -304,7 +308,6 @@ function RecommendationCard({
   onCreateWO: (r: RecommendationRow) => void;
   onSign: (r: RecommendationRow, note: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const [signNote, setSignNote] = useState("");
   const level = alertLevels[rec.urgency] ?? alertLevels.advisory;
   const autonomous = (rec.approval_required ?? "")
@@ -315,10 +318,7 @@ function RecommendationCard({
       layout
       className={`border ${level.border} ${level.bg} rounded-xl p-4`}
     >
-      <div
-        className="flex items-start gap-3 cursor-pointer"
-        onClick={() => setExpanded(!expanded)}
-      >
+      <div className="flex items-start gap-3 cursor-pointer" onClick={onToggle}>
         <div
           className={`mt-2 w-2 h-2 rounded-full ${level.dot} shrink-0 animate-pulse`}
         />
@@ -602,6 +602,19 @@ export function MissionControl() {
   );
   const [busyId, setBusyId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // Data refresh temporarily unmounts cards. Keep the user's expansion choices
+  // here so saving evidence or a verification plan does not hide the next action.
+  const [expandedRecIds, setExpandedRecIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const toggleRecommendation = useCallback((id: string) => {
+    setExpandedRecIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   const flash = useCallback((msg: string) => {
     setToast(msg);
@@ -867,6 +880,8 @@ export function MissionControl() {
                     rec={rec}
                     busy={busyId === rec.id}
                     canAct={canAct}
+                    expanded={expandedRecIds.has(rec.id)}
+                    onToggle={() => toggleRecommendation(rec.id)}
                     onApprove={handleApprove}
                     onAction={handleAction}
                     onSign={handleSignEngineering}

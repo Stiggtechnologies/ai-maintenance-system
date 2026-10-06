@@ -129,6 +129,26 @@ values
 ('$REC_UNWATCHED','$ORG','$ASSET','C4.08 unwatched action','An older approved action has no outcome obligation.','Create explicit open verification debt, without claiming a historical outcome.','Recover the unwatched loop without inventing evidence.',75,'advisory','approved','The approved historical action still owes an observable outcome.','An absent obligation cannot be counted as a successful verification.','Record a human plan now and collect new exact-asset evidence.',current_date+20,'maintenance_manager','Historical method is not an explicit current verification plan.','Low','\$40k'),
 ('$FOREIGN_REC','$FOREIGN_ORG','c4080000-0000-4000-8000-000000000099','C4.08 foreign recommendation','Foreign issue.','Foreign action.','Foreign impact.',70,'advisory','pending','Foreign rationale.','Foreign consequence is intentionally substantive.','Foreign alternative is intentionally substantive.',current_date+20,'reliability_engineer','Foreign verification statement is deliberately substantive.','Low','\$10k');" >/dev/null
 
+echo '— a direct client insert cannot skip the update-based approval gates —'
+CLIENT_REC='c4080000-0000-4000-8000-000000000017'
+client_insert(){
+  curl -sS -X POST "$API_URL/rest/v1/recommendations" \
+    -H "apikey: $ANON_KEY" -H "authorization: Bearer $1" \
+    -H 'content-type: application/json' -H 'Prefer: return=representation' \
+    -d "{\"id\":\"$CLIENT_REC\",\"organization_id\":\"$ORG\",\"asset_id\":\"$ASSET\",\"title\":\"C4.08 client draft\",\"issue\":\"The client draft has not been authorized for execution.\",\"action\":\"Gather governed evidence before seeking human approval.\",\"impact\":\"Preserve approval and verification gates.\",\"confidence\":70,\"urgency\":\"advisory\",\"status\":\"$2\",\"accountable\":\"Reliability Manager\",\"approval_required\":\"Reliability Manager\",\"rationale\":\"A draft is not a release or a verified outcome.\"}"
+}
+for ACTIONED_STATE in approved released scheduled completed; do
+  R=$(client_insert "$RE" "$ACTIONED_STATE")
+  expect_contains "$R" '42501'
+  test "$(psqlc "select count(*) from recommendations where id='$CLIENT_REC'")" = '0'
+done
+R=$(client_insert "$AIBOT" 'approved')
+expect_contains "$R" '42501'
+test "$(psqlc "select count(*) from recommendations where id='$CLIENT_REC'")" = '0'
+R=$(client_insert "$RE" 'pending')
+noerr "$R"; expect_contains "$R" "$CLIENT_REC"
+test "$(psqlc "select status from recommendations where id='$CLIENT_REC'")" = 'pending'
+
 R=$(rpc "$MANAGER" record_recommendation_assumptions "{\"p_recommendation_id\":\"$REC_NOPLAN\",\"p_packet\":{\"disposition\":\"none_identified\",\"basis\":\"The evidence, alternatives, consequence and validation scope were reviewed for material assumptions before release.\",\"items\":[]},\"p_note\":\"C4.08 independent assumption review for the exact recommendation.\"}")
 noerr "$R"
 
@@ -316,4 +336,4 @@ test "$(psqlc "select (direction='read_only' and not write_enabled)::text from c
 test "$(psqlc "select count(*) from verification_obligations where id in ('$EVIDENCE_OBL','$CMMS_OBL','$LEGACY_OBL','$UNWATCHED_OBL') and status='completed' and ((evidence_id is not null)::int+(work_order_id is not null)::int)=1")" = '4'
 POSTURE=$(rpc "$RE" get_verification_posture '{}')
 test "$(field "$POSTURE" evidenceBackedCompleted)" -ge 4
-echo 'C4.08 verification-evidence smoke passed: explicit_plan=true no_assumed_date=true named_owner=true tenant_wall=true ai_refused=true exact_one_source=true independent_evidence=true governed_cmms_lineage=true legacy_replanned=true unwatched_recovered=true no_backdated_outcome=true immutable_result=true learning=true audit=true no_write_authority=true'
+echo 'C4.08 verification-evidence smoke passed: explicit_plan=true no_assumed_date=true named_owner=true tenant_wall=true ai_refused=true actioned_client_insert_refused=true pending_client_draft_allowed=true exact_one_source=true independent_evidence=true governed_cmms_lineage=true legacy_replanned=true unwatched_recovered=true no_backdated_outcome=true immutable_result=true learning=true audit=true no_write_authority=true'
