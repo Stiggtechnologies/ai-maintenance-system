@@ -12,6 +12,10 @@ import {
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
+import {
+  diagnoseSourceFunctionDrift,
+  parseSourceInventoryCapture,
+} from "./database-restore-diagnostics.mjs";
 
 const sourceName = "supabase_db_ai-maintenance-system";
 const sha = (value) => createHash("sha256").update(value).digest("hex");
@@ -19,6 +23,10 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = dirname(here);
 const inventorySql = readFileSync(
   join(here, "database-restore-inventory.sql"),
+  "utf8",
+);
+const functionDiagnosticsSql = readFileSync(
+  join(here, "database-restore-function-diagnostics.sql"),
   "utf8",
 );
 
@@ -542,7 +550,7 @@ export function createPrivateOutput(parent = tmpdir()) {
 
 export function writePrivateArtifact(output, name, value) {
   if (
-    !/^(report\.json|source-inventory\.json|source-after-backup-inventory\.json|restored-inventory\.json|post-reference-inventory\.json|constraint-references\.json|roles\.sql|database\.dump|graphql-overlay\.sql|graphql-schema-acl\.sql)$/.test(
+    !/^(report\.json|source-inventory\.json|source-after-backup-inventory\.json|source-function-diagnostics\.json|source-after-backup-function-diagnostics\.json|source-current-function-diagnostics\.json|restored-inventory\.json|post-reference-inventory\.json|constraint-references\.json|roles\.sql|database\.dump|graphql-overlay\.sql|graphql-schema-acl\.sql)$/.test(
       name,
     )
   ) {
@@ -1259,15 +1267,24 @@ export async function runRestoreDrill({
     snapshotSession = await timed("snapshot", () =>
       exportedSnapshot(source.id),
     );
-    const before = await timed("source_inventory", async () =>
-      parseInventory(
+    const beforeCapture = await timed("source_inventory", async () =>
+      parseSourceInventoryCapture(
         await sql(
           source.id,
           "postgres",
           "/var/run/postgresql",
-          `begin isolation level repeatable read read only; set transaction snapshot '${snapshotSession.snapshot}';\n${inventorySql}\ncommit;`,
+          `begin isolation level repeatable read read only; set transaction snapshot '${snapshotSession.snapshot}';
+${inventorySql}
+${functionDiagnosticsSql}
+commit;`,
         ),
       ),
+    );
+    const before = beforeCapture.inventory;
+    writePrivateArtifact(
+      output,
+      "source-function-diagnostics.json",
+      JSON.stringify(beforeCapture.diagnostics),
     );
     writePrivateArtifact(
       output,
@@ -1333,15 +1350,24 @@ export async function runRestoreDrill({
         }
       }
     });
-    const afterBackup = await timed("source_backup_inventory", async () =>
-      parseInventory(
+    const afterCapture = await timed("source_backup_inventory", async () =>
+      parseSourceInventoryCapture(
         await sql(
           source.id,
           "postgres",
           "/var/run/postgresql",
-          `begin isolation level repeatable read read only; set transaction snapshot '${snapshotSession.snapshot}';\n${inventorySql}\ncommit;`,
+          `begin isolation level repeatable read read only; set transaction snapshot '${snapshotSession.snapshot}';
+${inventorySql}
+${functionDiagnosticsSql}
+commit;`,
         ),
       ),
+    );
+    const afterBackup = afterCapture.inventory;
+    writePrivateArtifact(
+      output,
+      "source-after-backup-function-diagnostics.json",
+      JSON.stringify(afterCapture.diagnostics),
     );
     writePrivateArtifact(
       output,
@@ -1354,6 +1380,37 @@ export async function runRestoreDrill({
       report.inventoryMismatchSummary = inventoryMismatchSummary(
         before,
         afterBackup,
+      );
+      report.sourceFunctionDriftHints = await diagnoseSourceFunctionDrift(
+        before,
+        afterBackup,
+        beforeCapture.diagnostics,
+        afterCapture.diagnostics,
+        async () => {
+          const rows = parseInventory(
+            await sql(
+              source.id,
+              "postgres",
+              "/var/run/postgresql",
+              `begin isolation level repeatable read read only; set statement_timeout='30s';
+${functionDiagnosticsSql}
+commit;`,
+            ),
+          );
+          if (
+            rows.length !== 1 ||
+            Object.keys(rows[0]).length !== 1 ||
+            !Object.hasOwn(rows[0], "privateFunctionDiagnostics")
+          )
+            throw new Error("Unqualified fresh catalog observation");
+          const fresh = rows[0].privateFunctionDiagnostics;
+          writePrivateArtifact(
+            output,
+            "source-current-function-diagnostics.json",
+            JSON.stringify(fresh),
+          );
+          return fresh;
+        },
       );
       throw error;
     }

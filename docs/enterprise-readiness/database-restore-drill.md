@@ -159,6 +159,26 @@ Source-after-backup inventory and exact sequence values remain private. The
 summary contains only the source-stability result and counts of compared
 sequences/materialized views, never their identities, counters or row digests.
 
+The source inventory backends also collect diagnostic-only raw routine catalogs,
+reconstructed definitions and rendering-session settings. These observations
+are stored separately in exclusive **0600** `source-function-diagnostics.json`,
+`source-after-backup-function-diagnostics.json` and, after a function mismatch,
+`source-current-function-diagnostics.json` artifacts. They are not authoritative
+restore manifests and are never uploaded by the workflow.
+
+After a function-definition mismatch, one bounded read-only fresh catalog read
+can add fixed drift/equality flags to the public summary. Function identities,
+OIDs, raw SQL, catalog tuples, settings and identity digests remain private.
+Missing, malformed or uncorrelated observations are `UNAVAILABLE`, never assumed
+equal. These flags classify observations only: they do not establish a harmless
+cause, authorize source changes, normalize definitions or turn any mismatch
+into PASS. Diagnostic failure preserves the original qualification failure.
+
+The source function-definition instability seen in two October 6 CI runs is
+still unqualified until its actual cause and a successful strict restore are
+demonstrated. No PostgreSQL rendering or concurrent-DDL hypothesis is asserted
+as the incident's proven cause.
+
 For a differing, nondeferrable NOT VALID CHECK only, a bounded reference witness
 may reparse the captured source definition on the restored relation in a
 10-second, rollback-only transaction. The original constraint is not dropped,
