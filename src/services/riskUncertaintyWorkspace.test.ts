@@ -71,6 +71,7 @@ function workspace() {
       version: 1,
       status: "adopted",
       decisionThresholds: { investigate: 40 },
+      policyDigest: "b".repeat(64),
     },
     evidence: [
       {
@@ -98,6 +99,7 @@ function workspace() {
         digestCoverage: "evidence_content_and_current_criteria",
         storedStatus: "pending_review",
         validationStatus: "pending_review",
+        reviewStanding: "reviewable",
         method: "Synthetic estimate",
         basis: "Sourced synthetic assumption and method basis.",
         probability: { lower: 0.1, central: 0.2, upper: 0.4 },
@@ -807,6 +809,7 @@ describe("uncertainty canonical workspace read qualification", () => {
     const data = workspace();
     data.criteria.id = otherId;
     data.criteria.status = "superseded";
+    data.analyses[0].reviewStanding = "policy_unavailable";
     data.risk.currency = "USD";
     data.risk.status = "archived";
     data.analyses[0].createdAt = "2020-01-01T00:00:00.123456+00:00";
@@ -825,6 +828,7 @@ describe("uncertainty canonical workspace read qualification", () => {
       set(item, "storedStatus", status);
       item.validationStatus = "stale";
       item.currentDigest = "b".repeat(64);
+      item.reviewStanding = "replacement_required";
       if (status !== "pending_review") {
         set(item, "reviewerId", reviewerId);
         set(item, "reviewedAt", "2026-09-30T00:00:00Z");
@@ -913,6 +917,7 @@ describe("uncertainty canonical workspace read qualification", () => {
     data.analyses[0].evidenceItemIds = [otherId];
     data.analyses[0].validationStatus = "stale";
     data.analyses[0].currentDigest = "b".repeat(64);
+    data.analyses[0].reviewStanding = "replacement_required";
     wire.body = data;
     await expect(getRiskUncertaintyWorkspace(riskId, context)).resolves.toEqual(
       data,

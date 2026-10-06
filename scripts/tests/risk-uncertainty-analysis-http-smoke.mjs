@@ -328,6 +328,7 @@ async function run() {
   assert.equal(workspace.criteria.id, f.criteria);
   assert.equal(workspace.criteria.organizationId, f.org);
   assert.equal(workspace.criteria.status, "adopted");
+  assert.match(workspace.criteria.policyDigest, /^[0-9a-f]{64}$/);
   assert.ok(Array.isArray(workspace.evidence));
   assert.ok(workspace.evidence.some((evidence) => evidence.id === f.verified));
   for (const evidence of workspace.evidence) {
@@ -340,6 +341,7 @@ async function run() {
   assert.ok(item);
   assert.equal(item.validationStatus, "validated");
   assert.equal(item.storedStatus, "validated");
+  assert.equal(item.reviewStanding, "reviewable");
   assert.equal(item.digestVersion, 2);
   assert.equal(item.digestCoverage, "evidence_content_and_current_criteria");
   assert.equal(item.organizationId, f.org);
@@ -375,6 +377,7 @@ async function run() {
   assert.ok(stale);
   assert.equal(stale.validationStatus, "stale");
   assert.equal(stale.storedStatus, "validated");
+  assert.equal(stale.reviewStanding, "replacement_required");
   assert.equal(stale.digestVersion, 2);
   assert.equal(stale.digestCoverage, "evidence_content_and_current_criteria");
   assert.equal(stale.organizationId, f.org);
@@ -433,6 +436,7 @@ async function run() {
   assert.equal(representationPacket.riskId, f.other_risk);
   assert.equal(representationPacket.validationStatus, "pending_review");
   assert.equal(representationPacket.storedStatus, "pending_review");
+  assert.equal(representationPacket.reviewStanding, "reviewable");
   assert.equal(representationPacket.confidence.level, 0);
   assert.equal(representationPacket.reviewDueAt, "280000-01-01T00:00:00+00:00");
   assert.equal(representationPacket.operationalAuthorization, false);

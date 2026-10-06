@@ -388,6 +388,8 @@ do $$ declare packet uuid; before_row jsonb; detail text; refused boolean; total
     or exists(select 1 from (values
       ('public.risk_uncertainty_analysis_digest(uuid,uuid)'),
       ('public.risk_uncertainty_analysis_digest_v1(uuid,uuid)'),
+      ('public.risk_uncertainty_current_policy_digest(uuid,uuid)'),
+      ('public.risk_uncertainty_review_standing(uuid,uuid)'),
       ('public.risk_uncertainty_evidence_digest_projection(public.evidence_items)'),
       ('public.risk_uncertainty_input_binding_snapshot(uuid,uuid,uuid[])'),
       ('public.risk_uncertainty_v2_digest_payload(public.risk_uncertainty_analyses,jsonb)')) q(signature)
@@ -546,6 +548,106 @@ do $$ declare f record; baseline jsonb; initial_state jsonb; candidate jsonb;
 end $$;
 -- U18 SUBMITTED HISTORY REFUSALS END
 
+-- U18 REVIEW STANDING CONTROLS BEGIN
+-- Real public reads, private ACL refusals and raw policy CAS. Each changed
+-- policy/input probe rolls back all thirteen collections in both tenants.
+do $$ declare f record; packet uuid; baseline jsonb; snapshot jsonb;
+  workspace jsonb; item jsonb; policy_digest text; other_digest text;
+  branch text; expected_standing text; helper text; client text;
+  qualified boolean; refused boolean; detail text; affected integer;
+  original_actor text:=current_setting('request.jwt.claim.sub',true);
+  original_role text:=current_user; original_timezone text:=current_setting('TimeZone');
+begin
+  select * into f from u18_fixture; select id into packet from u18_packet;
+  baseline:=pg_temp.u18_state();
+  policy_digest:=public.risk_uncertainty_current_policy_digest(f.org,f.risk);
+  other_digest:=public.risk_uncertainty_current_policy_digest(f.org,f.other_risk);
+  if policy_digest is null or policy_digest !~ '^[0-9a-f]{64}$'
+    or other_digest is null or other_digest=policy_digest
+    or public.risk_uncertainty_current_policy_digest(f.foreign_org,f.risk) is not null
+    or public.risk_uncertainty_current_policy_digest(f.org,gen_random_uuid()) is not null
+    or public.risk_uncertainty_review_standing(f.foreign_org,packet) is not null
+    or public.risk_uncertainty_review_standing(f.org,gen_random_uuid()) is not null
+    or public.risk_uncertainty_review_standing(f.org,packet) is distinct from 'reviewable' then
+    raise exception 'raw policy CAS scope or fresh structural standing failed'; end if;
+  perform set_config('TimeZone','Pacific/Honolulu',true);
+  if public.risk_uncertainty_current_policy_digest(f.org,f.risk) is distinct from policy_digest then
+    raise exception 'policy CAS changed under a session timezone'; end if;
+  perform set_config('TimeZone',original_timezone,true);
+  foreach helper in array array['risk_uncertainty_current_policy_digest','risk_uncertainty_review_standing'] loop
+    foreach client in array array['anon','authenticated','service_role'] loop
+      refused:=false;
+      begin
+        execute format('set local role %I',client);
+        execute format('select public.%I($1,$2)',helper) using f.org,packet;
+      exception when insufficient_privilege then
+        get stacked diagnostics detail=message_text;
+        refused:=detail='permission denied for function '||helper;
+      end;
+      if not refused or current_user is distinct from original_role
+        or pg_temp.u18_state() is distinct from baseline then
+        raise exception 'direct client structural helper was not exactly denied'; end if;
+    end loop;
+  end loop;
+  foreach branch in array array['draft','superseded','empty','missing','threshold','evidence'] loop
+    qualified:=false;
+    begin
+      perform set_config('request.jwt.claim.sub','',true);
+      if branch in ('draft','superseded') then
+        update public.risk_criteria_profiles set status=branch where id=f.criteria;
+      elsif branch='empty' then
+        update public.risk_criteria_profiles set decision_thresholds='{}'::jsonb where id=f.criteria;
+      elsif branch='missing' then
+        update public.risks set criteria_profile_id=null where id=f.risk;
+      elsif branch='threshold' then
+        update public.risk_criteria_profiles set decision_thresholds=decision_thresholds
+          ||jsonb_build_object('rawStandingThreshold',1.000000000000000000001::numeric)
+          where id=f.criteria;
+      else
+        update public.evidence_items set verification_status='unverified' where id=f.verified;
+      end if;
+      get diagnostics affected=row_count;
+      if affected<>1 then raise exception 'structural standing requires one actual scoped fixture edit'; end if;
+      expected_standing:=case when branch in ('draft','superseded','empty','missing')
+        then 'policy_unavailable' else 'replacement_required' end;
+      snapshot:=pg_temp.u18_state();
+      perform set_config('request.jwt.claim.sub',f.author::text,true);
+      workspace:=public.get_risk_uncertainty_workspace(f.risk);
+      select x into item from jsonb_array_elements(workspace->'analyses') x
+        where x->>'id'=packet::text;
+      if workspace ? 'error' or item is null
+        or workspace->>'organizationId' is distinct from f.org::text
+        or workspace->>'actorId' is distinct from f.author::text
+        or item->>'reviewStanding' is distinct from expected_standing
+        or item->>'storedStatus' is distinct from 'pending_review'
+        or item->>'analysisDigest' is distinct from (select digest from u18_packet)
+        or item->'operationalAuthorization' is distinct from 'false'::jsonb
+        or public.risk_uncertainty_review_standing(f.org,packet) is distinct from expected_standing
+        or pg_temp.u18_state() is distinct from snapshot then
+        raise exception 'actual public structural standing or read no-artifact witness failed'; end if;
+      if branch='missing' then
+        if workspace->'criteria' is distinct from 'null'::jsonb
+          or public.risk_uncertainty_current_policy_digest(f.org,f.risk) is not null then
+          raise exception 'missing current policy synthesized a CAS digest'; end if;
+      else
+        other_digest:=public.risk_uncertainty_current_policy_digest(f.org,f.risk);
+        if other_digest is null or other_digest !~ '^[0-9a-f]{64}$'
+          or workspace->'criteria'->>'policyDigest' is distinct from other_digest
+          or (branch='evidence' and other_digest is distinct from policy_digest)
+          or (branch<>'evidence' and other_digest is not distinct from policy_digest) then
+          raise exception 'raw policy CAS did not reflect only current scoped policy'; end if;
+      end if;
+      qualified:=true;
+      raise exception using errcode='ZX015',message='U18 structural standing fixture rollback';
+    exception when sqlstate 'ZX015' then null;
+    end;
+    if not qualified or pg_temp.u18_state() is distinct from baseline
+      or current_setting('request.jwt.claim.sub',true) is distinct from original_actor then
+      raise exception 'structural standing probe or complete rollback witness failed'; end if;
+  end loop;
+end $$;
+-- U18 REVIEW STANDING CONTROLS END
+
 -- U18 V2 DIGEST CONTROLS BEGIN
 -- Owner-side diagnostics mutate only new synthetic rows and roll back each
 -- probe. No guard is disabled or source approval/engineering authority inferred.
@@ -553,14 +655,15 @@ reset role;
 do $$ declare f record; a public.risk_uncertainty_analyses%rowtype;
   e public.evidence_items%rowtype; evidence_variant public.evidence_items%rowtype;
   evidence_projection jsonb; variant_projection jsonb; edge_attempts integer:=0;
-  baseline jsonb; original_digest text; stored_digest text; current_digest text;
+  baseline jsonb; original_digest text; stored_digest text; current_digest text; initial_policy text;
   snapshot jsonb; changed record; qualified boolean; attempts integer:=0;
   old_actor text; old_timezone text; detail text; refused boolean; packet uuid; affected integer;
-  candidate jsonb; tag jsonb; legacy_workspace jsonb; legacy_item jsonb; legacy_review jsonb;
+  candidate jsonb; tag jsonb; legacy_workspace jsonb; legacy_item jsonb; legacy_review jsonb; legacy_policy text;
   invalid_tags integer:=0; begin
   select * into f from u18_fixture;
   select * into a from public.risk_uncertainty_analyses where id=(select id from u18_packet);
   baseline:=pg_temp.u18_state(); original_digest:=a.analysis_digest;
+  initial_policy:=public.risk_uncertainty_current_policy_digest(f.org,f.risk);
   if a.digest_version is distinct from 2
     or a.input_binding_snapshot->'digestVersion' is distinct from '2'::jsonb
     or a.input_binding_snapshot->'bindingComplete' is distinct from 'true'::jsonb
@@ -698,7 +801,9 @@ do $$ declare f record; a public.risk_uncertainty_analyses%rowtype;
       execute format('update public.risk_criteria_profiles set %I=(jsonb_populate_record(null::public.risk_criteria_profiles,$1)).%I where id=$2',changed.field,changed.field)
         using jsonb_build_object(changed.field,changed.value),f.criteria;
       get diagnostics affected=row_count;
-      if affected<>1 or public.risk_uncertainty_analysis_digest(f.org,a.id) is not distinct from original_digest then
+      if affected<>1 or public.risk_uncertainty_analysis_digest(f.org,a.id) is not distinct from original_digest
+        or public.risk_uncertainty_current_policy_digest(f.org,f.risk) is null
+        or public.risk_uncertainty_current_policy_digest(f.org,f.risk) is not distinct from initial_policy then
         raise exception 'current criteria drift did not stale the v2 digest'; end if;
       qualified:=true;
       raise exception using errcode='ZX007',message='U18 criteria digest fixture rollback';
@@ -795,12 +900,16 @@ do $$ declare f record; a public.risk_uncertainty_analyses%rowtype;
       or legacy_workspace->>'actorId' is distinct from f.author::text
       or legacy_item->'digestVersion' is distinct from '1'::jsonb
       or legacy_item->>'digestCoverage' is distinct from 'legacy_metadata'
+      or legacy_item->>'reviewStanding' is distinct from 'reviewable'
       or legacy_item->>'currentDigest' is distinct from current_digest
       or legacy_item->>'analysisDigest' is distinct from current_digest then
       raise exception 'legacy v1 public workspace mislabeled or omitted actual coverage'; end if;
     -- U18 LEGACY CRITERIA REFUSAL BEGIN
     -- V1 intentionally retains metadata-only hashing. Its unchanged digest
     -- must not authorize review against a different current threshold policy.
+    legacy_policy:=legacy_workspace->'criteria'->>'policyDigest';
+    if legacy_policy is null or legacy_policy !~ '^[0-9a-f]{64}$' then
+      raise exception 'legacy current policy CAS missing'; end if;
     perform set_config('request.jwt.claim.sub','',true);
     update public.risk_criteria_profiles set decision_thresholds=decision_thresholds
       ||jsonb_build_object('ciLegacyChangedThreshold',true) where id=f.criteria;
@@ -808,6 +917,17 @@ do $$ declare f record; a public.risk_uncertainty_analyses%rowtype;
       raise exception 'legacy policy refusal control changed the preserved v1 algorithm'; end if;
     perform set_config('request.jwt.claim.sub',f.reviewer::text,true);
     snapshot:=pg_temp.u18_state();
+    legacy_workspace:=public.get_risk_uncertainty_workspace(f.other_risk);
+    select x into legacy_item from jsonb_array_elements(legacy_workspace->'analyses') x
+      where x->>'id'=packet::text;
+    if legacy_item is null or legacy_item->>'reviewStanding' is distinct from 'replacement_required'
+      or legacy_item->>'validationStatus' is distinct from 'pending_review'
+      or legacy_item->>'analysisDigest' is distinct from current_digest
+      or legacy_item->>'currentDigest' is distinct from current_digest
+      or legacy_workspace->'criteria'->>'policyDigest' is null
+      or legacy_workspace->'criteria'->>'policyDigest' is not distinct from legacy_policy
+      or pg_temp.u18_state() is distinct from snapshot then
+      raise exception 'legacy equal-digest policy drift concealed structural standing'; end if;
     legacy_review:=public.review_risk_uncertainty_analysis(packet,'validated',
       'Synthetic legacy review must not approve a different current threshold policy.');
     if legacy_review is distinct from jsonb_build_object('error',
@@ -1025,6 +1145,9 @@ do $$ declare f record; packet uuid; result jsonb; workspace jsonb; item jsonb; 
   workspace:=public.get_risk_uncertainty_workspace(f.risk);
   select x into item from jsonb_array_elements(workspace->'analyses') x where x->>'id'=packet::text;
   if item->'digestVersion' is distinct from '2'::jsonb
+    or item->>'reviewStanding' is distinct from 'reviewable'
+    or workspace->'criteria'->>'policyDigest' is null
+    or workspace->'criteria'->>'policyDigest' !~ '^[0-9a-f]{64}$'
     or item->>'digestCoverage' is distinct from 'evidence_content_and_current_criteria' then
     raise exception 'v2 public workspace lacks exact stored digest coverage'; end if;
   if workspace->>'organizationId' is distinct from f.org::text
@@ -1108,6 +1231,7 @@ do $$ declare item jsonb; begin
   select x into item from jsonb_array_elements(public.get_risk_uncertainty_workspace((select risk from u18_fixture))->'analyses') x
     where x->>'id'=(select id::text from u18_packet);
   if item is null or item->>'validationStatus' is distinct from 'stale'
+    or item->>'reviewStanding' is distinct from 'replacement_required'
     or item->>'analysisDigest' is not distinct from item->>'currentDigest' then
     raise exception 'actual evidence edit did not invalidate digest standing'; end if;
 end $$;

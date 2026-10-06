@@ -2,6 +2,34 @@
 
 **2026-10-06 — PARTIAL, CURRENT-MAIN DRAFT COMPOSITION; NOT RELEASE QUALIFICATION.**
 
+**Current local closeout — structural input/policy standing.** The public
+workspace now returns a server-owned `reviewStanding` for each packet and a raw
+canonical `policyDigest` for its current non-null criteria. Standing distinguishes
+`reviewable`, `replacement_required` and `policy_unavailable`; it does not replace
+stored lifecycle or digest-only `validationStatus`. In particular, a legacy v1
+packet can retain an equal metadata digest while changed current thresholds
+require replacement. A draft, superseded, empty or absent policy is unavailable.
+The policy digest binds the existing same-org/risk UTC projection, not client
+JSON-number reconstruction. These private read-only helpers convey no source
+approval, reviewer eligibility or operating authority.
+
+The SDK rejects missing or contradictory standing/CAS fields. The panel retains
+human-role, pending-lifecycle and independent-author gates, hides review for
+non-reviewable inputs, and no longer offers ordinary submission over a stale
+stored-pending packet. It explicitly reports that governed replacement is not
+yet available; this repair is **not** the replacement/reconciliation closeout.
+Test-first baselines reproduced seven source failures, 26 SDK failures, a further
+two superseded-policy SDK failures and four UI failures. The integrated local
+cohort passes 1,773 tests in 18 files, application TypeScript, scoped lint and the
+unchanged register ratchets. Added native witnesses cover private ACL execution,
+timezone-stable scoped policy CAS, actual public standing for six rolled-back
+policy/input changes, and legacy equal-digest policy drift; revised HTTP and
+contained-transport checks cover fresh, stale and pending representations.
+Those new database/HTTP witnesses remain **unexecuted at this local checkpoint**.
+The separate published privacy checkpoint `86db47df` is still undergoing its own
+immutable CI; its results cannot qualify these later source changes. No register
+item is promoted, migration applied, production change or merge implied here.
+
 The sections below describe the retained draft scope and intended customer
 workflow, not a production-completion claim. The bounded client, backend/CI and
 finite-input repairs were independently source-reviewed at local checkpoints

@@ -373,6 +373,10 @@ describe("U18 isolated CI transport qualification", () => {
               riskId: f.other_risk,
               validationStatus: "pending_review",
               storedStatus: "pending_review",
+              reviewStanding:
+                mode === "representation-standing"
+                  ? "replacement_required"
+                  : "reviewable",
               confidence: {
                 level: mode === "representation-confidence" ? 1 : 0,
               },
@@ -388,7 +392,17 @@ describe("U18 isolated CI transport qualification", () => {
         organizationId: f.org,
         actorId: f.author,
         risk: { id: f.risk, organizationId: f.org },
-        criteria: { id: f.criteria, organizationId: f.org, status: "adopted" },
+        criteria: {
+          id: f.criteria,
+          organizationId: f.org,
+          status: "adopted",
+          policyDigest:
+            mode === "policy-digest-missing"
+              ? undefined
+              : mode === "policy-digest-malformed"
+                ? "b".repeat(63)
+                : "c".repeat(64),
+        },
         evidence: [{ id: f.verified, organizationId: f.org, riskId: f.risk }],
         operationalAuthorization: false,
         boundary: "It does not verify an unverified source",
@@ -415,6 +429,14 @@ describe("U18 isolated CI transport qualification", () => {
                     ? "source_approved"
                     : "evidence_content_and_current_criteria",
             validationStatus: stale ? "stale" : "validated",
+            reviewStanding:
+              mode === "standing-missing"
+                ? undefined
+                : mode === "standing-invented"
+                  ? "ready"
+                  : stale && mode !== "standing-stale"
+                    ? "replacement_required"
+                    : "reviewable",
             analysisDigest: digest,
             currentDigest: stale ? "b".repeat(64) : digest,
             approvalId: approval,
@@ -502,6 +524,11 @@ describe("U18 isolated CI transport qualification", () => {
     "coverage-mismatch",
     "coverage-legacy",
     "coverage-source-claim",
+    "policy-digest-missing",
+    "policy-digest-malformed",
+    "standing-missing",
+    "standing-invented",
+    "standing-stale",
   ])(
     "rejects %s in the actual HTTP script against synthetic transport without replay or fabricated approval",
     async (mode) => {
@@ -532,6 +559,7 @@ describe("U18 isolated CI transport qualification", () => {
     "representation-date",
     "representation-persistence",
     "representation-authority",
+    "representation-standing",
   ])(
     "rejects %s without replaying the secondary pending write or approving it",
     async (mode) => {

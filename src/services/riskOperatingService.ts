@@ -72,6 +72,7 @@ export interface RiskUncertaintyAnalysis {
   digestVersion: 1 | 2;
   digestCoverage: "legacy_metadata" | "evidence_content_and_current_criteria";
   validationStatus: "pending_review" | "validated" | "rejected" | "stale";
+  reviewStanding: "reviewable" | "replacement_required" | "policy_unavailable";
   method: string;
   basis: string;
   probability: { lower: number; central: number; upper: number };
@@ -128,6 +129,7 @@ export interface RiskUncertaintyWorkspace {
     version: number;
     status: string;
     decisionThresholds: Record<string, unknown>;
+    policyDigest: string;
   } | null;
   evidence: RiskUncertaintyEvidence[];
   analyses: RiskUncertaintyAnalysis[];
@@ -566,6 +568,11 @@ function uncertaintyAnalysis(
       "validated",
       "rejected",
     ]) ||
+    !uncertaintyEnum(value.reviewStanding, [
+      "reviewable",
+      "replacement_required",
+      "policy_unavailable",
+    ]) ||
     !uncertaintyText(value.method, 3) ||
     !uncertaintyText(value.basis, 20) ||
     value.operationalAuthorization !== false
@@ -711,6 +718,51 @@ function uncertaintyAnalysis(
   );
 }
 
+function uncertaintyReviewStanding(
+  criteria: unknown,
+  evidence: unknown[],
+  analysis: unknown,
+  riskId: string,
+  organizationId: string,
+): boolean {
+  if (!uncertaintyRecord(analysis)) return false;
+  const policyUnavailable =
+    criteria === null ||
+    (uncertaintyRecord(criteria) &&
+      (criteria.status !== "adopted" ||
+        (uncertaintyRecord(criteria.decisionThresholds) &&
+          Object.keys(criteria.decisionThresholds).length === 0)));
+
+  if (policyUnavailable)
+    return analysis.reviewStanding === "policy_unavailable";
+  if (analysis.reviewStanding === "policy_unavailable") return false;
+
+  // Replacement can remain authoritative even where decoded JSON appears
+  // equal: raw NUMERIC precision or a legacy dependency may not be visible.
+  if (analysis.reviewStanding === "replacement_required") return true;
+  if (
+    analysis.reviewStanding !== "reviewable" ||
+    !uncertaintyRecord(criteria) ||
+    criteria.status !== "adopted" ||
+    !uncertaintySameUuid(analysis.thresholdProfileId, criteria.id as string) ||
+    analysis.analysisDigest !== analysis.currentDigest ||
+    !sameJson(analysis.decisionThresholds, criteria.decisionThresholds) ||
+    !Array.isArray(analysis.evidenceItemIds)
+  )
+    return false;
+
+  return analysis.evidenceItemIds.every((evidenceId) =>
+    evidence.some(
+      (item) =>
+        uncertaintyRecord(item) &&
+        uncertaintySameUuid(item.id, evidenceId as string) &&
+        uncertaintySameUuid(item.riskId, riskId) &&
+        uncertaintySameUuid(item.organizationId, organizationId) &&
+        item.verificationStatus === "verified",
+    ),
+  );
+}
+
 function uncertaintyWorkspace(
   value: unknown,
   riskId: string,
@@ -752,7 +804,8 @@ function uncertaintyWorkspace(
       !uncertaintyText(criteria.name) ||
       !uncertaintyVersion(criteria.version) ||
       !uncertaintyEnum(criteria.status, ["draft", "adopted", "superseded"]) ||
-      !uncertaintyJsonObject(criteria.decisionThresholds))
+      !uncertaintyJsonObject(criteria.decisionThresholds) ||
+      !uncertaintyDigest(criteria.policyDigest))
   )
     return false;
   if (
@@ -771,6 +824,15 @@ function uncertaintyWorkspace(
   return (
     new Set(evidenceIds).size === evidenceIds.length &&
     new Set(analysisIds).size === analysisIds.length &&
+    analyses.every((item) =>
+      uncertaintyReviewStanding(
+        criteria,
+        evidence,
+        item,
+        riskId,
+        observed.organizationId,
+      ),
+    ) &&
     analyses.every(
       (item, index) =>
         index === 0 || item.version < analyses[index - 1].version,

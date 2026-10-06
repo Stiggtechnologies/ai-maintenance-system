@@ -243,7 +243,13 @@ export function RiskUncertaintyPanel({
   );
   const latest = data.analyses[0];
   const reviewingPacket = data.analyses.find((item) => item.id === reviewing);
-  const adopted = data.criteria?.status === "adopted";
+  const adopted = Boolean(
+    data.criteria?.status === "adopted" &&
+    Object.keys(data.criteria.decisionThresholds).length > 0,
+  );
+  const hasPending = data.analyses.some(
+    (item) => item.storedStatus === "pending_review",
+  );
   const reviewActionKey = (packet: { id: string; analysisDigest: string }) =>
     JSON.stringify([
       "review",
@@ -327,6 +333,8 @@ export function RiskUncertaintyPanel({
       !mounted.current ||
       !workspaceBound ||
       !canGovern ||
+      !adopted ||
+      hasPending ||
       mutationLock.current ||
       outcomeUnknown
     )
@@ -404,6 +412,7 @@ export function RiskUncertaintyPanel({
       (item) =>
         item.id === reviewing &&
         item.validationStatus === "pending_review" &&
+        item.reviewStanding === "reviewable" &&
         item.authorId !== currentUserId,
     );
     if (!reviewing || !packet || !workspaceBound) return;
@@ -515,6 +524,11 @@ export function RiskUncertaintyPanel({
                   Digest coverage does not establish source approval, claim
                   fitness or operational authority.
                 </p>
+                <p className="mt-1 text-[10px] leading-relaxed text-slate-400">
+                  Input/policy standing:{" "}
+                  {latest.reviewStanding.replaceAll("_", " ")}. This is not
+                  reviewer permission or operating authority.
+                </p>
               </div>
             ) : (
               <p className="mt-2 text-xs text-slate-500">
@@ -569,285 +583,282 @@ export function RiskUncertaintyPanel({
           </div>
         )}
 
-        {canGovern &&
-          !data.analyses.some(
-            (item) => item.validationStatus === "pending_review",
-          ) && (
-            <form
-              onSubmit={submit}
-              className="mt-5 space-y-4 border-t border-white/7 pt-5"
-            >
-              <div>
-                <h4 className="text-sm font-semibold text-white">
-                  Submit a new version
-                </h4>
-                <p className="mt-1 text-xs text-slate-500">
-                  All values must come from named evidence or stated
-                  assumptions; SyncAI supplies no engineering defaults.
-                </p>
-              </div>
-              <div className="grid gap-3 md:grid-cols-2">
-                <input
-                  className={INPUT}
-                  placeholder="Method"
-                  value={method}
-                  onChange={(e) => setMethod(e.target.value)}
-                  required
-                />
-                <input
-                  className={INPUT}
-                  placeholder={`Currency (${data.risk.currency})`}
-                  value={currency}
-                  onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-                  maxLength={3}
-                />
-                <textarea
-                  className={`${INPUT} min-h-20 md:col-span-2`}
-                  placeholder="Source, assumption and method basis"
-                  value={basis}
-                  onChange={(e) => setBasis(e.target.value)}
-                  required
-                />
-              </div>
+        {canGovern && !hasPending && (
+          <form
+            onSubmit={submit}
+            className="mt-5 space-y-4 border-t border-white/7 pt-5"
+          >
+            <div>
+              <h4 className="text-sm font-semibold text-white">
+                Submit a new version
+              </h4>
+              <p className="mt-1 text-xs text-slate-500">
+                All values must come from named evidence or stated assumptions;
+                SyncAI supplies no engineering defaults.
+              </p>
+            </div>
+            <div className="grid gap-3 md:grid-cols-2">
+              <input
+                className={INPUT}
+                placeholder="Method"
+                value={method}
+                onChange={(e) => setMethod(e.target.value)}
+                required
+              />
+              <input
+                className={INPUT}
+                placeholder={`Currency (${data.risk.currency})`}
+                value={currency}
+                onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+                maxLength={3}
+              />
+              <textarea
+                className={`${INPUT} min-h-20 md:col-span-2`}
+                placeholder="Source, assumption and method basis"
+                value={basis}
+                onChange={(e) => setBasis(e.target.value)}
+                required
+              />
+            </div>
 
-              <div className="grid gap-3 lg:grid-cols-3">
-                {[
-                  [
-                    "Probability",
-                    probability,
-                    setProbability,
-                    ["Lower", "Central", "Upper"],
-                  ],
-                  [
-                    "Confidence",
-                    confidence,
-                    setConfidence,
-                    ["Level", "Interval lower", "Interval upper"],
-                  ],
-                  ["Loss cases", loss, setLoss, ["Best", "Expected", "Worst"]],
-                ].map(([label, values, setter, labels]) => (
-                  <fieldset
-                    key={label as string}
-                    className="rounded-xl border border-white/7 p-3"
-                  >
-                    <legend className="px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                      {label as string}
-                    </legend>
-                    <div className="grid grid-cols-3 gap-2">
-                      {(values as string[]).map((value, index) => (
-                        <input
-                          key={(labels as string[])[index]}
-                          className={INPUT}
-                          type="number"
-                          step="any"
-                          min="0"
-                          placeholder={(labels as string[])[index]}
-                          value={value}
-                          onChange={(e) =>
-                            updateRange(
-                              setter as React.Dispatch<
-                                React.SetStateAction<string[]>
-                              >,
-                              index,
-                              e.target.value,
-                            )
-                          }
-                          required
-                        />
-                      ))}
-                    </div>
-                  </fieldset>
-                ))}
-              </div>
-
-              <div className="rounded-xl border border-white/7 p-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-xs font-semibold text-white">
-                    Sensitivity factors
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setSensitivity((items) => [...items, emptySensitivity()])
-                    }
-                    className="text-[10px] font-semibold text-violet-300"
-                  >
-                    + Add factor
-                  </button>
-                </div>
-                {sensitivity.map((item, index) => (
-                  <div
-                    key={index}
-                    className="mt-3 grid gap-2 md:grid-cols-2 lg:grid-cols-4"
-                  >
-                    <input
-                      className={INPUT}
-                      placeholder="Factor name"
-                      value={item.name}
-                      onChange={(e) =>
-                        setSensitivity((items) =>
-                          items.map((entry, i) =>
-                            i === index
-                              ? { ...entry, name: e.target.value }
-                              : entry,
-                          ),
-                        )
-                      }
-                      required
-                    />
-                    <input
-                      className={`${INPUT} lg:col-span-3`}
-                      placeholder="Evidence or assumption basis"
-                      value={item.basis}
-                      onChange={(e) =>
-                        setSensitivity((items) =>
-                          items.map((entry, i) =>
-                            i === index
-                              ? { ...entry, basis: e.target.value }
-                              : entry,
-                          ),
-                        )
-                      }
-                      required
-                    />
-                    {(
-                      [
-                        "lowInput",
-                        "baseInput",
-                        "highInput",
-                        "lowOutput",
-                        "baseOutput",
-                        "highOutput",
-                      ] as const
-                    ).map((key) => (
+            <div className="grid gap-3 lg:grid-cols-3">
+              {[
+                [
+                  "Probability",
+                  probability,
+                  setProbability,
+                  ["Lower", "Central", "Upper"],
+                ],
+                [
+                  "Confidence",
+                  confidence,
+                  setConfidence,
+                  ["Level", "Interval lower", "Interval upper"],
+                ],
+                ["Loss cases", loss, setLoss, ["Best", "Expected", "Worst"]],
+              ].map(([label, values, setter, labels]) => (
+                <fieldset
+                  key={label as string}
+                  className="rounded-xl border border-white/7 p-3"
+                >
+                  <legend className="px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                    {label as string}
+                  </legend>
+                  <div className="grid grid-cols-3 gap-2">
+                    {(values as string[]).map((value, index) => (
                       <input
-                        key={key}
+                        key={(labels as string[])[index]}
                         className={INPUT}
                         type="number"
                         step="any"
                         min="0"
-                        placeholder={key.replace(/([A-Z])/g, " $1")}
-                        value={item[key]}
+                        placeholder={(labels as string[])[index]}
+                        value={value}
                         onChange={(e) =>
-                          setSensitivity((items) =>
-                            items.map((entry, i) =>
-                              i === index
-                                ? { ...entry, [key]: e.target.value }
-                                : entry,
-                            ),
+                          updateRange(
+                            setter as React.Dispatch<
+                              React.SetStateAction<string[]>
+                            >,
+                            index,
+                            e.target.value,
                           )
                         }
                         required
                       />
                     ))}
                   </div>
-                ))}
-              </div>
+                </fieldset>
+              ))}
+            </div>
 
-              <div className="grid gap-3 md:grid-cols-2">
-                <textarea
-                  className={`${INPUT} min-h-24`}
-                  placeholder="One measurable reassessment trigger per line"
-                  value={triggers}
-                  onChange={(e) => setTriggers(e.target.value)}
-                  required
-                />
-                <input
-                  className={INPUT}
-                  type="datetime-local"
-                  aria-label="Review due"
-                  value={reviewDue}
-                  onChange={(e) => setReviewDue(e.target.value)}
-                  required
-                />
-                <input
-                  className={`${INPUT} md:col-span-2`}
-                  placeholder="Information-gathering action"
-                  value={voiAction}
-                  onChange={(e) => setVoiAction(e.target.value)}
-                  required
-                />
-                {[
-                  "Information cost",
-                  "Decision cost if wrong",
-                  "Uncertainty reduction (0–1)",
-                  "Probability the decision changes (0–1)",
-                ].map((label, index) => (
+            <div className="rounded-xl border border-white/7 p-3">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold text-white">
+                  Sensitivity factors
+                </p>
+                <button
+                  type="button"
+                  onClick={() =>
+                    setSensitivity((items) => [...items, emptySensitivity()])
+                  }
+                  className="text-[10px] font-semibold text-violet-300"
+                >
+                  + Add factor
+                </button>
+              </div>
+              {sensitivity.map((item, index) => (
+                <div
+                  key={index}
+                  className="mt-3 grid gap-2 md:grid-cols-2 lg:grid-cols-4"
+                >
                   <input
-                    key={label}
                     className={INPUT}
-                    type="number"
-                    step="any"
-                    min="0"
-                    max={index >= 2 ? 1 : undefined}
-                    placeholder={label}
-                    value={voi[index]}
-                    onChange={(e) => updateRange(setVoi, index, e.target.value)}
+                    placeholder="Factor name"
+                    value={item.name}
+                    onChange={(e) =>
+                      setSensitivity((items) =>
+                        items.map((entry, i) =>
+                          i === index
+                            ? { ...entry, name: e.target.value }
+                            : entry,
+                        ),
+                      )
+                    }
                     required
                   />
+                  <input
+                    className={`${INPUT} lg:col-span-3`}
+                    placeholder="Evidence or assumption basis"
+                    value={item.basis}
+                    onChange={(e) =>
+                      setSensitivity((items) =>
+                        items.map((entry, i) =>
+                          i === index
+                            ? { ...entry, basis: e.target.value }
+                            : entry,
+                        ),
+                      )
+                    }
+                    required
+                  />
+                  {(
+                    [
+                      "lowInput",
+                      "baseInput",
+                      "highInput",
+                      "lowOutput",
+                      "baseOutput",
+                      "highOutput",
+                    ] as const
+                  ).map((key) => (
+                    <input
+                      key={key}
+                      className={INPUT}
+                      type="number"
+                      step="any"
+                      min="0"
+                      placeholder={key.replace(/([A-Z])/g, " $1")}
+                      value={item[key]}
+                      onChange={(e) =>
+                        setSensitivity((items) =>
+                          items.map((entry, i) =>
+                            i === index
+                              ? { ...entry, [key]: e.target.value }
+                              : entry,
+                          ),
+                        )
+                      }
+                      required
+                    />
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <textarea
+                className={`${INPUT} min-h-24`}
+                placeholder="One measurable reassessment trigger per line"
+                value={triggers}
+                onChange={(e) => setTriggers(e.target.value)}
+                required
+              />
+              <input
+                className={INPUT}
+                type="datetime-local"
+                aria-label="Review due"
+                value={reviewDue}
+                onChange={(e) => setReviewDue(e.target.value)}
+                required
+              />
+              <input
+                className={`${INPUT} md:col-span-2`}
+                placeholder="Information-gathering action"
+                value={voiAction}
+                onChange={(e) => setVoiAction(e.target.value)}
+                required
+              />
+              {[
+                "Information cost",
+                "Decision cost if wrong",
+                "Uncertainty reduction (0–1)",
+                "Probability the decision changes (0–1)",
+              ].map((label, index) => (
+                <input
+                  key={label}
+                  className={INPUT}
+                  type="number"
+                  step="any"
+                  min="0"
+                  max={index >= 2 ? 1 : undefined}
+                  placeholder={label}
+                  value={voi[index]}
+                  onChange={(e) => updateRange(setVoi, index, e.target.value)}
+                  required
+                />
+              ))}
+              {preview && (
+                <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 text-xs text-violet-100/80">
+                  Client preview: {preview.recommendation.replaceAll("_", " ")}{" "}
+                  · net{" "}
+                  {formatMoney(
+                    preview.netValue,
+                    currency || data.risk.currency,
+                  )}
+                  . Server recomputes the authoritative value.
+                </div>
+              )}
+            </div>
+
+            <fieldset className="rounded-xl border border-white/7 p-3">
+              <legend className="px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+                Verified same-risk evidence
+              </legend>
+              <div className="grid gap-2 md:grid-cols-2">
+                {verified.map((item) => (
+                  <label
+                    key={item.id}
+                    className="flex gap-2 rounded-lg border border-white/6 p-2 text-xs text-slate-300"
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedEvidence.includes(item.id)}
+                      onChange={() =>
+                        setSelectedEvidence((ids) =>
+                          ids.includes(item.id)
+                            ? ids.filter((id) => id !== item.id)
+                            : [...ids, item.id],
+                        )
+                      }
+                    />
+                    <span>
+                      {item.description}
+                      <span className="block text-[10px] text-slate-500">
+                        {item.sourceSystem} ·{" "}
+                        {item.evidenceClass ?? "unclassified"}
+                      </span>
+                    </span>
+                  </label>
                 ))}
-                {preview && (
-                  <div className="rounded-lg border border-violet-500/20 bg-violet-500/5 p-3 text-xs text-violet-100/80">
-                    Client preview:{" "}
-                    {preview.recommendation.replaceAll("_", " ")} · net{" "}
-                    {formatMoney(
-                      preview.netValue,
-                      currency || data.risk.currency,
-                    )}
-                    . Server recomputes the authoritative value.
-                  </div>
+                {verified.length === 0 && (
+                  <p className="text-xs text-slate-500">
+                    No verified evidence is eligible.
+                  </p>
                 )}
               </div>
-
-              <fieldset className="rounded-xl border border-white/7 p-3">
-                <legend className="px-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-                  Verified same-risk evidence
-                </legend>
-                <div className="grid gap-2 md:grid-cols-2">
-                  {verified.map((item) => (
-                    <label
-                      key={item.id}
-                      className="flex gap-2 rounded-lg border border-white/6 p-2 text-xs text-slate-300"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedEvidence.includes(item.id)}
-                        onChange={() =>
-                          setSelectedEvidence((ids) =>
-                            ids.includes(item.id)
-                              ? ids.filter((id) => id !== item.id)
-                              : [...ids, item.id],
-                          )
-                        }
-                      />
-                      <span>
-                        {item.description}
-                        <span className="block text-[10px] text-slate-500">
-                          {item.sourceSystem} ·{" "}
-                          {item.evidenceClass ?? "unclassified"}
-                        </span>
-                      </span>
-                    </label>
-                  ))}
-                  {verified.length === 0 && (
-                    <p className="text-xs text-slate-500">
-                      No verified evidence is eligible.
-                    </p>
-                  )}
-                </div>
-              </fieldset>
-              <button
-                disabled={busy || !adopted || selectedEvidence.length === 0}
-                className="rounded-lg bg-violet-500 px-4 py-2 text-xs font-semibold text-white disabled:opacity-40"
-              >
-                {busy ? "Submitting…" : "Submit for independent review"}
-              </button>
-            </form>
-          )}
+            </fieldset>
+            <button
+              disabled={busy || !adopted || selectedEvidence.length === 0}
+              className="rounded-lg bg-violet-500 px-4 py-2 text-xs font-semibold text-white disabled:opacity-40"
+            >
+              {busy ? "Submitting…" : "Submit for independent review"}
+            </button>
+          </form>
+        )}
 
         {canGovern &&
           data.analyses
-            .filter((item) => item.validationStatus === "pending_review")
+            .filter((item) => item.storedStatus === "pending_review")
             .map((item) => (
               <div
                 key={item.id}
@@ -855,13 +866,18 @@ export function RiskUncertaintyPanel({
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <p className="text-xs text-amber-100/80">
-                    Version {item.version} awaits an independent named-human
-                    review.
+                    {item.reviewStanding === "policy_unavailable"
+                      ? "Current adopted threshold policy is unavailable. Packet review is blocked."
+                      : item.reviewStanding === "replacement_required"
+                        ? "Pending packet requires governed replacement. Ordinary submission cannot replace it; replacement closeout is not yet available."
+                        : `Version ${item.version} awaits an independent named-human review.`}
                     <span className="mt-1 block text-[10px] text-slate-400">
                       {digestCoverageLabel(item)}
                     </span>
                   </p>
-                  {item.authorId !== currentUserId ? (
+                  {item.reviewStanding === "reviewable" &&
+                  item.validationStatus === "pending_review" &&
+                  item.authorId !== currentUserId ? (
                     <button
                       type="button"
                       disabled={acknowledgedActions.current.has(
@@ -875,11 +891,12 @@ export function RiskUncertaintyPanel({
                     >
                       Review packet
                     </button>
-                  ) : (
+                  ) : item.reviewStanding === "reviewable" &&
+                    item.authorId === currentUserId ? (
                     <span className="text-[10px] text-slate-500">
                       Author cannot review this packet.
                     </span>
-                  )}
+                  ) : null}
                 </div>
               </div>
             ))}
@@ -892,6 +909,7 @@ export function RiskUncertaintyPanel({
             (item) =>
               item.id === reviewing &&
               item.validationStatus === "pending_review" &&
+              item.reviewStanding === "reviewable" &&
               item.authorId !== currentUserId,
           ) && (
             <form

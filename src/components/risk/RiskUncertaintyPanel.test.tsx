@@ -40,6 +40,7 @@ beforeEach(() => {
       version: 3,
       status: "adopted",
       decisionThresholds: { escalateAbove: 16 },
+      policyDigest: "c".repeat(64),
     },
     evidence: [
       {
@@ -73,7 +74,9 @@ beforeEach(() => {
         version: 2,
         digestVersion: 2,
         digestCoverage: "evidence_content_and_current_criteria",
+        storedStatus: "validated",
         validationStatus: "stale",
+        reviewStanding: "replacement_required",
         method: "Three-point estimate",
         basis: "Based on the exact verified inspection and operating extract.",
         probability: { lower: 0.15, central: 0.3, upper: 0.55 },
@@ -132,6 +135,84 @@ beforeEach(() => {
 });
 
 describe("RiskUncertaintyPanel", () => {
+  it.each(["replacement_required", "policy_unavailable"])(
+    "does not offer review for a legacy equal-digest packet with standing %s",
+    async (reviewStanding) => {
+      const data = await getWorkspace();
+      Object.assign(data.analyses[0], {
+        storedStatus: "pending_review",
+        validationStatus: "pending_review",
+        digestVersion: 1,
+        digestCoverage: "legacy_metadata",
+        currentDigest: data.analyses[0].analysisDigest,
+        reviewStanding,
+      });
+      render(
+        <RiskUncertaintyPanel
+          currentOrganizationId="a1820000-0000-4000-8000-000000000020"
+          riskId="risk-1"
+          currentUserId="reviewer-1"
+          currentUserRole="reliability_engineer"
+        />,
+      );
+      await screen.findByText("v2");
+      expect(
+        screen.queryByRole("button", { name: "Review packet" }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByText("Submit a new version"),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByText(
+          reviewStanding === "policy_unavailable"
+            ? /Current adopted threshold policy is unavailable/
+            : /Pending packet requires governed replacement/,
+        ),
+      ).toBeInTheDocument();
+      expect(rpc).not.toHaveBeenCalled();
+    },
+  );
+
+  it("does not offer ordinary submission over a digest-stale pending packet", async () => {
+    const data = await getWorkspace();
+    data.analyses[0].storedStatus = "pending_review";
+    render(
+      <RiskUncertaintyPanel
+        currentOrganizationId="a1820000-0000-4000-8000-000000000020"
+        riskId="risk-1"
+        currentUserId="author-1"
+        currentUserRole="reliability_engineer"
+      />,
+    );
+    await screen.findByText("v2");
+    expect(screen.queryByText("Submit a new version")).not.toBeInTheDocument();
+    expect(
+      screen.getByText(/Pending packet requires governed replacement/),
+    ).toBeInTheDocument();
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("does not submit against adopted-but-empty current thresholds", async () => {
+    const data = await getWorkspace();
+    data.analyses = [];
+    data.criteria.decisionThresholds = {};
+    render(
+      <RiskUncertaintyPanel
+        currentOrganizationId="a1820000-0000-4000-8000-000000000020"
+        riskId="risk-1"
+        currentUserId="author-1"
+        currentUserRole="reliability_engineer"
+      />,
+    );
+    const button = await screen.findByRole("button", {
+      name: "Submit for independent review",
+    });
+    fillSubmission(button.closest("form")!);
+    expect(button).toBeDisabled();
+    fireEvent.submit(button.closest("form")!);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
   it("shows governed ranges, sensitivity, VOI, thresholds and stale state", async () => {
     render(
       <RiskUncertaintyPanel
@@ -182,7 +263,9 @@ describe("RiskUncertaintyPanel", () => {
     data.risk.id = riskId;
     Object.assign(data.analyses[0], {
       id: analysisId,
+      storedStatus: "pending_review",
       validationStatus: "pending_review",
+      reviewStanding: "reviewable",
       currentDigest: "a".repeat(64),
       reviewerId: null,
       reviewedAt: null,
@@ -251,7 +334,9 @@ describe("RiskUncertaintyPanel", () => {
     const riskId = "a1820000-0000-4000-8000-000000000002";
     data.risk.id = riskId;
     Object.assign(data.analyses[0], {
+      storedStatus: "validated",
       validationStatus: "validated",
+      reviewStanding: "reviewable",
       currentDigest: data.analyses[0].analysisDigest,
     });
     const onChanged = vi
@@ -315,7 +400,9 @@ describe("RiskUncertaintyPanel", () => {
           ...data.analyses[0],
           id: receipt.analysisId,
           version: receipt.version,
+          storedStatus: "validated",
           validationStatus: "validated",
+          reviewStanding: "reviewable",
           analysisDigest: receipt.analysisDigest,
           currentDigest: receipt.analysisDigest,
         },

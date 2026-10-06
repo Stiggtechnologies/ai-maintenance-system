@@ -35,6 +35,7 @@ function packet(label: string) {
       version: 1,
       status: "adopted",
       decisionThresholds: { escalateAbove: 16 },
+      policyDigest: "c".repeat(64),
     },
     evidence: [],
     analyses: [
@@ -43,7 +44,9 @@ function packet(label: string) {
         version: 1,
         digestVersion: 2,
         digestCoverage: "evidence_content_and_current_criteria",
+        storedStatus: "pending_review",
         validationStatus: "pending_review",
+        reviewStanding: "reviewable",
         method: "Synthetic method",
         basis: label,
         probability: { lower: 0.1, central: 0.2, upper: 0.3 },

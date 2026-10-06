@@ -475,6 +475,62 @@ begin
   return null;
 end $$;
 
+-- Scoped policy CAS uses the existing UTC-pinned canonical projection. The
+-- server hashes raw JSONB, never a client's lossy decoded numeric values.
+create or replace function public.risk_uncertainty_current_policy_digest(
+  p_org uuid,p_risk_id uuid
+) returns text language plpgsql stable set search_path=public as $$
+declare v_snapshot jsonb; v_policy jsonb; v_payload jsonb;
+begin
+  v_snapshot:=public.risk_uncertainty_input_binding_snapshot(p_org,p_risk_id,'{}'::uuid[]);
+  v_policy:=v_snapshot->'currentCriteria';
+  if v_policy is null or v_policy='null'::jsonb then return null; end if;
+  v_payload:=jsonb_build_object('organizationId',p_org,'riskId',p_risk_id,
+    'currentCriteriaProfileId',v_snapshot->'currentCriteriaProfileId',
+    'currentCriteria',v_policy);
+  return encode(extensions.digest(v_payload::text,'sha256'),'hex');
+end $$;
+
+-- Structural input/policy standing ONLY. Lifecycle, independent reviewer,
+-- source-purpose approval and operating authority remain separate gates.
+-- A legacy metadata digest can still be equal after its policy has changed.
+create or replace function public.risk_uncertainty_review_standing(
+  p_org uuid,p_analysis_id uuid
+) returns text language plpgsql stable set search_path=public as $$
+declare
+  a public.risk_uncertainty_analyses%rowtype;
+  c public.risk_criteria_profiles%rowtype; v_count integer;
+begin
+  select * into a from public.risk_uncertainty_analyses
+  where id=p_analysis_id and organization_id=p_org;
+  if not found then return null; end if;
+  select cp.* into c from public.risks r join public.risk_criteria_profiles cp
+    on cp.id=r.criteria_profile_id and cp.organization_id=p_org
+  where r.id=a.risk_id and r.organization_id=p_org;
+  if not found or c.status is distinct from 'adopted'
+    or c.decision_thresholds is null or jsonb_typeof(c.decision_thresholds)<>'object'
+    or c.decision_thresholds='{}'::jsonb then
+    return 'policy_unavailable';
+  end if;
+  if c.id is distinct from a.threshold_profile_id
+    or c.decision_thresholds is distinct from a.decision_thresholds then
+    return 'replacement_required';
+  end if;
+  select count(*) into v_count from public.risk_uncertainty_analysis_evidence b
+  where b.organization_id=p_org and b.analysis_id=a.id;
+  if v_count not between 1 and 20 or (
+    select count(*) from public.risk_uncertainty_analysis_evidence b
+    join public.evidence_items e on e.id=b.evidence_item_id
+    where b.organization_id=p_org and b.analysis_id=a.id
+      and e.organization_id=p_org and e.risk_id=a.risk_id
+      and e.verification_status='verified'
+  )<>v_count or public.risk_uncertainty_analysis_digest(p_org,a.id)
+    is distinct from a.analysis_digest then
+    return 'replacement_required';
+  end if;
+  return 'reviewable';
+end $$;
+
 -- Transaction-scoped visibility fence, not a second permission model. Walk
 -- the canonical origin, lock its actual dependencies, then ask can_read_risk
 -- again. NOWAIT avoids tuple/FK inversions with outside writers; contention
@@ -870,7 +926,8 @@ begin
     return jsonb_build_object('error','linked evidence is no longer verified; submit a new analysis version');
   end if;
   v_current:=public.risk_uncertainty_analysis_digest(v_org,a.id);
-  if v_current is distinct from a.analysis_digest then
+  if v_current is distinct from a.analysis_digest
+    or public.risk_uncertainty_review_standing(v_org,a.id) is distinct from 'reviewable' then
     return jsonb_build_object('error','analysis changed after submission; submit a new version against the current evidence and thresholds');
   end if;
   if exists(select 1 from public.risk_uncertainty_analysis_evidence b
@@ -937,7 +994,8 @@ begin
     'organizationId',v_org,'actorId',auth.uid(),
     'risk',jsonb_build_object('id',r.id,'organizationId',r.organization_id,'title',r.title,'status',r.status,'currency',r.value_currency),
     'criteria',case when c.id is null then null else jsonb_build_object('id',c.id,'organizationId',c.organization_id,'name',c.name,
-      'version',c.version,'status',c.status,'decisionThresholds',c.decision_thresholds) end,
+      'version',c.version,'status',c.status,'decisionThresholds',c.decision_thresholds,
+      'policyDigest',public.risk_uncertainty_current_policy_digest(v_org,r.id)) end,
     'evidence',coalesce((select jsonb_agg(jsonb_build_object(
       'id',e.id,'organizationId',e.organization_id,'riskId',e.risk_id,
       'description',e.description,'sourceSystem',e.source_system,'sourceReference',e.source_reference,
@@ -948,7 +1006,7 @@ begin
       'id',a.id,'organizationId',a.organization_id,'riskId',a.risk_id,
       'version',a.version,'storedStatus',a.status,'validationStatus',case
         when a.analysis_digest is distinct from v_current then 'stale'
-        else a.status end,'method',a.method,'basis',a.basis,
+        else a.status end,'reviewStanding',a.review_standing,'method',a.method,'basis',a.basis,
       'probability',jsonb_build_object('lower',a.probability_lower,'central',a.probability_central,'upper',a.probability_upper),
       'confidence',jsonb_build_object('level',a.confidence_level,'lower',a.confidence_interval_lower,'upper',a.confidence_interval_upper),
       'lossCases',jsonb_build_object('best',a.best_case_loss,'expected',a.expected_case_loss,'worst',a.worst_case_loss,'currency',a.currency),
@@ -969,7 +1027,8 @@ begin
         from public.risk_uncertainty_analysis_evidence b where b.organization_id=v_org and b.analysis_id=a.id),'[]'::jsonb),
       'operationalAuthorization',false
     ) order by a.version desc) from (
-      select x.*,public.risk_uncertainty_analysis_digest(v_org,x.id) as v_current
+      select x.*,public.risk_uncertainty_analysis_digest(v_org,x.id) as v_current,
+        public.risk_uncertainty_review_standing(v_org,x.id) as review_standing
       from public.risk_uncertainty_analyses x
       where x.organization_id=v_org and x.risk_id=r.id
     ) a),'[]'::jsonb),
@@ -983,6 +1042,8 @@ revoke all on function public.enforce_risk_uncertainty_evidence_link() from publ
 revoke all on function public.refuse_risk_uncertainty_truncate() from public,anon,authenticated,service_role;
 revoke all on function public.risk_uncertainty_analysis_digest(uuid,uuid) from public,anon,authenticated,service_role;
 revoke all on function public.risk_uncertainty_analysis_digest_v1(uuid,uuid) from public,anon,authenticated,service_role;
+revoke all on function public.risk_uncertainty_current_policy_digest(uuid,uuid) from public,anon,authenticated,service_role;
+revoke all on function public.risk_uncertainty_review_standing(uuid,uuid) from public,anon,authenticated,service_role;
 revoke all on function public.risk_uncertainty_input_binding_snapshot(uuid,uuid,uuid[]) from public,anon,authenticated,service_role;
 revoke all on function public.risk_uncertainty_evidence_digest_projection(public.evidence_items) from public,anon,authenticated,service_role;
 revoke all on function public.risk_uncertainty_v2_digest_payload(public.risk_uncertainty_analyses,jsonb) from public,anon,authenticated,service_role;
