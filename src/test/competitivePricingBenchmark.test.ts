@@ -44,12 +44,27 @@ const unitEconomics = JSON.parse(
       commercialBindingSignal: string;
       crossModelSafetyFallbackAllowedForBoundPaidPlan: boolean;
       externalGatewayAllowedForBoundPaidPlan: boolean;
+      gpt56ImplicitCacheWritesAllowed: boolean;
+      gpt56PromptCacheMode: string;
       noExactDirectRouteBehavior: string;
+      nonStandardObservedTierBehavior: string;
       requiredProviderBaseUrl: string;
       requiredProviderName: string;
+      requiredObservedResponseServiceTier: string;
+      requiredRequestServiceTier: string;
       requiresExactRequestedModel: boolean;
       source: string;
       status: string;
+      standardRateEnvelope: {
+        framingTokenAllowance: number;
+        gpt4oMiniContextWindowTokens: number;
+        gpt56TerraAndLunaLongContextInputThresholdTokens: number;
+        maximumOutputTokens: number;
+        maximumUtf8BytePlusOutputAndFramingUpperBound: number;
+        overLimitBehavior: string;
+        sourceEvidence: string[];
+        status: string;
+      };
       unboundEngineeringTrafficRetainsGatewayResilience: boolean;
     };
     paidRealtime: {
@@ -367,9 +382,31 @@ describe("competitive pricing benchmark", () => {
       requiredProviderName: "openai-direct",
       requiredProviderBaseUrl: "https://api.openai.com",
       requiresExactRequestedModel: true,
+      requiredRequestServiceTier: "default",
+      requiredObservedResponseServiceTier: "default",
+      nonStandardObservedTierBehavior:
+        "withhold_output_retain_reservation_for_reconciliation",
+      gpt56PromptCacheMode: "explicit_without_breakpoints",
+      gpt56ImplicitCacheWritesAllowed: false,
       externalGatewayAllowedForBoundPaidPlan: false,
       crossModelSafetyFallbackAllowedForBoundPaidPlan: false,
       noExactDirectRouteBehavior: "release_reservation_refuse_provider_contact",
+      standardRateEnvelope: {
+        status: "implemented_not_reviewed_merged_or_deployed",
+        maximumOutputTokens: 8192,
+        maximumUtf8BytePlusOutputAndFramingUpperBound: 100000,
+        framingTokenAllowance: 1024,
+        gpt4oMiniContextWindowTokens: 128000,
+        gpt56TerraAndLunaLongContextInputThresholdTokens: 272000,
+        overLimitBehavior: "release_reservation_refuse_provider_contact",
+        sourceEvidence: [
+          "https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create",
+          "https://developers.openai.com/api/docs/guides/prompt-caching",
+          "https://developers.openai.com/api/docs/models/gpt-4o-mini",
+          "https://developers.openai.com/api/docs/models/gpt-5.6-terra",
+          "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+        ],
+      },
       unboundEngineeringTrafficRetainsGatewayResilience: true,
     });
   });

@@ -2,7 +2,10 @@ import { describe, expect, it, vi } from "vitest";
 import {
   callWithCommercialBoundary,
   estimateLlmCallTokens,
+  paidStandardRateTokenUpperBound,
   paidCommercialProviders,
+  PAID_STANDARD_RATE_MAX_OUTPUT_TOKENS,
+  PAID_STANDARD_RATE_MAX_TOKEN_UPPER_BOUND,
   type CommercialRpc,
 } from "../../supabase/functions/_shared/llm-commercial-usage";
 
@@ -29,10 +32,14 @@ const boundary = {
   costObject: { type: "development_case", id: "case-1" },
 };
 
-function successResponse(): Response {
+function successResponse(
+  model = "gpt-4o-mini-2024-07-18",
+  serviceTier = "default",
+): Response {
   return new Response(
     JSON.stringify({
-      model: "gpt-4o-mini-2024-07-18",
+      model,
+      service_tier: serviceTier,
       choices: [{ message: { content: "bounded answer" } }],
       usage: { prompt_tokens: 20, completion_tokens: 5 },
     }),
@@ -41,6 +48,18 @@ function successResponse(): Response {
 }
 
 describe("commercial LLM usage boundary", () => {
+  it("uses a UTF-8 byte upper bound for the paid standard-rate envelope", () => {
+    const bounded = {
+      ...options,
+      systemPrompt: "é",
+      userContent: "水",
+      maxTokens: 7,
+    };
+    expect(paidStandardRateTokenUpperBound(bounded)).toBe(1_037);
+    expect(PAID_STANDARD_RATE_MAX_OUTPUT_TOKENS).toBe(8_192);
+    expect(PAID_STANDARD_RATE_MAX_TOKEN_UPPER_BOUND).toBe(100_000);
+  });
+
   it("pins a bound paid plan to the exact direct model and excludes the gateway", async () => {
     const gateway = {
       name: "stigg-gateway",
@@ -78,7 +97,11 @@ describe("commercial LLM usage boundary", () => {
       expect(url).toBe("https://api.openai.com/v1/chat/completions");
       expect(JSON.parse(String(init.body))).toMatchObject({
         model: "gpt-4o-mini",
+        service_tier: "default",
       });
+      expect(JSON.parse(String(init.body))).not.toHaveProperty(
+        "prompt_cache_options",
+      );
       return successResponse();
     });
 
@@ -92,6 +115,87 @@ describe("commercial LLM usage boundary", () => {
 
     expect(result.status).toBe("ok");
     expect(fetchLike).toHaveBeenCalledTimes(1);
+  });
+
+  it("pins GPT-5.6 paid calls to Standard processing without implicit cache writes", async () => {
+    const terraBoundary = { ...boundary, requestedModel: "gpt-5.6-terra" };
+    const rpc: CommercialRpc = vi.fn(async (name) => ({
+      data:
+        name === "check_llm_commercial_quota"
+          ? {
+              allowed: true,
+              reservation_id: 45,
+              commercialPlanId: "enterprise",
+            }
+          : null,
+      error: null,
+    }));
+    const fetchLike = vi.fn(async (_url: string, init: RequestInit) => {
+      expect(JSON.parse(String(init.body))).toMatchObject({
+        model: "gpt-5.6-terra",
+        service_tier: "default",
+        prompt_cache_options: { mode: "explicit" },
+      });
+      return successResponse("gpt-5.6-terra", "default");
+    });
+
+    const result = await callWithCommercialBoundary(
+      rpc,
+      fetchLike,
+      [
+        {
+          ...provider,
+          name: "openai-direct",
+          baseUrl: "https://api.openai.com",
+          model: "gpt-5.6-terra",
+        },
+      ],
+      options,
+      terraBoundary,
+    );
+
+    expect(result.status).toBe("ok");
+    expect(fetchLike).toHaveBeenCalledTimes(1);
+  });
+
+  it("withholds paid output and retains the reservation when the provider reports a non-Standard tier", async () => {
+    const rpc: CommercialRpc = vi.fn(async (name) => ({
+      data:
+        name === "check_llm_commercial_quota"
+          ? {
+              allowed: true,
+              reservation_id: 46,
+              commercialPlanId: "starter",
+            }
+          : null,
+      error: null,
+    }));
+    const fetchLike = vi.fn(async () => successResponse("gpt-4o-mini", "fast"));
+
+    const result = await callWithCommercialBoundary(
+      rpc,
+      fetchLike,
+      [
+        {
+          ...provider,
+          name: "openai-direct",
+          baseUrl: "https://api.openai.com",
+        },
+      ],
+      options,
+      boundary,
+    );
+
+    expect(result).toMatchObject({
+      status: "settlement_failed",
+      error: "commercial_service_tier_mismatch",
+      model: "gpt-4o-mini",
+    });
+    expect(rpc).not.toHaveBeenCalledWith(
+      "release_llm_reservation",
+      expect.anything(),
+    );
+    expect(rpc).not.toHaveBeenCalledWith("record_llm_usage", expect.anything());
   });
 
   it("retains gateway-first resilience for an unbound engineering call", async () => {
@@ -170,6 +274,88 @@ describe("commercial LLM usage boundary", () => {
     expect(fetchLike).not.toHaveBeenCalled();
     expect(rpc).toHaveBeenCalledWith("release_llm_reservation", {
       p_reservation_id: 41,
+    });
+  });
+
+  it("releases the reservation without provider spend when a paid call exceeds the standard-rate envelope", async () => {
+    const rpc: CommercialRpc = vi.fn(async (name) => ({
+      data:
+        name === "check_llm_commercial_quota"
+          ? {
+              allowed: true,
+              reservation_id: 43,
+              commercialPlanId: "enterprise",
+            }
+          : null,
+      error: null,
+    }));
+    const fetchLike = vi.fn(async () => successResponse());
+    const result = await callWithCommercialBoundary(
+      rpc,
+      fetchLike,
+      [
+        {
+          ...provider,
+          name: "openai-direct",
+          baseUrl: "https://api.openai.com",
+        },
+      ],
+      {
+        ...options,
+        maxTokens: PAID_STANDARD_RATE_MAX_OUTPUT_TOKENS + 1,
+      },
+      boundary,
+    );
+
+    expect(result).toEqual({
+      status: "quota_refused",
+      limit: "commercial_standard_rate_envelope_exceeded",
+      resetsAt: null,
+    });
+    expect(fetchLike).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith("release_llm_reservation", {
+      p_reservation_id: 43,
+    });
+  });
+
+  it("refuses an oversized paid prompt even when its output ceiling is small", async () => {
+    const rpc: CommercialRpc = vi.fn(async (name) => ({
+      data:
+        name === "check_llm_commercial_quota"
+          ? {
+              allowed: true,
+              reservation_id: 44,
+              commercialPlanId: "professional",
+            }
+          : null,
+      error: null,
+    }));
+    const fetchLike = vi.fn(async () => successResponse());
+    const result = await callWithCommercialBoundary(
+      rpc,
+      fetchLike,
+      [
+        {
+          ...provider,
+          name: "openai-direct",
+          baseUrl: "https://api.openai.com",
+        },
+      ],
+      {
+        ...options,
+        userContent: "x".repeat(PAID_STANDARD_RATE_MAX_TOKEN_UPPER_BOUND),
+        maxTokens: 1,
+      },
+      boundary,
+    );
+
+    expect(result).toMatchObject({
+      status: "quota_refused",
+      limit: "commercial_standard_rate_envelope_exceeded",
+    });
+    expect(fetchLike).not.toHaveBeenCalled();
+    expect(rpc).toHaveBeenCalledWith("release_llm_reservation", {
+      p_reservation_id: 44,
     });
   });
 

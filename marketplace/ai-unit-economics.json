@@ -2,7 +2,7 @@
   "schemaVersion": 4,
   "asOf": "2026-10-06",
   "scope": "AI inference cost controls and Microsoft Marketplace commercial compatibility",
-  "finding": "commercial_cost_controls_and_paid_direct_route_pin_implemented_not_reviewed_merged_deployed_or_configured",
+  "finding": "commercial_cost_controls_paid_direct_route_and_standard_rate_envelope_implemented_not_reviewed_merged_deployed_or_configured",
   "implemented": {
     "usageLedger": {
       "status": "implemented",
@@ -93,6 +93,8 @@
       "explicitPremiumCacheWriteRequestedBySharedProvider": false,
       "regionalProcessingEndpointRequestedBySharedProvider": false,
       "longContextPremiumTierExplicitlyModeled": false,
+      "longContextPremiumTierTechnicallyExcludedByPaidEnvelope": true,
+      "gpt56ImplicitCacheWriteTechnicallyExcludedForBoundPaidTraffic": true,
       "externalGatewayMarkupExplicitlyModeled": false,
       "externalGatewayOrPremiumTierCanBeStressPriced": true,
       "releaseRule": "Every approved policy must state a provider cost multiplier of at least 1. A multiplier of exactly 1 is valid only for a verified standard-rate direct route with prompts bounded below premium context tiers; otherwise the multiplier must come from a separately approved gateway/provider-tier cost schedule. Opaque gateway economics cannot be treated as the model list price."
@@ -104,9 +106,30 @@
       "requiredProviderName": "openai-direct",
       "requiredProviderBaseUrl": "https://api.openai.com",
       "requiresExactRequestedModel": true,
+      "requiredRequestServiceTier": "default",
+      "requiredObservedResponseServiceTier": "default",
+      "nonStandardObservedTierBehavior": "withhold_output_retain_reservation_for_reconciliation",
+      "gpt56PromptCacheMode": "explicit_without_breakpoints",
+      "gpt56ImplicitCacheWritesAllowed": false,
       "externalGatewayAllowedForBoundPaidPlan": false,
       "crossModelSafetyFallbackAllowedForBoundPaidPlan": false,
       "noExactDirectRouteBehavior": "release_reservation_refuse_provider_contact",
+      "standardRateEnvelope": {
+        "status": "implemented_not_reviewed_merged_or_deployed",
+        "maximumOutputTokens": 8192,
+        "maximumUtf8BytePlusOutputAndFramingUpperBound": 100000,
+        "framingTokenAllowance": 1024,
+        "gpt4oMiniContextWindowTokens": 128000,
+        "gpt56TerraAndLunaLongContextInputThresholdTokens": 272000,
+        "overLimitBehavior": "release_reservation_refuse_provider_contact",
+        "sourceEvidence": [
+          "https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create",
+          "https://developers.openai.com/api/docs/guides/prompt-caching",
+          "https://developers.openai.com/api/docs/models/gpt-4o-mini",
+          "https://developers.openai.com/api/docs/models/gpt-5.6-terra",
+          "https://developers.openai.com/api/docs/models/gpt-5.6-luna"
+        ]
+      },
       "unboundEngineeringTrafficRetainsGatewayResilience": true
     },
     "commercialPlanPolicy": {
@@ -249,7 +272,7 @@
     "perDecisionCostCoverage": "supported runtime paths only: governed decision-capable paid runtimes, including the deployed Develop evidence, change-impact, contract-strategy, gate, and requirements agents; risk, methodology, recommendation enrichment, and asset onboarding carry their own canonical work subjects; any remaining unattributed call stays explicit and inside the hard token ceiling",
     "rawTokenMeterIsModelCostWeighted": false,
     "warning": "Equal token quantities can have materially different inference cost under different model routes.",
-    "pricingModeWarning": "The margin evaluator now applies an explicit policy-level provider cost multiplier to standard model rates. A value of 1 requires a verified standard-rate route; premium context, regional-processing, explicit cache-write, or external-gateway adjustments require a sourced multiplier or technical exclusion from the paid route.",
+    "pricingModeWarning": "The margin evaluator applies an explicit policy-level provider cost multiplier to standard model rates. The release candidate technically excludes long-context pricing for bound paid calls with an 8,192-token output ceiling and a 100,000-token conservative UTF-8-byte-plus-output-and-framing upper bound. It explicitly requests service_tier=default, requires the response to report default, and disables GPT-5.6 implicit cache writes with explicit mode and no breakpoints. A value of 1 still requires deployment proof of that route; regional-processing, any non-default processing tier, explicit cache writes, or external-gateway adjustments require a sourced multiplier or technical exclusion from the paid route.",
     "gatewayModelWarning": "The live observed gateway-first route is not executable for the proposed GPT allowlist. The release candidate now pins a bound paid plan to the exact requested model on openai-direct and refuses provider contact when that route is unavailable; it preserves gateway resilience for unbound engineering traffic. This source control is not reviewed, merged, deployed, or production-proven. A gateway-based paid policy would still need every reachable primary and fallback priced and approved, USD rates normalized to CAD, gateway infrastructure allocated, and deployed response identity proved.",
     "commercialAllowanceApproved": false,
     "overagePriceApproved": false,
@@ -261,7 +284,7 @@
     "approved_allowed_model_set_and_price_refresh_process",
     "verified_standard_rate_provider_route_or_approved_provider_tier_cost_schedule",
     "verified_deployed_gateway_model_identity_and_complete_primary_fallback_allowlist_or_direct_route_pin",
-    "verified_prompt_ceiling_below_any_premium_context_tier",
+    "deployed_and_verified_prompt_ceiling_below_any_premium_context_tier",
     "approved_non_inference_variable_cost_input",
     "approved_gross_margin_threshold",
     "measured_production_cost_distribution",

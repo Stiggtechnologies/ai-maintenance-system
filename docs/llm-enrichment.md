@@ -57,8 +57,15 @@ The current commercial release candidate narrows only a bound paid-plan call:
 after its quota reservation returns a commercial plan ID, the shared caller
 uses the exact requested model on the canonical `openai-direct` endpoint and
 refuses provider contact if that route is absent. The ordinary unbound
-engineering path remains gateway-first. This code is not reviewed, merged,
-deployed, or a production pricing witness.
+engineering path remains gateway-first. It also refuses paid requests above an
+8,192-token output ceiling or a conservative 100,000-token total upper-bound
+envelope, keeping the proposed GPT-5.6 models below their 272,000-input-token
+long-context price tier and GPT-4o Mini below its smaller 128,000-token context
+window. Bound paid calls also request `service_tier: default`, require the
+successful response to report `default`, and disable GPT-5.6 implicit cache
+writes with explicit mode and no breakpoint. A non-default or missing reported
+tier withholds output and preserves the reservation for reconciliation. This
+code is not reviewed, merged, deployed, or a production pricing witness.
 
 ## Governed verification and activation runbook
 

@@ -21,6 +21,19 @@ type LlmFetch = Parameters<typeof callWithResilience>[0];
 /** Canonical priced fallback used by provider-chain callers with no override. */
 export const DEFAULT_COMMERCIALLY_PRICED_MODEL = "gpt-4o-mini";
 
+/**
+ * One paid request must stay inside the short-context price envelope shared by
+ * every currently proposed commercial model. The UTF-8 byte count is a safe
+ * upper bound for BPE input tokens; the extra 28K-token gap below GPT-4o Mini's
+ * 128K context window leaves room for message framing and tokenizer variance.
+ * GPT-5.6 Terra and Luna do not enter their long-context price tier until the
+ * input alone exceeds 272K tokens, so this single bound also excludes that
+ * premium tier rather than trying to estimate its cost after the fact.
+ */
+export const PAID_STANDARD_RATE_MAX_OUTPUT_TOKENS = 8_192;
+export const PAID_STANDARD_RATE_MAX_TOKEN_UPPER_BOUND = 100_000;
+const PAID_MESSAGE_FRAMING_TOKEN_ALLOWANCE = 1_024;
+
 export interface CommercialRpcResult {
   data: unknown;
   error: unknown;
@@ -77,11 +90,72 @@ export function estimateLlmCallTokens(options: LlmCallOptions): number {
   );
 }
 
+export function paidStandardRateTokenUpperBound(
+  options: LlmCallOptions,
+): number {
+  const promptBytes = new TextEncoder().encode(
+    `${options.systemPrompt}\n${options.userContent}`,
+  ).byteLength;
+  return (
+    promptBytes +
+    Math.max(0, Math.ceil(options.maxTokens ?? 0)) +
+    PAID_MESSAGE_FRAMING_TOKEN_ALLOWANCE
+  );
+}
+
 function errorDetail(error: unknown): unknown {
   if (error && typeof error === "object" && "message" in error) {
     return String((error as { message?: unknown }).message ?? "unknown");
   }
   return error;
+}
+
+interface PaidStandardRateWitness {
+  serviceTier: string | null;
+}
+
+/**
+ * The OpenAI API defaults an omitted service_tier to `auto`, which can inherit
+ * a project-level Fast setting. Bound paid traffic instead requests `default`
+ * explicitly and observes the provider-reported tier before exposing output.
+ * GPT-5.6 implicit prompt caching is also disabled: without an explicit
+ * breakpoint, `mode: explicit` creates no cache write and therefore cannot
+ * introduce the 1.25x cache-write input rate into a 1.0-multiplier policy.
+ */
+function paidStandardRateFetch(
+  fetchLike: LlmFetch,
+  requestedModel: string,
+  witness: PaidStandardRateWitness,
+): LlmFetch {
+  return async (url, init) => {
+    let payload: Record<string, unknown>;
+    try {
+      payload = JSON.parse(String(init.body ?? "")) as Record<string, unknown>;
+    } catch {
+      return new Response(
+        JSON.stringify({ error: { code: "commercial_request_body_invalid" } }),
+        { status: 400, headers: { "Content-Type": "application/json" } },
+      );
+    }
+    payload.service_tier = "default";
+    if (requestedModel.startsWith("gpt-5.6-")) {
+      payload.prompt_cache_options = { mode: "explicit" };
+    }
+    const response = await fetchLike(url, {
+      ...init,
+      body: JSON.stringify(payload),
+    });
+    if (response.ok) {
+      try {
+        const data = (await response.clone().json()) as Record<string, unknown>;
+        witness.serviceTier =
+          typeof data.service_tier === "string" ? data.service_tier : null;
+      } catch {
+        witness.serviceTier = null;
+      }
+    }
+    return response;
+  };
 }
 
 /**
@@ -175,6 +249,23 @@ export async function callWithCommercialBoundary(
   const hasCommercialPlan =
     typeof verdict.commercialPlanId === "string" &&
     verdict.commercialPlanId.trim().length > 0;
+  const requestedOutputTokens = Math.max(
+    0,
+    Math.ceil(providerOptions.maxTokens ?? 0),
+  );
+  if (
+    hasCommercialPlan &&
+    (requestedOutputTokens > PAID_STANDARD_RATE_MAX_OUTPUT_TOKENS ||
+      paidStandardRateTokenUpperBound(providerOptions) >
+        PAID_STANDARD_RATE_MAX_TOKEN_UPPER_BOUND)
+  ) {
+    await releaseReservation(rpc, reservationId, boundary.functionName);
+    return {
+      status: "quota_refused",
+      limit: "commercial_standard_rate_envelope_exceeded",
+      resetsAt: null,
+    };
+  }
   const providersForCall = hasCommercialPlan
     ? paidCommercialProviders(providers, boundary.requestedModel)
     : providers;
@@ -196,9 +287,16 @@ export async function callWithCommercialBoundary(
   }
 
   let providerResult: LlmResult;
+  const paidRouteWitness: PaidStandardRateWitness = { serviceTier: null };
   try {
     providerResult = await callWithResilience(
-      fetchLike,
+      hasCommercialPlan
+        ? paidStandardRateFetch(
+            fetchLike,
+            boundary.requestedModel,
+            paidRouteWitness,
+          )
+        : fetchLike,
       providersForCall,
       providerOptions,
     );
@@ -217,6 +315,18 @@ export async function callWithCommercialBoundary(
       status: "provider_failed",
       events: providerResult.events,
       error: null,
+    };
+  }
+
+  if (hasCommercialPlan && paidRouteWitness.serviceTier !== "default") {
+    // Inference may already have completed. Keep the conservative reservation
+    // so cost is never understated, withhold output, and require operator
+    // reconciliation rather than settling against the wrong pricing tier.
+    return {
+      status: "settlement_failed",
+      events: providerResult.events,
+      model: providerResult.model,
+      error: "commercial_service_tier_mismatch",
     };
   }
 

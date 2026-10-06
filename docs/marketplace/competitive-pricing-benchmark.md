@@ -97,7 +97,32 @@ matches the policy-approved requested model. If no exact direct route exists,
 it releases the reservation and contacts no provider. Unbound engineering
 traffic retains the resilient gateway chain. This closes the source-level
 alias mismatch without claiming that the change is reviewed, merged, deployed,
-priced for premium context, or proven in production.
+or proven in production.
+
+The same shared boundary now excludes premium long-context pricing at source
+for a bound paid call. Official OpenAI model documentation retrieved 6 October
+2026 states that GPT-5.6 Terra and Luna enter long-context pricing above 272,000
+input tokens, while GPT-4o Mini has a 128,000-token context window and a
+16,384-token maximum output. The release candidate caps paid output at 8,192
+tokens and refuses any request whose UTF-8 prompt bytes plus output ceiling and
+a 1,024-token framing allowance exceed 100,000. UTF-8 bytes are a conservative
+upper bound on BPE input tokens, and the remaining 28,000-token gap protects
+the smallest proposed context window. An over-limit call releases its
+reservation and contacts no provider. This makes the prompt envelope explicit;
+it does not by itself prove the deployed runtime uses the intended endpoint.
+
+Official OpenAI API documentation also says an omitted `service_tier` defaults
+to `auto`, which can inherit a project setting, while `service_tier: default`
+uses standard pricing and returns the tier actually used. GPT-5.6 implicit
+prompt caching is enabled by default and cache writes cost 1.25 times the
+uncached input rate. The release candidate therefore injects
+`service_tier: default`, requires a successful response to report `default`,
+and sets GPT-5.6 `prompt_cache_options.mode` to `explicit` without adding a
+breakpoint, which creates no cache write. If a completed request reports a
+non-default or missing tier, SyncAI withholds the output and retains the
+conservative reservation for reconciliation instead of recording standard-rate
+COGS or releasing spent capacity. Deployment and a controlled response witness
+remain mandatory.
 
 No price, allowance, model set, overage rate, non-inference cost, or margin
 threshold was seeded or approved. Microsoft activation fails closed when the

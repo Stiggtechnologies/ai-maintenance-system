@@ -242,6 +242,24 @@ describe("AI commercial cost controls", () => {
     expect(commercialUsageBoundary).toContain(
       "provider.model === requestedModel",
     );
+    expect(commercialUsageBoundary).toContain(
+      "PAID_STANDARD_RATE_MAX_OUTPUT_TOKENS = 8_192",
+    );
+    expect(commercialUsageBoundary).toContain(
+      "PAID_STANDARD_RATE_MAX_TOKEN_UPPER_BOUND = 100_000",
+    );
+    expect(commercialUsageBoundary).toContain(
+      'limit: "commercial_standard_rate_envelope_exceeded"',
+    );
+    expect(commercialUsageBoundary).toContain(
+      'payload.service_tier = "default"',
+    );
+    expect(commercialUsageBoundary).toContain(
+      'payload.prompt_cache_options = { mode: "explicit" }',
+    );
+    expect(commercialUsageBoundary).toContain(
+      'error: "commercial_service_tier_mismatch"',
+    );
     for (const runtime of developPaidRuntimes) {
       expect(runtime.source).toContain("callWithCommercialBoundary(");
       expect(runtime.source).toContain(`functionName: "${runtime.name}"`);
