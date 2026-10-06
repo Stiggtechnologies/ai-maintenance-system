@@ -52,7 +52,8 @@ Screening only. Not an OEM limit and not a diagnosis.
 - A limit breach uses only the sensor's stored `alarm_limit` and `limit_direction`.
 - At most 20 findings per scan.
 - The same sensor is not raised twice on the same UTC day (`source_finding_id`).
-- One explicitly synthetic authentication-failure finding may be added so the approval loop can be exercised. It is labelled synthetic. It is not a live incident and not customer telemetry.
+- One explicitly synthetic authentication-failure finding may be added so the approval loop can be exercised. It is labelled synthetic. It is not a live incident and not customer telemetry. It has no asset, so the existing recommendation contract refuses to approve it. Reject still works.
+- Each finding also fills the five release-contract fields (`consequence_summary`, `alternatives_considered`, `required_completion_date`, `required_approver_role`, `verification_method`). The completion date is the next calendar day and is described as a review deadline, not an equipment interval. Consequence text says magnitude is not quantified.
 
 The TypeScript spec is `supabase/functions/_shared/syncai-guard-anomaly.ts`. The SQL function is the one the page calls.
 

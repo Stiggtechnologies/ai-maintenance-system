@@ -130,6 +130,8 @@ declare
   v_rec uuid;
   v_issue text;
   v_evidence text;
+  v_asset uuid;
+  v_due date;
 begin
   if v_org is null then
     return jsonb_build_object(
@@ -154,6 +156,7 @@ begin
   end if;
 
   v_z := coalesce(p_z_threshold, 3);
+  v_due := (now() at time zone 'UTC')::date + 1;
   if v_z < 2 or v_z > 6 then
     return jsonb_build_object(
       'error', 'z_threshold_out_of_range',
@@ -187,13 +190,13 @@ begin
     select l.sensor_id, l.asset_id, l.latest_value, l.taken_at,
            b.mu, b.sigma, coalesce(b.n, 0) as n,
            s.name as sensor_name, s.alarm_limit, s.limit_direction, s.unit,
-           a.name as asset_name
+           s.asset_id as sensor_asset_id, a.name as asset_name
     from latest l
     join public.sensors s
       on s.id = l.sensor_id and s.organization_id = v_org
     left join baseline b on b.sensor_id = l.sensor_id
     left join public.assets a
-      on a.id = l.asset_id and a.organization_id = v_org
+      on a.id = coalesce(l.asset_id, s.asset_id) and a.organization_id = v_org
   loop
     exit when v_created >= 20;
     v_limit := r.alarm_limit is not null and (
@@ -230,6 +233,7 @@ begin
         ' (n=' || r.n::text || ')'
       end
     );
+    v_asset := coalesce(r.asset_id, r.sensor_asset_id);
     v_issue := r.sensor_name
       || case when r.asset_name is not null then ' on ' || r.asset_name else '' end
       || ': ' || v_evidence
@@ -238,15 +242,17 @@ begin
     insert into public.recommendations (
       organization_id, asset_id, title, issue, action, impact,
       confidence, urgency, status, approval_required, accountable,
-      responsible, consulted, informed, risk_impact, rationale, source_finding_id
+      responsible, consulted, informed, risk_impact, rationale, source_finding_id,
+      consequence_summary, alternatives_considered, required_completion_date,
+      required_approver_role, verification_method
     )
     values (
       v_org,
-      r.asset_id,
+      v_asset,
       'Review anomalous ' || r.sensor_name
         || case when r.asset_name is not null then ' on ' || r.asset_name else '' end,
       v_issue,
-      'Have a named approver review the evidence and decide whether maintenance follow-up is warranted. Do not command plant equipment from this finding.',
+      'Have a named approver review this screening finding by the next calendar day and decide whether maintenance follow-up is warranted. That date is a review deadline, not an equipment interval. Do not command plant equipment from this finding.',
       'No automatic work and no plant command. Approval creates the governed work path.',
       70,
       case when v_limit then 'action' else 'advisory' end,
@@ -258,7 +264,17 @@ begin
       'Security',
       'Medium',
       'Raised by SyncAI Guard from tenant telemetry. Human approval required before any work. Plant execution disabled.',
-      v_finding_id
+      v_finding_id,
+      'If not reviewed: ' || r.sensor_name || ' stays unreviewed after ' || v_evidence
+        || '. Safety, environmental and financial magnitude are not quantified. This screen is not a consequence model.',
+      case when v_limit then
+        'Considered and rejected: ignore the stored alarm limit — rejected because the latest good reading crossed that stored limit. Considered and rejected: command plant equipment — rejected because SyncAI Guard cannot execute a plant action. This is the detector option set, not an engineering options study.'
+      else
+        'Considered and rejected: treat the sample-standard-deviation screen as normal variation — rejected because the latest good reading is at or beyond the configured z cutoff against at least eight earlier good readings. Considered and rejected: command plant equipment — rejected because SyncAI Guard cannot execute a plant action. This is the detector option set, not an engineering options study.'
+      end,
+      v_due,
+      'Maintenance Manager',
+      'After any follow-up, re-read this sensor. The screen is cleared when a later good reading is inside the stored alarm limit, if one is stored, and is no longer beyond the guard-anomaly-v1 sample-standard-deviation cutoff. That does not confirm a failure mode.'
     )
     returning id into v_rec;
 
@@ -267,7 +283,7 @@ begin
       evidence_type, description, confidence_contribution, data_quality
     )
     values (
-      v_org, v_rec, r.asset_id, 'syncai_guard', 'telemetry_anomaly',
+      v_org, v_rec, v_asset, 'syncai_guard', 'telemetry_anomaly',
       v_evidence, 10, 'good'
     );
 
@@ -296,14 +312,16 @@ begin
       insert into public.recommendations (
         organization_id, asset_id, title, issue, action, impact,
         confidence, urgency, status, approval_required, accountable,
-        responsible, consulted, informed, risk_impact, rationale, source_finding_id
+        responsible, consulted, informed, risk_impact, rationale, source_finding_id,
+        consequence_summary, alternatives_considered, required_completion_date,
+        required_approver_role, verification_method
       )
       values (
         v_org,
         null,
         'Review synthetic authentication-failure burst',
-        'Synthetic security event for this organization: repeated failed authentications against the seeded historian read path. Not a live plant incident and not customer telemetry. Rule guard-anomaly-v1.',
-        'Have a named approver confirm whether the seeded access trail needs follow-up. Do not command plant equipment.',
+        'Synthetic security event for this organization: repeated failed authentications against the seeded historian read path. Not a live plant incident and not customer telemetry. Rule guard-anomaly-v1. The recommendation contract refuses approval of this row until it has an asset or a governed risk context, and this event has neither.',
+        'Have a named approver confirm whether the seeded access trail needs follow-up by the next calendar day. That date is a review deadline, not an equipment interval. Do not command plant equipment.',
         'No automatic work and no plant command.',
         60,
         'advisory',
@@ -315,7 +333,12 @@ begin
         'Reliability Engineer',
         'Medium',
         'Synthetic SyncAI Guard event so the approval loop can be exercised. Plant execution disabled.',
-        v_finding_id
+        v_finding_id,
+        'No plant consequence is recorded. This row is a synthetic authentication-failure event. It is not a live incident, and safety, environmental and financial magnitude are not quantified.',
+        'Considered and rejected: attach this event to an asset in the organization — rejected because the event is not about a machine. Considered and rejected: omit the row — rejected because the approval loop needs a visible synthetic finding when telemetry does not cross the screen. This is not an engineering options study.',
+        v_due,
+        'Maintenance Manager',
+        'Confirm the row is labelled synthetic and that no live access log was read. There is no plant reading to re-measure.'
       )
       returning id into v_rec;
 
