@@ -33,23 +33,24 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
 
-      # The open-source inventory is DERIVED from package-lock.json. Before this
-      # step existed, every Dependabot pull request failed here with "Open-source
-      # inventory is stale", because Dependabot bumps the lockfile and has no way
-      # to regenerate the artifact. That is friction with no safety benefit: the
-      # inventory is deterministic from the lockfile, so a human retyping the
-      # command adds nothing a machine cannot do correctly every time.
+      # The open-source inventory and engineering-model environment pin are
+      # DERIVED from package-lock.json. Before this step existed, Dependabot pull
+      # requests failed because the bot changed the lockfile without regenerating
+      # its evidence. That is friction with no safety benefit: both values are
+      # deterministic from the lockfile, so a human retyping a digest adds nothing
+      # a machine cannot do correctly every time.
       #
       # What is NOT relaxed: compliance:check still runs below, and still fails if
-      # the inventory cannot be generated, if a licence is disallowed, or if any
-      # governance rule breaks. This regenerates a derived file; it does not
-      # forgive a policy violation.
+      # the evidence cannot be generated, if a licence is disallowed, if the
+      # environment pin cannot be located exactly, or if any governance rule
+      # breaks. This refreshes derived evidence; it does not forgive a policy
+      # violation or weaken the byte-for-byte model-pack assertion.
       #
       # Fork safety: this is the only step in the repository with contents: write
       # against a pull_request trigger, so it is fenced to same-repository pull
       # requests. A fork PR skips it and simply fails the stale check, which is
       # the correct outcome — an untrusted branch must never be pushed to.
-      - name: Refresh the derived open-source inventory
+      - name: Refresh derived lockfile evidence
         if: >-
           github.event_name == 'pull_request' &&
           github.event.pull_request.head.repo.full_name == github.repository
@@ -58,18 +59,19 @@ jobs:
         run: |
           set -euo pipefail
           npm run compliance:licenses:write
-          if git diff --quiet -- docs/investor-diligence/; then
-            echo "Inventory already current; nothing to commit."
+          npm run compliance:model-provenance:write
+          if git diff --quiet -- docs/investor-diligence/ src/lib/engineering-models/resonance.ts; then
+            echo "Lockfile-derived evidence already current; nothing to commit."
             exit 0
           fi
-          echo "Inventory was stale. Regenerated from package-lock.json:"
-          git --no-pager diff --stat -- docs/investor-diligence/
+          echo "Lockfile-derived evidence was stale. Regenerated from package-lock.json:"
+          git --no-pager diff --stat -- docs/investor-diligence/ src/lib/engineering-models/resonance.ts
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/investor-diligence/
+          git add docs/investor-diligence/ src/lib/engineering-models/resonance.ts
           git commit \
-            -m "chore(compliance): regenerate the derived open-source inventory" \
-            -m "Generated from package-lock.json by the IP and supply chain workflow. The inventory is a derived artifact; this commit only keeps it in step with the lockfile this pull request changed."
+            -m "chore(compliance): refresh derived lockfile evidence" \
+            -m "Generated from package-lock.json by the IP and supply chain workflow. The inventory and model environment pin are derived evidence; this commit only keeps them in step with the lockfile this pull request changed."
           git push origin "HEAD:${HEAD_REF}"
 
       - run: npm run compliance:check
