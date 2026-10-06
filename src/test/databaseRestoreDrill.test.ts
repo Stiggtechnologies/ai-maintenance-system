@@ -23,6 +23,26 @@ const local = {
 };
 
 describe("database restore-drill boundaries", () => {
+  it("reports only fixed failure categories, not database diagnostics or secrets", () => {
+    const privateDiagnostic =
+      'ERROR: permission denied for password="sensitive-test-secret" at /private/provider/path';
+    expect(drill.diagnosticCategory(privateDiagnostic)).toBe(
+      "permission_denied",
+    );
+    expect(
+      drill.diagnosticCategory(
+        "ERROR: must be preloaded shared_preload_libraries secret",
+      ),
+    ).toBe("preload_configuration");
+    expect(
+      drill.diagnosticCategory('ERROR: role "private-role" does not exist'),
+    ).toBe("missing_role");
+    expect(
+      drill.diagnosticCategory(
+        "unrecognized provider diagnostic sensitive-test-secret",
+      ),
+    ).toBe("subprocess_failure");
+  });
   it("refuses execution without explicit local-source intent before any Docker command", async () => {
     await expect(
       drill.runRestoreDrill({ env: {}, log: () => {} }),

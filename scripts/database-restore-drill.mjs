@@ -129,6 +129,28 @@ export function compareManifests(source, target) {
 
 // Never invoke a shell or propagate provider diagnostics. Raw SQL and database
 // bytes stay in an exclusive 0600 artifact, not terminal/Actions output.
+export function diagnosticCategory(diagnostic) {
+  for (const [pattern, category] of [
+    [
+      /preloaded|shared_preload_libraries|unrecognized configuration parameter/i,
+      "preload_configuration",
+    ],
+    [/role .* does not exist/i, "missing_role"],
+    [/already exists/i, "existing_object"],
+    [
+      /must be owner|must be superuser|permission denied|not permitted/i,
+      "permission_denied",
+    ],
+    [
+      /extension.*not available|could not open extension control file/i,
+      "missing_extension",
+    ],
+    [/does not exist/i, "missing_object"],
+    [/violates .*constraint/i, "constraint_failure"],
+  ])
+    if (pattern.test(diagnostic)) return category;
+  return "subprocess_failure";
+}
 async function command(
   binary,
   args,
@@ -140,6 +162,7 @@ async function command(
       stdio: ["pipe", outputFd ?? "pipe", "pipe"],
     });
     let output = "",
+      diagnostic = "",
       bytes = 0,
       finished = false;
     const timer = setTimeout(() => {
@@ -150,7 +173,9 @@ async function command(
       if (bytes > 32 * 1024 * 1024) child.kill("SIGKILL");
       else output += chunk.toString("utf8");
     });
-    child.stderr.on("data", () => {});
+    child.stderr.on("data", (chunk) => {
+      if (diagnostic.length < 1024 * 1024) diagnostic += chunk.toString("utf8");
+    });
     child.stdin.on("error", () => {});
     child.on("error", () => {
       clearTimeout(timer);
@@ -161,7 +186,11 @@ async function command(
       clearTimeout(timer);
       if (finished) return;
       if (code !== 0 || bytes > 32 * 1024 * 1024)
-        reject(new Error("Recovery subprocess failed"));
+        reject(
+          Object.assign(new Error("Recovery subprocess failed"), {
+            category: diagnosticCategory(diagnostic),
+          }),
+        );
       else resolve(output.trim());
     });
     if (input !== undefined) child.stdin.end(input);
@@ -288,6 +317,7 @@ select 'restored-tenant-witness-passed';
 export async function runRestoreDrill({
   env = process.env,
   log = console.log,
+  onReport = () => {},
 } = {}) {
   if (
     env.SYNC_DR_LOCAL_SOURCE !== sourceName ||
@@ -498,12 +528,14 @@ export async function runRestoreDrill({
       throw new Error("Isolated target did not start");
     });
     await timed("restore", async () => {
+      phase = "restore_roles";
       await sql(
         targetId,
         bootstrap,
         "/tmp",
         readFileSync(join(output, "roles.sql"), "utf8"),
       );
+      phase = "restore_database";
       await command(
         "docker",
         [
@@ -550,9 +582,10 @@ export async function runRestoreDrill({
       throw new Error("Restored tenant witness missing");
     report.tenantRuntimeWitness = true;
     report.verdict = "PASS";
-  } catch {
+  } catch (error) {
     failure = true;
     report.failedPhase = phase;
+    report.failureCategory = error.category ?? "qualification_failure";
   } finally {
     if (snapshotSession) {
       try {
@@ -586,6 +619,11 @@ export async function runRestoreDrill({
         throw new Error("Recovery drill failed to save its private report");
       }
       log(`Recovery drill ${report.verdict}; private artifacts: ${output}`);
+    }
+    try {
+      onReport(structuredClone(report));
+    } catch {
+      throw new Error("Recovery drill could not preserve its bounded summary");
     }
   }
   if (failure)

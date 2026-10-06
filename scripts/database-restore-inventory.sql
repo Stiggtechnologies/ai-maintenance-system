@@ -1,6 +1,7 @@
 -- Read-only qualification inventory. Never emit row payloads or role passwords.
 set timezone = 'UTC';
 set extra_float_digits = 3;
+set search_path = pg_catalog;
 set statement_timeout = '5min';
 
 select jsonb_build_object('kind','role','key',rolname,'value',
@@ -12,6 +13,11 @@ select jsonb_build_object('kind','membership','key',
   pg_get_userbyid(roleid)||':'||pg_get_userbyid(member),'value',
   jsonb_build_array(pg_get_userbyid(grantor),admin_option,inherit_option,set_option))
 from pg_auth_members order by roleid,member;
+
+select jsonb_build_object('kind','default_acl','key',
+  pg_get_userbyid(defaclrole)||':'||coalesce(n.nspname,'*')||':'||defaclobjtype,'value',defaclacl::text)
+from pg_default_acl a left join pg_namespace n on n.oid=a.defaclnamespace
+order by pg_get_userbyid(defaclrole),n.nspname,defaclobjtype;
 
 select jsonb_build_object('kind','extension','key',extname,'value',
   jsonb_build_array(extversion,n.nspname,pg_get_userbyid(extowner)))
@@ -29,6 +35,10 @@ select jsonb_build_object('kind','relation','key',n.nspname||'.'||c.relname,'val
 from pg_class c join pg_namespace n on n.oid=c.relnamespace
 where n.nspname in ('public','auth','storage','supabase_migrations')
   and c.relkind in ('r','p','v','m','S','f') order by n.nspname,c.relname;
+
+select jsonb_build_object('kind','view','key',n.nspname||'.'||c.relname,'value',pg_get_viewdef(c.oid))
+from pg_class c join pg_namespace n on n.oid=c.relnamespace
+where n.nspname in ('public','auth','storage') and c.relkind in ('v','m') order by n.nspname,c.relname;
 
 select jsonb_build_object('kind','column','key',n.nspname||'.'||c.relname||'.'||a.attname,'value',
   jsonb_build_array(a.attnum,format_type(a.atttypid,a.atttypmod),a.attnotnull,
