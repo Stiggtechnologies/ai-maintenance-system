@@ -51,6 +51,17 @@ const capture = (definition = "DO_NOT_DISCLOSE_OLD_SQL") => ({
     },
   ],
 });
+const matchedQualification = {
+  captureStatus: "QUALIFIED",
+  captureReason: "none",
+  correlationStatus: "MATCHED",
+};
+const missingFreshQualification = {
+  readStatus: "NOT_RECORDED",
+  captureStatus: "MISSING",
+  captureReason: "missing_capture",
+  identityStatus: "UNAVAILABLE",
+};
 const baselineHints = {
   kind: "function",
   snapshotDiagnosticStatus: "AVAILABLE",
@@ -63,7 +74,350 @@ const baselineHints = {
   catalogTupleChanged: false,
   renderingEnvironmentChanged: false,
   freshDiagnosticStatus: "UNAVAILABLE",
+  snapshotQualification: {
+    before: matchedQualification,
+    after: matchedQualification,
+  },
+  freshQualification: missingFreshQualification,
 };
+const unavailableHint = (afterQualification: {
+  captureStatus: string;
+  captureReason: string;
+  correlationStatus: string;
+}) => ({
+  kind: "function",
+  snapshotDiagnosticStatus: "UNAVAILABLE",
+  freshDiagnosticStatus: "UNAVAILABLE",
+  snapshotQualification: {
+    before: matchedQualification,
+    after: afterQualification,
+  },
+  freshQualification: missingFreshQualification,
+});
+
+describe("fixed nonidentifying diagnostic qualification states", () => {
+  it.each([
+    [
+      "schema_version",
+      (value: ReturnType<typeof capture>) => {
+        value.schemaVersion = 2;
+      },
+    ],
+    [
+      "oid_representation",
+      (value: ReturnType<typeof capture>) => {
+        value.oidJsonRepresentationQualified = false;
+      },
+    ],
+    [
+      "environment_shape",
+      (value: ReturnType<typeof capture>) => {
+        Object.assign(value, { environment: null });
+      },
+    ],
+    [
+      "environment_field",
+      (value: ReturnType<typeof capture>) => {
+        Object.assign(value.environment, { DateStyle: null });
+      },
+    ],
+    [
+      "functions_shape",
+      (value: ReturnType<typeof capture>) => {
+        Object.assign(value, { functions: null });
+      },
+    ],
+    [
+      "function_limit",
+      (value: ReturnType<typeof capture>) => {
+        value.functions = Array.from(
+          { length: 10001 },
+          () => value.functions[0],
+        );
+      },
+    ],
+    [
+      "routine_shape",
+      (value: ReturnType<typeof capture>) => {
+        Object.assign(value.functions, { 0: null });
+      },
+    ],
+    [
+      "identity_shape",
+      (value: ReturnType<typeof capture>) => {
+        Object.assign(value.functions[0], { identity: null });
+      },
+    ],
+    [
+      "duplicate_identity",
+      (value: ReturnType<typeof capture>) => {
+        value.functions.push({ ...value.functions[0] });
+      },
+    ],
+    [
+      "oid",
+      (value: ReturnType<typeof capture>) => {
+        Object.assign(value.functions[0], { oid: 1234 });
+      },
+    ],
+    [
+      "tuple_version",
+      (value: ReturnType<typeof capture>) => {
+        Object.assign(value.functions[0], { tupleVersion: 5678 });
+      },
+    ],
+    [
+      "definition",
+      (value: ReturnType<typeof capture>) => {
+        Object.assign(value.functions[0], { definition: null });
+      },
+    ],
+    [
+      "catalog_shape",
+      (value: ReturnType<typeof capture>) => {
+        Object.assign(value.functions[0], { catalog: null });
+      },
+    ],
+    [
+      "catalog_oid",
+      (value: ReturnType<typeof capture>) => {
+        Object.assign(value.functions[0].catalog, { oid: "1235" });
+      },
+    ],
+    [
+      "body",
+      (value: ReturnType<typeof capture>) => {
+        Object.assign(value.functions[0].catalog, { prosrc: null });
+      },
+    ],
+    [
+      "binary",
+      (value: ReturnType<typeof capture>) => {
+        Object.assign(value.functions[0].catalog, { probin: 123 });
+      },
+    ],
+    [
+      "argument_defaults",
+      (value: ReturnType<typeof capture>) => {
+        Object.assign(value.functions[0].catalog, { proargdefaults: {} });
+      },
+    ],
+    [
+      "sql_body",
+      (value: ReturnType<typeof capture>) => {
+        Object.assign(value.functions[0].catalog, { prosqlbody: [] });
+      },
+    ],
+    [
+      "configuration",
+      (value: ReturnType<typeof capture>) => {
+        Object.assign(value.functions[0].catalog, { proconfig: [123] });
+      },
+    ],
+  ] as const)(
+    "retains strict refusal while exposing only fixed %s reason",
+    (reason, mutate) => {
+      const second = capture("DO_NOT_DISCLOSE_NEW_SQL");
+      mutate(second);
+      const [hint] = diagnostics.sourceFunctionDriftHints(
+        before,
+        after,
+        capture(),
+        second,
+        capture("DO_NOT_DISCLOSE_NEW_SQL"),
+      );
+      expect(hint.snapshotQualification).toEqual({
+        before: matchedQualification,
+        after: {
+          captureStatus: "REFUSED",
+          captureReason: reason,
+          correlationStatus: "UNAVAILABLE",
+        },
+      });
+      expect(hint.freshQualification).toEqual({
+        readStatus: "NOT_RECORDED",
+        captureStatus: "QUALIFIED",
+        captureReason: "none",
+        identityStatus: "FOUND",
+      });
+      expect(hint.snapshotDiagnosticStatus).toBe("UNAVAILABLE");
+      expect(hint.freshDiagnosticStatus).toBe("UNAVAILABLE");
+      expect(hint).not.toHaveProperty("catalogChanged");
+      expect(hint).not.toHaveProperty("freshCatalogChanged");
+      expect(hint).not.toHaveProperty("freshDefinitionEqualsSecondObservation");
+      expect(JSON.stringify(hint)).not.toMatch(
+        /DO_NOT_DISCLOSE|1234|1235|5678|170006/,
+      );
+      expect(() => drill.compareManifests(before, after)).toThrow("differs");
+    },
+  );
+
+  it.each([
+    [undefined, "MISSING", "missing_capture"],
+    [null, "REFUSED", "capture_shape"],
+  ])(
+    "distinguishes a missing capture from a malformed shape",
+    (second, status, reason) => {
+      const [hint] = diagnostics.sourceFunctionDriftHints(
+        before,
+        after,
+        capture(),
+        second,
+      );
+      expect(hint.snapshotQualification.after).toEqual({
+        captureStatus: status,
+        captureReason: reason,
+        correlationStatus: "UNAVAILABLE",
+      });
+    },
+  );
+
+  it.each(["IDENTITY_MISSING", "DEFINITION_MISMATCH"])(
+    "distinguishes qualified but %s snapshots without claiming drift",
+    async (status) => {
+      const second = capture("DO_NOT_DISCLOSE_NEW_SQL");
+      if (status === "IDENTITY_MISSING")
+        second.functions[0].identity = "DO_NOT_DISCLOSE_OTHER_IDENTITY";
+      else second.functions[0].definition = "DO_NOT_DISCLOSE_UNCORRELATED_SQL";
+      const readFresh = vi.fn(async () => capture("DO_NOT_DISCLOSE_NEW_SQL"));
+      const [hint] = await diagnostics.diagnoseSourceFunctionDrift(
+        before,
+        after,
+        capture(),
+        second,
+        readFresh,
+      );
+      expect(hint.snapshotQualification.after).toEqual({
+        ...matchedQualification,
+        correlationStatus: status,
+      });
+      expect(hint.freshQualification).toEqual({
+        readStatus: "SUCCEEDED",
+        captureStatus: "QUALIFIED",
+        captureReason: "none",
+        identityStatus: "FOUND",
+      });
+      expect(hint.snapshotDiagnosticStatus).toBe("UNAVAILABLE");
+      expect(hint.freshDiagnosticStatus).toBe("UNAVAILABLE");
+      expect(hint).not.toHaveProperty("freshDefinitionEqualsSecondObservation");
+      expect(hint).not.toHaveProperty("freshCatalogChanged");
+      expect(readFresh).toHaveBeenCalledTimes(1);
+      expect(JSON.stringify(hint)).not.toContain("DO_NOT_DISCLOSE");
+    },
+  );
+
+  it("does not conceal an unrelated malformed routine behind the OID witness", () => {
+    const second = capture("DO_NOT_DISCLOSE_NEW_SQL");
+    const unrelated = structuredClone(second.functions[0]);
+    unrelated.identity = "DO_NOT_DISCLOSE_OTHER_IDENTITY";
+    Object.assign(unrelated.catalog, { prosrc: null });
+    second.functions.push(unrelated);
+    const [hint] = diagnostics.sourceFunctionDriftHints(
+      before,
+      after,
+      capture(),
+      second,
+    );
+    expect(second.oidJsonRepresentationQualified).toBe(true);
+    expect(hint.snapshotQualification.after.captureReason).toBe("body");
+    expect(hint.snapshotDiagnosticStatus).toBe("UNAVAILABLE");
+    expect(JSON.stringify(hint)).not.toContain("DO_NOT_DISCLOSE");
+  });
+
+  it("qualifies before and after observations independently", () => {
+    const first = capture();
+    first.oidJsonRepresentationQualified = false;
+    const [hint] = diagnostics.sourceFunctionDriftHints(
+      before,
+      after,
+      first,
+      capture("DO_NOT_DISCLOSE_NEW_SQL"),
+    );
+    expect(hint.snapshotQualification).toEqual({
+      before: {
+        captureStatus: "REFUSED",
+        captureReason: "oid_representation",
+        correlationStatus: "UNAVAILABLE",
+      },
+      after: matchedQualification,
+    });
+    expect(hint.snapshotDiagnosticStatus).toBe("UNAVAILABLE");
+    expect(hint).not.toHaveProperty("catalogChanged");
+  });
+
+  it("never publishes an arbitrary direct-helper read status", () => {
+    const [hint] = diagnostics.sourceFunctionDriftHints(
+      before,
+      after,
+      capture(),
+      capture(),
+      capture("DO_NOT_DISCLOSE_NEW_SQL"),
+      "DO_NOT_DISCLOSE_PROVIDER_DIAGNOSTIC",
+    );
+    expect(hint.freshQualification.readStatus).toBe("NOT_RECORDED");
+    expect(hint.freshQualification.captureStatus).toBe("QUALIFIED");
+    expect(JSON.stringify(hint)).not.toContain("DO_NOT_DISCLOSE");
+  });
+
+  it("records a failed fresh read even when a snapshot cannot correlate", async () => {
+    const readFresh = vi.fn(async () => {
+      throw new Error("DO_NOT_DISCLOSE_PROVIDER_CREDENTIAL");
+    });
+    const [hint] = await diagnostics.diagnoseSourceFunctionDrift(
+      before,
+      after,
+      capture(),
+      capture(),
+      readFresh,
+    );
+    expect(hint.snapshotQualification.after.correlationStatus).toBe(
+      "DEFINITION_MISMATCH",
+    );
+    expect(hint.freshQualification).toEqual({
+      readStatus: "FAILED",
+      captureStatus: "MISSING",
+      captureReason: "missing_capture",
+      identityStatus: "UNAVAILABLE",
+    });
+    expect(hint).not.toHaveProperty("freshCatalogChanged");
+    expect(JSON.stringify(hint)).not.toContain("DO_NOT_DISCLOSE");
+  });
+
+  it("distinguishes successful but unqualified fresh data and a missing identity", async () => {
+    const malformed = capture("DO_NOT_DISCLOSE_NEW_SQL");
+    Object.assign(malformed.environment, { search_path: null });
+    const [refused] = await diagnostics.diagnoseSourceFunctionDrift(
+      before,
+      after,
+      capture(),
+      capture(),
+      async () => malformed,
+    );
+    expect(refused.freshQualification).toEqual({
+      readStatus: "SUCCEEDED",
+      captureStatus: "REFUSED",
+      captureReason: "environment_field",
+      identityStatus: "UNAVAILABLE",
+    });
+    const missing = capture("DO_NOT_DISCLOSE_NEW_SQL");
+    missing.functions = [];
+    const [notFound] = await diagnostics.diagnoseSourceFunctionDrift(
+      before,
+      after,
+      capture(),
+      capture(),
+      async () => missing,
+    );
+    expect(notFound.freshQualification).toEqual({
+      readStatus: "SUCCEEDED",
+      captureStatus: "QUALIFIED",
+      captureReason: "none",
+      identityStatus: "MISSING",
+    });
+    expect(notFound.freshDiagnosticStatus).toBe("UNAVAILABLE");
+    expect(notFound).not.toHaveProperty("freshCatalogChanged");
+  });
+});
 
 describe("private restore source-function diagnostics", () => {
   it("qualifies the actual PostgreSQL JSON OID string without coercing catalog data", () => {
@@ -132,11 +486,11 @@ describe("private restore source-function diagnostics", () => {
       expect(
         diagnostics.sourceFunctionDriftHints(before, after, capture(), second),
       ).toEqual([
-        {
-          kind: "function",
-          snapshotDiagnosticStatus: "UNAVAILABLE",
-          freshDiagnosticStatus: "UNAVAILABLE",
-        },
+        unavailableHint({
+          captureStatus: "REFUSED",
+          captureReason: "catalog_oid",
+          correlationStatus: "UNAVAILABLE",
+        }),
       ]);
       expect(() => drill.compareManifests(before, after)).toThrow("differs");
     },
@@ -152,11 +506,11 @@ describe("private restore source-function diagnostics", () => {
       expect(
         diagnostics.sourceFunctionDriftHints(before, after, capture(), second),
       ).toEqual([
-        {
-          kind: "function",
-          snapshotDiagnosticStatus: "UNAVAILABLE",
-          freshDiagnosticStatus: "UNAVAILABLE",
-        },
+        unavailableHint({
+          captureStatus: "REFUSED",
+          captureReason: mode === "both-numeric-oids" ? "oid" : "tuple_version",
+          correlationStatus: "UNAVAILABLE",
+        }),
       ]);
       expect(() => drill.compareManifests(before, after)).toThrow("differs");
     },
@@ -167,11 +521,11 @@ describe("private restore source-function diagnostics", () => {
     expect(
       diagnostics.sourceFunctionDriftHints(before, after, capture(), second),
     ).toEqual([
-      {
-        kind: "function",
-        snapshotDiagnosticStatus: "UNAVAILABLE",
-        freshDiagnosticStatus: "UNAVAILABLE",
-      },
+      unavailableHint({
+        captureStatus: "REFUSED",
+        captureReason: "oid_representation",
+        correlationStatus: "UNAVAILABLE",
+      }),
     ]);
     const sql = readFileSync(
       new URL(
@@ -328,6 +682,12 @@ describe("private restore source-function diagnostics", () => {
         freshCatalogTupleChanged: true,
         freshRenderingEnvironmentChanged: false,
         freshDefinitionEqualsSecondObservation: true,
+        freshQualification: {
+          readStatus: "NOT_RECORDED",
+          captureStatus: "QUALIFIED",
+          captureReason: "none",
+          identityStatus: "FOUND",
+        },
       },
     ]);
     expect(JSON.stringify(result)).not.toMatch(
@@ -374,11 +734,24 @@ describe("private restore source-function diagnostics", () => {
         mode === "missing" ? undefined : second,
       ),
     ).toEqual([
-      {
-        kind: "function",
-        snapshotDiagnosticStatus: "UNAVAILABLE",
-        freshDiagnosticStatus: "UNAVAILABLE",
-      },
+      unavailableHint(
+        mode === "uncorrelated"
+          ? {
+              ...matchedQualification,
+              correlationStatus: "DEFINITION_MISMATCH",
+            }
+          : {
+              captureStatus: mode === "missing" ? "MISSING" : "REFUSED",
+              captureReason: {
+                missing: "missing_capture",
+                schema: "schema_version",
+                duplicate: "duplicate_identity",
+                "invalid-catalog": "body",
+                "invalid-settings": "environment_field",
+              }[mode]!,
+              correlationStatus: "UNAVAILABLE",
+            },
+      ),
     ]);
   });
   it("ignores unknown output metadata and never publishes arbitrary fields", () => {
@@ -427,7 +800,15 @@ describe("private restore source-function diagnostics", () => {
       readFresh,
     );
     expect(readFresh).toHaveBeenCalledTimes(1);
-    expect(result).toEqual([baselineHints]);
+    expect(result).toEqual([
+      {
+        ...baselineHints,
+        freshQualification: {
+          ...missingFreshQualification,
+          readStatus: "FAILED",
+        },
+      },
+    ]);
     expect(() => drill.compareManifests(before, after)).toThrow("differs");
     expect(JSON.stringify(result)).not.toContain("DO_NOT_DISCLOSE");
   });

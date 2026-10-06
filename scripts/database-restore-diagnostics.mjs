@@ -60,54 +60,68 @@ const changedFunctions = (source, target) =>
     );
   });
 
-function qualifiedCapture(capture) {
-  if (
-    !record(capture) ||
-    capture.schemaVersion !== 1 ||
-    capture.oidJsonRepresentationQualified !== true ||
-    !record(capture.environment) ||
-    !settings.every((key) => typeof capture.environment[key] === "string") ||
-    !Array.isArray(capture.functions) ||
-    capture.functions.length > 10000
-  )
-    return false;
+function captureQualification(capture) {
+  // Every reason is a fixed label, never a field value, identity or array index.
+  // These are the original strict predicates, not per-routine acceptance.
+  const refused = (captureReason) => ({
+    captureStatus: "REFUSED",
+    captureReason,
+  });
+  if (capture === undefined)
+    return { captureStatus: "MISSING", captureReason: "missing_capture" };
+  if (!record(capture)) return refused("capture_shape");
+  if (capture.schemaVersion !== 1) return refused("schema_version");
+  if (capture.oidJsonRepresentationQualified !== true)
+    return refused("oid_representation");
+  if (!record(capture.environment)) return refused("environment_shape");
+  if (!settings.every((key) => typeof capture.environment[key] === "string"))
+    return refused("environment_field");
+  if (!Array.isArray(capture.functions)) return refused("functions_shape");
+  if (capture.functions.length > 10000) return refused("function_limit");
   const seen = new Set();
   for (const routine of capture.functions) {
+    if (!record(routine)) return refused("routine_shape");
+    if (typeof routine.identity !== "string") return refused("identity_shape");
+    if (seen.has(routine.identity)) return refused("duplicate_identity");
     if (
-      !record(routine) ||
-      typeof routine.identity !== "string" ||
-      seen.has(routine.identity) ||
       typeof routine.oid !== "string" ||
       !/^[1-9][0-9]{0,9}$/.test(routine.oid ?? "") ||
-      Number(routine.oid) > 4294967295 ||
+      Number(routine.oid) > 4294967295
+    )
+      return refused("oid");
+    if (
       typeof routine.tupleVersion !== "string" ||
       !/^(0|[1-9][0-9]{0,9})$/.test(routine.tupleVersion ?? "") ||
-      Number(routine.tupleVersion) > 4294967295 ||
-      typeof routine.definition !== "string" ||
-      !record(routine.catalog) ||
-      routine.catalog.oid !== routine.oid ||
-      typeof routine.catalog.prosrc !== "string" ||
-      !["probin", "proargdefaults", "prosqlbody"].every((key) =>
-        nullableText(routine.catalog[key]),
-      ) ||
-      !(
-        routine.catalog.proconfig === null ||
-        (Array.isArray(routine.catalog.proconfig) &&
-          routine.catalog.proconfig.every((value) => typeof value === "string"))
-      )
+      Number(routine.tupleVersion) > 4294967295
     )
-      return false;
+      return refused("tuple_version");
+    if (typeof routine.definition !== "string") return refused("definition");
+    if (!record(routine.catalog)) return refused("catalog_shape");
+    if (routine.catalog.oid !== routine.oid) return refused("catalog_oid");
+    if (typeof routine.catalog.prosrc !== "string") return refused("body");
+    if (!nullableText(routine.catalog.probin)) return refused("binary");
+    if (!nullableText(routine.catalog.proargdefaults))
+      return refused("argument_defaults");
+    if (!nullableText(routine.catalog.prosqlbody)) return refused("sql_body");
+    if (!(
+      routine.catalog.proconfig === null ||
+      (Array.isArray(routine.catalog.proconfig) &&
+        routine.catalog.proconfig.every((value) => typeof value === "string"))
+    ))
+      return refused("configuration");
     seen.add(routine.identity);
   }
-  return true;
+  return { captureStatus: "QUALIFIED", captureReason: "none" };
 }
 
-function correlated(capture, entry) {
-  if (!qualifiedCapture(capture)) return undefined;
+function correlated(capture, entry, qualification) {
+  if (qualification.captureStatus !== "QUALIFIED")
+    return { correlationStatus: "UNAVAILABLE" };
   const routine = capture.functions.find((item) => item.identity === entry.key);
-  return routine && routine.definition === definition(entry)
-    ? routine
-    : undefined;
+  if (!routine) return { correlationStatus: "IDENTITY_MISSING" };
+  if (routine.definition !== definition(entry))
+    return { correlationStatus: "DEFINITION_MISMATCH" };
+  return { correlationStatus: "MATCHED", routine };
 }
 
 export function sourceFunctionDriftHints(
@@ -116,17 +130,57 @@ export function sourceFunctionDriftHints(
   beforeCapture,
   afterCapture,
   freshCapture,
+  freshReadStatus = "NOT_RECORDED",
 ) {
-  return changedFunctions(source, target).map((entry) => {
+  const changed = changedFunctions(source, target);
+  if (!changed.length) return [];
+  const beforeQualification = captureQualification(beforeCapture);
+  const afterQualification = captureQualification(afterCapture);
+  const freshQualification = captureQualification(freshCapture);
+  return changed.map((entry) => {
     const other = target.find(
       (item) => item.kind === entry.kind && item.key === entry.key,
     );
-    const before = correlated(beforeCapture, entry),
-      after = correlated(afterCapture, other);
+    const beforeObservation = correlated(
+        beforeCapture,
+        entry,
+        beforeQualification,
+      ),
+      afterObservation = correlated(afterCapture, other, afterQualification);
+    const before = beforeObservation.routine,
+      after = afterObservation.routine;
+    // A successful fresh read can be reported even when either snapshot fails
+    // correlation. It must not enable catalog/equality comparisons in that case.
+    const fresh =
+      freshQualification.captureStatus === "QUALIFIED"
+        ? freshCapture.functions.find((item) => item.identity === entry.key)
+        : undefined;
     const hint = {
       kind: entry.kind,
       snapshotDiagnosticStatus: "UNAVAILABLE",
       freshDiagnosticStatus: "UNAVAILABLE",
+      snapshotQualification: {
+        before: {
+          ...beforeQualification,
+          correlationStatus: beforeObservation.correlationStatus,
+        },
+        after: {
+          ...afterQualification,
+          correlationStatus: afterObservation.correlationStatus,
+        },
+      },
+      freshQualification: {
+        readStatus: ["SUCCEEDED", "FAILED"].includes(freshReadStatus)
+          ? freshReadStatus
+          : "NOT_RECORDED",
+        ...freshQualification,
+        identityStatus:
+          freshQualification.captureStatus !== "QUALIFIED"
+            ? "UNAVAILABLE"
+            : fresh
+              ? "FOUND"
+              : "MISSING",
+      },
     };
     if (!before || !after) return hint;
     Object.assign(hint, {
@@ -153,10 +207,7 @@ export function sourceFunctionDriftHints(
         afterCapture.environment,
       ),
     });
-    if (qualifiedCapture(freshCapture)) {
-      const fresh = freshCapture.functions.find(
-        (item) => item.identity === entry.key,
-      );
+    if (freshQualification.captureStatus === "QUALIFIED") {
       if (!fresh) hint.freshDiagnosticStatus = "MISSING";
       else {
         const environmentChanged = !same(
@@ -192,8 +243,10 @@ export async function diagnoseSourceFunctionDrift(
 ) {
   if (!changedFunctions(source, target).length) return [];
   let fresh;
+  let freshReadStatus = "FAILED";
   try {
     fresh = await readFresh();
+    freshReadStatus = "SUCCEEDED";
   } catch {
     /* Never swallow the original failed comparison. */
   }
@@ -203,6 +256,7 @@ export async function diagnoseSourceFunctionDrift(
     beforeCapture,
     afterCapture,
     fresh,
+    freshReadStatus,
   );
 }
 

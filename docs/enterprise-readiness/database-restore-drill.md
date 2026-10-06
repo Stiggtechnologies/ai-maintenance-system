@@ -192,6 +192,23 @@ still unqualified until its actual cause and a successful strict restore are
 demonstrated. No PostgreSQL rendering or concurrent-DDL hypothesis is asserted
 as the incident's proven cause.
 
+### Diagnostic qualification states
+
+Each changed-function hint also records separate, fixed qualification states
+for the before and after observations: capture status, the first allowlisted
+refusal reason, and identity/definition correlation status. A malformed routine
+still refuses the **entire** capture, even when that routine is unrelated to the
+changed function. The OID witness alone does not qualify all remaining fields.
+The fresh observation records read success/failure independently of snapshot
+correlation, plus capture qualification and identity presence. Direct helper
+calls without a recorded read use `NOT_RECORDED`, not an inferred success.
+A successfully read and qualified fresh observation does not enable equality
+or catalog-drift claims when either snapshot is uncorrelated; those hints remain
+`UNAVAILABLE`. Only fixed labels are public: no routine identities, indices,
+catalog fields' values, session-setting values, OIDs, digests or raw errors.
+These states explain diagnostic availability, not the restore failure's cause,
+and do not change any manifest, strict comparison or recovery acceptance flag.
+
 For a differing, nondeferrable NOT VALID CHECK only, a bounded reference witness
 may reparse the captured source definition on the restored relation in a
 10-second, rollback-only transaction. The original constraint is not dropped,
