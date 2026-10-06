@@ -240,6 +240,15 @@ unqualified HTTP/content types and oversized responses are refused. The report
 explicitly does **not** claim that string presence proves the frontend's runtime
 client binding.
 
+Entrypoint qualification parses the original bounded HTML with the existing
+`jsdom` development dependency. Comments are not deleted or rewritten into new
+tags; template content, raw text and commented script decoys are not module
+authority. Script execution and external resource loading remain disabled,
+parser diagnostics are not forwarded, and the parser window is closed. Exact
+source-tag attributes are checked separately so duplicate attributes do not
+become accepted through the parser's first-attribute-wins projection. This is
+passive entrypoint inspection, not a browser session or runtime-binding proof.
+
 To obtain the private output directory without printing its contents:
 
 ```sh

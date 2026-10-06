@@ -663,6 +663,9 @@ describe("private production backup metadata observation", () => {
     '<script type="module" src="/assets/../../secret.js"></script>',
     '<script type="module" src="/assets/one.js"></script><script type="module" src="/assets/two.js"></script>',
     '<script type="module" src="/assets/one.js" src="/assets/two.js"></script>',
+    '<script type="mod&#117;le" src="/assets/decoy.js"></script><script type="module" src="/assets/one.js"></script>',
+    '<script type="MODULE" src="/assets/decoy.js"></script><script type="module" src="/assets/one.js"></script>',
+    '<script type=" module " src="/assets/decoy.js"></script><script type="module" src="/assets/one.js"></script>',
   ])(
     "refuses unqualified module entrypoints without fetching arbitrary URLs",
     async (html) => {
@@ -678,6 +681,96 @@ describe("private production backup metadata observation", () => {
       expect(f.runSupabase).toHaveBeenCalledTimes(1);
     },
   );
+  it.each([
+    '<scr<!-- separator -->ipt type="module" src="/assets/index-test.js"></script>',
+    '<!-- unclosed <script type="module" src="/assets/index-test.js"></script>',
+    '<textarea><script type="module" src="/assets/index-test.js"></script></textarea>',
+    '<style><script type="module" src="/assets/index-test.js"></script></style>',
+    '<template><script type="module" src="/assets/index-test.js"></script></template>',
+    `<div data-decoy='<script type="module" src="/assets/index-test.js">'></div>`,
+    `<script>const decoy='<script type="module" src="/assets/index-test.js">';</script>`,
+  ])(
+    "does not create or qualify an inert module through HTML rewriting",
+    async (html) => {
+      const f = fixtures();
+      f.fetchImpl.mockImplementation(
+        async (url) =>
+          new Response(
+            url.endsWith(".js")
+              ? `const clientUrl="https://${ref}.supabase.co"`
+              : html,
+            {
+              headers: {
+                "content-type": url.endsWith(".js")
+                  ? "application/javascript"
+                  : "text/html",
+              },
+            },
+          ),
+      );
+      await expect(
+        auditor.runProductionBackupMetadata(f.options),
+      ).rejects.toThrow();
+      expect(f.fetchImpl).toHaveBeenCalledTimes(1);
+      expect(f.runSupabase).toHaveBeenCalledTimes(1);
+      expect(f.log).not.toHaveBeenCalled();
+    },
+  );
+  it("uses the real module despite commented and inert decoys without running HTML", async () => {
+    const f = fixtures();
+    const marker = "__syncaiBackupObserverHtmlMustNotExecute";
+    const html = `<!doctype html><html><head>
+      <!-- <script type="module" src="/assets/comment-decoy.js"></script> -->
+      <script>globalThis.${marker}=true;throw new Error('DO_NOT_RETAIN_HTML_ERROR');</script>
+      <script src="https://foreign.example/must-not-fetch.js"></script>
+      <script type="module" src="/assets/index-test.js"></script>
+      </head><body><template><script type="module" src="/assets/template-decoy.js"></script></template>
+      <textarea><script type="module" src="/assets/text-decoy.js"></script></textarea>
+      <img src="https://foreign.example/must-not-fetch.png">
+      <iframe src="https://foreign.example/must-not-fetch-frame"></iframe>
+      <link rel="stylesheet" href="https://foreign.example/must-not-fetch.css"></body></html>`;
+    f.fetchImpl.mockImplementation(
+      async (url) =>
+        new Response(
+          url.endsWith(".js")
+            ? `const clientUrl="https://${ref}.supabase.co"`
+            : html,
+          {
+            headers: {
+              "content-type": url.endsWith(".js")
+                ? "application/javascript"
+                : "text/html",
+            },
+          },
+        ),
+    );
+    expect(Reflect.has(globalThis, marker)).toBe(false);
+    const result = await auditor.runProductionBackupMetadata(f.options);
+    expect(Reflect.has(globalThis, marker)).toBe(false);
+    expect(result.report.recoveryQualification).toBe("UNPROVEN");
+    expect(f.fetchImpl.mock.calls.map(([url]) => url)).toEqual([
+      "https://app.syncai.ca/",
+      "https://app.syncai.ca/assets/index-test.js",
+    ]);
+    expect(JSON.stringify(f.log.mock.calls)).not.toContain("DO_NOT_RETAIN");
+  });
+  it("keeps HTML parsing passive with no execution, resources or console forwarding", () => {
+    const source = readFileSync(
+      new URL("../../scripts/database-backup-metadata.mjs", import.meta.url),
+      "utf8",
+    );
+    const parser = source.slice(
+      source.indexOf("  const document = new JSDOM(html, {"),
+      source.indexOf("export async function runProductionBackupMetadata"),
+    );
+    expect(parser).toContain("virtualConsole: new VirtualConsole()");
+    expect(parser).toContain("document.nodeLocation(script)?.startTag");
+    expect(parser).toContain("finally {\n    document.window.close();");
+    expect(parser).not.toMatch(
+      /runScripts\s*:|resources\s*:|beforeParse\s*:|forwardTo\s*\(|fromURL\s*\(|fromFile\s*\(/,
+    );
+    expect(parser).not.toContain("html.replace(");
+  });
   it("suppresses raw provider and frontend failures", async () => {
     for (const source of ["cli", "frontend", "json"]) {
       const f = fixtures();

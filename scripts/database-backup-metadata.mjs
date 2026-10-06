@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { isAlias, isMap, isScalar, parseDocument, visit } from "yaml";
+import { JSDOM, VirtualConsole } from "jsdom";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const refPattern = /^[a-z]{20}$/;
@@ -356,32 +357,59 @@ async function publicText(fetchImpl, url, type, limit) {
 
 function modulePath(html) {
   const paths = [];
-  const source = html.replace(/<!--[\s\S]*?-->/g, "");
-  for (const match of source.matchAll(/<script\b([^<>]*)>/gi)) {
-    const attributes = new Map();
-    const raw = match[1];
-    const attribute =
-      /\s+([a-zA-Z][a-zA-Z0-9_-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s'"=<>`]+)))?/gy;
-    let offset = 0;
-    while (offset < raw.length) {
-      if (!raw.slice(offset).trim()) break;
-      attribute.lastIndex = offset;
-      const found = attribute.exec(raw);
-      if (!found || attributes.has(found[1].toLowerCase())) throw refused();
-      attributes.set(
-        found[1].toLowerCase(),
-        found[2] ?? found[3] ?? found[4] ?? "",
-      );
-      offset = attribute.lastIndex;
+  // Parse the original bounded document, never sanitize it by deletion: doing
+  // so can assemble new tags or promote inert text into module authority.
+  // The existing dev dependency's defaults disable scripts and resource loads;
+  // an unforwarded console prevents page diagnostics reaching operator output.
+  const document = new JSDOM(html, {
+    includeNodeLocations: true,
+    virtualConsole: new VirtualConsole(),
+  });
+  try {
+    for (const script of document.window.document.querySelectorAll("script")) {
+      if (script.namespaceURI !== "http://www.w3.org/1999/xhtml")
+        throw refused();
+      const location = document.nodeLocation(script)?.startTag;
+      if (!location) throw refused();
+      const attributes = new Map();
+      // Retain strict duplicate/attribute qualification on the exact source tag,
+      // rather than accepting the HTML parser's first-attribute-wins projection.
+      const raw = html.slice(location.startOffset + 7, location.endOffset - 1);
+      const attribute =
+        /\s+([a-zA-Z][a-zA-Z0-9_-]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s'"=<>`]+)))?/gy;
+      let offset = 0;
+      while (offset < raw.length) {
+        if (!raw.slice(offset).trim()) break;
+        attribute.lastIndex = offset;
+        const found = attribute.exec(raw);
+        if (!found || attributes.has(found[1].toLowerCase())) throw refused();
+        attributes.set(
+          found[1].toLowerCase(),
+          found[2] ?? found[3] ?? found[4] ?? "",
+        );
+        offset = attribute.lastIndex;
+      }
+      // Refuse ambiguous source/DOM interpretation, including entity-encoded
+      // authority and noncanonical module type spelling, instead of silently
+      // ignoring a second module that a browser could treat as active.
+      if (
+        script.getAttribute("type") !== (attributes.get("type") ?? null) ||
+        script.getAttribute("src") !== (attributes.get("src") ?? null) ||
+        (attributes.get("type")?.trim().toLowerCase() === "module" &&
+          attributes.get("type") !== "module")
+      )
+        throw refused();
+      if (attributes.get("type") !== "module") continue;
+      const path = attributes.get("src");
+      if (
+        typeof path !== "string" ||
+        !/^\/assets\/[A-Za-z0-9_-]+\.js$/.test(path)
+      )
+        throw refused();
+      paths.push(path);
     }
-    if (attributes.get("type") !== "module") continue;
-    const path = attributes.get("src");
-    if (
-      typeof path !== "string" ||
-      !/^\/assets\/[A-Za-z0-9_-]+\.js$/.test(path)
-    )
-      throw refused();
-    paths.push(path);
+  } finally {
+    document.window.close();
   }
   if (paths.length !== 1) throw refused();
   return paths[0];
