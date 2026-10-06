@@ -8,6 +8,10 @@ const migration = readFileSync(
 const page = readFileSync("src/pages/RiskOperatingSystemPage.tsx", "utf8");
 const service = readFileSync("src/services/riskOperatingService.ts", "utf8");
 const engine = readFileSync("src/lib/risk-operating-system/index.ts", "utf8");
+const runtimeFixture = readFileSync(
+  "scripts/tests/risk-decision-preview-postgres-tests.sql",
+  "utf8",
+);
 
 function functionBody(name: string): string {
   const match = migration.match(
@@ -20,6 +24,28 @@ function functionBody(name: string): string {
 }
 
 describe("R4.02 / U18.02 / R5.03 governed decision previews", () => {
+  it("does not shadow PL/pgSQL fixture records with SQL relation aliases", () => {
+    const blocks = [...runtimeFixture.matchAll(/\bdo\s+\$\$([\s\S]*?)\$\$;/gi)];
+    expect(blocks.length).toBeGreaterThan(0);
+    for (const [, body] of blocks) {
+      const declarations =
+        body.match(/\bdeclare([\s\S]*?)\bbegin\b/i)?.[1] ?? "";
+      for (const [, record] of declarations.matchAll(
+        /\b([a-z_]\w*)\s+record\b/gi,
+      )) {
+        expect(
+          body,
+          `SQL alias must not shadow declared fixture record ${record}`,
+        ).not.toMatch(
+          new RegExp(
+            `\\b(?:from|join)\\s+[a-z_][\\w.]*\\s+(?:as\\s+)?${record}\\b`,
+            "i",
+          ),
+        );
+      }
+    }
+  });
+
   it("binds the preview to the exact visible risk and its criteria profile", () => {
     expect(migration).toContain(
       "create or replace function public.get_risk_decision_preview_context",

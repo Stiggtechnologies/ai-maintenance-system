@@ -165,10 +165,18 @@ begin
   end if;
   begin
     perform public.calculate_risk_analysis_internal('threat',preview,
-      (select c from risk_criteria_profiles c join risk_preview_cases x on c.id=x.criteria_id where x.label='exact sixty'));
+      (select c from risk_criteria_profiles c join risk_preview_cases private_case
+        on c.id=private_case.criteria_id where private_case.label='exact sixty'));
   exception when insufficient_privilege then blocked:=true;
   end;
   if not blocked then raise exception 'authenticated caller directly executed private calculator'; end if;
+  if has_function_privilege('authenticated',
+      'public.calculate_risk_analysis_internal(text,jsonb,public.risk_criteria_profiles)','EXECUTE')
+    or has_function_privilege('anon',
+      'public.calculate_risk_analysis_internal(text,jsonb,public.risk_criteria_profiles)','EXECUTE')
+    or has_function_privilege('service_role',
+      'public.calculate_risk_analysis_internal(text,jsonb,public.risk_criteria_profiles)','EXECUTE') then
+    raise exception 'private calculator retains a public role execute grant'; end if;
   blocked:=false;
   begin perform public.get_risk_operating_cockpit();
   exception when insufficient_privilege then blocked:=true; end;
