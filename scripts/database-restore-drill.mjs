@@ -406,22 +406,119 @@ export function validateSource(source, endpoint, env) {
   return { id: source.Id, image: source.Image };
 }
 
-export function validateTarget(target, runId) {
+const targetTmpfs = {
+  "/tmp": "rw,nosuid,mode=1777,size=2g",
+  "/var/lib/postgresql/data": "rw,nosuid,size=16m",
+};
+
+export function validateTarget(target, runId, sourceImage) {
+  const host = target?.HostConfig ?? {};
+  const config = target?.Config ?? {};
+  const network = target?.NetworkSettings;
+  const record = (value) =>
+    value !== null && typeof value === "object" && !Array.isArray(value);
+  const emptyList = (value) =>
+    value === null ||
+    value === undefined ||
+    (Array.isArray(value) && value.length === 0);
+  const boundedInteger = (value, ceiling) =>
+    Number.isSafeInteger(value) && value > 0 && value <= ceiling;
+  // Inspect actual Docker metadata, not the requested launch arguments. Hints
+  // are fixed labels only; never return configuration values or private paths.
+  const violations = [];
   if (
     !/^[a-f0-9]{32}$/.test(runId) ||
-    target.Name !== `/syncai-dr-${runId}` ||
-    target.Config?.Labels?.["com.syncai.dr.run"] !== runId ||
-    !/^[a-f0-9]{64}$/.test(target.Id) ||
-    target.HostConfig?.NetworkMode !== "none" ||
-    Object.keys(target.HostConfig?.PortBindings ?? {}).length ||
-    !Array.isArray(target.Mounts) ||
+    target?.Name !== `/syncai-dr-${runId}` ||
+    config.Labels?.["com.syncai.dr.run"] !== runId ||
+    !/^[a-f0-9]{64}$/.test(target?.Id)
+  )
+    violations.push("ownership");
+  if (
+    !/^sha256:[a-f0-9]{64}$/.test(sourceImage) ||
+    target?.Image !== sourceImage
+  )
+    violations.push("immutable_image");
+  if (
+    host.NetworkMode !== "none" ||
+    host.PublishAllPorts !== false ||
+    !(host.PortBindings === null || record(host.PortBindings)) ||
+    Object.keys(host.PortBindings ?? {}).length ||
+    !record(network?.Networks) ||
+    Object.keys(network.Networks).some((name) => name !== "none") ||
+    !(network?.Ports === null || record(network?.Ports)) ||
+    Object.values(network.Ports ?? {}).some((bindings) => bindings !== null)
+  )
+    violations.push("network");
+  if (
+    config.User !== "postgres" ||
+    host.Privileged !== false ||
+    host.ReadonlyRootfs !== true ||
+    !Array.isArray(host.CapDrop) ||
+    host.CapDrop.length !== 1 ||
+    host.CapDrop[0] !== "ALL" ||
+    !emptyList(host.CapAdd) ||
+    !emptyList(host.GroupAdd) ||
+    !Array.isArray(host.SecurityOpt) ||
+    host.SecurityOpt.length !== 1 ||
+    ![
+      "no-new-privileges",
+      "no-new-privileges=true",
+      "no-new-privileges:true",
+    ].includes(host.SecurityOpt[0])
+  )
+    violations.push("privilege");
+  if (
+    !boundedInteger(host.Memory, 2147483648) ||
+    host.MemorySwap !== host.Memory ||
+    !boundedInteger(host.NanoCpus, 2000000000) ||
+    !boundedInteger(host.PidsLimit, 128) ||
+    host.OomKillDisable !== false
+  )
+    violations.push("resource_limits");
+  if (
+    !host.Tmpfs ||
+    fingerprint(host.Tmpfs) !== fingerprint(targetTmpfs) ||
+    !emptyList(host.Binds) ||
+    !emptyList(host.VolumesFrom) ||
+    !emptyList(host.Mounts) ||
+    !Array.isArray(target?.Mounts) ||
     target.Mounts.some(
-      (mount) => mount.Type === "bind" || mount.Type === "volume",
+      (mount) =>
+        !mount ||
+        mount.Type !== "tmpfs" ||
+        !Object.hasOwn(targetTmpfs, mount.Destination) ||
+        mount.RW !== true ||
+        (mount.Source !== undefined && mount.Source !== ""),
     )
-  ) {
-    throw new Error(
+  )
+    violations.push("mounts");
+  if (
+    !emptyList(host.Devices) ||
+    !emptyList(host.DeviceRequests) ||
+    !emptyList(host.DeviceCgroupRules)
+  )
+    violations.push("devices");
+  if (
+    host.IpcMode !== "private" ||
+    host.CgroupnsMode !== "private" ||
+    host.PidMode !== "" ||
+    host.UTSMode !== "" ||
+    host.UsernsMode !== ""
+  )
+    violations.push("namespaces");
+  if (
+    !Array.isArray(config.Healthcheck?.Test) ||
+    config.Healthcheck.Test.length !== 1 ||
+    config.Healthcheck.Test[0] !== "NONE"
+  )
+    violations.push("healthcheck");
+  if (violations.length) {
+    const error = new Error(
       "Restore target ownership or isolation could not be verified",
     );
+    error.category = "target_isolation_unqualified";
+    error.targetIsolationHints = violations;
+    throw error;
   }
   return target.Id;
 }
@@ -1242,6 +1339,11 @@ export async function runRestoreDrill({
         `com.syncai.dr.run=${runId}`,
         "--network",
         "none",
+        "--ipc",
+        "private",
+        "--cgroupns",
+        "private",
+        "--no-healthcheck",
         "--read-only",
         "--cap-drop",
         "ALL",
@@ -1250,6 +1352,8 @@ export async function runRestoreDrill({
         "--pids-limit",
         "128",
         "--memory",
+        "2g",
+        "--memory-swap",
         "2g",
         "--cpus",
         "2",
@@ -1266,8 +1370,10 @@ export async function runRestoreDrill({
         isolatedPostgresStartup(bootstrap),
       ]),
     );
-    validateTarget(await inspect(targetId), runId);
+    validateTarget(await inspect(targetId), runId, source.image);
     await command("docker", ["start", targetId]);
+    validateTarget(await inspect(targetId), runId, source.image);
+    report.targetContainmentVerified = true;
     await timed("target_ready", async () => {
       for (let attempt = 0; attempt < 60; attempt++) {
         try {
@@ -1313,6 +1419,7 @@ export async function runRestoreDrill({
     });
     await timed("restore", async () => {
       phase = "restore_roles";
+      validateTarget(await inspect(targetId), runId, source.image);
       const rolesRestore = prepareRolesRestore(
         readFileSync(join(output, "roles.sql"), "utf8"),
         bootstrap,
@@ -1338,7 +1445,7 @@ export async function runRestoreDrill({
       const partitions = partitionRestoreToc(toc);
       report.archivePartition = partitions.counts;
       for (const stage of ["bootstrap", "remaining"]) {
-        validateTarget(await inspect(targetId), runId);
+        validateTarget(await inspect(targetId), runId, source.image);
         await command(
           "docker",
           [
@@ -1461,7 +1568,7 @@ export async function runRestoreDrill({
             entry.value.slice(0, 3).some((value) => value !== false)
           )
             continue;
-          validateTarget(await inspect(targetId), runId);
+          validateTarget(await inspect(targetId), runId, source.image);
           const reference = JSON.parse(
             await sql(
               targetId,
@@ -1531,6 +1638,8 @@ export async function runRestoreDrill({
     failure = true;
     report.failedPhase = phase;
     report.failureCategory = error.category ?? "qualification_failure";
+    if (error.targetIsolationHints)
+      report.targetIsolationHints = error.targetIsolationHints;
     if (error.sqlState) report.sqlState = error.sqlState;
     if (error.missingObjectHint)
       report.missingObjectHint = error.missingObjectHint;
@@ -1554,7 +1663,7 @@ export async function runRestoreDrill({
     }
     if (targetId) {
       try {
-        validateTarget(await inspect(targetId), runId);
+        validateTarget(await inspect(targetId), runId, report.sourceImage);
         await command("docker", ["rm", "-f", targetId], { timeout: 30000 });
         report.targetRemoved = true;
       } catch {

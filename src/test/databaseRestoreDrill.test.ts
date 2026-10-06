@@ -1053,16 +1053,53 @@ Command was: GRANT EXECUTE ON FUNCTION private_name() TO private_role;`),
       drill.writePrivateArtifact(output, "../escape.json", "{}"),
     ).toThrow();
   });
+  const runId = "c".repeat(32);
+  const sourceImage = `sha256:${"b".repeat(64)}`;
+  const isolatedTarget = () => ({
+    Id: "d".repeat(64),
+    Name: `/syncai-dr-${runId}`,
+    Image: sourceImage,
+    NetworkSettings: { Networks: { none: {} }, Ports: {} },
+    HostConfig: {
+      NetworkMode: "none",
+      PortBindings: {},
+      PublishAllPorts: false,
+      Privileged: false,
+      ReadonlyRootfs: true,
+      CapDrop: ["ALL"],
+      CapAdd: null,
+      SecurityOpt: ["no-new-privileges"],
+      Memory: 2147483648,
+      MemorySwap: 2147483648,
+      NanoCpus: 2000000000,
+      PidsLimit: 128,
+      OomKillDisable: false,
+      Tmpfs: {
+        "/tmp": "rw,nosuid,mode=1777,size=2g",
+        "/var/lib/postgresql/data": "rw,nosuid,size=16m",
+      },
+      Binds: null,
+      VolumesFrom: null,
+      Devices: [],
+      DeviceRequests: null,
+      DeviceCgroupRules: null,
+      GroupAdd: null,
+      IpcMode: "private",
+      CgroupnsMode: "private",
+      PidMode: "",
+      UTSMode: "",
+      UsernsMode: "",
+    },
+    Mounts: [],
+    Config: {
+      User: "postgres",
+      Healthcheck: { Test: ["NONE"] },
+      Labels: { "com.syncai.dr.run": runId },
+    },
+  });
   it("requires exact target ownership, network isolation, no ports and no host mounts before cleanup", () => {
-    const runId = "c".repeat(32);
-    const target = {
-      Id: "d".repeat(64),
-      Name: `/syncai-dr-${runId}`,
-      HostConfig: { NetworkMode: "none", PortBindings: {} },
-      Mounts: [],
-      Config: { Labels: { "com.syncai.dr.run": runId } },
-    };
-    expect(drill.validateTarget(target, runId)).toBe(target.Id);
+    const target = isolatedTarget();
+    expect(drill.validateTarget(target, runId, sourceImage)).toBe(target.Id);
     for (const candidate of [
       { ...target, Name: "/other" },
       { ...target, Config: { Labels: {} } },
@@ -1074,7 +1111,199 @@ Command was: GRANT EXECUTE ON FUNCTION private_name() TO private_role;`),
       { ...target, Mounts: [{ Type: "bind", Source: "/private/data" }] },
       { ...target, Mounts: undefined },
     ]) {
-      expect(() => drill.validateTarget(candidate, runId)).toThrow();
+      expect(() =>
+        drill.validateTarget(candidate, runId, sourceImage),
+      ).toThrow();
+    }
+  });
+  it.each([
+    ["different immutable image", { Image: `sha256:${"e".repeat(64)}` }],
+    ["root user", { Config: { ...isolatedTarget().Config, User: "root" } }],
+    [
+      "missing user",
+      { Config: { ...isolatedTarget().Config, User: undefined } },
+    ],
+    [
+      "image healthcheck",
+      {
+        Config: {
+          ...isolatedTarget().Config,
+          Healthcheck: { Test: ["CMD", "unsafe-job"] },
+        },
+      },
+    ],
+    [
+      "missing healthcheck disable",
+      { Config: { ...isolatedTarget().Config, Healthcheck: undefined } },
+    ],
+  ])("rejects actual target configuration: %s", (_reason, mutation) => {
+    expect(() =>
+      drill.validateTarget(
+        { ...isolatedTarget(), ...mutation },
+        runId,
+        sourceImage,
+      ),
+    ).toThrow();
+  });
+  it.each([
+    ["privileged", { Privileged: true }],
+    ["missing privilege boundary", { Privileged: undefined }],
+    ["writable root", { ReadonlyRootfs: false }],
+    ["missing capability drop", { CapDrop: null }],
+    ["partial capability drop", { CapDrop: ["NET_ADMIN"] }],
+    ["added capability", { CapAdd: ["SYS_ADMIN"] }],
+    [
+      "disabled no-new-privileges",
+      { SecurityOpt: ["no-new-privileges=false"] },
+    ],
+    [
+      "unconfined seccomp",
+      { SecurityOpt: ["no-new-privileges", "seccomp=unconfined"] },
+    ],
+    ["missing security options", { SecurityOpt: undefined }],
+    ["unlimited memory", { Memory: 0 }],
+    ["excess memory", { Memory: 4294967296 }],
+    ["unlimited swap", { MemorySwap: -1 }],
+    ["unlimited CPU", { NanoCpus: 0 }],
+    ["excess CPU", { NanoCpus: 3000000000 }],
+    ["unlimited processes", { PidsLimit: -1 }],
+    ["excess processes", { PidsLimit: 129 }],
+    ["disabled OOM kill", { OomKillDisable: true }],
+    ["missing memory limit", { Memory: undefined }],
+    ["string CPU limit", { NanoCpus: "2000000000" }],
+    ["missing tmpfs", { Tmpfs: undefined }],
+    [
+      "unbounded tmpfs",
+      { Tmpfs: { ...isolatedTarget().HostConfig.Tmpfs, "/tmp": "rw" } },
+    ],
+    [
+      "extra tmpfs destination",
+      { Tmpfs: { ...isolatedTarget().HostConfig.Tmpfs, "/etc": "rw,size=1m" } },
+    ],
+    ["prestart bind", { Binds: ["/private/data:/data"] }],
+    ["inherited volumes", { VolumesFrom: ["source"] }],
+    [
+      "structured mount",
+      { Mounts: [{ Type: "bind", Source: "/private/data", Target: "/data" }] },
+    ],
+    ["host device", { Devices: [{ PathOnHost: "/dev/example" }] }],
+    ["requested device", { DeviceRequests: [{ Count: -1 }] }],
+    ["device access rule", { DeviceCgroupRules: ["a *:* rwm"] }],
+    ["extra group", { GroupAdd: ["0"] }],
+    ["host IPC", { IpcMode: "host" }],
+    ["shared IPC", { IpcMode: "shareable" }],
+    ["host cgroup", { CgroupnsMode: "host" }],
+    ["host PID", { PidMode: "host" }],
+    ["host UTS", { UTSMode: "host" }],
+    ["host user namespace", { UsernsMode: "host" }],
+    ["publish all ports", { PublishAllPorts: true }],
+  ])("rejects actual target host configuration: %s", (_reason, mutation) => {
+    const target = isolatedTarget();
+    expect(() =>
+      drill.validateTarget(
+        { ...target, HostConfig: { ...target.HostConfig, ...mutation } },
+        runId,
+        sourceImage,
+      ),
+    ).toThrow();
+  });
+  it("rejects unknown mount types and unapproved tmpfs destinations", () => {
+    for (const mount of [
+      { Type: "unknown", Destination: "/tmp" },
+      { Type: "tmpfs", Destination: "/etc" },
+    ]) {
+      expect(() =>
+        drill.validateTarget(
+          { ...isolatedTarget(), Mounts: [mount] },
+          runId,
+          sourceImage,
+        ),
+      ).toThrow();
+    }
+  });
+  it("accepts bounded Docker no-new-privileges true representations and approved tmpfs mounts", () => {
+    for (const option of [
+      "no-new-privileges",
+      "no-new-privileges=true",
+      "no-new-privileges:true",
+    ]) {
+      const target = isolatedTarget();
+      target.HostConfig.SecurityOpt = [option];
+      expect(drill.validateTarget(target, runId, sourceImage)).toBe(target.Id);
+    }
+    expect(
+      drill.validateTarget(
+        {
+          ...isolatedTarget(),
+          Mounts: [{ Type: "tmpfs", Destination: "/tmp", RW: true }],
+        },
+        runId,
+        sourceImage,
+      ),
+    ).toBe(isolatedTarget().Id);
+  });
+  it("refuses unverified expected-image metadata", () => {
+    for (const image of [
+      undefined,
+      "postgres:latest",
+      `sha256:${"a".repeat(64)}`,
+    ]) {
+      expect(() =>
+        drill.validateTarget(isolatedTarget(), runId, image),
+      ).toThrow();
+    }
+  });
+  it.each([
+    undefined,
+    { Networks: { bridge: {} }, Ports: {} },
+    { Networks: { none: {}, additional: {} }, Ports: {} },
+    { Networks: {}, Ports: { "5432/tcp": [{ HostPort: "5432" }] } },
+  ])(
+    "refuses missing or externally connected actual network metadata",
+    (NetworkSettings) => {
+      expect(() =>
+        drill.validateTarget(
+          { ...isolatedTarget(), NetworkSettings },
+          runId,
+          sourceImage,
+        ),
+      ).toThrow();
+    },
+  );
+  it("allows exposed but unpublished image ports and an unstarted empty network map", () => {
+    expect(
+      drill.validateTarget(
+        {
+          ...isolatedTarget(),
+          NetworkSettings: { Networks: {}, Ports: { "5432/tcp": null } },
+        },
+        runId,
+        sourceImage,
+      ),
+    ).toBe(isolatedTarget().Id);
+  });
+  it("keeps isolation failure diagnostics fixed and private values absent", () => {
+    const target = isolatedTarget();
+    try {
+      drill.validateTarget(
+        {
+          ...target,
+          Config: { ...target.Config, User: "private-operator-name" },
+          HostConfig: {
+            ...target.HostConfig,
+            Binds: ["/private/customer-data:/data"],
+          },
+        },
+        runId,
+        sourceImage,
+      );
+      expect.fail("Unsafe target was accepted");
+    } catch (error) {
+      expect(error.category).toBe("target_isolation_unqualified");
+      expect(error.targetIsolationHints).toEqual(["privilege", "mounts"]);
+      expect(JSON.stringify(error)).not.toContain("private-operator-name");
+      expect(JSON.stringify(error)).not.toContain("customer-data");
+      expect(error.message).not.toContain("private-operator-name");
     }
   });
 });

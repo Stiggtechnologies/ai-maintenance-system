@@ -26,6 +26,24 @@ HTTP calls or hold a session on the initial database. Actual target settings are
 checked before restoring source SQL. This contains worker execution only in the
 throwaway target; enabling recovered jobs requires a separately approved path.
 
+The target guard inspects actual Docker metadata before startup, after startup,
+before restore/reference execution and before cleanup. It verifies the exact
+immutable source image, `postgres` process user, nonprivileged/read-only root,
+all capabilities dropped with none added, no-new-privileges, private IPC/cgroup
+namespaces and no host/shared PID, UTS or user-namespace override. Memory, CPU
+and process limits must be positive and bounded; swap cannot exceed memory and
+OOM termination cannot be disabled. Only the two exact bounded tmpfs mounts
+are accepted; bind/volume inheritance, additional mounts, devices and groups
+are refused. Actual network attachments and port publications must also remain
+isolated. Image healthchecks are explicitly disabled so they cannot introduce
+an additional execution path. Missing critical metadata or any unqualified
+setting fails closed, including during cleanup; an unverified target is not
+removed. Fixed isolation-category hints contain no names, paths or values.
+`targetContainmentVerified` is recorded only after actual pre/post-start
+inspection succeeds, not because creation flags were requested. These Docker
+controls contain this trusted-source drill, not arbitrary hostile SQL or a
+claim of production recovery or a hardened multi-tenant execution service.
+
 The canonical records are restored, not remodelled: assets, components, evidence,
 recommendations, decisions, approvals, work, audit history and customer identity
 remain the existing tables. No application queue, workflow engine, audit store,
@@ -194,6 +212,12 @@ requires separate configuration for Storage, Edge Functions, Auth/API keys and
 Realtime; physical cloning can start external jobs immediately, while a logical
 restore does not transfer the Vault root key. This local network-isolated drill
 does not establish those cloud recovery paths.
+
+[Docker's container controls](https://docs.docker.com/reference/cli/docker/container/run/)
+define the process-user, privilege, read-only filesystem, capability, namespace,
+healthcheck and resource settings independently of the network setting. The
+drill qualifies their inspected state rather than assuming network isolation
+also proves privilege or resource containment.
 
 [PostgreSQL pg_dump](https://www.postgresql.org/docs/17/app-pgdump.html)
 provides a consistent database snapshot but excludes cluster-wide roles; those
