@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 1,
+  "asOf": "2026-10-06",
+  "definitions": {
+    "marketplaceTransactionReady": "A buyer can find a published listing, transact through the named marketplace, complete entitlement, and reach a verified production activation path.",
+    "selfServeCheckoutReady": "A buyer can pay online and receive the purchased entitlement without a manually negotiated SOW, PO, invoice, or private offer."
+  },
+  "channels": [
+    {
+      "id": "direct_ria",
+      "name": "Direct Reliability Intelligence Assessment",
+      "state": "contract_inquiry_live",
+      "marketplaceTransactionReady": false,
+      "selfServeCheckoutReady": false,
+      "buyerPath": "https://syncai.ca/reliability-assessment",
+      "verifiedEvidence": [
+        "Public assessment page returns HTTP 200",
+        "Public form accepts a bounded assessment inquiry",
+        "Controlled commercial package records a US$35,000 fixed-fee, 6–8 week Standard assessment"
+      ],
+      "blockers": [
+        "Purchase remains SOW, PO, invoice, or customer-specific payment-reference led",
+        "No verified self-serve checkout or automatic entitlement path"
+      ]
+    },
+    {
+      "id": "microsoft_saas",
+      "name": "Microsoft commercial marketplace SaaS",
+      "state": "partner_center_draft_saved",
+      "marketplaceTransactionReady": false,
+      "selfServeCheckoutReady": false,
+      "buyerPath": null,
+      "verifiedEvidence": [
+        "Customer-facing listing, technical configuration, three plans, and CSP audience saved as drafts",
+        "Live production fulfillment, webhook, and metering functions exist",
+        "Verified client, tenant, publisher, and offer identifiers configured on the live project"
+      ],
+      "blockers": [
+        "Azure Marketplace tax, payment, and verification assignment statuses are Not started",
+        "AZURE_MARKETPLACE_CLIENT_SECRET is absent from the live project",
+        "Supplemental content explanation is prepared but not saved",
+        "Preview purchase, Microsoft validation, certification, and publication remain incomplete"
+      ]
+    },
+    {
+      "id": "microsoft_professional_services",
+      "name": "Microsoft Marketplace professional services",
+      "state": "drafts_saved_not_submittable",
+      "marketplaceTransactionReady": false,
+      "selfServeCheckoutReady": false,
+      "buyerPath": null,
+      "verifiedEvidence": [
+        "Three professional-service drafts exist in Partner Center",
+        "Forward-Deployed Engineering positioning and controlled collateral are prepared in PR 631"
+      ],
+      "blockers": [
+        "Eight Partner Center validation errors remain on the FDE draft",
+        "Supporting SyncAI SaaS offer must be published and linked first",
+        "Required contacts, media, commercial terms, and Microsoft validation remain incomplete"
+      ]
+    },
+    {
+      "id": "aws_marketplace",
+      "name": "AWS Marketplace SaaS",
+      "state": "design_scaffolding_only",
+      "marketplaceTransactionReady": false,
+      "selfServeCheckoutReady": false,
+      "buyerPath": null,
+      "verifiedEvidence": [
+        "Marketing and SPA activation routes return HTTP 200",
+        "ResolveCustomer and lifecycle receiver source files exist"
+      ],
+      "blockers": [
+        "Seller registration and product listing are not verified",
+        "AWS Marketplace functions are not deployed on the live SyncAI project",
+        "Required AWS secrets are absent",
+        "Referenced schema migration is archived and absent from the active chain",
+        "Current SPA query-token flow is incompatible with AWS's POST registration handoff",
+        "No product code, lifecycle infrastructure, entitlement, metering, or preview purchase witness"
+      ]
+    },
+    {
+      "id": "salesforce_appexchange",
+      "name": "Salesforce AppExchange",
+      "state": "design_scaffolding_only",
+      "marketplaceTransactionReady": false,
+      "selfServeCheckoutReady": false,
+      "buyerPath": null,
+      "verifiedEvidence": [
+        "Marketing and setup routes return HTTP 200",
+        "License receiver source file exists"
+      ],
+      "blockers": [
+        "No Salesforce package source or released package version is evidenced",
+        "License receiver is not deployed on the live SyncAI project",
+        "SF_LMA_SHARED_SECRET is absent",
+        "Referenced schema migration is archived and absent from the active chain",
+        "Partner publishing access, package connection, security review, listing, and license-event witness are incomplete"
+      ]
+    }
+  ]
+}

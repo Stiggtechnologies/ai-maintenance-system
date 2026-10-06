@@ -86,7 +86,13 @@ describe("Marketplace app-domain routes", () => {
         status: "verified",
       },
       runtimeSecrets: {
-        presentOnLiveProject: [],
+        presentOnLiveProject: [
+          "AZURE_MARKETPLACE_CLIENT_ID",
+          "AZURE_MARKETPLACE_TENANT_ID",
+          "AZURE_MARKETPLACE_PUBLISHER_ID",
+          "AZURE_MARKETPLACE_OFFER_ID",
+        ],
+        missingOnLiveProject: ["AZURE_MARKETPLACE_CLIENT_SECRET"],
         status: "blocked",
       },
       authenticatedUpstreamLifecycleWitness: "blocked",

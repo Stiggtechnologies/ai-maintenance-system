@@ -6,12 +6,10 @@ import { motion } from "framer-motion";
 /**
  * SalesforceSignup
  * ----------------
- * AppExchange post-install setup. Salesforce doesn't redirect with a token
- * (unlike Microsoft and AWS). Customer installs the SyncAI managed package,
- * then visits this page to verify the LMA license sync is wired up. The
- * actual lifecycle (Active / Trial / Suspended / etc.) flows asynchronously
- * via the customer's Salesforce Flow → marketplace-salesforce-license
- * Edge Function.
+ * AppExchange setup design. No released SyncAI managed package or verified LMA
+ * license event is evidenced in the current production environment. Query
+ * parameters are display context only and must never be treated as proof of an
+ * install or entitlement.
  *
  * URL pattern:
  *   https://app.syncai.ca/marketplace/salesforce/signup?organization_id=00D...&package_version_id=04t...
@@ -49,8 +47,9 @@ export function SalesforceSignup() {
               Welcome from Salesforce AppExchange
             </h2>
             <p className="text-industrial-muted">
-              The SyncAI managed package is installed in your Salesforce org.
-              Three steps to complete activation.
+              This is the planned setup path. A released package, verified
+              license event, and production entitlement are required before
+              activation can complete.
             </p>
           </div>
 
@@ -84,17 +83,17 @@ export function SalesforceSignup() {
             <SetupStep
               number={1}
               title="Configure object permissions"
-              body="Grant the SyncAI Integration User read+write on Asset, WorkOrder, MaintenanceWorkRule. A permission set ships with the package."
+              body="A reviewed package must define the minimum object access required for the agreed integration scope. No released permission set is evidenced yet."
             />
             <SetupStep
               number={2}
               title="Activate the LMA license flow"
-              body="A pre-built Flow on the License object posts lifecycle changes (Active / Suspended / etc.) to our license-event webhook."
+              body="A security-reviewed package must send authenticated lifecycle changes to the production license-event receiver. That receiver is not deployed today."
             />
             <SetupStep
               number={3}
-              title="Connect your Anthropic key"
-              body="After signup, add Anthropic in Integrations to activate all 15 AI agents for your SF org."
+              title="Complete governed SyncAI onboarding"
+              body="After entitlement is verified, configure only the approved data, model, evidence, and human-authority scope for the customer organization."
             />
           </div>
 
@@ -111,8 +110,8 @@ export function SalesforceSignup() {
           </motion.button>
 
           <p className="text-xs text-industrial-muted text-center">
-            License records in LMA sync to SyncAI within 5 minutes of
-            activation.
+            This page does not prove that a Salesforce package is installed or
+            that a license is active.
           </p>
         </div>
       </motion.div>
