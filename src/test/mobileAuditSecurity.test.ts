@@ -10,9 +10,35 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { spawnSync } from "node:child_process";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const harness = vi.hoisted(() => ({ launch: vi.fn() }));
+const setupFault = vi.hoisted(() => ({
+  allocation: false,
+  permission: false,
+  directory: "",
+}));
+vi.mock("node:fs", async () => {
+  const actual = await vi.importActual<typeof import("node:fs")>("node:fs");
+  return {
+    ...actual,
+    mkdtempSync: (...args: Parameters<typeof actual.mkdtempSync>) => {
+      if (setupFault.allocation)
+        throw new Error(
+          "private allocation diagnostic /private-sensitive-path",
+        );
+      const directory = actual.mkdtempSync(...args);
+      setupFault.directory = String(directory);
+      return directory;
+    },
+    chmodSync: (...args: Parameters<typeof actual.chmodSync>) => {
+      if (setupFault.permission)
+        throw new Error(`private permission diagnostic ${args[0]}`);
+      return actual.chmodSync(...args);
+    },
+  };
+});
 vi.mock("playwright", () => ({ chromium: { launch: harness.launch } }));
 import {
   createAuditOutput,
@@ -84,12 +110,290 @@ function mockBrowser({
 }
 
 afterEach(() => {
+  setupFault.allocation = false;
+  setupFault.permission = false;
+  setupFault.directory = "";
   for (const directory of directories.splice(0))
     rmSync(directory, { recursive: true, force: true });
   vi.clearAllMocks();
 });
 
 describe("mobile audit private artifacts and honest execution", () => {
+  it("sanitizes output allocation failure before attempting authentication or promising a report", async () => {
+    setupFault.allocation = true;
+    const log = vi.fn();
+    await expect(runMobileAudit({ env, log })).rejects.toThrow(
+      "Mobile audit did not start; no private output was established",
+    );
+    expect(log).not.toHaveBeenCalled();
+    expect(harness.launch).not.toHaveBeenCalled();
+  });
+
+  it("retains an allocated directory on permission failure without claiming a safely established report", async () => {
+    setupFault.permission = true;
+    const failure = await runMobileAudit({ env, log: vi.fn() }).catch(
+      (error: unknown) => error,
+    );
+    directories.push(setupFault.directory);
+    expect(failure).toBeInstanceOf(Error);
+    expect((failure as Error).message).toBe(
+      "Mobile audit did not start; no private output was established",
+    );
+    expect(statSync(setupFault.directory).isDirectory()).toBe(true);
+    expect(readdirSync(setupFault.directory)).toEqual([]);
+    expect(harness.launch).not.toHaveBeenCalled();
+  });
+
+  it("sanitizes initial output notification and records SETUP_FAIL rather than an unattempted AUTH_FAIL", async () => {
+    let directory = "";
+    await expect(
+      runMobileAudit({
+        env,
+        log: (message) => {
+          if (message.startsWith("artifacts: ")) {
+            directory = message.slice(11);
+            directories.push(directory);
+          }
+          throw new Error(
+            `private notification diagnostic ${directory} ${env.DEMO_PASSWORD}`,
+          );
+        },
+      }),
+    ).rejects.toThrow(
+      "Mobile audit did not complete; private report saved but output notification failed",
+    );
+    expect(harness.launch).not.toHaveBeenCalled();
+    const report = JSON.parse(
+      readFileSync(join(directory, "mobile-audit-report.json"), "utf8"),
+    );
+    expect(report).toEqual([
+      {
+        route: "/signin",
+        verdict: "SETUP_FAIL",
+        note: "Audit output notification failed before sign-in was attempted",
+      },
+    ]);
+    expect(JSON.stringify(report)).not.toContain(directory);
+    expect(JSON.stringify(report)).not.toContain(env.DEMO_PASSWORD);
+    expect(
+      statSync(join(directory, "mobile-audit-report.json")).mode & 0o777,
+    ).toBe(0o600);
+  });
+
+  it("records final notification failure before the exclusive report write and closes both resources", async () => {
+    const { context, browser } = mockBrowser();
+    let directory = "";
+    await expect(
+      runMobileAudit({
+        env,
+        log: (message) => {
+          if (message.startsWith("artifacts: ")) {
+            directory = message.slice(11);
+            directories.push(directory);
+          }
+          if (message.startsWith("report target: "))
+            throw new Error(`private final notification ${env.DEMO_PASSWORD}`);
+        },
+      }),
+    ).rejects.toThrow(
+      "Mobile audit did not complete; private report saved but output notification failed",
+    );
+    const report = JSON.parse(
+      readFileSync(join(directory, "mobile-audit-report.json"), "utf8"),
+    );
+    expect(report).toHaveLength(50);
+    expect(report.at(-1)).toEqual({
+      route: "/setup",
+      verdict: "AUDIT_FAIL",
+      note: "Audit output notification failed",
+    });
+    expect(JSON.stringify(report)).not.toContain(env.DEMO_PASSWORD);
+    expect(context.close).toHaveBeenCalledOnce();
+    expect(browser.close).toHaveBeenCalledOnce();
+  });
+
+  it("classifies browser launch failure before sign-in as SETUP_FAIL and sanitizes its diagnostic", async () => {
+    harness.launch.mockRejectedValue(
+      new Error(`private browser startup ${env.DEMO_PASSWORD}`),
+    );
+    let directory = "";
+    await expect(
+      runMobileAudit({
+        env,
+        log: (message) => {
+          if (message.startsWith("artifacts: ")) {
+            directory = message.slice(11);
+            directories.push(directory);
+          }
+        },
+      }),
+    ).rejects.toThrow(
+      "Mobile audit did not complete; inspect the private report",
+    );
+    const report = JSON.parse(
+      readFileSync(join(directory, "mobile-audit-report.json"), "utf8"),
+    );
+    expect(report).toEqual([
+      {
+        route: "/signin",
+        verdict: "SETUP_FAIL",
+        note: "Audit setup failed before sign-in was attempted",
+      },
+    ]);
+  });
+
+  it("attempts both closures when page setup and cleanup fail before authentication", async () => {
+    const { context, browser } = mockBrowser({
+      contextCloseFails: true,
+      browserCloseFails: true,
+    });
+    context.newPage.mockRejectedValue(
+      new Error(`private page startup ${env.DEMO_PASSWORD}`),
+    );
+    let directory = "";
+    await expect(
+      runMobileAudit({
+        env,
+        log: (message) => {
+          if (message.startsWith("artifacts: ")) {
+            directory = message.slice(11);
+            directories.push(directory);
+          }
+        },
+      }),
+    ).rejects.toThrow(
+      "Mobile audit did not complete; inspect the private report",
+    );
+    const report = JSON.parse(
+      readFileSync(join(directory, "mobile-audit-report.json"), "utf8"),
+    );
+    expect(report).toEqual([
+      {
+        route: "/signin",
+        verdict: "SETUP_FAIL",
+        note: "Audit setup failed before sign-in was attempted",
+      },
+      {
+        route: "/signin",
+        verdict: "AUDIT_FAIL",
+        note: "Browser resource cleanup failed",
+      },
+    ]);
+    expect(JSON.stringify(report)).not.toContain(env.DEMO_PASSWORD);
+    expect(context.close).toHaveBeenCalledOnce();
+    expect(browser.close).toHaveBeenCalledOnce();
+  });
+
+  it("sanitizes a route notification failure, aborts the sweep, and attempts both closures", async () => {
+    const { page, context, browser } = mockBrowser();
+    let directory = "";
+    await expect(
+      runMobileAudit({
+        env,
+        log: (message) => {
+          if (message.startsWith("artifacts: ")) {
+            directory = message.slice(11);
+            directories.push(directory);
+          } else
+            throw new Error(`private route notification ${env.DEMO_PASSWORD}`);
+        },
+      }),
+    ).rejects.toThrow(
+      "Mobile audit did not complete; private report saved but output notification failed",
+    );
+    const report = JSON.parse(
+      readFileSync(join(directory, "mobile-audit-report.json"), "utf8"),
+    );
+    expect(report).toHaveLength(2);
+    expect(report.at(-1)).toEqual({
+      route: "/",
+      verdict: "AUDIT_FAIL",
+      note: "Audit output notification failed",
+    });
+    expect(page.screenshot).toHaveBeenCalledOnce();
+    expect(JSON.stringify(report)).not.toContain(env.DEMO_PASSWORD);
+    expect(context.close).toHaveBeenCalledOnce();
+    expect(browser.close).toHaveBeenCalledOnce();
+  });
+
+  it("sanitizes option getter failures inside the orchestrator without creating output", async () => {
+    await expect(
+      runMobileAudit({
+        get env(): typeof env {
+          throw new Error("private option diagnostic");
+        },
+      }),
+    ).rejects.toThrow(
+      "Mobile audit did not start; no private output was established",
+    );
+    expect(harness.launch).not.toHaveBeenCalled();
+  });
+
+  it.each(["allocation", "permission", "notification"])(
+    "actual CLI refuses %s startup faults with no raw diagnostic or credentials",
+    (fault) => {
+      const fixture = mkdtempSync(join(tmpdir(), "syncai-mobile-cli-fixture-"));
+      directories.push(fixture);
+      const script = join(process.cwd(), "scripts/mobile-audit.mjs");
+      const childEnv = {
+        PATH: process.env.PATH,
+        TMPDIR:
+          fault === "allocation"
+            ? join(fixture, "nonexistent-private-temp")
+            : fixture,
+        DEMO_EMAIL: env.DEMO_EMAIL,
+        DEMO_PASSWORD: env.DEMO_PASSWORD,
+      };
+      const code = `
+      import fs from 'node:fs';
+      import { syncBuiltinESMExports } from 'node:module';
+      import { pathToFileURL } from 'node:url';
+      if (${JSON.stringify(fault)} === 'permission') {
+        fs.chmodSync = () => { throw new Error('private CLI permission diagnostic /private-sensitive-path'); };
+        syncBuiltinESMExports();
+      }
+      if (${JSON.stringify(fault)} === 'notification')
+        console.log = () => { throw new Error('private CLI notification diagnostic /private-sensitive-path'); };
+      process.argv[1] = ${JSON.stringify(script)};
+      await import(pathToFileURL(process.argv[1]).href);
+    `;
+      const result = spawnSync(
+        process.execPath,
+        ["--input-type=module", "-e", code],
+        {
+          cwd: process.cwd(),
+          env: childEnv,
+          encoding: "utf8",
+          timeout: 10_000,
+          maxBuffer: 8192,
+        },
+      );
+      expect(result.error).toBeUndefined();
+      expect(result.status).toBe(1);
+      expect(result.stderr).toContain(
+        fault === "notification"
+          ? "private report saved but output notification failed"
+          : "no private output was established",
+      );
+      expect(result.stderr).not.toContain(fixture);
+      expect(result.stderr).not.toContain("private CLI");
+      expect(result.stderr).not.toContain("private-sensitive-path");
+      expect(result.stderr).not.toContain(env.DEMO_PASSWORD);
+      if (fault !== "allocation") {
+        const [allocated] = readdirSync(fixture);
+        const retained = join(fixture, allocated);
+        expect(statSync(retained).mode & 0o777).toBe(0o700);
+        if (fault === "permission") expect(readdirSync(retained)).toEqual([]);
+        else
+          expect(
+            JSON.parse(
+              readFileSync(join(retained, "mobile-audit-report.json"), "utf8"),
+            ),
+          ).toMatchObject([{ verdict: "SETUP_FAIL" }]);
+      }
+    },
+  );
+
   it("allocates distinct owner-only directories, not a shared predictable output", () => {
     const first = createAuditOutput();
     const second = createAuditOutput();

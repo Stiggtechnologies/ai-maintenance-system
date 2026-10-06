@@ -34,12 +34,21 @@ launch and artifact creation. Do not use a real customer tenant merely because
 credentials are available.
 
 Run `node scripts/mobile-audit.mjs`. The tool logs its unique artifact directory
-and report path. Treat screenshots and reports as potentially confidential; do
-not attach them to a public PR or upload them without authorization. Artifacts
+and planned `report target` before attempting the exclusive report write; that
+notification is not proof that a report was saved. Treat screenshots and reports
+as potentially confidential; do not attach them to a public PR or upload them
+without authorization. Artifacts
 are retained for the operator; no automated broad deletion is performed.
 
 Sign-in must reach the exact same-origin authenticated workspace. A sign-in
 timeout aborts with an `AUTH_FAIL` report instead of silently proceeding.
+Failures during option access, directory allocation, permission setup, output
+notification or browser/page creation are controlled by the orchestrator too.
+A failure before sign-in navigation is attempted is `SETUP_FAIL`, not evidence
+of an attempted authentication failure. If owner-only output was never safely
+established, the fixed error does not promise an inspectable report. An allocated
+directory left by a permission failure is retained; no report is attempted in
+that unqualified location and no broad cleanup is performed.
 Redirected routes are `REDIRECTED`, HTTP failures are `HTTP_FAIL`, navigation
 errors are `LOAD_FAIL`, and inspection/capture failures abort with `AUDIT_FAIL`.
 Diagnostic error strings and credential values are not included in the report.
@@ -47,9 +56,19 @@ Both context and browser closure are attempted even if one fails. Cleanup
 failure adds an `AUDIT_FAIL` row before the exclusive report write, and rejects
 with a fixed sanitized error. Report-write failures also reject with a fixed
 error after both closure attempts; a failed report write is never reported as
-success. These failures do not reveal provider diagnostics or local file paths
-through the CLI error message. A cleanup failure may add a failure row after
-the 49 route rows; consumers must inspect all verdicts, not just route count.
+success. Initial, route and final output callback failures are sanitized and
+recorded as failed verdicts before the report write. A successful report write
+followed by a notification failure is not claimed: the final notification occurs
+before the write, and a fixed error distinguishes saved report/failed notification
+from a failed write. The controlled `runMobileAudit` execution and shipped CLI's
+invocation of it do not reveal provider diagnostics or local file paths through
+their error messages. Deliberately requested successful output notifications do
+include private artifact paths. Direct calls to the low-level filesystem helpers
+retain their ordinary filesystem exceptions. Module loading failures, process
+startup failures and asynchronous terminal/stream failures outside this execution
+boundary are not qualified as sanitized by these tests. A cleanup failure may add
+a failure row after the 49 route rows; consumers must inspect all verdicts, not
+just route count.
 The CLI exits nonzero if any route is not `PASS`, or if the audit aborts. A known
 intentional redirect is still reported as a redirect, not proof that the
 original route's mobile surface passed.
@@ -62,8 +81,9 @@ No live production screenshot sweep was run to qualify this change.
 ## Regression coverage
 
 `src/test/mobileAuditSecurity.test.ts` imports the actual shipped script with
-only its browser dependency mocked. Tests exercise real filesystem creation,
-permissions, file overwrite refusal, planted symlink refusal and invalid
+its browser dependency mocked and bounded filesystem setup fault injection.
+Tests exercise real filesystem creation, permissions, file overwrite refusal,
+planted symlink refusal and invalid
 artifact names. The browser harness covers the full 49-route sweep, explicit
 credential failures, failed authentication, redirection, HTTP errors, failed
 capture, sanitized reports and resource closure. Screenshot payloads and
@@ -71,10 +91,21 @@ credentials in these tests are synthetic, not customer data.
 
 The four cleanup/report-write regression cases were run against the prior PR
 implementation: all four failed while the original 16 passed. After correction,
-all 20 pass. The cleanup cases use a synthetic provider diagnostic containing a
+all 20 passed. The cleanup cases use a synthetic provider diagnostic containing a
 synthetic credential; neither is allowed in the thrown message or saved report.
 The report-write case plants a symlink, proves its target remains unchanged and
 proves both resources are closed despite refusal to overwrite the report.
+
+The startup/output-boundary repair was test-first: nine new cases failed against
+the prior implementation while all 20 existing cases passed. They include actual
+CLI subprocesses exercising the shipped entry point with allocation failure,
+permission failure and an initial throwing output callback. No browser is launched
+by those subprocesses. The corrected focused suite has 31 passing cases, including
+additional pre-authentication page/cleanup and route-notification failure coverage.
+The final callback regression checks that a failed verdict is written instead of
+an all-PASS report; both browser resource closures are attempted. All fault strings,
+credentials, screenshot bytes and directories are synthetic. This does not prove
+a live production sweep, production browser startup, or POSIX behavior on Windows.
 
 Existing MarkdownRenderer, FieldFailureCapture and booth-fast-path tests are
 also run as bounded triage evidence, not substitutes for browser exploit

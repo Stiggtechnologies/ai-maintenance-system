@@ -84,27 +84,44 @@ export function writeAuditArtifact(directory, name, content) {
   writeFileSync(join(directory, name), content, { flag: "wx", mode: 0o600 });
 }
 
-export async function runMobileAudit({
-  env = process.env,
-  log = console.log,
-} = {}) {
-  const email = env.DEMO_EMAIL;
-  const password = env.DEMO_PASSWORD;
-  if (!email?.trim() || !password?.trim()) {
-    throw new Error(
-      "DEMO_EMAIL and DEMO_PASSWORD are required for an authorized demo account",
-    );
-  }
-  const directory = createAuditOutput();
-  const reportPath = join(directory, "mobile-audit-report.json");
-  log(`artifacts: ${directory}`);
+export async function runMobileAudit(options = {}) {
   const report = [];
+  let directory;
+  let reportPath;
+  let log;
   let browser;
   let context;
   let currentRoute = "/signin";
   let authenticated = false;
+  let authAttempted = false;
+  let failed = false;
+  let outputNotificationFailed = false;
+  let credentialFailure;
+  const notify = (message) => {
+    try {
+      log(message);
+    } catch {
+      outputNotificationFailed = true;
+      throw new Error("Audit output notification failed");
+    }
+  };
 
   try {
+    // Option/credential access and filesystem setup belong to the same fixed
+    // diagnostic boundary as browser execution. An allocation is only safely
+    // established after createAuditOutput's permission check returns.
+    const env = options.env ?? process.env;
+    log = options.log ?? console.log;
+    const email = env.DEMO_EMAIL;
+    const password = env.DEMO_PASSWORD;
+    if (!email?.trim() || !password?.trim()) {
+      credentialFailure =
+        "DEMO_EMAIL and DEMO_PASSWORD are required for an authorized demo account";
+      throw new Error(credentialFailure);
+    }
+    directory = createAuditOutput();
+    reportPath = join(directory, "mobile-audit-report.json");
+    notify(`artifacts: ${directory}`);
     browser = await chromium.launch({ headless: true });
     context = await browser.newContext({
       viewport: { width: 390, height: 844 },
@@ -112,6 +129,7 @@ export async function runMobileAudit({
       hasTouch: true,
     });
     const page = await context.newPage();
+    authAttempted = true;
     await page.goto(`${BASE}/signin`, { waitUntil: "networkidle" });
     await page.getByRole("textbox", { name: /work email/i }).fill(email);
     await page.locator('input[type="password"]').fill(password);
@@ -207,29 +225,36 @@ export async function runMobileAudit({
               ? "CLIPPED-CANDIDATES"
               : "PASS";
       report.push({ route, verdict, ...checks });
-      log(
+      notify(
         `${verdict.padEnd(18)} ${route}  overflow=${checks.overflow}px wide=${checks.wide.length} clipped=${checks.clipped.length}`,
       );
     }
-    return { directory, reportPath, report };
   } catch {
-    report.push(
-      authenticated
-        ? {
-            route: currentRoute,
-            verdict: "AUDIT_FAIL",
-            note: "Route inspection or artifact capture failed",
-          }
-        : {
-            route: "/signin",
-            verdict: "AUTH_FAIL",
-            note: "Demo sign-in did not reach the authenticated workspace",
-          },
-    );
-    // Never put browser/provider diagnostics or credential values in reports.
-    throw new Error(
-      "Mobile audit did not complete; inspect the private report",
-    );
+    failed = true;
+    if (directory)
+      report.push(
+        !authAttempted
+          ? {
+              route: "/signin",
+              verdict: "SETUP_FAIL",
+              note: outputNotificationFailed
+                ? "Audit output notification failed before sign-in was attempted"
+                : "Audit setup failed before sign-in was attempted",
+            }
+          : authenticated
+            ? {
+                route: currentRoute,
+                verdict: "AUDIT_FAIL",
+                note: outputNotificationFailed
+                  ? "Audit output notification failed"
+                  : "Route inspection or artifact capture failed",
+              }
+            : {
+                route: "/signin",
+                verdict: "AUTH_FAIL",
+                note: "Demo sign-in did not reach the authenticated workspace",
+              },
+      );
   } finally {
     // Provider cleanup errors must not escape the sanitized execution boundary.
     // Always attempt both closures, and persist a failed verdict if either fails.
@@ -251,23 +276,48 @@ export async function runMobileAudit({
         note: "Browser resource cleanup failed",
       });
     }
+    // A permission failure may leave an allocated directory, but it is not a
+    // safely established output. Retain it without attempting a report there.
+    if (!directory || !reportPath) {
+      throw new Error(
+        credentialFailure ??
+          "Mobile audit did not start; no private output was established",
+      );
+    }
+    if (!outputNotificationFailed) {
+      try {
+        // Announce only the target, not a successful save. A callback failure
+        // must be recorded before the one exclusive report write.
+        notify(`report target: ${reportPath}`);
+      } catch {
+        report.push({
+          route: currentRoute,
+          verdict: "AUDIT_FAIL",
+          note: "Audit output notification failed",
+        });
+      }
+    }
     try {
       writeAuditArtifact(
         directory,
         "mobile-audit-report.json",
         JSON.stringify(report, null, 2),
       );
-      log(`report: ${reportPath}`);
     } catch {
       throw new Error(
         "Mobile audit did not complete; private report could not be saved",
       );
     }
-    if (cleanupFailed)
+    if (outputNotificationFailed)
+      throw new Error(
+        "Mobile audit did not complete; private report saved but output notification failed",
+      );
+    if (failed || cleanupFailed)
       throw new Error(
         "Mobile audit did not complete; inspect the private report",
       );
   }
+  return { directory, reportPath, report };
 }
 
 if (
