@@ -327,6 +327,15 @@ begin
   if not found then
     return jsonb_build_object('error','connector not found in this organization');
   end if;
+  -- The caller may have been demoted or transferred while awaiting either lock.
+  -- Re-evaluate the current profile before receipt disclosure as well as writes;
+  -- the cached pre-wait organization/role must not authorize a historical replay.
+  if public.app_current_org() is distinct from v_org
+     or coalesce(public.app_current_role(),'')<>'admin'
+     or not exists(select 1 from public.user_profiles p
+       where p.id=v_uid and p.organization_id=v_org and p.role='admin') then
+    return jsonb_build_object('error','authorization changed while configuration waited for serialization');
+  end if;
   if v_protocol not in ('ntp','ptp','gnss','vendor_managed','system_managed') then
     return jsonb_build_object('error','unsupported clock synchronization protocol');
   end if;

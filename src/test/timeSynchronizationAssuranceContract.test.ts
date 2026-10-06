@@ -46,6 +46,21 @@ describe("E12.07 governed time-synchronization assurance", () => {
     );
   });
 
+  it("rechecks current caller standing after serialization waits before disclosing a replay receipt", () => {
+    const lockedConnector = migration.indexOf(
+      "where id=p_connector_id and organization_id=v_org for update",
+    );
+    const recheck = migration.indexOf(
+      "authorization changed while configuration waited for serialization",
+    );
+    const receipt = migration.indexOf(
+      "select * into v_receipt from public.audit_events",
+    );
+    expect(lockedConnector).toBeGreaterThan(0);
+    expect(recheck).toBeGreaterThan(lockedConnector);
+    expect(receipt).toBeGreaterThan(recheck);
+  });
+
   it("requires the collector's expected revision instead of rebinding an in-flight observation", () => {
     expect(migration).toContain(
       "p_configuration_revision integer default null",

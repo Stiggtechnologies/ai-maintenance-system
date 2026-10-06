@@ -117,6 +117,21 @@ const assessment = {
   note: "Numerical assessment only; no evidence approval.",
 };
 
+const measuredConnector = {
+  ...connector,
+  configuredAt: "2026-10-03T14:00:00Z",
+  state: "synchronized",
+  withinClockContract: true,
+  observationId: otherId,
+  sourceClockAt: "2026-10-03T14:05:11.900101Z",
+  referenceClockAt: "2026-10-03T14:05:11.900001Z",
+  receivedAt: "2026-10-03T14:05:11.901001Z",
+  offsetMs: 0.1,
+  measurementUncertaintyMs: 0.2,
+  worstCaseOffsetMs: 0.3,
+  observationEvidenceReference: "SYNTHETIC-OBSERVATION",
+};
+
 beforeEach(() => {
   transport.body = null;
   transport.fail = false;
@@ -197,6 +212,139 @@ describe("time assurance actual SDK qualification", () => {
     transport.body = { ...workspace, connectors: [] };
     expect((await timeSynchronizationActions.status()).connectors).toEqual([]);
   });
+
+  it.each([
+    measuredConnector,
+    {
+      ...measuredConnector,
+      sourceClockAt: "2026-10-03T14:05:11.899901Z",
+      offsetMs: -0.1,
+    },
+    {
+      ...measuredConnector,
+      sourceClockAt: "2026-10-03T14:05:11.900002Z",
+      offsetMs: 0.001,
+      measurementUncertaintyMs: 0.0000001,
+      worstCaseOffsetMs: 0.0010001,
+    },
+    {
+      ...measuredConnector,
+      referenceClockAt: "2026-10-03T14:00:12.000001Z",
+      sourceClockAt: "2026-10-03T14:00:12.000101Z",
+    },
+    {
+      ...measuredConnector,
+      enabled: false,
+      state: "disabled",
+      withinClockContract: false,
+    },
+    {
+      ...measuredConnector,
+      state: "untrusted",
+      withinClockContract: false,
+      toleranceMs: 0.2,
+    },
+    {
+      ...measuredConnector,
+      referenceClockAt: "2026-10-03T14:00:12Z",
+      sourceClockAt: "2026-10-03T14:00:12.0001Z",
+      state: "stale",
+      withinClockContract: false,
+    },
+    {
+      ...measuredConnector,
+      referenceClockAt: "2026-10-03T14:05:12.000002Z",
+      sourceClockAt: "2026-10-03T14:05:12.000102Z",
+      state: "unproven",
+      withinClockContract: false,
+      measurementUncertaintyMs: 100,
+      worstCaseOffsetMs: 100.1,
+    },
+  ])(
+    "preserves exact decimal offset/uncertainty and legitimate state %#",
+    async (row) => {
+      transport.body = { ...workspace, connectors: [row] };
+      expect((await timeSynchronizationActions.status()).connectors[0]).toEqual(
+        row,
+      );
+    },
+  );
+
+  it.each([
+    {
+      sourceClockAt: "2026-10-03T14:05:12.900001Z",
+      offsetMs: 1000,
+      measurementUncertaintyMs: 0,
+      worstCaseOffsetMs: 0,
+    },
+    { offsetMs: 0.100001 },
+    { worstCaseOffsetMs: 0 },
+    { worstCaseOffsetMs: 0.30000000000000004 },
+    {
+      measurementUncertaintyMs: Number.MAX_SAFE_INTEGER + 1,
+      worstCaseOffsetMs: Number.MAX_SAFE_INTEGER + 1,
+    },
+    { toleranceMs: Number.MAX_SAFE_INTEGER + 1 },
+    { configuredAt: "2026-10-03T14:05:12.000002Z" },
+    { receivedAt: "2026-10-03T14:05:12.000002Z" },
+    {
+      referenceClockAt: "2026-10-03T14:05:12.000002Z",
+      sourceClockAt: "2026-10-03T14:05:12.000102Z",
+    },
+    {
+      referenceClockAt: "2026-10-03T14:00:12Z",
+      sourceClockAt: "2026-10-03T14:00:12.0001Z",
+    },
+    { state: "untrusted", withinClockContract: false },
+    { state: "stale", withinClockContract: false },
+    { state: "unproven", withinClockContract: false },
+  ])(
+    "refuses contradictory numerical or time-bound workspace %#",
+    async (change) => {
+      transport.body = {
+        ...workspace,
+        connectors: [{ ...measuredConnector, ...change }],
+      };
+      await expect(timeSynchronizationActions.status()).rejects.toThrow();
+    },
+  );
+
+  it("accepts the SQL stale-event branch with an observation but no computed worst case", async () => {
+    transport.body = { ...assessment, state: "stale", observation_id: otherId };
+    expect(
+      await timeSynchronizationActions.evaluateEventTime(
+        connectorId,
+        eventTime,
+      ),
+    ).toMatchObject({ state: "stale", worst_case_offset_ms: null });
+  });
+
+  it.each([
+    {
+      configuration_recorded_at: "2026-10-03T15:05:12.000001Z",
+      state: "synchronized",
+      within_clock_contract: true,
+      observation_id: otherId,
+      worst_case_offset_ms: 0,
+    },
+    { configuration_recorded_at: "2026-10-03T14:05:12.000002Z" },
+    { history_reason: "Clock history is inconsistent despite verified label" },
+    {
+      state: "synchronized",
+      within_clock_contract: true,
+      observation_id: otherId,
+      worst_case_offset_ms: Number.MAX_SAFE_INTEGER + 1,
+      tolerance_ms: Number.MAX_SAFE_INTEGER + 1,
+    },
+  ])(
+    "refuses contradictory event contract/history timing %#",
+    async (change) => {
+      transport.body = { ...assessment, ...change };
+      await expect(
+        timeSynchronizationActions.evaluateEventTime(connectorId, eventTime),
+      ).rejects.toThrow();
+    },
+  );
 
   it.each([
     null,

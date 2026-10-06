@@ -336,8 +336,57 @@ try {
     ).at(-1),
     "1",
   );
+  // Current authority is checked again AFTER a waiting replay acquires locks.
+  // The CI service fixture respects the canonical profile pin (auth.uid=NULL).
+  const profileActor = ci ? human : "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+  const serviceProfileIdentity = ci
+    ? "select set_config('request.jwt.claims','{\"role\":\"service_role\"}',false)"
+    : "select set_config('test.uid','',false)";
+  await first.query("begin");
+  assert.equal(
+    json(await first.query(configure(`INTENT-${suffix}`, intent))).replay,
+    true,
+  );
+  const waitingReplay = second.query(configure(`INTENT-${suffix}`, intent));
+  waitingReplay.catch(() => {});
+  let authorityTransactionOpen = true;
+  try {
+    await assertBlocked();
+    await monitor.query(`${serviceProfileIdentity};
+      do $$ begin assert auth.uid() is null; end $$;
+      update user_profiles set role='planner' where id='${profileActor}';
+      select role from user_profiles where id='${profileActor}'`);
+    assert.equal(
+      (
+        await monitor.query(
+          `select role from user_profiles where id='${profileActor}'`,
+        )
+      ).at(-1),
+      "planner",
+    );
+    await first.query("commit");
+    authorityTransactionOpen = false;
+    const noAuthority = json(await waitingReplay);
+    assert.match(
+      noAuthority.error,
+      /authorization changed while configuration waited for serialization/,
+    );
+    assert.equal(
+      (
+        await monitor.query(
+          `select time_assurance_revision from connectors where id='${connector}'`,
+        )
+      ).at(-1),
+      String(nextRevision + 1),
+    );
+  } finally {
+    if (authorityTransactionOpen) await first.query("rollback");
+    await monitor.query(`${serviceProfileIdentity};
+      update user_profiles set role='admin' where id='${profileActor}'`);
+    await monitor.query(identity());
+  }
   console.log(
-    "Concurrent configuration/observation, cross-connector intent, exact replay and rollback-retry assertions passed; no collector, approved evidence or production qualification claimed.",
+    "Concurrent configuration/observation, cross-connector intent, exact replay, rollback-retry and post-wait authority assertions passed; no collector, approved evidence or production qualification claimed.",
   );
 } finally {
   for (const handle of sessions) handle.close();

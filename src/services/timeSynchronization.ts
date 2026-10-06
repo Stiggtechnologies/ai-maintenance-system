@@ -120,7 +120,9 @@ const uuid = (value: unknown): value is string =>
   typeof value === "string" &&
   /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 const finite = (value: unknown): value is number =>
-  typeof value === "number" && Number.isFinite(value);
+  typeof value === "number" &&
+  Number.isFinite(value) &&
+  Math.abs(value) <= Number.MAX_SAFE_INTEGER;
 const positive = (value: unknown): value is number =>
   finite(value) && value > 0;
 const revision = (value: unknown): value is number =>
@@ -163,7 +165,51 @@ const noAuthority = (value: Record<string, unknown>) =>
   value.eligible_for_time_sensitive_evidence === false;
 const nonnegative = (value: unknown) => finite(value) && value >= 0;
 
-function validConnector(value: unknown): value is ConnectorTimeAssurance {
+interface Decimal {
+  coefficient: bigint;
+  scale: number;
+}
+
+// Qualify the decimal values represented on the JSON wire, not an IEEE-754
+// addition with an invented engineering epsilon. Unsafe magnitudes are refused.
+function decimal(value: unknown): Decimal | null {
+  if (!finite(value)) return null;
+  const match = /^(-?)(\d+)(?:\.(\d+))?(?:e([+-]?\d+))?$/i.exec(
+    value.toString(),
+  );
+  if (!match) return null;
+  const [, sign, whole, fraction = "", exponent = "0"] = match;
+  const scale = fraction.length - Number(exponent);
+  const coefficient = BigInt(`${sign}${whole}${fraction}`);
+  return scale < 0
+    ? { coefficient: coefficient * 10n ** BigInt(-scale), scale: 0 }
+    : { coefficient, scale };
+}
+
+function compareDecimal(left: Decimal, right: Decimal): bigint {
+  const scale = Math.max(left.scale, right.scale);
+  return (
+    left.coefficient * 10n ** BigInt(scale - left.scale) -
+    right.coefficient * 10n ** BigInt(scale - right.scale)
+  );
+}
+
+function worstOffset(offset: Decimal, uncertainty: Decimal): Decimal {
+  const scale = Math.max(offset.scale, uncertainty.scale);
+  const absolute =
+    offset.coefficient < 0n ? -offset.coefficient : offset.coefficient;
+  return {
+    coefficient:
+      absolute * 10n ** BigInt(scale - offset.scale) +
+      uncertainty.coefficient * 10n ** BigInt(scale - uncertainty.scale),
+    scale,
+  };
+}
+
+function validConnector(
+  value: unknown,
+  generatedAt: bigint,
+): value is ConnectorTimeAssurance {
   if (
     !object(value) ||
     !uuid(value.connectorId) ||
@@ -221,14 +267,58 @@ function validConnector(value: unknown): value is ConnectorTimeAssurance {
   if (value.observationId === null) {
     if (observationFields.some((field) => field !== null)) return false;
   } else if (observationFields.some((field) => field === null)) return false;
-  return (
-    value.state !== "synchronized" ||
-    (value.enabled &&
-      value.observationId !== null &&
-      finite(value.worstCaseOffsetMs) &&
-      positive(value.toleranceMs) &&
-      value.worstCaseOffsetMs <= value.toleranceMs)
-  );
+  if (value.configurationRevision === 0) return value.observationId === null;
+  const configuredAt = instant(value.configuredAt);
+  const tolerance = decimal(value.toleranceMs);
+  if (configuredAt === null || configuredAt > generatedAt || tolerance === null)
+    return false;
+  let expectedState: TimeAssuranceState = value.enabled
+    ? "unproven"
+    : "disabled";
+  if (value.observationId !== null) {
+    const source = instant(value.sourceClockAt);
+    const reference = instant(value.referenceClockAt);
+    const received = instant(value.receivedAt);
+    const offset = decimal(value.offsetMs);
+    const uncertainty = decimal(value.measurementUncertaintyMs);
+    const worst = decimal(value.worstCaseOffsetMs);
+    if (
+      source === null ||
+      reference === null ||
+      received === null ||
+      received > generatedAt ||
+      received < configuredAt ||
+      offset === null ||
+      uncertainty === null ||
+      worst === null ||
+      compareDecimal(offset, { coefficient: source - reference, scale: 3 }) !==
+        0n ||
+      compareDecimal(worst, worstOffset(offset, uncertainty)) !== 0n ||
+      (reference > received &&
+        compareDecimal(
+          { coefficient: reference - received, scale: 3 },
+          uncertainty,
+        ) > 0n)
+    )
+      return false;
+    if (value.enabled) {
+      const expiresAt =
+        reference +
+        BigInt(value.maxObservationAgeMinutes as number) * 60_000_000n;
+      expectedState =
+        reference > generatedAt
+          ? "unproven"
+          : expiresAt < generatedAt
+            ? "stale"
+            : compareDecimal(worst, tolerance) <= 0n
+              ? "synchronized"
+              : "untrusted";
+    }
+  }
+  // generatedAt is the server's read witness, never the browser's clock.
+  // A state that crossed a boundary during the read is unavailable, not granted
+  // a fabricated grace interval or silently relabelled by this service.
+  return value.state === expectedState;
 }
 
 async function read(
@@ -248,13 +338,14 @@ async function read(
 export const timeSynchronizationActions = {
   status: async (): Promise<TimeAssuranceWorkspace> => {
     const data = await read("get_connector_time_assurance", {});
+    const generatedAt = object(data) ? instant(data.generatedAt) : null;
     if (
       !object(data) ||
-      !timestamp(data.generatedAt) ||
+      generatedAt === null ||
       data.operationalAuthority !== false ||
       data.setsSourceClocks !== false ||
       !Array.isArray(data.connectors) ||
-      !data.connectors.every(validConnector) ||
+      !data.connectors.every((row) => validConnector(row, generatedAt)) ||
       new Set(data.connectors.map((row) => row.connectorId.toLowerCase()))
         .size !== data.connectors.length
     )
@@ -359,7 +450,9 @@ export const timeSynchronizationActions = {
       !nullable(data.tolerance_ms, positive) ||
       !nullable(data.max_observation_age_minutes, revision) ||
       !noAuthority(data) ||
-      !text(data.note)
+      !text(data.note) ||
+      (data.history_integrity === "verified_recorded_chain" &&
+        data.history_reason !== null)
     )
       throw new Error(
         "Unqualified event-time assessment; no numerical posture is available.",
@@ -372,7 +465,9 @@ export const timeSynchronizationActions = {
         data.max_observation_age_minutes !== null ||
         data.observation_id !== null ||
         data.worst_case_offset_ms !== null ||
-        data.state === "synchronized"
+        (data.state !== "unconfigured" &&
+          data.state !== "disabled" &&
+          data.state !== "unproven")
       )
         throw new Error(
           "Event-time assessment has contradictory missing contract evidence.",
@@ -382,21 +477,40 @@ export const timeSynchronizationActions = {
       data.configuration_audit_id === null ||
       data.configuration_recorded_at === null ||
       data.tolerance_ms === null ||
-      data.max_observation_age_minutes === null
+      data.max_observation_age_minutes === null ||
+      instant(data.configuration_recorded_at)! > expectedInstant
     )
       throw new Error(
         "Event-time assessment has an unqualified contract receipt.",
       );
-    if (
-      data.state === "synchronized" &&
-      (data.observation_id === null ||
-        !finite(data.worst_case_offset_ms) ||
-        !positive(data.tolerance_ms) ||
-        data.worst_case_offset_ms > data.tolerance_ms)
-    )
-      throw new Error(
-        "Event-time assessment lacks a qualifying numerical observation.",
-      );
+    if (data.configuration_revision !== null) {
+      if (data.state === "unproven") {
+        if (data.observation_id !== null || data.worst_case_offset_ms !== null)
+          throw new Error(
+            "Unproven event-time assessment contains contradictory observation evidence.",
+          );
+      } else if (data.state === "stale") {
+        if (data.observation_id === null || data.worst_case_offset_ms !== null)
+          throw new Error(
+            "Stale event-time assessment has contradictory numerical evidence.",
+          );
+      } else {
+        const worst = decimal(data.worst_case_offset_ms);
+        const tolerance = decimal(data.tolerance_ms);
+        if (
+          data.observation_id === null ||
+          worst === null ||
+          tolerance === null ||
+          data.state !==
+            (compareDecimal(worst, tolerance) <= 0n
+              ? "synchronized"
+              : "untrusted")
+        )
+          throw new Error(
+            "Event-time assessment lacks a qualifying numerical observation.",
+          );
+      }
+    }
     return data as unknown as EventTimeAssessment;
   },
 };

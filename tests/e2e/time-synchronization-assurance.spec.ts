@@ -78,11 +78,29 @@ for (const fixture of [
     const recorded = await response.json();
     expect(recorded.error).toBeUndefined();
     expect(recorded.ok).toBe(true);
+    const submitted = response.request().postDataJSON();
+    expect(recorded.connector_id).toBe(initial.connectorId);
+    expect(recorded.idempotency_key).toBe(submitted.p_idempotency_key);
+    expect(recorded.idempotency_key).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+    expect(recorded.audit_id).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
+    );
+    expect(recorded.replay).toBe(false);
+    expect(recorded.current_configuration_revision).toBe(
+      recorded.configuration_revision,
+    );
+    expect(Number.isSafeInteger(recorded.configuration_revision)).toBe(true);
+    expect(recorded.configuration_revision).toBeGreaterThan(0);
     expect(recorded.state).toBe("unproven");
     expect(recorded.operational_authority).toBe(false);
+    expect(recorded.configuration_evidence_verified).toBe(false);
+    expect(recorded.eligible_for_time_sensitive_evidence).toBe(false);
     await expect(
       clock.getByText(
-        /Clock contract recorded. A current service observation/i,
+        `Clock contract recorded as revision ${recorded.configuration_revision}. A current service observation is still required; canonical evidence approval remains unverified.`,
+        { exact: true },
       ),
     ).toBeVisible();
 
@@ -147,13 +165,27 @@ for (const fixture of [
       expect(revisedHttp.status()).toBe(200);
       const revised = await revisedHttp.json();
       expect(revised.error).toBeUndefined();
+      expect(revised.ok).toBe(true);
+      expect(revised.connector_id).toBe(initial.connectorId);
+      expect(revised.idempotency_key).toBe(
+        revisedHttp.request().postDataJSON().p_idempotency_key,
+      );
+      expect(revised.idempotency_key).not.toBe(recorded.idempotency_key);
+      expect(revised.audit_id).not.toBe(recorded.audit_id);
+      expect(revised.replay).toBe(false);
+      expect(revised.current_configuration_revision).toBe(
+        revised.configuration_revision,
+      );
       expect(revised.configuration_revision).toBe(
         recorded.configuration_revision + 1,
       );
       expect(revised.operational_authority).toBe(false);
+      expect(revised.configuration_evidence_verified).toBe(false);
+      expect(revised.eligible_for_time_sensitive_evidence).toBe(false);
       await expect(
         assessmentRegion.getByText(
-          /Clock contract recorded. A current service observation/i,
+          `Clock contract recorded as revision ${revised.configuration_revision}. A current service observation is still required; canonical evidence approval remains unverified.`,
+          { exact: true },
         ),
       ).toBeVisible();
     }

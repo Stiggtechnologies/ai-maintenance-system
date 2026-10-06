@@ -49,7 +49,8 @@ that changes a recorded basis or reference is a separate deliberate act.
 Historical administrators need not remain administrators forever: unrelated
 source-rights, health and disable changes do not revalidate the old clock actor.
 New clock-field changes and configuration/replay requests still require current
-same-tenant administrator standing; old receipts are never rewritten.
+same-tenant administrator standing, re-evaluated after serialization waits before
+receipt lookup or mutation; old receipts are never rewritten.
 
 A controlled service submits observations through
 `record_connector_time_observation`. The database calculates signed offset
@@ -112,6 +113,14 @@ Read and write responses are runtime-qualified, including requested connector,
 event instant (preserving microseconds), intent and audit identities, revisions,
 and literal false approval/eligibility/authority fields. Missing, malformed or
 contradictory payloads are not an empty workspace or a confirmed write.
+Offset must match the source/reference microsecond difference, and worst-case
+offset must equal absolute offset plus uncertainty using exact decimal arithmetic
+on the numeric values represented by the JSON response. Current posture is checked
+against the server's `generatedAt` witness and recorded freshness, never the
+browser clock. Unsafe numeric magnitudes and read-boundary contradictions are
+refused without an invented engineering epsilon or grace interval; this does not
+recover precision already lost before JSON decoding. Event receipts recorded
+after the requested event, or contradictory verified-history metadata, are refused.
 A configuration transport failure or unqualified acknowledgement leaves its
 immutable proposal locked on screen; the explicit safe retry reuses the same
 intent. Only a complete bound receipt or a qualified refusal releases it.
@@ -229,8 +238,9 @@ database, and the newly created E12 fixture identity. This exercises the actual
 clean-chain RPCs with controlled SQL JWT claims; separate HTTP smoke requests
 exercise real GoTrue tokens. It does not prove customer or production identities.
 Both modes test actual blocking, same-key cross-connector collision without
-mutation, exact replay and a waiting retry after the first transaction rolls
-back. The clean-chain smoke separately tests actual source-health and rights
+mutation, exact replay, a waiting retry after the first transaction rolls
+back, and refusal when the original actor is demoted while a replay waits.
+The clean-chain smoke separately tests actual source-health and rights
 RPCs after historical administrator demotion/transfer in a rolled-back fixture.
 These new concurrency/authority paths are not qualified until their actual
 exact-head run passes. No real collector or production concurrency claim is made.
