@@ -13,6 +13,9 @@ const posture = (
   inconclusive: 0,
   waived: 0,
   actionedWithoutObligation: 2,
+  unplannedOpen: 0,
+  evidenceBackedCompleted: 4,
+  legacyCompletedWithoutEvidence: 0,
   ...o,
 });
 

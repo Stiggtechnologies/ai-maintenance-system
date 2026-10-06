@@ -228,7 +228,10 @@ export async function verifyValueMetric(
  * returned to the caller, not swallowed. `not_achieved` inserts
  * `learning_events.verification_failed` inside the same transaction.
  *
- * This is still a pilot attestation. It is not a historian or CMMS reading.
+ * Recommendation outcomes must cite either independently validated canonical
+ * evidence or a completed same-asset work order imported through the active,
+ * approved, read-only CMMS contract. Requirement verification retains its
+ * existing optional evidence semantics.
  */
 export type VerificationResultKind =
   "achieved" | "not_achieved" | "inconclusive";
@@ -241,9 +244,19 @@ export interface RecordedVerification {
 
 export type VerificationSubjectKind = "recommendation" | "requirement";
 
+export interface VerificationEvidenceCandidate {
+  kind: "evidence_item" | "cmms_work_order";
+  id: string;
+  label: string;
+  sourceSystem: string | null;
+  sourceReference: string | null;
+  observedAt: string | null;
+}
+
 /** Open row from `get_open_verifications` — the same list Learning Loop reads. */
 export interface OpenVerification {
   obligationId: string;
+  recommendationId?: string | null;
   recommendationTitle: string;
   assetName: string | null;
   method: string;
@@ -254,6 +267,37 @@ export interface OpenVerification {
   subjectKind?: VerificationSubjectKind;
   requirementRef?: string | null;
   methodCode?: string | null;
+  acceptanceCriteria?: string | null;
+  verificationOwnerId?: string | null;
+  verificationOwnerName?: string | null;
+  planComplete?: boolean;
+  evidenceRequired?: boolean;
+  evidenceCandidates?: VerificationEvidenceCandidate[];
+}
+
+export interface VerificationPlanOwner {
+  ownerId: string;
+  fullName: string;
+  role: string;
+}
+
+export interface RecommendationVerificationPlan {
+  recommendationId: string;
+  obligationId: string | null;
+  recommendationStatus: string;
+  method: string | null;
+  acceptanceCriteria: string | null;
+  intendedOutcome: string | null;
+  dueDate: string | null;
+  dueDateAssumed: boolean;
+  ownerId: string | null;
+  ownerName: string | null;
+  plannedBy: string | null;
+  plannedAt: string | null;
+  planComplete: boolean;
+  state: "recommendation" | "open_obligation" | "closed";
+  legacyDebt: boolean;
+  operationalAuthorization: false;
 }
 
 function firstRpcRow<T>(data: unknown): T | null {
@@ -276,6 +320,7 @@ export async function recordVerificationResult(
   result: VerificationResultKind,
   measuredNote: string,
   evidenceId?: string | null,
+  workOrderId?: string | null,
 ): Promise<RecordedVerification> {
   const note = measuredNote.trim();
   if (note === "") {
@@ -296,6 +341,7 @@ export async function recordVerificationResult(
     p_result: result,
     p_measured_note: note,
     p_evidence_id: evidenceId ?? null,
+    p_work_order_id: workOrderId ?? null,
   });
   if (error) fail("Could not record verification result", error);
 
@@ -318,6 +364,58 @@ export async function recordVerificationResult(
   // In-band refused / error is the product's answer (second call, empty note,
   // unknown id). Surface the server's sentence — do not invent a paraphrase.
   throw new Error(row.detail || `Verification ${row.outcome ?? "refused"}.`);
+}
+
+export async function getVerificationPlanOwners(): Promise<
+  VerificationPlanOwner[]
+> {
+  const { data, error } = await supabase.rpc("get_verification_plan_owners");
+  if (error) fail("Could not load verification owners", error);
+  return (data as VerificationPlanOwner[]) ?? [];
+}
+
+export async function getRecommendationVerificationPlan(
+  recommendationId: string,
+): Promise<RecommendationVerificationPlan> {
+  const { data, error } = await supabase.rpc(
+    "get_recommendation_verification_plan",
+    { p_recommendation_id: recommendationId },
+  );
+  if (error) fail("Could not load verification plan", error);
+  const plan = firstRpcRow<RecommendationVerificationPlan & { error?: string }>(
+    data,
+  );
+  if (!plan) throw new Error("Verification plan was not returned.");
+  if (plan.error) throw new Error(plan.error);
+  return plan;
+}
+
+export async function recordRecommendationVerificationPlan(input: {
+  recommendationId: string;
+  method: string;
+  acceptanceCriteria: string;
+  intendedOutcome: string;
+  dueDate: string;
+  ownerId: string;
+}): Promise<RecommendationVerificationPlan> {
+  const { data, error } = await supabase.rpc(
+    "record_recommendation_verification_plan",
+    {
+      p_recommendation_id: input.recommendationId,
+      p_method: input.method.trim(),
+      p_acceptance_criteria: input.acceptanceCriteria.trim(),
+      p_intended_outcome: input.intendedOutcome.trim(),
+      p_due_date: input.dueDate,
+      p_owner_id: input.ownerId,
+    },
+  );
+  if (error) fail("Could not record verification plan", error);
+  const result = firstRpcRow<
+    RecommendationVerificationPlan & { error?: string }
+  >(data);
+  if (!result) throw new Error("Verification plan was not recorded.");
+  if (result.error) throw new Error(result.error);
+  return getRecommendationVerificationPlan(input.recommendationId);
 }
 
 /**

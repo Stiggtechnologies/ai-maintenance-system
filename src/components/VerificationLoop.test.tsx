@@ -23,6 +23,13 @@ const { rpcState } = vi.hoisted(() => ({
 vi.mock("../services/operatingLoopService", () => ({
   recordVerificationResult: (...args: unknown[]) =>
     recordVerificationResult(...args),
+  getRecommendationVerificationPlan: vi.fn(),
+  getVerificationPlanOwners: vi.fn(),
+  recordRecommendationVerificationPlan: vi.fn(),
+}));
+
+vi.mock("./AuthProvider", () => ({
+  useAuth: () => ({ profile: { role: "reliability_engineer" } }),
 }));
 
 vi.mock("../lib/supabase", () => ({
@@ -79,7 +86,7 @@ describe("VerificationLoop — named-human recorder", () => {
   it("renders the open obligation and the record form", async () => {
     render(<VerificationLoop />);
     expect(await screen.findByText("Replace seal on P-101")).toBeTruthy();
-    expect(screen.getByText(/This is a pilot attestation/)).toBeTruthy();
+    expect(screen.getByText(/independently validated evidence/)).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "Record verification" }),
     ).toBeTruthy();
@@ -116,6 +123,8 @@ describe("VerificationLoop — named-human recorder", () => {
         "obl-1",
         "not_achieved",
         "leak rate unchanged at 4 drops/min after seal change",
+        null,
+        null,
       ),
     );
     expect(
@@ -188,5 +197,82 @@ describe("VerificationLoop — named-human recorder", () => {
 
     fireEvent.click(screen.getByLabelText("Achieved"));
     expect(submit).toBeEnabled();
+  });
+
+  it("requires and forwards exactly one governed evidence source for a recommendation outcome", async () => {
+    rpcState.open = [
+      {
+        ...OPEN_OBLIGATION,
+        recommendationId: "rec-1",
+        subjectKind: "recommendation",
+        planComplete: true,
+        evidenceRequired: true,
+        acceptanceCriteria: "Leak rate below one drop per minute for 72 hours",
+        verificationOwnerName: "Riley Chen",
+        evidenceCandidates: [
+          {
+            kind: "cmms_work_order",
+            id: "wo-1",
+            label: "WO-100 · Post-repair inspection",
+            sourceSystem: "maximo-prod",
+            sourceReference: "100",
+            observedAt: "2026-09-14T00:00:00Z",
+          },
+        ],
+      },
+    ];
+    recordVerificationResult.mockResolvedValue({
+      outcome: "recorded",
+      learningEventId: null,
+      detail: "Outcome recorded against governed CMMS evidence.",
+    });
+    render(<VerificationLoop />);
+    await screen.findByText("Named owner: Riley Chen");
+
+    fireEvent.click(screen.getByLabelText("Achieved"));
+    fireEvent.change(screen.getByPlaceholderText(/vibration at 4.1 mm\/s/i), {
+      target: { value: "leak rate 0.2 drops per minute after 72 hours" },
+    });
+    const submit = screen.getByRole("button", {
+      name: "Record verification",
+    });
+    expect(submit).toBeDisabled();
+    fireEvent.change(screen.getByLabelText(/Governed evidence source/), {
+      target: { value: "cmms_work_order:wo-1" },
+    });
+    expect(submit).toBeEnabled();
+    fireEvent.click(submit);
+
+    await waitFor(() =>
+      expect(recordVerificationResult).toHaveBeenCalledWith(
+        "obl-1",
+        "achieved",
+        "leak rate 0.2 drops per minute after 72 hours",
+        null,
+        "wo-1",
+      ),
+    );
+  });
+
+  it("blocks closure of legacy recommendation debt until it is explicitly replanned", async () => {
+    rpcState.open = [
+      {
+        ...OPEN_OBLIGATION,
+        recommendationId: "rec-1",
+        subjectKind: "recommendation",
+        planComplete: false,
+        evidenceRequired: true,
+      },
+    ];
+    render(<VerificationLoop />);
+    expect(
+      await screen.findByText(/legacy obligation cannot be closed/),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Complete verification plan" }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Record verification" }),
+    ).toBeNull();
   });
 });

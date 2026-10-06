@@ -36,6 +36,12 @@ export interface VerificationPosture {
   inconclusive: number;
   waived: number;
   actionedWithoutObligation: number;
+  /** Open recommendation obligations still carrying the legacy assumed plan. */
+  unplannedOpen: number;
+  /** Completed recommendation outcomes that cite exactly one governed source. */
+  evidenceBackedCompleted: number;
+  /** Historical outcomes retained honestly without invented evidence links. */
+  legacyCompletedWithoutEvidence: number;
 }
 
 export interface LoopAssessment {
@@ -106,6 +112,9 @@ export function assessLoop(p: VerificationPosture | null): LoopAssessment {
             `This 0% means no named human has recorded an outcome yet. The write path is open on Learning Loop — record achieved, not_achieved, or inconclusive against an open obligation. Read it as "nobody has looked", not as "nothing worked". `) +
       (p.actionedWithoutObligation > 0
         ? `${p.actionedWithoutObligation} actioned recommendation(s) have NO obligation at all — they predate the trigger, nothing is watching them, and an unwatched loop renders exactly like a closed one. `
+        : ``) +
+      (p.unplannedOpen > 0
+        ? `${p.unplannedOpen} open obligation(s) require an explicit human verification plan before they can close. `
         : ``) +
       (p.overdue > 0
         ? `${p.overdue} obligation(s) are past due. Overdue is the number to escalate: a verification that never happens is indistinguishable from one that passed.`

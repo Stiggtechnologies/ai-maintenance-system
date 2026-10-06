@@ -23,6 +23,7 @@ import {
   HardHat,
   ClipboardList,
   Link2,
+  CalendarCheck2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { ChallengeAIModal } from "../components/ChallengeAIModal";
@@ -41,6 +42,7 @@ import { RecommendationEvidenceDrawer } from "../components/RecommendationEviden
 import { RecommendationContractPosturePanel } from "../components/RecommendationContractPosturePanel";
 import { RecommendationAssumptionsDrawer } from "../components/RecommendationAssumptionsDrawer";
 import { RecommendationFailureBasisDrawer } from "../components/RecommendationFailureBasisDrawer";
+import { RecommendationVerificationPlanDrawer } from "../components/RecommendationVerificationPlanDrawer";
 import { FirstRunNextStepStrip } from "../components/help/FirstRunNextStepStrip";
 import { Stage1OperatorRunbook } from "../components/help/Stage1OperatorRunbook";
 import {
@@ -279,6 +281,7 @@ function RecommendationCard({
   onEvidence,
   onAssumptions,
   onFailureBasis,
+  onVerificationPlan,
   onScenarios,
   onChallenge,
   onCreateWO,
@@ -295,6 +298,7 @@ function RecommendationCard({
   onEvidence: (r: RecommendationRow) => void;
   onAssumptions: (r: RecommendationRow) => void;
   onFailureBasis: (r: RecommendationRow) => void;
+  onVerificationPlan: (r: RecommendationRow) => void;
   onScenarios: (r: RecommendationRow) => void;
   onChallenge: (r: RecommendationRow) => void;
   onCreateWO: (r: RecommendationRow) => void;
@@ -457,6 +461,12 @@ function RecommendationCard({
               <Link2 className="w-3 h-3" /> Failure / risk basis
             </button>
             <button
+              onClick={() => onVerificationPlan(rec)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
+            >
+              <CalendarCheck2 className="w-3 h-3" /> Verification plan
+            </button>
+            <button
               onClick={() => onScenarios(rec)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
             >
@@ -539,6 +549,14 @@ const EVIDENCE_GOVERNANCE_ROLES = new Set([
   "reliability_engineer",
 ]);
 
+const VERIFICATION_PLAN_ROLES = new Set([
+  "admin",
+  "executive",
+  "maintenance_manager",
+  "reliability_engineer",
+  "planner",
+]);
+
 const ROLE_LABEL: Record<string, string> = {
   executive: "Executive",
   maintenance_manager: "Maintenance Manager",
@@ -554,6 +572,8 @@ export function MissionControl() {
   const canAct = RECOMMENDATION_ACT_ROLES.has(role);
   const canGovernEvidence =
     profile !== null && EVIDENCE_GOVERNANCE_ROLES.has(role);
+  const canPlanVerification =
+    profile !== null && VERIFICATION_PLAN_ROLES.has(role);
   const { missionSignals } = useOnboardingOperatingLoop();
   const { data, loading, error, refetch } = useAsyncData(
     () => getMissionControl(),
@@ -571,6 +591,8 @@ export function MissionControl() {
     null,
   );
   const [failureBasisRec, setFailureBasisRec] =
+    useState<RecommendationRow | null>(null);
+  const [verificationPlanRec, setVerificationPlanRec] =
     useState<RecommendationRow | null>(null);
   const [scenarioRec, setScenarioRec] = useState<RecommendationRow | null>(
     null,
@@ -851,6 +873,7 @@ export function MissionControl() {
                     onEvidence={setEvidenceRec}
                     onAssumptions={setAssumptionRec}
                     onFailureBasis={setFailureBasisRec}
+                    onVerificationPlan={setVerificationPlanRec}
                     onScenarios={setScenarioRec}
                     onChallenge={setChallengeRec}
                     onCreateWO={handleCreateWO}
@@ -969,6 +992,15 @@ export function MissionControl() {
           rec={failureBasisRec}
           canGovern={canGovernEvidence}
           onClose={() => setFailureBasisRec(null)}
+        />
+      )}
+      {verificationPlanRec && (
+        <RecommendationVerificationPlanDrawer
+          recommendationId={verificationPlanRec.id}
+          recommendationTitle={verificationPlanRec.title}
+          canGovern={canPlanVerification}
+          onSaved={refetch}
+          onClose={() => setVerificationPlanRec(null)}
         />
       )}
       {scenarioRec && (

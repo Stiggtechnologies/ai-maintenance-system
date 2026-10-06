@@ -7,6 +7,10 @@ vi.mock("../hooks/useOnboardingOperatingLoop", () => ({
   useOnboardingOperatingLoop: () => ({ learningEvents: [] }),
 }));
 
+vi.mock("../components/AuthProvider", () => ({
+  useAuth: () => ({ profile: { role: "reliability_engineer" } }),
+}));
+
 vi.mock("../services/operatingLoopService", async () => {
   const actual = await vi.importActual<
     typeof import("../services/operatingLoopService")

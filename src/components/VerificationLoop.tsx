@@ -14,41 +14,40 @@
  * process that has never failed anything has never been tested by reality.
  */
 import { useMemo, useState } from "react";
-import { CheckCircle2, Clock, Info, RefreshCcw } from "lucide-react";
+import {
+  CalendarCheck2,
+  CheckCircle2,
+  Clock,
+  Info,
+  RefreshCcw,
+} from "lucide-react";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { supabase } from "../lib/supabase";
 import {
   recordVerificationResult,
+  type OpenVerification,
   type VerificationResultKind,
 } from "../services/operatingLoopService";
 import { assessLoop, type VerificationPosture } from "../lib/verification-loop";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
+import { useAuth } from "./AuthProvider";
+import { RecommendationVerificationPlanDrawer } from "./RecommendationVerificationPlanDrawer";
 
-interface OpenRow {
-  obligationId: string;
-  recommendationTitle: string;
-  assetName: string | null;
-  method: string;
-  dueDate: string;
-  dueDateAssumed: boolean;
-  daysOverdue: number;
-  intendedOutcome: string | null;
-  /**
-   * Slice 5A (D4.17): obligations now carry a REQUIREMENT as well as a
-   * recommendation. Both appear in this list, and each says which it is —
-   * otherwise the list and the posture beside it disagree for a reason nobody
-   * on the page can see: the posture counts recommendation-scoped obligations
-   * only, deliberately, so the C4.08 loop-closure figure keeps its meaning.
-   */
-  subjectKind?: "recommendation" | "requirement";
-  requirementRef?: string | null;
-  methodCode?: string | null;
-}
+const VERIFICATION_PLAN_ROLES = new Set([
+  "admin",
+  "executive",
+  "maintenance_manager",
+  "reliability_engineer",
+  "planner",
+]);
 
 export function VerificationLoop() {
+  const { profile } = useAuth();
+  const canPlanVerification = VERIFICATION_PLAN_ROLES.has(profile?.role ?? "");
+  const [planRow, setPlanRow] = useState<OpenVerification | null>(null);
   const { data, loading, error, refetch } = useAsyncData<{
     posture: VerificationPosture | null;
-    open: OpenRow[];
+    open: OpenVerification[];
   }>(async () => {
     const [p, o] = await Promise.all([
       supabase.rpc("get_verification_posture"),
@@ -69,9 +68,16 @@ export function VerificationLoop() {
             inconclusive: Number(raw.inconclusive),
             waived: Number(raw.waived),
             actionedWithoutObligation: Number(raw.actionedWithoutObligation),
+            unplannedOpen: Number(raw.unplannedOpen ?? 0),
+            evidenceBackedCompleted: Number(
+              raw.evidenceBackedCompleted ?? 0,
+            ),
+            legacyCompletedWithoutEvidence: Number(
+              raw.legacyCompletedWithoutEvidence ?? 0,
+            ),
           }
         : null,
-      open: (o.data as OpenRow[]) ?? [],
+      open: (o.data as OpenVerification[]) ?? [],
     };
   }, []);
 
@@ -91,9 +97,10 @@ export function VerificationLoop() {
           Verification Loop
         </h2>
         <p className="mt-1 max-w-3xl text-sm text-slate-300">
-          Every released recommendation states how we will know it worked. A
-          named human records whether anyone looked. This is a pilot attestation
-          — not a live historian or CMMS reading.
+          Every released recommendation states how, when and by whom its
+          intended outcome will be measured. The named owner closes the loop
+          only against independently validated evidence or a completed work
+          order from an approved read-only CMMS source.
         </p>
       </div>
 
@@ -222,10 +229,41 @@ export function VerificationLoop() {
                     Intended: {o.intendedOutcome}
                   </p>
                 )}
-                <RecordVerificationForm
-                  obligationId={o.obligationId}
-                  onRecorded={refetch}
-                />
+                {o.acceptanceCriteria && (
+                  <p className="mt-1 text-xs text-slate-500">
+                    Accept when: {o.acceptanceCriteria}
+                  </p>
+                )}
+                {o.verificationOwnerName && (
+                  <p className="mt-1 text-xs text-slate-500">
+                    Named owner: {o.verificationOwnerName}
+                  </p>
+                )}
+                {o.subjectKind === "recommendation" &&
+                !o.planComplete &&
+                o.recommendationId ? (
+                  <div className="mt-3 rounded-lg border border-amber-500/25 bg-amber-500/5 p-3">
+                    <p className="text-xs text-amber-200">
+                      This legacy obligation cannot be closed until a named
+                      human records its method, acceptance criteria, intended
+                      outcome, explicit date and accountable owner.
+                    </p>
+                    <button
+                      onClick={() => setPlanRow(o)}
+                      className="mt-2 flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-200"
+                    >
+                      <CalendarCheck2 className="h-3 w-3" aria-hidden />
+                      {canPlanVerification
+                        ? "Complete verification plan"
+                        : "View verification plan"}
+                    </button>
+                  </div>
+                ) : (
+                  <RecordVerificationForm
+                    obligation={o}
+                    onRecorded={refetch}
+                  />
+                )}
               </li>
             ))}
           </ul>
@@ -242,6 +280,19 @@ export function VerificationLoop() {
           </p>
         </div>
       )}
+
+      {planRow?.recommendationId && (
+        <RecommendationVerificationPlanDrawer
+          recommendationId={planRow.recommendationId}
+          recommendationTitle={planRow.recommendationTitle}
+          canGovern={canPlanVerification}
+          onSaved={() => {
+            setPlanRow(null);
+            refetch();
+          }}
+          onClose={() => setPlanRow(null)}
+        />
+      )}
     </section>
   );
 }
@@ -256,34 +307,46 @@ const RESULT_OPTIONS: {
 ];
 
 function RecordVerificationForm({
-  obligationId,
+  obligation,
   onRecorded,
 }: {
-  obligationId: string;
+  obligation: OpenVerification;
   onRecorded: () => void;
 }) {
   const [result, setResult] = useState<VerificationResultKind | null>(null);
   const [note, setNote] = useState("");
+  const [sourceKey, setSourceKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{
     kind: "ok" | "err";
     text: string;
   } | null>(null);
-  const canSubmit = result !== null && note.trim() !== "";
+  const evidenceRequired = obligation.evidenceRequired === true;
+  const candidates = obligation.evidenceCandidates ?? [];
+  const canSubmit =
+    result !== null &&
+    note.trim().length >= 10 &&
+    (!evidenceRequired || sourceKey !== "");
 
   const submit = async () => {
-    if (result === null || note.trim() === "") return;
+    if (!canSubmit || result === null) return;
+    const selected = candidates.find(
+      (candidate) => `${candidate.kind}:${candidate.id}` === sourceKey,
+    );
     setBusy(true);
     setMessage(null);
     try {
       const recorded = await recordVerificationResult(
-        obligationId,
+        obligation.obligationId,
         result,
         note,
+        selected?.kind === "evidence_item" ? selected.id : null,
+        selected?.kind === "cmms_work_order" ? selected.id : null,
       );
       setMessage({ kind: "ok", text: recorded.detail });
       setNote("");
       setResult(null);
+      setSourceKey("");
       onRecorded();
     } catch (e) {
       setMessage({
@@ -316,7 +379,7 @@ function RecordVerificationForm({
           >
             <input
               type="radio"
-              name={`verify-${obligationId}`}
+              name={`verify-${obligation.obligationId}`}
               value={opt.value}
               checked={result === opt.value}
               onChange={() => setResult(opt.value)}
@@ -340,6 +403,39 @@ function RecordVerificationForm({
           className="mt-1 w-full rounded-lg border border-white/8 bg-[#0A1018] px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:border-signal-cyan/40 focus:outline-none"
         />
       </label>
+      {evidenceRequired && (
+        <label className="block">
+          <span className="text-xs text-slate-500">
+            Governed evidence source — exactly one is required
+          </span>
+          <select
+            value={sourceKey}
+            onChange={(event) => setSourceKey(event.target.value)}
+            disabled={busy || candidates.length === 0}
+            className="mt-1 w-full rounded-lg border border-white/8 bg-[#0A1018] px-3 py-2 text-xs text-slate-200 disabled:opacity-50"
+          >
+            <option value="">Select validated evidence…</option>
+            {candidates.map((candidate) => (
+              <option
+                key={`${candidate.kind}:${candidate.id}`}
+                value={`${candidate.kind}:${candidate.id}`}
+              >
+                {candidate.kind === "cmms_work_order"
+                  ? "CMMS work order"
+                  : "Validated evidence"}
+                {` · ${candidate.label}`}
+              </option>
+            ))}
+          </select>
+          {candidates.length === 0 && (
+            <span className="mt-1 block text-xs text-amber-300">
+              No eligible source yet. Independently validate recommendation
+              evidence or synchronize a completed same-asset work order through
+              an active approved read-only CMMS connector.
+            </span>
+          )}
+        </label>
+      )}
       <div className="flex flex-wrap items-center gap-2">
         <button
           type="submit"

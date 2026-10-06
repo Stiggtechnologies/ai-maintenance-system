@@ -63,10 +63,13 @@ import {
   getAssets,
   getMissionControl,
   getRecommendationContractPosture,
+  getRecommendationVerificationPlan,
+  getVerificationPlanOwners,
   getPilotScorecard,
   getOpenObligationIdForRecommendation,
   getOpenVerifications,
   recordVerificationResult,
+  recordRecommendationVerificationPlan,
   verifyValueMetric,
 } from "./operatingLoopService";
 import { supabase } from "../lib/supabase";
@@ -218,6 +221,7 @@ describe("recordVerificationResult", () => {
           // cites none, so an omitted argument can never be mistaken for an
           // evidence item the RPC failed to receive.
           p_evidence_id: null,
+          p_work_order_id: null,
         },
       },
     ]);
@@ -237,6 +241,25 @@ describe("recordVerificationResult", () => {
       "ev-1",
     );
     expect(state.rpcCalls[0]?.args.p_evidence_id).toBe("ev-1");
+    expect(state.rpcCalls[0]?.args.p_work_order_id).toBeNull();
+  });
+
+  it("passes a governed CMMS work order without also citing an evidence item", async () => {
+    state.result = {
+      data: [{ outcome: "recorded", learningEventId: null, detail: "ok" }],
+      error: null,
+    };
+    await recordVerificationResult(
+      "obl-10",
+      "achieved",
+      "completed inspection WO measured zero leakage after 72 hours",
+      null,
+      "wo-1",
+    );
+    expect(state.rpcCalls[0]?.args).toMatchObject({
+      p_evidence_id: null,
+      p_work_order_id: "wo-1",
+    });
   });
 
   it("returns the learning event id when not_achieved is recorded", async () => {
@@ -291,6 +314,128 @@ describe("recordVerificationResult", () => {
     await expect(
       recordVerificationResult("obl-1", "inconclusive", "gauge unreadable"),
     ).rejects.toThrow(/not in your organization/);
+  });
+});
+
+describe("recommendation verification planning", () => {
+  const completePlan = {
+    recommendationId: "rec-1",
+    obligationId: null,
+    recommendationStatus: "pending",
+    method: "Compare post-repair vibration against the accepted baseline.",
+    acceptanceCriteria: "Overall vibration remains below 3.0 mm/s for 72 hours.",
+    intendedOutcome: "Seal reliability is restored without repeat leakage.",
+    dueDate: "2027-01-31",
+    dueDateAssumed: false,
+    ownerId: "owner-1",
+    ownerName: "Riley Chen",
+    plannedBy: "planner-1",
+    plannedAt: "2027-01-02T12:00:00Z",
+    planComplete: true,
+    state: "recommendation",
+    legacyDebt: false,
+    operationalAuthorization: false,
+  } as const;
+
+  beforeEach(() => {
+    state.result = { data: [], error: null };
+    state.rpcCalls = [];
+    vi.mocked(supabase.rpc).mockClear();
+  });
+
+  it("loads only the tenant-scoped, server-approved owner candidates", async () => {
+    state.result = {
+      data: [
+        {
+          ownerId: "owner-1",
+          fullName: "Riley Chen",
+          role: "reliability_engineer",
+        },
+      ],
+      error: null,
+    };
+
+    await expect(getVerificationPlanOwners()).resolves.toEqual([
+      {
+        ownerId: "owner-1",
+        fullName: "Riley Chen",
+        role: "reliability_engineer",
+      },
+    ]);
+    expect(state.rpcCalls).toEqual([
+      { name: "get_verification_plan_owners", args: undefined },
+    ]);
+  });
+
+  it("loads the canonical plan instead of reconstructing it in the client", async () => {
+    state.result = { data: [completePlan], error: null };
+
+    await expect(
+      getRecommendationVerificationPlan("rec-1"),
+    ).resolves.toEqual(completePlan);
+    expect(state.rpcCalls).toEqual([
+      {
+        name: "get_recommendation_verification_plan",
+        args: { p_recommendation_id: "rec-1" },
+      },
+    ]);
+  });
+
+  it("records all explicit plan fields and reloads the server-authoritative snapshot", async () => {
+    state.result = { data: [completePlan], error: null };
+
+    await expect(
+      recordRecommendationVerificationPlan({
+        recommendationId: "rec-1",
+        method:
+          "  Compare post-repair vibration against the accepted baseline.  ",
+        acceptanceCriteria:
+          "  Overall vibration remains below 3.0 mm/s for 72 hours.  ",
+        intendedOutcome:
+          "  Seal reliability is restored without repeat leakage.  ",
+        dueDate: "2027-01-31",
+        ownerId: "owner-1",
+      }),
+    ).resolves.toEqual(completePlan);
+
+    expect(state.rpcCalls).toEqual([
+      {
+        name: "record_recommendation_verification_plan",
+        args: {
+          p_recommendation_id: "rec-1",
+          p_method:
+            "Compare post-repair vibration against the accepted baseline.",
+          p_acceptance_criteria:
+            "Overall vibration remains below 3.0 mm/s for 72 hours.",
+          p_intended_outcome:
+            "Seal reliability is restored without repeat leakage.",
+          p_due_date: "2027-01-31",
+          p_owner_id: "owner-1",
+        },
+      },
+      {
+        name: "get_recommendation_verification_plan",
+        args: { p_recommendation_id: "rec-1" },
+      },
+    ]);
+  });
+
+  it("surfaces an owner or tenant refusal from the planning wall", async () => {
+    state.result = {
+      data: null,
+      error: { message: "verification owner must belong to your organization" },
+    };
+
+    await expect(
+      recordRecommendationVerificationPlan({
+        recommendationId: "rec-1",
+        method: "Inspect after repair",
+        acceptanceCriteria: "No repeat leakage for 72 hours",
+        intendedOutcome: "Seal reliability restored",
+        dueDate: "2027-01-31",
+        ownerId: "cross-tenant-owner",
+      }),
+    ).rejects.toThrow(/must belong to your organization/);
   });
 });
 
