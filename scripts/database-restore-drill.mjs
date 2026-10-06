@@ -411,7 +411,7 @@ const targetTmpfs = {
   "/var/lib/postgresql/data": "rw,nosuid,size=16m",
 };
 
-export function validateTarget(target, runId, sourceImage) {
+export function validateTarget(target, runId, sourceImage, daemon) {
   const host = target?.HostConfig ?? {};
   const config = target?.Config ?? {};
   const network = target?.NetworkSettings;
@@ -467,14 +467,24 @@ export function validateTarget(target, runId, sourceImage) {
     ].includes(host.SecurityOpt[0])
   )
     violations.push("privilege");
+  const resourceHints = [];
+  if (!boundedInteger(host.Memory, 2147483648)) resourceHints.push("memory");
+  if (host.MemorySwap !== host.Memory) resourceHints.push("swap");
+  if (!boundedInteger(host.NanoCpus, 2000000000)) resourceHints.push("cpu");
+  if (!boundedInteger(host.PidsLimit, 128)) resourceHints.push("pids");
+  // Moby discards this nullable field when the kernel cannot disable the OOM
+  // killer. Qualify that representation only with actual cgroup-v2 capability
+  // evidence; never treat absent metadata or an enabled disable setting as safe.
   if (
-    !boundedInteger(host.Memory, 2147483648) ||
-    host.MemorySwap !== host.Memory ||
-    !boundedInteger(host.NanoCpus, 2000000000) ||
-    !boundedInteger(host.PidsLimit, 128) ||
-    host.OomKillDisable !== false
+    host.OomKillDisable !== false &&
+    !(
+      host.OomKillDisable === null &&
+      daemon?.cgroupVersion === "2" &&
+      daemon.oomKillDisableSupported === false
+    )
   )
-    violations.push("resource_limits");
+    resourceHints.push("oom_control");
+  if (resourceHints.length) violations.push("resource_limits");
   if (
     !host.Tmpfs ||
     fingerprint(host.Tmpfs) !== fingerprint(targetTmpfs) ||
@@ -518,6 +528,7 @@ export function validateTarget(target, runId, sourceImage) {
     );
     error.category = "target_isolation_unqualified";
     error.targetIsolationHints = violations;
+    if (resourceHints.length) error.targetResourceHints = resourceHints;
     throw error;
   }
   return target.Id;
@@ -1142,6 +1153,7 @@ export async function runRestoreDrill({
   let phase = "source_identity",
     snapshotSession,
     targetId,
+    daemonQualification,
     output;
   const runId = randomBytes(16).toString("hex");
   const startedAt = new Date().toISOString(),
@@ -1187,6 +1199,28 @@ export async function runRestoreDrill({
       ),
     );
     const source = validateSource(await inspect(sourceName), endpoint, env);
+    const daemonMetadata = JSON.parse(
+      await command(
+        "docker",
+        [
+          "info",
+          "--format",
+          '{"cgroupVersion":{{json .CgroupVersion}},"oomKillDisableSupported":{{json .OomKillDisable}}}',
+        ],
+        { timeout: 15000 },
+      ),
+    );
+    if (
+      !daemonMetadata ||
+      !["1", "2"].includes(daemonMetadata.cgroupVersion) ||
+      typeof daemonMetadata.oomKillDisableSupported !== "boolean"
+    )
+      throw new Error("Local Docker resource capabilities are unqualified");
+    daemonQualification = {
+      cgroupVersion: daemonMetadata.cgroupVersion,
+      oomKillDisableSupported: daemonMetadata.oomKillDisableSupported,
+    };
+    report.sourceDaemonQualification = daemonQualification;
     const bootstrap = await sql(
       source.id,
       "postgres",
@@ -1370,9 +1404,19 @@ export async function runRestoreDrill({
         isolatedPostgresStartup(bootstrap),
       ]),
     );
-    validateTarget(await inspect(targetId), runId, source.image);
+    validateTarget(
+      await inspect(targetId),
+      runId,
+      source.image,
+      daemonQualification,
+    );
     await command("docker", ["start", targetId]);
-    validateTarget(await inspect(targetId), runId, source.image);
+    validateTarget(
+      await inspect(targetId),
+      runId,
+      source.image,
+      daemonQualification,
+    );
     report.targetContainmentVerified = true;
     await timed("target_ready", async () => {
       for (let attempt = 0; attempt < 60; attempt++) {
@@ -1419,7 +1463,12 @@ export async function runRestoreDrill({
     });
     await timed("restore", async () => {
       phase = "restore_roles";
-      validateTarget(await inspect(targetId), runId, source.image);
+      validateTarget(
+        await inspect(targetId),
+        runId,
+        source.image,
+        daemonQualification,
+      );
       const rolesRestore = prepareRolesRestore(
         readFileSync(join(output, "roles.sql"), "utf8"),
         bootstrap,
@@ -1445,7 +1494,12 @@ export async function runRestoreDrill({
       const partitions = partitionRestoreToc(toc);
       report.archivePartition = partitions.counts;
       for (const stage of ["bootstrap", "remaining"]) {
-        validateTarget(await inspect(targetId), runId, source.image);
+        validateTarget(
+          await inspect(targetId),
+          runId,
+          source.image,
+          daemonQualification,
+        );
         await command(
           "docker",
           [
@@ -1568,7 +1622,12 @@ export async function runRestoreDrill({
             entry.value.slice(0, 3).some((value) => value !== false)
           )
             continue;
-          validateTarget(await inspect(targetId), runId, source.image);
+          validateTarget(
+            await inspect(targetId),
+            runId,
+            source.image,
+            daemonQualification,
+          );
           const reference = JSON.parse(
             await sql(
               targetId,
@@ -1640,6 +1699,8 @@ export async function runRestoreDrill({
     report.failureCategory = error.category ?? "qualification_failure";
     if (error.targetIsolationHints)
       report.targetIsolationHints = error.targetIsolationHints;
+    if (error.targetResourceHints)
+      report.targetResourceHints = error.targetResourceHints;
     if (error.sqlState) report.sqlState = error.sqlState;
     if (error.missingObjectHint)
       report.missingObjectHint = error.missingObjectHint;
@@ -1663,7 +1724,12 @@ export async function runRestoreDrill({
     }
     if (targetId) {
       try {
-        validateTarget(await inspect(targetId), runId, report.sourceImage);
+        validateTarget(
+          await inspect(targetId),
+          runId,
+          report.sourceImage,
+          daemonQualification,
+        );
         await command("docker", ["rm", "-f", targetId], { timeout: 30000 });
         report.targetRemoved = true;
       } catch {

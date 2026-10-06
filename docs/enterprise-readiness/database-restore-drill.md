@@ -39,6 +39,15 @@ isolated. Image healthchecks are explicitly disabled so they cannot introduce
 an additional execution path. Missing critical metadata or any unqualified
 setting fails closed, including during cleanup; an unverified target is not
 removed. Fixed isolation-category hints contain no names, paths or values.
+Docker's nullable OOM-disable field is qualified separately: exact `false` is
+accepted, while exact `null` requires actual local daemon evidence of cgroup v2
+and an unsupported OOM-disable feature. Moby discards that field when the kernel
+cannot disable OOM termination. Missing, enabled or malformed settings remain
+failures. The tool queries only these two daemon capability fields after local
+source identity verification, never full host metadata. Positive bounded
+memory/swap/CPU/process limits are still required independently. Resource
+failures report fixed field labels only, not values. This is a documented
+provider representation qualification, not a resource-limit waiver.
 `targetContainmentVerified` is recorded only after actual pre/post-start
 inspection succeeds, not because creation flags were requested. These Docker
 controls contain this trusted-source drill, not arbitrary hostile SQL or a
@@ -218,6 +227,9 @@ define the process-user, privilege, read-only filesystem, capability, namespace,
 healthcheck and resource settings independently of the network setting. The
 drill qualifies their inspected state rather than assuming network isolation
 also proves privilege or resource containment.
+Moby's [resource validation](https://github.com/moby/moby/blob/master/daemon/daemon_unix.go)
+discards unsupported OOM-disable metadata; its [system information contract](https://github.com/moby/moby/blob/master/api/types/system/info.go)
+exposes the bounded cgroup-version and feature-support evidence used here.
 
 [PostgreSQL pg_dump](https://www.postgresql.org/docs/17/app-pgdump.html)
 provides a consistent database snapshot but excludes cluster-wide roles; those

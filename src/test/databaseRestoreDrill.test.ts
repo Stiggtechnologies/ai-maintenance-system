@@ -1309,4 +1309,81 @@ Command was: GRANT EXECUTE ON FUNCTION private_name() TO private_role;`),
       expect(error.message).not.toContain("private-operator-name");
     }
   });
+  it("qualifies a null OOM-disable field only with actual unsupported cgroup-v2 daemon evidence", () => {
+    const target = isolatedTarget();
+    expect(
+      drill.validateTarget(
+        {
+          ...target,
+          HostConfig: { ...target.HostConfig, OomKillDisable: null },
+        },
+        runId,
+        sourceImage,
+        { cgroupVersion: "2", oomKillDisableSupported: false },
+      ),
+    ).toBe(target.Id);
+  });
+  it.each([
+    undefined,
+    {},
+    { cgroupVersion: "1", oomKillDisableSupported: false },
+    { cgroupVersion: "2", oomKillDisableSupported: true },
+    { cgroupVersion: "2", oomKillDisableSupported: undefined },
+    { cgroupVersion: 2, oomKillDisableSupported: false },
+  ])(
+    "refuses nullable OOM metadata without qualified daemon evidence",
+    (daemon) => {
+      const target = isolatedTarget();
+      expect(() =>
+        drill.validateTarget(
+          {
+            ...target,
+            HostConfig: { ...target.HostConfig, OomKillDisable: null },
+          },
+          runId,
+          sourceImage,
+          daemon,
+        ),
+      ).toThrow();
+    },
+  );
+  it.each([true, undefined, "false"])(
+    "never qualifies disabled or missing OOM metadata through daemon evidence",
+    (OomKillDisable) => {
+      const target = isolatedTarget();
+      expect(() =>
+        drill.validateTarget(
+          { ...target, HostConfig: { ...target.HostConfig, OomKillDisable } },
+          runId,
+          sourceImage,
+          { cgroupVersion: "2", oomKillDisableSupported: false },
+        ),
+      ).toThrow();
+    },
+  );
+  it("reports individual resource failures using fixed labels, not values", () => {
+    const target = isolatedTarget();
+    try {
+      drill.validateTarget(
+        {
+          ...target,
+          HostConfig: {
+            ...target.HostConfig,
+            Memory: 0,
+            NanoCpus: "private-cpu-value",
+            PidsLimit: -1,
+            OomKillDisable: undefined,
+          },
+        },
+        runId,
+        sourceImage,
+      );
+      expect.fail("Unbounded resources were accepted");
+    } catch (error) {
+      expect(error).toMatchObject({
+        targetResourceHints: ["memory", "swap", "cpu", "pids", "oom_control"],
+      });
+      expect(JSON.stringify(error)).not.toContain("private-cpu-value");
+    }
+  });
 });
