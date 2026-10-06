@@ -73,6 +73,15 @@ describe("C7.14 governed canonical covariates", () => {
     expect(smoke).toContain("diagnostic['clusterCount']==3");
     expect(smoke).toContain("outputs->'diagnostics'->>'diagnosticVersion'");
     expect(edge).toContain('"record_survival_calculation"');
+    expect(edge).toContain(
+      "result.conditionalScenario.predictionUncertainty.reason",
+    );
+    expect(smoke).toContain(
+      "u['uncertaintyVersion']=='cox-joint-asset/1/draft'",
+    );
+    expect(smoke).toContain(
+      "outputs#>>'{conditionalScenario,predictionUncertainty,status}'='computed'",
+    );
     expect(workflow).toContain("bash scripts/ci-survival-covariate-smoke.sh");
     for (const invariant of [
       "independent_exact_review=true",

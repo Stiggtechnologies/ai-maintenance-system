@@ -284,6 +284,15 @@ test("actual installed-life browser capture, independent review, complete census
       /Unqualified calibration; no predictive confidence interval/,
     ),
   ).toBeVisible();
+  await expect(
+    panel.getByRole("heading", {
+      name: "Joint conditional hazard sampling uncertainty · 3 assets",
+      exact: true,
+    }),
+  ).toBeVisible();
+  await expect(
+    panel.getByText(/Cumulative hazard standard error/),
+  ).toBeVisible();
   const retained = await author.client
     .from("calculation_runs")
     .select("id,input_refs,inputs,outputs")
@@ -320,6 +329,13 @@ test("actual installed-life browser capture, independent review, complete census
       status: "estimated",
       calibration: "unqualified",
       confidenceInterval: null,
+      predictionUncertainty: {
+        status: "computed",
+        uncertaintyVersion: "cox-joint-asset/1/draft",
+        method: "efron_full_asset_case_weight_influence",
+        authority: "advisory_only",
+        clusterCount: 3,
+      },
       liveAssetForecast: false,
       profile: {
         originHours: 8,
@@ -328,6 +344,12 @@ test("actual installed-life browser capture, independent review, complete census
       },
     },
   });
+  await panel
+    .getByRole("heading", {
+      name: "Numerical conditional scenario · not a live asset forecast",
+      exact: true,
+    })
+    .scrollIntoViewIfNeeded();
   await page.screenshot({
     path: testInfo.outputPath("installed-derived-scenario.png"),
     fullPage: false,
