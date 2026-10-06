@@ -175,7 +175,7 @@ grep -qi 'source facts are frozen' <<<"$FROZEN"
 
 # Explicitly retain a legacy whitespace/case variant without an overlay.
 # It belongs in the same COMPLETE population and must refuse the whole fit.
-LEGACY_ID=$(psqlc "insert into component_life_events(organization_id,asset_id,component,hours_at_change_out,event_kind,event_date,source_file,source_basis) values('$ORG','$ASSET','  $(printf '%s' "$COMPONENT" | tr '[:lower:]' '[:upper:]')  ',13,'scheduled','2026-09-01','Synthetic legacy fixture','Synthetic legacy population reconciliation witness.') returning id;")
+LEGACY_ID=$(psqlc "insert into component_life_events(organization_id,asset_id,unit_number,component,hours_at_change_out,event_kind,event_date,source_file,source_basis) select organization_id,asset_id,unit_number,'  '||upper(component)||'  ',13,'scheduled','2026-09-01','Synthetic legacy fixture','Synthetic legacy population reconciliation witness.' from component_life_events where id=$FIRST_ID returning id;")
 LEGACY_SOURCE=$(rpc "$AUTHOR_TOKEN" get_survival_covariate_workspace "{\"p_component\":\"$COMPONENT\"}")
 BODY="$LEGACY_SOURCE" LEGACY_ID="$LEGACY_ID" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert len(x["events"])==13 and any(str(e["id"])==os.environ["LEGACY_ID"] and e["overlay"] is None for e in x["events"]),x'
 LEGACY_REFUSAL=$(calculate "$AUTHOR_SESSION"); noerr "$LEGACY_REFUSAL"
