@@ -25,6 +25,7 @@ import {
 } from "../lib/data-governance";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
 import { DataStewardAgentWorkbench } from "./DataStewardAgentWorkbench";
+import { TimeSynchronizationAssurance } from "./TimeSynchronizationAssurance";
 
 interface Posture {
   assets_total: number;
@@ -216,6 +217,8 @@ export function DataGovernance() {
           </ul>
         </div>
       )}
+
+      <TimeSynchronizationAssurance />
     </section>
   );
 }
