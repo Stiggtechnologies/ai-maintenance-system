@@ -50,6 +50,8 @@ const unitEconomics = JSON.parse(
     allConfiguredGatewayOutcomesPricedAndApproved: boolean;
     currentFirstProviderClass: string;
     currentRouteCompatibleWithProposedPolicy: boolean;
+    defaultCommercialRequestedModel: string;
+    defaultGatewayRequestedAlias: string;
     directProviderConfigurationNamePresent: string;
     gatewayModelEvidence: {
       configuredContextWindowFallbacks: string[];
@@ -62,8 +64,11 @@ const unitEconomics = JSON.parse(
     };
     gatewayConfigurationNamesPresent: string[];
     gatewayCostScheduleEvidenced: boolean;
+    modelOverrideConfigurationNamesChecked: string[];
+    modelOverrideConfigurationNamesPresent: string[];
     proposedAllowedModels: string[];
     providerCostMultiplierOneReleaseEligible: boolean;
+    requestedAndGatewayModelIdentityMatch: boolean;
     secretValuesInspected: boolean;
     sharedProviderChainOrderWhenConfigured: string[];
   };
@@ -297,6 +302,14 @@ describe("competitive pricing benchmark", () => {
         "openai-direct",
       ],
       currentFirstProviderClass: "external_gateway",
+      modelOverrideConfigurationNamesPresent: [],
+      modelOverrideConfigurationNamesChecked: [
+        "LLM_GATEWAY_MODEL",
+        "DEVELOP_AGENT_MODEL",
+      ],
+      defaultCommercialRequestedModel: "gpt-4o-mini",
+      defaultGatewayRequestedAlias: "stigg/fast",
+      requestedAndGatewayModelIdentityMatch: false,
       proposedAllowedModels: ["gpt-5.6-terra", "gpt-5.6-luna", "gpt-4o-mini"],
       allConfiguredGatewayOutcomesPricedAndApproved: false,
       currentRouteCompatibleWithProposedPolicy: false,

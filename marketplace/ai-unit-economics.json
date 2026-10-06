@@ -168,7 +168,7 @@
     },
     "providerAndPricingTierEvidence": {
       "status": "gateway_first_route_not_release_executable_for_proposed_model_policy",
-      "reason": "A 2026-10-06 names-only inventory of the live SyncAI project shows LLM_BASE_URL, LLM_API_KEY, and OPENAI_API_KEY configured. The shared provider chain leads with stigg-gateway when the first two names are present and falls back to direct OpenAI. The gateway repository maps the default stigg/fast request to a Claude primary and Claude, GPT, and Gemini fallbacks, while the proposed policy allows only three canonical GPT models. SyncAI settles the provider-returned concrete model and refuses fuzzy alias pricing, so an unpriced or unapproved gateway result is recorded as a policy violation and freezes later commercial-period spend. The exact deployed gateway revision, returned model identity, CAD-normalized price schedule, fixed infrastructure allocation, and approved provider multiplier are not evidenced. A production multiplier of 1.0 and the proposed model policy are not release-eligible. No secret value was inspected."
+      "reason": "A 2026-10-06 names-only inventory of the live SyncAI project shows LLM_BASE_URL, LLM_API_KEY, and OPENAI_API_KEY configured, with neither LLM_GATEWAY_MODEL nor DEVELOP_AGENT_MODEL present. The shipped defaults therefore reserve against gpt-4o-mini but send stigg/fast to the gateway. The shared provider chain leads with stigg-gateway and falls back to direct OpenAI. The gateway repository maps the default stigg/fast request to a Claude primary and Claude, GPT, and Gemini fallbacks, while the proposed policy allows only three canonical GPT models. SyncAI settles the provider-returned concrete model and refuses fuzzy alias pricing, so an unpriced or unapproved gateway result is recorded as a policy violation and freezes later commercial-period spend. The exact deployed gateway revision, returned model identity, CAD-normalized price schedule, fixed infrastructure allocation, and approved provider multiplier are not evidenced. A production multiplier of 1.0 and the proposed model policy are not release-eligible. No secret value was inspected."
     },
     "directChannelActivationGate": {
       "status": "not_implemented",
@@ -185,6 +185,14 @@
     "secretValuesInspected": false,
     "gatewayConfigurationNamesPresent": ["LLM_BASE_URL", "LLM_API_KEY"],
     "directProviderConfigurationNamePresent": "OPENAI_API_KEY",
+    "modelOverrideConfigurationNamesPresent": [],
+    "modelOverrideConfigurationNamesChecked": [
+      "LLM_GATEWAY_MODEL",
+      "DEVELOP_AGENT_MODEL"
+    ],
+    "defaultCommercialRequestedModel": "gpt-4o-mini",
+    "defaultGatewayRequestedAlias": "stigg/fast",
+    "requestedAndGatewayModelIdentityMatch": false,
     "sharedProviderChainOrderWhenConfigured": [
       "stigg-gateway",
       "openai-direct"

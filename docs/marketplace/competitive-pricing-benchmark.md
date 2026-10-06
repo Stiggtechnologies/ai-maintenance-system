@@ -80,7 +80,10 @@ Claude, GPT, and Gemini models. Gateway documentation says the concrete model
 lands in `response.model`; SyncAI settles that exact returned identity. The
 candidate allowlist contains only `gpt-5.6-terra`, `gpt-5.6-luna`, and
 `gpt-4o-mini`, so most configured gateway outcomes are intentionally unknown or
-unapproved. This is safe failure behavior, not a sellable configuration. The
+unapproved. A names-only production recheck found neither `LLM_GATEWAY_MODEL`
+nor `DEVELOP_AGENT_MODEL`, so the shipped defaults reserve against
+`gpt-4o-mini` but request `stigg/fast` from the gateway. No secret value was
+read. This is safe failure behavior, not a sellable configuration. The
 exact deployed gateway revision is still unverified. Before paid activation,
 either pin customer-paid calls to the verified direct GPT route or approve and
 price every reachable gateway primary and fallback, including CAD conversion,
