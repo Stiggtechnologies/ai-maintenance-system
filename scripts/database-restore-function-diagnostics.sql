@@ -2,6 +2,9 @@
 -- settings stay in exclusive private artifacts, never public Actions output.
 select jsonb_build_object('privateFunctionDiagnostics', jsonb_build_object(
   'schemaVersion', 1,
+  -- Fixed synthetic engine witness, never a source identity or body.
+  'oidJsonRepresentationQualified', jsonb_typeof(to_jsonb(1234::oid))='string'
+    and (to_jsonb(1234::oid)#>>'{}')='1234',
   'environment', jsonb_build_object(
     'search_path', current_setting('search_path'),
     'quote_all_identifiers', current_setting('quote_all_identifiers'),

@@ -20,6 +20,7 @@ const before = [entry("DO_NOT_DISCLOSE_OLD_SQL")];
 const after = [entry("DO_NOT_DISCLOSE_NEW_SQL")];
 const capture = (definition = "DO_NOT_DISCLOSE_OLD_SQL") => ({
   schemaVersion: 1,
+  oidJsonRepresentationQualified: true,
   environment: {
     search_path: "pg_catalog",
     quote_all_identifiers: "off",
@@ -38,13 +39,13 @@ const capture = (definition = "DO_NOT_DISCLOSE_OLD_SQL") => ({
       tupleVersion: "5678",
       definition,
       catalog: {
-        oid: 1234,
+        oid: "1234",
         prosrc: "DO_NOT_DISCLOSE_SOURCE",
         probin: null,
         proargdefaults: null,
         prosqlbody: null,
         proconfig: null,
-        proowner: 10,
+        proowner: "10",
         provolatile: "s",
       },
     },
@@ -65,6 +66,126 @@ const baselineHints = {
 };
 
 describe("private restore source-function diagnostics", () => {
+  it("qualifies the actual PostgreSQL JSON OID string without coercing catalog data", () => {
+    const result = diagnostics.sourceFunctionDriftHints(
+      before,
+      after,
+      capture(),
+      capture("DO_NOT_DISCLOSE_NEW_SQL"),
+    );
+    expect(result).toEqual([baselineHints]);
+    expect(() => drill.compareManifests(before, after)).toThrow("differs");
+  });
+  it.each([false, true])(
+    "rethrows the same rollback comparison error even when summary formatting fails: %s",
+    (formatterFails) => {
+      const runner = readFileSync(
+        new URL("../../scripts/database-restore-drill.mjs", import.meta.url),
+        "utf8",
+      );
+      const start = runner.indexOf(
+        "      try {\n        compareManifests(after, afterReference);",
+      );
+      expect(start).toBeGreaterThan(0);
+      const end = runner.indexOf("      report.constraintsReparsed", start);
+      expect(end).toBeGreaterThan(start);
+      // Execute only the exact committed comparison/catch boundary in memory;
+      // no Docker, SQL, artifact writer or provider call is reachable here.
+      const boundary = new Function(
+        "compareManifests",
+        "inventoryMismatchSummary",
+        "report",
+        "after",
+        "afterReference",
+        runner.slice(start, end),
+      );
+      const report: Record<string, unknown> = {};
+      const original = new Error("DO_NOT_DISCLOSE_ORIGINAL_FAILURE");
+      const compare = vi.fn(() => {
+        throw original;
+      });
+      const summarize = vi.fn(() => {
+        if (formatterFails)
+          throw new Error("DO_NOT_DISCLOSE_FORMATTER_FAILURE");
+        return drill.inventoryMismatchSummary(before, after);
+      });
+      let thrown: unknown;
+      try {
+        boundary(compare, summarize, report, before, after);
+      } catch (error) {
+        thrown = error;
+      }
+      expect(thrown).toBe(original);
+      expect(compare).toHaveBeenCalledExactlyOnceWith(before, after);
+      expect(summarize).toHaveBeenCalledTimes(1);
+      if (!formatterFails)
+        expect(report.inventoryMismatchContext).toBe("post_reference_rollback");
+      expect(JSON.stringify(report)).not.toContain("DO_NOT_DISCLOSE");
+      expect(report).not.toHaveProperty("referenceRollbackInventoryUnchanged");
+    },
+  );
+  it.each([1234, null, "01234", "1235", "4294967296", "1234.0"])(
+    "refuses unqualified or mismatched raw catalog OIDs: %s",
+    (oid) => {
+      const second = capture("DO_NOT_DISCLOSE_NEW_SQL");
+      Object.assign(second.functions[0].catalog, { oid });
+      expect(
+        diagnostics.sourceFunctionDriftHints(before, after, capture(), second),
+      ).toEqual([
+        {
+          kind: "function",
+          snapshotDiagnosticStatus: "UNAVAILABLE",
+          freshDiagnosticStatus: "UNAVAILABLE",
+        },
+      ]);
+      expect(() => drill.compareManifests(before, after)).toThrow("differs");
+    },
+  );
+  it("requires the fixed engine serializer witness, not an inferred catalog representation", () => {
+    const second = capture("DO_NOT_DISCLOSE_NEW_SQL");
+    second.oidJsonRepresentationQualified = false;
+    expect(
+      diagnostics.sourceFunctionDriftHints(before, after, capture(), second),
+    ).toEqual([
+      {
+        kind: "function",
+        snapshotDiagnosticStatus: "UNAVAILABLE",
+        freshDiagnosticStatus: "UNAVAILABLE",
+      },
+    ]);
+    const sql = readFileSync(
+      new URL(
+        "../../scripts/database-restore-function-diagnostics.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    expect(sql).toContain("jsonb_typeof(to_jsonb(1234::oid))='string'");
+    expect(sql).toContain("(to_jsonb(1234::oid)#>>'{}')='1234'");
+  });
+  it("retains exact rollback inventory comparison with fixed redacted mismatch evidence", () => {
+    const runner = readFileSync(
+      new URL("../../scripts/database-restore-drill.mjs", import.meta.url),
+      "utf8",
+    );
+    expect(runner).toContain(`try {
+        compareManifests(after, afterReference);
+      } catch (error) {
+        try {
+          report.inventoryMismatchSummary = inventoryMismatchSummary(
+            after,
+            afterReference,
+          );
+          report.inventoryMismatchContext = "post_reference_rollback";
+        } catch {
+          /* Preserve the original qualification failure. */
+        }
+        throw error;
+      }`);
+    const summary = drill.inventoryMismatchSummary(before, after);
+    expect(JSON.stringify(summary)).not.toContain("DO_NOT_DISCLOSE");
+    expect(() => drill.compareManifests(before, after)).toThrow("differs");
+  });
   it("reuses the canonical read-only rendering preamble for the fresh catalog read", () => {
     const inventory = readFileSync(
       new URL("../../scripts/database-restore-inventory.sql", import.meta.url),

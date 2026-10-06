@@ -1366,6 +1366,9 @@ commit;`,
       ),
     );
     const afterBackup = afterCapture.inventory;
+    report.functionDiagnosticOidRepresentationQualified =
+      beforeCapture.diagnostics.oidJsonRepresentationQualified === true &&
+      afterCapture.diagnostics.oidJsonRepresentationQualified === true;
     writePrivateArtifact(
       output,
       "source-after-backup-function-diagnostics.json",
@@ -1728,7 +1731,20 @@ commit;`,
         "post-reference-inventory.json",
         JSON.stringify(afterReference),
       );
-      compareManifests(after, afterReference);
+      try {
+        compareManifests(after, afterReference);
+      } catch (error) {
+        try {
+          report.inventoryMismatchSummary = inventoryMismatchSummary(
+            after,
+            afterReference,
+          );
+          report.inventoryMismatchContext = "post_reference_rollback";
+        } catch {
+          /* Preserve the original qualification failure. */
+        }
+        throw error;
+      }
       report.constraintsReparsed = constraintReferences.length;
       report.constraintParserWitness = true;
       report.referenceRollbackInventoryUnchanged = true;

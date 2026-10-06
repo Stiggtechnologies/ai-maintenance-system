@@ -64,6 +64,7 @@ function qualifiedCapture(capture) {
   if (
     !record(capture) ||
     capture.schemaVersion !== 1 ||
+    capture.oidJsonRepresentationQualified !== true ||
     !record(capture.environment) ||
     !settings.every((key) => typeof capture.environment[key] === "string") ||
     !Array.isArray(capture.functions) ||
@@ -82,7 +83,7 @@ function qualifiedCapture(capture) {
       Number(routine.tupleVersion) > 4294967295 ||
       typeof routine.definition !== "string" ||
       !record(routine.catalog) ||
-      routine.catalog.oid !== Number(routine.oid) ||
+      routine.catalog.oid !== routine.oid ||
       typeof routine.catalog.prosrc !== "string" ||
       !["probin", "proargdefaults", "prosqlbody"].every((key) =>
         nullableText(routine.catalog[key]),

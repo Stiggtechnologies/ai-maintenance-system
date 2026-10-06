@@ -177,6 +177,15 @@ Missing, malformed or uncorrelated observations are `UNAVAILABLE`, never assumed
 equal. These flags classify observations only: they do not establish a harmless
 cause, authorize source changes, normalize definitions or turn any mismatch
 into PASS. Diagnostic failure preserves the original qualification failure.
+Raw catalog OIDs are correlated as exact canonical decimal strings, matching
+PostgreSQL's JSON serialization rather than coercing private catalog values.
+A fixed synthetic OID constant checks this engine representation in each
+source observation; only its boolean witness is included in the public report.
+Missing or false representation evidence makes drift hints unavailable.
+The post-reference rollback comparison also records the existing fixed
+mismatch summary, marked `post_reference_rollback`, then rethrows its original
+failure. A summary-formatting failure cannot replace that failure. Neither
+manifest, the rollback acceptance check nor any recovery claim is changed.
 
 The source function-definition instability seen in two October 6 CI runs is
 still unqualified until its actual cause and a successful strict restore are
