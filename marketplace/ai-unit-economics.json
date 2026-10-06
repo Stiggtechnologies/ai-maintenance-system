@@ -155,7 +155,7 @@
       "supabase/migrations/20260916000000_llm_cost_guardrails.sql",
       "supabase/migrations/20261229100000_azure_marketplace_metering.sql",
       "supabase/migrations/20261230110000_azure_marketplace_metering_clock_consistency.sql",
-      "supabase/migrations/20270103020000_ai_commercial_cost_controls.sql",
+      "supabase/migrations/20270103030001_ai_commercial_cost_controls.sql",
       "src/test/llmCostGuardrails.test.ts",
       "src/test/azureMarketplaceMetering.test.ts",
       "src/test/aiCommercialCostControls.test.ts"
