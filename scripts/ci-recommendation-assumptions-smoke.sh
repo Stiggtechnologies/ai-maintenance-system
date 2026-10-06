@@ -40,6 +40,8 @@ RE=$(token 'demo@syncai.ca' 'Demo123!@#')
 MANAGER=$(token 'manager@syncai.ca' 'Manager123!@#')
 TECH=$(token 'technician@syncai.ca' 'Tech123!@#')
 test -n "$RE"; test -n "$MANAGER"; test -n "$TECH"
+REC_VERIFICATION_DUE=$(psqlc "select (current_date+45)::text")
+SAFETY_VERIFICATION_DUE=$(psqlc "select (current_date+21)::text")
 
 # The dedicated AI identity makes the §70 refusal executable rather than a
 # source assertion. It is shared with other governance smokes when present.
@@ -110,6 +112,8 @@ echo '— a named human can record a justified none-identified disposition —'
 GOOD=$(rpc "$MANAGER" record_recommendation_assumptions "{\"p_recommendation_id\":\"$REC\",\"p_packet\":{\"disposition\":\"none_identified\",\"basis\":\"The evidence scope, alternatives, consequence model and verification plan were reviewed and no additional premise is material to this decision.\",\"items\":[]},\"p_note\":\"Manager completed the assumption review for this exact recommendation revision.\"}")
 noerr "$GOOD"
 test "$(printf '%s' "$GOOD" | field disposition)" = 'none_identified'
+PLAN=$(rpc "$MANAGER" record_recommendation_verification_plan "{\"p_recommendation_id\":\"$REC\",\"p_method\":\"Compare seal condition and process solids through ten representative startups.\",\"p_acceptance_criteria\":\"No repeat seal leakage and condition evidence remains inside the accepted limit through ten representative startups.\",\"p_intended_outcome\":\"The intervention removes the repeat startup seal-failure pattern.\",\"p_due_date\":\"$REC_VERIFICATION_DUE\",\"p_owner_id\":\"00000000-0000-0000-0000-000000000001\"}")
+noerr "$PLAN"
 AFTER=$(rpc "$RE" check_recommendation_contract "{\"p_recommendation_id\":\"$REC\"}")
 grep -q '"releasable":true' <<<"$AFTER"
 
@@ -118,6 +122,8 @@ RECORDED=$(rpc "$RE" record_recommendation_assumptions "{\"p_recommendation_id\"
 noerr "$RECORDED"
 SAFETY_PACKET=$(rpc "$RE" record_recommendation_assumptions "{\"p_recommendation_id\":\"$SAFETY_REC\",\"p_packet\":{\"disposition\":\"recorded\",\"basis\":\"The short-horizon degradation evidence and protected-function consequence were reviewed before routing work.\",\"items\":[{\"statement\":\"The observed degradation continues through the proposed intervention window.\",\"basis\":\"The governed trend remains above the adopted intervention threshold.\",\"consequence_if_wrong\":\"Acceleration could make the protected function unavailable before the planned intervention.\",\"validation_method\":\"Monitor the barrier daily and stop earlier if the adopted threshold is exceeded.\"}]},\"p_note\":\"Reliability engineering recorded the safety-work premise without granting schedule authority.\"}")
 noerr "$SAFETY_PACKET"
+SAFETY_PLAN=$(rpc "$RE" record_recommendation_verification_plan "{\"p_recommendation_id\":\"$SAFETY_REC\",\"p_method\":\"Functionally test the barrier against approved criteria and independently witness the recorded result.\",\"p_acceptance_criteria\":\"The protected function passes every approved functional criterion with no unresolved safety-significant exception.\",\"p_intended_outcome\":\"The degraded safety barrier is restored to its approved functional condition.\",\"p_due_date\":\"$SAFETY_VERIFICATION_DUE\",\"p_owner_id\":\"00000000-0000-0000-0000-000000000001\"}")
+noerr "$SAFETY_PLAN"
 PACKET=$(rpc "$RE" get_recommendation_assumption_packet "{\"p_recommendation_id\":\"$REC2\"}")
 test "$(printf '%s' "$PACKET" | field valid)" = 'True'
 test "$(printf '%s' "$PACKET" | field operationalAuthorization)" = 'False'

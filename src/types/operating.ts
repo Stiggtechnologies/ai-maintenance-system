@@ -85,6 +85,19 @@ export interface RecommendationRow {
   engineering_signed_by?: string | null;
   engineering_signed_at?: string | null;
   engineering_note?: string | null;
+  /**
+   * Governed C4.08 outcome-verification plan. These fields are written only
+   * through record_recommendation_verification_plan and snapshotted into the
+   * canonical verification obligation when a named human approves.
+   */
+  verification_method?: string | null;
+  verification_due_date?: string | null;
+  verification_intended_outcome?: string | null;
+  verification_acceptance_criteria?: string | null;
+  verification_owner_id?: string | null;
+  verification_planned_by?: string | null;
+  verification_planned_at?: string | null;
+  required_completion_date?: string | null;
   // joined
   asset?: Pick<AssetRow, "id" | "name" | "tag" | "criticality"> | null;
   agent?: Pick<AgentRow, "id" | "name"> | null;

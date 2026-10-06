@@ -13,6 +13,9 @@ const posture = (
   inconclusive: 0,
   waived: 0,
   actionedWithoutObligation: 2,
+  unplannedOpen: 0,
+  evidenceBackedCompleted: 4,
+  legacyCompletedWithoutEvidence: 0,
   ...o,
 });
 
@@ -69,6 +72,16 @@ describe("assessLoop — the three open states must never render alike", () => {
 
   it("handles a null posture the same as empty", () => {
     expect(assessLoop(null).healthiest).toBe("empty");
+  });
+
+  it("distinguishes legacy recorded outcomes from evidence-gated outcomes", () => {
+    const r = assessLoop(posture({
+      evidenceBackedCompleted: 1,
+      legacyCompletedWithoutEvidence: 3,
+    }));
+    expect(r.loopClosureRate).toBeCloseTo(0.4);
+    expect(r.reason).toContain("1 completed outcome(s) passed the governed evidence gate");
+    expect(r.reason).toContain("3 historical outcome(s) predate that gate and remain legacy");
   });
 
   it("does not claim a success rate before anything executed", () => {
