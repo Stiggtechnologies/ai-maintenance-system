@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "source": "package-lock.json",
-  "lockfileSha256": "edb34943133ea7b2a6bb6eb2cee684ca5c9079412ac265d3267b6eddb78094f2",
+  "lockfileSha256": "fc7caf13d4022adf884bb4ea7d217791990ce1f60dd35b2dd57ef49146fdd105",
   "packageInstances": 406,
   "directProductionDependencies": 14,
   "directDevelopmentDependencies": 26,
@@ -1300,7 +1300,7 @@
     },
     {
       "name": "brace-expansion",
-      "version": "5.0.9",
+      "version": "5.0.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/brace-expansion"
@@ -2679,7 +2679,7 @@
     },
     {
       "name": "undici",
-      "version": "7.29.0",
+      "version": "7.30.0",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/undici"
