@@ -179,6 +179,10 @@ export function compareManifests(source, target) {
 export function diagnosticCategory(diagnostic) {
   for (const [pattern, category] of [
     [
+      /is being accessed by other users|other sessions using the database/i,
+      "active_database_sessions",
+    ],
+    [
       /preloaded|shared_preload_libraries|unrecognized configuration parameter/i,
       "preload_configuration",
     ],
@@ -201,6 +205,13 @@ export function diagnosticCategory(diagnostic) {
 
 export function safeDiagnostic(diagnostic) {
   const sqlState = diagnostic.match(/\bERROR:\s+([0-9A-Z]{5})\b/)?.[1];
+  const statementHint = [
+    [/Command was:\s+DROP DATABASE\b/i, "drop_database"],
+    [/Command was:\s+CREATE DATABASE\b/i, "create_database"],
+    [/Command was:\s+CREATE EXTENSION\b/i, "create_extension"],
+    [/Command was:\s+CREATE SCHEMA\b/i, "create_schema"],
+    [/Command was:\s+COPY\b/i, "copy_data"],
+  ].find(([pattern]) => pattern.test(diagnostic))?.[1];
   const permissionHint = [
     [/permission denied to grant privileges as role/i, "grantor_permission"],
     [/must have admin option/i, "role_admin_option"],
@@ -220,6 +231,7 @@ export function safeDiagnostic(diagnostic) {
   return {
     category: diagnosticCategory(diagnostic),
     ...(sqlState ? { sqlState } : {}),
+    ...(statementHint ? { statementHint } : {}),
     ...(permissionHint ? { permissionHint } : {}),
     ...(extensionHint ? { extensionHint } : {}),
   };
@@ -667,6 +679,7 @@ export async function runRestoreDrill({
     report.failedPhase = phase;
     report.failureCategory = error.category ?? "qualification_failure";
     if (error.sqlState) report.sqlState = error.sqlState;
+    if (error.statementHint) report.statementHint = error.statementHint;
     if (error.permissionHint) report.permissionHint = error.permissionHint;
     if (error.extensionHint) report.extensionHint = error.extensionHint;
   } finally {

@@ -108,6 +108,16 @@ describe("database restore-drill boundaries", () => {
       ),
     ).toBe('{"category":"permission_denied"}');
   });
+  it("classifies active database sessions without disclosing database names or PIDs", () => {
+    expect(
+      drill.safeDiagnostic(
+        'pg_restore: error: ERROR: database "private-db" is being accessed by other users\nDETAIL: There are 2 other sessions using the database.\nCommand was: DROP DATABASE IF EXISTS private_db;',
+      ),
+    ).toEqual({
+      category: "active_database_sessions",
+      statementHint: "drop_database",
+    });
+  });
   it.each([
     [
       "permission denied to grant privileges as role private-grantor",

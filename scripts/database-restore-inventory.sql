@@ -6,7 +6,8 @@ set statement_timeout = '5min';
 
 select jsonb_build_object('kind','database','key',datname,'value',
   jsonb_build_array(pg_get_userbyid(datdba),encoding,datcollate,datctype,
-    datistemplate,datallowconn,datconnlimit,datacl::text))
+    datistemplate,datallowconn,datconnlimit,
+    case when datacl is null then null else array(select x::text from unnest(datacl) x order by x::text) end))
 from pg_database where datname=current_database();
 
 select jsonb_build_object('kind','database_role_setting','key',
@@ -14,7 +15,8 @@ select jsonb_build_object('kind','database_role_setting','key',
 from pg_db_role_setting where setdatabase=(select oid from pg_database where datname=current_database())
 order by setrole;
 
-select jsonb_build_object('kind','parameter_acl','key',parname,'value',paracl::text)
+select jsonb_build_object('kind','parameter_acl','key',parname,'value',
+  case when paracl is null then null else array(select x::text from unnest(paracl) x order by x::text) end)
 from pg_parameter_acl order by parname;
 
 select jsonb_build_object('kind','role','key',rolname,'value',
@@ -28,7 +30,8 @@ select jsonb_build_object('kind','membership','key',
 from pg_auth_members order by roleid,member;
 
 select jsonb_build_object('kind','default_acl','key',
-  pg_get_userbyid(defaclrole)||':'||coalesce(n.nspname,'*')||':'||defaclobjtype::text,'value',defaclacl::text)
+  pg_get_userbyid(defaclrole)||':'||coalesce(n.nspname,'*')||':'||defaclobjtype::text,'value',
+  case when defaclacl is null then null else array(select x::text from unnest(defaclacl) x order by x::text) end)
 from pg_default_acl a left join pg_namespace n on n.oid=a.defaclnamespace
 order by pg_get_userbyid(defaclrole),n.nspname,defaclobjtype;
 
@@ -38,13 +41,15 @@ from pg_extension e join pg_namespace n on n.oid=e.extnamespace
 where extname <> 'plpgsql' order by extname;
 
 select jsonb_build_object('kind','schema','key',nspname,'value',
-  jsonb_build_array(pg_get_userbyid(nspowner),nspacl::text))
+  jsonb_build_array(pg_get_userbyid(nspowner),
+    case when nspacl is null then null else array(select x::text from unnest(nspacl) x order by x::text) end))
 from pg_namespace where nspname not like 'pg_%' and nspname <> 'information_schema'
 order by nspname;
 
 select jsonb_build_object('kind','relation','key',n.nspname||'.'||c.relname,'value',
   jsonb_build_array(c.relkind,c.relpersistence,pg_get_userbyid(c.relowner),
-    c.relrowsecurity,c.relforcerowsecurity,c.relacl::text,c.reloptions))
+    c.relrowsecurity,c.relforcerowsecurity,
+    case when c.relacl is null then null else array(select x::text from unnest(c.relacl) x order by x::text) end,c.reloptions))
 from pg_class c join pg_namespace n on n.oid=c.relnamespace
 where n.nspname in ('public','auth','storage','supabase_migrations')
   and c.relkind in ('r','p','v','m','S','f') order by n.nspname,c.relname;
@@ -55,7 +60,8 @@ where n.nspname in ('public','auth','storage') and c.relkind in ('v','m') order 
 
 select jsonb_build_object('kind','column','key',n.nspname||'.'||c.relname||'.'||a.attname,'value',
   jsonb_build_array(a.attnum,format_type(a.atttypid,a.atttypmod),a.attnotnull,
-    a.attidentity,a.attgenerated,a.attacl::text,pg_get_expr(d.adbin,d.adrelid)))
+    a.attidentity,a.attgenerated,
+    case when a.attacl is null then null else array(select x::text from unnest(a.attacl) x order by x::text) end,pg_get_expr(d.adbin,d.adrelid)))
 from pg_attribute a join pg_class c on c.oid=a.attrelid
 join pg_namespace n on n.oid=c.relnamespace
 left join pg_attrdef d on d.adrelid=a.attrelid and d.adnum=a.attnum
@@ -71,7 +77,8 @@ from pg_policy p join pg_class c on c.oid=p.polrelid join pg_namespace n on n.oi
 where n.nspname in ('public','auth','storage') order by n.nspname,c.relname,p.polname;
 
 select jsonb_build_object('kind','function','key',n.nspname||'.'||p.proname||'('||pg_get_function_identity_arguments(p.oid)||')','value',
-  jsonb_build_array(pg_get_userbyid(p.proowner),p.prosecdef,p.proconfig,p.proacl::text,pg_get_functiondef(p.oid)))
+  jsonb_build_array(pg_get_userbyid(p.proowner),p.prosecdef,p.proconfig,
+    case when p.proacl is null then null else array(select x::text from unnest(p.proacl) x order by x::text) end,pg_get_functiondef(p.oid)))
 from pg_proc p join pg_namespace n on n.oid=p.pronamespace
 where n.nspname in ('public','auth','storage') and p.prokind in ('f','p')
   and not exists(select 1 from pg_depend d where d.classid='pg_proc'::regclass and d.objid=p.oid and d.deptype='e')

@@ -40,6 +40,9 @@ used: create as the restore authority, then apply the original owner. The
 alternative `--use-set-session-authorization` requires historical object owners
 to retain creation privileges they may correctly no longer possess. Neither
 owners nor ACLs are omitted.
+ACL entry ordering is normalized; grantor, recipient, privileges and grant
+options remain exact, and a null/default ACL remains distinct from an explicitly
+empty ACL. A changed privilege is a mismatch, not an ignorable restore detail.
 It then runs a rollback-only tenant witness against the restored canonical
 tables: the existing demo user must retain its tenant context and positive asset
 read, while another tenant's asset read and insert must be refused.
