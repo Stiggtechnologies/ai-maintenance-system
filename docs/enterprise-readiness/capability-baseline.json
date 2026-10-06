@@ -1034,8 +1034,8 @@
   "E2.06": {
     "status": "✅",
     "evidence": true,
-    "citations": 3,
-    "backticked": 3
+    "citations": 10,
+    "backticked": 10
   },
   "E2.07": {
     "status": "✅",
@@ -1801,9 +1801,9 @@
   },
   "E12.07": {
     "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "evidence": true,
+    "citations": 3,
+    "backticked": 3
   },
   "E12.08": {
     "status": "🟡",

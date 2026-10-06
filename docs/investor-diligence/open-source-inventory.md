@@ -4,10 +4,10 @@ This inventory is generated deterministically from `package-lock.json` by
 `scripts/compliance/generate-license-inventory.mjs`. It is technical
 diligence evidence, not a legal opinion.
 
-- Lockfile SHA-256: `3d2c1acd87bfbedb7696ebf7e66b4d9cc8427176098728d5958bb18b6f334a3f`
+- Lockfile SHA-256: `c7b05b0596e2f9dd85599283fc6ec7db4ca930e3f32873bfd6cbf6c2ac7e84e4`
 - Package instances: **405**
 - Direct production dependencies: **14**
-- Direct development dependencies: **26**
+- Direct development dependencies: **27**
 - Prohibited-license matches: **0**
 - Missing license metadata: **0**
 - Machine-readable inventory: `open-source-inventory.json`
@@ -80,6 +80,7 @@ patents, trademarks, or customer distribution obligations.
 | typescript | 5.9.3 | development | Apache-2.0 |
 | vite | 8.1.5 | development | MIT |
 | vitest | 4.1.10 | development | MIT |
+| yaml | 2.9.0 | development | ISC |
 | zustand | 5.0.15 | production | MIT |
 
 ## Manual notice review queue

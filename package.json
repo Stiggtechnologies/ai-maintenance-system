@@ -32,8 +32,10 @@
     "reliability:requalify": "node scripts/reliability-requalify.mjs",
     "compliance:licenses": "node scripts/compliance/generate-license-inventory.mjs --check",
     "compliance:licenses:write": "node scripts/compliance/generate-license-inventory.mjs --write",
+    "compliance:model-provenance": "node scripts/compliance/sync-model-environment-provenance.mjs --check",
+    "compliance:model-provenance:write": "node scripts/compliance/sync-model-environment-provenance.mjs --write",
     "compliance:sbom": "npm sbom --sbom-format cyclonedx",
-    "compliance:check": "npm run compliance:governance && npm run compliance:licenses",
+    "compliance:check": "npm run compliance:governance && npm run compliance:licenses && npm run compliance:model-provenance",
     "marketplace:certify-preview": "tsx scripts/azure-marketplace-preview-certification.ts",
     "marketplace:smoke-public": "node scripts/marketplace-public-route-smoke.mjs"
   },
@@ -88,6 +90,7 @@
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.65.0",
     "vite": "^8.1.5",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.10",
+    "yaml": "2.9.0"
   }
 }
