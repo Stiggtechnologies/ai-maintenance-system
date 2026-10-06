@@ -40,7 +40,7 @@ canonical controls instead of creating a second ledger or quota system:
 | Decision/case/work cost subject and exact price snapshot    | Extended fields on `private.llm_usage`                                                  | Built; all seven deployed Develop model callers are settlement-fail-closed at exact head `9b103177`, while other bounded paid paths can remain unattributed |
 | Paid Microsoft plan mapped to a commercial period allowance | `apply_ai_commercial_plan_allowance()` and subscription triggers                        | Built; no policy values configured or approved               |
 | Production COGS and p50/p95 cost-to-serve report            | `get_ai_unit_economics()`                                                               | Built; no production distribution evidenced                  |
-| Pre-activation variable-cost margin gate                    | `evaluate_ai_commercial_plan_policy()` and explicit approval                            | Built; commercial inputs remain owner decisions              |
+| Pre-activation variable-cost margin gate                    | `evaluate_ai_commercial_plan_policy()` and explicit approval                            | Built; standard model rate is multiplied by an explicit provider/pricing-tier factor for both base allowance and overage; commercial inputs remain owner decisions |
 | Marketplace usage aggregation and idempotent hourly events  | `private.marketplace_meter_definitions` and `public.marketplace_hourly_metering_events` | Built but unconfigured and not live-certified                |
 | Paid realtime usage settlement                              | Realtime provider terminal usage                                                        | Missing; paid realtime is therefore blocked                  |
 
@@ -63,13 +63,15 @@ Marketplace quantity field.
 The gross-margin gate is a conservative variable-cost gate: it uses the
 worst-priced allowed model plus an explicitly supplied non-inference variable
 cost. It is not a substitute for a complete company gross-margin model. The
-current model-level price table represents standard vendor rates. Before an
-approved paid plan can rely on those rates, its provider route must either be
-constrained to the verified standard-rate direct endpoint with prompts kept
-below every premium context tier, or carry a separately approved cost schedule
-for gateway markup and any premium processing tier. An opaque gateway alias
-cannot inherit the public model list price merely because it returns the same
-model name.
+current model-level price table represents standard vendor rates, and every
+plan policy must now supply a provider/pricing-tier cost multiplier of at least
+1.0. The gate applies that multiplier to both the included allowance and an
+overage unit. A value of 1.0 is valid only when the paid route is constrained to
+the verified standard-rate direct endpoint with prompts kept below every
+premium context tier. Otherwise, the multiplier must come from a separately
+approved cost schedule for gateway markup and premium processing. An opaque
+gateway alias cannot inherit the public model list price merely because it
+returns the same model name.
 
 No price, allowance, model set, overage rate, non-inference cost, or margin
 threshold was seeded or approved. Microsoft activation fails closed when the

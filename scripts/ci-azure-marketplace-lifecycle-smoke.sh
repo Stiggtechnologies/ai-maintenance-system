@@ -56,7 +56,7 @@ begin
   -- an approved, margin-safe AI allowance. These are not production prices.
   v_result := public.configure_ai_commercial_plan_policy(
     'azure_marketplace','syncai-enterprise','enterprise','per_user',
-    'hard_stop',10,1000,10,1000,5,1000,0,0.50,
+    'hard_stop',10,1000,10,1000,5,1000,0,1.00,0.50,
     array['gpt-4o-mini']::text[],null,null,null,
     'CI-only Marketplace lifecycle fixture'
   );
@@ -73,7 +73,7 @@ begin
 
   v_result := public.configure_ai_commercial_plan_policy(
     'azure_marketplace','syncai-enterprise','enterprise-plus','per_user',
-    'hard_stop',20,2000,20,2000,10,2000,0,0.50,
+    'hard_stop',20,2000,20,2000,10,2000,0,1.00,0.50,
     array['gpt-4o-mini']::text[],null,null,null,
     'CI-only Marketplace lifecycle upgrade fixture'
   );

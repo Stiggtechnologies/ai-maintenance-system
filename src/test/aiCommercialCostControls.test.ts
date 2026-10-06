@@ -93,9 +93,20 @@ describe("AI commercial cost controls", () => {
     );
   });
 
-  it("gates approval on worst-model inference COGS plus explicit non-inference cost", () => {
+  it("gates approval on provider-stressed worst-model COGS plus explicit non-inference cost", () => {
     expect(migration).toContain(
       "max(greatest(pr.input_cad_per_mtok,pr.output_cad_per_mtok))",
+    );
+    expect(migration).toContain("provider_cost_multiplier numeric not null");
+    expect(migration).toContain("check (provider_cost_multiplier>=1)");
+    expect(migration).toContain(
+      "v_max_token_rate*v_policy.provider_cost_multiplier",
+    );
+    expect(migration).toContain(
+      "'providercostmultiplier',v_policy.provider_cost_multiplier",
+    );
+    expect(migration).toContain(
+      "'modeledworstcasecadpermilliontokens',v_modeled_max_token_rate",
     );
     expect(migration).toContain("v_policy.non_inference_variable_cost_cad");
     expect(migration).toContain("base_margin_below_threshold");
@@ -145,6 +156,7 @@ describe("AI commercial cost controls", () => {
       expect(smoke).toContain("configure_ai_commercial_plan_policy");
       expect(smoke).toContain("approve_ai_commercial_plan_policy");
       expect(smoke).toContain("ci-only");
+      expect(smoke).toMatch(/,[12]\.00,0\.50,/);
     }
     expect(marketplaceSmokes[2]).toContain("'metered_overage'");
     expect(marketplaceSmokes[2]).toContain("'tokens_1k'");

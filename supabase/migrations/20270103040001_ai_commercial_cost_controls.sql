@@ -142,6 +142,7 @@ create table if not exists private.ai_commercial_plan_policies (
   max_decisions_per_period integer not null,
   minimum_period_revenue_cad numeric not null,
   non_inference_variable_cost_cad numeric not null,
+  provider_cost_multiplier numeric not null,
   minimum_gross_margin_ratio numeric not null,
   allowed_models text[] not null,
   meter_dimension text,
@@ -163,6 +164,7 @@ create table if not exists private.ai_commercial_plan_policies (
   check (max_decisions_per_period>0),
   check (minimum_period_revenue_cad>0),
   check (non_inference_variable_cost_cad>=0),
+  check (provider_cost_multiplier>=1),
   check (minimum_gross_margin_ratio>=0 and minimum_gross_margin_ratio<1),
   check (cardinality(allowed_models)>0),
   check (status in ('draft','approved','retired')),
@@ -194,7 +196,9 @@ comment on table private.ai_commercial_plan_policies is
   'boundary. For per-user plans the allowance, revenue and variable-cost '
   'inputs are per purchased user and are multiplied by authoritative quantity '
   'when bound. For flat-rate plans they are per subscription. No row is seeded; '
-  'configure then explicitly approve.';
+  'configure then explicitly approve. provider_cost_multiplier is an explicit '
+  'stress factor for gateway markup and premium provider pricing tiers; 1 is '
+  'valid only when the paid route is independently verified at standard rate.';
 
 -- Provider APIs can return a dated deployment identifier even when the
 -- request used a stable priced alias (for example gpt-4o-mini-2024-07-18).
@@ -244,6 +248,7 @@ declare
   v_requested_models integer;
   v_priced_models integer;
   v_max_token_rate numeric;
+  v_modeled_max_token_rate numeric;
   v_included_inference_cost numeric;
   v_base_cost numeric;
   v_base_margin numeric;
@@ -274,15 +279,18 @@ begin
     );
   end if;
 
+  v_modeled_max_token_rate :=
+    v_max_token_rate*v_policy.provider_cost_multiplier;
   v_included_inference_cost :=
-    v_policy.included_tokens_per_period::numeric*v_max_token_rate/1000000;
+    v_policy.included_tokens_per_period::numeric
+      *v_modeled_max_token_rate/1000000;
   v_base_cost := v_included_inference_cost
     + v_policy.non_inference_variable_cost_cad;
   v_base_margin := (v_policy.minimum_period_revenue_cad-v_base_cost)
     /v_policy.minimum_period_revenue_cad;
   if v_policy.allowance_mode='metered_overage' then
     v_overage_unit_cost :=
-      v_policy.meter_unit_tokens*v_max_token_rate/1000000;
+      v_policy.meter_unit_tokens*v_modeled_max_token_rate/1000000;
     v_overage_margin :=
       (v_policy.overage_revenue_cad_per_unit-v_overage_unit_cost)
       /v_policy.overage_revenue_cad_per_unit;
@@ -298,6 +306,8 @@ begin
         then 'base_margin_below_threshold'
       else 'overage_margin_below_threshold' end,
     'worstAllowedModelCadPerMillionTokens',v_max_token_rate,
+    'providerCostMultiplier',v_policy.provider_cost_multiplier,
+    'modeledWorstCaseCadPerMillionTokens',v_modeled_max_token_rate,
     'includedInferenceCostCad',v_included_inference_cost,
     'nonInferenceVariableCostCad',v_policy.non_inference_variable_cost_cad,
     'baseGrossMarginRatio',v_base_margin,
@@ -320,7 +330,8 @@ create or replace function public.configure_ai_commercial_plan_policy(
   p_max_tokens_per_period bigint,p_max_decisions_per_period integer,
   p_minimum_period_revenue_cad numeric,
   p_non_inference_variable_cost_cad numeric,
-  p_minimum_gross_margin_ratio numeric,p_allowed_models text[],
+  p_provider_cost_multiplier numeric,p_minimum_gross_margin_ratio numeric,
+  p_allowed_models text[],
   p_meter_dimension text default null,p_meter_unit_tokens numeric default null,
   p_overage_revenue_cad_per_unit numeric default null,p_note text default null
 ) returns jsonb
@@ -346,6 +357,7 @@ begin
     or p_max_tokens_per_period<p_included_tokens_per_period
     or p_max_decisions_per_period<=0 or p_minimum_period_revenue_cad<=0
     or p_non_inference_variable_cost_cad<0
+    or coalesce(p_provider_cost_multiplier,0)<1
     or p_minimum_gross_margin_ratio<0
     or p_minimum_gross_margin_ratio>=1 then
     raise exception 'Commercial allowance or margin inputs are invalid';
@@ -386,7 +398,8 @@ begin
     included_calls_per_period,included_tokens_per_period,
     max_calls_per_period,max_tokens_per_period,max_decisions_per_period,
     minimum_period_revenue_cad,non_inference_variable_cost_cad,
-    minimum_gross_margin_ratio,allowed_models,meter_dimension,
+    provider_cost_multiplier,minimum_gross_margin_ratio,
+    allowed_models,meter_dimension,
     meter_unit_tokens,overage_revenue_cad_per_unit,status,
     approved_by,approved_at,note,updated_at
   ) values (
@@ -394,7 +407,8 @@ begin
     p_pricing_model,p_allowance_mode,p_included_calls_per_period,
     p_included_tokens_per_period,p_max_calls_per_period,p_max_tokens_per_period,
     p_max_decisions_per_period,p_minimum_period_revenue_cad,
-    p_non_inference_variable_cost_cad,p_minimum_gross_margin_ratio,v_models,
+    p_non_inference_variable_cost_cad,p_provider_cost_multiplier,
+    p_minimum_gross_margin_ratio,v_models,
     case when p_allowance_mode='metered_overage'
       then btrim(p_meter_dimension) else null end,
     case when p_allowance_mode='metered_overage'
@@ -411,6 +425,7 @@ begin
     max_decisions_per_period=excluded.max_decisions_per_period,
     minimum_period_revenue_cad=excluded.minimum_period_revenue_cad,
     non_inference_variable_cost_cad=excluded.non_inference_variable_cost_cad,
+    provider_cost_multiplier=excluded.provider_cost_multiplier,
     minimum_gross_margin_ratio=excluded.minimum_gross_margin_ratio,
     allowed_models=excluded.allowed_models,
     meter_dimension=excluded.meter_dimension,
@@ -428,11 +443,11 @@ $$;
 
 revoke all on function public.configure_ai_commercial_plan_policy(
   text,text,text,text,text,integer,bigint,integer,bigint,integer,numeric,
-  numeric,numeric,text[],text,numeric,numeric,text
+  numeric,numeric,numeric,text[],text,numeric,numeric,text
 ) from public,anon,authenticated;
 grant execute on function public.configure_ai_commercial_plan_policy(
   text,text,text,text,text,integer,bigint,integer,bigint,integer,numeric,
-  numeric,numeric,text[],text,numeric,numeric,text
+  numeric,numeric,numeric,text[],text,numeric,numeric,text
 ) to service_role;
 
 -- ---------------------------------------------------------------------------

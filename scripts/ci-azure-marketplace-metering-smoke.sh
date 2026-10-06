@@ -44,13 +44,22 @@ begin
   end if;
   v_result := public.configure_ai_commercial_plan_policy(
     'azure_marketplace','syncai-enterprise','enterprise-metered','flat_rate',
-    'metered_overage',10,1000,100,100000,50,1000,0,0.50,
+    'metered_overage',10,1000,100,100000,50,1000,0,2.00,0.50,
     array['gpt-4o-mini']::text[],'tokens_1k',1000,2,
     'CI-only Marketplace metering fixture'
   );
   if v_result->>'status'<>'draft'
      or coalesce((v_result->'evaluation'->>'allowed')::boolean,false) is not true then
     raise exception 'CI metered policy failed margin evaluation: %',v_result;
+  end if;
+  if (v_result->'evaluation'->>'providerCostMultiplier')::numeric<>2
+     or (v_result->'evaluation'->>'modeledWorstCaseCadPerMillionTokens')::numeric
+       <>1.66668
+     or (v_result->'evaluation'->>'includedInferenceCostCad')::numeric
+       <>0.00166668
+     or (v_result->'evaluation'->>'overageUnitCostCad')::numeric
+       <>0.00166668 then
+    raise exception 'provider pricing multiplier was not applied to both base and overage cost: %',v_result;
   end if;
   v_result := public.approve_ai_commercial_plan_policy(
     'azure_marketplace','syncai-enterprise','enterprise-metered',

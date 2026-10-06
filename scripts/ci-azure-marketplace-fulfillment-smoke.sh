@@ -98,7 +98,7 @@ begin
   -- exists before the canonical subscription can become active.
   v_result := public.configure_ai_commercial_plan_policy(
     'azure_marketplace','syncai-enterprise','enterprise','per_user',
-    'hard_stop',10,1000,10,1000,5,1000,0,0.50,
+    'hard_stop',10,1000,10,1000,5,1000,0,1.00,0.50,
     array['gpt-4o-mini']::text[],null,null,null,
     'CI-only Marketplace fulfillment fixture'
   );

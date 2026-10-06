@@ -82,13 +82,17 @@
       "promptOrCompletionTextStoredByBoundary": false
     },
     "pricingModeBoundary": {
-      "status": "release_gate_required",
+      "status": "implemented_pending_hosted_verification_and_configuration",
       "standardRateModelPricesImplemented": true,
+      "planPolicyProviderCostMultiplierRequired": true,
+      "minimumProviderCostMultiplier": 1,
+      "grossMarginGateAppliesProviderCostMultiplierToBaseAndOverage": true,
       "explicitPremiumCacheWriteRequestedBySharedProvider": false,
       "regionalProcessingEndpointRequestedBySharedProvider": false,
       "longContextPremiumTierExplicitlyModeled": false,
       "externalGatewayMarkupExplicitlyModeled": false,
-      "releaseRule": "An approved paid plan must use a verified standard-rate direct provider route with prompts bounded below any premium context tier, or carry a separately approved provider/tier cost schedule in the margin model. Opaque gateway economics cannot be treated as the model list price."
+      "externalGatewayOrPremiumTierCanBeStressPriced": true,
+      "releaseRule": "Every approved policy must state a provider cost multiplier of at least 1. A multiplier of exactly 1 is valid only for a verified standard-rate direct route with prompts bounded below premium context tiers; otherwise the multiplier must come from a separately approved gateway/provider-tier cost schedule. Opaque gateway economics cannot be treated as the model list price."
     },
     "commercialPlanPolicy": {
       "status": "implemented_not_configured",
@@ -114,7 +118,7 @@
     "grossMarginReleaseGate": {
       "status": "implemented_not_configured",
       "source": "evaluate_ai_commercial_plan_policy",
-      "basis": "worst-priced allowed model plus explicitly supplied non-inference variable cost",
+      "basis": "worst-priced allowed model multiplied by an explicit provider/pricing-tier cost factor, plus explicitly supplied non-inference variable cost",
       "appliesToBaseAllowance": true,
       "appliesToMeteredOverageUnit": true,
       "standardRateOnlyUntilProviderAndTierGateSatisfied": true,
@@ -160,8 +164,8 @@
       "status": "not_evidenced"
     },
     "providerAndPricingTierEvidence": {
-      "status": "not_evidenced",
-      "reason": "The repository price ledger is model-level. It does not yet evidence an external gateway markup schedule or a commercial path constrained below every provider premium-pricing tier."
+      "status": "configuration_not_evidenced",
+      "reason": "The policy now requires and applies an explicit provider cost multiplier, but no production plan has an approved standard-rate route or sourced gateway/provider-tier multiplier."
     },
     "directChannelActivationGate": {
       "status": "not_implemented",
@@ -190,7 +194,7 @@
     "perDecisionCostCoverage": "supported runtime paths only: governed decision-capable paid runtimes, including the deployed Develop evidence, change-impact, contract-strategy, gate, and requirements agents; risk, methodology, recommendation enrichment, and asset onboarding carry their own canonical work subjects; any remaining unattributed call stays explicit and inside the hard token ceiling",
     "rawTokenMeterIsModelCostWeighted": false,
     "warning": "Equal token quantities can have materially different inference cost under different model routes.",
-    "pricingModeWarning": "The current margin evaluator is valid for the recorded standard model rates only. Premium context, regional-processing, explicit cache-write, or external-gateway adjustments require a separately evidenced cost schedule or must be technically excluded from the paid route.",
+    "pricingModeWarning": "The margin evaluator now applies an explicit policy-level provider cost multiplier to standard model rates. A value of 1 requires a verified standard-rate route; premium context, regional-processing, explicit cache-write, or external-gateway adjustments require a sourced multiplier or technical exclusion from the paid route.",
     "commercialAllowanceApproved": false,
     "overagePriceApproved": false,
     "grossMarginThresholdApproved": false
