@@ -537,7 +537,7 @@ export const shaftResonanceModelPack: PhysicsModelPackManifest = {
     operatingSystem: "platform-independent TypeScript",
     runtimeVersions: { node: ">=20", typescript: "repository-pinned" },
     packageLockSha256:
-      "5ca9e0ee1b64ad6a3c0296b81299cc1b3a929f1c05cbdf7420b0aa1875cbde65",
+      "d595ff586180e9565d5ffe1776096b79887b3555f629c81c4e2deb7d80e0ea8d",
     solverVersions: {},
     numericalTolerances: { frequencyHz: 1e-9 },
     randomSeeds: [],
