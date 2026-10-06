@@ -12,11 +12,13 @@ FIXTURE_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
 LOCAL_KEY="e12-time-local-$FIXTURE_ID"
 FOREIGN_KEY="e12-time-foreign-$FIXTURE_ID"
 PASSWORD='TimeSync123!@#'
+# The disposable collector fixture captures its expected revision, not receipt-time inference.
+CLOCK_REVISION=1
 
 psqlc(){ PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "$1"; }
 token(){ curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}" | python3 -c "import json,sys;print(json.load(sys.stdin).get('access_token',''))"; }
 rpc(){ curl -sS -w '\n%{http_code}' -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "authorization: Bearer $1" -H 'content-type: application/json' -d "$3"; }
-service_rpc(){ curl -sS -w '\n%{http_code}' -X POST "$API_URL/rest/v1/rpc/$1" -H "apikey: $SERVICE_ROLE_KEY" -H "authorization: Bearer $SERVICE_ROLE_KEY" -H 'content-type: application/json' -d "$2"; }
+service_rpc(){ curl -sS -w '\n%{http_code}' -X POST "$API_URL/rest/v1/rpc/$1" -H "apikey: $SERVICE_ROLE_KEY" -H "authorization: Bearer $SERVICE_ROLE_KEY" -H 'content-type: application/json' -d "{\"p_configuration_revision\":$CLOCK_REVISION,${2#\{}"; }
 body(){ printf '%s' "${1%$'\n'*}"; }
 status(){ printf '%s' "${1##*$'\n'}"; }
 ok(){ test "$(status "$1")" = 200; BODY="$(body "$1")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert 'error' not in x,x"; }
@@ -179,10 +181,19 @@ BODY="$(body "$BAD_OFFSET")" python3 -c "import json,os;x=json.loads(os.environ[
 RECONFIG=$(rpc "$ADMIN" configure_connector_time_assurance "{\"p_connector_id\":\"$LOCAL_ID\",\"p_protocol\":\"ptp\",\"p_reference_authority\":\"Site A PTP grandmaster\",\"p_tolerance_ms\":20,\"p_max_observation_age_minutes\":1,\"p_evidence_reference\":\"ENG-TIME-STD-005\",\"p_basis\":\"Annual engineering review reconfirmed clock authority, tolerance and freshness; new observations are required.\"}")
 ok "$RECONFIG"
 BODY="$(body "$RECONFIG")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x['configuration_revision']==2 and x['state']=='unproven'"
+CLOCK_REVISION=2
 AFTER_RECONFIG=$(rpc "$ADMIN" get_connector_time_assurance '{}'); ok "$AFTER_RECONFIG"
 BODY="$(body "$AFTER_RECONFIG")" LOCAL_ID="$LOCAL_ID" python3 -c "import json,os;x=json.loads(os.environ['BODY']);row=next(v for v in x['connectors'] if v['connectorId']==os.environ['LOCAL_ID']);assert row['state']=='unproven' and not row['eligibleForTimeSensitiveEvidence'] and row['observationId'] is None"
 SUPERSEDED_REPLAY=$(service_rpc record_connector_time_observation "{\"p_organization_id\":\"$ORG\",\"p_connector_key\":\"$LOCAL_KEY\",\"p_delivery_id\":\"good-001\",\"p_source_clock_at\":\"$SOURCE\",\"p_reference_clock_at\":\"$REFERENCE\",\"p_round_trip_delay_ms\":4,\"p_measurement_uncertainty_ms\":2,\"p_evidence_reference\":\"AIO-PTP-OBS-0001\",\"p_payload_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}")
 err "$SUPERSEDED_REPLAY" 'superseded clock-contract revision'
+
+# A new delivery ID must not rebind a measurement collected under revision 1.
+COUNT_BEFORE_LATE=$(psqlc "select count(*) from connector_time_observations where connector_id='$LOCAL_ID'")
+LATE_EXPECTED=$(CLOCK_REVISION=1 service_rpc record_connector_time_observation "{\"p_organization_id\":\"$ORG\",\"p_connector_key\":\"$LOCAL_KEY\",\"p_delivery_id\":\"late-new-delivery\",\"p_source_clock_at\":\"$SOURCE\",\"p_reference_clock_at\":\"$REFERENCE\",\"p_round_trip_delay_ms\":4,\"p_measurement_uncertainty_ms\":2,\"p_evidence_reference\":\"AIO-PTP-OBS-0001\",\"p_payload_sha256\":\"9999999999999999999999999999999999999999999999999999999999999999\"}")
+err "$LATE_EXPECTED" 'observation names a superseded clock-contract revision'
+test "$(psqlc "select count(*) from connector_time_observations where connector_id='$LOCAL_ID'")" = "$COUNT_BEFORE_LATE"
+MISSING_EXPECTED=$(CLOCK_REVISION=null service_rpc record_connector_time_observation "{\"p_organization_id\":\"$ORG\",\"p_connector_key\":\"$LOCAL_KEY\",\"p_delivery_id\":\"missing-revision\",\"p_source_clock_at\":\"$SOURCE\",\"p_reference_clock_at\":\"$REFERENCE\",\"p_round_trip_delay_ms\":4,\"p_measurement_uncertainty_ms\":2,\"p_evidence_reference\":\"AIO-PTP-OBS-0001\",\"p_payload_sha256\":\"9999999999999999999999999999999999999999999999999999999999999999\"}")
+err "$MISSING_EXPECTED" 'expected clock-contract revision is required'
 
 OLD_EVENT=$(rpc "$ADMIN" evaluate_connector_event_time "{\"p_connector_id\":\"$LOCAL_ID\",\"p_event_time\":\"$EVENT_NOW\"}"); ok "$OLD_EVENT"
 BODY="$(body "$OLD_EVENT")" BEFORE="$(body "$EVENT_CURRENT")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);before=json.loads(os.environ['BEFORE']);assert x['state']=='synchronized' and x['within_clock_contract'];assert x['configuration_revision']==1 and x['configuration_audit_id']==before['configuration_audit_id'] and x['observation_id']==before['observation_id'];assert not x['configuration_evidence_verified'] and not x['eligible_for_time_sensitive_evidence']"
@@ -196,7 +207,7 @@ BODY="$(body "$STALE")" python3 -c "import json,os;x=json.loads(os.environ['BODY
 # Give the foreign tenant one service observation, then prove authenticated
 # direct reads retain only the caller's tenant.
 FREF=$(psqlc "select to_char((clock_timestamp()-interval '1 second') at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')")
-FOREIGN_OBS=$(service_rpc record_connector_time_observation "{\"p_organization_id\":\"$OTHER_ORG\",\"p_connector_key\":\"$FOREIGN_KEY\",\"p_delivery_id\":\"foreign-001\",\"p_source_clock_at\":\"$FREF\",\"p_reference_clock_at\":\"$FREF\",\"p_round_trip_delay_ms\":2,\"p_measurement_uncertainty_ms\":1,\"p_evidence_reference\":\"FOREIGN-OBS-0001\",\"p_payload_sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\"}")
+FOREIGN_OBS=$(CLOCK_REVISION=1 service_rpc record_connector_time_observation "{\"p_organization_id\":\"$OTHER_ORG\",\"p_connector_key\":\"$FOREIGN_KEY\",\"p_delivery_id\":\"foreign-001\",\"p_source_clock_at\":\"$FREF\",\"p_reference_clock_at\":\"$FREF\",\"p_round_trip_delay_ms\":2,\"p_measurement_uncertainty_ms\":1,\"p_evidence_reference\":\"FOREIGN-OBS-0001\",\"p_payload_sha256\":\"eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee\"}")
 ok "$FOREIGN_OBS"
 VISIBLE=$(curl -sS -w '\n%{http_code}' "$API_URL/rest/v1/connector_time_observations?select=organization_id" -H "apikey: $ANON_KEY" -H "authorization: Bearer $ADMIN")
 test "$(status "$VISIBLE")" = 200

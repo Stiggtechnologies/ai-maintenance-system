@@ -3,7 +3,7 @@
 -- SyncAI does not set or discipline plant clocks.  It records the tenant's
 -- administrator-recorded clock contract on the ONE canonical connector, accepts immutable
 -- measurements from a controlled service, and fails closed when event time
--- cannot be shown to be current and within the tenant-approved tolerance.
+-- cannot be shown to be current and within the administrator-recorded tolerance.
 -- There is deliberately no second connector/source-health store and no path
 -- from this capability to a PLC, DCS, historian, NTP or PTP configuration.
 
@@ -369,7 +369,8 @@ create or replace function public.record_connector_time_observation(
   p_round_trip_delay_ms numeric,
   p_measurement_uncertainty_ms numeric,
   p_evidence_reference text,
-  p_payload_sha256 text
+  p_payload_sha256 text,
+  p_configuration_revision integer default null
 )
 returns jsonb
 language plpgsql
@@ -398,6 +399,18 @@ begin
   if not c.enabled then return jsonb_build_object('error','connector is disabled'); end if;
   if c.time_sync_protocol is null then
     return jsonb_build_object('error','connector has no governed clock contract');
+  end if;
+  -- Bind collection to the explicitly observed contract under the same row lock
+  -- used by human configuration. Never stamp a delayed envelope with a new
+  -- contract just because a reconfiguration won the race to this receipt.
+  if p_configuration_revision is null or p_configuration_revision<1 then
+    return jsonb_build_object('error','an expected clock-contract revision is required');
+  end if;
+  if p_configuration_revision<>c.time_assurance_revision then
+    return jsonb_build_object('error',case
+      when p_configuration_revision<c.time_assurance_revision
+        then 'observation names a superseded clock-contract revision'
+      else 'observation clock-contract revision is not active' end);
   end if;
   if coalesce(length(btrim(p_delivery_id)),0) not between 3 and 200 then
     return jsonb_build_object('error','a stable delivery identifier is required for replay safety');
@@ -509,10 +522,10 @@ end
 $$;
 
 revoke all on function public.record_connector_time_observation(
-  uuid,text,text,timestamptz,timestamptz,numeric,numeric,text,text
+  uuid,text,text,timestamptz,timestamptz,numeric,numeric,text,text,integer
 ) from public,anon,authenticated;
 grant execute on function public.record_connector_time_observation(
-  uuid,text,text,timestamptz,timestamptz,numeric,numeric,text,text
+  uuid,text,text,timestamptz,timestamptz,numeric,numeric,text,text,integer
 ) to service_role;
 
 create or replace function public.get_connector_time_assurance()
@@ -735,8 +748,8 @@ grant execute on function public.evaluate_connector_event_time(uuid,timestamptz)
 comment on table public.connector_time_observations is
   'Immutable, tenant-bound evidence of connector clock offset. Current trust is derived against the named-human clock contract; observations never change plant clocks or grant operational authority.';
 comment on function public.record_connector_time_observation(
-  uuid,text,text,timestamptz,timestamptz,numeric,numeric,text,text
+  uuid,text,text,timestamptz,timestamptz,numeric,numeric,text,text,integer
 ) is
-  'Service-only, replay-safe time observation ingestion. Offset is calculated server-side; uncertainty cannot understate half the measured round-trip delay.';
+  'Service-only, replay-safe ingestion bound to the explicitly expected clock-contract revision. Missing, superseded or unrecorded revisions are refused under the connector lock. Offset is calculated server-side; uncertainty cannot understate half the measured round-trip delay.';
 
 notify pgrst,'reload schema';

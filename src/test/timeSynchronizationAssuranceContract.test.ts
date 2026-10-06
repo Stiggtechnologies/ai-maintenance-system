@@ -13,6 +13,28 @@ const component = readFileSync(
 const governance = readFileSync("src/components/DataGovernance.tsx", "utf8");
 
 describe("E12.07 governed time-synchronization assurance", () => {
+  it("requires the collector's expected revision instead of rebinding an in-flight observation", () => {
+    expect(migration).toContain(
+      "p_configuration_revision integer default null",
+    );
+    expect(migration).toContain("expected clock-contract revision is required");
+    expect(migration).toContain(
+      "p_configuration_revision<>c.time_assurance_revision",
+    );
+    expect(migration).toContain(
+      "observation names a superseded clock-contract revision",
+    );
+    const guard = migration.indexOf(
+      "p_configuration_revision<>c.time_assurance_revision",
+    );
+    const insert = migration.indexOf(
+      "insert into public.connector_time_observations(",
+      guard,
+    );
+    expect(guard).toBeGreaterThan(0);
+    expect(insert).toBeGreaterThan(guard);
+  });
+
   it("uses explicit CI-only browser sources and tests disabled refusal without enabling demo feeds", () => {
     const fixture = readFileSync(
       "scripts/tests/time-assurance-browser-fixture.sql",

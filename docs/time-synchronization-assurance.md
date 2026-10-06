@@ -36,6 +36,17 @@ a conservative worst-case result, refuses understated round-trip uncertainty,
 and makes deliveries replay-safe with a stable delivery ID plus SHA-256 body
 digest. Direct inserts, updates, and deletes are refused.
 
+Each submitted envelope must name `p_configuration_revision`: the contract the
+collector observed for that measurement, not whichever revision happens to exist
+at delivery time. The RPC compares it to the active revision under the same
+connector lock used by configuration. Missing, NULL, non-positive, superseded and
+unrecorded future revisions are refused without an observation insert. A retry
+cannot relabel a previously stored delivery with a new revision. An in-flight
+measurement overtaken by reconfiguration must be recollected against the new
+contract; changing its revision to make it pass is not permitted. This binds the
+collector's declared context, not proof of the collector's truthfulness or source
+approval, and does not turn numerical posture into evidence eligibility.
+
 The governed states are:
 
 - `unconfigured` — no recorded contract;
@@ -90,6 +101,7 @@ Recommended envelope fields map directly to the service-only RPC:
 {
   "organization_id": "tenant UUID",
   "connector_key": "site-a-azure-iot-operations",
+  "configuration_revision": "explicit active revision captured for this measurement",
   "delivery_id": "site-a-clock-000142",
   "source_clock_at": "2026-10-03T14:05:12.012Z",
   "reference_clock_at": "2026-10-03T14:05:12.000Z",
@@ -155,3 +167,8 @@ initial/owner writes, incomplete NULL contracts, identity retention, deletion,
 truncation, every changed replay field, hindsight, future events, stale receipts,
 superseded revisions and an actual non-owner-role RLS query. The hosted smoke
 must independently cover the real clean Supabase chain and authenticated users.
+Run `scripts/tests/time-assurance-revision-postgres-tests.sql` last to verify
+omitted/NULL/non-positive revisions, an earlier measurement with a new delivery
+ID after reconfiguration, unrecorded future revisions, unchanged refused-row
+counts, explicit active-revision acceptance/replay, subsequent invalidation and
+the revised function's actual anon/authenticated/service-role execute privileges.
