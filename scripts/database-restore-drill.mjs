@@ -394,7 +394,38 @@ export function inventoryMismatchSummary(source, target) {
     index: null,
     data: { count: "count", digest: "digest" },
   };
-  const groups = new Map();
+  const groups = new Map(),
+    schemaAclHints = [],
+    constraintDefinitionHints = [];
+  const roleHint = (name) =>
+    [
+      "postgres",
+      "supabase_admin",
+      "anon",
+      "authenticated",
+      "service_role",
+    ].includes(name)
+      ? name
+      : "other";
+  const grantors = (acl) => {
+    const counts = {};
+    for (const item of acl) {
+      const role = roleHint(item.slice(item.lastIndexOf("/") + 1));
+      counts[role] = (counts[role] ?? 0) + 1;
+    }
+    return counts;
+  };
+  const constraintType = (definition) => {
+    for (const [prefix, type] of [
+      ["FOREIGN KEY ", "foreign_key"],
+      ["CHECK ", "check"],
+      ["PRIMARY KEY ", "primary_key"],
+      ["UNIQUE ", "unique"],
+      ["EXCLUDE ", "exclusion"],
+    ])
+      if (definition.startsWith(prefix)) return type;
+    return "other";
+  };
   const group = (entry) => {
     const kind = Object.hasOwn(layouts, entry.kind) ? entry.kind : "other";
     if (!groups.has(kind))
@@ -443,6 +474,54 @@ export function inventoryMismatchSummary(source, target) {
     }
     for (const field of changedFields.length ? changedFields : ["value"])
       difference.fields[field] = (difference.fields[field] ?? 0) + 1;
+    if (entry.kind === "schema" && changedFields.includes("acl")) {
+      const sourceAcl = entry.value[1] ?? [],
+        restoredAcl = restored.value[1] ?? [];
+      schemaAclHints.push({
+        namespace: [
+          "public",
+          "auth",
+          "storage",
+          "extensions",
+          "graphql",
+          "graphql_public",
+          "net",
+          "cron",
+          "vault",
+          "supabase_functions",
+          "supabase_migrations",
+        ].includes(entry.key)
+          ? entry.key
+          : "other",
+        sourceOwner: roleHint(entry.value[0]),
+        restoredOwner: roleHint(restored.value[0]),
+        sourceDefaultAcl: entry.value[1] === null,
+        restoredDefaultAcl: restored.value[1] === null,
+        sourceAclEntries: sourceAcl.length,
+        restoredAclEntries: restoredAcl.length,
+        sourceOnlyEntries: sourceAcl.filter(
+          (item) => !restoredAcl.includes(item),
+        ).length,
+        restoredOnlyEntries: restoredAcl.filter(
+          (item) => !sourceAcl.includes(item),
+        ).length,
+        sourceGrantors: grantors(sourceAcl),
+        restoredGrantors: grantors(restoredAcl),
+      });
+    }
+    if (entry.kind === "constraint" && changedFields.includes("definition")) {
+      const original = entry.value[3],
+        recovered = restored.value[3];
+      constraintDefinitionHints.push({
+        sourceType: constraintType(original),
+        restoredType: constraintType(recovered),
+        sourceNotValid: original.endsWith(" NOT VALID"),
+        restoredNotValid: recovered.endsWith(" NOT VALID"),
+        trailingNotValidOnly:
+          original.replace(/ NOT VALID$/, "") ===
+          recovered.replace(/ NOT VALID$/, ""),
+      });
+    }
   }
   for (const [key, entry] of after)
     if (!before.has(key)) group(entry).unexpected++;
@@ -452,6 +531,8 @@ export function inventoryMismatchSummary(source, target) {
     differences: [...groups.values()].sort((a, b) =>
       a.kind.localeCompare(b.kind),
     ),
+    ...(schemaAclHints.length ? { schemaAclHints } : {}),
+    ...(constraintDefinitionHints.length ? { constraintDefinitionHints } : {}),
   };
 }
 

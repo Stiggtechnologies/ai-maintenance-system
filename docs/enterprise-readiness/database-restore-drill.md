@@ -36,6 +36,12 @@ and `supabase_migrations` using counts and ordered multiset SHA-256 digests.
 It compares roles/memberships, extensions and schemas, plus canonical relation
 owners/ACLs/RLS flags, columns, policies, functions (including SECURITY DEFINER,
 owner/search path/grants), constraints, indexes and noninternal triggers.
+Column position is the ordinal among live columns, not the physical `attnum`
+slot left after a historical column drop. Logical dump/restore does not recreate
+inaccessible tombstone slots. Live-column identity and order still compare
+exactly, as do type, nullability, default, generated/identity settings and ACLs.
+An isolated real PostgreSQL dump/restore reproduced the old position mismatch;
+the corrected inventory matched, while a reordered-column mutation still failed.
 Database owner/ACL/locale/connection properties, database-specific role settings
 and parameter privileges are included in the inventory. Restore connects to
 the isolated target's `template1` and reconstructs the archived database with
@@ -93,6 +99,9 @@ Comparison failures report only fixed inventory classes, fixed field labels and
 aggregate changed/missing/unexpected/duplicate counts. Object identities, SQL,
 owners, ACL values and row digests remain private. This diagnostic summary does
 not change the strict comparison or turn a mismatch into a pass.
+For unresolved schema ACLs it reports fixed platform namespace/role hints and
+counts only; unknown names become `other`. Constraint-definition diagnostics
+report fixed constraint types and NOT VALID booleans only, never expressions.
 The target's expected bootstrap-superuser identity is checked before restoring
 roles. A permission failure is not bypassed by dropping grants or ownership.
 The local source's OID-10 bootstrap identity must be `postgres` or
@@ -155,6 +164,8 @@ The platform wrapper mechanism is documented in Supabase's
 The partitioning follows
 [PostgreSQL pg_restore](https://www.postgresql.org/docs/17/app-pgrestore.html)
 and its [archive selection implementation](https://github.com/postgres/postgres/blob/REL_17_STABLE/src/bin/pg_dump/pg_backup_archiver.c).
+PostgreSQL's [column catalog documentation](https://www.postgresql.org/docs/17/catalog-pg-attribute.html)
+distinguishes live columns from inaccessible physical dropped-column entries.
 Synthetic socket-only PostgreSQL 16 probes reproduced the missing-member ACL
 failure and passed after reconstruction; a separate phased restore retained
 database owner/ACL/settings and rejected changed grant options and null-to-empty

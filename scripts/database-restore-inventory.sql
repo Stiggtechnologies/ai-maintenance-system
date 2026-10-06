@@ -68,8 +68,10 @@ select jsonb_build_object('kind','view','key',n.nspname||'.'||c.relname,'value',
 from pg_class c join pg_namespace n on n.oid=c.relnamespace
 where n.nspname in ('public','auth','storage') and c.relkind in ('v','m') order by n.nspname,c.relname;
 
+-- Logical restores retain live-column order, not dropped physical tombstones.
+-- Ranking the surviving columns still detects any reordering or lost column.
 select jsonb_build_object('kind','column','key',n.nspname||'.'||c.relname||'.'||a.attname,'value',
-  jsonb_build_array(a.attnum,format_type(a.atttypid,a.atttypmod),a.attnotnull,
+  jsonb_build_array(row_number() over (partition by a.attrelid order by a.attnum),format_type(a.atttypid,a.atttypmod),a.attnotnull,
     a.attidentity,a.attgenerated,
     case when a.attacl is null then null else array(select x::text from unnest(a.attacl) x order by x::text) end,pg_get_expr(d.adbin,d.adrelid)))
 from pg_attribute a join pg_class c on c.oid=a.attrelid

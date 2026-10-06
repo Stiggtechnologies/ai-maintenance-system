@@ -24,6 +24,20 @@ const local = {
 
 describe("database restore-drill boundaries", () => {
   afterEach(() => vi.unstubAllEnvs());
+  it("inventories live column order rather than physical tombstone slots, retaining all column controls", () => {
+    const inventory = readFileSync(
+      new URL("../../scripts/database-restore-inventory.sql", import.meta.url),
+      "utf8",
+    );
+    expect(inventory).toContain(
+      "row_number() over (partition by a.attrelid order by a.attnum)",
+    );
+    expect(inventory).toContain("a.attnum>0 and not a.attisdropped");
+    expect(inventory).not.toContain("jsonb_build_array(a.attnum,");
+    expect(inventory).toContain("a.attidentity,a.attgenerated");
+    expect(inventory).toContain("unnest(a.attacl)");
+    expect(inventory).toContain("pg_get_expr(d.adbin,d.adrelid)");
+  });
   it("partitions every archive entry exactly once, without excluding any ACL or database property", () => {
     const toc = `; private header\n1; 1262 7 DATABASE - postgres private_owner\n2; 0 0 DATABASE PROPERTIES - postgres private_owner\n3; 2615 8 SCHEMA - graphql_public private_owner\n4; 3079 9 EXTENSION - pg_graphql private_owner\n5; 0 0 ACL graphql_public FUNCTION graphql(text, text, jsonb, jsonb) private_owner\n6; 0 0 TABLE DATA public evidence private_owner\n`;
     const split = drill.partitionRestoreToc(toc);
@@ -554,6 +568,74 @@ Command was: GRANT EXECUTE ON FUNCTION private_name() TO private_role;`),
     expect(() => drill.compareManifests([entry, entry], [entry])).toThrow(
       "Duplicate",
     );
+  });
+  it("bounds schema ACL and constraint diagnostics to fixed namespaces, role hints and booleans, without printing definitions or grants", () => {
+    const source = [
+      {
+        kind: "schema",
+        key: "net",
+        value: ["postgres", ["private-role=U/postgres"]],
+      },
+      { kind: "schema", key: "private-schema", value: ["private-owner", null] },
+      {
+        kind: "constraint",
+        key: "private-constraint",
+        value: [false, false, false, "CHECK (private_column > 1) NOT VALID"],
+      },
+    ];
+    const target = [
+      {
+        kind: "schema",
+        key: "net",
+        value: ["postgres", ["private-role=U/supabase_admin"]],
+      },
+      { kind: "schema", key: "private-schema", value: ["private-owner", []] },
+      {
+        kind: "constraint",
+        key: "private-constraint",
+        value: [false, false, false, "CHECK (private_column > 1)"],
+      },
+    ];
+    const result = drill.inventoryMismatchSummary(source, target);
+    expect(result.schemaAclHints).toEqual([
+      {
+        namespace: "net",
+        sourceOwner: "postgres",
+        restoredOwner: "postgres",
+        sourceDefaultAcl: false,
+        restoredDefaultAcl: false,
+        sourceAclEntries: 1,
+        restoredAclEntries: 1,
+        sourceOnlyEntries: 1,
+        restoredOnlyEntries: 1,
+        sourceGrantors: { postgres: 1 },
+        restoredGrantors: { supabase_admin: 1 },
+      },
+      {
+        namespace: "other",
+        sourceOwner: "other",
+        restoredOwner: "other",
+        sourceDefaultAcl: true,
+        restoredDefaultAcl: false,
+        sourceAclEntries: 0,
+        restoredAclEntries: 0,
+        sourceOnlyEntries: 0,
+        restoredOnlyEntries: 0,
+        sourceGrantors: {},
+        restoredGrantors: {},
+      },
+    ]);
+    expect(result.constraintDefinitionHints).toEqual([
+      {
+        sourceType: "check",
+        restoredType: "check",
+        sourceNotValid: true,
+        restoredNotValid: false,
+        trailingNotValidOnly: true,
+      },
+    ]);
+    expect(JSON.stringify(result)).not.toContain("private");
+    expect(() => drill.compareManifests(source, target)).toThrow("differs");
   });
   it("retains missing-field differences and never treats inherited object keys as diagnostic classes", () => {
     const before = [
