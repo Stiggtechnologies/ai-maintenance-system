@@ -135,9 +135,7 @@
           "AZURE_MARKETPLACE_PUBLISHER_ID",
           "AZURE_MARKETPLACE_OFFER_ID"
         ],
-        "missingOnLiveProject": [
-          "AZURE_MARKETPLACE_CLIENT_SECRET"
-        ],
+        "missingOnLiveProject": ["AZURE_MARKETPLACE_CLIENT_SECRET"],
         "configuredAt": "2026-10-06",
         "status": "blocked"
       },
@@ -233,6 +231,85 @@
     "disallowedMonthlyCadValues": [4000, 9000, 18000],
     "reason": "Repository history identifies these values and their limits as commercially unconfirmed and superseded."
   },
+  "commercialBenchmark": {
+    "asOf": "2026-10-06",
+    "positioning": {
+      "customerPromise": "Unplanned Downtime Reduction",
+      "entryProduct": "SyncAI Failure Investigation Agent",
+      "platform": "SyncAI governed reliability decision platform",
+      "outcomeGuaranteed": false
+    },
+    "benchmarkRoles": {
+      "directFailureInvestigation": ["Causelink", "Relyence FRACAS", "TapRooT"],
+      "enterpriseReliabilityAndApm": ["IBM Maximo Application Suite"],
+      "downtimeOutcomeAndMachineHealth": [
+        "C3 AI Reliability",
+        "Siemens Senseye",
+        "Augury"
+      ],
+      "adjacentCmmsOnly": ["MaintainX", "UpKeep", "Fiix"]
+    },
+    "pricingExperiments": [
+      {
+        "id": "software_led_failure_investigation",
+        "customerPromise": "Unplanned Downtime Reduction",
+        "product": "SyncAI Failure Investigation Agent",
+        "pricingModel": "per_user",
+        "monthlyUsdPerUser": 99,
+        "annualUsdPerUserPerMonth": 89,
+        "minimumUsers": 1,
+        "maximumUsers": 5,
+        "commercialUsageBoundary": "hard_bundled_allowance_required",
+        "defaultEngineeringQuotaMayBeUsedAsAllowance": false,
+        "microsoftMeteredOverageSupported": false,
+        "publicationRecommendation": "separate_narrow_agent_only_after_entitlement_enforcement_and_cost_validation",
+        "partnerCenterMutationAuthorized": false
+      },
+      {
+        "id": "outcome_led_downtime_reduction_proof",
+        "offer": "Unplanned Downtime Reduction Proof",
+        "pricingModel": "fixed_fee_professional_service",
+        "priceUsd": 35000,
+        "typicalDurationWeeks": {
+          "minimum": 6,
+          "maximum": 8
+        },
+        "partnerCenterMutationAuthorized": false
+      },
+      {
+        "id": "core_saas_flat_rate_metered",
+        "customerPromise": "Unplanned Downtime Reduction",
+        "product": "SyncAI governed reliability decision platform",
+        "pricingModel": "flat_rate_with_metered_overage",
+        "basePriceApproved": false,
+        "includedAllowanceApproved": false,
+        "overagePriceApproved": false,
+        "pricingModelChangeBeforePublicationRequired": true,
+        "partnerCenterMutationAuthorized": false
+      }
+    ],
+    "expansionPlanningBands": [
+      {
+        "stage": "production_site",
+        "minimumArrUsd": 60000,
+        "maximumArrUsd": 100000
+      },
+      {
+        "stage": "multi_site_or_network",
+        "minimumArrUsd": 150000,
+        "maximumArrUsd": 300000
+      },
+      {
+        "stage": "enterprise_standard",
+        "minimumArrUsd": 300000,
+        "maximumArrUsd": null
+      }
+    ],
+    "ownerApprovalRecorded": false,
+    "status": "recommendation_not_approved",
+    "controlRecord": "docs/marketplace/competitive-pricing-benchmark.md",
+    "aiUnitEconomicsRecord": "marketplace/ai-unit-economics.json"
+  },
   "cspResale": {
     "selectedDraftAudience": "any_partner",
     "selectionSavedAt": "2026-10-06",
@@ -326,7 +403,7 @@
     {
       "id": "PC-002",
       "owner": "Commercial owner",
-      "action": "Approve the feature boundary, pricing model, price, term, markets, quantities, metering and support terms for all three plans.",
+      "action": "Review the controlled outcome-led benchmark, approve the exact software-led and outcome-led test boundaries, and approve the pricing model, price, term, markets, quantities, metering, support and expansion rules before any Partner Center mutation.",
       "status": "blocked"
     },
     {
@@ -395,6 +472,8 @@
   ],
   "documents": [
     "docs/marketplace/README.md",
+    "docs/marketplace/competitive-pricing-benchmark.md",
+    "marketplace/ai-unit-economics.json",
     "docs/marketplace/partner-center-fields.md",
     "docs/marketplace/supplemental-content.md",
     "docs/marketplace/supporting-document-source.md",

@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "asOf": "2026-10-06",
+  "scope": "AI inference cost controls and Microsoft Marketplace commercial compatibility",
+  "finding": "technical_cost_substrate_exists_commercial_binding_incomplete",
+  "implemented": {
+    "usageLedger": {
+      "status": "implemented",
+      "source": "private.llm_usage",
+      "attribution": ["organization_id", "fn", "model"],
+      "storesPromptOrCompletionText": false
+    },
+    "modelPriceTable": {
+      "status": "implemented",
+      "source": "private.llm_prices",
+      "currency": "CAD",
+      "unit": "per_million_tokens",
+      "requiresPeriodicRefresh": true
+    },
+    "organizationQuota": {
+      "status": "implemented",
+      "gate": "check_llm_quota",
+      "settlement": "record_llm_usage",
+      "failureRelease": "release_llm_reservation",
+      "atomicReservation": true,
+      "failsClosed": true,
+      "defaultMaxCallsPerUtcDay": 5184,
+      "defaultMaxTokensPerUtcDay": 22000000,
+      "defaultCapsAreCommercialEntitlements": false,
+      "defaultCapsPurpose": "abuse_protection_with_engineering_headroom"
+    },
+    "marketplaceUsageAggregation": {
+      "status": "implemented_not_configured_or_live_certified",
+      "sourceMetric": "llm_total_tokens",
+      "supportsIncludedQuantity": true,
+      "idempotentHourlyEvents": true,
+      "liveAcceptedMeterEventEvidenced": false
+    }
+  },
+  "missing": {
+    "decisionLevelCostAttribution": {
+      "implemented": false,
+      "reason": "private.llm_usage has no governed decision or case identifier"
+    },
+    "commercialPlanToQuotaBinding": {
+      "implemented": false,
+      "reason": "no canonical entitlement-to-private.llm_org_quotas mapping was found"
+    },
+    "productionCogsReporting": {
+      "implemented": false,
+      "reason": "no canonical usage-times-model-price report by organization and plan was found"
+    },
+    "grossMarginReleaseGate": {
+      "implemented": false,
+      "reason": "no enforceable comparison of approved plan revenue to measured p50/p95 cost-to-serve was found"
+    },
+    "productionMeasurementEvidence": {
+      "status": "not_evidenced"
+    }
+  },
+  "commercialCompatibility": {
+    "observedMicrosoftDraftPricingModel": "per_user",
+    "microsoftMeteringSupportedForPerUser": false,
+    "microsoftMeteringSupportedForFlatRate": true,
+    "allPlansInOfferMustSharePricingModel": true,
+    "currentDraftCompatibleWithImplementedMeter": false,
+    "recommendedCoreSaasArchitecture": "flat_rate_base_with_included_allowance_and_metered_overage",
+    "recommendedNarrowAgentArchitecture": "per_user_with_hard_bundled_allowance_and_no_automatic_metered_overage",
+    "pricingModelChangeBeforePublicationRequiredForCoreMetering": true,
+    "partnerCenterMutationAuthorized": false
+  },
+  "economicsModel": {
+    "canonicalFormula": "input_tokens * input_cad_per_mtok / 1000000 + completion_tokens * output_cad_per_mtok / 1000000",
+    "currentGranularity": "model_call",
+    "perDecisionCostAvailable": false,
+    "rawTokenMeterIsModelCostWeighted": false,
+    "warning": "equal token quantities can have materially different inference cost under different model routes",
+    "commercialAllowanceApproved": false,
+    "overagePriceApproved": false,
+    "grossMarginThresholdApproved": false
+  },
+  "requiredReleaseGates": [
+    "approved_offer_wide_pricing_model",
+    "approved_commercial_unit_and_included_allowance",
+    "plan_entitlement_to_quota_binding",
+    "decision_or_case_cost_attribution_or_an_explicitly_accepted_proxy",
+    "measured_production_cost_distribution",
+    "approved_gross_margin_threshold",
+    "protected_marketplace_meter_certification",
+    "live_accepted_metering_event"
+  ],
+  "sources": {
+    "repository": [
+      "supabase/migrations/20260916000000_llm_cost_guardrails.sql",
+      "supabase/migrations/20261229100000_azure_marketplace_metering.sql",
+      "supabase/migrations/20261230110000_azure_marketplace_metering_clock_consistency.sql",
+      "src/test/llmCostGuardrails.test.ts",
+      "src/test/azureMarketplaceMetering.test.ts"
+    ],
+    "microsoft": [
+      "https://learn.microsoft.com/en-us/partner-center/marketplace-offers/saas-metered-billing",
+      "https://learn.microsoft.com/en-us/partner-center/marketplace-offers/plan-saas-offer"
+    ]
+  }
+}
