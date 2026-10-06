@@ -15,6 +15,30 @@ Forward-Deployed Engineering. It remains a separate transaction family from
 the recurring SaaS plans and is controlled by
 [`../../marketplace/professional-services-offers.json`](../../marketplace/professional-services-offers.json).
 
+## Offer-type decision
+
+The core SyncAI product is a **SaaS offer**, not a Dynamics 365 apps on
+Dataverse and Power Apps offer or a Dynamics 365 Operations Apps offer. SyncAI
+is an independently hosted, multitenant application with its own interface,
+tenant boundary, decision workflows, and onboarding. It can connect to multiple
+ERP, CMMS, historian, document, and data systems; a Dynamics installation is not
+the product boundary or a customer prerequisite.
+
+The SaaS offer type is therefore the correct commercial contract: Microsoft can
+sell monthly or annual plans, notify the SyncAI backend through the SaaS
+Fulfillment APIs, and support direct, CSP-led, and field-led acquisition while
+SyncAI provisions and governs access in its own application. The Partner Center
+**Billing profile** prompt applies to the two Dynamics offer families, not this
+SaaS offer. The separate Marketplace **payout and tax** assignment remains
+required so Microsoft can pay Stigg Technologies for SaaS transactions.
+
+Do not reclassify the core offer to gain another storefront surface. A Dynamics
+offer becomes appropriate only after SyncAI has a genuine Dynamics-native
+deliverable, such as a packaged Dataverse application or a Finance/Supply Chain
+agent whose provisioning and primary use occur inside the Dynamics ecosystem.
+If built, publish that as a separate channel adapter into the same governed
+SyncAI platform rather than changing the identity of the core SaaS product.
+
 ## Current publication posture
 
 | Area                    | Status                                                  | What can be done now                                                        | Remaining authority or evidence                                                                                                                                                      |
@@ -140,3 +164,6 @@ or legacy Stripe provisioning as publication evidence.
 - [Add supplemental content](https://learn.microsoft.com/en-us/partner-center/marketplace-offers/create-new-saas-offer-supplemental)
 - [Cloud Solution Provider program](https://learn.microsoft.com/en-us/partner-center/marketplace-offers/cloud-solution-providers)
 - [Test and publish a SaaS offer](https://learn.microsoft.com/en-us/partner-center/marketplace-offers/test-publish-saas-offer)
+- [Dynamics 365 apps on Dataverse and Power Apps technical configuration](https://learn.microsoft.com/en-us/partner-center/marketplace-offers/dynamics-365-customer-engage-technical-configuration)
+- [Create a Dynamics 365 Operations Apps offer](https://learn.microsoft.com/en-us/partner-center/marketplace-offers/dynamics-365-operations-offer-setup)
+- [Manage a Microsoft Marketplace account and billing profile](https://learn.microsoft.com/en-gb/partner-center/account-settings/manage-account#create-a-billing-profile)
