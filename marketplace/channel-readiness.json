@@ -33,12 +33,13 @@
       "verifiedEvidence": [
         "Customer-facing listing, technical configuration, three plans, and CSP audience saved as drafts",
         "Live production fulfillment, webhook, and metering functions exist",
-        "Verified client, tenant, publisher, and offer identifiers configured on the live project"
+        "Verified client, tenant, publisher, and offer identifiers configured on the live project",
+        "Azure Marketplace assignment submitted with tax Complete and CAD payment profile Pending Microsoft validation"
       ],
       "blockers": [
-        "Azure Marketplace tax, payment, and verification assignment statuses are Not started",
+        "Azure Marketplace payment validation is pending and verification has not started",
         "AZURE_MARKETPLACE_CLIENT_SECRET is absent from the live project",
-        "Supplemental content explanation is prepared but not saved",
+        "No Supplemental content scenario is saved; the truthful current production answer is not hosted in Azure, so the paid transactable Azure-platforming gate remains open",
         "Preview purchase, Microsoft validation, certification, and publication remain incomplete"
       ]
     },

@@ -22,10 +22,10 @@ the recurring SaaS plans and is controlled by
 | Starter plan            | Controlled description saved in Partner Center draft   | Preserve the saved description and observed per-user pricing                | Account is not publish eligible; commercial boundary and runtime enforcement still require validation                                                                               |
 | Professional plan       | Controlled description saved in Partner Center draft   | Preserve the saved description and observed per-user pricing                | Same account gate; no legacy `PRO` claims or unproved tier limits may be introduced                                                                                                  |
 | Enterprise plan         | Controlled description saved in Partner Center draft   | Preserve the saved description and observed per-user pricing                | Same account gate; Enterprise does not imply SSO, private hosting, certifications or an SLA                                                                                          |
-| Technical configuration | URLs and production upstream verified                   | Keep the saved `app.syncai.ca` activation and webhook values                 | Configure the five required `AZURE_MARKETPLACE_*` secrets on the live SyncAI Supabase project; authenticated preview remains separate                                                |
+| Technical configuration | URLs and production upstream verified                   | Keep the saved `app.syncai.ca` activation and webhook values                 | Configure the missing `AZURE_MARKETPLACE_CLIENT_SECRET`; the other four required identifiers are present, and authenticated preview remains separate                                |
 | CSP resale              | **Any partner** saved as a draft channel experiment     | Build the minimum enablement, support, pricing, and escalation controls      | Publisher support obligations remain; narrow to specific partners if the controls cannot be staffed before release                                                                   |
-| Supplemental content    | Mixed-cloud answer prepared but not saved               | Save the truthful **Other** architecture narrative                           | Current Azure-primary posture is not proven; do not claim it                                                                                                                         |
-| Tax and payout profile  | Exact Microsoft account gate identified                 | Complete the Azure Marketplace payment/tax assignment and verification       | Tax profile is complete, but payment profile and all Azure Marketplace assignment statuses are **Not started**; Microsoft allows up to 48 hours to process                           |
+| Supplemental content    | No scenario saved                                        | Preserve the truthful current answer, **not hosted in Azure**, without submitting the paid offer | A paid transactable SaaS offer is reviewed for primary Azure platforming; deploy and evidence the Azure edition or deliberately choose a listing-only path                            |
+| Tax and payout profile  | Assignment submitted on 2026-10-06                      | Wait for Microsoft validation and complete any verification prompt            | Tax is **Complete**, CAD payment profile is **Pending Microsoft validation**, and verification is **Not started**; Microsoft allows up to 48 hours to process                         |
 | Offer listing           | Capability-audited copy and caption saved in draft      | Preserve the governed condition-monitoring and reliability wording           | Privacy/terms and collateral controls remain; listing is not public                                                                                                                   |
 | Preview/certification   | Checklist ready                                         | Configure preview audience and execute the checklist                        | Requires Partner Center access, two real preview purchases and Microsoft-side evidence                                                                                               |
 | Publish control         | Disabled                                                | Close every validation item, then request action-time publish approval       | Microsoft account eligibility and incomplete required sections currently prevent submission                                                                                          |
@@ -82,11 +82,11 @@ That project has active `marketplace-fulfillment`, `marketplace-webhook`, and
 `marketplace-metering` functions. PC-000 is therefore closed.
 
 This still does **not** prove a paid purchase. The live SyncAI Supabase project
-does not currently list any of the five required `AZURE_MARKETPLACE_*` secret
-names. Until the publisher application credentials and exact publisher/offer
-identifiers are configured there, token acquisition, subscription resolution,
-activation, lifecycle processing, and metering cannot be buyer-proven. Never
-commit or display the secret values.
+has the client ID, tenant ID, publisher ID and offer ID configured, but it does
+not list `AZURE_MARKETPLACE_CLIENT_SECRET`. Until that publisher credential is
+added, token acquisition, subscription resolution, activation, lifecycle
+processing, and metering cannot be buyer-proven. Never commit or display the
+secret value.
 
 ## Non-negotiable blockers
 
@@ -111,11 +111,10 @@ commit or display the secret values.
 6. Do not translate “tax information submitted” into “validated,” “assigned,”
    or “complete.” User submission state and Partner Center's tax/payout status
    are separate evidence fields.
-7. Partner Center currently states that the publisher account is not publish
-   eligible. The Canadian tax profile is complete, but the payment profile and
-   the Azure Marketplace tax/payment assignment and verification statuses are
-   all **Not started**. The account owner must complete that financial setup;
-   Microsoft says processing can take up to 48 hours.
+7. The Azure Marketplace payment/tax assignment was submitted on 2026-10-06.
+   Partner Center now shows tax **Complete**, the CAD payment profile **Pending
+   Microsoft validation**, and verification **Not started**. Do not reinterpret
+   submission as validation; Microsoft says processing can take up to 48 hours.
 8. Do not publish while the live SyncAI Supabase project lacks
    `AZURE_MARKETPLACE_CLIENT_SECRET`. The verified client ID, tenant ID,
    publisher ID, and offer ID were configured on 2026-10-06; an authenticated

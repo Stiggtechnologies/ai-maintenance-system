@@ -344,7 +344,7 @@
     {
       "id": "PC-005",
       "owner": "Azure subscription owner",
-      "action": "Supply production Azure subscription, resource, architecture and commensurate-consumption evidence for Supplemental content.",
+      "action": "Current production is not hosted in Azure. Keep the paid transactable path blocked until the Azure edition is deployed and supported by production resource, identity, health, architecture, and commensurate-consumption evidence, or the release owner deliberately switches to listing-only and saves the truthful not-hosted-in-Azure answer.",
       "status": "blocked"
     },
     {
@@ -368,7 +368,7 @@
     {
       "id": "PC-009",
       "owner": "Partner Center account owner",
-      "action": "Complete the Azure Marketplace payment/tax profile assignment and verification. The Canadian tax profile is complete, but the payment profile and all Azure Marketplace assignment statuses are Not started; allow Microsoft's stated processing window of up to 48 hours.",
+      "action": "The Azure Marketplace assignment was submitted on 2026-10-06 using the existing Canadian tax profile and Canadian business-bank payment profile in CAD. Tax is Complete, payment is Pending Microsoft validation, and verification is Not started. Allow Microsoft's stated processing window of up to 48 hours, then complete any verification prompt and capture the resulting status.",
       "status": "blocked"
     },
     {

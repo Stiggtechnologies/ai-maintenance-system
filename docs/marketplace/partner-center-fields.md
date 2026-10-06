@@ -115,9 +115,10 @@ webhook, and metering functions.
 
 Both URLs were saved to the correct Partner Center offer draft on 2026-10-06.
 That draft entry and the upstream witness are evidence of configuration, not of
-a working paid purchase. The live SyncAI Supabase project does not currently
-list the five required `AZURE_MARKETPLACE_*` secrets, so authenticated
-resolution, activation, lifecycle, metering, and certification remain blocked.
+a working paid purchase. The live SyncAI Supabase project contains the verified
+client ID, tenant ID, publisher ID, and offer ID, but it does not contain
+`AZURE_MARKETPLACE_CLIENT_SECRET`. Authenticated resolution, activation,
+lifecycle, metering, and certification therefore remain blocked.
 
 ## Plans
 
@@ -240,13 +241,14 @@ Keep two independent records:
 
 On 2026-10-06, every plan's Pricing and availability page displayed: **“This
 account is not publish eligible due to either an invalid payout, payout on hold,
-or invalid tax.”** Account settings then resolved the ambiguity: the Canadian
-tax profile itself is **Complete**, while the Azure Marketplace program
-assignment shows **Not started** for tax profile, payment profile, and
-verification; the payment profile also shows **Not started**. Treat that
-unassigned payment/tax enrollment as the binding Microsoft account release
-gate. Microsoft states that processing can take up to 48 hours after the
-information is completed.
+or invalid tax.”** The account owner then submitted the Azure Marketplace
+assignment using the existing completed Canadian tax profile and Canadian
+business-bank payment profile in CAD. Partner Center confirmed **“Your program
+profiles are updated.”** The authoritative assignment status now shows tax
+**Complete**, payment **Pending Microsoft validation**, and verification **Not
+started**. Treat Microsoft payment validation and any subsequent verification
+prompt as the current account release gate. Microsoft states that processing
+can take up to 48 hours.
 
 Do not mark tax or payout setup complete from an email, verbal report, or a
 submitted form alone. The Marketplace release owner must verify that the

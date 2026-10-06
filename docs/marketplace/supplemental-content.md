@@ -1,12 +1,25 @@
 # Supplemental content — controlled answer set
 
-**Status: draft with external evidence blockers. Do not represent this page as
-complete until the Azure subscription and consumption witnesses are attached.**
+**Status: draft with an external platforming blocker. Current production is not
+hosted in Azure. Do not select a fully or partially Azure-hosted scenario until
+a protected production deployment and commensurate-consumption witnesses make
+that answer true.**
 
 Microsoft uses the Supplemental content page to assess whether a transactable
 SaaS offer is primarily platformed on Azure and complies with Marketplace
-policy. A code design or undeployed resource template is not sufficient
-evidence.
+policy. A code design, an undeployed resource template, Microsoft Entra sign-in,
+or use of the SaaS Fulfillment APIs is not sufficient platforming evidence.
+
+As of 2026-10-06 the Partner Center page has no saved scenario selection. The
+only evidence-backed current-production answer is **SaaS solution is not hosted
+in Azure**. Saving that answer is truthful, but it does not close the policy
+gate for this paid transactable offer. Keep submission blocked until either:
+
+1. the Azure edition is deployed and the Azure-hosted compute/data plane is
+   evidenced as the primary scaling workload; or
+2. the commercial owner deliberately changes the offer to a listing-only path
+   that processes transactions outside Microsoft and accepts the resulting
+   loss of Marketplace checkout until a later transactable revision.
 
 ## Product functionality
 
@@ -29,9 +42,9 @@ evidence.
 > engineering decision. Delivered capabilities depend on the configured data,
 > purchased scope, deployment, and agreement.
 
-## Azure architecture
+## Planned Azure architecture
 
-### Copy-ready architecture description
+### Copy-ready architecture description after deployment evidence exists
 
 > The SyncAI Azure edition is designed with Azure Container Apps for the web
 > workload and governed intelligence worker, Azure Container Registry for
@@ -43,7 +56,7 @@ evidence.
 > approval, usage, and audit records; it does not create a separate decision or
 > approval store. Consequential action remains human-controlled.
 
-### Mandatory qualification immediately following that description
+### Mandatory qualification while deployment evidence is absent
 
 > As of 2026-10-06, the repository contains the Azure deployment and validation
 > machinery, but production deployment and commensurate Azure consumption have
@@ -53,28 +66,26 @@ evidence.
 > deployment and Azure billing/usage evidence demonstrate that the
 > Azure-hosted plane is the resource whose consumption grows with customer use.
 
-If the Partner Center form does not permit this qualification next to the
-architecture description, do not submit a misleading answer. Close the Azure
-deployment evidence first.
+Do not paste the planned-architecture description into Partner Center while the
+qualification remains true. Close the Azure deployment evidence first.
 
-### Partner Center **Other** scenario explanation
+### Current-production explanation
 
-Use this exact answer for the current mixed-cloud production posture:
+If Partner Center requests an explanation after selecting **SaaS solution is not
+hosted in Azure**, use this exact answer:
 
-> SyncAI's current production service uses a mixed-cloud architecture. The
-> customer-facing web application and authoritative data plane currently use
-> Vercel and Supabase. The repository also contains an Azure edition deployment
-> design and validation machinery for Azure Container Apps, Azure Container
+> SyncAI's current production customer-facing application and authoritative
+> data plane run on Vercel and Supabase. The repository contains Azure edition
+> deployment and validation machinery for Azure Container Apps, Azure Container
 > Registry, managed identities, Key Vault, Log Analytics/Application Insights,
-> and Azure OpenAI. Production Azure deployment and customer-correlated Azure
-> consumption have not yet been evidenced, so SyncAI is not represented as
-> primarily platformed on Azure. Microsoft Marketplace fulfillment uses
-> Microsoft Entra identity and the SaaS Fulfillment APIs, but those commerce
-> integrations do not by themselves make the product Azure-platformed.
+> and Azure OpenAI, but no production Azure deployment or customer-correlated
+> Azure consumption has been evidenced. Microsoft Entra identity and the SaaS
+> Fulfillment APIs support the planned commerce flow but do not make the current
+> product Azure-hosted.
 
-On 2026-10-06 the Partner Center draft had **partially hosted** and **Other**
-selected, but this explanation had not yet been saved. Preserve that distinction
-until the draft save is visibly confirmed.
+On 2026-10-06 an earlier unsaved browser state briefly selected **partially
+hosted**, but the authoritative page later loaded with no saved selection. Do
+not reproduce that unsupported selection.
 
 ## Azure service inventory
 
