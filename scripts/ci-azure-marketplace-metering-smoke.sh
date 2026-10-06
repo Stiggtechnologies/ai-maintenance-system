@@ -77,6 +77,25 @@ insert into public.billing_subscriptions(
   'Subscribed','2026-09-29 12:00:00+00',now()
 );
 
+do $flat_rate_allowance$
+begin
+  if not exists (
+    select 1 from private.llm_org_quotas
+    where organization_id='a1111111-1111-4111-8111-111111111111'
+      and commercial_plan_id='enterprise-metered'
+      and commercial_allowance_mode='metered_overage'
+      and commercial_quantity=1
+      and included_calls_per_period=10
+      and included_tokens_per_period=1000
+      and max_calls_per_period=100
+      and max_tokens_per_period=100000
+      and max_decisions_per_period=50
+  ) then
+    raise exception 'flat-rate allowance incorrectly scaled by Marketplace quantity';
+  end if;
+end
+$flat_rate_allowance$;
+
 insert into public.marketplace_fulfillment_resolutions(
   id,marketplace_subscription_id,publisher_id,offer_id,plan_id,
   subscription_name,quantity,beneficiary_tenant_id,purchaser_tenant_id,

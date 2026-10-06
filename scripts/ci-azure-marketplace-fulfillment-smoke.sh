@@ -184,9 +184,10 @@ begin
       and commercial_offer_id='syncai-enterprise'
       and commercial_plan_id='enterprise'
       and commercial_allowance_mode='hard_stop'
-      and included_calls_per_period=10 and max_calls_per_period=10
-      and included_tokens_per_period=1000 and max_tokens_per_period=1000
-      and max_decisions_per_period=5
+      and commercial_quantity=25
+      and included_calls_per_period=250 and max_calls_per_period=250
+      and included_tokens_per_period=25000 and max_tokens_per_period=25000
+      and max_decisions_per_period=125
   ) then
     raise exception 'approved AI commercial allowance was not bound to the tenant';
   end if;

@@ -52,6 +52,14 @@ boundary. Supported runtimes attach model calls to a governed cost object so
 several calls can roll up into one decision; unattributed and unknown-price
 calls remain explicit in the report and still count against the hard token cap.
 
+For a Microsoft per-user plan, the policy inputs are defined per purchased
+user. Binding uses Microsoft's authoritative subscription quantity and scales
+the calls, tokens, decisions, revenue, and variable-cost boundary together; an
+activation with no positive quantity fails closed. A later quantity change
+rebounds the allowance through the same subscription trigger. Flat-rate plans
+remain per subscription and do not accidentally multiply their allowance by a
+Marketplace quantity field.
+
 The gross-margin gate is a conservative variable-cost gate: it uses the
 worst-priced allowed model plus an explicitly supplied non-inference variable
 cost. It is not a substitute for a complete company gross-margin model.

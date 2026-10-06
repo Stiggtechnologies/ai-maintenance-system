@@ -23,7 +23,12 @@ const unitEconomics = JSON.parse(
     };
     commercialPlanToQuotaBinding: {
       azureMarketplaceActivationFailsClosedWithoutApprovedPolicy: boolean;
+      directFlatRatePoliciesBindExistingActiveSubscriptionsWhenApproved: boolean;
+      directPerUserQuantityBackedBinding: string;
       directSubscriptionActivationFailsClosedWithoutApprovedPolicy: boolean;
+      flatRateAllowanceIgnoresMarketplaceSeatQuantity: boolean;
+      perUserActivationFailsClosedWithoutQuantity: boolean;
+      perUserAllowanceScalesWithAuthoritativeMarketplaceQuantity: boolean;
       status: string;
     };
     grossMarginReleaseGate: {
@@ -171,7 +176,12 @@ describe("competitive pricing benchmark", () => {
     ).toMatchObject({
       status: "implemented_for_azure_marketplace",
       azureMarketplaceActivationFailsClosedWithoutApprovedPolicy: true,
+      perUserAllowanceScalesWithAuthoritativeMarketplaceQuantity: true,
+      perUserActivationFailsClosedWithoutQuantity: true,
+      flatRateAllowanceIgnoresMarketplaceSeatQuantity: true,
       directSubscriptionActivationFailsClosedWithoutApprovedPolicy: false,
+      directFlatRatePoliciesBindExistingActiveSubscriptionsWhenApproved: true,
+      directPerUserQuantityBackedBinding: "not_implemented",
     });
     expect(unitEconomics.implemented.productionCogsReporting.status).toBe(
       "implemented_no_production_distribution_evidenced",

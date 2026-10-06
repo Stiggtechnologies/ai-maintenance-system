@@ -75,6 +75,7 @@ alter table private.llm_org_quotas
   add column if not exists max_calls_per_period integer,
   add column if not exists max_tokens_per_period bigint,
   add column if not exists max_decisions_per_period integer,
+  add column if not exists commercial_quantity integer,
   add column if not exists commercial_allowance_mode text;
 
 do $controls$
@@ -97,6 +98,7 @@ begin
           and max_calls_per_period>=included_calls_per_period
           and max_tokens_per_period>=included_tokens_per_period
           and max_decisions_per_period>0
+          and commercial_quantity>0
           and commercial_allowance_mode in ('hard_stop','metered_overage')
         )
       );
@@ -171,7 +173,10 @@ revoke all on table private.ai_commercial_plan_policies
 
 comment on table private.ai_commercial_plan_policies is
   'Owner-approved commercial AI allowance and conservative inference-margin '
-  'boundary. No row is seeded; configure then explicitly approve.';
+  'boundary. For per-user plans the allowance, revenue and variable-cost '
+  'inputs are per purchased user and are multiplied by authoritative quantity '
+  'when bound. For flat-rate plans they are per subscription. No row is seeded; '
+  'configure then explicitly approve.';
 
 -- ---------------------------------------------------------------------------
 -- 3. Conservative policy evaluation and draft configuration.
@@ -391,6 +396,7 @@ declare
   v_subscription public.billing_subscriptions%rowtype;
   v_policy private.ai_commercial_plan_policies%rowtype;
   v_meter private.marketplace_meter_definitions%rowtype;
+  v_commercial_quantity integer;
 begin
   select * into v_subscription from public.billing_subscriptions
   where id=p_billing_subscription_id for update;
@@ -406,7 +412,8 @@ begin
       commercial_period_start=null,commercial_period_end=null,
       included_calls_per_period=null,included_tokens_per_period=null,
       max_calls_per_period=null,max_tokens_per_period=null,
-      max_decisions_per_period=null,commercial_allowance_mode=null,
+      max_decisions_per_period=null,commercial_quantity=null,
+      commercial_allowance_mode=null,
       updated_at=now()
     where organization_id=v_subscription.organization_id
       and billing_subscription_id=v_subscription.id;
@@ -431,6 +438,32 @@ begin
     raise exception 'Billing period is invalid';
   end if;
 
+  if v_policy.pricing_model='per_user' then
+    if v_subscription.billing_source<>'azure_marketplace'
+      or coalesce(v_subscription.marketplace_quantity,0)<=0 then
+      raise exception 'Per-user AI policy requires authoritative purchased quantity';
+    end if;
+    v_commercial_quantity := v_subscription.marketplace_quantity;
+  else
+    v_commercial_quantity := 1;
+  end if;
+
+  -- The quota table deliberately uses bounded integer types. Refuse an
+  -- impossible plan/quantity combination instead of overflowing into a lower
+  -- or negative allowance.
+  if v_policy.included_calls_per_period::numeric*v_commercial_quantity
+       > 2147483647
+    or v_policy.max_calls_per_period::numeric*v_commercial_quantity
+       > 2147483647
+    or v_policy.max_decisions_per_period::numeric*v_commercial_quantity
+       > 2147483647
+    or v_policy.included_tokens_per_period::numeric*v_commercial_quantity
+       > 9223372036854775807
+    or v_policy.max_tokens_per_period::numeric*v_commercial_quantity
+       > 9223372036854775807 then
+    raise exception 'Commercial allowance exceeds supported quantity range';
+  end if;
+
   if v_policy.allowance_mode='metered_overage' then
     select * into v_meter from private.marketplace_meter_definitions
     where plan_id=v_policy.plan_id and dimension=v_policy.meter_dimension
@@ -447,14 +480,19 @@ begin
     commercial_offer_id,commercial_plan_id,commercial_period_start,
     commercial_period_end,included_calls_per_period,
     included_tokens_per_period,max_calls_per_period,max_tokens_per_period,
-    max_decisions_per_period,commercial_allowance_mode,note,updated_at
+    max_decisions_per_period,commercial_quantity,commercial_allowance_mode,
+    note,updated_at
   ) values (
     v_subscription.organization_id,v_subscription.id,v_policy.billing_source,
     v_policy.offer_id,v_policy.plan_id,v_subscription.current_period_start,
-    v_subscription.current_period_end,v_policy.included_calls_per_period,
-    v_policy.included_tokens_per_period,v_policy.max_calls_per_period,
-    v_policy.max_tokens_per_period,v_policy.max_decisions_per_period,
-    v_policy.allowance_mode,'Bound from approved commercial plan policy',now()
+    v_subscription.current_period_end,
+    (v_policy.included_calls_per_period*v_commercial_quantity)::integer,
+    (v_policy.included_tokens_per_period*v_commercial_quantity)::bigint,
+    (v_policy.max_calls_per_period*v_commercial_quantity)::integer,
+    (v_policy.max_tokens_per_period*v_commercial_quantity)::bigint,
+    (v_policy.max_decisions_per_period*v_commercial_quantity)::integer,
+    v_commercial_quantity,v_policy.allowance_mode,
+    'Bound from approved commercial plan policy',now()
   ) on conflict (organization_id) do update set
     billing_subscription_id=excluded.billing_subscription_id,
     commercial_billing_source=excluded.commercial_billing_source,
@@ -467,12 +505,14 @@ begin
     max_calls_per_period=excluded.max_calls_per_period,
     max_tokens_per_period=excluded.max_tokens_per_period,
     max_decisions_per_period=excluded.max_decisions_per_period,
+    commercial_quantity=excluded.commercial_quantity,
     commercial_allowance_mode=excluded.commercial_allowance_mode,
     note=excluded.note,updated_at=now();
 
   return jsonb_build_object(
     'bound',true,'organizationId',v_subscription.organization_id,
     'billingSubscriptionId',v_subscription.id,'planId',v_policy.plan_id,
+    'commercialQuantity',v_commercial_quantity,
     'allowanceMode',v_policy.allowance_mode
   );
 end
@@ -557,17 +597,24 @@ create or replace function public.enforce_ai_commercial_plan_before_sale()
 returns trigger
 language plpgsql security definer set search_path=public,pg_temp
 as $$
+declare
+  v_pricing_model text;
 begin
   if new.billing_source='azure_marketplace'
-    and new.status='active' and new.marketplace_status='Subscribed'
-    and not exists (
-      select 1 from private.ai_commercial_plan_policies p
-      where p.billing_source='azure_marketplace'
-        and p.offer_id=coalesce(new.marketplace_offer_id,'')
-        and p.plan_id=coalesce(new.marketplace_plan_id,new.plan)
-        and p.status='approved'
-    ) then
-    raise exception 'Marketplace activation blocked: approved AI commercial policy is absent';
+    and new.status='active' and new.marketplace_status='Subscribed' then
+    select p.pricing_model into v_pricing_model
+    from private.ai_commercial_plan_policies p
+    where p.billing_source='azure_marketplace'
+      and p.offer_id=coalesce(new.marketplace_offer_id,'')
+      and p.plan_id=coalesce(new.marketplace_plan_id,new.plan)
+      and p.status='approved';
+    if not found then
+      raise exception 'Marketplace activation blocked: approved AI commercial policy is absent';
+    end if;
+    if v_pricing_model='per_user'
+      and coalesce(new.marketplace_quantity,0)<=0 then
+      raise exception 'Marketplace activation blocked: per-user quantity is absent';
+    end if;
   end if;
   return new;
 end
@@ -589,8 +636,8 @@ drop trigger if exists billing_subscription_ai_commercial_gate
   on public.billing_subscriptions;
 create trigger billing_subscription_ai_commercial_gate
 before insert or update of status,billing_source,marketplace_status,
-  marketplace_offer_id,marketplace_plan_id,plan,current_period_start,
-  current_period_end
+  marketplace_offer_id,marketplace_plan_id,marketplace_quantity,plan,
+  current_period_start,current_period_end
 on public.billing_subscriptions
 for each row execute function public.enforce_ai_commercial_plan_before_sale();
 
@@ -598,8 +645,8 @@ drop trigger if exists billing_subscription_ai_allowance_sync
   on public.billing_subscriptions;
 create trigger billing_subscription_ai_allowance_sync
 after insert or update of status,billing_source,marketplace_status,
-  marketplace_offer_id,marketplace_plan_id,plan,current_period_start,
-  current_period_end
+  marketplace_offer_id,marketplace_plan_id,marketplace_quantity,plan,
+  current_period_start,current_period_end
 on public.billing_subscriptions
 for each row execute function public.sync_ai_commercial_plan_after_subscription();
 

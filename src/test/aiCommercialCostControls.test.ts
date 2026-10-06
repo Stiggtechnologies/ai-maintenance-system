@@ -96,6 +96,25 @@ describe("AI commercial cost controls", () => {
     );
   });
 
+  it("scales per-user allowances from authoritative Marketplace quantity", () => {
+    expect(migration).toContain("commercial_quantity integer");
+    expect(migration).toContain(
+      "per-user ai policy requires authoritative purchased quantity",
+    );
+    expect(migration).toContain(
+      "marketplace activation blocked: per-user quantity is absent",
+    );
+    expect(migration).toContain(
+      "v_policy.included_tokens_per_period*v_commercial_quantity",
+    );
+    expect(migration).toContain(
+      "v_policy.max_decisions_per_period*v_commercial_quantity",
+    );
+    expect(migration).toMatch(
+      /update of status,billing_source,marketplace_status,[\s\S]*?marketplace_quantity,plan/,
+    );
+  });
+
   it("keeps every Marketplace activation fixture behind an approved commercial policy", () => {
     for (const smoke of marketplaceSmokes) {
       expect(smoke).toContain("configure_ai_commercial_plan_policy");

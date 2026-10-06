@@ -59,8 +59,12 @@
       "status": "implemented_for_azure_marketplace",
       "source": "apply_ai_commercial_plan_allowance",
       "azureMarketplaceActivationFailsClosedWithoutApprovedPolicy": true,
+      "perUserAllowanceScalesWithAuthoritativeMarketplaceQuantity": true,
+      "perUserActivationFailsClosedWithoutQuantity": true,
+      "flatRateAllowanceIgnoresMarketplaceSeatQuantity": true,
       "directSubscriptionActivationFailsClosedWithoutApprovedPolicy": false,
-      "directPoliciesBindExistingActiveSubscriptionsWhenApproved": true
+      "directFlatRatePoliciesBindExistingActiveSubscriptionsWhenApproved": true,
+      "directPerUserQuantityBackedBinding": "not_implemented"
     },
     "grossMarginReleaseGate": {
       "status": "implemented_not_configured",

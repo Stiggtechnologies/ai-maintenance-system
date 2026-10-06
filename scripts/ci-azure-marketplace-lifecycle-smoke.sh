@@ -207,6 +207,33 @@ begin
   if v_result->>'processingState'<>'completed' then
     raise exception 'reinstate did not complete: %',v_result;
   end if;
+
+  v_result := public.claim_marketplace_lifecycle_operation(
+    '93333333-3333-4333-8333-333333333333',
+    '98999999-9999-4999-8999-999999999999','ChangeQuantity','InProgress',
+    'syncai-publisher','syncai-enterprise','enterprise-plus',10,repeat('0',64),
+    'quantity-request','quantity-correlation'
+  );
+  if v_result->>'processingState'<>'received' then
+    raise exception 'quantity change was not claimed: %',v_result;
+  end if;
+  v_result := public.apply_marketplace_lifecycle_operation(
+    '93333333-3333-4333-8333-333333333333',
+    '98999999-9999-4999-8999-999999999999','Subscribed','enterprise-plus',25,
+    now(),now()+interval '1 month','quantity-apply','quantity-correlation'
+  );
+  if v_result->>'processingState'<>'applied_pending_ack' then
+    raise exception 'quantity change was not held for acknowledgement: %',v_result;
+  end if;
+  v_result := public.complete_marketplace_lifecycle_operation(
+    '93333333-3333-4333-8333-333333333333',
+    '98999999-9999-4999-8999-999999999999','Succeeded','Subscribed',
+    'enterprise-plus',10,now(),now()+interval '1 month',
+    'quantity-complete','quantity-correlation'
+  );
+  if v_result->>'processingState'<>'completed' then
+    raise exception 'quantity change did not complete: %',v_result;
+  end if;
 end
 $reinstate$;
 
@@ -223,11 +250,12 @@ begin
       and commercial_offer_id='syncai-enterprise'
       and commercial_plan_id='enterprise-plus'
       and commercial_allowance_mode='hard_stop'
-      and included_calls_per_period=20 and max_calls_per_period=20
-      and included_tokens_per_period=2000 and max_tokens_per_period=2000
-      and max_decisions_per_period=10
+      and commercial_quantity=10
+      and included_calls_per_period=200 and max_calls_per_period=200
+      and included_tokens_per_period=20000 and max_tokens_per_period=20000
+      and max_decisions_per_period=100
   ) then
-    raise exception 'authoritative plan change and reinstate did not bind the upgraded AI allowance';
+    raise exception 'authoritative plan, reinstate, and quantity change did not bind the scaled AI allowance';
   end if;
 end
 $allowance$;
