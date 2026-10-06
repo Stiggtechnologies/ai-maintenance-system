@@ -490,5 +490,102 @@ for (const multipleAssets of [false, true]) {
       path: testInfo.outputPath("installed-stale-meter-refusal.png"),
       fullPage: false,
     });
+
+    // Actual canonical capture refusal through the customer UI. The old
+    // legacy key conflates a retry and another physical life
+    // with the same removal exposure. Do not invent a new exposure to get past
+    // it or run a model on the remaining persisted subset as if complete.
+    const beforeCollision = await author.client
+      .from("component_life_events")
+      .select("id")
+      .eq("component", component)
+      .order("id");
+    expect(beforeCollision.error).toBeNull();
+    expect(beforeCollision.data).toHaveLength(12);
+    const beforeCollisionHistory = await author.client
+      .from("calculation_runs")
+      .select("id")
+      .eq("calculation_key", "component_covariate_survival")
+      .eq("inputs->source->>component", component)
+      .order("id");
+    expect(beforeCollisionHistory.error).toBeNull();
+    const lifeWorkbench = page.getByRole("region", {
+      name: "Governed component life-data workbench",
+      exact: true,
+    });
+    await lifeWorkbench
+      .getByRole("button", { name: "Record evidence", exact: true })
+      .click();
+    await lifeWorkbench
+      .getByRole("combobox", { name: "Asset", exact: true })
+      .selectOption(fixture.assetId);
+    await lifeWorkbench
+      .getByRole("combobox", { name: "Event classification", exact: true })
+      .selectOption("failure");
+    await lifeWorkbench
+      .getByLabel("Operating hours at removal", { exact: true })
+      .fill("1");
+    await lifeWorkbench
+      .getByLabel("Event date", { exact: true })
+      .fill("2026-09-02");
+    await lifeWorkbench
+      .getByLabel("Work-order reference", { exact: true })
+      .fill("Another explicit synthetic physical-life removal");
+    await lifeWorkbench
+      .getByLabel("Source reference", { exact: true })
+      .fill("Another independent synthetic source");
+    await lifeWorkbench
+      .getByLabel("Evidence basis", { exact: true })
+      .fill(
+        "Distinct synthetic physical-life source with identical exposure; legacy identity needs reconciliation.",
+      );
+    await lifeWorkbench
+      .getByRole("button", { name: "Record life event", exact: true })
+      .click();
+    await expect(
+      lifeWorkbench.getByText(/Life event was not recorded:/),
+    ).toBeVisible();
+    const identityGap = lifeWorkbench.getByText(
+      /This component has an unresolved physical-life capture/,
+    );
+    await expect(identityGap).toBeVisible();
+    await expect(
+      lifeWorkbench.getByRole("button", {
+        name: "Run governed analysis",
+        exact: true,
+      }),
+    ).toBeDisabled();
+    await expect(
+      lifeWorkbench.getByRole("button", {
+        name: "Open covariate survival workbench",
+        exact: true,
+      }),
+    ).toBeDisabled();
+    await expect(
+      lifeWorkbench.getByLabel("Operating hours at removal", { exact: true }),
+    ).toHaveValue("1");
+    await expect(
+      lifeWorkbench.getByLabel("Source reference", { exact: true }),
+    ).toHaveValue("Another independent synthetic source");
+    const afterCollision = await author.client
+      .from("component_life_events")
+      .select("id")
+      .eq("component", component)
+      .order("id");
+    expect(afterCollision.error).toBeNull();
+    expect(afterCollision.data).toEqual(beforeCollision.data);
+    const afterCollisionHistory = await author.client
+      .from("calculation_runs")
+      .select("id")
+      .eq("calculation_key", "component_covariate_survival")
+      .eq("inputs->source->>component", component)
+      .order("id");
+    expect(afterCollisionHistory.error).toBeNull();
+    expect(afterCollisionHistory.data).toEqual(beforeCollisionHistory.data);
+    await identityGap.scrollIntoViewIfNeeded();
+    await page.screenshot({
+      path: testInfo.outputPath("life-identity-capture-gap.png"),
+      fullPage: false,
+    });
   });
 }

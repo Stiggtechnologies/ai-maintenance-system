@@ -12,6 +12,7 @@ import {
   loadReliabilityLifeData,
   recordComponentLifeEvent,
   runReliabilityLifeDataAgent,
+  LifeEventIdentityCollisionError,
   type LifeDataRunReceipt,
 } from "../services/reliabilityLifeDataService";
 import { ErrorState, LoadingState } from "./ui/AsyncStates";
@@ -51,6 +52,14 @@ export function ReliabilityLifeDataWorkbench() {
     text: string;
   } | null>(null);
   const [receipt, setReceipt] = useState<LifeDataRunReceipt | null>(null);
+  // Current-workbench precaution only, not a durable tenant/server policy or
+  // a parallel persistence queue. Switching labels or a later successful
+  // capture does not prove reconciliation of an earlier missing life.
+  const [identityGaps, setIdentityGaps] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const identityScope = component.trim().toLowerCase();
+  const identityGap = identityGaps.has(identityScope);
 
   useEffect(() => {
     if (!component && data?.groups[0]?.component)
@@ -75,7 +84,7 @@ export function ReliabilityLifeDataWorkbench() {
   const method = receipt?.method_selection ?? latestReport?.methodSelection;
 
   async function runAgent() {
-    if (!component.trim()) return;
+    if (!component.trim() || identityGap) return;
     setBusy("run");
     setNotice(null);
     try {
@@ -103,6 +112,7 @@ export function ReliabilityLifeDataWorkbench() {
     event.preventDefault();
     setBusy("capture");
     setNotice(null);
+    const captureScope = component.trim().toLowerCase();
     try {
       const eventId = await recordComponentLifeEvent({
         assetId,
@@ -127,6 +137,11 @@ export function ReliabilityLifeDataWorkbench() {
       setReceipt(null);
       refetch();
     } catch (captureError) {
+      if (captureError instanceof LifeEventIdentityCollisionError) {
+        setIdentityGaps((previous) => new Set(previous).add(captureScope));
+        setReceipt(null);
+        setShowSurvival(false);
+      }
       setNotice({
         kind: "error",
         text:
@@ -177,7 +192,7 @@ export function ReliabilityLifeDataWorkbench() {
             </button>
             <button
               type="button"
-              disabled={!component.trim() || busy !== null}
+              disabled={!component.trim() || busy !== null || identityGap}
               onClick={runAgent}
               className="inline-flex items-center gap-2 rounded-lg bg-cyan-300 px-3 py-2 text-sm font-semibold text-slate-950 hover:bg-cyan-200 disabled:cursor-not-allowed disabled:opacity-50"
             >
@@ -198,6 +213,7 @@ export function ReliabilityLifeDataWorkbench() {
               onChange={(event) => {
                 setComponent(event.target.value);
                 setReceipt(null);
+                setNotice(null);
               }}
               placeholder="e.g. final drive"
               className="mt-2 w-full rounded-lg border border-white/10 bg-black/20 px-3 py-2.5 text-sm normal-case tracking-normal text-white outline-hidden focus:border-cyan-400/60"
@@ -302,6 +318,21 @@ export function ReliabilityLifeDataWorkbench() {
           </div>
         </div>
       </div>
+
+      {identityGap && (
+        <div
+          role="alert"
+          className="mx-5 mb-5 rounded-lg border border-amber-400/25 bg-amber-400/8 px-3 py-2 text-sm text-amber-200 lg:mx-6 lg:mb-6"
+        >
+          This component has an unresolved physical-life capture. The persisted
+          population may be incomplete. Both analysis entry points are paused in
+          this workbench session until source identity is reconciled through the
+          governed engineering/data process. A different component label,
+          another successful capture, or a page reload is not proof of
+          reconciliation. This session precaution is not a server-side
+          completeness guarantee.
+        </div>
+      )}
 
       {notice && (
         <div
@@ -456,7 +487,7 @@ export function ReliabilityLifeDataWorkbench() {
         <button
           type="button"
           onClick={() => setShowSurvival((value) => !value)}
-          disabled={!component.trim()}
+          disabled={!component.trim() || identityGap}
           aria-expanded={showSurvival}
           className="rounded-lg border border-cyan-400/25 bg-cyan-400/10 px-3 py-2 text-sm text-cyan-200 disabled:opacity-40"
         >
@@ -465,7 +496,7 @@ export function ReliabilityLifeDataWorkbench() {
             : "Open covariate survival workbench"}
         </button>
       </div>
-      {showSurvival && component.trim() && (
+      {showSurvival && component.trim() && !identityGap && (
         <CovariateSurvivalWorkbench
           key={component.trim().toLowerCase()}
           component={component.trim()}
