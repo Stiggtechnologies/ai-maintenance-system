@@ -17,12 +17,23 @@ export interface CoxConditionalProfile {
     validThroughHours: number;
   }>;
   /** Derived by the server from exact independently reviewed canonical rows. */
-  source?: {
-    eventId: number;
-    overlayVersion: number;
-    intervalIndex: number;
-    evidenceItemIds: string[];
-  };
+  source?:
+    | {
+        kind?: "historical_life";
+        eventId: number;
+        overlayVersion: number;
+        intervalIndex: number;
+        evidenceItemIds: string[];
+      }
+    | {
+        kind: "active_component";
+        componentInstanceId: string;
+        meterReadingId: string;
+        asOf: string;
+        overlayVersion: number;
+        intervalIndex: number;
+        evidenceItemIds: string[];
+      };
 }
 export type CoxConditionalScenario =
   | {
@@ -208,7 +219,7 @@ function estimate(
     conditionalSurvivalProbability: Math.exp(-hazard),
     eventTimesInWindow: times.length,
     limitations: [
-      "This is an evidence-backed numerical conditional scenario, not a forecast for a currently installed component or a customer-calibrated model.",
+      "This is an evidence-backed numerical conditional scenario, not a qualified live-asset forecast or a customer-calibrated model.",
       "Covariate paths must be known at origin and valid through the stated window; no future condition measurements are invented.",
       "An observed joint profile and bounded age window do not prove physical applicability, stationarity or proportional hazards.",
       "No predictive confidence interval is supplied; coefficient uncertainty is not survival-prediction uncertainty.",

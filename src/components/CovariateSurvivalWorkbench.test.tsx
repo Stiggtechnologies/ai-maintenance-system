@@ -77,6 +77,11 @@ describe("governed covariate survival workbench", () => {
       ),
     ).toBeInTheDocument();
     expect(screen.getByText(/Source gap \/ Approval gap/)).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /installed-component census and current meter\/condition capture are not yet connected/,
+      ),
+    ).toBeInTheDocument();
   });
   it("sends only scope and declared predictors to the service and displays retained refusal IDs", async () => {
     vi.mocked(runSurvivalAnalysis).mockResolvedValue({
