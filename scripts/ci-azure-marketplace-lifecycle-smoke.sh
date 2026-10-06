@@ -147,20 +147,6 @@ begin
       where marketplace_subscription_id='93333333-3333-4333-8333-333333333333')<>'enterprise-plus' then
     raise exception 'authoritative completed plan did not reach canonical billing';
   end if;
-  if not exists (
-    select 1 from private.llm_org_quotas
-    where organization_id='91111111-1111-4111-8111-111111111111'
-      and commercial_billing_source='azure_marketplace'
-      and commercial_offer_id='syncai-enterprise'
-      and commercial_plan_id='enterprise-plus'
-      and commercial_allowance_mode='hard_stop'
-      and included_calls_per_period=20 and max_calls_per_period=20
-      and included_tokens_per_period=2000 and max_tokens_per_period=2000
-      and max_decisions_per_period=10
-  ) then
-    raise exception 'authoritative plan change did not rebind the AI allowance';
-  end if;
-
   v_result := public.claim_marketplace_lifecycle_operation(
     '93333333-3333-4333-8333-333333333333',
     '97777777-7777-4777-8777-777777777777','Suspend','Succeeded',
@@ -180,6 +166,26 @@ end
 $test$;
 
 reset role;
+do $allowance$
+begin
+  -- Inspect the private commercial binding only as the PostgreSQL test owner.
+  -- The service role exercised above must remain unable to read this schema.
+  if not exists (
+    select 1 from private.llm_org_quotas
+    where organization_id='91111111-1111-4111-8111-111111111111'
+      and commercial_billing_source='azure_marketplace'
+      and commercial_offer_id='syncai-enterprise'
+      and commercial_plan_id='enterprise-plus'
+      and commercial_allowance_mode='hard_stop'
+      and included_calls_per_period=20 and max_calls_per_period=20
+      and included_tokens_per_period=2000 and max_tokens_per_period=2000
+      and max_decisions_per_period=10
+  ) then
+    raise exception 'authoritative plan change did not rebind the AI allowance';
+  end if;
+end
+$allowance$;
+
 select set_config('request.jwt.claim.sub','92222222-2222-4222-8222-222222222222',true);
 set local role authenticated;
 do $entitlement$
