@@ -40,6 +40,16 @@ select jsonb_build_object('kind','extension','key',extname,'value',
 from pg_extension e join pg_namespace n on n.oid=e.extnamespace
 where extname <> 'plpgsql' order by extname;
 
+-- Supabase attaches this wrapper to pg_graphql after installation. pg_dump
+-- omits member definitions, although its ACL still appears in the archive.
+select jsonb_build_object('kind','platform_function','key','graphql_public.graphql(text,text,jsonb,jsonb)','value',
+  jsonb_build_object('definition',pg_get_functiondef(p.oid),'owner',pg_get_userbyid(p.proowner),
+    'securityDefiner',p.prosecdef,'searchPath',p.proconfig,'extension',e.extname,
+    'acl',case when p.proacl is null then null else array(select x::text from unnest(p.proacl) x order by x::text) end))
+from pg_proc p join pg_depend d on d.classid='pg_proc'::regclass and d.objid=p.oid and d.deptype='e'
+join pg_extension e on e.oid=d.refobjid
+where p.oid=to_regprocedure('graphql_public.graphql(text,text,jsonb,jsonb)') and e.extname='pg_graphql';
+
 select jsonb_build_object('kind','schema','key',nspname,'value',
   jsonb_build_array(pg_get_userbyid(nspowner),
     case when nspacl is null then null else array(select x::text from unnest(nspacl) x order by x::text) end))

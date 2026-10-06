@@ -24,6 +24,65 @@ const local = {
 
 describe("database restore-drill boundaries", () => {
   afterEach(() => vi.unstubAllEnvs());
+  it("partitions every archive entry exactly once, without excluding any ACL or database property", () => {
+    const toc = `; private header\n1; 1262 7 DATABASE - postgres private_owner\n2; 0 0 DATABASE PROPERTIES - postgres private_owner\n3; 2615 8 SCHEMA - graphql_public private_owner\n4; 3079 9 EXTENSION - pg_graphql private_owner\n5; 0 0 ACL graphql_public FUNCTION graphql(text, text, jsonb, jsonb) private_owner\n6; 0 0 TABLE DATA public evidence private_owner\n`;
+    const split = drill.partitionRestoreToc(toc);
+    expect(split.counts).toEqual({ total: 6, bootstrap: 4, remaining: 2 });
+    expect(split.bootstrap).toContain("1; 1262 7 DATABASE");
+    expect(split.bootstrap).toContain("DATABASE PROPERTIES");
+    expect(split.remaining).not.toContain("DATABASE PROPERTIES");
+    expect(split.remaining).toContain("ACL graphql_public FUNCTION graphql");
+    expect(split.remaining).toContain("TABLE DATA public evidence");
+  });
+  it("restores database ACL, comments and security labels in the only create-enabled pass", () => {
+    const toc = `1; 1262 7 DATABASE - postgres owner\n2; 0 0 ACL - DATABASE postgres owner\n3; 0 0 COMMENT - DATABASE postgres owner\n4; 0 0 SECURITY LABEL - DATABASE postgres owner\n5; 0 0 COMMENT - EXTENSION pg_graphql owner\n6; 0 0 ACL public TABLE evidence owner\n`;
+    const split = drill.partitionRestoreToc(toc);
+    expect(split.counts).toEqual({ total: 6, bootstrap: 4, remaining: 2 });
+    for (const type of ["ACL", "COMMENT", "SECURITY LABEL"]) {
+      expect(split.bootstrap).toContain(`${type} - DATABASE postgres`);
+      expect(split.remaining).not.toContain(`${type} - DATABASE postgres`);
+    }
+    expect(split.remaining).toContain("COMMENT - EXTENSION pg_graphql");
+    expect(split.remaining).toContain("ACL public TABLE evidence");
+  });
+  it.each([
+    "1; 0 0 SCHEMA - public owner\n1; 0 0 ACL - public owner",
+    "unrecognized private content",
+    "; no entries",
+    "1; 3079 9 EXTENSION - pg_graphql owner",
+  ])("refuses unqualified archive partitions: %s", (toc) => {
+    expect(() => drill.partitionRestoreToc(toc)).toThrow("archive");
+  });
+  it("reconstructs the captured GraphQL wrapper definition, original owner and membership without inventing grants", () => {
+    const definition =
+      'CREATE OR REPLACE FUNCTION graphql_public.graphql("operationName" text, query text, variables jsonb, extensions jsonb) RETURNS jsonb LANGUAGE sql AS $fn$ SELECT NULL::jsonb $fn$;';
+    const script = drill.graphqlOverlayScript({
+      definition,
+      owner: 'source"owner',
+      extension: "pg_graphql",
+    });
+    expect(script).toContain(definition);
+    expect(script).toContain('OWNER TO "source""owner";');
+    expect(script).toContain(
+      "ALTER EXTENSION pg_graphql ADD FUNCTION graphql_public.graphql(text,text,jsonb,jsonb);",
+    );
+    expect(script).not.toContain("GRANT");
+    expect(script).not.toContain("SUPERUSER");
+    expect(
+      drill.graphqlOverlayScript({
+        definition: definition.slice(0, -1),
+        owner: "postgres",
+        extension: "pg_graphql",
+      }),
+    ).toContain("$fn$;\nALTER FUNCTION");
+    expect(() =>
+      drill.graphqlOverlayScript({
+        definition: "CREATE FUNCTION arbitrary()",
+        owner: "postgres",
+        extension: "pg_graphql",
+      }),
+    ).toThrow("overlay");
+  });
   it("contains extension workers and scheduled execution before any source SQL is restored", () => {
     const command = drill.isolatedPostgresStartup("supabase_admin");
     expect(command).toContain("--username=supabase_admin");
@@ -47,6 +106,18 @@ describe("database restore-drill boundaries", () => {
     expect(args).not.toContain("--no-owner");
     expect(args).not.toContain("--no-acl");
     expect(args).not.toContain("--no-privileges");
+    const remaining = drill.databaseRestoreArgs(
+      "c".repeat(64),
+      "supabase_admin",
+      "remaining",
+    );
+    expect(remaining).not.toContain("--create");
+    expect(remaining).toContain("--use-list=/tmp/remaining.toc");
+    expect(remaining).not.toContain("--clean");
+    expect(remaining).not.toContain("--if-exists");
+    expect(
+      remaining.slice(remaining.indexOf("-d"), remaining.indexOf("-d") + 2),
+    ).toEqual(["-d", "postgres"]);
   });
   it("rejects arbitrary restore identities before constructing command arguments", () => {
     expect(() =>

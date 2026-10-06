@@ -45,6 +45,27 @@ used: create as the restore authority, then apply the original owner. The
 alternative `--use-set-session-authorization` requires historical object owners
 to retain creation privileges they may correctly no longer possess. Neither
 owners nor ACLs are omitted.
+
+Supabase adds `graphql_public.graphql(text,text,jsonb,jsonb)` to the
+`pg_graphql` extension through a platform event trigger. A logical archive omits
+that extension-member definition but retains its grants. A bare target cannot
+apply those grants before the platform trigger has been restored. The baseline
+snapshot therefore also captures the actual source wrapper definition, owner,
+extension membership, SECURITY DEFINER setting, search path and ACL. Its private
+overlay script reconstructs the captured definition and owner, never an invented
+replacement body or new grants; the archive applies the original ACL afterward.
+The full comparison includes this platform function and fails on any difference.
+
+Every archive entry is assigned exactly once to two exhaustive TOC partitions.
+The first restores the database (including properties, ACL, comments and security
+labels), schema definitions and extension definitions. The captured wrapper is
+then reconstructed, followed by every remaining archive entry. Only the first
+pass uses `--create --clean --if-exists`; the second connects to the restored
+database without those flags. PostgreSQL handles database entries independently
+of the TOC filter in create mode, so leaving `--create` on the second pass would
+attempt to create the database again. Malformed/duplicate TOC entries or an
+unexpected database identity fail closed. No ACL or other archive entry is
+excluded to obtain a pass.
 ACL entry ordering is normalized; grantor, recipient, privileges and grant
 options remain exact, and a null/default ACL remains distinct from an explicitly
 empty ACL. A changed privilege is a mismatch, not an ignorable restore detail.
@@ -124,6 +145,17 @@ provides a consistent database snapshot but excludes cluster-wide roles; those
 come from [pg_dumpall](https://www.postgresql.org/docs/17/app-pg-dumpall.html).
 Restoring executes source SQL: this tool accepts only the trusted local migrated
 source and contains the fresh target. It is not a production backup scheduler.
+
+The platform wrapper mechanism is documented in Supabase's
+[PostgreSQL schema source](https://github.com/supabase/postgres/blob/develop/migrations/schema-17.sql).
+The partitioning follows
+[PostgreSQL pg_restore](https://www.postgresql.org/docs/17/app-pgrestore.html)
+and its [archive selection implementation](https://github.com/postgres/postgres/blob/REL_17_STABLE/src/bin/pg_dump/pg_backup_archiver.c).
+Synthetic socket-only PostgreSQL 16 probes reproduced the missing-member ACL
+failure and passed after reconstruction; a separate phased restore retained
+database owner/ACL/settings and rejected changed grant options and null-to-empty
+ACL mutations. Those stopped probes qualify mechanisms, not the full Supabase
+chain, production recovery or an approved RPO/RTO.
 
 ## Rollback
 

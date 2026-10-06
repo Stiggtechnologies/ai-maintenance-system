@@ -127,16 +127,81 @@ export function prepareRolesRestore(script, bootstrap) {
     .join("\n");
 }
 
-export function databaseRestoreArgs(targetId, bootstrap) {
+export function partitionRestoreToc(toc) {
+  const bootstrap = [],
+    remaining = [],
+    ids = new Set();
+  for (const line of toc.split("\n")) {
+    if (!line.trim() || line.startsWith(";")) {
+      bootstrap.push(line);
+      remaining.push(line);
+      continue;
+    }
+    const entry = line.match(/^(\d+);\s+\d+\s+\d+\s+(.+)$/);
+    if (!entry || ids.has(entry[1])) throw new Error("Unqualified archive TOC");
+    ids.add(entry[1]);
+    (/^(DATABASE(?: PROPERTIES)?|SCHEMA|EXTENSION) - /.test(entry[2]) ||
+    /^(ACL|COMMENT|SECURITY LABEL) - DATABASE /.test(entry[2])
+      ? bootstrap
+      : remaining
+    ).push(line);
+  }
+  if (!ids.size) throw new Error("Empty archive TOC");
+  if (
+    bootstrap.filter((line) =>
+      /^\d+;\s+\d+\s+\d+\s+DATABASE - postgres /.test(line),
+    ).length !== 1
+  )
+    throw new Error("Unqualified archive database identity");
+  const count = (lines) => lines.filter((line) => /^\d+;/.test(line)).length;
+  const counts = {
+    total: ids.size,
+    bootstrap: count(bootstrap),
+    remaining: count(remaining),
+  };
+  if (counts.bootstrap + counts.remaining !== counts.total)
+    throw new Error("Incomplete archive partition");
+  return {
+    bootstrap: bootstrap.join("\n"),
+    remaining: remaining.join("\n"),
+    counts,
+  };
+}
+
+export function graphqlOverlayScript(overlay) {
+  if (
+    !overlay ||
+    overlay.extension !== "pg_graphql" ||
+    typeof overlay.owner !== "string" ||
+    !overlay.owner.length ||
+    overlay.owner.includes("\0") ||
+    typeof overlay.definition !== "string" ||
+    !overlay.definition.startsWith(
+      "CREATE OR REPLACE FUNCTION graphql_public.graphql(",
+    )
+  )
+    throw new Error("Unqualified GraphQL overlay");
+  const owner = `"${overlay.owner.replaceAll('"', '""')}"`;
+  const definition = overlay.definition.trimEnd();
+  return `${definition}${definition.endsWith(";") ? "" : ";"}\nALTER FUNCTION graphql_public.graphql(text,text,jsonb,jsonb) OWNER TO ${owner};
+DO $overlay$ BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_depend d JOIN pg_extension e ON e.oid=d.refobjid WHERE d.classid='pg_proc'::regclass AND d.objid='graphql_public.graphql(text,text,jsonb,jsonb)'::regprocedure AND d.deptype='e' AND e.extname='pg_graphql') THEN
+    ALTER EXTENSION pg_graphql ADD FUNCTION graphql_public.graphql(text,text,jsonb,jsonb);
+  END IF;
+END $overlay$;\n`;
+}
+
+export function databaseRestoreArgs(targetId, bootstrap, stage = "full") {
   if (
     !/^[a-f0-9]{64}$/.test(targetId) ||
-    !["postgres", "supabase_admin"].includes(bootstrap)
+    !["postgres", "supabase_admin"].includes(bootstrap) ||
+    !["full", "bootstrap", "remaining"].includes(stage)
   )
     throw new Error("Unqualified restore identity");
   // Default pg_restore creates objects as the restore authority, then applies
   // their original owners. Creating each schema as its limited owner instead
   // incorrectly assumes that every historical owner can CREATE on the database.
-  return [
+  const args = [
     "exec",
     "-i",
     "--user",
@@ -155,6 +220,15 @@ export function databaseRestoreArgs(targetId, bootstrap) {
     "-d",
     "template1",
   ];
+  if (stage === "full") return args;
+  args.push(`--use-list=/tmp/${stage}.toc`);
+  if (stage === "bootstrap") return args;
+  // PostgreSQL restores DATABASE and DATABASE PROPERTIES independently of the
+  // TOC filter when --create is enabled. Their ACL/comments/security labels are
+  // also create-gated, so all database entries belong to the first pass only.
+  return args
+    .filter((arg) => !["--clean", "--if-exists", "--create"].includes(arg))
+    .map((arg) => (arg === "template1" ? "postgres" : arg));
 }
 
 export function isolatedPostgresStartup(bootstrap) {
@@ -209,7 +283,7 @@ export function createPrivateOutput(parent = tmpdir()) {
 
 export function writePrivateArtifact(output, name, value) {
   if (
-    !/^(report\.json|source-inventory\.json|restored-inventory\.json|roles\.sql|database\.dump)$/.test(
+    !/^(report\.json|source-inventory\.json|restored-inventory\.json|roles\.sql|database\.dump|graphql-overlay\.sql)$/.test(
       name,
     )
   ) {
@@ -672,6 +746,16 @@ export async function runRestoreDrill({
       "source-inventory.json",
       JSON.stringify(before),
     );
+    const graphqlOverlay = before.find(
+      (entry) => entry.kind === "platform_function",
+    )?.value;
+    const graphqlScript = graphqlOverlay
+      ? graphqlOverlayScript(graphqlOverlay)
+      : undefined;
+    if (graphqlScript) {
+      writePrivateArtifact(output, "graphql-overlay.sql", graphqlScript);
+      report.graphqlOverlaySha256 = sha(graphqlScript);
+    }
     await timed("backup", async () => {
       for (const [name, args] of [
         [
@@ -806,32 +890,83 @@ export async function runRestoreDrill({
       report.rolesRestoreSha256 = sha(rolesRestore);
       await sql(targetId, bootstrap, "/tmp", rolesRestore);
       phase = "restore_database";
+      const archive = readFileSync(join(output, "database.dump"));
+      const toc = await command(
+        "docker",
+        [
+          "exec",
+          "-i",
+          "--user",
+          "postgres",
+          targetId,
+          "pg_restore",
+          "--create",
+          "--list",
+        ],
+        { input: archive },
+      );
+      const partitions = partitionRestoreToc(toc);
+      report.archivePartition = partitions.counts;
+      for (const stage of ["bootstrap", "remaining"]) {
+        validateTarget(await inspect(targetId), runId);
+        await command(
+          "docker",
+          [
+            "exec",
+            "-i",
+            "--user",
+            "postgres",
+            targetId,
+            "/bin/sh",
+            "-ceu",
+            `umask 077; test ! -e /tmp/${stage}.toc; cat > /tmp/${stage}.toc`,
+          ],
+          { input: partitions[stage] },
+        );
+      }
       try {
-        await command("docker", databaseRestoreArgs(targetId, bootstrap), {
-          input: readFileSync(join(output, "database.dump")),
-          onFailureDiagnostic: async (diagnostic) => {
-            const identity = diagnostic.match(
-              /ERROR:\s+(?:[0-9A-Z]{5}:\s+)?function ([^\r\n]{1,2000}) does not exist/,
-            )?.[1];
-            if (!identity) return;
-            try {
-              // Encode the literal rather than interpolate identifiers or SQL.
-              // Metadata stays in memory; only fixed classifications enter reports.
-              const identityHex = Buffer.from(identity, "utf8").toString("hex");
-              const metadata = JSON.parse(
-                await sql(
-                  source.id,
-                  "postgres",
-                  "/var/run/postgresql",
-                  `set statement_timeout='5s'; select coalesce((select jsonb_build_object('schema',n.nspname,'extension',e.extname,'builtin',p.oid<16384) from pg_proc p join pg_namespace n on n.oid=p.pronamespace left join pg_depend d on d.classid='pg_proc'::regclass and d.objid=p.oid and d.deptype='e' left join pg_extension e on e.oid=d.refobjid where p.oid=to_regprocedure(convert_from(decode('${identityHex}','hex'),'UTF8'))),'null'::jsonb);`,
-                ),
-              );
-              Object.assign(report, classifyMissingFunctionCatalog(metadata));
-            } catch {
-              report.functionCatalogDiagnosticUnavailable = true;
-            }
+        await command(
+          "docker",
+          databaseRestoreArgs(targetId, bootstrap, "bootstrap"),
+          { input: archive },
+        );
+        if (graphqlScript) {
+          phase = "restore_graphql_overlay";
+          await sql(targetId, bootstrap, "/tmp", graphqlScript);
+          report.graphqlOverlayRestored = true;
+        }
+        phase = "restore_database";
+        await command(
+          "docker",
+          databaseRestoreArgs(targetId, bootstrap, "remaining"),
+          {
+            input: archive,
+            onFailureDiagnostic: async (diagnostic) => {
+              const identity = diagnostic.match(
+                /ERROR:\s+(?:[0-9A-Z]{5}:\s+)?function ([^\r\n]{1,2000}) does not exist/,
+              )?.[1];
+              if (!identity) return;
+              try {
+                // Encode the literal rather than interpolate identifiers or SQL.
+                // Metadata stays in memory; only fixed classifications enter reports.
+                const identityHex = Buffer.from(identity, "utf8").toString(
+                  "hex",
+                );
+                const metadata = JSON.parse(
+                  await sql(
+                    source.id,
+                    "postgres",
+                    "/var/run/postgresql",
+                    `set statement_timeout='5s'; select coalesce((select jsonb_build_object('schema',n.nspname,'extension',e.extname,'builtin',p.oid<16384) from pg_proc p join pg_namespace n on n.oid=p.pronamespace left join pg_depend d on d.classid='pg_proc'::regclass and d.objid=p.oid and d.deptype='e' left join pg_extension e on e.oid=d.refobjid where p.oid=to_regprocedure(convert_from(decode('${identityHex}','hex'),'UTF8'))),'null'::jsonb);`,
+                  ),
+                );
+                Object.assign(report, classifyMissingFunctionCatalog(metadata));
+              } catch {
+                report.functionCatalogDiagnosticUnavailable = true;
+              }
+            },
           },
-        });
+        );
       } catch (error) {
         // Read-only diagnosis of the partial throwaway target. A regular archive
         // uses the installed default extension version, not necessarily the source
