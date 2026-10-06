@@ -4,7 +4,7 @@ This inventory is generated deterministically from `package-lock.json` by
 `scripts/compliance/generate-license-inventory.mjs`. It is technical
 diligence evidence, not a legal opinion.
 
-- Lockfile SHA-256: `777fc12cac6f730e5aeef07937db1952a8371c467580e9322c7f079bff5fda49`
+- Lockfile SHA-256: `4fd9d9dfa3d0a49911d852c2b88c2cb877e782490639e0fb238083355b050529`
 - Package instances: **405**
 - Direct production dependencies: **14**
 - Direct development dependencies: **26**

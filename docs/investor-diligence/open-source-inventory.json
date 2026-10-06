@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "source": "package-lock.json",
-  "lockfileSha256": "777fc12cac6f730e5aeef07937db1952a8371c467580e9322c7f079bff5fda49",
+  "lockfileSha256": "4fd9d9dfa3d0a49911d852c2b88c2cb877e782490639e0fb238083355b050529",
   "packageInstances": 405,
   "directProductionDependencies": 14,
   "directDevelopmentDependencies": 26,
@@ -2455,7 +2455,7 @@
     },
     {
       "name": "source-map-js",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "license": "BSD-3-Clause",
       "direct": "transitive",
       "packagePath": "node_modules/source-map-js"
