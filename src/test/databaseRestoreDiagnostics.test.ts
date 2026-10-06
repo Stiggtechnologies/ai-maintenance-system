@@ -141,6 +141,26 @@ describe("private restore source-function diagnostics", () => {
       expect(() => drill.compareManifests(before, after)).toThrow("differs");
     },
   );
+  it.each(["both-numeric-oids", "numeric-tuple-version"])(
+    "refuses coerced metadata even when its values correlate: %s",
+    (mode) => {
+      const second = capture("DO_NOT_DISCLOSE_NEW_SQL");
+      if (mode === "both-numeric-oids") {
+        Object.assign(second.functions[0], { oid: 1234 });
+        Object.assign(second.functions[0].catalog, { oid: 1234 });
+      } else Object.assign(second.functions[0], { tupleVersion: 5678 });
+      expect(
+        diagnostics.sourceFunctionDriftHints(before, after, capture(), second),
+      ).toEqual([
+        {
+          kind: "function",
+          snapshotDiagnosticStatus: "UNAVAILABLE",
+          freshDiagnosticStatus: "UNAVAILABLE",
+        },
+      ]);
+      expect(() => drill.compareManifests(before, after)).toThrow("differs");
+    },
+  );
   it("requires the fixed engine serializer witness, not an inferred catalog representation", () => {
     const second = capture("DO_NOT_DISCLOSE_NEW_SQL");
     second.oidJsonRepresentationQualified = false;

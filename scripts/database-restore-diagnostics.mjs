@@ -77,8 +77,10 @@ function qualifiedCapture(capture) {
       !record(routine) ||
       typeof routine.identity !== "string" ||
       seen.has(routine.identity) ||
+      typeof routine.oid !== "string" ||
       !/^[1-9][0-9]{0,9}$/.test(routine.oid ?? "") ||
       Number(routine.oid) > 4294967295 ||
+      typeof routine.tupleVersion !== "string" ||
       !/^(0|[1-9][0-9]{0,9})$/.test(routine.tupleVersion ?? "") ||
       Number(routine.tupleVersion) > 4294967295 ||
       typeof routine.definition !== "string" ||
