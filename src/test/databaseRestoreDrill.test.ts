@@ -24,6 +24,18 @@ const local = {
 
 describe("database restore-drill boundaries", () => {
   afterEach(() => vi.unstubAllEnvs());
+  it("contains extension workers and scheduled execution before any source SQL is restored", () => {
+    const command = drill.isolatedPostgresStartup("supabase_admin");
+    expect(command).toContain("--username=supabase_admin");
+    expect(command).toContain("-c max_worker_processes=0");
+    expect(command).toContain("-c max_parallel_workers=0");
+    expect(command).toContain("-c cron.launch_active_jobs=off");
+    expect(command).toContain("-c listen_addresses=");
+    expect(command).toContain("-c unix_socket_directories=/tmp");
+    expect(() => drill.isolatedPostgresStartup("arbitrary; unsafe")).toThrow(
+      "Unqualified",
+    );
+  });
   it("restores with PostgreSQL default ownership reconstruction, never stripping owners or ACLs", () => {
     const args = drill.databaseRestoreArgs("c".repeat(64), "supabase_admin");
     expect(args).toContain("--exit-on-error");

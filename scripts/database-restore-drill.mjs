@@ -83,6 +83,12 @@ export function databaseRestoreArgs(targetId, bootstrap) {
   ];
 }
 
+export function isolatedPostgresStartup(bootstrap) {
+  if (!["postgres", "supabase_admin"].includes(bootstrap))
+    throw new Error("Unqualified source bootstrap identity");
+  return `initdb -D /tmp/dr-data --username=${bootstrap} --auth=trust --no-instructions >/tmp/initdb.log; exec postgres -D /tmp/dr-data -c listen_addresses= -c unix_socket_directories=/tmp -c shared_preload_libraries=pg_stat_statements,pg_cron,pg_net -c cron.launch_active_jobs=off -c max_worker_processes=0 -c max_parallel_workers=0`;
+}
+
 export function validateSource(source, endpoint, env) {
   if (env.DOCKER_HOST || env.DOCKER_CONTEXT)
     throw new Error("Docker context override is refused");
@@ -595,7 +601,7 @@ export async function runRestoreDrill({
         "/bin/sh",
         source.image,
         "-ceu",
-        `initdb -D /tmp/dr-data --username=${bootstrap} --auth=trust --no-instructions >/tmp/initdb.log; exec postgres -D /tmp/dr-data -c listen_addresses= -c unix_socket_directories=/tmp -c shared_preload_libraries=pg_stat_statements,pg_cron,pg_net -c cron.launch_active_jobs=off`,
+        isolatedPostgresStartup(bootstrap),
       ]),
     );
     validateTarget(await inspect(targetId), runId);
@@ -630,13 +636,18 @@ export async function runRestoreDrill({
         targetId,
         bootstrap,
         "/tmp",
-        `select current_user='${bootstrap}' and oid=10 and rolsuper from pg_roles where rolname=current_user;`,
+        `select current_user='${bootstrap}' and oid=10 and rolsuper,
+          current_setting('max_worker_processes')::integer=0,
+          current_setting('cron.launch_active_jobs')::boolean=false
+          from pg_roles where rolname=current_user;`,
       );
-      if (authority !== "t")
+      if (authority !== "t|t|t")
         throw new Error(
-          "Isolated restore bootstrap is not the expected superuser",
+          "Isolated restore authority or worker containment is unqualified",
         );
       report.targetBootstrapSuperuser = true;
+      report.targetWorkerSlotsDisabled = true;
+      report.targetCronJobsDisabled = true;
     });
     await timed("restore", async () => {
       phase = "restore_roles";

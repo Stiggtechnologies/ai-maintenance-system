@@ -19,7 +19,12 @@ without role passwords and makes a complete custom-format database dump. It
 restores only into a newly created empty database on the source's immutable
 image ID. The target has no network, published ports, host mounts, persistent
 volumes, root privileges or ambient production credentials. Its root filesystem
-is read-only and scheduled cron execution is disabled before restore starts.
+is read-only, scheduled cron execution is disabled and extension/parallel
+background-worker slots are set to zero before restore starts. Libraries stay
+preloaded for extension reconstruction, but their workers cannot execute jobs,
+HTTP calls or hold a session on the initial database. Actual target settings are
+checked before restoring source SQL. This contains worker execution only in the
+throwaway target; enabling recovered jobs requires a separately approved path.
 
 The canonical records are restored, not remodelled: assets, components, evidence,
 recommendations, decisions, approvals, work, audit history and customer identity
