@@ -54,6 +54,35 @@ export function prepareRolesRestore(script, bootstrap) {
     .join("\n");
 }
 
+export function databaseRestoreArgs(targetId, bootstrap) {
+  if (
+    !/^[a-f0-9]{64}$/.test(targetId) ||
+    !["postgres", "supabase_admin"].includes(bootstrap)
+  )
+    throw new Error("Unqualified restore identity");
+  // Default pg_restore creates objects as the restore authority, then applies
+  // their original owners. Creating each schema as its limited owner instead
+  // incorrectly assumes that every historical owner can CREATE on the database.
+  return [
+    "exec",
+    "-i",
+    "--user",
+    "postgres",
+    targetId,
+    "pg_restore",
+    "--exit-on-error",
+    "--clean",
+    "--if-exists",
+    "--create",
+    "-U",
+    bootstrap,
+    "-h",
+    "/tmp",
+    "-d",
+    "template1",
+  ];
+}
+
 export function validateSource(source, endpoint, env) {
   if (env.DOCKER_HOST || env.DOCKER_CONTEXT)
     throw new Error("Docker context override is refused");
@@ -606,28 +635,9 @@ export async function runRestoreDrill({
       report.rolesRestoreSha256 = sha(rolesRestore);
       await sql(targetId, bootstrap, "/tmp", rolesRestore);
       phase = "restore_database";
-      await command(
-        "docker",
-        [
-          "exec",
-          "-i",
-          "--user",
-          "postgres",
-          targetId,
-          "pg_restore",
-          "--exit-on-error",
-          "--clean",
-          "--if-exists",
-          "--use-set-session-authorization",
-          "-U",
-          bootstrap,
-          "-h",
-          "/tmp",
-          "-d",
-          "postgres",
-        ],
-        { input: readFileSync(join(output, "database.dump")) },
-      );
+      await command("docker", databaseRestoreArgs(targetId, bootstrap), {
+        input: readFileSync(join(output, "database.dump")),
+      });
     });
     const after = await timed("restored_inventory", async () =>
       parseInventory(

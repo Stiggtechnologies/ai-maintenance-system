@@ -24,6 +24,25 @@ const local = {
 
 describe("database restore-drill boundaries", () => {
   afterEach(() => vi.unstubAllEnvs());
+  it("restores with PostgreSQL default ownership reconstruction, never stripping owners or ACLs", () => {
+    const args = drill.databaseRestoreArgs("c".repeat(64), "supabase_admin");
+    expect(args).toContain("--exit-on-error");
+    expect(args).toContain("--clean");
+    expect(args).toContain("--create");
+    expect(args.slice(-2)).toEqual(["-d", "template1"]);
+    expect(args).not.toContain("--use-set-session-authorization");
+    expect(args).not.toContain("--no-owner");
+    expect(args).not.toContain("--no-acl");
+    expect(args).not.toContain("--no-privileges");
+  });
+  it("rejects arbitrary restore identities before constructing command arguments", () => {
+    expect(() =>
+      drill.databaseRestoreArgs("production", "supabase_admin"),
+    ).toThrow("Unqualified");
+    expect(() =>
+      drill.databaseRestoreArgs("c".repeat(64), "arbitrary"),
+    ).toThrow("Unqualified");
+  });
   it.each(["postgres", "supabase_admin"])(
     "preserves the source bootstrap %s while removing only its duplicate creation",
     (bootstrap) => {

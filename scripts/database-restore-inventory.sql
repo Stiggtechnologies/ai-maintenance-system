@@ -4,6 +4,19 @@ set extra_float_digits = 3;
 set search_path = pg_catalog;
 set statement_timeout = '5min';
 
+select jsonb_build_object('kind','database','key',datname,'value',
+  jsonb_build_array(pg_get_userbyid(datdba),encoding,datcollate,datctype,
+    datistemplate,datallowconn,datconnlimit,datacl::text))
+from pg_database where datname=current_database();
+
+select jsonb_build_object('kind','database_role_setting','key',
+  case when setrole=0 then '*' else pg_get_userbyid(setrole) end,'value',setconfig)
+from pg_db_role_setting where setdatabase=(select oid from pg_database where datname=current_database())
+order by setrole;
+
+select jsonb_build_object('kind','parameter_acl','key',parname,'value',paracl::text)
+from pg_parameter_acl order by parname;
+
 select jsonb_build_object('kind','role','key',rolname,'value',
   jsonb_build_array(rolsuper,rolinherit,rolcreaterole,rolcreatedb,rolcanlogin,
     rolreplication,rolbypassrls,rolconnlimit,rolvaliduntil,rolconfig))

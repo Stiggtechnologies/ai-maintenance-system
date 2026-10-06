@@ -31,6 +31,15 @@ and `supabase_migrations` using counts and ordered multiset SHA-256 digests.
 It compares roles/memberships, extensions and schemas, plus canonical relation
 owners/ACLs/RLS flags, columns, policies, functions (including SECURITY DEFINER,
 owner/search path/grants), constraints, indexes and noninternal triggers.
+Database owner/ACL/locale/connection properties, database-specific role settings
+and parameter privileges are included in the inventory. Restore connects to
+the isolated target's `template1` and reconstructs the archived database with
+`--create --clean --if-exists`; it does not retain initdb's substitute database
+owner or default privileges. Default PostgreSQL ownership reconstruction is
+used: create as the restore authority, then apply the original owner. The
+alternative `--use-set-session-authorization` requires historical object owners
+to retain creation privileges they may correctly no longer possess. Neither
+owners nor ACLs are omitted.
 It then runs a rollback-only tenant witness against the restored canonical
 tables: the existing demo user must retain its tenant context and positive asset
 read, while another tenant's asset read and insert must be refused.
