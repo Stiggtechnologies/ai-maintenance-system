@@ -13,6 +13,39 @@ const component = readFileSync(
 const governance = readFileSync("src/components/DataGovernance.tsx", "utf8");
 
 describe("E12.07 governed time-synchronization assurance", () => {
+  it("reconciles a configuration intent through its tenant-bound canonical receipt before changing the revision", () => {
+    expect(migration).toContain("p_idempotency_key uuid default null");
+    expect(migration).toContain(
+      "idx_audit_connector_time_configuration_intent",
+    );
+    expect(migration).toContain("pg_advisory_xact_lock");
+    expect(migration).toContain("v_receipt.actor is distinct from v_uid::text");
+    expect(migration).toContain("v_receipt.new_state->>'configuration_basis'");
+    expect(migration).toContain(
+      "'current_configuration_revision',c.time_assurance_revision",
+    );
+    expect(migration).toContain("'idempotency_key',p_idempotency_key");
+    const replay = migration.indexOf("'audit_id',v_receipt.id");
+    const revision = migration.indexOf(
+      "v_revision:=c.time_assurance_revision+1",
+    );
+    expect(replay).toBeGreaterThan(0);
+    expect(revision).toBeGreaterThan(replay);
+    expect(migration).not.toMatch(
+      /create table(?: if not exists)? public\.connector_time_(?:intents|requests|executions)/,
+    );
+  });
+
+  it("requires current administrator standing only for a clock-field change, not unrelated source revocation", () => {
+    expect(migration).toContain(
+      "if v_clock_changed and new.time_configured_by is not null",
+    );
+    expect(migration).toContain("and v_clock_changed then");
+    expect(migration).not.toContain(
+      "if new.time_configured_by is not null and not exists",
+    );
+  });
+
   it("requires the collector's expected revision instead of rebinding an in-flight observation", () => {
     expect(migration).toContain(
       "p_configuration_revision integer default null",

@@ -1,8 +1,10 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { Clock3, RefreshCw, ShieldCheck, TriangleAlert } from "lucide-react";
 import { useAsyncData } from "../hooks/useAsyncData";
 import {
   timeSynchronizationActions,
+  TimeAssuranceRefusalError,
+  type ClockConfigurationIntent,
   type ConnectorTimeAssurance,
   type EventTimeAssessment,
 } from "../services/timeSynchronization";
@@ -24,9 +26,18 @@ const stateClass: Record<ConnectorTimeAssurance["state"], string> = {
 export function TimeSynchronizationAssurance() {
   const { profile } = useAuth();
   const isAdmin = String(profile?.role ?? "").toLowerCase() === "admin";
+  const organizationId =
+    profile &&
+    "organization_id" in profile &&
+    typeof profile.organization_id === "string"
+      ? profile.organization_id
+      : "";
+  const contextKey = `${profile?.id ?? ""}|${organizationId}|${profile?.role ?? ""}`;
+  const contextRef = useRef({ key: contextKey, generation: 0 });
+  const mounted = useRef(true);
   const { data, loading, error, refetch } = useAsyncData(
     () => timeSynchronizationActions.status(),
-    [],
+    [contextKey],
   );
   const connectors = useMemo(() => data?.connectors ?? [], [data]);
   const [connectorId, setConnectorId] = useState("");
@@ -39,6 +50,11 @@ export function TimeSynchronizationAssurance() {
   const [evidenceReference, setEvidenceReference] = useState("");
   const [basis, setBasis] = useState("");
   const [working, setWorking] = useState(false);
+  const [submittedProposal, setSubmittedProposal] =
+    useState<Readonly<ClockConfigurationIntent> | null>(null);
+  const proposalRef = useRef<Readonly<ClockConfigurationIntent> | null>(null);
+  const proposalContextRef = useRef<string | null>(null);
+  const configurationInFlight = useRef(false);
   const [message, setMessage] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
   const [eventConnectorId, setEventConnectorId] = useState("");
@@ -49,6 +65,26 @@ export function TimeSynchronizationAssurance() {
   );
   const [assessmentError, setAssessmentError] = useState<string | null>(null);
   const assessmentRequest = useRef(0);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
+
+  useLayoutEffect(() => {
+    if (contextRef.current.key !== contextKey) {
+      contextRef.current = {
+        key: contextKey,
+        generation: contextRef.current.generation + 1,
+      };
+      assessmentRequest.current += 1;
+      setAssessment(null);
+      setAssessmentError(null);
+      setMessage(null);
+    }
+  }, [contextKey]);
 
   function clearAssessment() {
     assessmentRequest.current += 1;
@@ -94,32 +130,83 @@ export function TimeSynchronizationAssurance() {
     [connectors],
   );
 
-  async function configure() {
+  async function submitConfiguration(
+    proposal: Readonly<ClockConfigurationIntent>,
+  ) {
+    if (
+      configurationInFlight.current ||
+      !mounted.current ||
+      proposalContextRef.current !== contextRef.current.key
+    )
+      return;
+    const requestContext = contextRef.current;
+    configurationInFlight.current = true;
     setWorking(true);
     setMessage(null);
     setFormError(null);
     try {
-      const result = await timeSynchronizationActions.configure({
-        connectorId,
-        protocol,
-        referenceAuthority,
-        toleranceMs: Number(toleranceMs),
-        maxObservationAgeMinutes: Number(maxAgeMinutes),
-        evidenceReference,
-        basis,
-      });
+      const result = await timeSynchronizationActions.configure(proposal);
+      if (!mounted.current) return;
+      if (requestContext !== contextRef.current)
+        throw new Error(
+          "Configuration authority changed while the request was in flight.",
+        );
       setMessage(
-        String(
-          result.note ??
-            "Clock contract recorded. A current service observation is required.",
-        ),
+        result.replay
+          ? `Clock contract receipt confirmed for original revision ${result.configuration_revision}; current revision ${result.current_configuration_revision}. This historical replay does not establish the active contract, evidence approval or clock synchronization.`
+          : `Clock contract recorded as revision ${result.configuration_revision}. A current service observation is still required; canonical evidence approval remains unverified.`,
       );
-      await refetch();
+      proposalRef.current = null;
+      proposalContextRef.current = null;
+      setSubmittedProposal(null);
+      // The canonical hook schedules a refresh; it does not return fresh proof.
+      refetch();
     } catch (caught) {
-      setFormError((caught as Error).message);
+      if (!mounted.current) return;
+      if (
+        caught instanceof TimeAssuranceRefusalError &&
+        requestContext === contextRef.current
+      ) {
+        proposalRef.current = null;
+        proposalContextRef.current = null;
+        setSubmittedProposal(null);
+        setFormError(caught.message);
+      } else {
+        setFormError(
+          "Configuration outcome is unknown. Inputs remain locked. Retry only this same immutable configuration intent safely from the original administrator context; do not submit a new revision. Do not reload or navigate away before reconciliation: this screen does not persist the unresolved intent across browser sessions.",
+        );
+      }
     } finally {
-      setWorking(false);
+      configurationInFlight.current = false;
+      if (mounted.current) setWorking(false);
     }
+  }
+
+  function configure() {
+    if (configurationInFlight.current || proposalRef.current) return;
+    let idempotencyKey: string;
+    try {
+      idempotencyKey = crypto.randomUUID();
+    } catch {
+      setFormError(
+        "A secure configuration intent UUID could not be created; no configuration was submitted.",
+      );
+      return;
+    }
+    const proposal = Object.freeze({
+      connectorId,
+      idempotencyKey,
+      protocol,
+      referenceAuthority,
+      toleranceMs: Number(toleranceMs),
+      maxObservationAgeMinutes: Number(maxAgeMinutes),
+      evidenceReference,
+      basis,
+    });
+    proposalRef.current = proposal;
+    proposalContextRef.current = contextRef.current.key;
+    setSubmittedProposal(proposal);
+    void submitConfiguration(proposal);
   }
 
   if (loading) return <LoadingState label="Loading time assurance" />;
@@ -332,7 +419,10 @@ export function TimeSynchronizationAssurance() {
             Reconfiguration starts a new revision. Older measurements remain
             immutable history and cannot qualify the new contract.
           </p>
-          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <fieldset
+            disabled={working || submittedProposal !== null}
+            className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3"
+          >
             <select
               aria-label="Time-assurance connector"
               className={inputClass}
@@ -390,8 +480,9 @@ export function TimeSynchronizationAssurance() {
               value={evidenceReference}
               onChange={(event) => setEvidenceReference(event.target.value)}
             />
-          </div>
+          </fieldset>
           <textarea
+            disabled={working || submittedProposal !== null}
             className={`${inputClass} mt-3`}
             rows={3}
             placeholder="Clock authority, engineering tolerance and freshness basis (40+ characters)"
@@ -404,11 +495,25 @@ export function TimeSynchronizationAssurance() {
           {message && (
             <p className="mt-3 text-sm text-emerald-300">{message}</p>
           )}
+          {submittedProposal !== null && !working && (
+            <button
+              type="button"
+              disabled={proposalContextRef.current !== contextKey}
+              className="mt-4 rounded-lg border border-amber-500/40 px-4 py-2 text-sm text-amber-200"
+              onClick={() => {
+                if (proposalRef.current)
+                  void submitConfiguration(proposalRef.current);
+              }}
+            >
+              Retry same configuration safely
+            </button>
+          )}
           <button
             type="button"
             onClick={() => void configure()}
             disabled={
               working ||
+              submittedProposal !== null ||
               connectorId.length === 0 ||
               referenceAuthority.trim().length < 5 ||
               evidenceReference.trim().length < 8 ||

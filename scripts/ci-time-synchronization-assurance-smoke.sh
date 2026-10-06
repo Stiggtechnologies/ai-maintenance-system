@@ -2,6 +2,10 @@
 set -euo pipefail
 trap 'echo "E12.07 time-synchronization assurance smoke FAILED at line $LINENO"' ERR
 
+# Synthetic profile transitions and concurrent writes are CI loopback fixtures,
+# never production administration or permission to enable a customer feed.
+test "${GITHUB_ACTIONS:-}" = true
+
 eval "$(supabase status -o env | grep -E '^(ANON_KEY|SERVICE_ROLE_KEY|API_URL)=')"
 : "${API_URL:?}" "${ANON_KEY:?}" "${SERVICE_ROLE_KEY:?}"
 
@@ -18,6 +22,8 @@ CLOCK_REVISION=1
 psqlc(){ PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "$1"; }
 token(){ curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}" | python3 -c "import json,sys;print(json.load(sys.stdin).get('access_token',''))"; }
 rpc(){ curl -sS -w '\n%{http_code}' -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "authorization: Bearer $1" -H 'content-type: application/json' -d "$3"; }
+# One key per deliberate configuration act; reconciliation passes the SAME key.
+config_rpc(){ rpc "$1" configure_connector_time_assurance "{\"p_idempotency_key\":\"$2\",${3#\{}"; }
 service_rpc(){ curl -sS -w '\n%{http_code}' -X POST "$API_URL/rest/v1/rpc/$1" -H "apikey: $SERVICE_ROLE_KEY" -H "authorization: Bearer $SERVICE_ROLE_KEY" -H 'content-type: application/json' -d "{\"p_configuration_revision\":$CLOCK_REVISION,${2#\{}"; }
 body(){ printf '%s' "${1%$'\n'*}"; }
 status(){ printf '%s' "${1##*$'\n'}"; }
@@ -56,12 +62,23 @@ test -n "$ADMIN" && test -n "$FOREIGN"
 LOCAL_ID=$(psqlc "select id from connectors where organization_id='$ORG' and connector_key='$LOCAL_KEY'")
 FOREIGN_ID=$(psqlc "select id from connectors where organization_id='$OTHER_ORG' and connector_key='$FOREIGN_KEY'")
 
-CROSS=$(rpc "$ADMIN" configure_connector_time_assurance "{\"p_connector_id\":\"$FOREIGN_ID\",\"p_protocol\":\"ptp\",\"p_reference_authority\":\"Foreign grandmaster\",\"p_tolerance_ms\":20,\"p_max_observation_age_minutes\":15,\"p_evidence_reference\":\"E12-FOREIGN-STD\",\"p_basis\":\"A local administrator must never configure a clock source owned by another tenant.\"}")
+CROSS=$(config_rpc "$ADMIN" "$(uuidgen | tr "[:upper:]" "[:lower:]")" "{\"p_connector_id\":\"$FOREIGN_ID\",\"p_protocol\":\"ptp\",\"p_reference_authority\":\"Foreign grandmaster\",\"p_tolerance_ms\":20,\"p_max_observation_age_minutes\":15,\"p_evidence_reference\":\"E12-FOREIGN-STD\",\"p_basis\":\"A local administrator must never configure a clock source owned by another tenant.\"}")
 err "$CROSS" 'not found in this organization'
 
-CONFIG=$(rpc "$ADMIN" configure_connector_time_assurance "{\"p_connector_id\":\"$LOCAL_ID\",\"p_protocol\":\"ptp\",\"p_reference_authority\":\"Site A PTP grandmaster\",\"p_tolerance_ms\":20,\"p_max_observation_age_minutes\":1,\"p_evidence_reference\":\"ENG-TIME-STD-004\",\"p_basis\":\"Approved site engineering standard establishes the clock authority, tolerance and freshness interval.\"}")
+CONFIG_INPUT="{\"p_connector_id\":\"$LOCAL_ID\",\"p_protocol\":\"ptp\",\"p_reference_authority\":\"Site A PTP grandmaster\",\"p_tolerance_ms\":20,\"p_max_observation_age_minutes\":1,\"p_evidence_reference\":\"ENG-TIME-STD-004\",\"p_basis\":\"Approved site engineering standard establishes the clock authority, tolerance and freshness interval.\"}"
+CONFIG=$(config_rpc "$ADMIN" "$FIXTURE_ID" "$CONFIG_INPUT")
 ok "$CONFIG"
-FOREIGN_CONFIG=$(rpc "$FOREIGN" configure_connector_time_assurance "{\"p_connector_id\":\"$FOREIGN_ID\",\"p_protocol\":\"ntp\",\"p_reference_authority\":\"Foreign tenant NTP\",\"p_tolerance_ms\":100,\"p_max_observation_age_minutes\":5,\"p_evidence_reference\":\"FOREIGN-TIME-STD\",\"p_basis\":\"Foreign tenant engineering standard controls its own clock authority and evidence freshness.\"}")
+BODY="$(body "$CONFIG")" LOCAL_ID="$LOCAL_ID" INTENT="$FIXTURE_ID" python3 -c "import json,os,uuid;x=json.loads(os.environ['BODY']);assert x['ok'] is True and x['replay'] is False and x['connector_id']==os.environ['LOCAL_ID'] and x['idempotency_key']==os.environ['INTENT'];uuid.UUID(x['audit_id']);assert x['configuration_revision']==x['current_configuration_revision']==1 and x['state']=='unproven';assert x['operational_authority'] is False and x['configuration_evidence_verified'] is False and x['eligible_for_time_sensitive_evidence'] is False"
+CONFIG_REPLAY=$(config_rpc "$ADMIN" "$FIXTURE_ID" "$CONFIG_INPUT"); ok "$CONFIG_REPLAY"
+BODY="$(body "$CONFIG_REPLAY")" ORIGINAL="$(body "$CONFIG")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);old=json.loads(os.environ['ORIGINAL']);assert x['replay'] is True and x['audit_id']==old['audit_id'] and x['configuration_revision']==x['current_configuration_revision']==1"
+UNCHANGED_NEW_KEY=$(config_rpc "$ADMIN" "$(uuidgen | tr '[:upper:]' '[:lower:]')" "$CONFIG_INPUT")
+err "$UNCHANGED_NEW_KEY" 'exact clock contract is already current'
+for FIELD in p_protocol p_reference_authority p_tolerance_ms p_max_observation_age_minutes p_evidence_reference p_basis; do
+  CHANGED_INPUT=$(INPUT="$CONFIG_INPUT" FIELD="$FIELD" python3 -c "import json,os;x=json.loads(os.environ['INPUT']);f=os.environ['FIELD'];x[f]={'p_protocol':'ntp','p_reference_authority':'Different site reference','p_tolerance_ms':21,'p_max_observation_age_minutes':2,'p_evidence_reference':'ENG-TIME-STD-OTHER','p_basis':x['p_basis']+' Changed recorded basis.'}[f];print(json.dumps(x))")
+  CONFLICT=$(config_rpc "$ADMIN" "$FIXTURE_ID" "$CHANGED_INPUT")
+  err "$CONFLICT" 'different actor, connector or contract'
+done
+FOREIGN_CONFIG=$(config_rpc "$FOREIGN" "$(uuidgen | tr "[:upper:]" "[:lower:]")" "{\"p_connector_id\":\"$FOREIGN_ID\",\"p_protocol\":\"ntp\",\"p_reference_authority\":\"Foreign tenant NTP\",\"p_tolerance_ms\":100,\"p_max_observation_age_minutes\":5,\"p_evidence_reference\":\"FOREIGN-TIME-STD\",\"p_basis\":\"Foreign tenant engineering standard controls its own clock authority and evidence freshness.\"}")
 ok "$FOREIGN_CONFIG"
 
 # Service bypass of RLS does not grant authority to fabricate a clock-history receipt.
@@ -178,9 +195,11 @@ BAD_OFFSET=$(service_rpc record_connector_time_observation "{\"p_organization_id
 ok "$BAD_OFFSET"
 BODY="$(body "$BAD_OFFSET")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x['state']=='untrusted' and x['worst_case_offset_ms']==52"
 
-RECONFIG=$(rpc "$ADMIN" configure_connector_time_assurance "{\"p_connector_id\":\"$LOCAL_ID\",\"p_protocol\":\"ptp\",\"p_reference_authority\":\"Site A PTP grandmaster\",\"p_tolerance_ms\":20,\"p_max_observation_age_minutes\":1,\"p_evidence_reference\":\"ENG-TIME-STD-005\",\"p_basis\":\"Annual engineering review reconfirmed clock authority, tolerance and freshness; new observations are required.\"}")
+RECONFIG=$(config_rpc "$ADMIN" "$(uuidgen | tr "[:upper:]" "[:lower:]")" "{\"p_connector_id\":\"$LOCAL_ID\",\"p_protocol\":\"ptp\",\"p_reference_authority\":\"Site A PTP grandmaster\",\"p_tolerance_ms\":20,\"p_max_observation_age_minutes\":1,\"p_evidence_reference\":\"ENG-TIME-STD-005\",\"p_basis\":\"Annual engineering review reconfirmed clock authority, tolerance and freshness; new observations are required.\"}")
 ok "$RECONFIG"
 BODY="$(body "$RECONFIG")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x['configuration_revision']==2 and x['state']=='unproven'"
+HISTORICAL_REPLAY=$(config_rpc "$ADMIN" "$FIXTURE_ID" "$CONFIG_INPUT"); ok "$HISTORICAL_REPLAY"
+BODY="$(body "$HISTORICAL_REPLAY")" ORIGINAL="$(body "$CONFIG")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);old=json.loads(os.environ['ORIGINAL']);assert x['replay'] is True and x['audit_id']==old['audit_id'] and x['configuration_revision']==1 and x['current_configuration_revision']==2;assert x['configuration_evidence_verified'] is False and x['eligible_for_time_sensitive_evidence'] is False"
 CLOCK_REVISION=2
 AFTER_RECONFIG=$(rpc "$ADMIN" get_connector_time_assurance '{}'); ok "$AFTER_RECONFIG"
 BODY="$(body "$AFTER_RECONFIG")" LOCAL_ID="$LOCAL_ID" python3 -c "import json,os;x=json.loads(os.environ['BODY']);row=next(v for v in x['connectors'] if v['connectorId']==os.environ['LOCAL_ID']);assert row['state']=='unproven' and not row['eligibleForTimeSensitiveEvidence'] and row['observationId'] is None"
@@ -213,4 +232,81 @@ VISIBLE=$(curl -sS -w '\n%{http_code}' "$API_URL/rest/v1/connector_time_observat
 test "$(status "$VISIBLE")" = 200
 BODY="$(body "$VISIBLE")" ORG="$ORG" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert len(x)>=2 and all(v['organization_id']==os.environ['ORG'] for v in x)"
 
-echo "Time synchronization assurance smoke passed: canonical_connector=true named_human=true service_only=true tenant_wall=true exact_offset=true uncertainty=true replay_safe=true envelope_match=true initial_config_guard=true complete_contract_guard=true owner_write_guard=true identity_retained=true immutable_history=true truncate_refused=true hindsight_refused=true future_refused=true revisioned=true historical_contract=true audit_receipt_guard=true stale_fail_closed=true canonical_evidence_approval=false operational_authority=false"
+# An actual two-session clean-chain witness, not a mocked lock assertion. The
+# helper independently restricts this mode to GHA + loopback54322 + this fixture.
+node scripts/tests/time-assurance-concurrency-postgres.mjs --ci-clock-fixture 127.0.0.1 54322 postgres "$LOCAL_ID" "$LOCAL_KEY"
+
+# Current B can revoke rights and record unavailability after historical A loses
+# authority. All profile/classification changes roll back in this CI transaction.
+ADMIN_ID=$(psqlc "select time_configured_by from connectors where id='$LOCAL_ID'")
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -q -v ON_ERROR_STOP=1 <<SQL
+begin;
+select set_config('request.jwt.claims','{"sub":"$ADMIN_ID","role":"authenticated"}',true);
+set local role authenticated;
+do \$classify\$
+declare r jsonb;
+begin
+  r:=register_context_source('$LOCAL_ID','customer_operational','context_only',
+    'CI-only clock/source revocation regression','unreviewed',null,
+    'Synthetic disposable source remains unreviewed; no live data or engineering approval is asserted.');
+  assert r->>'status'='registered',r::text;
+end
+\$classify\$;
+reset role;
+select set_config('request.jwt.claims','{"role":"service_role"}',true);
+do \$service_profile_fixture\$ begin
+  assert auth.uid() is null,'profile changes require the controlled service fixture, not a client privilege bypass';
+end \$service_profile_fixture\$;
+update user_profiles set organization_id='$ORG' where id='$OTHER_USER';
+update user_profiles set role='planner' where id='$ADMIN_ID';
+do \$changed_profiles\$ begin
+  assert (select role='planner' from user_profiles where id='$ADMIN_ID');
+  assert (select organization_id='$ORG' and role='admin' from user_profiles where id='$OTHER_USER');
+end \$changed_profiles\$;
+select set_config('request.jwt.claims','{"sub":"$OTHER_USER","role":"authenticated"}',true);
+set local role authenticated;
+do \$revoke\$
+declare r jsonb;
+begin
+  r:=record_context_source_health('$LOCAL_ID','unavailable',clock_timestamp(),null,
+    'Synthetic source unavailable after historical clock administrator demotion.');
+  assert r->>'state'='unavailable',r::text;
+  r:=transition_context_source_rights('$LOCAL_ID','blocked','CI-E12-REVOKED',
+    'Current named administrator revokes this synthetic source after its historical clock administrator was demoted.');
+  assert r->>'rights_state'='blocked' and r->>'display_as_live'='false',r::text;
+end
+\$revoke\$;
+reset role;
+select set_config('request.jwt.claims','{"role":"service_role"}',true);
+update user_profiles set organization_id='$OTHER_ORG' where id='$ADMIN_ID';
+do \$transferred_profile\$ begin
+  assert (select organization_id='$OTHER_ORG' from user_profiles where id='$ADMIN_ID');
+end \$transferred_profile\$;
+select set_config('request.jwt.claims','{"sub":"$OTHER_USER","role":"authenticated"}',true);
+set local role authenticated;
+do \$transfer\$
+declare r jsonb;
+begin
+  r:=record_context_source_health('$LOCAL_ID','unavailable',clock_timestamp(),null,
+    'Synthetic source remains unavailable after historical clock administrator transfer.');
+  assert r->>'state'='unavailable',r::text;
+end
+\$transfer\$;
+reset role;
+do \$retained\$
+begin
+  update connectors set enabled=false where id='$LOCAL_ID';
+  assert (select time_configured_by='$ADMIN_ID' and not enabled from connectors where id='$LOCAL_ID'),
+    'unrelated disable must preserve historical clock identity';
+  begin
+    update connectors set time_tolerance_ms=999 where id='$LOCAL_ID';
+    raise exception 'test failed: raw clock change accepted after historical administrator transfer';
+  exception when others then
+    if sqlerrm not like '%governed configuration RPC%' then raise; end if;
+  end;
+end
+\$retained\$;
+rollback;
+SQL
+
+echo "Time synchronization assurance smoke passed: canonical_connector=true named_human=true service_only=true tenant_wall=true exact_offset=true uncertainty=true replay_safe=true envelope_match=true initial_config_guard=true complete_contract_guard=true owner_write_guard=true identity_retained=true immutable_history=true truncate_refused=true hindsight_refused=true future_refused=true revisioned=true historical_contract=true audit_receipt_guard=true concurrent_intent_replay=true cross_connector_collision_refused=true rollback_retry=true historical_admin_revocation=true historical_admin_transfer=true stale_fail_closed=true canonical_evidence_approval=false operational_authority=false"

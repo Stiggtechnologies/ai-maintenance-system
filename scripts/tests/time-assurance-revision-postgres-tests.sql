@@ -41,7 +41,7 @@ begin
   perform set_config('test.jwt_role','authenticated',true);
   r:=configure_connector_time_assurance('33333333-3333-4333-8333-333333333333',
     'ntp','Fourth reference',5,10,'DRAFT-TIME-REF4',
-    'Synthetic reconfiguration tests a collection already in flight; approval is not claimed.');
+    'Synthetic reconfiguration tests a collection already in flight; approval is not claimed.',gen_random_uuid());
   assert r->>'configuration_revision'='4',r::text;
   perform set_config('test.jwt_role','service_role',true);
   r:=record_connector_time_observation('11111111-1111-4111-8111-111111111111','local',

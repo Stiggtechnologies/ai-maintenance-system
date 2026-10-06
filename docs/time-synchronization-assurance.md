@@ -25,9 +25,31 @@ A human tenant administrator records:
 - how long an observation may remain current;
 - the controlled evidence reference and engineering basis.
 
-SyncAI does not supply a default tolerance. Reconfiguring any of those inputs
+SyncAI does not supply a default tolerance. Deliberately changing any of those inputs
 creates a new monotonic contract revision. Measurements from earlier revisions
 remain in history but cannot qualify the new contract.
+
+Each configuration act requires a caller-generated `p_idempotency_key` UUID.
+The tenant/key is serialized before the connector lock and has a unique receipt
+in the **existing** `audit_events` ledger, not a separate request/history store.
+An exact retry by the currently authorized original administrator, with the
+same connector and all normalized inputs, returns the original audit receipt
+without changing the revision, configuration instant, observations or history.
+Changed actor, connector or inputs under the same key are refused. Equal keys
+in different tenants are independent. A receipt replay can be historical:
+`configuration_revision` is the original receipt's revision and
+`current_configuration_revision` is the connector's current revision. Neither
+is evidence approval. The earlier seven-argument non-idempotent development
+overload is removed by this unapplied draft migration.
+
+A different key with all inputs identical to the current contract is refused
+without mutation. Re-entering an unchanged contract after a browser reload
+cannot create another revision merely by generating a new key. Reconfirmation
+that changes a recorded basis or reference is a separate deliberate act.
+Historical administrators need not remain administrators forever: unrelated
+source-rights, health and disable changes do not revalidate the old clock actor.
+New clock-field changes and configuration/replay requests still require current
+same-tenant administrator standing; old receipts are never rewritten.
 
 A controlled service submits observations through
 `record_connector_time_observation`. The database calculates signed offset
@@ -85,6 +107,18 @@ timestamp. The result displays its recorded revision, tolerance/freshness and
 configuration audit ID alongside the ineligible-evidence boundary. Ambiguous
 timezone-free input is refused, and editing the inputs clears stale results,
 including an older in-flight response.
+
+Read and write responses are runtime-qualified, including requested connector,
+event instant (preserving microseconds), intent and audit identities, revisions,
+and literal false approval/eligibility/authority fields. Missing, malformed or
+contradictory payloads are not an empty workspace or a confirmed write.
+A configuration transport failure or unqualified acknowledgement leaves its
+immutable proposal locked on screen; the explicit safe retry reuses the same
+intent. Only a complete bound receipt or a qualified refusal releases it.
+The current pending proposal is component-local and is **not persisted across
+navigation/reload**. The screen warns users to reconcile before leaving; it does
+not claim cross-session recovery of an unresolved proposal. Canonical status
+refresh is scheduled separately, not treated as an awaited fresh-state proof.
 
 ## Azure IoT Operations and OPC UA
 
@@ -167,20 +201,36 @@ initial/owner writes, incomplete NULL contracts, identity retention, deletion,
 truncation, every changed replay field, hindsight, future events, stale receipts,
 superseded revisions and an actual non-owner-role RLS query. The hosted smoke
 must independently cover the real clean Supabase chain and authenticated users.
-Run `scripts/tests/time-assurance-revision-postgres-tests.sql` last to verify
+Run `scripts/tests/time-assurance-revision-postgres-tests.sql` next to verify
 omitted/NULL/non-positive revisions, an earlier measurement with a new delivery
 ID after reconfiguration, unrecorded future revisions, unchanged refused-row
 counts, explicit active-revision acceptance/replay, subsequent invalidation and
 the revised function's actual anon/authenticated/service-role execute privileges.
+Then run `scripts/tests/time-assurance-configuration-intent-postgres-tests.sql`
+for exact normalized receipt replay, every changed input, actor/connector and
+tenant key isolation, no-op refusal, original-versus-current revisions with
+retained observations, missing-key/obsolete-overload refusal, and historical
+actor demotion/transfer without granting new clock-write authority. These new
+fixtures must be actually executed at the repaired head before claiming a pass.
 
 `scripts/tests/time-assurance-concurrency-postgres.mjs` adds an actual two-session
 witness, with a third session inspecting PostgreSQL's blocking relationship.
-It accepts only an explicitly marked owned Unix-socket test cluster and a
+Its isolated mode accepts only an explicitly marked owned Unix-socket test cluster and a
 `clock_*` database with the synthetic identity helpers and no `auth.users`.
 Run it after the above fixtures with Node and arguments
 `--disposable-clock-fixture <owned-socket-directory> <port> <clock-database>`.
 When configuration wins, the older declared measurement waits and is refused
 without an insert. When observation wins, its original revision is retained and
-the waiting new contract remains unproven. The fixture retains its two new
+the waiting new contract remains unproven. The fixture retains its four new
 configuration receipts and one synthetic observation; no records are deleted.
-This witness is not a GoTrue, real collector or production concurrency claim.
+The clean-chain smoke also invokes an explicitly marked `--ci-clock-fixture`
+mode, restricted to GitHub Actions, loopback port 54322, the disposable `postgres`
+database, and the newly created E12 fixture identity. This exercises the actual
+clean-chain RPCs with controlled SQL JWT claims; separate HTTP smoke requests
+exercise real GoTrue tokens. It does not prove customer or production identities.
+Both modes test actual blocking, same-key cross-connector collision without
+mutation, exact replay and a waiting retry after the first transaction rolls
+back. The clean-chain smoke separately tests actual source-health and rights
+RPCs after historical administrator demotion/transfer in a rolled-back fixture.
+These new concurrency/authority paths are not qualified until their actual
+exact-head run passes. No real collector or production concurrency claim is made.

@@ -58,6 +58,7 @@ language plpgsql
 security definer
 set search_path=public
 as $$
+declare v_clock_changed boolean;
 begin
   if tg_op='DELETE' then
     if old.time_assurance_revision>0 then
@@ -85,8 +86,7 @@ begin
        or new.connector_key is distinct from old.connector_key) then
     raise exception 'connector clock history is retained under its original tenant and source identity';
   end if;
-  if coalesce(current_setting('app.time_assurance_config_write',true),'') <> 'granted'
-     and (new.time_sync_protocol is distinct from old.time_sync_protocol
+  v_clock_changed:=(new.time_sync_protocol is distinct from old.time_sync_protocol
        or new.time_reference_authority is distinct from old.time_reference_authority
        or new.time_tolerance_ms is distinct from old.time_tolerance_ms
        or new.time_observation_max_age_minutes is distinct from old.time_observation_max_age_minutes
@@ -94,10 +94,15 @@ begin
        or new.time_configuration_basis is distinct from old.time_configuration_basis
        or new.time_configured_by is distinct from old.time_configured_by
        or new.time_configured_at is distinct from old.time_configured_at
-       or new.time_assurance_revision is distinct from old.time_assurance_revision) then
+       or new.time_assurance_revision is distinct from old.time_assurance_revision);
+  if coalesce(current_setting('app.time_assurance_config_write',true),'') <> 'granted'
+     and v_clock_changed then
     raise exception 'connector time-assurance fields are writable only through the governed configuration RPC';
   end if;
-  if new.time_configured_by is not null and not exists (
+  -- Historical actors need not remain administrators forever. Rights revocation,
+  -- source-health changes and disabling must not depend on their current role.
+  -- A NEW clock-field change still requires current named-human authority.
+  if v_clock_changed and new.time_configured_by is not null and not exists (
     select 1 from public.user_profiles p
     where p.id=new.time_configured_by
       and p.organization_id=new.organization_id
@@ -229,6 +234,12 @@ begin
   if coalesce(current_setting('app.time_assurance_audit_write',true),'')<>'granted' then
     raise exception 'clock configuration audit receipts require the governed configuration RPC';
   end if;
+  if not coalesce(jsonb_typeof(new.event_data->'idempotency_key')='string'
+     and new.event_data->>'idempotency_key' ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',false)
+     or new.event_data->'operational_authority' is distinct from 'false'::jsonb
+     or new.event_data->'sets_source_clock' is distinct from 'false'::jsonb then
+    raise exception 'clock configuration receipt requires a stable intent identity and false authority flags';
+  end if;
   select * into c from public.connectors
     where id::text=new.event_data->>'connector_id' and organization_id=new.organization_id;
   if not found or c.time_assurance_revision<1
@@ -258,6 +269,17 @@ revoke all on function public.enforce_connector_time_audit_receipt()
 create index if not exists idx_audit_connector_time_contract
   on public.audit_events(organization_id,(event_data->>'connector_id'))
   where entity_type='connector_time_assurance_configuration';
+-- Reuse the canonical audit idempotency pattern; no second execution/history store.
+create unique index if not exists idx_audit_connector_time_configuration_intent
+  on public.audit_events(organization_id,((event_data->>'idempotency_key')))
+  where entity_type='connector_time_assurance_configuration'
+    and event_data ? 'idempotency_key';
+
+-- This is an unapplied draft migration. Do not leave its earlier non-idempotent
+-- seven-argument development overload reachable when the fixture is reapplied.
+drop function if exists public.configure_connector_time_assurance(
+  uuid,text,text,numeric,integer,text,text
+);
 
 create or replace function public.configure_connector_time_assurance(
   p_connector_id uuid,
@@ -266,7 +288,8 @@ create or replace function public.configure_connector_time_assurance(
   p_tolerance_ms numeric,
   p_max_observation_age_minutes integer,
   p_evidence_reference text,
-  p_basis text
+  p_basis text,
+  p_idempotency_key uuid default null
 )
 returns jsonb
 language plpgsql
@@ -281,11 +304,23 @@ declare
   v_protocol text:=lower(btrim(coalesce(p_protocol,'')));
   v_revision integer;
   v_current public.connectors%rowtype;
+  v_receipt public.audit_events%rowtype;
+  v_audit_id uuid;
 begin
-  if v_org is null or v_uid is null or coalesce(v_role,'')<>'admin' then
+  if v_org is null or v_uid is null or coalesce(v_role,'')<>'admin'
+     or not exists(select 1 from public.user_profiles p
+       where p.id=v_uid and p.organization_id=v_org and p.role='admin') then
     return jsonb_build_object('error',
       'time assurance configuration requires a named same-tenant human administrator');
   end if;
+  if p_idempotency_key is null then
+    return jsonb_build_object('error','a stable configuration intent identity is required');
+  end if;
+  -- Same-tenant keys serialize BEFORE connector locks, including attempts to
+  -- reuse a key for a different connector. Hash collisions only serialize work;
+  -- the exact canonical receipt key and unique index decide identity.
+  perform pg_advisory_xact_lock(hashtextextended(
+    v_org::text||':connector_time_assurance_configuration:'||p_idempotency_key::text,0));
   select * into c from public.connectors
   where id=p_connector_id and organization_id=v_org for update;
   if not found then
@@ -318,6 +353,44 @@ begin
       'a substantive clock authority, tolerance and freshness basis is required');
   end if;
 
+  select * into v_receipt from public.audit_events a
+  where a.organization_id=v_org
+    and a.entity_type='connector_time_assurance_configuration'
+    and a.event_data->>'idempotency_key'=p_idempotency_key::text;
+  if found then
+    if v_receipt.actor is distinct from v_uid::text
+      or v_receipt.event_data->>'connector_id' is distinct from c.id::text
+      or v_receipt.new_state->>'organization_id' is distinct from v_org::text
+      or v_receipt.new_state->>'connector_id' is distinct from c.id::text
+      or v_receipt.new_state->>'protocol' is distinct from v_protocol
+      or v_receipt.new_state->>'reference_authority' is distinct from btrim(p_reference_authority)
+      or (v_receipt.new_state->>'tolerance_ms')::numeric is distinct from p_tolerance_ms
+      or (v_receipt.new_state->>'max_observation_age_minutes')::integer is distinct from p_max_observation_age_minutes
+      or v_receipt.new_state->>'evidence_reference' is distinct from btrim(p_evidence_reference)
+      or v_receipt.new_state->>'configuration_basis' is distinct from btrim(p_basis) then
+      return jsonb_build_object('error','configuration intent identity already belongs to a different actor, connector or contract');
+    end if;
+    return jsonb_build_object('ok',true,'connector_id',c.id,
+      'idempotency_key',p_idempotency_key,'audit_id',v_receipt.id,'replay',true,
+      'configuration_revision',(v_receipt.new_state->>'revision')::integer,
+      'current_configuration_revision',c.time_assurance_revision,'state','unproven',
+      'operational_authority',false,'configuration_evidence_verified',false,
+      'eligible_for_time_sensitive_evidence',false,
+      'note','Original clock configuration receipt reconciled without a new revision. Its recorded revision may be historical; refresh the canonical current contract. Evidence approval remains unverified.');
+  end if;
+
+  -- A new key is not permission to re-record an unchanged semantic contract.
+  -- This also bounds browser reload/re-entry after a lost response: a fresh key
+  -- cannot invalidate measurements merely by repeating all current inputs.
+  if c.time_sync_protocol is not distinct from v_protocol
+    and c.time_reference_authority is not distinct from btrim(p_reference_authority)
+    and c.time_tolerance_ms is not distinct from p_tolerance_ms
+    and c.time_observation_max_age_minutes is not distinct from p_max_observation_age_minutes
+    and c.time_evidence_reference is not distinct from btrim(p_evidence_reference)
+    and c.time_configuration_basis is not distinct from btrim(p_basis) then
+    return jsonb_build_object('error','this exact clock contract is already current; refresh its canonical record rather than create another revision');
+  end if;
+
   v_revision:=c.time_assurance_revision+1;
   perform set_config('app.time_assurance_config_write','granted',true);
   update public.connectors set
@@ -339,25 +412,28 @@ begin
   ) values(
     v_org,'connector_time_assurance_configuration',v_uid::text,
     jsonb_build_object('connector_id',c.id,'connector_key',c.connector_key,
+      'idempotency_key',p_idempotency_key,
       'operational_authority',false,'sets_source_clock',false),
     public.connector_time_contract_snapshot(c),
     public.connector_time_contract_snapshot(v_current)
-  );
+  ) returning id into v_audit_id;
   perform set_config('app.time_assurance_audit_write','',true);
 
   return jsonb_build_object('ok',true,'connector_id',c.id,
+    'idempotency_key',p_idempotency_key,'audit_id',v_audit_id,'replay',false,
+    'current_configuration_revision',v_revision,
     'configuration_revision',v_revision,'state','unproven',
     'operational_authority',false,'configuration_evidence_verified',false,
     'eligible_for_time_sensitive_evidence',false,
-    'note','Clock contract recorded. A current service observation is still required before event time is usable.');
+    'note','Clock contract recorded. A current service observation and canonical evidence approval remain required; time-sensitive evidence is still ineligible.');
 end
 $$;
 
 revoke all on function public.configure_connector_time_assurance(
-  uuid,text,text,numeric,integer,text,text
+  uuid,text,text,numeric,integer,text,text,uuid
 ) from public,anon,service_role;
 grant execute on function public.configure_connector_time_assurance(
-  uuid,text,text,numeric,integer,text,text
+  uuid,text,text,numeric,integer,text,text,uuid
 ) to authenticated;
 
 create or replace function public.record_connector_time_observation(

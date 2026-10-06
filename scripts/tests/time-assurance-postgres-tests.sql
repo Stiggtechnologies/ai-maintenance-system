@@ -6,11 +6,11 @@ select set_config('test.org','11111111-1111-4111-8111-111111111111',false),
 do $$
 declare r jsonb; t timestamptz:=clock_timestamp();
 begin
-  r:=configure_connector_time_assurance('33333333-3333-4333-8333-333333333333','ptp','Site grandmaster',20,1,'DRAFT-TIME-REF','Synthetic clock contract; no canonical source approval is claimed.');
+  r:=configure_connector_time_assurance('33333333-3333-4333-8333-333333333333','ptp','Site grandmaster',20,1,'DRAFT-TIME-REF','Synthetic clock contract; no canonical source approval is claimed.',gen_random_uuid());
   assert r->>'state'='unproven',r::text;
   r:=evaluate_connector_event_time('33333333-3333-4333-8333-333333333333',t);
   assert r->>'state'='unproven' and r->>'observation_id' is null,r::text;
-  r:=configure_connector_time_assurance('44444444-4444-4444-8444-444444444444','ptp','Foreign grandmaster',20,1,'DRAFT-TIME-REF','A local administrator cannot configure a foreign tenant source.');
+  r:=configure_connector_time_assurance('44444444-4444-4444-8444-444444444444','ptp','Foreign grandmaster',20,1,'DRAFT-TIME-REF','A local administrator cannot configure a foreign tenant source.',gen_random_uuid());
   assert r->>'error' like '%not found%',r::text;
   begin
     insert into connectors(organization_id,connector_key,name,time_tolerance_ms)
@@ -87,7 +87,7 @@ begin
   r:=evaluate_connector_event_time('33333333-3333-4333-8333-333333333333',clock_timestamp());
   assert r->>'state'='synchronized' and (r->>'within_clock_contract')::boolean,r::text;
   assert not (r->>'eligible_for_time_sensitive_evidence')::boolean and r->>'contract_scope'='recorded_contract_at_event',r::text;
-  r:=configure_connector_time_assurance('33333333-3333-4333-8333-333333333333','ptp','Site grandmaster',20,1,'DRAFT-TIME-REF2','Synthetic revision invalidates earlier observations, not customer authority.');
+  r:=configure_connector_time_assurance('33333333-3333-4333-8333-333333333333','ptp','Site grandmaster',20,1,'DRAFT-TIME-REF2','Synthetic revision invalidates earlier observations, not customer authority.',gen_random_uuid());
   assert r->>'configuration_revision'='2',r::text;
   r:=record_connector_time_observation('11111111-1111-4111-8111-111111111111','local','good-001',ref+interval '10 milliseconds',ref,4,2,'OBS-DRAFT-0001',repeat('a',64),2);
   assert r->>'error' like '%superseded%',r::text;

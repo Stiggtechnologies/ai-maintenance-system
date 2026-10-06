@@ -15,7 +15,7 @@ begin
   select new_state into receipt from audit_events where id=old_id;
   assert receipt->>'configuration_basis' is not null and receipt->>'configured_by'='aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',receipt::text;
   assert receipt->>'configured_at' is not null and receipt->>'clock_contract_version'='1',receipt::text;
-  r:=configure_connector_time_assurance('33333333-3333-4333-8333-333333333333','ntp','Another reference',1,60,'DRAFT-TIME-REF3','Synthetic tighter tolerance cannot change an already recorded historical verdict.');
+  r:=configure_connector_time_assurance('33333333-3333-4333-8333-333333333333','ntp','Another reference',1,60,'DRAFT-TIME-REF3','Synthetic tighter tolerance cannot change an already recorded historical verdict.',gen_random_uuid());
   assert r->>'configuration_revision'='3',r::text;
   -- The same instant must not invalidate history when the reader's session zone changes.
   perform set_config('TimeZone','America/Edmonton',true);
@@ -67,7 +67,7 @@ begin
   perform set_config('app.time_assurance_config_write','',true);
   r:=evaluate_connector_event_time('55555555-5555-4555-8555-555555555555',clock_timestamp());
   assert r->>'state'='unproven' and r->>'history_integrity'='unproven' and not (r->>'within_clock_contract')::boolean,r::text;
-  r:=configure_connector_time_assurance('66666666-6666-4666-8666-666666666666','ntp','Legacy reference',20,1,'DRAFT-LEGACY-REF','A new valid receipt cannot silently erase malformed prior configuration claims.');
+  r:=configure_connector_time_assurance('66666666-6666-4666-8666-666666666666','ntp','Legacy reference',20,1,'DRAFT-LEGACY-REF','A new valid receipt cannot silently erase malformed prior configuration claims.',gen_random_uuid());
   assert r->>'ok'='true',r::text;
   r:=evaluate_connector_event_time('66666666-6666-4666-8666-666666666666',clock_timestamp());
   assert r->>'state'='unproven' and r->>'history_integrity'='unproven' and r->>'configuration_audit_id' is null,r::text;
