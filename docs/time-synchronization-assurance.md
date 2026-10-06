@@ -1,6 +1,13 @@
 # Time-synchronization assurance
 
-SyncAI qualifies event timestamps; it does not configure or discipline plant
+**2026-10-06 — DRAFT, NOT PRODUCTION-QUALIFIED.** This workstream provides
+administrator-recorded clock contracts and immutable numerical observations.
+Canonical evidence approval, real collector integration, downstream enforcement,
+full historical contract reconstruction and production witnesses remain open.
+Opaque references are not approved engineering evidence. Both eligibility
+outputs stay false until those approval gates are integrated.
+
+SyncAI compares event timestamps; it does not configure or discipline plant
 clocks. The capability extends the canonical `connectors` record with a
 named-human clock contract and keeps measurements in an immutable,
 tenant-bound evidence ledger.
@@ -29,21 +36,24 @@ digest. Direct inserts, updates, and deletes are refused.
 
 The governed states are:
 
-- `unconfigured` — no approved contract;
+- `unconfigured` — no recorded contract;
 - `disabled` — the connector is not operational;
 - `unproven` — no measurement matches the active revision;
-- `stale` — the latest matching measurement exceeds its approved age;
-- `untrusted` — worst-case offset exceeds the approved tolerance;
-- `synchronized` — current evidence is within the approved tolerance.
+- `stale` — the latest matching measurement exceeds its recorded age;
+- `untrusted` — worst-case offset exceeds the recorded tolerance;
+- `synchronized` — current numerical observation is within the recorded tolerance,
+  not proof that its engineering evidence has been approved.
 
-Only `synchronized` is eligible for time-sensitive evidence. The
-`evaluate_connector_event_time` RPC evaluates the state that applied at a
-specific event time rather than rewriting the source timestamp or using the
-latest result retroactively.
+`withinClockContract` / `within_clock_contract` report numerical posture only.
+`eligibleForTimeSensitiveEvidence` / `eligible_for_time_sensitive_evidence`
+remain false pending canonical evidence approval. The event-time RPC explicitly
+reports `current_contract_only`: it refuses future events, events preceding the
+current configuration, and observations received after the event. It does not
+reconstruct superseded contracts or rewrite source timestamps.
 
 ## Azure IoT Operations and OPC UA
 
-For the Azure IoT Operations path, deploy clock measurement beside the
+**Integration design, not an installed collector.** For the Azure IoT Operations path, deploy clock measurement beside the
 read-only MQTT/Event Hubs relay. The collector may use the site's existing PTP
 or NTP telemetry, but it must send only the observation envelope and an opaque
 evidence reference. Credentials remain in the platform secret store. A clock
@@ -76,12 +86,33 @@ Recommended envelope fields map directly to the service-only RPC:
   write path.
 - Direct reads are tenant-scoped; configuration requires a named human admin;
   ingestion requires the controlled service role.
-- Deleting a connector follows the existing connector lifecycle and cascades
-  its observations. Individual observations cannot be edited or deleted.
+- A clock-configured connector retains its tenant and source identity and
+  cannot be deleted; disable it instead. Observation update, deletion and
+  truncation are refused, including ordinary database-owner writes. This is
+  not protection against a database administrator disabling the guards.
+- Initial configuration must use the named-human RPC, not a raw connector
+  insert. There is no UI default tolerance or freshness interval.
 
 ## Verification
 
-`scripts/ci-time-synchronization-assurance-smoke.sh` proves named-human
+`scripts/ci-time-synchronization-assurance-smoke.sh` is the clean-chain test for named-human
 configuration, service-only ingestion, exact signed offset, uncertainty,
 replay safety, revision invalidation, stale/untrusted refusal, direct-write
-protection, and two-tenant isolation on the clean migration chain.
+protection, and two-tenant isolation on the clean migration chain. Passing
+results must be recorded at the exact PR head before claiming those gates.
+Mocks and source-contract assertions do not prove deployed database behavior.
+The full E12.07 capability remains yellow even if these prerequisite tests pass.
+
+### Isolated PostgreSQL adversarial witness
+
+The actual migration also has reproducible fixtures in
+`scripts/tests/time-assurance-postgres-bootstrap.sql` and
+`scripts/tests/time-assurance-postgres-tests.sql`. Apply the bootstrap, actual
+`20270103010000_time_synchronization_assurance.sql`, then tests with
+`psql -v ON_ERROR_STOP=1` in a newly initialized disposable database only.
+The bootstrap deliberately substitutes synthetic identity helpers; it is not a
+full-chain, GoTrue, deployed-Supabase or production identity witness. It covers
+initial/owner writes, incomplete NULL contracts, identity retention, deletion,
+truncation, every changed replay field, hindsight, future events, stale receipts,
+superseded revisions and an actual non-owner-role RLS query. The hosted smoke
+must independently cover the real clean Supabase chain and authenticated users.

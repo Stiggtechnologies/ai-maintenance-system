@@ -8,8 +8,9 @@ eval "$(supabase status -o env | grep -E '^(ANON_KEY|SERVICE_ROLE_KEY|API_URL)='
 ORG='11111111-1111-1111-1111-111111111111'
 OTHER_ORG='99999999-9999-4999-8999-999999999761'
 OTHER_USER='99999999-9999-4999-8999-999999999762'
-LOCAL_KEY='e12-time-local'
-FOREIGN_KEY='e12-time-foreign'
+FIXTURE_ID=$(uuidgen | tr '[:upper:]' '[:lower:]')
+LOCAL_KEY="e12-time-local-$FIXTURE_ID"
+FOREIGN_KEY="e12-time-foreign-$FIXTURE_ID"
 PASSWORD='TimeSync123!@#'
 
 psqlc(){ PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "$1"; }
@@ -41,9 +42,6 @@ begin
   on conflict(id) do update set organization_id=excluded.organization_id,role='admin';
 end
 \$seed\$;
-delete from connector_time_observations where connector_id in
-  (select id from connectors where connector_key in ('$LOCAL_KEY','$FOREIGN_KEY'));
-delete from connectors where connector_key in ('$LOCAL_KEY','$FOREIGN_KEY');
 insert into connectors(organization_id,connector_key,name,connector_type,system_kind,status,enabled,direction,write_enabled)
 values
   ('$ORG','$LOCAL_KEY','E12.07 local OPC UA','OPC-UA','historian','active',true,'read_only',false),
@@ -63,6 +61,45 @@ CONFIG=$(rpc "$ADMIN" configure_connector_time_assurance "{\"p_connector_id\":\"
 ok "$CONFIG"
 FOREIGN_CONFIG=$(rpc "$FOREIGN" configure_connector_time_assurance "{\"p_connector_id\":\"$FOREIGN_ID\",\"p_protocol\":\"ntp\",\"p_reference_authority\":\"Foreign tenant NTP\",\"p_tolerance_ms\":100,\"p_max_observation_age_minutes\":5,\"p_evidence_reference\":\"FOREIGN-TIME-STD\",\"p_basis\":\"Foreign tenant engineering standard controls its own clock authority and evidence freshness.\"}")
 ok "$FOREIGN_CONFIG"
+
+# Owner statements exercise the row/statement guards, not just PostgREST ACLs.
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -q -v ON_ERROR_STOP=1 <<SQL
+do \$guards\$
+begin
+  begin
+    insert into connectors(organization_id,connector_key,name,connector_type,system_kind,status,enabled,direction,write_enabled,time_tolerance_ms)
+    values('$ORG','raw-$FIXTURE_ID','Raw configured clock','OPC-UA','historian','active',true,'read_only',false,20);
+    raise exception 'test failed: raw initial clock configuration accepted';
+  exception when others then
+    if sqlerrm not like '%initial connector clock configuration%' then raise; end if;
+  end;
+  begin
+    update connectors set time_tolerance_ms=999 where id='$LOCAL_ID';
+    raise exception 'test failed: owner raw configuration accepted';
+  exception when others then
+    if sqlerrm not like '%governed configuration RPC%' then raise; end if;
+  end;
+  begin
+    perform set_config('app.time_assurance_config_write','granted',true);
+    update connectors set time_reference_authority=null where id='$LOCAL_ID';
+    raise exception 'test failed: NULL-incomplete contract accepted';
+  exception when check_violation then null;
+  end;
+  begin
+    update connectors set organization_id='$OTHER_ORG' where id='$LOCAL_ID';
+    raise exception 'test failed: configured source tenant rebound';
+  exception when others then
+    if sqlerrm not like '%original tenant and source identity%' then raise; end if;
+  end;
+  begin
+    delete from connectors where id='$LOCAL_ID';
+    raise exception 'test failed: clock history deleted';
+  exception when others then
+    if sqlerrm not like '%connector clock history is retained%' then raise; end if;
+  end;
+end
+\$guards\$;
+SQL
 
 INITIAL=$(rpc "$ADMIN" get_connector_time_assurance '{}'); ok "$INITIAL"
 BODY="$(body "$INITIAL")" LOCAL_ID="$LOCAL_ID" FOREIGN_ID="$FOREIGN_ID" python3 -c "import json,os;x=json.loads(os.environ['BODY']);row=next(v for v in x['connectors'] if v['connectorId']==os.environ['LOCAL_ID']);assert row['state']=='unproven' and not row['eligibleForTimeSensitiveEvidence'];assert all(v['connectorId']!=os.environ['FOREIGN_ID'] for v in x['connectors']);assert x['operationalAuthority'] is False and x['setsSourceClocks'] is False"
@@ -86,6 +123,24 @@ REPLAY=$(service_rpc record_connector_time_observation "{\"p_organization_id\":\
 ok "$REPLAY"
 BODY="$(body "$REPLAY")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x['replay'] is True"
 test "$(psqlc "select count(*) from connector_time_observations where connector_id='$LOCAL_ID' and delivery_id='good-001'")" = 1
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -q -v ON_ERROR_STOP=1 <<SQL
+do \$retention\$
+begin
+  begin
+    delete from connector_time_observations where connector_id='$LOCAL_ID';
+    raise exception 'test failed: immutable observation deleted';
+  exception when others then
+    if sqlerrm not like '%immutable evidence%' then raise; end if;
+  end;
+  begin
+    truncate connector_time_observations;
+    raise exception 'test failed: immutable observation history truncated';
+  exception when others then
+    if sqlerrm not like '%immutable evidence%' then raise; end if;
+  end;
+end
+\$retention\$;
+SQL
 
 CONFLICT=$(service_rpc record_connector_time_observation "{\"p_organization_id\":\"$ORG\",\"p_connector_key\":\"$LOCAL_KEY\",\"p_delivery_id\":\"good-001\",\"p_source_clock_at\":\"$SOURCE\",\"p_reference_clock_at\":\"$REFERENCE\",\"p_round_trip_delay_ms\":4,\"p_measurement_uncertainty_ms\":2,\"p_evidence_reference\":\"AIO-PTP-OBS-0001\",\"p_payload_sha256\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"}")
 err "$CONFLICT" 'different payload digest'
@@ -93,11 +148,21 @@ UNDERSTATED=$(service_rpc record_connector_time_observation "{\"p_organization_i
 err "$UNDERSTATED" 'half the observed round-trip delay'
 
 CURRENT=$(rpc "$ADMIN" get_connector_time_assurance '{}'); ok "$CURRENT"
-BODY="$(body "$CURRENT")" LOCAL_ID="$LOCAL_ID" python3 -c "import json,os;x=json.loads(os.environ['BODY']);row=next(v for v in x['connectors'] if v['connectorId']==os.environ['LOCAL_ID']);assert row['state']=='synchronized' and row['eligibleForTimeSensitiveEvidence'];assert row['offsetMs']==10 and row['worstCaseOffsetMs']==12"
+BODY="$(body "$CURRENT")" LOCAL_ID="$LOCAL_ID" python3 -c "import json,os;x=json.loads(os.environ['BODY']);row=next(v for v in x['connectors'] if v['connectorId']==os.environ['LOCAL_ID']);assert row['state']=='synchronized' and row['withinClockContract'];assert not row['configurationEvidenceVerified'] and not row['eligibleForTimeSensitiveEvidence'];assert row['offsetMs']==10 and row['worstCaseOffsetMs']==12"
+
+# A repeated hash cannot launder a changed decoded observation envelope.
+ENVELOPE_CONFLICT=$(service_rpc record_connector_time_observation "{\"p_organization_id\":\"$ORG\",\"p_connector_key\":\"$LOCAL_KEY\",\"p_delivery_id\":\"good-001\",\"p_source_clock_at\":\"$SOURCE\",\"p_reference_clock_at\":\"$REFERENCE\",\"p_round_trip_delay_ms\":4,\"p_measurement_uncertainty_ms\":3,\"p_evidence_reference\":\"AIO-PTP-OBS-0001\",\"p_payload_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}")
+err "$ENVELOPE_CONFLICT" 'same digest but a different observation envelope'
+
+HINDSIGHT=$(rpc "$ADMIN" evaluate_connector_event_time "{\"p_connector_id\":\"$LOCAL_ID\",\"p_event_time\":\"$REFERENCE\"}"); ok "$HINDSIGHT"
+BODY="$(body "$HINDSIGHT")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x['state']=='unproven' and x['observation_id'] is None and not x['eligible_for_time_sensitive_evidence'];assert x['contract_scope']=='current_contract_only'"
+
+EVENT_NOW=$(psqlc "select to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')")
+EVENT_CURRENT=$(rpc "$ADMIN" evaluate_connector_event_time "{\"p_connector_id\":\"$LOCAL_ID\",\"p_event_time\":\"$EVENT_NOW\"}"); ok "$EVENT_CURRENT"
+BODY="$(body "$EVENT_CURRENT")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x['state']=='synchronized' and x['within_clock_contract'];assert not x['configuration_evidence_verified'] and not x['eligible_for_time_sensitive_evidence']"
 
 FUTURE_EVENT=$(psqlc "select to_char(('$REFERENCE'::timestamptz+interval '2 minutes') at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')")
-STALE=$(rpc "$ADMIN" evaluate_connector_event_time "{\"p_connector_id\":\"$LOCAL_ID\",\"p_event_time\":\"$FUTURE_EVENT\"}"); ok "$STALE"
-BODY="$(body "$STALE")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x['state']=='stale' and not x['eligible_for_time_sensitive_evidence']"
+FUTURE=$(rpc "$ADMIN" evaluate_connector_event_time "{\"p_connector_id\":\"$LOCAL_ID\",\"p_event_time\":\"$FUTURE_EVENT\"}"); err "$FUTURE" 'future event time'
 
 REFERENCE2=$(psqlc "select to_char((clock_timestamp()-interval '1 second') at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')")
 SOURCE2=$(psqlc "select to_char(('$REFERENCE2'::timestamptz+interval '50 milliseconds') at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')")
@@ -113,6 +178,15 @@ BODY="$(body "$AFTER_RECONFIG")" LOCAL_ID="$LOCAL_ID" python3 -c "import json,os
 SUPERSEDED_REPLAY=$(service_rpc record_connector_time_observation "{\"p_organization_id\":\"$ORG\",\"p_connector_key\":\"$LOCAL_KEY\",\"p_delivery_id\":\"good-001\",\"p_source_clock_at\":\"$SOURCE\",\"p_reference_clock_at\":\"$REFERENCE\",\"p_round_trip_delay_ms\":4,\"p_measurement_uncertainty_ms\":2,\"p_evidence_reference\":\"AIO-PTP-OBS-0001\",\"p_payload_sha256\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\"}")
 err "$SUPERSEDED_REPLAY" 'superseded clock-contract revision'
 
+OLD_EVENT=$(rpc "$ADMIN" evaluate_connector_event_time "{\"p_connector_id\":\"$LOCAL_ID\",\"p_event_time\":\"$EVENT_NOW\"}"); ok "$OLD_EVENT"
+BODY="$(body "$OLD_EVENT")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x['state']=='unproven' and not x['within_clock_contract'] and x['observation_id'] is None"
+STALE_REF=$(psqlc "select to_char((clock_timestamp()-interval '2 minutes') at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')")
+STALE_OBS=$(service_rpc record_connector_time_observation "{\"p_organization_id\":\"$ORG\",\"p_connector_key\":\"$LOCAL_KEY\",\"p_delivery_id\":\"stale-002\",\"p_source_clock_at\":\"$STALE_REF\",\"p_reference_clock_at\":\"$STALE_REF\",\"p_round_trip_delay_ms\":4,\"p_measurement_uncertainty_ms\":2,\"p_evidence_reference\":\"AIO-PTP-OBS-STALE\",\"p_payload_sha256\":\"ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff\"}"); ok "$STALE_OBS"
+BODY="$(body "$STALE_OBS")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x['state']=='stale' and not x['eligible_for_time_sensitive_evidence']"
+STALE_NOW=$(psqlc "select to_char(clock_timestamp() at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')")
+STALE=$(rpc "$ADMIN" evaluate_connector_event_time "{\"p_connector_id\":\"$LOCAL_ID\",\"p_event_time\":\"$STALE_NOW\"}"); ok "$STALE"
+BODY="$(body "$STALE")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x['state']=='stale' and not x['within_clock_contract'] and not x['eligible_for_time_sensitive_evidence']"
+
 # Give the foreign tenant one service observation, then prove authenticated
 # direct reads retain only the caller's tenant.
 FREF=$(psqlc "select to_char((clock_timestamp()-interval '1 second') at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')")
@@ -122,4 +196,4 @@ VISIBLE=$(curl -sS -w '\n%{http_code}' "$API_URL/rest/v1/connector_time_observat
 test "$(status "$VISIBLE")" = 200
 BODY="$(body "$VISIBLE")" ORG="$ORG" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert len(x)>=2 and all(v['organization_id']==os.environ['ORG'] for v in x)"
 
-echo "Time synchronization assurance smoke passed: canonical_connector=true named_human=true service_only=true tenant_wall=true exact_offset=true uncertainty=true replay_safe=true revisioned=true stale_fail_closed=true operational_authority=false"
+echo "Time synchronization assurance smoke passed: canonical_connector=true named_human=true service_only=true tenant_wall=true exact_offset=true uncertainty=true replay_safe=true envelope_match=true initial_config_guard=true complete_contract_guard=true owner_write_guard=true identity_retained=true immutable_history=true truncate_refused=true hindsight_refused=true future_refused=true revisioned=true stale_fail_closed=true canonical_evidence_approval=false operational_authority=false"

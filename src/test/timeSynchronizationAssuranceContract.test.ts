@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270101760000_time_synchronization_assurance.sql",
+  "supabase/migrations/20270103010000_time_synchronization_assurance.sql",
   "utf8",
 ).toLowerCase();
 const service = readFileSync("src/services/timeSynchronization.ts", "utf8");
@@ -13,6 +13,49 @@ const component = readFileSync(
 const governance = readFileSync("src/components/DataGovernance.tsx", "utf8");
 
 describe("E12.07 governed time-synchronization assurance", () => {
+  it("keeps numerical posture distinct from approved engineering evidence", () => {
+    expect(migration).toContain(
+      "'configurationevidenceverified',false,'eligiblefortimesensitiveevidence',false",
+    );
+    expect(migration).toContain(
+      "'configuration_evidence_verified',false,'eligible_for_time_sensitive_evidence',false",
+    );
+    expect(component).toContain("an opaque evidence reference is not verified");
+  });
+  it("guards initial configuration and retains clock evidence even for owner writes", () => {
+    expect(migration).toContain(
+      "before insert or update or delete on public.connectors",
+    );
+    expect(migration).toContain("tg_op='insert'");
+    expect(migration).toContain("connector clock history is retained");
+    expect(migration).toContain(
+      "before truncate on public.connector_time_observations",
+    );
+    expect(migration).toContain("for each statement");
+  });
+
+  it("refuses hindsight and future event qualification instead of retroactively using current policy", () => {
+    expect(migration).toContain("c.time_configured_at>p_event_time");
+    expect(migration).toContain("x.received_at<=p_event_time");
+    expect(migration).toContain("p_event_time>clock_timestamp()");
+    expect(migration).toContain("current_contract_only");
+  });
+
+  it("does not trust a caller-supplied digest as proof that the replayed envelope is identical", () => {
+    for (const field of [
+      "source_clock_at",
+      "reference_clock_at",
+      "round_trip_delay_ms",
+      "measurement_uncertainty_ms",
+      "evidence_reference",
+    ]) {
+      expect(migration).toContain(`existing.${field} is not distinct from`);
+    }
+    expect(migration).toContain(
+      "same digest but a different observation envelope",
+    );
+  });
+
   it("extends the canonical connector instead of creating another source registry", () => {
     expect(migration).toContain("alter table public.connectors");
     expect(migration).toContain("public.connector_time_observations");

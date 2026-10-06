@@ -22,6 +22,8 @@ export interface ConnectorTimeAssurance {
   configuredAt: string | null;
   state: TimeAssuranceState;
   eligibleForTimeSensitiveEvidence: boolean;
+  withinClockContract: boolean;
+  configurationEvidenceVerified: false;
   reason: string;
   observationId: string | null;
   sourceClockAt: string | null;

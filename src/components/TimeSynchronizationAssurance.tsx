@@ -33,8 +33,8 @@ export function TimeSynchronizationAssurance() {
     "ntp" | "ptp" | "gnss" | "vendor_managed" | "system_managed"
   >("ntp");
   const [referenceAuthority, setReferenceAuthority] = useState("");
-  const [toleranceMs, setToleranceMs] = useState("100");
-  const [maxAgeMinutes, setMaxAgeMinutes] = useState("15");
+  const [toleranceMs, setToleranceMs] = useState("");
+  const [maxAgeMinutes, setMaxAgeMinutes] = useState("");
   const [evidenceReference, setEvidenceReference] = useState("");
   const [basis, setBasis] = useState("");
   const [working, setWorking] = useState(false);
@@ -97,7 +97,7 @@ export function TimeSynchronizationAssurance() {
             Event-time assurance
           </h3>
           <p className="mt-1 max-w-3xl text-xs leading-relaxed text-slate-400">
-            SyncAI qualifies source timestamps against a named-human clock
+            SyncAI compares source timestamps against a named-human clock
             contract. It does not set plant clocks, prove causality, or approve
             an operational action.
           </p>
@@ -110,6 +110,16 @@ export function TimeSynchronizationAssurance() {
           <RefreshCw className="h-3.5 w-3.5" /> Refresh
         </button>
       </div>
+
+      <p
+        role="status"
+        className="rounded-lg border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-200"
+      >
+        Draft clock assurance: an opaque evidence reference is not verified
+        engineering approval. Numerical synchronization alone cannot qualify
+        time-sensitive evidence. Canonical evidence approval, collector
+        integration and historical contract reconstruction remain pending.
+      </p>
 
       <div className="flex flex-wrap gap-3 text-xs text-slate-400">
         <span>
@@ -229,7 +239,7 @@ export function TimeSynchronizationAssurance() {
               onChange={(event) => setReferenceAuthority(event.target.value)}
             />
             <input
-              aria-label="Approved tolerance in milliseconds"
+              aria-label="Recorded tolerance in milliseconds"
               className={inputClass}
               type="number"
               min="0.000001"

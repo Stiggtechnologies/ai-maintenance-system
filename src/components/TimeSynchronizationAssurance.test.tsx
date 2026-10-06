@@ -35,7 +35,7 @@ const workspace = {
       configurationEvidenceReference: "ENG-TIME-004",
       configuredAt: "2026-10-03T11:00:00Z",
       state: "synchronized" as const,
-      eligibleForTimeSensitiveEvidence: true,
+      eligibleForTimeSensitiveEvidence: false,
       reason: "Worst-case offset is within the tenant-approved tolerance.",
       observationId: "22222222-2222-4222-8222-222222222222",
       sourceClockAt: "2026-10-03T11:59:59.010Z",
@@ -60,6 +60,17 @@ beforeEach(() => {
 });
 
 describe("TimeSynchronizationAssurance", () => {
+  it("does not invent a clock tolerance or freshness interval for the customer", async () => {
+    render(<TimeSynchronizationAssurance />);
+    await screen.findAllByText("Site A OPC UA");
+    expect(screen.getByLabelText(/Recorded tolerance/i)).toHaveValue(null);
+    expect(screen.getByLabelText(/Maximum observation age/i)).toHaveValue(null);
+    expect(
+      screen.getByRole("button", { name: "Save clock contract" }),
+    ).toBeDisabled();
+    expect(configure).not.toHaveBeenCalled();
+  });
+
   it("shows evidence eligibility without claiming clock control", async () => {
     render(<TimeSynchronizationAssurance />);
     expect(
@@ -68,6 +79,9 @@ describe("TimeSynchronizationAssurance", () => {
     expect(screen.getByText("synchronized")).toBeInTheDocument();
     expect(screen.getByText("12 ms / 20 ms")).toBeInTheDocument();
     expect(screen.getByText(/does not set plant clocks/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/an opaque evidence reference is not verified/i),
+    ).toBeInTheDocument();
   });
 
   it("lets a named human administrator record a complete clock contract", async () => {
@@ -79,7 +93,7 @@ describe("TimeSynchronizationAssurance", () => {
     fireEvent.change(screen.getByPlaceholderText(/Authoritative source/i), {
       target: { value: "Site A PTP grandmaster" },
     });
-    fireEvent.change(screen.getByLabelText(/Approved tolerance/i), {
+    fireEvent.change(screen.getByLabelText(/Recorded tolerance/i), {
       target: { value: "25" },
     });
     fireEvent.change(screen.getByLabelText(/Maximum observation age/i), {

@@ -1,7 +1,7 @@
 -- E12.07 — governed time-synchronization assurance.
 --
 -- SyncAI does not set or discipline plant clocks.  It records the tenant's
--- approved clock contract on the ONE canonical connector, accepts immutable
+-- administrator-recorded clock contract on the ONE canonical connector, accepts immutable
 -- measurements from a controlled service, and fails closed when event time
 -- cannot be shown to be current and within the tenant-approved tolerance.
 -- There is deliberately no second connector/source-health store and no path
@@ -35,7 +35,7 @@ alter table public.connectors
       and time_configured_at is null
       and time_assurance_revision = 0)
     or
-    (time_sync_protocol is not null
+    coalesce((time_sync_protocol is not null
       and length(btrim(time_reference_authority)) >= 5
       and time_tolerance_ms > 0
       and time_tolerance_ms::text not in ('NaN','Infinity','-Infinity')
@@ -44,22 +44,48 @@ alter table public.connectors
       and length(btrim(time_configuration_basis)) >= 40
       and time_configured_by is not null
       and time_configured_at is not null
-      and time_assurance_revision > 0)
+      and time_assurance_revision > 0),false)
   );
 
 comment on column public.connectors.time_tolerance_ms is
-  'Tenant-approved maximum worst-case absolute clock offset in milliseconds. SyncAI never invents this engineering threshold.';
+  'Administrator-recorded maximum worst-case absolute clock offset in milliseconds. Opaque evidence references do not establish engineering approval. SyncAI never invents this threshold.';
 comment on column public.connectors.time_assurance_revision is
   'Monotonic clock-contract revision. Reconfiguration makes prior observations historical rather than silently applying them to the new contract.';
 
 create or replace function public.enforce_connector_time_configuration()
 returns trigger
 language plpgsql
+security definer
 set search_path=public
 as $$
 begin
-  if coalesce(auth.role(),'') in ('authenticated','service_role')
-     and coalesce(current_setting('app.time_assurance_config_write',true),'') <> 'granted'
+  if tg_op='DELETE' then
+    if old.time_assurance_revision>0 then
+      raise exception 'connector clock history is retained; disable the connector instead of deleting it';
+    end if;
+    return old;
+  end if;
+  if tg_op='INSERT' then
+    if new.time_sync_protocol is not null
+       or new.time_reference_authority is not null
+       or new.time_tolerance_ms is not null
+       or new.time_observation_max_age_minutes is not null
+       or new.time_evidence_reference is not null
+       or new.time_configuration_basis is not null
+       or new.time_configured_by is not null
+       or new.time_configured_at is not null
+       or new.time_assurance_revision<>0 then
+      raise exception 'initial connector clock configuration requires the governed configuration RPC';
+    end if;
+    return new;
+  end if;
+  if old.time_assurance_revision>0 and
+     (new.id is distinct from old.id
+       or new.organization_id is distinct from old.organization_id
+       or new.connector_key is distinct from old.connector_key) then
+    raise exception 'connector clock history is retained under its original tenant and source identity';
+  end if;
+  if coalesce(current_setting('app.time_assurance_config_write',true),'') <> 'granted'
      and (new.time_sync_protocol is distinct from old.time_sync_protocol
        or new.time_reference_authority is distinct from old.time_reference_authority
        or new.time_tolerance_ms is distinct from old.time_tolerance_ms
@@ -85,7 +111,7 @@ $$;
 
 drop trigger if exists trg_connector_time_configuration on public.connectors;
 create trigger trg_connector_time_configuration
-  before update on public.connectors
+  before insert or update or delete on public.connectors
   for each row execute function public.enforce_connector_time_configuration();
 revoke all on function public.enforce_connector_time_configuration()
   from public,anon,authenticated,service_role;
@@ -144,7 +170,7 @@ declare
   c public.connectors%rowtype;
   v_offset numeric;
 begin
-  if tg_op in ('UPDATE','DELETE') then
+  if tg_op in ('UPDATE','DELETE','TRUNCATE') then
     raise exception 'connector clock observations are immutable evidence; append a new observation';
   end if;
   if coalesce(current_setting('app.time_assurance_observation_write',true),'') <> 'granted' then
@@ -171,6 +197,11 @@ drop trigger if exists trg_connector_time_observation
 create trigger trg_connector_time_observation
   before insert or update or delete on public.connector_time_observations
   for each row execute function public.enforce_connector_time_observation();
+drop trigger if exists trg_connector_time_observation_truncate
+  on public.connector_time_observations;
+create trigger trg_connector_time_observation_truncate
+  before truncate on public.connector_time_observations
+  for each statement execute function public.enforce_connector_time_observation();
 revoke all on function public.enforce_connector_time_observation()
   from public,anon,authenticated,service_role;
 
@@ -265,7 +296,8 @@ begin
 
   return jsonb_build_object('ok',true,'connector_id',c.id,
     'configuration_revision',v_revision,'state','unproven',
-    'operational_authority',false,
+    'operational_authority',false,'configuration_evidence_verified',false,
+    'eligible_for_time_sensitive_evidence',false,
     'note','Clock contract recorded. A current service observation is still required before event time is usable.');
 end
 $$;
@@ -333,8 +365,8 @@ begin
     return jsonb_build_object('error',
       'measurement uncertainty cannot be less than half the observed round-trip delay');
   end if;
-  if p_reference_clock_at > v_received
-      + make_interval(secs=>ceil(p_measurement_uncertainty_ms/1000)::integer) then
+  if p_reference_clock_at > v_received and
+      extract(epoch from (p_reference_clock_at-v_received))*1000>p_measurement_uncertainty_ms then
     return jsonb_build_object('error',
       'reference timestamp is later than receipt beyond its stated uncertainty');
   end if;
@@ -350,11 +382,23 @@ begin
   if found then
     if existing.payload_sha256=lower(p_payload_sha256)
        and existing.configuration_revision=c.time_assurance_revision then
+      if not (existing.source_clock_at is not distinct from p_source_clock_at
+        and existing.reference_clock_at is not distinct from p_reference_clock_at
+        and existing.round_trip_delay_ms is not distinct from p_round_trip_delay_ms
+        and existing.measurement_uncertainty_ms is not distinct from p_measurement_uncertainty_ms
+        and existing.evidence_reference is not distinct from btrim(p_evidence_reference)) then
+        return jsonb_build_object('error',
+          'delivery identifier has the same digest but a different observation envelope');
+      end if;
       return jsonb_build_object('ok',true,'observation_id',existing.id,
         'replay',true,'state',case
+          when existing.reference_clock_at>v_received then 'unproven'
+          when existing.reference_clock_at+make_interval(mins=>c.time_observation_max_age_minutes)<v_received then 'stale'
           when abs(existing.offset_ms)+existing.measurement_uncertainty_ms<=c.time_tolerance_ms
             then 'synchronized' else 'untrusted' end,
-        'operational_authority',false);
+        'operational_authority',false,
+        'configuration_evidence_verified',false,
+        'eligible_for_time_sensitive_evidence',false);
     end if;
     if existing.payload_sha256=lower(p_payload_sha256) then
       return jsonb_build_object('error',
@@ -367,7 +411,10 @@ begin
   v_offset:=round((extract(epoch from
     (p_source_clock_at-p_reference_clock_at))*1000)::numeric,6);
   v_worst:=abs(v_offset)+p_measurement_uncertainty_ms;
-  v_state:=case when v_worst<=c.time_tolerance_ms
+  v_state:=case
+    when p_reference_clock_at>v_received then 'unproven'
+    when p_reference_clock_at+make_interval(mins=>c.time_observation_max_age_minutes)<v_received then 'stale'
+    when v_worst<=c.time_tolerance_ms
     then 'synchronized' else 'untrusted' end;
 
   perform set_config('app.time_assurance_observation_write','granted',true);
@@ -401,7 +448,9 @@ begin
     'configuration_revision',c.time_assurance_revision,'offset_ms',v_offset,
     'measurement_uncertainty_ms',p_measurement_uncertainty_ms,
     'worst_case_offset_ms',v_worst,'tolerance_ms',c.time_tolerance_ms,
-    'state',v_state,'operational_authority',false);
+    'state',v_state,'operational_authority',false,
+    'configuration_evidence_verified',false,
+    'eligible_for_time_sensitive_evidence',false);
 end
 $$;
 
@@ -437,7 +486,8 @@ begin
     'configurationRevision',q.time_assurance_revision,
     'configurationEvidenceReference',q.time_evidence_reference,
     'configuredAt',q.time_configured_at,
-    'state',q.state,'eligibleForTimeSensitiveEvidence',q.state='synchronized',
+    'state',q.state,'withinClockContract',q.state='synchronized',
+    'configurationEvidenceVerified',false,'eligibleForTimeSensitiveEvidence',false,
     'reason',q.reason,'observationId',q.observation_id,
     'sourceClockAt',q.source_clock_at,'referenceClockAt',q.reference_clock_at,
     'receivedAt',q.received_at,'offsetMs',q.offset_ms,
@@ -454,6 +504,7 @@ begin
         when c.time_sync_protocol is null then 'unconfigured'
         when not c.enabled then 'disabled'
         when o.id is null then 'unproven'
+        when o.reference_clock_at>clock_timestamp() then 'unproven'
         when o.reference_clock_at + make_interval(mins=>c.time_observation_max_age_minutes)<clock_timestamp()
           then 'stale'
         when abs(o.offset_ms)+o.measurement_uncertainty_ms<=c.time_tolerance_ms
@@ -464,11 +515,12 @@ begin
         when c.time_sync_protocol is null then 'No governed clock contract has been recorded.'
         when not c.enabled then 'Connector is disabled; its event time is not operational evidence.'
         when o.id is null then 'No observation matches the active clock-contract revision.'
+        when o.reference_clock_at>clock_timestamp() then 'The reference timestamp has not yet occurred; clock posture is unproven.'
         when o.reference_clock_at + make_interval(mins=>c.time_observation_max_age_minutes)<clock_timestamp()
-          then 'The latest observation is older than the approved freshness interval.'
+          then 'The latest observation is older than the recorded freshness interval.'
         when abs(o.offset_ms)+o.measurement_uncertainty_ms<=c.time_tolerance_ms
-          then 'Worst-case offset is within the tenant-approved tolerance and the observation is current.'
-        else 'Worst-case offset exceeds the tenant-approved tolerance.'
+          then 'Current worst-case offset is within the recorded tolerance. Canonical configuration-evidence approval is not yet verified; time-sensitive evidence remains ineligible.'
+        else 'Worst-case offset exceeds the recorded tolerance.'
       end reason
     from public.connectors c
     left join lateral (
@@ -517,13 +569,18 @@ begin
   if p_event_time is null or not isfinite(p_event_time) then
     return jsonb_build_object('error','a finite event timestamp is required');
   end if;
+  if p_event_time>clock_timestamp() then
+    return jsonb_build_object('error','future event time cannot be qualified');
+  end if;
   if c.time_sync_protocol is null then v_state:='unconfigured';
   elsif not c.enabled then v_state:='disabled';
+  elsif c.time_configured_at>p_event_time then v_state:='unproven';
   else
     select * into o from public.connector_time_observations x
     where x.organization_id=v_org and x.connector_id=c.id
       and x.configuration_revision=c.time_assurance_revision
       and x.reference_clock_at<=p_event_time
+      and x.received_at<=p_event_time
     order by x.reference_clock_at desc,x.received_at desc limit 1;
     if not found then v_state:='unproven';
     elsif o.reference_clock_at
@@ -536,11 +593,13 @@ begin
     end if;
   end if;
   return jsonb_build_object('connector_id',c.id,'event_time',p_event_time,
-    'state',v_state,'eligible_for_time_sensitive_evidence',v_state='synchronized',
+    'state',v_state,'within_clock_contract',v_state='synchronized',
+    'contract_scope','current_contract_only',
+    'configuration_evidence_verified',false,'eligible_for_time_sensitive_evidence',false,
     'observation_id',o.id,'configuration_revision',c.time_assurance_revision,
     'worst_case_offset_ms',v_worst,'tolerance_ms',c.time_tolerance_ms,
     'operational_authority',false,
-    'note','This verdict qualifies event time only; it does not prove event causality or authorize an operational action.');
+    'note','Numeric clock posture only. Canonical configuration-evidence approval is not yet verified. This does not reconstruct superseded contracts, prove causality or authorize an operational action.');
 end
 $$;
 
