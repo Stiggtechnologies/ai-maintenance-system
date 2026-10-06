@@ -32,12 +32,15 @@ SyncAI provisions and governs access in its own application. The Partner Center
 SaaS offer. The separate Marketplace **payout and tax** assignment remains
 required so Microsoft can pay Stigg Technologies for SaaS transactions.
 
-Do not reclassify the core offer to gain another storefront surface. A Dynamics
-offer becomes appropriate only after SyncAI has a genuine Dynamics-native
+Do not reclassify the core offer to gain another storefront surface. Dynamics
+is, however, a qualified distribution hypothesis for individual SyncAI agents.
+An agent offer becomes appropriate after it has a genuine Dynamics-native
 deliverable, such as a packaged Dataverse application or a Finance/Supply Chain
 agent whose provisioning and primary use occur inside the Dynamics ecosystem.
-If built, publish that as a separate channel adapter into the same governed
-SyncAI platform rather than changing the identity of the core SaaS product.
+Publish that as a separate channel adapter into the same governed SyncAI
+platform rather than changing the identity of the core SaaS product. The
+candidate sequence and release gates are controlled in
+[`dynamics-agent-channel.md`](dynamics-agent-channel.md).
 
 ## Current publication posture
 
@@ -64,6 +67,8 @@ SyncAI platform rather than changing the identity of the core SaaS product.
   for the required customer-facing PDF; it is not itself an uploadable PDF.
 - [`preview-and-certification.md`](preview-and-certification.md) — external
   operator checklist and release gates.
+- [`dynamics-agent-channel.md`](dynamics-agent-channel.md) — qualified
+  Dynamics-native spin-off agent strategy, candidate sequence and release gates.
 - [`professional-services-and-fde.md`](professional-services-and-fde.md) —
   controlled Assessment, Proof of concept and Implementation listings, the
   value ladder, FDE authority boundary, and private-offer operator sequence.

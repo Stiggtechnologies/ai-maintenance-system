@@ -61,6 +61,23 @@
       ]
     },
     {
+      "id": "microsoft_dynamics_agents",
+      "name": "Microsoft Dynamics 365 agent offers",
+      "state": "qualified_channel_hypothesis",
+      "marketplaceTransactionReady": false,
+      "selfServeCheckoutReady": false,
+      "buyerPath": null,
+      "verifiedEvidence": [
+        "Microsoft offer definitions explicitly support AI apps and agents for Dynamics 365 Operations and Dynamics 365 apps on Dataverse and Power Apps",
+        "The repository contains governed MRO Materials, FRACAS/RCA, Planning and Scheduling, Site Maintenance Manager, Condition Monitoring, and Asset Strategy capabilities that can supply focused agent products"
+      ],
+      "blockers": [
+        "No Dynamics-native solution package, Dataverse package, technical manifest, or Partner Center offer exists",
+        "No Dynamics tenant provisioning, install, upgrade, uninstall, entitlement, or license-enforcement witness exists",
+        "No certified preview, published listing, buyer path, or customer-demand evidence exists"
+      ]
+    },
+    {
       "id": "aws_marketplace",
       "name": "AWS Marketplace SaaS",
       "state": "design_scaffolding_only",

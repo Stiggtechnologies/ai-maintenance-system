@@ -36,6 +36,7 @@ describe("marketplace channel readiness", () => {
     expect([...byId.keys()].sort()).toEqual([
       "aws_marketplace",
       "direct_ria",
+      "microsoft_dynamics_agents",
       "microsoft_professional_services",
       "microsoft_saas",
       "salesforce_appexchange",
@@ -52,6 +53,29 @@ describe("marketplace channel readiness", () => {
       expect(channel.verifiedEvidence.length).toBeGreaterThan(0);
       expect(channel.blockers.length).toBeGreaterThan(0);
     }
+  });
+
+  it("treats Dynamics agent offers as a qualified native-package hypothesis, not a live listing", () => {
+    const dynamics = byId.get("microsoft_dynamics_agents");
+    expect(dynamics).toMatchObject({
+      state: "qualified_channel_hypothesis",
+      marketplaceTransactionReady: false,
+      selfServeCheckoutReady: false,
+      buyerPath: null,
+    });
+    expect(dynamics?.blockers.join(" ")).toMatch(/No Dynamics-native/);
+    expect(dynamics?.blockers.join(" ")).toMatch(/No certified preview/);
+
+    const strategy = readFileSync(
+      "docs/marketplace/dynamics-agent-channel.md",
+      "utf8",
+    );
+    expect(strategy).toMatch(/MRO Readiness Agent/);
+    expect(strategy).toMatch(/FRACAS Investigation Agent/);
+    expect(strategy).toMatch(/same governed SyncAI platform/);
+    expect(strategy).toMatch(
+      /does not\s+authorize Partner Center submission/i,
+    );
   });
 
   it("keeps AWS source scaffolding separate from buyer readiness", () => {
