@@ -254,6 +254,51 @@ post-wait races, coordinated source quarantine/claim-purpose eligibility,
 atomic stale-pending replacement and shared observed-authentication freshness
 remain separate closeout requirements. Capability statuses are unchanged.
 
+The next bounded **local, unpublished** checkpoint serializes independent
+review against the current canonical same-organization criteria profile. The
+existing risk lock stabilizes the policy pointer; an added shared criteria-row
+lock is retained through approval, derived evidence and audit commit. Missing,
+non-adopted, rebound or changed submitted thresholds return the exact existing
+stale-analysis refusal before writes. The submit path already holds this lock;
+it is not replaced. Final actor, role, visibility and digest checks remain.
+Legacy v1 preserves its original metadata algorithm but cannot approve a
+different current threshold policy merely because its old digest is unchanged.
+
+The native specification adds a legacy-v1 policy-drift control inside the
+existing fully rolled-back subtransaction, and an actual multi-session
+PostgreSQL harness to the existing full CI smoke (not the rollback-only
+preflight). Three participants and a separate observer must have four distinct
+backend PIDs. Actual blocking-PID observations qualify a review held at the
+approval-insert barrier and a criteria writer waiting on that reviewer; the
+opposite ordering requires exact stale refusal and complete artifact
+preservation. Successful review requires an exact bound ACK, one approval,
+one unverified calculated evidence item and **two** canonical audit events:
+the automatic approval-decision event and the explicit review event. Each is
+correlated to actual packet, organization, human and digest identities. The
+subsequent policy change must mark the retained validated history stale.
+
+Only newly generated synthetic identities are committed, solely so separate
+connections to the disposable CI database can see them. The reviewed seed's
+exact SHA is checked before any PostgreSQL process; ambient connection overrides
+are refused and a narrow environment pins the local CI target. Process errors
+are sanitized, queries bounded and child termination confirmed. A source test
+checks the actual existing migration job's `if: always()` Stop Supabase teardown,
+which removes the disposable database, rather than claiming these fixtures
+roll back. Existing canonical triggers, RLS and security guards are not bypassed.
+
+This checkpoint passes **1,695 local tests in 14 files**, application TypeScript,
+scoped lint and script syntax checks. The 23 new source/actual-script-contained
+cases include 11 initial failures, six security-hardening failures, the legacy
+control failure and the independently reproduced audit-count failure before
+their respective repairs. These tests are not concurrent SQL execution. The
+prior published coverage head `60c15953` passed its isolated native preflight
+in run `37539640952` at `2026-10-06T22:28:07Z`; its full smoke was still running
+when this local checkpoint was recorded. That earlier receipt cannot qualify
+the new review lock, legacy refusal or multi-session harness. **All three new
+native controls remain unexecuted.** Broader ancestor/stakeholder privacy,
+source/quarantine/claim-purpose standing, authorized atomic replacement,
+shared authentication freshness and production release remain open.
+
 SyncAI U18.02 adds versioned uncertainty packets to the canonical Risk Operating System. It supports bounded probability estimates, confidence intervals, best/expected/worst loss cases, ranked one-at-a-time sensitivity inputs, value-of-information analysis, adopted decision-threshold snapshots and measurable reassessment triggers.
 
 It does not add a second risk register, evidence store, approval queue or audit ledger. Each packet belongs to a canonical `risks` record, cites canonical `evidence_items`, records its human disposition in `approvals`, and writes its lifecycle events to `audit_events`.

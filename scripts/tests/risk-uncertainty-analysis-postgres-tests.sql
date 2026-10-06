@@ -553,7 +553,7 @@ do $$ declare f record; a public.risk_uncertainty_analyses%rowtype;
   baseline jsonb; original_digest text; stored_digest text; current_digest text;
   snapshot jsonb; changed record; qualified boolean; attempts integer:=0;
   old_actor text; old_timezone text; detail text; refused boolean; packet uuid; affected integer;
-  candidate jsonb; tag jsonb; legacy_workspace jsonb; legacy_item jsonb;
+  candidate jsonb; tag jsonb; legacy_workspace jsonb; legacy_item jsonb; legacy_review jsonb;
   invalid_tags integer:=0; begin
   select * into f from u18_fixture;
   select * into a from public.risk_uncertainty_analyses where id=(select id from u18_packet);
@@ -795,6 +795,23 @@ do $$ declare f record; a public.risk_uncertainty_analyses%rowtype;
       or legacy_item->>'currentDigest' is distinct from current_digest
       or legacy_item->>'analysisDigest' is distinct from current_digest then
       raise exception 'legacy v1 public workspace mislabeled or omitted actual coverage'; end if;
+    -- U18 LEGACY CRITERIA REFUSAL BEGIN
+    -- V1 intentionally retains metadata-only hashing. Its unchanged digest
+    -- must not authorize review against a different current threshold policy.
+    perform set_config('request.jwt.claim.sub','',true);
+    update public.risk_criteria_profiles set decision_thresholds=decision_thresholds
+      ||jsonb_build_object('ciLegacyChangedThreshold',true) where id=f.criteria;
+    if public.risk_uncertainty_analysis_digest(f.org,packet) is distinct from current_digest then
+      raise exception 'legacy policy refusal control changed the preserved v1 algorithm'; end if;
+    perform set_config('request.jwt.claim.sub',f.reviewer::text,true);
+    snapshot:=pg_temp.u18_state();
+    legacy_review:=public.review_risk_uncertainty_analysis(packet,'validated',
+      'Synthetic legacy review must not approve a different current threshold policy.');
+    if legacy_review is distinct from jsonb_build_object('error',
+        'analysis changed after submission; submit a new version against the current evidence and thresholds')
+      or pg_temp.u18_state() is distinct from snapshot then
+      raise exception 'legacy current-policy refusal or full artifact preservation failed'; end if;
+    -- U18 LEGACY CRITERIA REFUSAL END
     qualified:=true;
     raise exception using errcode='ZX011',message='U18 legacy v1 fixture rollback';
   exception when sqlstate 'ZX011' then null;

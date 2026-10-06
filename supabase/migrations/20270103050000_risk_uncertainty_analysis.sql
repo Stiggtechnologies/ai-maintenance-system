@@ -740,6 +740,7 @@ create or replace function public.review_risk_uncertainty_analysis(
 declare
   v_org uuid:=public.app_current_org(); v_user uuid:=auth.uid();
   v_locked_org uuid; v_role text; v_risk_id uuid; r public.risks%rowtype;
+  c public.risk_criteria_profiles%rowtype;
   a public.risk_uncertainty_analyses%rowtype; v_binding_count integer;
   v_current text; v_approval uuid; v_evidence uuid; v_approval_status text;
 begin
@@ -762,6 +763,17 @@ begin
   where id=p_analysis_id and organization_id=v_org and risk_id=r.id for update;
   if not found or a.status<>'pending_review' then return jsonb_build_object('error','same-tenant uncertainty analysis is not awaiting review'); end if;
   if a.author_id=v_user then return jsonb_build_object('error','analysis author cannot independently review the same packet'); end if;
+  -- Retain the CURRENT same-org policy through approval/evidence/audit commit.
+  -- The risk lock stabilizes its pointer; this shared lock prevents a policy
+  -- change after the digest check. Legacy metadata digests must also match the
+  -- actual submitted policy instead of silently inheriting today's thresholds.
+  select * into c from public.risk_criteria_profiles
+  where id=r.criteria_profile_id and organization_id=v_org for share;
+  if not found or c.status is distinct from 'adopted'
+    or c.id is distinct from a.threshold_profile_id or c.decision_thresholds='{}'::jsonb
+    or c.decision_thresholds is distinct from a.decision_thresholds then
+    return jsonb_build_object('error','analysis changed after submission; submit a new version against the current evidence and thresholds');
+  end if;
   perform 1 from public.evidence_items e join public.risk_uncertainty_analysis_evidence b on b.evidence_item_id=e.id
   where b.organization_id=v_org and b.analysis_id=a.id
     and e.organization_id=v_org and e.risk_id=r.id order by e.id for update of e;

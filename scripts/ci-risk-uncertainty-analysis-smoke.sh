@@ -15,4 +15,5 @@ env -i PATH="$PATH" LC_ALL=C LANG=C PGPASSWORD=postgres \
   -X -v ON_ERROR_STOP=1 -f scripts/tests/risk-uncertainty-analysis-postgres-tests.sql
 if [[ "${1:-}" != --sql-preflight ]]; then
   node scripts/tests/risk-uncertainty-analysis-http-smoke.mjs
+  node scripts/tests/risk-uncertainty-analysis-concurrency-postgres.mjs --ci-uncertainty-concurrency
 fi
