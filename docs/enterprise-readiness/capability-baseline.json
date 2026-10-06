@@ -764,8 +764,8 @@
   "C7.14": {
     "status": "🟡",
     "evidence": true,
-    "citations": 0,
-    "backticked": 0
+    "citations": 33,
+    "backticked": 33
   },
   "C8.01": {
     "status": "✅",

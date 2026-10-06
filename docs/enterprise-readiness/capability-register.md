@@ -178,7 +178,83 @@ with the PR that changes an item's status._
 | C7.11 | Defect elimination and Pareto analysis                 | ✅ pareto() + downtime-code Pareto panel (ranks the operator's own source labels; mechanism coding stays human)                                                                                                                                                                                                                                                                                                                                                                         |
 | C7.12 | Maintenance-cost forecasting                           | ✅ planned/unplanned split with an empirical P50–P90 band and a refusal to fit a trend below 4 periods. The finding it surfaced matters more than the engine: **no work order in this schema records what it cost**, so the figures are a named downtime-cost proxy and `get_cost_capture_posture()` says so before any number is shown                                                                                                                                                 |
 | C7.13 | Shutdown critical-path and schedule-risk analysis      | ✅ CPM forward/backward pass plus a seeded criticality index. On the demo turnaround the deterministic 128-hour plan is beaten in 1% of runs (P90 166h), and the panel shows every task's criticality rather than only those over the flag threshold — a task at 19% is exactly the one worth arguing about                                                                                                                                                                             |
-| C7.14 | Survival models and condition-based failure prediction | 🟡 Weibull survival function and AGE-CONDITIONAL failure probability (an asset that has run 8,000 h is not a new one's risk); proportional-hazards and covariate models absent                                                                                                                                                                                                                                                                                                          |
+| C7.14 | Survival models and condition-based failure prediction | 🟡 Weibull survival and age-conditional failure probability exist. Draft `fitCoxWithDiagnostics` adds Efron Cox fits with censoring, strata, delayed entry and piecewise covariates, canonical-asset clustered uncertainty and formal identity-time PH score diagnostics independently witnessed against R survival 3.8.6 (`cox-r-reference.json`); PH p-values are model-based, not within-asset-adjusted. Governed `component_life_events` overlays feed the authenticated calculation service and canonical calculation ledger; source/review/fit/history/refusal smoke passed hosted run `37406955532` at `9fab334e`, and diagnostic persistence plus all five CI jobs passed run `37408044825` at `ae8b6523`. Draft `analyseCoxSurvival` and `prepareSurvivalScenario` add evidence-derived conditional numerical scenarios, observed stratum/joint-profile/age support and pre-origin availability/explicit-validity refusals; 20 synthetic windows match actual R predictions, and conditional source/ledger/refusal smoke plus all five CI jobs passed run `37409612500` at `bd313912`. `prepareActiveSurvivalScenario` and mixed-population preparation use canonical `component_instances` identities and `asset_meter_readings` differences, preserving observed right censoring and blocking incomplete installed-life subsets; a mixed synthetic population matches the retained independent likelihood and clustered covariance. Foundation head a944db88 passed all five CI jobs in run 37411072769. The new draft `prepareSurvivalCensus` pins the complete installed and removed population; additive canonical installed-overlay capture/review and atomic ledger retention, explicit removed-life reconciliation, rolling-deployment subset refusals and `CovariateSurvivalWorkbench` current-target controls are implemented with focused source/service/component tests. Installed-life head `bfd21410` passed all five CI jobs in run `37412533736`, including the actual installation/meter/capture/review/ledger/stale-meter/removal/reconciliation smoke. New `covariate-survival.spec.ts` uses real local GoTrue sessions and two independent synthetic assurance fixtures to exercise the authenticated forms, complete-census refusal, canonical meter-derived scenarios and stale-meter invalidation; it is registered alongside every existing required browser scenario, but browser job `112107541501` in run `37413697939` at `3c629ae0` failed at actual GoTrue session verification before entering the UI; the 14 existing browser tests passed. The test-only HMAC fixture now declares its matching HS256 algorithm and drops any copied asymmetric key ID, with cryptographic regression coverage and mandatory actual `getUser` verification preserved. At repaired head `38e10614`, run `37414607304` passed unit, lint/typecheck/build, migration ordering and the entire migration/auth smoke chain; browser job `112110342502` passed actual GoTrue verification and the initial complete-census/AAL1 refusals but failed at exact wrapped-select label matching, while the 14 existing browser tests passed. Real local Chrome reproduction found zero exact-label matches and one exact accessible combobox match. The exact-role repair head `c928a6fb` passed all 15 required browser scenarios in run `37416167207`, job `112115138995`, including real local GoTrue verification, installed-life form capture, separate-human persisted review, complete-census fitting, meter-derived current age and stale-meter refusal. Unit, lint/typecheck/build and migration ordering also passed; the full migration/auth chain remains live at observation. `qualify-cox-uncertainty-reference.mjs` independently refits R 4.6.0 / survival 3.8.6 under physical-asset case-weight perturbations; `cox-uncertainty-reference.json` retains 25 synthetic constant and piecewise scenarios, all asset influence values and three finite-difference sizes. Exact-input provenance, point hazards and perturbation stability pass local reference tests; the independent method is not the `survfit` variance convention. The next application increment `cox-joint-asset/1/draft` computes full joint conditional-hazard physical-asset influences in the same Efron point-estimate loop and aggregates path pieces before variance. All 25 independent references, row-order/reference/unit invariance, missing/extra/single/singular cluster and no-event refusal tests pass locally. Service output and uncertainty refusals reuse the canonical ledger; the workbench labels sampling uncertainty, absent historical output and refused uncertainty without inventing confidence bounds. Production build and full local regression pass (646 files / 8,241 tests); this new uncertainty application increment still needs its own fresh exact-head hosted runtime, confidence-bound transformation and customer qualification. These fixtures do not prove real MFA enrollment or customer qualification. Engineering applicability, predictive uncertainty, held-out customer calibration, independent review and production verification remain open. No numerical fit or PH p-value establishes model acceptance or operational authority. |
+
+**C7.14 verification checkpoint — 2026-10-06:** Uncertainty application head
+`15dd17f6` completed hosted run `37417051570`: unit tests, lint/typecheck/build,
+migration ordering and the full migration/auth smoke chain passed. Browser job
+`112117859083` passed all 14 existing scenarios but the owned new assertion
+incorrectly expected three independent assets from its single-asset repeated-life
+fixture. The artifact confirms the application correctly retained its point
+scenario and refused clustered uncertainty; no calculation or authority guard was
+weakened. Browser acceptance now preserves that single-asset refusal and adds a
+separate complete three-canonical-asset workflow with exact-asset observations,
+distinct human review, ledger influence identities and stale-meter refusal. This
+repair still requires fresh hosted browser evidence; C7.14 remains yellow and
+customer calibration, confidence-bound qualification, independent review and
+production verification remain incomplete.
+
+**C7.14 next draft increment:** `coxModelConfidenceBounds` applies a pointwise
+nominal 95% log-cumulative-hazard transform to the full joint physical-asset
+variance, independently witnessed by actually executed R 4.6.0 transforms for
+all 25 retained synthetic scenarios (`cox-confidence-reference.json`). Bounds
+are versioned separately and retained through the canonical calculation ledger;
+the workbench distinguishes computed, refused and absent historical bounds.
+Nonfinite, nonpositive, overflowing, boundary-saturated and unresolvable
+zero-width bounds are explicitly refused rather than clipped. This is model
+sampling confidence, not validated coverage or a future-event prediction
+interval: predictive confidence remains null, calibration unqualified and
+live-asset/operational authority false. Mathematical, UI and refusal tests pass
+locally; fresh hosted acceptance for this increment is not yet proven. The
+method and remaining acceptance are documented in
+`docs/reliability-engineer/covariate-survival-confidence.md`. C7.14 remains yellow;
+customer applicability/calibration, independent review and production proof
+remain incomplete.
+
+**C7.14 acceptance checkpoint — 2026-10-06 UTC:** exact `95c51828` run
+`37418066331` completed with four primary jobs passing, including the full
+migration/auth chain. The browser job passed the 14 pre-existing scenarios and
+the full single-asset capture/review/census/refusal workflow, but failed the
+three-asset fixture's exact latest-meter assertion: its backdated observation
+was older than the first case's final meter. The next test-only repair reads
+the disposable local database clock and latest canonical meter together,
+requires a strictly newer real observation, and refuses equal, future or
+invalid prior times instead of inventing a future timestamp. Both browser cases
+and all exact source, authentication, independent review and freshness gates
+remain required. The final application confidence increment passed 647 files /
+8,252 tests before this clock regression was added; the regression and final
+combined head still require their own complete local and hosted verification.
+No three-asset browser pass, merge or production deployment is claimed at that
+checkpoint.
+
+**C7.14 subsequent executed witness — 2026-10-06 UTC:** published
+`42b607ff19844a70ebdd54f55b563ffb66b3c026`, run `37419283012`, browser job
+`112124779886` completed SUCCESS for both governed single-asset and three-asset
+workflows. The exact-head covariate survival database/ledger smoke in
+`112124780067` also completed SUCCESS, including computed bound versions,
+ordered probabilities, canonical input/approval retention, false coverage and
+future-event flags, horizon refusal and genuine-newer-meter invalidation.
+The entire run subsequently completed all five primary jobs successfully,
+including the full migration/auth chain; all six ancillary workflows and three
+Vercel previews passed. The provider live golden suite was explicitly skipped,
+not passed. This proves the synthetic runtime assertions, not customer
+calibration, independent review, merge or production deployment. Newer-head
+qualification remains a distinct gate.
+
+**C7.14 declared numerical boundary:** `cox-capacity.test.ts` compares the
+complete 2,000-interval/eight-covariate boundary to actually executed R 4.6.0 /
+survival 3.8.6 references. The retained deterministic recipe has 1,000 lives,
+four strata, delayed entry, right censoring, time-varying conditions and 32
+explicit synthetic asset clusters. Coefficients, covariance, all identity PH
+score tests, constant/piecewise conditional hazards, full joint asset
+influences and nominal confidence bounds agree with the independent witness;
+192 perturbed-model fits check derivative stability. Excess intervals or a
+ninth covariate refuse the whole cohort rather than truncating it. No solver,
+schema, authority or computational limit changes. This is synthetic numerical
+qualification, not customer suitability, concurrent endpoint load acceptance or
+predictive coverage (`docs/reliability-engineer/covariate-survival-capacity.md`).
+C7.14 remains yellow pending the remaining customer, review, integration and
+production gates.
 
 ### C8 — Operating mandate (management system + recommendation contract)
 
