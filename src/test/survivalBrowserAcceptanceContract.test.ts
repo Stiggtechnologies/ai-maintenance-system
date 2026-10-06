@@ -115,6 +115,8 @@ describe("actual installed-life browser acceptance boundary", () => {
       "originHours: 8",
       "liveAssetForecast: false",
       "confidenceInterval: null",
+      "Joint conditional hazard sampling uncertainty · 3 assets",
+      'uncertaintyVersion: "cox-joint-asset/1/draft"',
       "record_asset_meter_reading",
       "Source gap",
     ])

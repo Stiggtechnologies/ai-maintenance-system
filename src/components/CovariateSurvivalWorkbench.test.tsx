@@ -591,6 +591,19 @@ describe("governed covariate survival workbench", () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
+        /Joint conditional hazard sampling uncertainty.*24 assets/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/Cumulative hazard standard error/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /not a future-event prediction interval or validated customer coverage/,
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
         /Unqualified calibration; no predictive confidence interval/,
       ),
     ).toBeInTheDocument();
@@ -601,6 +614,86 @@ describe("governed covariate survival workbench", () => {
       ),
     ).not.toBeInTheDocument();
   });
+  for (const mode of ["historical", "refused"] as const) {
+    it(`does not invent joint uncertainty for a ${mode} receipt`, async () => {
+      const rows = coxInput.cases[0].rows.map((row) => ({
+        ...row,
+        covariates: [row.covariates[0]],
+      }));
+      const result = analyseCoxSurvival(
+        rows,
+        ["synthetic_load"],
+        new Map(
+          rows.map((row, i) => [row.subjectId, `asset-${Math.floor(i / 3)}`]),
+        ),
+        {
+          stratum: "A",
+          originHours: 3,
+          horizonHours: 12,
+          path: [
+            {
+              startHours: 3,
+              stopHours: 12,
+              covariates: rows[1].covariates,
+              observedAtHours: 0,
+              availableAtHours: 0,
+              validThroughHours: 22,
+            },
+          ],
+        },
+      );
+      if (
+        result.status !== "fitted" ||
+        result.conditionalScenario?.status !== "estimated"
+      )
+        throw new Error(JSON.stringify(result));
+      if (mode === "historical")
+        delete result.conditionalScenario.predictionUncertainty;
+      else
+        result.conditionalScenario.predictionUncertainty = {
+          status: "refused",
+          uncertaintyVersion: "cox-joint-asset/1/draft",
+          authority: "advisory_only",
+          reason: "Retained independent asset uncertainty is unresolvable.",
+        };
+      vi.mocked(runSurvivalAnalysis).mockResolvedValue({
+        calculationRunId: "synthetic-receipt",
+        agentRunId: "synthetic-run",
+        result,
+        refusals: ["No operational authority."],
+        advisory: true,
+        may_change_pm_interval: false,
+        may_create_work: false,
+        may_accept_risk: false,
+        may_return_to_service: false,
+      });
+      render(<CovariateSurvivalWorkbench component="synthetic drive" />);
+      await screen.findByText("Whole-population readiness");
+      change("Predictor 1 name", "synthetic_load");
+      change("Predictor 1 unit", "ratio");
+      fireEvent.click(
+        screen.getByRole("button", { name: "Run retained survival analysis" }),
+      );
+      await screen.findByText(
+        "Numerical conditional scenario · not a live asset forecast",
+      );
+      expect(
+        screen.getByText(
+          mode === "historical"
+            ? /No retained joint hazard uncertainty exists/
+            : /Joint conditional hazard uncertainty refused/,
+        ),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByText(/Cumulative hazard standard error/),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.getByText(
+          /Unqualified calibration; no predictive confidence interval/,
+        ),
+      ).toBeInTheDocument();
+    });
+  }
   it("reviews the selected persisted version, never unsaved form edits", async () => {
     const data = workspace();
     data.events[0] = {

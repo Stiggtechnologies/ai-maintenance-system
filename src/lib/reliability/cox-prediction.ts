@@ -35,6 +35,24 @@ export interface CoxConditionalProfile {
         evidenceItemIds: string[];
       };
 }
+export type CoxJointHazardUncertainty =
+  | {
+      status: "refused";
+      uncertaintyVersion: "cox-joint-asset/1/draft";
+      authority: "advisory_only";
+      reason: string;
+    }
+  | {
+      status: "computed";
+      uncertaintyVersion: "cox-joint-asset/1/draft";
+      authority: "advisory_only";
+      method: "efron_full_asset_case_weight_influence";
+      clusterCount: number;
+      cumulativeHazardVariance: number;
+      cumulativeHazardStandardError: number;
+      clusterInfluences: Array<{ clusterId: string; influence: number }>;
+      limitations: string[];
+    };
 export type CoxConditionalScenario =
   | {
       status: "refused";
@@ -49,6 +67,8 @@ export type CoxConditionalScenario =
       liveAssetForecast: false;
       calibration: "unqualified";
       confidenceInterval: null;
+      /** Optional for historical receipts; never recomputed on read. */
+      predictionUncertainty?: CoxJointHazardUncertainty;
       profile: CoxConditionalProfile;
       cumulativeHazardIncrement: number;
       conditionalFailureProbability: number;
@@ -91,13 +111,14 @@ export function analyseCoxSurvival(
               ? request.refusal
               : "The source scenario has no valid refusal rationale or measured profile.",
           )
-        : estimate(rows, fit, request, refused),
+        : estimate(rows, fit, clusters, request, refused),
   };
 }
 
 function estimate(
   rows: CoxInterval[],
   fit: Extract<CoxResult, { status: "fitted" }>,
+  clusters: ReadonlyMap<string, string>,
   profile: CoxConditionalProfile,
   refused: (reason: string) => CoxConditionalScenario,
 ): CoxConditionalScenario {
@@ -169,6 +190,11 @@ function estimate(
     )
     .sort((a, b) => a - b);
   let hazard = 0;
+  // Differentiate the SAME Efron increments used by the point scenario.
+  // Aggregate all path pieces before squaring, preserving cross-piece and
+  // baseline/coefficient covariance within each canonical physical asset.
+  const gradient = Array<number>(p).fill(0);
+  const direct = new Map<string, number>();
   for (const time of times) {
     const interval = profile.path.find(
       (item) => item.startHours < time && item.stopHours >= time,
@@ -200,6 +226,31 @@ function estimate(
           "Conditional hazard exceeds representable numerical range; no clipped or precise-looking probability is returned.",
         );
       hazard += increment;
+      if (fit.diagnostics?.status === "computed") {
+        const fraction = k / deaths.length;
+        for (let i = 0; i < risk.length; i++) {
+          const row = risk[i];
+          const event = row.failed && row.stop === time;
+          const effective = weights[i] * (event ? 1 - fraction : 1);
+          const proportion = effective / denominator;
+          const asset = clusters.get(row.subjectId)!;
+          direct.set(asset, (direct.get(asset) ?? 0) - proportion * increment);
+          // Center differences on the requested profile, rather than
+          // subtracting two large uncentered covariate means.
+          for (let j = 0; j < p; j++)
+            gradient[j] -=
+              increment *
+              proportion *
+              (row.covariates[j] - interval.covariates[j]);
+        }
+        for (const row of deaths) {
+          const asset = clusters.get(row.subjectId)!;
+          direct.set(
+            asset,
+            (direct.get(asset) ?? 0) + increment / deaths.length,
+          );
+        }
+      }
     }
   }
   if (!Number.isFinite(hazard))
@@ -213,6 +264,13 @@ function estimate(
     liveAssetForecast: false,
     calibration: "unqualified",
     confidenceInterval: null,
+    predictionUncertainty: jointHazardUncertainty(
+      fit,
+      gradient,
+      direct,
+      hazard,
+      times.length,
+    ),
     profile: structuredClone(profile),
     cumulativeHazardIncrement: hazard,
     conditionalFailureProbability: -Math.expm1(-hazard),
@@ -225,6 +283,69 @@ function estimate(
       "No predictive confidence interval is supplied; coefficient uncertainty is not survival-prediction uncertainty.",
       "A zero point estimate from a window with no observed event increments is not proof that failure cannot occur.",
       "No PM interval, work execution, risk acceptance, spending or return-to-service authority is granted.",
+    ],
+  };
+}
+
+function jointHazardUncertainty(
+  fit: Extract<CoxResult, { status: "fitted" }>,
+  gradient: number[],
+  direct: ReadonlyMap<string, number>,
+  hazard: number,
+  events: number,
+): CoxJointHazardUncertainty {
+  const refuse = (reason: string): CoxJointHazardUncertainty => ({
+    status: "refused",
+    uncertaintyVersion: "cox-joint-asset/1/draft",
+    authority: "advisory_only",
+    reason,
+  });
+  const diagnostics = fit.diagnostics;
+  if (diagnostics?.status !== "computed")
+    return refuse(
+      diagnostics?.status === "refused"
+        ? diagnostics.reason
+        : "Complete canonical-asset coefficient influences are required; no model-based substitution.",
+    );
+  if (!events || !(hazard > 0))
+    return refuse(
+      "No observed event increment in this conditional window; zero point hazard does not establish zero uncertainty.",
+    );
+  const clusterInfluences = diagnostics.clusterInfluences.map(
+    ({ clusterId, dfbeta }) => ({
+      clusterId,
+      influence:
+        (direct.get(clusterId) ?? 0) +
+        gradient.reduce((sum, value, j) => sum + value * dfbeta[j], 0),
+    }),
+  );
+  const variance = clusterInfluences.reduce(
+    (sum, asset) => sum + asset.influence ** 2,
+    0,
+  );
+  if (
+    !gradient.every(Number.isFinite) ||
+    !clusterInfluences.every((asset) => Number.isFinite(asset.influence)) ||
+    !Number.isFinite(variance) ||
+    !(variance > 0)
+  )
+    return refuse(
+      "Joint asset prediction uncertainty is degenerate or numerically unresolvable; no precise-looking zero or clipped variance.",
+    );
+  return {
+    status: "computed",
+    uncertaintyVersion: "cox-joint-asset/1/draft",
+    authority: "advisory_only",
+    method: "efron_full_asset_case_weight_influence",
+    clusterCount: diagnostics.clusterCount,
+    cumulativeHazardVariance: variance,
+    cumulativeHazardStandardError: Math.sqrt(variance),
+    clusterInfluences,
+    limitations: [
+      "Full joint Efron baseline/coefficient physical-asset case-weight uncertainty, not the survfit variance convention or coefficient uncertainty alone.",
+      "Asymptotic sampling uncertainty assumes independent asset clusters and a suitable model; cluster count alone does not prove adequacy.",
+      "This is not a future-event prediction interval, customer calibration, validated coverage, physical applicability or operational authority.",
+      "No confidence bounds are supplied until their transformation and qualification are implemented.",
     ],
   };
 }

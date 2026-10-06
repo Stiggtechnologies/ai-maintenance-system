@@ -312,6 +312,11 @@ Deno.serve(async (request) => {
                       : "The retained conditional scenario is not a qualified live-asset forecast or predictive calibration; no operational authority is granted.",
                   ]
                 : []),
+              ...(result.conditionalScenario?.status === "estimated" &&
+              result.conditionalScenario.predictionUncertainty?.status ===
+                "refused"
+                ? [result.conditionalScenario.predictionUncertainty.reason]
+                : []),
             ];
       const { data: receiptData, error: receiptError } = await service.rpc(
         "record_survival_calculation",

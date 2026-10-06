@@ -33,6 +33,7 @@ function ConditionalScenarioSummary({
         Conditional scenario refused: {scenario.reason}
       </p>
     );
+  const uncertainty = scenario.predictionUncertainty;
   return (
     <div className="space-y-2 rounded-lg border border-white/10 p-3">
       <h5 className="font-medium text-white">
@@ -58,6 +59,37 @@ function ConditionalScenarioSummary({
         forecast, a held-out validation result or authority to change
         maintenance.
       </p>
+      {!uncertainty ? (
+        <p className="text-xs text-amber-200">
+          No retained joint hazard uncertainty exists for this historical
+          scenario.
+        </p>
+      ) : uncertainty.status === "refused" ? (
+        <p className="text-xs text-amber-200">
+          Joint conditional hazard uncertainty refused: {uncertainty.reason}
+        </p>
+      ) : (
+        <div className="space-y-2 border-t border-white/10 pt-2">
+          <h6 className="font-medium text-white">
+            Joint conditional hazard sampling uncertainty ·{" "}
+            {uncertainty.clusterCount} assets
+          </h6>
+          <p>
+            Cumulative hazard standard error{" "}
+            {uncertainty.cumulativeHazardStandardError.toPrecision(6)} ·
+            variance {uncertainty.cumulativeHazardVariance.toPrecision(6)}
+          </p>
+          <p className="text-xs text-slate-400">
+            {uncertainty.uncertaintyVersion} · full Efron baseline/coefficient
+            asset influences
+          </p>
+          <p className="text-xs text-amber-200">
+            Asymptotic sampling uncertainty, not a future-event prediction
+            interval or validated customer coverage. Independent-asset adequacy
+            and model applicability still require review.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
