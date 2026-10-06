@@ -13,7 +13,7 @@ const chain = resolveChainPolicies();
 const compact = (text: string) => text.replace(/\s+/g, " ").trim();
 
 describe("U18 current-main final-policy composition", () => {
-  it("keeps one restrictive seven-family audit gate after the deployed risk-preview migration", () => {
+  it("keeps one restrictive eight-family audit gate after the deployed risk-preview migration", () => {
     const policies = [...chain.values()]
       .filter((policy) => policy.table === "audit_events")
       .flatMap((policy) =>
@@ -50,6 +50,7 @@ describe("U18 current-main final-policy composition", () => {
       "risk_secondary_created",
       "risk_uncertainty_analysis_submitted",
       "risk_uncertainty_analysis_reviewed",
+      "risk_uncertainty_analysis_replaced",
     ])
       expect(predicate).toContain(`'${family}'`);
   });

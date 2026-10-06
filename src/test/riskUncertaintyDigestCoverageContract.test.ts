@@ -36,7 +36,7 @@ const evidenceProjection = body("risk_uncertainty_evidence_digest_projection");
 const projectedEvidence = evidenceProjection || snapshot;
 const payload = body("risk_uncertainty_v2_digest_payload");
 const digest = body("risk_uncertainty_analysis_digest");
-const submit = body("submit_risk_uncertainty_analysis");
+const submit = body("submit_risk_uncertainty_analysis_internal");
 const trigger = body("enforce_risk_uncertainty_analysis_write");
 const compact = migration.replace(/--[^\n]*/g, "").replace(/\s+/g, " ");
 const legacyBodySha256 =
@@ -351,7 +351,7 @@ describe("U18 v2 content and threshold digest source contract", () => {
       /array\[[^\]]*'(?:digest_version|input_binding_snapshot)'/,
     );
     for (const name of [
-      "submit_risk_uncertainty_analysis",
+      "submit_risk_uncertainty_analysis_internal",
       "review_risk_uncertainty_analysis",
       "get_risk_uncertainty_workspace",
     ])

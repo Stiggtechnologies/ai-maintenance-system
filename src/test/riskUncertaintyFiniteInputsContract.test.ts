@@ -12,7 +12,7 @@ const transcript = readFileSync(
   "utf8",
 );
 const submit = migration.match(
-  /create or replace function public\.submit_risk_uncertainty_analysis\([^]*?as \$\$([^]*?)\$\$;/,
+  /create or replace function public\.submit_risk_uncertainty_analysis_internal\([^]*?as \$\$([^]*?)\$\$;/,
 )?.[1];
 if (!submit) throw new Error("Canonical uncertainty submit body missing");
 const compact = submit.replace(/\s+/g, " ");

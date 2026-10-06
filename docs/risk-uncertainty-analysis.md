@@ -2,7 +2,60 @@
 
 **2026-10-06 — PARTIAL, CURRENT-MAIN DRAFT COMPOSITION; NOT RELEASE QUALIFICATION.**
 
-**Current local closeout — structural input/policy standing.** The public
+**Current local closeout — atomic stale-proposal replacement; runtime pending.**
+The replacement implementation extends the canonical packet and its evidence,
+VOI and audit records, not a separate intent store. Only the original named
+human author can replace a current stale pending packet under an available
+adopted policy. Exact predecessor/version/stored-digest/live-digest/raw-policy
+CAS is rechecked after canonical locks. The old proposal becomes immutable
+`superseded` history; its successor remains `pending_review`, without approval,
+derived evidence, work, spending or operational authorization. Deferred scoped
+reciprocal checks retain middle chains and prohibit forks/cycles. The unchanged
+ordinary submission door delegates to the same private validated writer.
+
+The client prepares one deeply captured exact UTF-8 request and fingerprint,
+dispatches once, and preserves its immutable intent on an unknown outcome.
+Explicit read-only reconciliation recognizes only the exact current actor,
+organization, risk, intent and fingerprint. Absence or mismatch never authorizes
+resending or unlocking. A historical committed receipt remains recognizable
+after later review or expiry; it does not assert the successor is currently
+pending or usable. Observed tenant/actor/role generations suppress late UI
+effects, and a known-CAS acknowledgment prevents fresh-intent resends after
+A→B→A. Unobserved global membership refresh remains a separate owned hold.
+
+Native specifications now include actual v2 and legacy-v1 replacement,
+thirteen refusal cases, reciprocal three-packet history, late-audit rollback,
+lost HTTP response-body reconciliation after the actual persisted due date,
+and four-session competing-replacement/evidence-restoration/audit races. The
+replacement-only evidence-union NOWAIT refusal avoids the inverse risk-FK
+restoration deadlock and releases partial evidence locks before outer rollback.
+These are **new specifications awaiting fresh exact-head CI execution**, not
+native or production qualification. Independent source reviews found and
+regression-tested client author/version/date/serialization defects and HTTP
+proof gaps. Wider replacement-specific review/ordinary-submit and
+policy/profile/view schedules, typed source approval/claim-purpose (#569),
+shared cockpit/authentication freshness (#618), protected non-author merge and
+production verification remain release holds. No register item is promoted.
+
+The frozen local replacement cohort passes **2,048 tests in 25 files**, including
+the unchanged shared tenancy/definer guards. Application TypeScript, scoped
+lint, formatting, syntax, diff hygiene and both register ratchets pass. The
+72-case synthetic HTTP containment transcript executes the real program's
+assertions unchanged, including 24 adversarial cases; its clock and transport
+are synthetic, not native-runtime evidence. Architecture/domain SQL and
+security/tenancy client/UI/HTTP/concurrency source re-reviews found no remaining
+blocker in their bounded implemented paths. Local execution uses the existing
+Vitest 4.1.10 runtime. No full local build/database is claimed; disk availability
+is below 300 MiB, so fresh isolated CI must qualify the actual database chain.
+
+The published `16c82f7a` checkpoint's database job completed successfully:
+full rollback SQL at `2026-10-06T23:38:08Z`, real HTTP at `23:38:10Z`, actual
+PostgreSQL races at `23:38:11Z`, and database cleanup at `23:39:14Z`. Its unit
+job passed 8,572 tests in 541 files. Its browser job was still live at the last
+inspection. Those receipts cover that earlier standing checkpoint only, not
+this new replacement implementation or production.
+
+**Historical local checkpoint — published `16c82f7a` structural standing.** The public
 workspace now returns a server-owned `reviewStanding` for each packet and a raw
 canonical `policyDigest` for its current non-null criteria. Standing distinguishes
 `reviewable`, `replacement_required` and `policy_unavailable`; it does not replace

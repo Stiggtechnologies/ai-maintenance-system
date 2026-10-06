@@ -63,15 +63,39 @@ export interface RiskUncertaintySensitivityResult {
   swing: number;
 }
 
+export interface RiskUncertaintyReplacementCompareAndSwap {
+  analysisId: string;
+  version: number;
+  digestVersion: 1 | 2;
+  analysisDigest: string;
+  currentDigest: string;
+  policyDigest: string;
+}
+
+export interface RiskUncertaintyReplacementMetadata {
+  predecessorAnalysisId: string;
+  intentId: string;
+  requestFingerprint: string;
+  compareAndSwap: RiskUncertaintyReplacementCompareAndSwap;
+  reason: string;
+}
+
+export interface RiskUncertaintySupersessionMetadata {
+  successorAnalysisId: string;
+  at: string;
+  byUserId: string;
+}
+
 export interface RiskUncertaintyAnalysis {
   id: string;
   organizationId: string;
   riskId: string;
   version: number;
-  storedStatus: "pending_review" | "validated" | "rejected";
+  storedStatus: "pending_review" | "validated" | "rejected" | "superseded";
   digestVersion: 1 | 2;
   digestCoverage: "legacy_metadata" | "evidence_content_and_current_criteria";
-  validationStatus: "pending_review" | "validated" | "rejected" | "stale";
+  validationStatus:
+    "pending_review" | "validated" | "rejected" | "superseded" | "stale";
   reviewStanding: "reviewable" | "replacement_required" | "policy_unavailable";
   method: string;
   basis: string;
@@ -109,6 +133,8 @@ export interface RiskUncertaintyAnalysis {
   approvalId: string | null;
   derivedEvidenceItemId: string | null;
   evidenceItemIds: string[];
+  replacement?: RiskUncertaintyReplacementMetadata | null;
+  supersession?: RiskUncertaintySupersessionMetadata | null;
   operationalAuthorization: false;
 }
 
@@ -546,6 +572,41 @@ function uncertaintyEvidence(
   );
 }
 
+function uncertaintyReplacementMetadata(value: unknown): boolean {
+  if (
+    !uncertaintyRecord(value) ||
+    !uncertaintyUuid(value.predecessorAnalysisId) ||
+    !uncertaintyUuid(value.intentId) ||
+    !uncertaintyDigest(value.requestFingerprint) ||
+    !uncertaintyText(value.reason, 20) ||
+    !uncertaintyRecord(value.compareAndSwap)
+  )
+    return false;
+  const compareAndSwap = value.compareAndSwap;
+  return (
+    uncertaintyUuid(compareAndSwap.analysisId) &&
+    uncertaintySameUuid(
+      value.predecessorAnalysisId,
+      compareAndSwap.analysisId,
+    ) &&
+    uncertaintyVersion(compareAndSwap.version) &&
+    (compareAndSwap.digestVersion === 1 ||
+      compareAndSwap.digestVersion === 2) &&
+    uncertaintyDigest(compareAndSwap.analysisDigest) &&
+    uncertaintyDigest(compareAndSwap.currentDigest) &&
+    uncertaintyDigest(compareAndSwap.policyDigest)
+  );
+}
+
+function uncertaintySupersessionMetadata(value: unknown): boolean {
+  return (
+    uncertaintyRecord(value) &&
+    uncertaintyUuid(value.successorAnalysisId) &&
+    uncertaintyTimestamp(value.at) !== null &&
+    uncertaintyUuid(value.byUserId)
+  );
+}
+
 function uncertaintyAnalysis(
   value: unknown,
   riskId: string,
@@ -567,6 +628,7 @@ function uncertaintyAnalysis(
       "pending_review",
       "validated",
       "rejected",
+      "superseded",
     ]) ||
     !uncertaintyEnum(value.reviewStanding, [
       "reviewable",
@@ -587,6 +649,20 @@ function uncertaintyAnalysis(
         : "stale")
   )
     return false;
+  const replacement = Object.hasOwn(value, "replacement")
+    ? value.replacement
+    : null;
+  const supersession = Object.hasOwn(value, "supersession")
+    ? value.supersession
+    : null;
+  if (
+    (replacement !== null && !uncertaintyReplacementMetadata(replacement)) ||
+    (value.storedStatus === "superseded"
+      ? !Object.hasOwn(value, "supersession") ||
+        !uncertaintySupersessionMetadata(supersession)
+      : supersession !== null)
+  )
+    return false;
   if (
     !uncertaintyUuid(value.authorId) ||
     !uncertaintyNullableUuid(value.reviewerId) ||
@@ -594,7 +670,10 @@ function uncertaintyAnalysis(
     !uncertaintyNullableUuid(value.derivedEvidenceItemId)
   )
     return false;
-  if (value.storedStatus === "pending_review") {
+  if (
+    value.storedStatus === "pending_review" ||
+    value.storedStatus === "superseded"
+  ) {
     if (
       [
         value.reviewerId,
@@ -718,6 +797,80 @@ function uncertaintyAnalysis(
   );
 }
 
+function uncertaintyReplacementHistory(
+  analyses: Record<string, unknown>[],
+  riskId: string,
+  organizationId: string,
+): boolean {
+  const byId = new Map(
+    analyses.map((analysis) => [
+      (analysis.id as string).toLowerCase(),
+      analysis,
+    ]),
+  );
+  return analyses.every((successor) => {
+    const replacement = Object.hasOwn(successor, "replacement")
+      ? successor.replacement
+      : null;
+    const supersession = Object.hasOwn(successor, "supersession")
+      ? successor.supersession
+      : null;
+
+    if (replacement !== null) {
+      if (!uncertaintyRecord(replacement)) return false;
+      const predecessor = byId.get(
+        (replacement.predecessorAnalysisId as string).toLowerCase(),
+      );
+      const compareAndSwap = replacement.compareAndSwap;
+      if (
+        !predecessor ||
+        !uncertaintyRecord(compareAndSwap) ||
+        !uncertaintySameUuid(predecessor.organizationId, organizationId) ||
+        !uncertaintySameUuid(successor.organizationId, organizationId) ||
+        !uncertaintySameUuid(predecessor.riskId, riskId) ||
+        !uncertaintySameUuid(successor.riskId, riskId) ||
+        successor.version !== (predecessor.version as number) + 1 ||
+        !uncertaintySameUuid(
+          successor.authorId,
+          predecessor.authorId as string,
+        ) ||
+        compareAndSwap.version !== predecessor.version ||
+        compareAndSwap.digestVersion !== predecessor.digestVersion ||
+        compareAndSwap.analysisDigest !== predecessor.analysisDigest ||
+        !uncertaintyRecord(predecessor.supersession) ||
+        !uncertaintySameUuid(
+          predecessor.supersession.successorAnalysisId,
+          successor.id as string,
+        ) ||
+        !uncertaintySameUuid(
+          predecessor.supersession.byUserId,
+          successor.authorId as string,
+        ) ||
+        uncertaintyTimestamp(predecessor.supersession.at) !==
+          uncertaintyTimestamp(successor.createdAt)
+      )
+        return false;
+    }
+
+    if (supersession !== null) {
+      if (!uncertaintyRecord(supersession)) return false;
+      const linkedSuccessor = byId.get(
+        (supersession.successorAnalysisId as string).toLowerCase(),
+      );
+      if (
+        !linkedSuccessor ||
+        !uncertaintyRecord(linkedSuccessor.replacement) ||
+        !uncertaintySameUuid(
+          linkedSuccessor.replacement.predecessorAnalysisId,
+          successor.id as string,
+        )
+      )
+        return false;
+    }
+    return true;
+  });
+}
+
 function uncertaintyReviewStanding(
   criteria: unknown,
   evidence: unknown[],
@@ -824,6 +977,7 @@ function uncertaintyWorkspace(
   return (
     new Set(evidenceIds).size === evidenceIds.length &&
     new Set(analysisIds).size === analysisIds.length &&
+    uncertaintyReplacementHistory(analyses, riskId, observed.organizationId) &&
     analyses.every((item) =>
       uncertaintyReviewStanding(
         criteria,

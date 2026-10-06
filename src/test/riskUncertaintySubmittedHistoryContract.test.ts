@@ -25,7 +25,7 @@ function body(name: string): string {
 
 const trigger = body("enforce_risk_uncertainty_analysis_write");
 const review = body("review_risk_uncertainty_analysis");
-const submit = body("submit_risk_uncertainty_analysis");
+const submit = body("submit_risk_uncertainty_analysis_internal");
 const packetSchema = migration
   .split("create table if not exists public.risk_uncertainty_analyses (")[1]
   ?.split("create unique index")[0]
@@ -82,10 +82,17 @@ function excludedFields(source: string): string[] {
 
 describe("U18 submitted-history immutable source contract", () => {
   it("freezes the whole submitted row except exactly the digest/finalization and review transition fields", () => {
-    const projection = trigger.match(
-      /\(to_jsonb\(new\)\s*-\s*array\[([^\]]+)\](?:::\s*text\[\])?\)\s+is distinct from\s+\(to_jsonb\(old\)\s*-\s*array\[([^\]]+)\](?:::\s*text\[\])?\)/,
-    );
-    expect(projection, "whole-row NEW/OLD projection exists").not.toBeNull();
+    // Select the ordinary initialization/review projection, not the separately
+    // qualified four-field supersession branch. Neither guard is weakened.
+    const projection = [
+      ...trigger.matchAll(
+        /\(to_jsonb\(new\)\s*-\s*array\[([^\]]+)\](?:::\s*text\[\])?\)\s+is distinct from\s+\(to_jsonb\(old\)\s*-\s*array\[([^\]]+)\](?:::\s*text\[\])?\)/g,
+      ),
+    ].find((match) => excludedFields(match[1]).includes("analysis_digest"));
+    expect(
+      projection,
+      "ordinary whole-row NEW/OLD projection exists",
+    ).toBeDefined();
     const newExceptions = excludedFields(projection?.[1] ?? "");
     const oldExceptions = excludedFields(projection?.[2] ?? "");
     expect([...newExceptions].sort()).toEqual([...lifecycleFields].sort());
@@ -111,10 +118,12 @@ describe("U18 submitted-history immutable source contract", () => {
 
   it("refuses every update to terminal reviewed rows, not only selected engineering-field changes", () => {
     expect(trigger).toMatch(
-      /if old\.status in \('validated','rejected'\) then\s+raise exception '(?:''|[^'])*';\s+end if;/,
+      /if old\.status in \('validated','rejected','superseded'\) then\s+raise exception '(?:''|[^'])*';\s+end if;/,
     );
     expect(
-      trigger.indexOf("if old.status in ('validated','rejected') then"),
+      trigger.indexOf(
+        "if old.status in ('validated','rejected','superseded') then",
+      ),
     ).toBeLessThan(trigger.indexOf("to_jsonb(new)"));
   });
 
@@ -244,6 +253,12 @@ describe("U18 submitted-history immutable source contract", () => {
     expect(migration).toContain(
       "before truncate on public.risk_uncertainty_analyses",
     );
-    expect(migration).not.toContain("'superseded'");
+    // Superseded is retained terminal history, not an invented human rejection.
+    expect(trigger).toContain(
+      "if old.status in ('validated','rejected','superseded') then",
+    );
+    expect(body("enforce_risk_uncertainty_replacement_pair")).toContain(
+      "p.superseded_by_analysis_id is distinct from a.id",
+    );
   });
 });

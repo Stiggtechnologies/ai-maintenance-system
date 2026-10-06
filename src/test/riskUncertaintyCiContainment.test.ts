@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { createHash, randomUUID } from "node:crypto";
 import { describe, expect, it, vi } from "vitest";
 
 const shell = readFileSync(
@@ -19,6 +20,10 @@ const execute = new AsyncFunction(
   "process",
   "fetch",
   "console",
+  "createHash",
+  "randomUUID",
+  "Date",
+  "setTimeout",
   source.replace(/^import[^\n]*\n/gm, ""),
 );
 
@@ -26,7 +31,22 @@ function harness(
   env: Record<string, string>,
   statusText = 'API_URL="http://127.0.0.1:54321"\nANON_KEY="synthetic"\nSERVICE_ROLE_KEY="synthetic-service"\n',
 ) {
-  const fixture = {
+  // Only synthetic AsyncFunction execution uses this clock. The original HTTP
+  // program's real due-date loop and every assertion remain byte-for-byte.
+  let clock = Date.parse("2026-10-06T12:00:00Z");
+  class TranscriptDate extends Date {
+    static now() {
+      return clock;
+    }
+  }
+  const wait = vi.fn((resolve: () => void, ms: number) => {
+    clock += ms;
+    resolve();
+    return 0;
+  });
+  const nativeInput = sql.match(/as wrong_risk,\s*'([^]*?)'::jsonb/)?.[1];
+  assert.ok(nativeInput, "actual native fixture proposal is present");
+  const fixture: Record<string, unknown> = {
     ...Object.fromEntries(
       [
         "org",
@@ -45,7 +65,10 @@ function harness(
         `00000000-0000-4000-8000-${String(index + 1).padStart(12, "0")}`,
       ]),
     ),
-    input: {},
+    input: {
+      ...JSON.parse(nativeInput),
+      review_due_at: new Date(clock + 30 * 86400_000).toISOString(),
+    },
   };
   const spawn = vi.fn((command: string, _args: string[], _options: unknown) => {
     void _args;
@@ -73,8 +96,21 @@ function harness(
     fixture,
     spawn,
     fetch,
+    wait,
+    now: () => clock,
     run: () =>
-      execute(assert, () => sql, spawn, { env }, fetch, { log: vi.fn() }),
+      execute(
+        assert,
+        () => sql,
+        spawn,
+        { env },
+        fetch,
+        { log: vi.fn() },
+        createHash,
+        randomUUID,
+        TranscriptDate,
+        wait,
+      ),
   };
 }
 
@@ -223,6 +259,143 @@ describe("U18 isolated CI transport qualification", () => {
     const approval = "00000000-0000-4000-8000-000000000022";
     const derived = "00000000-0000-4000-8000-000000000023";
     const digest = "a".repeat(64);
+    const pendingPacket = "00000000-0000-4000-8000-000000000041";
+    const replacementPacket = "00000000-0000-4000-8000-000000000042";
+    const policyDigest = "c".repeat(64);
+    const voi = {
+      informationCost: 10000,
+      decisionCostIfWrong: 250000,
+      uncertaintyReduction: 0.5,
+      probabilityDecisionChanges: 0.3,
+      expectedValue: 37500,
+      netValue: 27500,
+      recommendation: "GATHER_INFORMATION",
+    };
+    type Row = Record<string, unknown>;
+    // Whole rows in all thirteen collections, with untouched sentinel content
+    // in both organizations. This is a synthetic boundary model, NOT a native
+    // database witness. The unmodified HTTP program checks its full delta.
+    const row = (id: string, org: unknown, extra: Row = {}): Row => ({
+      id,
+      organization_id: org,
+      retained_fixture_content: "unchanged",
+      ...extra,
+    });
+    const ledger: Record<string, Row[]> = Object.fromEntries(
+      [
+        "risks",
+        "packets",
+        "bindings",
+        "approvals",
+        "audit",
+        "evidence",
+        "criteria",
+        "securityEvents",
+        "decisions",
+        "work",
+        "stakeholderViews",
+        "scenarios",
+        "profiles",
+      ].map((key, index) => [
+        key,
+        [row(`local-${index}`, f.org), row(`foreign-${index}`, f.foreign_org)],
+      ]),
+    );
+    const storedPacket = (id: string, version: number, status: string): Row =>
+      row(id, f.org, {
+        ...Object.fromEntries(
+          Object.entries(f.input as Row).filter(
+            ([key]) => !["sensitivity", "reassessment_triggers"].includes(key),
+          ),
+        ),
+        risk_id: f.risk,
+        author_id: f.author,
+        version,
+        status,
+        analysis_digest: digest,
+        digest_version: 2,
+        created_at: "2026-10-06T12:00:00Z",
+        input_binding_snapshot: {
+          digestVersion: 2,
+          bindingComplete: true,
+          evidence: [f.verified],
+        },
+        basis: (f.input as Row).basis,
+        reviewer_id: status === "validated" ? f.reviewer : null,
+        approval_id: status === "validated" ? approval : null,
+        derived_evidence_item_id: status === "validated" ? derived : null,
+        reviewed_at: status === "validated" ? "2026-10-06T12:00:01Z" : null,
+        review_note:
+          status === "validated" ? "Independent synthetic review." : null,
+        replaces_analysis_id: null,
+        replacement_intent_id: null,
+        replacement_request_fingerprint: null,
+        replacement_compare_and_swap: null,
+        replacement_reason: null,
+        superseded_by_analysis_id: null,
+        superseded_at: null,
+        superseded_by_user_id: null,
+        operational_authorization: false,
+        threshold_profile_id: f.criteria,
+        decision_thresholds: { escalateAbove: 16, stopAbove: 24 },
+        sensitivity_inputs: (f.input as Row).sensitivity,
+        sensitivity_results: [{ name: "Startup exposure", swing: 170000 }],
+        reassessment_triggers: (f.input as Row).reassessment_triggers,
+        voi_expected_value: 37500,
+        voi_net_value: 27500,
+        voi_recommendation: "GATHER_INFORMATION",
+      });
+    ledger.packets.push(storedPacket(packet, 1, "validated"));
+    ledger.risks.push(
+      row(String(f.risk), f.org, {
+        status: "draft",
+        updated_at: "original",
+        value_of_information: {
+          analysis_id: packet,
+          operational_authorization: false,
+        },
+      }),
+    );
+    ledger.evidence.push(
+      row(String(f.verified), f.org, {
+        risk_id: f.risk,
+        quality_grade: "high",
+        verification_status: "verified",
+      }),
+    );
+    const bindingSnapshot = () => ({
+      digestVersion: 2,
+      organizationId: f.org,
+      riskId: f.risk,
+      expectedEvidenceIds: [f.verified],
+      expectedEvidenceCount: 1,
+      foundEvidenceCount: 1,
+      bindingComplete: true,
+      evidence: [
+        structuredClone(ledger.evidence.find((e) => e.id === f.verified)),
+      ],
+      currentCriteriaProfileId: f.criteria,
+      currentCriteria: {
+        id: f.criteria,
+        organizationId: f.org,
+        version: 1,
+        status: "adopted",
+        decisionThresholds: { escalateAbove: 16, stopAbove: 24 },
+      },
+    });
+    let positiveSubmits = 0;
+    let replacementReceipt: Row | undefined;
+    let replacementText: string | undefined;
+    let replayedAfterDue = false;
+    let receiptReads = 0;
+    const cancelled = vi.fn(async () => {
+      if (mode === "replacement-cancel-lost")
+        throw new Error("synthetic cancelled-body transport loss");
+    });
+    const syntheticMutation = vi.fn();
+    const changeForeign = () => {
+      ledger.profiles[1].retained_fixture_content = "corrupted";
+    };
     let stale = false;
     h.spawn.mockImplementation((command, args) => {
       if (command === "supabase")
@@ -236,8 +409,30 @@ describe("U18 isolated CI transport qualification", () => {
         return { status: 0, stdout: JSON.stringify(f) };
       if (statement.includes("with changed")) {
         stale = true;
+        const evidence = ledger.evidence.find((e) => e.id === f.verified)!;
+        evidence.quality_grade = statement.includes("quality_grade='moderate'")
+          ? "moderate"
+          : "high";
         return { status: 0, stdout: "1" };
       }
+      if (statement.includes("risk_uncertainty_current_policy_digest"))
+        return { status: 0, stdout: policyDigest };
+      if (
+        statement.includes(
+          "select public.risk_uncertainty_input_binding_snapshot(",
+        )
+      )
+        return { status: 0, stdout: JSON.stringify(bindingSnapshot()) };
+      if (statement.includes("select public.risk_uncertainty_analysis_digest("))
+        return {
+          status: 0,
+          stdout: (mode === "replacement-live-digest" ? "e" : "d").repeat(64),
+        };
+      if (
+        statement.includes("'profiles'") &&
+        statement.includes("'stakeholderViews'")
+      )
+        return { status: 0, stdout: JSON.stringify(ledger) };
       if (
         statement.includes("concat_ws") &&
         statement.includes(representationPacket)
@@ -285,6 +480,212 @@ describe("U18 isolated CI transport qualification", () => {
             : "costs must be non-negative and probability inputs must be between 0 and 1",
         });
       }
+      if (url.endsWith("replace_risk_uncertainty_analysis")) {
+        const request = JSON.parse(args.p_request_text);
+        if (replacementReceipt) {
+          expect(args.p_request_text).toBe(replacementText);
+          expect(h.now()).toBeGreaterThan(
+            Date.parse(request.analysis.review_due_at),
+          );
+          replayedAfterDue = true;
+          if (mode === "replacement-replay-write") {
+            syntheticMutation("replay");
+            changeForeign();
+          }
+          return respond(
+            200,
+            mode === "replacement-replay-receipt"
+              ? { ...replacementReceipt, submittedStatus: "validated" }
+              : replacementReceipt,
+          );
+        }
+        replacementText = args.p_request_text;
+        const fingerprint = createHash("sha256")
+          .update(replacementText!, "utf8")
+          .digest("hex");
+        expect(request.riskId).toBe(f.risk);
+        expect(request.actorId).toBe(f.author);
+        expect(request.organizationId).toBe(f.org);
+        expect(request.predecessor.analysisId).toBe(pendingPacket);
+        expect(request.predecessor.version).toBe(2);
+        expect(request.predecessor.currentDigest).toBe("b".repeat(64));
+        expect(request.policyDigest).toBe(policyDigest);
+        expect(request.evidenceItemIds).toEqual([f.verified]);
+        const predecessor = ledger.packets.find((p) => p.id === pendingPacket)!;
+        const created = "2026-10-06T12:00:02Z";
+        Object.assign(predecessor, {
+          status: "superseded",
+          superseded_by_analysis_id: replacementPacket,
+          superseded_at: created,
+          superseded_by_user_id: f.author,
+        });
+        const cas = { ...request.predecessor, policyDigest };
+        const successor: Row = {
+          ...structuredClone(predecessor),
+          id: replacementPacket,
+          status: "pending_review",
+          version: 3,
+          superseded_by_analysis_id: null,
+          superseded_at: null,
+          superseded_by_user_id: null,
+          created_at: created,
+          analysis_digest: "d".repeat(64),
+          input_binding_snapshot: bindingSnapshot(),
+          replaces_analysis_id: pendingPacket,
+          replacement_intent_id: request.intentId,
+          replacement_request_fingerprint: fingerprint,
+          replacement_compare_and_swap: cas,
+          replacement_reason: request.reason,
+          review_due_at: request.analysis.review_due_at,
+        };
+        ledger.packets.push(successor);
+        ledger.bindings.push({
+          organization_id: f.org,
+          analysis_id: replacementPacket,
+          evidence_item_id: f.verified,
+          created_at: created,
+        });
+        ledger.audit.push({
+          ...ledger.audit.find(
+            (a) => a.entity_type === "risk_uncertainty_analysis_submitted",
+          ),
+          id: "00000000-0000-4000-8000-000000000043",
+          organization_id: f.org,
+          actor: "admin",
+          created_at: created,
+          event_time: created,
+          entity_type: "risk_uncertainty_analysis_replaced",
+          event_data: {
+            risk_id: f.risk,
+            analysis_id: replacementPacket,
+            replacement_intent_id: request.intentId,
+            predecessor_analysis_id: pendingPacket,
+            request_fingerprint: fingerprint,
+            compare_and_swap: cas,
+            reason: request.reason,
+            version: 3,
+            analysis_digest: successor.analysis_digest,
+            evidence_item_ids: [f.verified],
+            threshold_profile_id: f.criteria,
+            operational_authorization: false,
+          },
+        });
+        const risk = ledger.risks.find((r) => r.id === f.risk)!;
+        Object.assign(risk, {
+          updated_at: created,
+          value_of_information: {
+            information_action: String((f.input as Row).voi_action).trim(),
+            information_cost: 10000,
+            decision_cost_if_wrong: 250000,
+            uncertainty_reduction: 0.5,
+            probability_decision_changes: 0.3,
+            expected_value: 37500,
+            net_value: 27500,
+            recommendation: "GATHER_INFORMATION",
+            currency: "CAD",
+            analysis_id: replacementPacket,
+            validation_status: "pending_review",
+            recorded_at: created,
+            human_decision_required: true,
+            operational_authorization: false,
+          },
+        });
+        replacementReceipt = {
+          commitStatus: "committed",
+          submittedStatus: "pending_review",
+          organizationId: f.org,
+          actorId: f.author,
+          riskId: f.risk,
+          intentId: request.intentId,
+          requestFingerprint: fingerprint,
+          predecessorAnalysisId: pendingPacket,
+          analysisId: replacementPacket,
+          version: 3,
+          analysisDigest: successor.analysis_digest,
+          digestVersion: 2,
+          digestCoverage: "evidence_content_and_current_criteria",
+          compareAndSwap: cas,
+          valueOfInformation: voi,
+          operationalAuthorization: false,
+        };
+        syntheticMutation("replacement");
+        if (mode === "replacement-pair-history")
+          predecessor.basis = "rewritten";
+        if (mode === "replacement-foreign-state") changeForeign();
+        if (mode === "replacement-extra-approval")
+          ledger.approvals.push(row("fabricated-approval", f.org));
+        if (mode === "replacement-binding")
+          ledger.bindings[0].retained_fixture_content = "rewritten";
+        if (mode === "replacement-audit")
+          ledger.audit.at(-1)!.entity_type =
+            "risk_uncertainty_analysis_reviewed";
+        if (mode === "replacement-voi-authority")
+          (risk.value_of_information as Row).operational_authorization = true;
+        if (mode === "replacement-successor-input")
+          successor.method = "rewritten";
+        if (mode === "replacement-successor-snapshot")
+          successor.input_binding_snapshot = {
+            ...bindingSnapshot(),
+            bindingComplete: false,
+          };
+        if (mode === "replacement-new-binding")
+          ledger.bindings.at(-1)!.evidence_item_id = f.wrong_risk;
+        if (mode === "replacement-audit-payload")
+          (ledger.audit.at(-1)!.event_data as Row).reason = "rewritten";
+        if (mode === "replacement-voi-math")
+          (risk.value_of_information as Row).expected_value = 666;
+        if (mode === "replacement-due-date")
+          successor.review_due_at = "2026-10-06T12:00:01Z";
+        return {
+          ...respond(
+            mode === "replacement-response-status" ? 503 : 200,
+            replacementReceipt,
+          ),
+          body: { cancel: cancelled },
+        };
+      }
+      if (url.endsWith("get_risk_uncertainty_replacement_receipt")) {
+        expect(replacementReceipt).toBeDefined();
+        receiptReads++;
+        const matches =
+          headers.authorization.includes(String(f.author)) &&
+          args.p_risk_id === f.risk &&
+          args.p_intent_id === replacementReceipt!.intentId &&
+          args.p_request_fingerprint === replacementReceipt!.requestFingerprint;
+        if (!matches) {
+          if (mode === "replacement-refusal-write") {
+            syntheticMutation("refusal");
+            changeForeign();
+          }
+          return respond(
+            200,
+            mode === "replacement-refusal-content"
+              ? {
+                  error: "no visible committed receipt",
+                  analysisId: replacementPacket,
+                }
+              : {
+                  error: headers.authorization.includes(String(f.foreign_user))
+                    ? "risk not found in this organization"
+                    : "no matching committed replacement receipt is visible",
+                },
+          );
+        }
+        const corrupt = { ...replacementReceipt };
+        if (mode === "replacement-receipt-actor") corrupt.actorId = f.reviewer;
+        if (mode === "replacement-receipt-fingerprint")
+          corrupt.requestFingerprint = "e".repeat(64);
+        if (mode === "replacement-receipt-coverage")
+          corrupt.digestCoverage = "source_approved";
+        if (mode === "replacement-receipt-cas") corrupt.compareAndSwap = {};
+        if (mode === "replacement-receipt-extra-key")
+          corrupt.sourceApproved = true;
+        if (receiptReads > 1)
+          expect(h.now()).toBeGreaterThan(
+            Date.parse(JSON.parse(replacementText!).analysis.review_due_at),
+          );
+        return respond(200, corrupt);
+      }
       if (url.endsWith("submit_risk_uncertainty_analysis")) {
         if (args.p_risk_id === f.other_risk) {
           expect(args.p_evidence_item_ids).toEqual([f.wrong_risk]);
@@ -321,6 +722,30 @@ describe("U18 isolated CI transport qualification", () => {
             error: "synthetic refusal",
             analysisId: packet,
           });
+        positiveSubmits++;
+        if (positiveSubmits === 2) {
+          ledger.packets.push(storedPacket(pendingPacket, 2, "pending_review"));
+          ledger.bindings.push(
+            row("pending-binding", f.org, {
+              analysis_id: pendingPacket,
+              evidence_item_id: f.verified,
+            }),
+          );
+          ledger.audit.push(
+            row("pending-audit", f.org, {
+              entity_type: "risk_uncertainty_analysis_submitted",
+            }),
+          );
+          return respond(200, {
+            riskId: f.risk,
+            analysisId: pendingPacket,
+            analysisDigest: digest,
+            version: 2,
+            validationStatus: "pending_review",
+            operationalAuthorization: false,
+            valueOfInformation: voi,
+          });
+        }
         return respond(200, {
           riskId: mode === "wrong-risk" ? f.other_risk : f.risk,
           analysisId: packet,
@@ -407,6 +832,19 @@ describe("U18 isolated CI transport qualification", () => {
         operationalAuthorization: false,
         boundary: "It does not verify an unverified source",
         analyses: [
+          ...(positiveSubmits === 2
+            ? [
+                {
+                  id: pendingPacket,
+                  version: 2,
+                  digestVersion: 2,
+                  storedStatus: "pending_review",
+                  reviewStanding: "replacement_required",
+                  analysisDigest: digest,
+                  currentDigest: "b".repeat(64),
+                },
+              ]
+            : []),
           {
             id: packet,
             organizationId: f.org,
@@ -449,10 +887,16 @@ describe("U18 isolated CI transport qualification", () => {
         ],
       });
     });
-    return h;
+    return {
+      ...h,
+      cancelled,
+      syntheticMutation,
+      ledger,
+      replayedAfterDue: () => replayedAfterDue,
+    };
   }
 
-  it("executes the entire original-assertion HTTP transcript with synthetic boundaries only", async () => {
+  it("executes every original and replacement HTTP assertion with synthetic boundaries only", async () => {
     const h = transcript();
     await expect(h.run()).resolves.toBeUndefined();
     expect(
@@ -462,7 +906,7 @@ describe("U18 isolated CI transport qualification", () => {
           JSON.parse(String(options.body)).p_risk_id ===
             (h.fixture as Record<string, unknown>).risk,
       ),
-    ).toHaveLength(4);
+    ).toHaveLength(5);
     expect(
       h.fetch.mock.calls.filter(([url]) =>
         url.endsWith("review_risk_uncertainty_analysis"),
@@ -515,7 +959,109 @@ describe("U18 isolated CI transport qualification", () => {
       expect(url).toMatch(/^http:\/\/127\.0\.0\.1:54321\//);
       expect(options.redirect).toBe("error");
     }
+    const replacementCalls = h.fetch.mock.calls.filter(([url]) =>
+      url.endsWith("replace_risk_uncertainty_analysis"),
+    );
+    expect(replacementCalls).toHaveLength(2);
+    expect(replacementCalls[1][1].body).toBe(replacementCalls[0][1].body);
+    const firstReplacementIndex = h.fetch.mock.calls.findIndex(([url]) =>
+      url.endsWith("replace_risk_uncertainty_analysis"),
+    );
+    const snapshotIndex = h.spawn.mock.calls.findIndex(([, args]) =>
+      String(args.at(-1)).includes(
+        "select public.risk_uncertainty_input_binding_snapshot(",
+      ),
+    );
+    const digestIndex = h.spawn.mock.calls.findIndex(([, args]) =>
+      String(args.at(-1)).includes(
+        "select public.risk_uncertainty_analysis_digest(",
+      ),
+    );
+    expect(snapshotIndex).toBeGreaterThan(-1);
+    expect(digestIndex).toBeGreaterThan(-1);
+    expect(h.spawn.mock.invocationCallOrder[snapshotIndex]).toBeLessThan(
+      h.fetch.mock.invocationCallOrder[firstReplacementIndex],
+    );
+    expect(h.spawn.mock.invocationCallOrder[digestIndex]).toBeGreaterThan(
+      h.fetch.mock.invocationCallOrder[firstReplacementIndex],
+    );
+    expect(
+      h.fetch.mock.calls.filter(([url]) =>
+        url.endsWith("get_risk_uncertainty_replacement_receipt"),
+      ),
+    ).toHaveLength(6);
+    expect(h.cancelled).toHaveBeenCalledTimes(1);
+    expect(h.syntheticMutation.mock.calls).toEqual([["replacement"]]);
+    expect(h.replayedAfterDue()).toBe(true);
+    expect(h.wait.mock.calls.length).toBeGreaterThan(0);
+    expect(Object.keys(h.ledger)).toHaveLength(13);
+    for (const rows of Object.values(h.ledger)) {
+      expect(rows.some((r) => r.organization_id === h.fixture.org)).toBe(true);
+      expect(
+        rows.some((r) => r.organization_id === h.fixture.foreign_org),
+      ).toBe(true);
+    }
   });
+
+  it.each([
+    "replacement-pair-history",
+    "replacement-foreign-state",
+    "replacement-extra-approval",
+    "replacement-binding",
+    "replacement-audit",
+    "replacement-voi-authority",
+    "replacement-receipt-actor",
+    "replacement-receipt-fingerprint",
+    "replacement-receipt-coverage",
+    "replacement-receipt-cas",
+    "replacement-refusal-content",
+    "replacement-refusal-write",
+    "replacement-replay-receipt",
+    "replacement-replay-write",
+    "replacement-cancel-lost",
+    "replacement-response-status",
+    "replacement-successor-input",
+    "replacement-successor-snapshot",
+    "replacement-live-digest",
+    "replacement-new-binding",
+    "replacement-audit-payload",
+    "replacement-voi-math",
+    "replacement-receipt-extra-key",
+    "replacement-due-date",
+  ])(
+    "rejects synthetic %s through the unmodified replacement HTTP assertions",
+    async (mode) => {
+      const h = transcript(mode);
+      await expect(h.run()).rejects.toThrow(
+        "U18.02 isolated CI qualification failed",
+      );
+      expect(
+        h.fetch.mock.calls.filter(([url]) =>
+          url.endsWith("replace_risk_uncertainty_analysis"),
+        ).length,
+      ).toBeGreaterThanOrEqual(1);
+      const receiptCalls = h.fetch.mock.calls.filter(([url]) =>
+        url.endsWith("get_risk_uncertainty_replacement_receipt"),
+      );
+      const replayCase = mode.startsWith("replacement-replay-");
+      expect(
+        h.fetch.mock.calls.filter(([url]) =>
+          url.endsWith("replace_risk_uncertainty_analysis"),
+        ),
+      ).toHaveLength(replayCase ? 2 : 1);
+      expect(h.syntheticMutation.mock.calls[0]).toEqual(["replacement"]);
+      if (replayCase) {
+        expect(receiptCalls).toHaveLength(6);
+        expect(h.replayedAfterDue()).toBe(true);
+      } else if (mode.startsWith("replacement-receipt-")) {
+        expect(receiptCalls).toHaveLength(1);
+      } else if (mode.startsWith("replacement-refusal-")) {
+        expect(receiptCalls).toHaveLength(2);
+      } else {
+        expect(receiptCalls).toHaveLength(0);
+      }
+    },
+  );
 
   it.each([
     "coverage-version-string",

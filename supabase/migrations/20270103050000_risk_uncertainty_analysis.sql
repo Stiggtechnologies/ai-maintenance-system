@@ -93,7 +93,7 @@ create table if not exists public.risk_uncertainty_analyses (
   risk_id uuid not null references public.risks(id) on delete cascade,
   version integer not null check (version > 0),
   status text not null default 'pending_review'
-    check (status in ('pending_review','validated','rejected')),
+    check (status in ('pending_review','validated','rejected','superseded')),
   method text not null check (length(btrim(method)) >= 3),
   basis text not null check (length(btrim(basis)) >= 20),
   probability_lower numeric not null check (probability_lower between 0 and 1),
@@ -134,8 +134,45 @@ create table if not exists public.risk_uncertainty_analyses (
   approval_id uuid references public.approvals(id) on delete restrict,
   derived_evidence_item_id uuid references public.evidence_items(id) on delete restrict,
   operational_authorization boolean not null default false check (not operational_authorization),
+  -- Replacement extends the canonical packet; there is no second intent store.
+  replaces_analysis_id uuid,
+  replacement_intent_id uuid,
+  replacement_request_fingerprint text,
+  replacement_compare_and_swap jsonb,
+  replacement_reason text,
+  superseded_by_analysis_id uuid,
+  superseded_at timestamptz,
+  superseded_by_user_id uuid references auth.users(id) on delete restrict,
   unique (organization_id,id),
+  unique (organization_id,risk_id,id),
   unique (organization_id,risk_id,version),
+  unique (organization_id,author_id,replacement_intent_id),
+  unique (organization_id,risk_id,replaces_analysis_id),
+  unique (organization_id,risk_id,superseded_by_analysis_id),
+  foreign key (organization_id,risk_id,replaces_analysis_id)
+    references public.risk_uncertainty_analyses(organization_id,risk_id,id)
+    deferrable initially deferred,
+  foreign key (organization_id,risk_id,superseded_by_analysis_id)
+    references public.risk_uncertainty_analyses(organization_id,risk_id,id)
+    deferrable initially deferred,
+  constraint risk_uncertainty_replacement_metadata_check check (
+    (replaces_analysis_id is null and replacement_intent_id is null
+      and replacement_request_fingerprint is null and replacement_compare_and_swap is null
+      and replacement_reason is null)
+    or (replaces_analysis_id is not null and replaces_analysis_id<>id
+      and replacement_intent_id is not null and replacement_request_fingerprint is not null
+      and replacement_request_fingerprint ~ '^[0-9a-f]{64}$'
+      and replacement_compare_and_swap is not null and jsonb_typeof(replacement_compare_and_swap)='object'
+      and replacement_reason is not null and length(btrim(replacement_reason))>=20)
+  ),
+  constraint risk_uncertainty_supersession_metadata_check check (
+    (status<>'superseded' and superseded_by_analysis_id is null
+      and superseded_at is null and superseded_by_user_id is null)
+    or (status='superseded' and superseded_by_analysis_id is not null
+      and superseded_by_analysis_id<>id and superseded_at is not null
+      and isfinite(superseded_at) and superseded_at>=created_at
+      and superseded_by_user_id is not null and superseded_by_user_id=author_id)
+  ),
   check (probability_lower <= probability_central and probability_central <= probability_upper),
   check (confidence_interval_lower <= confidence_interval_upper),
   check (best_case_loss <= expected_case_loss and expected_case_loss <= worst_case_loss),
@@ -150,6 +187,9 @@ create table if not exists public.risk_uncertainty_analyses (
   ),
   check (
     (status='pending_review' and reviewer_id is null and reviewed_at is null
+      and review_note is null and approval_id is null and derived_evidence_item_id is null)
+    or
+    (status='superseded' and reviewer_id is null and reviewed_at is null
       and review_note is null and approval_id is null and derived_evidence_item_id is null)
     or
     (status in ('validated','rejected') and reviewer_id is not null
@@ -218,8 +258,26 @@ begin
     end if;
   end if;
   if tg_op='UPDATE' then
-    if old.status in ('validated','rejected') then
+    if old.status in ('validated','rejected','superseded') then
       raise exception 'reviewed risk uncertainty analysis history is immutable; submit a new version';
+    end if;
+    if new.status='superseded' then
+      -- Only this branch may add the successor tuple. Every input, original
+      -- digest, replacement intent and review artifact remains immutable.
+      if old.status is distinct from 'pending_review' or old.analysis_digest=repeat('0',64)
+        or new.superseded_by_analysis_id is null or new.superseded_by_analysis_id=old.id
+        or new.superseded_at is null or new.superseded_by_user_id is distinct from old.author_id
+        or old.superseded_by_analysis_id is not null or old.superseded_at is not null
+        or old.superseded_by_user_id is not null
+        or new.reviewer_id is not null or new.reviewed_at is not null
+        or new.review_note is not null or new.approval_id is not null
+        or new.derived_evidence_item_id is not null
+        or (to_jsonb(new)-array['status','superseded_by_analysis_id','superseded_at','superseded_by_user_id'])
+          is distinct from
+          (to_jsonb(old)-array['status','superseded_by_analysis_id','superseded_at','superseded_by_user_id']) then
+        raise exception 'risk uncertainty supersession must retain the exact submitted history and name its successor';
+      end if;
+      return new;
     end if;
     -- Every submitted identity, engineering input and future column is frozen.
     -- Only the one initialization and named-human review channels below differ.
@@ -265,6 +323,53 @@ drop trigger if exists trg_risk_uncertainty_analysis_write on public.risk_uncert
 create trigger trg_risk_uncertainty_analysis_write
   before insert or update or delete on public.risk_uncertainty_analyses
   for each row execute function public.enforce_risk_uncertainty_analysis_write();
+
+-- Deferred reciprocal checks inspect the FINAL pair, not an intermediate NEW
+-- row image. Increasing versions prevent cycles; uniqueness prevents forks.
+create or replace function public.enforce_risk_uncertainty_replacement_pair()
+returns trigger language plpgsql set search_path=public as $$
+declare a public.risk_uncertainty_analyses%rowtype; p public.risk_uncertainty_analyses%rowtype;
+  s public.risk_uncertainty_analyses%rowtype;
+begin
+  select * into a from public.risk_uncertainty_analyses where id=new.id;
+  if not found then raise exception 'risk uncertainty replacement history must be retained'; end if;
+  if a.replaces_analysis_id is not null then
+    select * into p from public.risk_uncertainty_analyses
+    where id=a.replaces_analysis_id and organization_id=a.organization_id and risk_id=a.risk_id;
+    if not found or p.status is distinct from 'superseded'
+      or p.organization_id is distinct from a.organization_id or p.risk_id is distinct from a.risk_id
+      or p.superseded_by_analysis_id is distinct from a.id
+      or p.author_id is distinct from a.author_id or p.version>=a.version
+      or a.analysis_digest=repeat('0',64)
+      or p.superseded_at is distinct from a.created_at
+      or p.superseded_by_user_id is distinct from a.author_id
+      or a.replacement_compare_and_swap->>'analysisId' is distinct from p.id::text
+      or a.replacement_compare_and_swap->'version' is distinct from to_jsonb(p.version)
+      or a.replacement_compare_and_swap->'digestVersion' is distinct from to_jsonb(p.digest_version)
+      or a.replacement_compare_and_swap->>'analysisDigest' is distinct from p.analysis_digest
+      or coalesce(a.replacement_compare_and_swap->>'currentDigest','') !~ '^[0-9a-f]{64}$'
+      or coalesce(a.replacement_compare_and_swap->>'policyDigest','') !~ '^[0-9a-f]{64}$' then
+      raise exception 'risk uncertainty replacement predecessor and successor must form a scoped reciprocal history pair';
+    end if;
+  end if;
+  if a.superseded_by_analysis_id is not null then
+    select * into s from public.risk_uncertainty_analyses
+    where id=a.superseded_by_analysis_id and organization_id=a.organization_id and risk_id=a.risk_id;
+    if not found or s.replaces_analysis_id is distinct from a.id
+      or s.organization_id is distinct from a.organization_id or s.risk_id is distinct from a.risk_id
+      or s.author_id is distinct from a.author_id or s.version<=a.version
+      or s.analysis_digest=repeat('0',64)
+      or a.superseded_at is distinct from s.created_at
+      or a.superseded_by_user_id is distinct from s.author_id then
+      raise exception 'risk uncertainty supersession requires its exact same-author successor';
+    end if;
+  end if;
+  return null;
+end $$;
+create constraint trigger trg_risk_uncertainty_replacement_pair
+  after insert or update on public.risk_uncertainty_analyses
+  deferrable initially deferred for each row
+  execute function public.enforce_risk_uncertainty_replacement_pair();
 
 create or replace function public.enforce_risk_uncertainty_evidence_link()
 returns trigger language plpgsql set search_path=public as $$
@@ -597,8 +702,10 @@ exception when lock_not_available then
 end $$;
 revoke all on function public.risk_uncertainty_lock_visibility_context(uuid,uuid) from public,anon,authenticated,service_role;
 
-create or replace function public.submit_risk_uncertainty_analysis(
-  p_risk_id uuid,p_analysis jsonb,p_evidence_item_ids uuid[]
+-- One private validated writer, reused by the unchanged public submit door.
+-- Replacement will extend this path, not duplicate its validator or arithmetic.
+create or replace function public.submit_risk_uncertainty_analysis_internal(
+  p_risk_id uuid,p_analysis jsonb,p_evidence_item_ids uuid[],p_replacement jsonb default null
 ) returns jsonb language plpgsql security definer set search_path=public as $$
 declare
   v_org uuid:=public.app_current_org(); v_user uuid:=auth.uid();
@@ -613,6 +720,9 @@ declare
   v_voi_expected numeric; v_voi_net numeric; v_voi_recommendation text; v_review_due timestamptz;
   v_input_binding_snapshot jsonb; v_stored_digest text;
   v_packet public.risk_uncertainty_analyses%rowtype;
+  v_predecessor public.risk_uncertainty_analyses%rowtype;
+  v_intent uuid; v_fingerprint text; v_lock_evidence_ids uuid[]; v_cas jsonb;
+  v_created_at timestamptz; v_count integer;
 begin
   if v_user is null or v_org is null then
     return jsonb_build_object('error','authenticated organization member required');
@@ -627,13 +737,52 @@ begin
   select * into r from public.risks
   where id=p_risk_id and organization_id=v_org and public.can_read_risk(id) for update;
   if not found then return jsonb_build_object('error','risk not found in this organization'); end if;
+  if p_replacement is not null then
+    v_intent:=(p_replacement->>'intentId')::uuid;
+    v_fingerprint:=p_replacement->>'requestFingerprint';
+    -- A committed historical receipt is resolved BEFORE mutable pending,
+    -- criteria/evidence/date gates. No resend or second packet is created.
+    select * into v_packet from public.risk_uncertainty_analyses
+    where organization_id=v_org and author_id=v_user and replacement_intent_id=v_intent;
+    if found then
+      if v_packet.risk_id is distinct from r.id
+        or v_packet.replacement_request_fingerprint is distinct from v_fingerprint then
+        return jsonb_build_object('error','replacement intent is already bound to a different request');
+      end if;
+      select organization_id,role into v_locked_org,v_role from public.user_profiles
+      where id=v_user for share;
+      if not found or auth.uid() is distinct from v_user or v_locked_org is distinct from v_org
+        or public.app_current_org() is distinct from v_org
+        or coalesce(v_role,'') not in ('reliability_engineer','maintenance_manager','executive','admin') then
+        return jsonb_build_object('error','current named human engineering or management membership required');
+      end if;
+      if public.can_read_risk(r.id) is distinct from true then
+        return jsonb_build_object('error','risk not found in this organization');
+      end if;
+      return public.risk_uncertainty_replacement_receipt_payload(v_packet);
+    end if;
+    select * into v_predecessor from public.risk_uncertainty_analyses
+    where id=(p_replacement->'predecessor'->>'analysisId')::uuid
+      and organization_id=v_org and risk_id=r.id for update;
+    if not found or v_predecessor.author_id is distinct from v_user
+      or v_predecessor.status is distinct from 'pending_review' then
+      return jsonb_build_object('error','replacement requires the current pending packet and its original human author');
+    end if;
+    if v_predecessor.version is distinct from (p_replacement->'predecessor'->>'version')::numeric::integer
+      or v_predecessor.digest_version is distinct from (p_replacement->'predecessor'->>'digestVersion')::numeric::integer
+      or v_predecessor.analysis_digest is distinct from p_replacement->'predecessor'->>'analysisDigest'
+      or exists(select 1 from public.risk_uncertainty_analyses a
+        where a.organization_id=v_org and a.risk_id=r.id and a.version>v_predecessor.version) then
+      return jsonb_build_object('error','replacement predecessor changed; reload the governed workspace');
+    end if;
+  end if;
   if r.status='archived' then return jsonb_build_object('error','archived risks cannot receive a new uncertainty analysis'); end if;
   select * into c from public.risk_criteria_profiles
   where id=r.criteria_profile_id and organization_id=v_org for share;
   if not found or c.status<>'adopted' or c.decision_thresholds='{}'::jsonb then
     return jsonb_build_object('error','criteria profile must be adopted with decision thresholds before uncertainty analysis');
   end if;
-  if exists(select 1 from public.risk_uncertainty_analyses a
+  if p_replacement is null and exists(select 1 from public.risk_uncertainty_analyses a
     where a.organization_id=v_org and a.risk_id=r.id and a.status='pending_review') then
     return jsonb_build_object('error','this risk already has an uncertainty analysis awaiting independent review');
   end if;
@@ -772,9 +921,29 @@ begin
        and e.organization_id=v_org and e.risk_id=r.id and e.verification_status='verified')<>cardinality(v_evidence_ids) then
     return jsonb_build_object('error','all cited inputs must be verified evidence linked to this exact risk');
   end if;
-  perform 1 from public.evidence_items e
-  where e.id=any(v_evidence_ids) and e.organization_id=v_org and e.risk_id=r.id
-  order by e.id for update of e;
+  -- Old IDs come ONLY from the trusted scoped predecessor bindings. Lock
+  -- rebound rows too, without reading/projecting their foreign content.
+  select array_agg(distinct x order by x) into v_lock_evidence_ids from (
+    select unnest(v_evidence_ids) x
+    union all select b.evidence_item_id from public.risk_uncertainty_analysis_evidence b
+      where p_replacement is not null and b.organization_id=v_org and b.analysis_id=v_predecessor.id
+  ) q;
+  if p_replacement is not null then
+    begin
+      -- A restoration writer may already own evidence and need this held
+      -- risk's FK lock. Never wait in the inverse direction. This exact
+      -- exception subtransaction releases any partly acquired evidence union.
+      perform 1 from public.evidence_items e
+      where e.id=any(v_lock_evidence_ids)
+      order by e.id for update of e nowait;
+    exception when lock_not_available then
+      return jsonb_build_object('error','replacement evidence is busy; reload the governed workspace');
+    end;
+  else
+    perform 1 from public.evidence_items e
+    where e.id=any(v_lock_evidence_ids)
+    order by e.id for update of e;
+  end if;
   -- All explicit input waits have completed. Lock and reread the CURRENT
   -- profile rather than trusting the role/organization captured before them.
   select organization_id,role into v_locked_org,v_role from public.user_profiles
@@ -791,6 +960,17 @@ begin
     and e.organization_id=v_org and e.risk_id=r.id and e.verification_status='verified')<>cardinality(v_evidence_ids) then
     return jsonb_build_object('error','all cited inputs must be verified evidence linked to this exact risk');
   end if;
+  if p_replacement is not null then
+    if public.risk_uncertainty_current_policy_digest(v_org,r.id) is distinct from p_replacement->>'policyDigest'
+      or public.risk_uncertainty_analysis_digest(v_org,v_predecessor.id) is distinct from
+        p_replacement->'predecessor'->>'currentDigest' then
+      return jsonb_build_object('error','replacement inputs or policy changed; reload the governed workspace');
+    end if;
+    if public.risk_uncertainty_review_standing(v_org,v_predecessor.id) is distinct from 'replacement_required' then
+      return jsonb_build_object('error','replacement requires stale inputs under an available adopted policy');
+    end if;
+    v_cas:=(p_replacement->'predecessor')||jsonb_build_object('policyDigest',p_replacement->>'policyDigest');
+  end if;
   v_input_binding_snapshot:=public.risk_uncertainty_input_binding_snapshot(v_org,r.id,v_evidence_ids);
   if v_input_binding_snapshot->'bindingComplete' is distinct from 'true'::jsonb then
     return jsonb_build_object('error','current uncertainty input bindings are incomplete');
@@ -804,9 +984,18 @@ begin
   v_voi_net:=round(v_voi_net_raw,2);
   select coalesce(max(version),0)+1 into v_version from public.risk_uncertainty_analyses
   where organization_id=v_org and risk_id=r.id;
+  v_id:=gen_random_uuid(); v_created_at:=now();
   perform set_config('app.risk_uncertainty_write','granted',true);
+  if p_replacement is not null then
+    update public.risk_uncertainty_analyses set status='superseded',
+      superseded_by_analysis_id=v_id,superseded_at=v_created_at,superseded_by_user_id=v_user
+    where id=v_predecessor.id and organization_id=v_org and risk_id=r.id
+      and author_id=v_user and status='pending_review';
+    get diagnostics v_count=row_count;
+    if v_count<>1 then raise exception 'uncertainty predecessor changed during replacement'; end if;
+  end if;
   insert into public.risk_uncertainty_analyses(
-    organization_id,risk_id,version,method,basis,
+    id,created_at,organization_id,risk_id,version,method,basis,
     probability_lower,probability_central,probability_upper,
     confidence_level,confidence_interval_lower,confidence_interval_upper,
     best_case_loss,expected_case_loss,worst_case_loss,currency,
@@ -814,15 +1003,16 @@ begin
     reassessment_triggers,review_due_at,voi_action,voi_information_cost,
     voi_decision_cost_if_wrong,voi_uncertainty_reduction,voi_probability_decision_changes,
     voi_expected_value,voi_net_value,voi_recommendation,analysis_digest,author_id,
-    digest_version,input_binding_snapshot
+    digest_version,input_binding_snapshot,replaces_analysis_id,replacement_intent_id,
+    replacement_request_fingerprint,replacement_compare_and_swap,replacement_reason
   ) values(
-    v_org,r.id,v_version,btrim(p_analysis->>'method'),btrim(p_analysis->>'basis'),
+    v_id,v_created_at,v_org,r.id,v_version,btrim(p_analysis->>'method'),btrim(p_analysis->>'basis'),
     v_probability_lower,v_probability_central,v_probability_upper,
     v_confidence_level,v_ci_lower,v_ci_upper,v_best,v_expected,v_worst,v_currency,
     v_sensitivity,v_sensitivity_results,c.id,c.decision_thresholds,v_triggers,v_review_due,
     btrim(p_analysis->>'voi_action'),v_info_cost,v_wrong_cost,v_uncertainty_reduction,v_change_probability,
     v_voi_expected,v_voi_net,v_voi_recommendation,repeat('0',64),v_user,
-    2,v_input_binding_snapshot
+    2,v_input_binding_snapshot,v_predecessor.id,v_intent,v_fingerprint,v_cas,p_replacement->>'reason'
   ) returning * into v_packet;
   v_id:=v_packet.id;
   insert into public.risk_uncertainty_analysis_evidence(organization_id,analysis_id,evidence_item_id)
@@ -846,10 +1036,17 @@ begin
   ),updated_at=now() where id=r.id and organization_id=v_org;
   perform set_config('app.risk_uncertainty_write','',true);
   insert into public.audit_events(organization_id,entity_type,actor,event_data)
-  values(v_org,'risk_uncertainty_analysis_submitted',v_role,jsonb_build_object(
+  values(v_org,case when p_replacement is null then 'risk_uncertainty_analysis_submitted'
+    else 'risk_uncertainty_analysis_replaced' end,v_role,jsonb_build_object(
     'risk_id',r.id,'analysis_id',v_id,'version',v_version,'analysis_digest',v_digest,
     'evidence_item_ids',to_jsonb(v_evidence_ids),'threshold_profile_id',c.id,
-    'operational_authorization',false));
+    'operational_authorization',false)||case when p_replacement is null then '{}'::jsonb else
+      jsonb_build_object('predecessor_analysis_id',v_predecessor.id,'replacement_intent_id',v_intent,
+        'request_fingerprint',v_fingerprint,'compare_and_swap',v_cas,'reason',p_replacement->>'reason') end);
+  if p_replacement is not null then
+    v_packet.analysis_digest:=v_digest;
+    return public.risk_uncertainty_replacement_receipt_payload(v_packet);
+  end if;
   return jsonb_build_object('riskId',r.id,'analysisId',v_id,'version',v_version,
     'analysisDigest',v_digest,'validationStatus','pending_review',
     'valueOfInformation',jsonb_build_object(
@@ -857,6 +1054,185 @@ begin
       'uncertaintyReduction',v_uncertainty_reduction,'probabilityDecisionChanges',v_change_probability,
       'expectedValue',v_voi_expected,'netValue',v_voi_net,'recommendation',v_voi_recommendation),
     'operationalAuthorization',false);
+end $$;
+
+create or replace function public.submit_risk_uncertainty_analysis(
+  p_risk_id uuid,p_analysis jsonb,p_evidence_item_ids uuid[]
+) returns jsonb language plpgsql security definer set search_path=public as $$
+begin
+  if auth.uid() is null or public.app_current_org() is null then
+    return jsonb_build_object('error','authenticated organization member required');
+  end if;
+  return public.submit_risk_uncertainty_analysis_internal(p_risk_id,p_analysis,p_evidence_item_ids);
+end $$;
+
+-- Immutable historical commit receipt. It intentionally does not assert the
+-- successor is STILL pending, current, reviewable or operationally approved.
+create or replace function public.risk_uncertainty_replacement_receipt_payload(
+  p_packet public.risk_uncertainty_analyses
+) returns jsonb language plpgsql stable set search_path=public as $$
+begin
+  return jsonb_build_object('commitStatus','committed','submittedStatus','pending_review',
+    'organizationId',p_packet.organization_id,'actorId',p_packet.author_id,'riskId',p_packet.risk_id,
+    'intentId',p_packet.replacement_intent_id,'requestFingerprint',p_packet.replacement_request_fingerprint,
+    'predecessorAnalysisId',p_packet.replaces_analysis_id,'compareAndSwap',p_packet.replacement_compare_and_swap,
+    'analysisId',p_packet.id,'version',p_packet.version,'analysisDigest',p_packet.analysis_digest,
+    'digestVersion',p_packet.digest_version,'digestCoverage',case p_packet.digest_version
+      when 1 then 'legacy_metadata' when 2 then 'evidence_content_and_current_criteria' else null end,
+    'valueOfInformation',jsonb_build_object('informationCost',p_packet.voi_information_cost,
+      'decisionCostIfWrong',p_packet.voi_decision_cost_if_wrong,'uncertaintyReduction',p_packet.voi_uncertainty_reduction,
+      'probabilityDecisionChanges',p_packet.voi_probability_decision_changes,'expectedValue',p_packet.voi_expected_value,
+      'netValue',p_packet.voi_net_value,'recommendation',p_packet.voi_recommendation),
+    'operationalAuthorization',false);
+end $$;
+
+create or replace function public.replace_risk_uncertainty_analysis(
+  p_risk_id uuid,p_request_text text
+) returns jsonb language plpgsql security definer set search_path=public as $$
+declare v_org uuid:=public.app_current_org(); v_user uuid:=auth.uid();
+  v_request jsonb; v_predecessor jsonb; v_analysis jsonb; v_fingerprint text;
+  v_evidence_ids uuid[]; v_field text; v_uuid_pattern text:='^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+begin
+  if v_user is null or v_org is null then
+    return jsonb_build_object('error','authenticated organization member required');
+  end if;
+  if p_request_text is null or octet_length(convert_to(p_request_text,'UTF8'))>1048576 then
+    return jsonb_build_object('error','replacement request must be bounded UTF-8 JSON text');
+  end if;
+  v_fingerprint:=encode(extensions.digest(convert_to(p_request_text,'UTF8'),'sha256'),'hex');
+  begin v_request:=p_request_text::jsonb;
+  exception when invalid_text_representation or untranslatable_character or numeric_value_out_of_range then
+    return jsonb_build_object('error','replacement request must be bounded UTF-8 JSON text');
+  end;
+  if jsonb_typeof(v_request) is distinct from 'object' then
+    return jsonb_build_object('error','replacement request must be a complete versioned object');
+  end if;
+  if v_request->'contractVersion' is distinct from '1'::jsonb
+    or v_request->>'action' is distinct from 'replace'
+    or (select count(*) from jsonb_object_keys(v_request))<>11
+    or exists(select 1 from jsonb_object_keys(v_request) k where k not in
+      ('contractVersion','action','intentId','organizationId','actorId','riskId','predecessor',
+       'policyDigest','reason','analysis','evidenceItemIds')) then
+    return jsonb_build_object('error','replacement request must be a complete versioned object');
+  end if;
+  foreach v_field in array array['intentId','organizationId','actorId','riskId'] loop
+    if jsonb_typeof(v_request->v_field) is distinct from 'string'
+      or coalesce(v_request->>v_field,'') !~ v_uuid_pattern then
+      return jsonb_build_object('error','replacement identities must be canonical UUIDs');
+    end if;
+  end loop;
+  if v_request->>'organizationId' is distinct from v_org::text
+    or v_request->>'actorId' is distinct from v_user::text
+    or v_request->>'riskId' is distinct from p_risk_id::text then
+    return jsonb_build_object('error','replacement request must match the current organization, actor and risk');
+  end if;
+  v_predecessor:=v_request->'predecessor'; v_analysis:=v_request->'analysis';
+  if jsonb_typeof(v_predecessor) is distinct from 'object' then
+    return jsonb_build_object('error','replacement requires the exact predecessor and policy compare-and-swap');
+  end if;
+  if (select count(*) from jsonb_object_keys(v_predecessor))<>5
+    or exists(select 1 from jsonb_object_keys(v_predecessor) k where k not in
+      ('analysisId','version','digestVersion','analysisDigest','currentDigest'))
+    or jsonb_typeof(v_predecessor->'analysisId') is distinct from 'string'
+    or coalesce(v_predecessor->>'analysisId','') !~ v_uuid_pattern
+    or jsonb_typeof(v_predecessor->'version') is distinct from 'number'
+    or jsonb_typeof(v_predecessor->'digestVersion') is distinct from 'number'
+    or v_predecessor->'digestVersion' not in ('1'::jsonb,'2'::jsonb)
+    or jsonb_typeof(v_predecessor->'analysisDigest') is distinct from 'string'
+    or jsonb_typeof(v_predecessor->'currentDigest') is distinct from 'string'
+    or coalesce(v_predecessor->>'analysisDigest','') !~ '^[0-9a-f]{64}$'
+    or coalesce(v_predecessor->>'currentDigest','') !~ '^[0-9a-f]{64}$'
+    or jsonb_typeof(v_request->'policyDigest') is distinct from 'string'
+    or coalesce(v_request->>'policyDigest','') !~ '^[0-9a-f]{64}$' then
+    return jsonb_build_object('error','replacement requires the exact predecessor and policy compare-and-swap');
+  end if;
+  if (v_predecessor->>'version')::numeric not between 1 and 2147483647
+    or trunc((v_predecessor->>'version')::numeric)<>(v_predecessor->>'version')::numeric then
+    return jsonb_build_object('error','replacement predecessor version must be a positive PostgreSQL integer');
+  end if;
+  if jsonb_typeof(v_request->'reason') is distinct from 'string'
+    or length(btrim(coalesce(v_request->>'reason','')))<20 then
+    return jsonb_build_object('error','replacement requires a substantive retained reason');
+  end if;
+  if jsonb_typeof(v_analysis) is distinct from 'object' then
+    return jsonb_build_object('error','uncertainty analysis must be an object');
+  end if;
+  if (select count(*) from jsonb_object_keys(v_analysis))<>20
+    or exists(select 1 from jsonb_object_keys(v_analysis) k where k not in
+      ('method','basis','probability_lower','probability_central','probability_upper',
+       'confidence_level','confidence_interval_lower','confidence_interval_upper',
+       'best_case_loss','expected_case_loss','worst_case_loss','currency','sensitivity',
+       'reassessment_triggers','review_due_at','voi_action','voi_information_cost',
+       'voi_decision_cost_if_wrong','voi_uncertainty_reduction','voi_probability_decision_changes')) then
+    return jsonb_build_object('error','replacement requires the complete allowlisted analysis proposal');
+  end if;
+  foreach v_field in array array['method','basis','currency','review_due_at','voi_action'] loop
+    if jsonb_typeof(v_analysis->v_field) is distinct from 'string' then
+      return jsonb_build_object('error','replacement proposal text inputs must be JSON strings');
+    end if;
+  end loop;
+  foreach v_field in array array['probability_lower','probability_central','probability_upper',
+    'confidence_level','confidence_interval_lower','confidence_interval_upper',
+    'best_case_loss','expected_case_loss','worst_case_loss','voi_information_cost',
+    'voi_decision_cost_if_wrong','voi_uncertainty_reduction','voi_probability_decision_changes'] loop
+    if jsonb_typeof(v_analysis->v_field) is distinct from 'number' then
+      return jsonb_build_object('error','replacement proposal numeric inputs must be JSON numbers');
+    end if;
+  end loop;
+  if jsonb_typeof(v_analysis->'sensitivity') is distinct from 'array'
+    or jsonb_typeof(v_analysis->'reassessment_triggers') is distinct from 'array' then
+    return jsonb_build_object('error','replacement proposal factors and triggers must be arrays');
+  end if;
+  if exists(select 1 from jsonb_array_elements(v_analysis->'reassessment_triggers') t
+      where jsonb_typeof(t) is distinct from 'string') then
+    return jsonb_build_object('error','replacement proposal triggers must be JSON strings');
+  end if;
+  if exists(select 1 from jsonb_array_elements(v_analysis->'sensitivity') s
+      where jsonb_typeof(s) is distinct from 'object') then
+    return jsonb_build_object('error','each sensitivity factor must be an object');
+  end if;
+  if exists(select 1 from jsonb_array_elements(v_analysis->'sensitivity') s
+    where (select count(*) from jsonb_object_keys(s))<>8
+      or exists(select 1 from jsonb_object_keys(s) k where k not in
+        ('name','basis','low_input','base_input','high_input','low_output','base_output','high_output'))
+      or jsonb_typeof(s->'name') is distinct from 'string' or jsonb_typeof(s->'basis') is distinct from 'string'
+      or exists(select 1 from unnest(array['low_input','base_input','high_input','low_output','base_output','high_output']) k
+        where jsonb_typeof(s->k) is distinct from 'number')) then
+    return jsonb_build_object('error','replacement sensitivity requires complete typed factors');
+  end if;
+  if jsonb_typeof(v_request->'evidenceItemIds') is distinct from 'array' then
+    return jsonb_build_object('error','replacement requires one to twenty canonical evidence UUIDs');
+  end if;
+  if jsonb_array_length(v_request->'evidenceItemIds') not between 1 and 20
+    or exists(select 1 from jsonb_array_elements(v_request->'evidenceItemIds') e
+      where jsonb_typeof(e) is distinct from 'string' or coalesce(e#>>'{}','') !~ v_uuid_pattern) then
+    return jsonb_build_object('error','replacement requires one to twenty canonical evidence UUIDs');
+  end if;
+  select array_agg(distinct value::uuid order by value::uuid) into v_evidence_ids
+  from jsonb_array_elements_text(v_request->'evidenceItemIds');
+  return public.submit_risk_uncertainty_analysis_internal(
+    p_risk_id,v_analysis,v_evidence_ids,v_request||jsonb_build_object('requestFingerprint',v_fingerprint));
+end $$;
+
+create or replace function public.get_risk_uncertainty_replacement_receipt(
+  p_risk_id uuid,p_intent_id uuid,p_request_fingerprint text
+) returns jsonb language plpgsql stable security definer set search_path=public as $$
+declare v_org uuid:=public.app_current_org(); v_user uuid:=auth.uid();
+  v_packet public.risk_uncertainty_analyses%rowtype;
+begin
+  if v_user is null or v_org is null then
+    return jsonb_build_object('error','authenticated organization member required');
+  end if;
+  if public.can_read_risk(p_risk_id) is distinct from true
+    or not exists(select 1 from public.risks r where r.id=p_risk_id and r.organization_id=v_org) then
+    return jsonb_build_object('error','risk not found in this organization');
+  end if;
+  select a.* into v_packet from public.risk_uncertainty_analyses a
+  where a.organization_id=v_org and a.risk_id=p_risk_id and a.author_id=v_user
+    and a.replacement_intent_id=p_intent_id
+    and a.replacement_request_fingerprint=p_request_fingerprint;
+  if not found then return jsonb_build_object('error','no matching committed replacement receipt is visible'); end if;
+  return public.risk_uncertainty_replacement_receipt_payload(v_packet);
 end $$;
 
 create or replace function public.review_risk_uncertainty_analysis(
@@ -1023,6 +1399,12 @@ begin
       'authorId',a.author_id,'createdAt',a.created_at,'reviewerId',a.reviewer_id,
       'reviewedAt',a.reviewed_at,'reviewNote',a.review_note,'approvalId',a.approval_id,
       'derivedEvidenceItemId',a.derived_evidence_item_id,
+      'replacement',case when a.replaces_analysis_id is null then null else jsonb_build_object(
+        'predecessorAnalysisId',a.replaces_analysis_id,'intentId',a.replacement_intent_id,
+        'requestFingerprint',a.replacement_request_fingerprint,'compareAndSwap',a.replacement_compare_and_swap,
+        'reason',a.replacement_reason) end,
+      'supersession',case when a.superseded_by_analysis_id is null then null else jsonb_build_object(
+        'successorAnalysisId',a.superseded_by_analysis_id,'at',a.superseded_at,'byUserId',a.superseded_by_user_id) end,
       'evidenceItemIds',coalesce((select jsonb_agg(b.evidence_item_id order by b.evidence_item_id)
         from public.risk_uncertainty_analysis_evidence b where b.organization_id=v_org and b.analysis_id=a.id),'[]'::jsonb),
       'operationalAuthorization',false
@@ -1038,6 +1420,7 @@ begin
 end $$;
 
 revoke all on function public.enforce_risk_uncertainty_analysis_write() from public,anon,authenticated,service_role;
+revoke all on function public.enforce_risk_uncertainty_replacement_pair() from public,anon,authenticated,service_role;
 revoke all on function public.enforce_risk_uncertainty_evidence_link() from public,anon,authenticated,service_role;
 revoke all on function public.refuse_risk_uncertainty_truncate() from public,anon,authenticated,service_role;
 revoke all on function public.risk_uncertainty_analysis_digest(uuid,uuid) from public,anon,authenticated,service_role;
@@ -1047,6 +1430,12 @@ revoke all on function public.risk_uncertainty_review_standing(uuid,uuid) from p
 revoke all on function public.risk_uncertainty_input_binding_snapshot(uuid,uuid,uuid[]) from public,anon,authenticated,service_role;
 revoke all on function public.risk_uncertainty_evidence_digest_projection(public.evidence_items) from public,anon,authenticated,service_role;
 revoke all on function public.risk_uncertainty_v2_digest_payload(public.risk_uncertainty_analyses,jsonb) from public,anon,authenticated,service_role;
+revoke all on function public.submit_risk_uncertainty_analysis_internal(uuid,jsonb,uuid[],jsonb) from public,anon,authenticated,service_role;
+revoke all on function public.risk_uncertainty_replacement_receipt_payload(public.risk_uncertainty_analyses) from public,anon,authenticated,service_role;
+revoke all on function public.replace_risk_uncertainty_analysis(uuid,text) from public,anon,service_role;
+revoke all on function public.get_risk_uncertainty_replacement_receipt(uuid,uuid,text) from public,anon,service_role;
+grant execute on function public.replace_risk_uncertainty_analysis(uuid,text) to authenticated;
+grant execute on function public.get_risk_uncertainty_replacement_receipt(uuid,uuid,text) to authenticated;
 revoke all on function public.submit_risk_uncertainty_analysis(uuid,jsonb,uuid[]) from public,anon,service_role;
 revoke all on function public.review_risk_uncertainty_analysis(uuid,text,text) from public,anon,service_role;
 revoke all on function public.get_risk_uncertainty_workspace(uuid) from public,anon,service_role;
@@ -1071,7 +1460,8 @@ using (
   entity_type not in (
     'risk_analysis', 'risk_value_of_information', 'risk_treatment',
     'risk_treatment_readiness_correction', 'risk_secondary_created',
-    'risk_uncertainty_analysis_submitted', 'risk_uncertainty_analysis_reviewed'
+    'risk_uncertainty_analysis_submitted', 'risk_uncertainty_analysis_reviewed',
+    'risk_uncertainty_analysis_replaced'
   )
   or (
     organization_id = public.app_current_org()

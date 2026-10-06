@@ -5,12 +5,22 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { RiskUncertaintyReplacementOutcomeUnknownError } from "../../services/riskUncertaintyReplacementService";
 import { RiskUncertaintyPanel } from "./RiskUncertaintyPanel";
 
-const { workspace, rpc } = vi.hoisted(() => ({
+const {
+  workspace,
+  rpc,
+  prepareReplacement,
+  replaceReplacement,
+  reconcileReplacement,
+} = vi.hoisted(() => ({
   workspace: vi.fn(),
   rpc: vi.fn(),
+  prepareReplacement: vi.fn(),
+  replaceReplacement: vi.fn(),
+  reconcileReplacement: vi.fn(),
 }));
 vi.mock("../../lib/supabase", () => ({ supabase: { rpc } }));
 vi.mock("../../services/riskOperatingService", async (importOriginal) => ({
@@ -19,12 +29,50 @@ vi.mock("../../services/riskOperatingService", async (importOriginal) => ({
   >()),
   getRiskUncertaintyWorkspace: workspace,
 }));
+vi.mock(
+  "../../services/riskUncertaintyReplacementRequest",
+  async (importOriginal) => ({
+    ...(await importOriginal<
+      typeof import("../../services/riskUncertaintyReplacementRequest")
+    >()),
+    prepareRiskUncertaintyReplacementRequest: prepareReplacement,
+  }),
+);
+vi.mock(
+  "../../services/riskUncertaintyReplacementService",
+  async (importOriginal) => ({
+    ...(await importOriginal<
+      typeof import("../../services/riskUncertaintyReplacementService")
+    >()),
+    replaceRiskUncertaintyAnalysis: replaceReplacement,
+    reconcileRiskUncertaintyReplacement: reconcileReplacement,
+  }),
+);
 
 const riskId = "a1820000-0000-4000-8000-000000000002";
 const organizationA = "a1820000-0000-4000-8000-000000000020";
 const organizationB = "a1820000-0000-4000-8000-000000000021";
 const analysisId = "a1820000-0000-4000-8000-000000000010";
 const digest = "a".repeat(64);
+const preparedReplacement = {
+  requestText: "synthetic prepared replacement",
+  requestFingerprint: "d".repeat(64),
+  intentId: "a1820000-0000-4000-8000-000000000030",
+  organizationId: organizationA,
+  actorId: "reviewer-1",
+  riskId,
+  predecessor: {
+    analysisId,
+    version: 1,
+    digestVersion: 2,
+    analysisDigest: digest,
+    currentDigest: "b".repeat(64),
+  },
+  policyDigest: "c".repeat(64),
+  reason: "Synthetic replacement reason retained for reconciliation.",
+  analysis: {},
+  evidenceItemIds: ["a1820000-0000-4000-8000-000000000001"],
+};
 
 function packet(label: string) {
   return {
@@ -86,6 +134,65 @@ function packet(label: string) {
   };
 }
 
+function replacementPacket(label: string) {
+  const data = packet(label);
+  return {
+    ...data,
+    risk: {
+      ...data.risk,
+      organizationId: organizationA,
+      status: "analyzed",
+    },
+    criteria: {
+      ...data.criteria,
+      id: "a1820000-0000-4000-8000-000000000003",
+      organizationId: organizationA,
+    },
+    evidence: [
+      {
+        id: "a1820000-0000-4000-8000-000000000001",
+        organizationId: organizationA,
+        riskId,
+        description: "Synthetic verified evidence",
+        sourceSystem: "synthetic",
+        sourceReference: null,
+        verificationStatus: "verified",
+        verifiedBy: "reviewer-2",
+        verifiedAt: "2026-09-30T00:00:00Z",
+        evidenceClass: "MEASURED",
+        qualityGrade: "high",
+        applicabilityGrade: "direct",
+      },
+    ],
+    analyses: [
+      {
+        ...data.analyses[0],
+        organizationId: organizationA,
+        riskId,
+        storedStatus: "pending_review",
+        validationStatus: "stale",
+        reviewStanding: "replacement_required",
+        authorId: "reviewer-1",
+        currentDigest: "b".repeat(64),
+        evidenceItemIds: ["a1820000-0000-4000-8000-000000000001"],
+        sensitivityInputs: [
+          {
+            name: "Synthetic factor",
+            basis: "Synthetic measured replacement input basis.",
+            low_input: 1,
+            base_input: 2,
+            high_input: 3,
+            low_output: 1,
+            base_output: 2,
+            high_output: 3,
+          },
+        ],
+        reviewDueAt: "2099-11-01T00:00:00Z",
+      },
+    ],
+  };
+}
+
 const receipt = {
   riskId,
   analysisId,
@@ -119,11 +226,36 @@ async function openReview() {
   return screen.getByRole("button", { name: "Record review" }).closest("form")!;
 }
 
+async function openReplacementDraft() {
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Replace stale analysis" }),
+  );
+  const reason = screen.getByPlaceholderText(
+    "Replacement reason (minimum 20 characters)",
+  );
+  fireEvent.change(reason, {
+    target: { value: "Synthetic replacement reason for tenant test." },
+  });
+  return reason.closest("form")!;
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubGlobal("crypto", {
+    randomUUID: vi.fn(() => preparedReplacement.intentId),
+  });
   workspace.mockReset().mockResolvedValue(packet("Organization A packet"));
   rpc.mockReset().mockResolvedValue({ data: receipt, error: null });
+  prepareReplacement.mockReset().mockResolvedValue(preparedReplacement);
+  replaceReplacement
+    .mockReset()
+    .mockResolvedValue({ commitStatus: "committed" });
+  reconcileReplacement
+    .mockReset()
+    .mockResolvedValue({ commitStatus: "committed" });
 });
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("uncertainty observed canonical tenant scope", () => {
   it("does not request or expose a packet without canonical organization context", async () => {
@@ -333,5 +465,132 @@ describe("uncertainty observed canonical tenant scope", () => {
     expect(
       screen.getByText("Organization A new generation · v1"),
     ).toBeInTheDocument();
+  });
+
+  it("does not dispatch a replacement prepared for an earlier A generation after A to B to A", async () => {
+    let finish!: (value: typeof preparedReplacement) => void;
+    prepareReplacement.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    workspace.mockResolvedValue(
+      replacementPacket("Organization A replacement"),
+    );
+    const onChanged = vi.fn();
+    const view = render(panel(organizationA, onChanged));
+    fireEvent.submit(await openReplacementDraft());
+    await waitFor(() => expect(prepareReplacement).toHaveBeenCalledTimes(1));
+
+    workspace.mockResolvedValue(packet("Organization B packet"));
+    view.rerender(panel(organizationB, onChanged));
+    await screen.findByText("Organization B packet · v1");
+    workspace.mockResolvedValue(
+      replacementPacket("Organization A fresh replacement"),
+    );
+    view.rerender(panel(organizationA, onChanged));
+    await screen.findByText("Organization A fresh replacement · v1");
+    await act(async () => finish(preparedReplacement));
+
+    expect(replaceReplacement).not.toHaveBeenCalled();
+    expect(reconcileReplacement).not.toHaveBeenCalled();
+    expect(onChanged).not.toHaveBeenCalled();
+    expect(
+      screen.queryByText(/Stale analysis replaced with a new packet/),
+    ).not.toBeInTheDocument();
+  });
+
+  it("suppresses a late replacement ACK after A to B to A and keeps known-ACK resend protection", async () => {
+    let finish!: (value: { commitStatus: "committed" }) => void;
+    vi.mocked(globalThis.crypto.randomUUID)
+      .mockReturnValueOnce(
+        preparedReplacement.intentId as `${string}-${string}-${string}-${string}-${string}`,
+      )
+      .mockReturnValueOnce("a1820000-0000-4000-8000-000000000031");
+    prepareReplacement.mockImplementation(async (input) => ({
+      ...preparedReplacement,
+      intentId: input.intentId,
+      requestFingerprint:
+        input.intentId === preparedReplacement.intentId
+          ? preparedReplacement.requestFingerprint
+          : "e".repeat(64),
+    }));
+    replaceReplacement.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    workspace.mockResolvedValue(
+      replacementPacket("Organization A replacement"),
+    );
+    const onChanged = vi.fn();
+    const view = render(panel(organizationA, onChanged));
+    fireEvent.submit(await openReplacementDraft());
+    await waitFor(() => expect(replaceReplacement).toHaveBeenCalledTimes(1));
+
+    workspace.mockResolvedValue(packet("Organization B packet"));
+    view.rerender(panel(organizationB, onChanged));
+    await screen.findByText("Organization B packet · v1");
+    workspace.mockResolvedValue(
+      replacementPacket("Organization A current replacement"),
+    );
+    view.rerender(panel(organizationA, onChanged));
+    await screen.findByText("Organization A current replacement · v1");
+    await act(async () => finish({ commitStatus: "committed" }));
+
+    expect(onChanged).not.toHaveBeenCalled();
+    expect(
+      screen.queryByText(/Stale analysis replaced with a new packet/),
+    ).not.toBeInTheDocument();
+
+    fireEvent.submit(await openReplacementDraft());
+    await waitFor(() => expect(prepareReplacement).toHaveBeenCalledTimes(2));
+    expect(replaceReplacement).toHaveBeenCalledTimes(1);
+    expect(globalThis.crypto.randomUUID).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not clear a replacement unknown lock from a late A to B to A reconciliation", async () => {
+    let finish!: (value: { commitStatus: "committed" }) => void;
+    replaceReplacement.mockRejectedValueOnce(
+      new RiskUncertaintyReplacementOutcomeUnknownError(),
+    );
+    reconcileReplacement.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    );
+    workspace.mockResolvedValue(
+      replacementPacket("Organization A replacement"),
+    );
+    const onChanged = vi.fn();
+    const view = render(panel(organizationA, onChanged));
+    fireEvent.submit(await openReplacementDraft());
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Reconcile replacement" }),
+    );
+    await waitFor(() => expect(reconcileReplacement).toHaveBeenCalledTimes(1));
+
+    workspace.mockResolvedValue(packet("Organization B packet"));
+    view.rerender(panel(organizationB, onChanged));
+    await screen.findByText("Organization B packet · v1");
+    workspace.mockResolvedValue(
+      replacementPacket("Organization A current replacement"),
+    );
+    view.rerender(panel(organizationA, onChanged));
+    await screen.findByText("Organization A current replacement · v1");
+    await act(async () => finish({ commitStatus: "committed" }));
+
+    expect(onChanged).not.toHaveBeenCalled();
+    expect(replaceReplacement).toHaveBeenCalledTimes(1);
+    expect(
+      await screen.findByRole("button", { name: "Reconcile replacement" }),
+    ).toBeEnabled();
+    expect(screen.getByRole("alert")).toHaveTextContent("Do not resend it");
+    expect(
+      screen.queryByText(/Committed replacement receipt reconciled/),
+    ).not.toBeInTheDocument();
   });
 });

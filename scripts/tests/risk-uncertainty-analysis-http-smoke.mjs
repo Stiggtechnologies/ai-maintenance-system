@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
+import { createHash, randomUUID } from "node:crypto";
 
 // Real GoTrue/PostgREST qualification on disposable CI only. No retries,
 // production URL, existing-user UPSERT, or fabricated source-standing link.
@@ -199,6 +200,24 @@ async function run() {
     'work',(select count(*) from work_orders where organization_id='${f.org}'))`),
     );
   let before = state();
+  // Whole-row, two-tenant ledger witness. No count-only replacement proof.
+  const replacementState = () =>
+    JSON.parse(
+      sql(`select jsonb_build_object(
+      'risks',(select jsonb_agg(to_jsonb(r) order by r.id) from risks r where organization_id in('${f.org}','${f.foreign_org}')),
+      'packets',(select jsonb_agg(to_jsonb(a) order by a.id) from risk_uncertainty_analyses a where organization_id in('${f.org}','${f.foreign_org}')),
+      'bindings',(select jsonb_agg(to_jsonb(b) order by b.analysis_id,b.evidence_item_id) from risk_uncertainty_analysis_evidence b where organization_id in('${f.org}','${f.foreign_org}')),
+      'approvals',(select jsonb_agg(to_jsonb(a) order by a.id) from approvals a where organization_id in('${f.org}','${f.foreign_org}')),
+      'audit',(select jsonb_agg(to_jsonb(a) order by a.id) from audit_events a where organization_id in('${f.org}','${f.foreign_org}')),
+      'evidence',(select jsonb_agg(to_jsonb(e) order by e.id) from evidence_items e where organization_id in('${f.org}','${f.foreign_org}')),
+      'criteria',(select jsonb_agg(to_jsonb(c) order by c.id) from risk_criteria_profiles c where organization_id in('${f.org}','${f.foreign_org}')),
+      'securityEvents',(select jsonb_agg(to_jsonb(s) order by s.id) from security_events s where organization_id in('${f.org}','${f.foreign_org}')),
+      'decisions',(select jsonb_agg(to_jsonb(d) order by d.id) from decisions d where organization_id in('${f.org}','${f.foreign_org}')),
+      'work',(select jsonb_agg(to_jsonb(w) order by w.id) from work_orders w where organization_id in('${f.org}','${f.foreign_org}')),
+      'stakeholderViews',(select jsonb_agg(to_jsonb(s) order by s.id) from risk_stakeholder_views s where organization_id in('${f.org}','${f.foreign_org}')),
+      'scenarios',(select jsonb_agg(to_jsonb(s) order by s.id) from scenarios s where organization_id in('${f.org}','${f.foreign_org}')),
+      'profiles',(select jsonb_agg(to_jsonb(p) order by p.id) from user_profiles p where organization_id in('${f.org}','${f.foreign_org}')))`),
+    );
   // U18 CANONICAL VOI FINITE HTTP BEGIN
   // Keep quoted specials intact; JS NaN/Infinity would stringify to null.
   let canonicalFiniteRefusals = 0;
@@ -398,8 +417,7 @@ async function run() {
     and organization_id='${f.org}' and status='draft'`),
     "2",
   );
-  // TODO: inherited sensitive reads, source standing, post-wait authority and
-  // stale replacement require coordinated backend tests. No false completion.
+  // Broader claim-purpose/source approval requires the separate owning lane.
   // U18 READ REPRESENTATION HTTP BEGIN
   // Separate pre-existing synthetic CI risk, not a customer, operational action
   // or rewrite of the reviewed primary packet. Retain it only until CI cleanup.
@@ -457,6 +475,369 @@ async function run() {
     "representation-only pending authority ledger",
   );
   // U18 READ REPRESENTATION HTTP END
+  // U18 ATOMIC REPLACEMENT HTTP BEGIN
+  // The old validated packet stays immutable. A new pending proposal is made
+  // stale by an actual governed evidence-content change, never by editing its
+  // stored snapshot/digest or pretending a review was granted.
+  const pending = good(await submit(f.input, f.verified));
+  assert.equal(pending.version, 2);
+  assert.equal(
+    sql(`with changed as (update evidence_items set quality_grade='high'
+    where id='${f.verified}' and organization_id='${f.org}' and quality_grade='moderate' returning id)
+    select count(*) from changed`),
+    "1",
+  );
+  const predecessor = good(await read(author)).analyses.find(
+    (a) => a.id === pending.analysisId,
+  );
+  assert.ok(predecessor);
+  assert.equal(predecessor.storedStatus, "pending_review");
+  assert.equal(predecessor.reviewStanding, "replacement_required");
+  assert.notEqual(predecessor.analysisDigest, predecessor.currentDigest);
+  const policyDigest = sql(
+    `select public.risk_uncertainty_current_policy_digest('${f.org}','${f.risk}')`,
+  );
+  assert.match(policyDigest, /^[0-9a-f]{64}$/);
+  const replacementDueAt = new Date(Date.now() + 10_000).toISOString();
+  const intentId = randomUUID();
+  const replacementRequest = {
+    contractVersion: 1,
+    action: "replace",
+    intentId,
+    organizationId: f.org,
+    actorId: f.author,
+    riskId: f.risk,
+    predecessor: {
+      analysisId: predecessor.id,
+      version: predecessor.version,
+      digestVersion: predecessor.digestVersion,
+      analysisDigest: predecessor.analysisDigest,
+      currentDigest: predecessor.currentDigest,
+    },
+    policyDigest,
+    reason:
+      "Synthetic CI evidence change; explicitly replace this stale proposal",
+    analysis: { ...f.input, review_due_at: replacementDueAt },
+    evidenceItemIds: [f.verified],
+  };
+  const requestText = JSON.stringify(replacementRequest);
+  const requestFingerprint = createHash("sha256")
+    .update(requestText, "utf8")
+    .digest("hex");
+  const beforeReplacement = replacementState();
+  const expectedSnapshot = JSON.parse(
+    sql(`select public.risk_uncertainty_input_binding_snapshot(
+    '${f.org}','${f.risk}',array['${f.verified}'::uuid])`),
+  );
+  const expectedCas = { ...replacementRequest.predecessor, policyDigest };
+  // Simulate losing the successful response body, not a timeout retry. Headers
+  // alone grant no commit authority. Reconciliation uses the durable exact
+  // actor/org/risk/intent/fingerprint tuple via a separate HTTP transaction.
+  const droppedResponse = await fetch(
+    `${config.API_URL}/rest/v1/rpc/replace_risk_uncertainty_analysis`,
+    {
+      method: "POST",
+      signal: AbortSignal.timeout(15_000),
+      redirect: "error",
+      headers: {
+        apikey: config.ANON_KEY,
+        authorization: `Bearer ${author}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({ p_risk_id: f.risk, p_request_text: requestText }),
+    },
+  );
+  assert.equal(droppedResponse.status, 200);
+  assert.ok(droppedResponse.body);
+  await droppedResponse.body.cancel();
+  const committedState = replacementState();
+  const successor = committedState.packets.filter(
+    (a) => a.replacement_intent_id === intentId,
+  );
+  assert.equal(
+    successor.length,
+    1,
+    "exactly one durable intent after the lost body",
+  );
+  const replacement = successor[0];
+  assert.equal(replacement.organization_id, f.org);
+  assert.equal(replacement.risk_id, f.risk);
+  assert.equal(replacement.author_id, f.author);
+  assert.equal(replacement.status, "pending_review");
+  assert.equal(replacement.version, 3);
+  assert.equal(replacement.digest_version, 2);
+  assert.equal(replacement.replacement_request_fingerprint, requestFingerprint);
+  assert.equal(replacement.replaces_analysis_id, predecessor.id);
+  assert.equal(replacement.reviewer_id, null);
+  assert.equal(replacement.approval_id, null);
+  assert.equal(replacement.derived_evidence_item_id, null);
+  const oldPacket = beforeReplacement.packets.find(
+    (a) => a.id === predecessor.id,
+  );
+  const superseded = committedState.packets.find(
+    (a) => a.id === predecessor.id,
+  );
+  const stripSupersession = ({
+    status,
+    superseded_by_analysis_id,
+    superseded_at,
+    superseded_by_user_id,
+    ...rest
+  }) => rest;
+  assert.ok(oldPacket);
+  assert.equal(
+    Date.parse(replacement.review_due_at),
+    Date.parse(replacementDueAt),
+  );
+  assert.ok(Number.isFinite(Date.parse(replacement.created_at)));
+  assert.ok(Date.parse(replacement.created_at) < Date.parse(replacementDueAt));
+  assert.match(replacement.analysis_digest, /^[0-9a-f]{64}$/);
+  assert.notEqual(replacement.analysis_digest, "0".repeat(64));
+  assert.equal(
+    sql(
+      `select public.risk_uncertainty_analysis_digest('${f.org}','${replacement.id}')`,
+    ),
+    replacement.analysis_digest,
+  );
+  const expectedReplacement = {
+    ...oldPacket,
+    id: replacement.id,
+    version: 3,
+    created_at: replacement.created_at,
+    review_due_at: replacement.review_due_at,
+    analysis_digest: replacement.analysis_digest,
+    digest_version: 2,
+    input_binding_snapshot: expectedSnapshot,
+    replaces_analysis_id: predecessor.id,
+    replacement_intent_id: intentId,
+    replacement_request_fingerprint: requestFingerprint,
+    replacement_compare_and_swap: expectedCas,
+    replacement_reason: replacementRequest.reason,
+  };
+  assert.deepEqual(replacement, expectedReplacement);
+  assert.deepEqual(
+    committedState.bindings.filter((b) => b.analysis_id === replacement.id),
+    [
+      {
+        organization_id: f.org,
+        analysis_id: replacement.id,
+        evidence_item_id: f.verified,
+        created_at: replacement.created_at,
+      },
+    ],
+  );
+  assert.deepEqual(stripSupersession(superseded), stripSupersession(oldPacket));
+  assert.equal(superseded.status, "superseded");
+  assert.equal(superseded.superseded_by_analysis_id, replacement.id);
+  assert.equal(superseded.superseded_at, replacement.created_at);
+  assert.equal(superseded.superseded_by_user_id, f.author);
+  assert.equal(
+    committedState.packets.length,
+    beforeReplacement.packets.length + 1,
+  );
+  assert.equal(
+    committedState.bindings.length,
+    beforeReplacement.bindings.length + 1,
+  );
+  assert.equal(committedState.audit.length, beforeReplacement.audit.length + 1);
+  const replacementAudit = committedState.audit.find(
+    (a) => !beforeReplacement.audit.some((b) => b.id === a.id),
+  );
+  assert.equal(
+    replacementAudit.entity_type,
+    "risk_uncertainty_analysis_replaced",
+  );
+  assert.equal(replacementAudit.event_data.replacement_intent_id, intentId);
+  assert.ok(uuid(replacementAudit.id));
+  assert.equal(replacementAudit.organization_id, f.org);
+  assert.equal(replacementAudit.actor, "admin");
+  assert.equal(replacementAudit.created_at, replacement.created_at);
+  assert.equal(replacementAudit.event_time, replacement.created_at);
+  assert.deepEqual(replacementAudit.event_data, {
+    risk_id: f.risk,
+    analysis_id: replacement.id,
+    version: 3,
+    analysis_digest: replacement.analysis_digest,
+    evidence_item_ids: [f.verified],
+    threshold_profile_id: f.criteria,
+    operational_authorization: false,
+    predecessor_analysis_id: predecessor.id,
+    replacement_intent_id: intentId,
+    request_fingerprint: requestFingerprint,
+    compare_and_swap: expectedCas,
+    reason: replacementRequest.reason,
+  });
+  const oldAudit = beforeReplacement.audit.find(
+    (a) => a.entity_type === "risk_uncertainty_analysis_submitted",
+  );
+  assert.ok(oldAudit);
+  assert.deepEqual(replacementAudit, {
+    ...oldAudit,
+    id: replacementAudit.id,
+    created_at: replacement.created_at,
+    event_time: replacement.created_at,
+    actor: "admin",
+    entity_type: "risk_uncertainty_analysis_replaced",
+    event_data: replacementAudit.event_data,
+  });
+  const normalizedCommitted = structuredClone(committedState);
+  normalizedCommitted.packets = normalizedCommitted.packets
+    .filter((a) => a.id !== replacement.id)
+    .map((a) => (a.id === predecessor.id ? oldPacket : a));
+  normalizedCommitted.bindings = normalizedCommitted.bindings.filter(
+    (b) => b.analysis_id !== replacement.id,
+  );
+  normalizedCommitted.audit = normalizedCommitted.audit.filter(
+    (a) => a.id !== replacementAudit.id,
+  );
+  normalizedCommitted.risks = normalizedCommitted.risks.map((r) => {
+    if (r.id !== f.risk) return r;
+    const old = beforeReplacement.risks.find((a) => a.id === f.risk);
+    assert.equal(r.value_of_information.analysis_id, replacement.id);
+    assert.equal(r.value_of_information.validation_status, "pending_review");
+    assert.equal(r.value_of_information.operational_authorization, false);
+    assert.equal(r.updated_at, replacement.created_at);
+    assert.deepEqual(r.value_of_information, {
+      information_action: f.input.voi_action.trim(),
+      information_cost: 10000,
+      decision_cost_if_wrong: 250000,
+      uncertainty_reduction: 0.5,
+      probability_decision_changes: 0.3,
+      expected_value: 37500,
+      net_value: 27500,
+      recommendation: "GATHER_INFORMATION",
+      currency: "CAD",
+      analysis_id: replacement.id,
+      validation_status: "pending_review",
+      recorded_at: replacement.created_at,
+      human_decision_required: true,
+      operational_authorization: false,
+    });
+    return {
+      ...r,
+      value_of_information: old.value_of_information,
+      updated_at: old.updated_at,
+    };
+  });
+  assert.deepEqual(
+    normalizedCommitted,
+    beforeReplacement,
+    "only the exact reciprocal pair, binding, VOI projection and audit may change",
+  );
+  for (const key of [
+    "approvals",
+    "evidence",
+    "criteria",
+    "securityEvents",
+    "decisions",
+    "work",
+    "stakeholderViews",
+    "scenarios",
+    "profiles",
+  ])
+    assert.deepEqual(committedState[key], beforeReplacement[key]);
+  const receiptArgs = {
+    p_risk_id: f.risk,
+    p_intent_id: intentId,
+    p_request_fingerprint: requestFingerprint,
+  };
+  const receipt = good(
+    await rpc("get_risk_uncertainty_replacement_receipt", author, receiptArgs),
+  );
+  assert.deepEqual(
+    Object.keys(receipt).sort(),
+    [
+      "commitStatus",
+      "submittedStatus",
+      "organizationId",
+      "actorId",
+      "riskId",
+      "intentId",
+      "requestFingerprint",
+      "predecessorAnalysisId",
+      "compareAndSwap",
+      "analysisId",
+      "version",
+      "analysisDigest",
+      "digestVersion",
+      "digestCoverage",
+      "valueOfInformation",
+      "operationalAuthorization",
+    ].sort(),
+  );
+  assert.equal(receipt.commitStatus, "committed");
+  assert.equal(receipt.submittedStatus, "pending_review");
+  assert.equal(receipt.organizationId, f.org);
+  assert.equal(receipt.actorId, f.author);
+  assert.equal(receipt.riskId, f.risk);
+  assert.equal(receipt.intentId, intentId);
+  assert.equal(receipt.requestFingerprint, requestFingerprint);
+  assert.equal(receipt.predecessorAnalysisId, predecessor.id);
+  assert.equal(receipt.analysisId, replacement.id);
+  assert.equal(receipt.version, 3);
+  assert.equal(receipt.analysisDigest, replacement.analysis_digest);
+  assert.equal(receipt.digestVersion, 2);
+  assert.equal(receipt.digestCoverage, "evidence_content_and_current_criteria");
+  assert.equal(receipt.operationalAuthorization, false);
+  assert.deepEqual(receipt.compareAndSwap, expectedCas);
+  assert.deepEqual(receipt.valueOfInformation, pending.valueOfInformation);
+  assert.deepEqual(replacementState(), committedState);
+  for (const [token, args, error] of [
+    [
+      reviewer,
+      receiptArgs,
+      "no matching committed replacement receipt is visible",
+    ],
+    [foreign, receiptArgs, "risk not found in this organization"],
+    [
+      author,
+      { ...receiptArgs, p_request_fingerprint: "0".repeat(64) },
+      "no matching committed replacement receipt is visible",
+    ],
+    [
+      author,
+      { ...receiptArgs, p_intent_id: randomUUID() },
+      "no matching committed replacement receipt is visible",
+    ],
+  ]) {
+    const result = await rpc(
+      "get_risk_uncertainty_replacement_receipt",
+      token,
+      args,
+    );
+    assert.equal(result.status, 200);
+    assert.deepEqual(result.body, { error });
+    assert.deepEqual(replacementState(), committedState);
+  }
+  // Real wall-clock expiry, bounded by this known ten-second due date. These
+  // are explicit qualification requests, not application automatic retries.
+  const waitDeadline = Date.now() + 12_000;
+  while (!(Date.now() > Date.parse(replacementDueAt))) {
+    assert.ok(Date.now() < waitDeadline, "bounded actual due-date expiry");
+    await new Promise((resolve) => setTimeout(resolve, 100));
+  }
+  assert.deepEqual(
+    good(
+      await rpc(
+        "get_risk_uncertainty_replacement_receipt",
+        author,
+        receiptArgs,
+      ),
+    ),
+    receipt,
+  );
+  assert.deepEqual(replacementState(), committedState);
+  assert.deepEqual(
+    good(
+      await rpc("replace_risk_uncertainty_analysis", author, {
+        p_risk_id: f.risk,
+        p_request_text: requestText,
+      }),
+    ),
+    receipt,
+  );
+  assert.deepEqual(replacementState(), committedState);
+  // U18 ATOMIC REPLACEMENT HTTP END
   console.log(
     "U18 isolated HTTP baseline PASS: real GoTrue/PostgREST; original evidence/order/self-review/tenant refusals without artifacts; exact threshold/probability/sensitivity/VOI and bound receipts; native guard gate retained; 1|2|1|0|0 authority ledger. New synthetic tenants remain only in disposable CI until Stop Supabase; broader U18 qualification remains partial.",
   );

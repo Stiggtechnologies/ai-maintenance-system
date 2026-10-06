@@ -25,7 +25,7 @@ describe("U18.02 governed uncertainty-analysis contract", () => {
     return text ?? "";
   }
 
-  it("keeps packet rows, bindings and all public uncertainty doors behind canonical risk visibility", () => {
+  it("keeps packet rows, bindings and all uncertainty implementations behind canonical risk visibility", () => {
     expect(migration).toContain(
       "organization_id=public.app_current_org() and public.can_read_risk(risk_id)",
     );
@@ -39,7 +39,7 @@ describe("U18.02 governed uncertainty-analysis contract", () => {
     expect(migration).toContain("and public.can_read_risk(a.risk_id)");
     for (const name of [
       "get_risk_uncertainty_workspace",
-      "submit_risk_uncertainty_analysis",
+      "submit_risk_uncertainty_analysis_internal",
       "review_risk_uncertainty_analysis",
     ]) {
       expect(body(name)).toContain("public.can_read_risk(");
@@ -48,13 +48,14 @@ describe("U18.02 governed uncertainty-analysis contract", () => {
 
   it("rechecks the locked actor and exact evidence after waits before any uncertainty write", () => {
     for (const name of [
-      "submit_risk_uncertainty_analysis",
+      "submit_risk_uncertainty_analysis_internal",
       "review_risk_uncertainty_analysis",
     ]) {
       const text = body(name);
       const evidenceLock = text.indexOf("for update of e");
       const actorLock = text.indexOf(
         "organization_id,role into v_locked_org,v_role",
+        evidenceLock,
       );
       const write = text.indexOf("insert into public.");
       expect(evidenceLock).toBeGreaterThan(-1);

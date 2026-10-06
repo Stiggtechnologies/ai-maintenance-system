@@ -5,11 +5,13 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { createHash, webcrypto } from "node:crypto";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RiskUncertaintyPanel } from "./RiskUncertaintyPanel";
 
 const getWorkspace = vi.fn();
 const { rpc } = vi.hoisted(() => ({ rpc: vi.fn() }));
+const replacementIntentId = "a1820000-0000-4000-8000-000000000030";
 vi.mock("../../lib/supabase", () => ({ supabase: { rpc } }));
 
 vi.mock("../../services/riskOperatingService", async () => {
@@ -26,6 +28,10 @@ vi.mock("../../services/riskOperatingService", async () => {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.stubGlobal("crypto", {
+    subtle: webcrypto.subtle,
+    randomUUID: vi.fn(() => replacementIntentId),
+  });
   rpc.mockReset();
   getWorkspace.mockResolvedValue({
     risk: {
@@ -133,6 +139,8 @@ beforeEach(() => {
     operationalAuthorization: false,
   });
 });
+
+afterEach(() => vi.unstubAllGlobals());
 
 describe("RiskUncertaintyPanel", () => {
   it.each(["replacement_required", "policy_unavailable"])(
@@ -254,6 +262,332 @@ describe("RiskUncertaintyPanel", () => {
     ).toBeInTheDocument();
     expect(screen.queryByText("Submit a new version")).not.toBeInTheDocument();
     expect(screen.queryByText("Review packet")).not.toBeInTheDocument();
+  });
+
+  async function replacementWorkspace() {
+    const data = await getWorkspace();
+    const replacementRiskId = "a1820000-0000-4000-8000-000000000002";
+    const replacementAnalysisId = "a1820000-0000-4000-8000-000000000010";
+    const replacementEvidenceId = "a1820000-0000-4000-8000-000000000001";
+    const replacementActorId = "a1820000-0000-4000-8000-000000000021";
+    Object.assign(data.risk, {
+      id: replacementRiskId,
+      organizationId: "a1820000-0000-4000-8000-000000000020",
+      status: "analyzed",
+    });
+    Object.assign(data.criteria, {
+      id: "a1820000-0000-4000-8000-000000000003",
+      organizationId: "a1820000-0000-4000-8000-000000000020",
+    });
+    Object.assign(data.evidence[0], {
+      id: replacementEvidenceId,
+      organizationId: "a1820000-0000-4000-8000-000000000020",
+      riskId: replacementRiskId,
+    });
+    Object.assign(data.analyses[0], {
+      id: replacementAnalysisId,
+      organizationId: "a1820000-0000-4000-8000-000000000020",
+      riskId: replacementRiskId,
+      version: 2,
+      storedStatus: "pending_review",
+      validationStatus: "stale",
+      reviewStanding: "replacement_required",
+      authorId: replacementActorId,
+      reviewerId: null,
+      reviewedAt: null,
+      reviewNote: null,
+      approvalId: null,
+      derivedEvidenceItemId: null,
+      evidenceItemIds: [replacementEvidenceId],
+      reviewDueAt: "2099-11-01T15:00:00Z",
+      sensitivityInputs: [
+        {
+          name: "Startup exposure",
+          basis: "Verified startup history and operating context.",
+          low_input: 2,
+          base_input: 5,
+          high_input: 8,
+          low_output: 10000,
+          base_output: 60000,
+          high_output: 180000,
+        },
+      ],
+    });
+    getWorkspace.mockResolvedValue(data);
+    return {
+      data,
+      riskId: replacementRiskId,
+      actorId: replacementActorId,
+      analysisId: replacementAnalysisId,
+      evidenceId: replacementEvidenceId,
+    };
+  }
+
+  async function openReplacement() {
+    const ids = await replacementWorkspace();
+    const onChanged = vi.fn();
+    const view = render(
+      <RiskUncertaintyPanel
+        currentOrganizationId="a1820000-0000-4000-8000-000000000020"
+        riskId={ids.riskId}
+        currentUserId={ids.actorId}
+        currentUserRole="reliability_engineer"
+        onChanged={onChanged}
+      />,
+    );
+    expect(screen.queryByPlaceholderText("Method")).not.toBeInTheDocument();
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Replace stale analysis" }),
+    );
+    const reason = screen.getByPlaceholderText(
+      "Replacement reason (minimum 20 characters)",
+    );
+    const form = reason.closest("form")!;
+    const submit = Array.from(form.querySelectorAll("button")).find(
+      (button) => button.textContent === "Replace stale analysis",
+    )!;
+    return { ...ids, view, onChanged, reason, form, submit };
+  }
+
+  function replacementReceipt(requestText: string) {
+    const request = JSON.parse(requestText);
+    return {
+      commitStatus: "committed",
+      submittedStatus: "pending_review",
+      organizationId: request.organizationId,
+      actorId: request.actorId,
+      riskId: request.riskId,
+      intentId: request.intentId,
+      requestFingerprint: createHash("sha256")
+        .update(Buffer.from(requestText, "utf8"))
+        .digest("hex"),
+      predecessorAnalysisId: request.predecessor.analysisId,
+      compareAndSwap: {
+        ...request.predecessor,
+        policyDigest: request.policyDigest,
+      },
+      analysisId: "a1820000-0000-4000-8000-000000000011",
+      version: request.predecessor.version + 1,
+      analysisDigest: "d".repeat(64),
+      digestVersion: 2,
+      digestCoverage: "evidence_content_and_current_criteria",
+      valueOfInformation: {
+        informationCost: request.analysis.voi_information_cost,
+        decisionCostIfWrong: request.analysis.voi_decision_cost_if_wrong,
+        uncertaintyReduction: request.analysis.voi_uncertainty_reduction,
+        probabilityDecisionChanges:
+          request.analysis.voi_probability_decision_changes,
+        expectedValue: 37500,
+        netValue: 27500,
+        recommendation: "GATHER_INFORMATION",
+      },
+      operationalAuthorization: false,
+    };
+  }
+
+  it("prefills stale authored inputs only after the explicit replacement action", async () => {
+    const { reason, form, evidenceId } = await openReplacement();
+    expect(screen.getByPlaceholderText("Method")).toHaveValue(
+      "Three-point estimate",
+    );
+    expect(
+      screen.getByPlaceholderText("Source, assumption and method basis"),
+    ).toHaveValue(
+      "Based on the exact verified inspection and operating extract.",
+    );
+    expect(reason).toHaveValue("");
+    expect(form.querySelector(`input[type="checkbox"]`)).toBeChecked();
+    expect(evidenceId).toMatch(/^[0-9a-f-]{36}$/);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it.each(["other_author", "policy_unavailable", "archived", "ai_admin"])(
+    "does not offer replacement for %s",
+    async (blocker) => {
+      const ids = await replacementWorkspace();
+      if (blocker === "other_author")
+        ids.data.analyses[0].authorId = "a1820000-0000-4000-8000-000000000099";
+      if (blocker === "policy_unavailable") {
+        ids.data.analyses[0].reviewStanding = "policy_unavailable";
+        ids.data.criteria.status = "draft";
+      }
+      if (blocker === "archived") ids.data.risk.status = "archived";
+      render(
+        <RiskUncertaintyPanel
+          currentOrganizationId="a1820000-0000-4000-8000-000000000020"
+          riskId={ids.riskId}
+          currentUserId={ids.actorId}
+          currentUserRole={
+            blocker === "ai_admin" ? "ai_admin" : "reliability_engineer"
+          }
+        />,
+      );
+      await screen.findByText("v2");
+      expect(
+        screen.queryByRole("button", { name: "Replace stale analysis" }),
+      ).not.toBeInTheDocument();
+      expect(rpc).not.toHaveBeenCalled();
+    },
+  );
+
+  it.each([
+    "reliability_engineer",
+    "maintenance_manager",
+    "executive",
+    "admin",
+  ])(
+    "offers replacement to the original author with human role %s",
+    async (role) => {
+      const ids = await replacementWorkspace();
+      render(
+        <RiskUncertaintyPanel
+          currentOrganizationId="a1820000-0000-4000-8000-000000000020"
+          riskId={ids.riskId}
+          currentUserId={ids.actorId}
+          currentUserRole={role}
+        />,
+      );
+      expect(
+        await screen.findByRole("button", { name: "Replace stale analysis" }),
+      ).toBeEnabled();
+    },
+  );
+
+  it("dispatches one exact replacement on a same-tick double submit", async () => {
+    const { reason, form, submit, analysisId } = await openReplacement();
+    fireEvent.change(reason, {
+      target: {
+        value: "New verified evidence requires this governed replacement.",
+      },
+    });
+    rpc.mockImplementation(async (name, args) => {
+      expect(name).toBe("replace_risk_uncertainty_analysis");
+      const requestText = String(args?.p_request_text);
+      return {
+        data: replacementReceipt(requestText),
+        error: null,
+        status: 200,
+      };
+    });
+
+    act(() => {
+      fireEvent.submit(form);
+      fireEvent.submit(form);
+    });
+    await screen.findByText(/Stale analysis replaced with a new packet/);
+    expect(rpc).toHaveBeenCalledTimes(1);
+    fireEvent.submit(form);
+    await waitFor(() => expect(submit).not.toHaveTextContent("Replacing…"));
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(globalThis.crypto.randomUUID).toHaveBeenCalledTimes(1);
+    const request = JSON.parse(String(rpc.mock.calls[0][1].p_request_text));
+    expect(request).toMatchObject({
+      contractVersion: 1,
+      action: "replace",
+      intentId: replacementIntentId,
+      predecessor: {
+        analysisId,
+        version: 2,
+        digestVersion: 2,
+        analysisDigest: "a".repeat(64),
+        currentDigest: "b".repeat(64),
+      },
+      policyDigest: "c".repeat(64),
+      reason: "New verified evidence requires this governed replacement.",
+    });
+  });
+
+  it("keeps an unknown replacement locked until explicit read-only reconciliation", async () => {
+    const { reason, form, onChanged } = await openReplacement();
+    fireEvent.change(reason, {
+      target: { value: "New verified evidence requires replacement now." },
+    });
+    let requestText = "";
+    rpc.mockImplementation(async (name, args) => {
+      if (name === "replace_risk_uncertainty_analysis") {
+        requestText = String(args?.p_request_text);
+        throw new Error("private network detail");
+      }
+      return {
+        data: replacementReceipt(requestText),
+        error: null,
+        status: 200,
+      };
+    });
+    fireEvent.submit(form);
+    const reconcile = await screen.findByRole("button", {
+      name: "Reconcile replacement",
+    });
+    expect(
+      screen.queryByText(/private network detail/),
+    ).not.toBeInTheDocument();
+    expect(rpc).toHaveBeenCalledTimes(1);
+    expect(onChanged).not.toHaveBeenCalled();
+
+    fireEvent.click(reconcile);
+    await screen.findByText(/Committed replacement receipt reconciled/);
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(rpc.mock.calls[1][0]).toBe(
+      "get_risk_uncertainty_replacement_receipt",
+    );
+    expect(onChanged).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("keeps an absent reconciliation unresolved without resending replacement", async () => {
+    const { reason, form } = await openReplacement();
+    fireEvent.change(reason, {
+      target: { value: "New verified evidence requires replacement now." },
+    });
+    rpc
+      .mockRejectedValueOnce(new Error("lost acknowledgement"))
+      .mockResolvedValueOnce({
+        data: { error: "private absence detail" },
+        error: null,
+        status: 200,
+      });
+    fireEvent.submit(form);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Reconcile replacement" }),
+    );
+    expect(
+      await screen.findByText(/does not make the request safe to resend/),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(/private absence detail/),
+    ).not.toBeInTheDocument();
+    expect(rpc).toHaveBeenCalledTimes(2);
+    expect(
+      rpc.mock.calls.filter(
+        ([name]) => name === "replace_risk_uncertainty_analysis",
+      ),
+    ).toHaveLength(1);
+    expect(screen.getByRole("alert")).toHaveTextContent("Do not resend it");
+  });
+
+  it("labels superseded replacement history separately from human rejection", async () => {
+    const data = await getWorkspace();
+    data.analyses.push({
+      ...data.analyses[0],
+      id: "analysis-superseded",
+      version: 1,
+      storedStatus: "superseded",
+      validationStatus: "stale",
+    });
+    getWorkspace.mockResolvedValue(data);
+    render(
+      <RiskUncertaintyPanel
+        currentOrganizationId="a1820000-0000-4000-8000-000000000020"
+        riskId="risk-1"
+        currentUserId="viewer-1"
+        currentUserRole="viewer"
+      />,
+    );
+    expect(
+      await screen.findByText("Retained replacement history"),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/not human-rejected packets/)).toBeInTheDocument();
+    expect(screen.queryByText(/^rejected$/i)).not.toBeInTheDocument();
   });
 
   async function openReview(onChanged?: () => void | Promise<void>) {

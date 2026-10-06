@@ -5,10 +5,21 @@ const migration = readFileSync(
   "supabase/migrations/20270103050000_risk_uncertainty_analysis.sql",
   "utf8",
 );
-const definition = (name: string) =>
-  migration.match(
-    new RegExp(`create or replace function public\\.${name}\\([^]*?\\$\\$;`),
-  )?.[0] ?? "";
+const definition = (name: string) => {
+  // Substantive writer invariants inspect the actual private implementation;
+  // the public signature/auth/delegation/body parity have a separate contract.
+  const implementation =
+    name === "submit_risk_uncertainty_analysis"
+      ? "submit_risk_uncertainty_analysis_internal"
+      : name;
+  return (
+    migration.match(
+      new RegExp(
+        `create or replace function public\\.${implementation}\\([^]*?\\$\\$;`,
+      ),
+    )?.[0] ?? ""
+  );
+};
 const helper = definition("risk_uncertainty_lock_visibility_context");
 
 // These are source contracts, not proof of PostgreSQL scheduling or privacy.

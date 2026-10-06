@@ -24,6 +24,9 @@ const allowedPhases = new Set([
   "U18_SUBMIT_EVIDENCE_BARRIER",
   "U18_FINAL_PROFILE_REVALIDATION",
   "U18_REVERSE_CHILD_OVERLAP",
+  "U18_REPLACEMENT_RISK_COMPETITION",
+  "U18_REPLACEMENT_EVIDENCE_RESTORE",
+  "U18_REPLACEMENT_AFTER_CHECK",
   "U18_OPEN_ANCESTOR_DELETE",
   "U18_COMPLETE",
 ]);
@@ -188,6 +191,7 @@ async function qualify() {
         await monitor.query(`select (current_database()='postgres'
       and current_user='postgres' and to_regclass('auth.users') is not null
       and to_regprocedure('public.review_risk_uncertainty_analysis(uuid,text,text)') is not null
+      and to_regprocedure('public.replace_risk_uncertainty_analysis(uuid,text)') is not null
       and pg_get_functiondef('auth.uid()'::regprocedure) not like '%test.uid%')::text`)
       ).at(-1),
       "true",
@@ -373,7 +377,9 @@ async function qualify() {
       after,
       expectedSnapshot,
       currentDigest,
+      replacement = null,
     ) {
+      const citedEvidence = replacement ? fixture.newEvidence : [fixture.evidence];
       assert.deepEqual(
         Object.fromEntries(
           [
@@ -389,7 +395,7 @@ async function qualify() {
         ),
         {
           packets: 1,
-          bindings: 1,
+          bindings: citedEvidence.length,
           approvals: 0,
           evidence: 0,
           audit: 1,
@@ -425,6 +431,11 @@ async function qualify() {
           "probability_lower",
           "probability_upper",
           "reassessment_triggers",
+          "replaces_analysis_id",
+          "replacement_intent_id",
+          "replacement_request_fingerprint",
+          "replacement_compare_and_swap",
+          "replacement_reason",
           "review_due_at",
           "review_note",
           "reviewed_at",
@@ -433,6 +444,9 @@ async function qualify() {
           "sensitivity_inputs",
           "sensitivity_results",
           "status",
+          "superseded_by_analysis_id",
+          "superseded_at",
+          "superseded_by_user_id",
           "threshold_profile_id",
           "version",
           "voi_action",
@@ -448,26 +462,34 @@ async function qualify() {
       );
       assert.equal(persisted.organization_id, f.org);
       assert.equal(persisted.risk_id, fixture.child);
-      assert.equal(persisted.version, 1);
+      assert.equal(persisted.version, replacement ? 2 : 1);
       assert.equal(persisted.status, "pending_review");
       assert.equal(persisted.author_id, f.author);
       assert.equal(persisted.reviewer_id, null);
       assert.equal(persisted.analysis_digest, receipt.analysisDigest);
-      assert.equal(currentDigest, receipt.analysisDigest);
+      if (replacement?.expectStale) assert.notEqual(currentDigest, receipt.analysisDigest);
+      else assert.equal(currentDigest, receipt.analysisDigest);
+      assert.equal(persisted.replaces_analysis_id, replacement?.request.predecessor.analysisId ?? null);
+      assert.equal(persisted.replacement_intent_id, replacement?.request.intentId ?? null);
+      assert.equal(persisted.replacement_request_fingerprint, replacement?.fingerprint ?? null);
+      assert.deepEqual(persisted.replacement_compare_and_swap, replacement ? {
+        ...replacement.request.predecessor, policyDigest: replacement.request.policyDigest,
+      } : null);
+      assert.equal(persisted.replacement_reason, replacement?.request.reason ?? null);
+      for (const key of ["superseded_by_analysis_id", "superseded_at", "superseded_by_user_id"])
+        assert.equal(persisted[key], null);
       assert.equal(persisted.digest_version, 2);
       assert.deepEqual(persisted.input_binding_snapshot, expectedSnapshot);
       assert.equal(expectedSnapshot.organizationId, f.org);
       assert.equal(expectedSnapshot.riskId, fixture.child);
-      assert.deepEqual(expectedSnapshot.expectedEvidenceIds, [
-        fixture.evidence,
-      ]);
-      assert.equal(expectedSnapshot.expectedEvidenceCount, 1);
-      assert.equal(expectedSnapshot.foundEvidenceCount, 1);
+      assert.deepEqual(expectedSnapshot.expectedEvidenceIds, citedEvidence);
+      assert.equal(expectedSnapshot.expectedEvidenceCount, citedEvidence.length);
+      assert.equal(expectedSnapshot.foundEvidenceCount, citedEvidence.length);
       assert.equal(expectedSnapshot.bindingComplete, true);
       assert.equal(expectedSnapshot.currentCriteriaProfileId, fixture.criteria);
       assert.equal(expectedSnapshot.currentCriteria.id, fixture.criteria);
-      assert.equal(expectedSnapshot.evidence[0].id, fixture.evidence);
-      assert.equal(expectedSnapshot.evidence[0].riskId, fixture.child);
+      assert.deepEqual(expectedSnapshot.evidence.map((item) => item.id), citedEvidence);
+      for (const item of expectedSnapshot.evidence) assert.equal(item.riskId, fixture.child);
       assert.equal(persisted.method, f.input.method);
       assert.equal(persisted.basis, f.input.basis);
       for (const field of [
@@ -539,7 +561,7 @@ async function qualify() {
         after.bindings
           .filter((b) => b.analysis_id === receipt.analysisId)
           .map((b) => b.evidence_item_id),
-        [fixture.evidence],
+        citedEvidence,
       );
       const audits = after.audit.filter(
         (a) => a.event_data.analysis_id === receipt.analysisId,
@@ -547,7 +569,7 @@ async function qualify() {
       assert.equal(audits.length, 1);
       assert.equal(
         audits[0].entity_type,
-        "risk_uncertainty_analysis_submitted",
+        replacement ? "risk_uncertainty_analysis_replaced" : "risk_uncertainty_analysis_submitted",
       );
       assert.equal(audits[0].event_data.risk_id, fixture.child);
       assert.equal(
@@ -824,7 +846,7 @@ async function qualify() {
       );
       assert.deepEqual(normalized, before);
     }
-    async function visibilityFixture(label, sibling = false) {
+    async function visibilityFixture(label, sibling = false, oldEvidenceId = null) {
       // U18_VISIBILITY_FIXTURE: UUID ordering is intentional. The helper must
       // release locks acquired on grandparent/parent before a max-UUID target
       // refusal becomes visible to a third real session.
@@ -837,7 +859,7 @@ async function qualify() {
         sibling: sibling ? randomUUID() : null,
         grandScenario: randomUUID(),
         parentScenario: randomUUID(),
-        evidence: randomUUID(),
+        evidence: oldEvidenceId ?? randomUUID(),
         siblingEvidence: sibling ? randomUUID() : null,
         parentView: randomUUID(),
         grandView: randomUUID(),
@@ -1489,6 +1511,244 @@ async function qualify() {
       );
     }
 
+    // U18_REPLACEMENT_CONCURRENCY BEGIN
+    // The committed fixtures below belong only to this disposable CI database.
+    // Every race uses the actual authenticated RPC, observed backend PIDs and
+    // independently normalized before/after state, not a timeout or mock ACK.
+    async function replacementFixture(label, rebound = false) {
+      const evidenceIds = [randomUUID(), randomUUID(), randomUUID()].sort();
+      const fixture = await visibilityFixture(label, false, evidenceIds[2]);
+      fixture.newEvidence = evidenceIds.slice(0, 2);
+      assert(fixture.newEvidence.every((id) => id < fixture.evidence));
+      await monitor.query(`begin;
+        insert into public.evidence_items(id,organization_id,risk_id,source_system,evidence_type,description,
+          evidence_class,verification_status,verified_by,verified_at,verification_method,quality_grade,applicability_grade,revision)
+        select id,'${f.org}','${fixture.child}','CMMS','inspection',
+          'Synthetic independently verified replacement input for this exact child.',
+          'INSPECTED','verified','${f.reviewer}',now(),'Synthetic independent replacement inspection',
+          'high','direct','R1'
+        from unnest(array[${fixture.newEvidence.map((id) => `'${id}'::uuid`).join(",")}]) id;
+        commit`);
+      fixture.packet = await submitReceipt(fixture.child, fixture.evidence);
+      await monitor.query(rebound
+        ? `update public.evidence_items set risk_id='${f.other_risk}' where id='${fixture.evidence}' returning id`
+        : `update public.evidence_items set description=description||' Committed synthetic content drift.'
+            where id='${fixture.evidence}' returning id`);
+      const snapshot = await state();
+      assert.equal(byId(snapshot, "evidence", fixture.evidence).risk_id,
+        rebound ? f.other_risk : fixture.child);
+      assert.notEqual(await analysisDigest(fixture.packet.analysisId), fixture.packet.analysisDigest);
+      return fixture;
+    }
+    async function replacementRequest(fixture) {
+      const predecessor = json(await monitor.query(`select jsonb_build_object(
+        'analysisId',a.id,'version',a.version,'digestVersion',a.digest_version,
+        'analysisDigest',a.analysis_digest,'currentDigest',public.risk_uncertainty_analysis_digest('${f.org}',a.id))
+        from public.risk_uncertainty_analyses a
+        where a.id='${fixture.packet.analysisId}' and a.organization_id='${f.org}' and a.risk_id='${fixture.child}'`));
+      const policyDigest = (await monitor.query(
+        `select public.risk_uncertainty_current_policy_digest('${f.org}','${fixture.child}')`,
+      )).at(-1);
+      assert.match(policyDigest, /^[0-9a-f]{64}$/);
+      const request = {
+        contractVersion: 1, action: "replace", intentId: randomUUID(),
+        organizationId: f.org, actorId: f.author, riskId: fixture.child,
+        predecessor, policyDigest,
+        reason: "Synthetic native concurrency replacement after an actual committed input change.",
+        analysis: copy(f.input), evidenceItemIds: fixture.newEvidence,
+      };
+      const text = JSON.stringify(request);
+      const fingerprint = createHash("sha256").update(text, "utf8").digest("hex");
+      return { request, text, fingerprint };
+    }
+    const replaceSQL = (fixture, info) => `reset role; set role authenticated;
+      select set_config('request.jwt.claim.sub','${f.author}',false);
+      select public.replace_risk_uncertainty_analysis('${fixture.child}',${literal(info.text)})`;
+    async function replacementSnapshot(fixture) {
+      return json(await monitor.query(`select public.risk_uncertainty_input_binding_snapshot(
+        '${f.org}','${fixture.child}',array[${fixture.newEvidence.map((id) => `'${id}'::uuid`).join(",")}])`));
+    }
+    function assertNamedEvidenceChange(before, after, id, changes) {
+      assert.deepEqual(byId(after, "evidence", id), {
+        ...byId(before, "evidence", id), ...changes,
+      });
+      const normalized = copy(after);
+      restoreRow(normalized, before, "evidence", id);
+      assert.deepEqual(Object.keys(normalized).sort(), [...wholeStateKeys].sort());
+      // This also freezes the old packet, bindings, digest, VOI, every audit,
+      // approval and all foreign fixture rows; it is not merely a count check.
+      assert.deepEqual(normalized, before);
+    }
+    function assertReplacementTransition(receipt, fixture, info, before, after,
+      expectedSnapshot, currentDigest, writer = noWriter) {
+      assert.deepEqual(Object.keys(receipt).sort(), [
+        "commitStatus", "submittedStatus", "organizationId", "actorId", "riskId",
+        "intentId", "requestFingerprint", "predecessorAnalysisId", "compareAndSwap",
+        "analysisId", "version", "analysisDigest", "digestVersion", "digestCoverage",
+        "valueOfInformation", "operationalAuthorization",
+      ].sort());
+      assert.equal(receipt.commitStatus, "committed");
+      assert.equal(receipt.submittedStatus, "pending_review");
+      assert.equal(receipt.organizationId, f.org);
+      assert.equal(receipt.actorId, f.author);
+      assert.equal(receipt.riskId, fixture.child);
+      assert.equal(receipt.intentId, info.request.intentId);
+      assert.equal(receipt.requestFingerprint, info.fingerprint);
+      assert.equal(receipt.predecessorAnalysisId, fixture.packet.analysisId);
+      assert.deepEqual(receipt.compareAndSwap, {
+        ...info.request.predecessor, policyDigest: info.request.policyDigest,
+      });
+      assert.match(receipt.analysisId, uuid);
+      assert.match(receipt.analysisDigest, /^[0-9a-f]{64}$/);
+      assert.equal(receipt.version, 2);
+      assert.equal(receipt.digestVersion, 2);
+      assert.equal(receipt.digestCoverage, "evidence_content_and_current_criteria");
+      assert.equal(receipt.operationalAuthorization, false);
+      assert.deepEqual(receipt.valueOfInformation, {
+        informationCost: 10000, decisionCostIfWrong: 250000,
+        uncertaintyReduction: 0.5, probabilityDecisionChanges: 0.3,
+        expectedValue: 37500, netValue: 27500, recommendation: "GATHER_INFORMATION",
+      });
+      assertSubmitState(receipt, fixture, before, after, expectedSnapshot, currentDigest,
+        { ...info, expectStale: writer !== noWriter });
+      const successor = byId(after, "packets", receipt.analysisId);
+      assert.deepEqual(byId(after, "packets", fixture.packet.analysisId), {
+        ...byId(before, "packets", fixture.packet.analysisId), status: "superseded",
+        superseded_by_analysis_id: receipt.analysisId, superseded_at: successor.created_at,
+        superseded_by_user_id: f.author,
+      });
+      const audits = after.audit.filter((row) => row.event_data.analysis_id === receipt.analysisId);
+      assert.equal(audits.length, 1);
+      const audit = audits[0];
+      assert.equal(audit.entity_type, "risk_uncertainty_analysis_replaced");
+      assert.equal(audit.organization_id, f.org);
+      assert.equal(audit.actor, "admin");
+      assert.deepEqual(audit.event_data, {
+        risk_id: fixture.child, analysis_id: receipt.analysisId, version: 2,
+        analysis_digest: receipt.analysisDigest, evidence_item_ids: fixture.newEvidence,
+        threshold_profile_id: fixture.criteria, operational_authorization: false,
+        predecessor_analysis_id: fixture.packet.analysisId, replacement_intent_id: info.request.intentId,
+        request_fingerprint: info.fingerprint, compare_and_swap: receipt.compareAndSwap,
+        reason: info.request.reason,
+      });
+      writer.verify(before, after, fixture);
+      const normalized = copy(after);
+      normalized.packets = normalized.packets.filter((row) => row.id !== receipt.analysisId);
+      normalized.bindings = normalized.bindings.filter((row) => row.analysis_id !== receipt.analysisId);
+      normalized.audit = normalized.audit.filter((row) => row.id !== audit.id);
+      restoreRow(normalized, before, "packets", fixture.packet.analysisId);
+      restoreRow(normalized, before, "risks", fixture.child);
+      writer.normalize(normalized, before, fixture);
+      assert.deepEqual(Object.keys(normalized).sort(), [...wholeStateKeys].sort());
+      assert.deepEqual(normalized, before);
+    }
+
+    // U18_REPLACEMENT_RISK_COMPETITION: one actual replacement holds the risk
+    // at a criterion wait. A different-intent actual same-risk RPC must refuse
+    // NOWAIT without a second successor; the first then commits positively.
+    {
+      markPhase("U18_REPLACEMENT_RISK_COMPETITION");
+      const fixture = await replacementFixture("U18_REPLACEMENT_RISK_COMPETITION");
+      const info = await replacementRequest(fixture);
+      const competingInfo = await replacementRequest(fixture);
+      assert.notEqual(info.request.intentId, competingInfo.request.intentId);
+      const before = await state();
+      const expectedSnapshot = await replacementSnapshot(fixture);
+      await barrier.query(`begin; select id from public.risk_criteria_profiles
+        where id='${fixture.criteria}' for update`);
+      const replacing = actor.query(replaceSQL(fixture, info));
+      replacing.catch(() => {});
+      await blocked(actorPid, barrierPid);
+      const started = Date.now();
+      const refused = json(await changer.query(replaceSQL(fixture, competingInfo)));
+      assert(Date.now() - started < 5000);
+      assert.deepEqual(refused, { error: "risk not found in this organization" });
+      assert.deepEqual(await state(), before);
+      await barrier.query("commit");
+      const receipt = json(await replacing);
+      const after = await state();
+      assertReplacementTransition(receipt, fixture, info, before, after, expectedSnapshot,
+        await analysisDigest(receipt.analysisId));
+    }
+
+    // U18_REPLACEMENT_EVIDENCE_RESTORE: evidence UPDATE owns its tuple then
+    // waits for the actor's risk FK KEY SHARE. The actor must refuse its union
+    // NOWAIT promptly, not form a risk↔evidence deadlock or accept a timeout.
+    {
+      markPhase("U18_REPLACEMENT_EVIDENCE_RESTORE");
+      const fixture = await replacementFixture("U18_REPLACEMENT_EVIDENCE_RESTORE", true);
+      const info = await replacementRequest(fixture);
+      const before = await state();
+      await barrier.query(`begin; select id from public.risk_criteria_profiles
+        where id='${fixture.criteria}' for update`);
+      const replacing = actor.query(`begin; ${replaceSQL(fixture, info)}`);
+      replacing.catch(() => {});
+      await blocked(actorPid, barrierPid);
+      const restoring = changer.query(`reset role; select set_config('request.jwt.claim.sub','',false);
+        begin; update public.evidence_items set risk_id='${fixture.child}'
+        where id='${fixture.evidence}' returning id; select 'restored'`);
+      restoring.catch(() => {});
+      await blocked(changerPid, actorPid);
+      const releasedAt = Date.now();
+      await barrier.query("commit");
+      const refused = json(await replacing);
+      assert(Date.now() - releasedAt < 5000);
+      assert.deepEqual(refused, { error: "replacement evidence is busy; reload the governed workspace" });
+      // U18_REPLACEMENT_OUTER_TX_WITNESS: the refusal is inspected while the
+      // actor still holds its risk context. The waiting writer cannot finish yet.
+      const context = json(await actor.query(`select jsonb_build_object(
+        'marker',coalesce(current_setting('app.risk_uncertainty_write',true),''),
+        'claim',current_setting('request.jwt.claim.sub',true),'actor',auth.uid(),
+        'organization',public.app_current_org(),'role',current_user)`));
+      assert.deepEqual(context, { marker: "", claim: f.author, actor: f.author,
+        organization: f.org, role: "authenticated" });
+      const actorVisibleRefusal = json(await actor.query(`reset role; ${stateSQL}`));
+      assert.deepEqual(actorVisibleRefusal, before);
+      assert.deepEqual(await state(), before);
+      await blocked(changerPid, actorPid);
+      // U18_REPLACEMENT_PARTIAL_UNION_RELEASE: both new IDs precede the busy
+      // old row, so a third session proves the subtransaction released them.
+      assert.equal((await barrier.query(`begin;
+        ${fixture.newEvidence.map((id) => `select id from public.evidence_items where id='${id}' for update nowait`).join(";")};
+        commit; select 'replacement partial union released'`)).at(-1), "replacement partial union released");
+      await actor.query("rollback");
+      assert.equal((await restoring).at(-1), "restored");
+      await changer.query("commit");
+      const after = await state();
+      assertNamedEvidenceChange(before, after, fixture.evidence, { risk_id: fixture.child });
+    }
+
+    // U18_REPLACEMENT_AFTER_CHECK: replacement holds both old and new inputs
+    // through its last actual audit INSERT. A legitimate content writer waits
+    // until commit, then makes the immutable successor explicitly stale.
+    {
+      markPhase("U18_REPLACEMENT_AFTER_CHECK");
+      const fixture = await replacementFixture("U18_REPLACEMENT_AFTER_CHECK");
+      const info = await replacementRequest(fixture);
+      const before = await state();
+      const expectedSnapshot = await replacementSnapshot(fixture);
+      const writer = replacementWriter("evidence", (x) => x.newEvidence[0],
+        (row) => ({ description: `${row.description} After replacement commit.` }));
+      await barrier.query("begin; lock table public.audit_events in share mode");
+      const replacing = actor.query(replaceSQL(fixture, info));
+      replacing.catch(() => {});
+      await blocked(actorPid, barrierPid);
+      const writing = changer.query(`reset role; select set_config('request.jwt.claim.sub','',false);
+        begin; update public.evidence_items set description=description||' After replacement commit.'
+        where id='${fixture.newEvidence[0]}' returning id; select 'replacement input changed'`);
+      writing.catch(() => {});
+      await blocked(changerPid, actorPid);
+      await barrier.query("commit");
+      const receipt = json(await replacing);
+      assert.equal((await writing).at(-1), "replacement input changed");
+      await changer.query("commit");
+      const after = await state();
+      assert.notEqual(await analysisDigest(receipt.analysisId), receipt.analysisDigest);
+      assertReplacementTransition(receipt, fixture, info, before, after, expectedSnapshot,
+        await analysisDigest(receipt.analysisId), writer);
+    }
+    // U18_REPLACEMENT_CONCURRENCY END
+
     // U18_OPEN_ANCESTOR_DELETE: this is deliberately OPEN, not counted as a
     // helper-wins success. A legitimate delete cannot commit because canonical
     // provenance rejects its ON DELETE SET NULL child rewrite with the exact
@@ -1504,7 +1764,7 @@ async function qualify() {
     );
     markPhase("U18_COMPLETE");
     console.log(
-      "U18 concurrent criteria and typed visibility PASS: actual approval/evidence barriers, exact bound ACKs, NOWAIT refusals, partial-lock release, inverse-view/scenario/profile/overlap witnesses and full two-org state preservation; ancestor deletion remains OPEN because canonical provenance forbids legitimate commit. NATIVE exact-head PostgreSQL only; NEW synthetic fixtures retained only in disposable CI until Stop Supabase. Not production qualification.",
+      "U18 concurrent criteria, typed visibility and replacement PASS: actual approval/evidence/audit barriers, exact bound ACKs, NOWAIT refusals, partial-lock release, inverse-view/scenario/profile/overlap, competing replacement and evidence FK-restoration witnesses with full two-org state preservation; ancestor deletion remains OPEN because canonical provenance forbids legitimate commit. NATIVE exact-head PostgreSQL only; NEW synthetic fixtures retained only in disposable CI until Stop Supabase. Not production qualification.",
     );
   } finally {
     await Promise.all(sessions.map((handle) => handle.close()));

@@ -380,6 +380,8 @@ do $$ declare packet uuid; before_row jsonb; detail text; refused boolean; total
   if exists(select 1 from (values
       ('public.submit_risk_uncertainty_analysis(uuid,jsonb,uuid[])'),
       ('public.review_risk_uncertainty_analysis(uuid,text,text)'),
+      ('public.replace_risk_uncertainty_analysis(uuid,text)'),
+      ('public.get_risk_uncertainty_replacement_receipt(uuid,uuid,text)'),
       ('public.get_risk_uncertainty_workspace(uuid)')) q(signature)
     where to_regprocedure(signature) is null
       or has_function_privilege('service_role',signature,'EXECUTE')
@@ -388,6 +390,9 @@ do $$ declare packet uuid; before_row jsonb; detail text; refused boolean; total
     or exists(select 1 from (values
       ('public.risk_uncertainty_analysis_digest(uuid,uuid)'),
       ('public.risk_uncertainty_analysis_digest_v1(uuid,uuid)'),
+      ('public.submit_risk_uncertainty_analysis_internal(uuid,jsonb,uuid[],jsonb)'),
+      ('public.risk_uncertainty_replacement_receipt_payload(public.risk_uncertainty_analyses)'),
+      ('public.enforce_risk_uncertainty_replacement_pair()'),
       ('public.risk_uncertainty_current_policy_digest(uuid,uuid)'),
       ('public.risk_uncertainty_review_standing(uuid,uuid)'),
       ('public.risk_uncertainty_evidence_digest_projection(public.evidence_items)'),
@@ -412,7 +417,7 @@ begin
   baseline:=pg_temp.u18_state();
   select to_jsonb(a) into before_row from public.risk_uncertainty_analyses a where id=p_packet;
   if before_row is null
-    or (p_terminal and before_row->>'status' not in ('validated','rejected'))
+    or (p_terminal and before_row->>'status' not in ('validated','rejected','superseded'))
     or (not p_terminal and before_row->>'status' is distinct from 'pending_review')
     or before_row->>'analysis_digest'=repeat('0',64) then
     raise exception 'history refusal target must be an actual finalized submitted packet'; end if;
@@ -432,9 +437,9 @@ begin
       when 'integer' then changed:=to_jsonb((before_row->>field.name)::integer+1);
       when 'numeric' then changed:=to_jsonb((before_row->>field.name)::numeric+1);
       when 'boolean' then changed:=to_jsonb(not (before_row->>field.name)::boolean);
-      when 'timestamp with time zone' then changed:=to_jsonb((before_row->>field.name)::timestamptz+interval '1 microsecond');
+      when 'timestamp with time zone' then changed:=to_jsonb(coalesce((before_row->>field.name)::timestamptz,now())+interval '1 microsecond');
       when 'text[]' then changed:=(before_row->field.name)||jsonb_build_array('New immutable history probe trigger');
-      when 'jsonb' then changed:=(before_row->field.name)||jsonb_build_object('history_mutation_probe',true);
+      when 'jsonb' then changed:=coalesce(nullif(before_row->field.name,'null'::jsonb),'{}'::jsonb)||jsonb_build_object('history_mutation_probe',true);
       else raise exception 'new packet column type requires an explicit history witness';
     end case;
     refused:=false;
@@ -548,6 +553,363 @@ do $$ declare f record; baseline jsonb; initial_state jsonb; candidate jsonb;
 end $$;
 -- U18 SUBMITTED HISTORY REFUSALS END
 
+-- U18 PRIVATE SUBMISSION WRITER ACL BEGIN
+-- The public three-argument door still exercises the exact shared writer.
+-- Direct client calls must fail permission checks, not a pending-state refusal.
+do $$ declare f record; client text; snapshot jsonb; refused boolean; detail text;
+  original_role text:=current_user;
+begin
+  select * into f from u18_fixture;
+  snapshot:=pg_temp.u18_state();
+  foreach client in array array['anon','authenticated','service_role'] loop
+    refused:=false;
+    begin
+      execute format('set local role %I',client);
+      perform public.submit_risk_uncertainty_analysis_internal(f.risk,f.input,array[f.verified]);
+    exception when insufficient_privilege then
+      get stacked diagnostics detail=message_text;
+      refused:=detail='permission denied for function submit_risk_uncertainty_analysis_internal';
+    end;
+    if not refused or current_user is distinct from original_role
+      or pg_temp.u18_state() is distinct from snapshot then
+      raise exception 'direct private submission writer execution was not exactly denied'; end if;
+  end loop;
+end $$;
+-- U18 PRIVATE SUBMISSION WRITER ACL END
+
+-- U18 ATOMIC REPLACEMENT CONTROLS BEGIN
+-- Actual public RPCs, isolated fixture rows and deferred constraint execution.
+-- Every scenario returns all 13 collections to its complete two-tenant baseline.
+create function pg_temp.u18_replacement_request(p_packet uuid,p_intent uuid,p_input jsonb,p_evidence_ids uuid[] default null)
+returns text language plpgsql as $$
+declare a public.risk_uncertainty_analyses%rowtype;
+begin
+  select * into a from public.risk_uncertainty_analyses where id=p_packet;
+  return jsonb_build_object('contractVersion',1,'action','replace','intentId',p_intent,
+    'organizationId',a.organization_id,'actorId',a.author_id,'riskId',a.risk_id,
+    'predecessor',jsonb_build_object('analysisId',a.id,'version',a.version,'digestVersion',a.digest_version,
+      'analysisDigest',a.analysis_digest,'currentDigest',public.risk_uncertainty_analysis_digest(a.organization_id,a.id)),
+    'policyDigest',public.risk_uncertainty_current_policy_digest(a.organization_id,a.risk_id),
+    'reason','Synthetic CI replacement because the exact current input content changed.',
+    'analysis',p_input,'evidenceItemIds',to_jsonb(coalesce(p_evidence_ids,array[(select verified from u18_fixture)])))::text;
+end $$;
+do $$ declare f record; packet uuid; intent uuid; successor uuid; before_packet jsonb;
+  baseline jsonb; snapshot jsonb; request text; fingerprint text; result jsonb; receipt jsonb;
+  workspace jsonb; item jsonb; bad jsonb; path text[]; changed bigint; qualified boolean;
+  role_before text:=current_user; claim_before text:=current_setting('request.jwt.claim.sub',true);
+begin
+  select * into f from u18_fixture; select id into packet from u18_packet;
+  baseline:=pg_temp.u18_state(); qualified:=false;
+  begin
+    perform set_config('request.jwt.claim.sub',f.author::text,true);
+    select to_jsonb(a) into before_packet from public.risk_uncertainty_analyses a where id=packet;
+    update public.evidence_items set description=description||' Actual rolled-back replacement content drift.'
+      where id=f.verified and organization_id=f.org and risk_id=f.risk;
+    get diagnostics changed=row_count;
+    if changed<>1 or public.risk_uncertainty_review_standing(f.org,packet)<>'replacement_required' then
+      raise exception 'replacement requires an actual scoped stale-input fixture'; end if;
+    intent:=gen_random_uuid(); request:=pg_temp.u18_replacement_request(packet,intent,f.input);
+    fingerprint:=encode(extensions.digest(convert_to(request,'UTF8'),'sha256'),'hex');
+    snapshot:=pg_temp.u18_state();
+    -- Each immutable predecessor/live-policy CAS dimension is independently wrong.
+    for path in select p from (values(array['predecessor','version']), (array['predecessor','digestVersion']),
+      (array['predecessor','analysisDigest']), (array['predecessor','currentDigest']), (array['policyDigest'])) q(p) loop
+      bad:=jsonb_set(request::jsonb,path,case when path[2]='version' then '2147483647'::jsonb
+        when path[2]='digestVersion' then '1'::jsonb else to_jsonb(repeat('a',64)) end);
+      execute 'set local role authenticated';
+      result:=public.replace_risk_uncertainty_analysis(f.risk,bad::text);
+      execute 'reset role';
+      if not result ? 'error' or pg_temp.u18_state() is distinct from snapshot then
+        raise exception 'replacement CAS refusal changed canonical artifacts'; end if;
+    end loop;
+    execute 'set local role authenticated';
+    result:=public.replace_risk_uncertainty_analysis(f.risk,request);
+    execute 'reset role';
+    if result ? 'error' or result->>'commitStatus' is distinct from 'committed'
+      or result->>'submittedStatus' is distinct from 'pending_review'
+      or result->>'organizationId' is distinct from f.org::text or result->>'actorId' is distinct from f.author::text
+      or result->>'riskId' is distinct from f.risk::text or result->>'intentId' is distinct from intent::text
+      or result->>'requestFingerprint' is distinct from fingerprint
+      or result->>'predecessorAnalysisId' is distinct from packet::text
+      or result->'compareAndSwap' is distinct from
+        ((request::jsonb->'predecessor')||jsonb_build_object('policyDigest',request::jsonb->>'policyDigest'))
+      or result->'version' is distinct from '2'::jsonb
+      or result->>'analysisDigest' !~ '^[0-9a-f]{64}$'
+      or result->'operationalAuthorization' is distinct from 'false'::jsonb then
+      raise exception 'actual replacement failed its exact scoped historical commit receipt'; end if;
+    successor:=(result->>'analysisId')::uuid; receipt:=result;
+    set constraints all immediate; -- Actually fire every deferred pair/FK guard.
+    set constraints all deferred;
+    select to_jsonb(a) into item from public.risk_uncertainty_analyses a where id=packet;
+    if (item-array['status','superseded_by_analysis_id','superseded_at','superseded_by_user_id'])
+      is distinct from (before_packet-array['status','superseded_by_analysis_id','superseded_at','superseded_by_user_id'])
+      or item->>'status' is distinct from 'superseded'
+      or item->>'superseded_by_analysis_id' is distinct from successor::text
+      or not exists(select 1 from public.risk_uncertainty_analyses a where a.id=successor
+        and a.organization_id=f.org and a.risk_id=f.risk and a.author_id=f.author and a.status='pending_review'
+        and a.replaces_analysis_id=packet and a.replacement_intent_id=intent
+        and a.replacement_request_fingerprint=fingerprint and a.digest_version=2
+        and a.analysis_digest=public.risk_uncertainty_analysis_digest(f.org,successor)) then
+      raise exception 'replacement did not preserve predecessor history and exact pending successor'; end if;
+    if (select count(*) from public.risk_uncertainty_analysis_evidence where analysis_id=packet)<>1
+      or (select count(*) from public.risk_uncertainty_analysis_evidence where analysis_id=successor)<>1
+      or (select count(*) from public.audit_events where organization_id=f.org
+        and entity_type='risk_uncertainty_analysis_replaced' and event_data->>'replacement_intent_id'=intent::text)<>1
+      or (pg_temp.u18_state()->'approvals') is distinct from (snapshot->'approvals')
+      or (pg_temp.u18_state()->'evidence') is distinct from (snapshot->'evidence')
+      or (pg_temp.u18_state()->'decisions') is distinct from (snapshot->'decisions')
+      or (pg_temp.u18_state()->'work') is distinct from (snapshot->'work') then
+      raise exception 'replacement fabricated approval/evidence/action or lost canonical bindings/audit'; end if;
+    perform pg_temp.u18_history_refusals(packet,true);
+    snapshot:=pg_temp.u18_state();
+    execute 'set local role authenticated';
+    result:=public.replace_risk_uncertainty_analysis(f.risk,request);
+    workspace:=public.get_risk_uncertainty_workspace(f.risk);
+    execute 'reset role';
+    if result is distinct from receipt or pg_temp.u18_state() is distinct from snapshot then
+      raise exception 'committed intent replay changed its historical receipt or artifacts'; end if;
+    select x into item from jsonb_array_elements(workspace->'analyses') x where x->>'id'=packet::text;
+    if item->>'storedStatus' is distinct from 'superseded' or item->>'validationStatus' is distinct from 'stale'
+      or item->>'analysisDigest' is distinct from before_packet->>'analysis_digest'
+      or item->>'currentDigest' is distinct from public.risk_uncertainty_analysis_digest(f.org,packet)
+      or item->>'currentDigest' is not distinct from item->>'analysisDigest'
+      or item->'reviewerId' is distinct from 'null'::jsonb or item->'approvalId' is distinct from 'null'::jsonb
+      or item->'supersession'->>'successorAnalysisId' is distinct from successor::text then
+      raise exception 'public superseded history is mislabeled as pending/reviewed or lacks its successor'; end if;
+    -- U18 MIDDLE REPLACEMENT CHAIN BEGIN
+    -- Actually replace the replacement in a nested rollback. The middle row
+    -- must retain its original intent/CAS AND its new terminal successor.
+    declare chain_baseline jsonb:=pg_temp.u18_state(); middle_before jsonb;
+      middle jsonb; third uuid; chain_request text; chain_receipt jsonb; chain_ok boolean:=false;
+    begin
+      begin
+        select to_jsonb(a) into middle_before from public.risk_uncertainty_analyses a where id=successor;
+        update public.evidence_items set description=description||' Actual second-generation content drift.'
+          where id=f.verified and organization_id=f.org and risk_id=f.risk;
+        get diagnostics changed=row_count;
+        if changed<>1 or public.risk_uncertainty_review_standing(f.org,successor)<>'replacement_required' then
+          raise exception 'middle chain requires actual successor input drift'; end if;
+        chain_request:=pg_temp.u18_replacement_request(successor,gen_random_uuid(),f.input);
+        execute 'set local role authenticated';
+        chain_receipt:=public.replace_risk_uncertainty_analysis(f.risk,chain_request);
+        execute 'reset role';
+        if chain_receipt ? 'error' or chain_receipt->'version' is distinct from '3'::jsonb then
+          raise exception 'middle chain actual successor replacement failed'; end if;
+        third:=(chain_receipt->>'analysisId')::uuid;
+        set constraints all immediate;
+        set constraints all deferred;
+        select to_jsonb(a) into middle from public.risk_uncertainty_analyses a where id=successor;
+        if middle->>'status' is distinct from 'superseded'
+          or middle->>'replaces_analysis_id' is distinct from packet::text
+          or middle->>'superseded_by_analysis_id' is distinct from third::text
+          or (middle-array['status','superseded_by_analysis_id','superseded_at','superseded_by_user_id'])
+            is distinct from (middle_before-array['status','superseded_by_analysis_id','superseded_at','superseded_by_user_id'])
+          or not exists(select 1 from public.risk_uncertainty_analyses a where a.id=third
+            and a.organization_id=f.org and a.risk_id=f.risk and a.author_id=f.author
+            and a.replaces_analysis_id=successor and a.status='pending_review') then
+          raise exception 'middle chain lost immutable replacement metadata or exact reciprocal history'; end if;
+        perform pg_temp.u18_history_refusals(successor,true);
+        snapshot:=pg_temp.u18_state();
+        execute 'set local role authenticated';
+        result:=public.replace_risk_uncertainty_analysis(f.risk,request);
+        execute 'reset role';
+        if result is distinct from receipt or pg_temp.u18_state() is distinct from snapshot then
+          raise exception 'middle chain invalidated original immutable commit recognition'; end if;
+        chain_ok:=true;
+        raise exception using errcode='ZX020',message='U18 middle chain fixture rollback';
+      exception when sqlstate 'ZX020' then null;
+      end;
+      if not chain_ok or pg_temp.u18_state() is distinct from chain_baseline then
+        raise exception 'middle chain full-state rollback qualification failed'; end if;
+    end;
+    -- U18 MIDDLE REPLACEMENT CHAIN END
+    -- Commit recognition still works AFTER actual independent review.
+    perform set_config('request.jwt.claim.sub',f.reviewer::text,true);
+    execute 'set local role authenticated';
+    result:=public.review_risk_uncertainty_analysis(successor,'validated',
+      'Independent synthetic reviewer validates this actual replacement successor only.');
+    execute 'reset role';
+    if result ? 'error' then raise exception 'replacement successor failed independent review control'; end if;
+    set constraints all immediate;
+    set constraints all deferred;
+    perform set_config('request.jwt.claim.sub',f.author::text,true);
+    snapshot:=pg_temp.u18_state();
+    execute 'set local role authenticated';
+    result:=public.replace_risk_uncertainty_analysis(f.risk,request);
+    execute 'reset role';
+    if result is distinct from receipt or pg_temp.u18_state() is distinct from snapshot then
+      raise exception 'reviewed successor prevented immutable committed intent recognition'; end if;
+    execute 'set local role authenticated';
+    result:=public.get_risk_uncertainty_replacement_receipt(f.risk,intent,fingerprint);
+    execute 'reset role';
+    if result is distinct from receipt or pg_temp.u18_state() is distinct from snapshot then
+      raise exception 'read-only exact intent receipt changed history or authority'; end if;
+    foreach bad in array array[jsonb_set(request::jsonb,'{reason}',to_jsonb('A different request must never reuse the same committed intent.'))] loop
+      execute 'set local role authenticated'; result:=public.replace_risk_uncertainty_analysis(f.risk,bad::text);
+      execute 'reset role';
+      if result is distinct from jsonb_build_object('error','replacement intent is already bound to a different request')
+        or pg_temp.u18_state() is distinct from snapshot then
+        raise exception 'changed fingerprint reused a committed intent or changed artifacts'; end if;
+    end loop;
+    qualified:=true; raise exception using errcode='ZX017',message='U18 actual replacement fixture rollback';
+  exception when sqlstate 'ZX017' then null;
+  end;
+  if not qualified or pg_temp.u18_state() is distinct from baseline or current_user is distinct from role_before
+    or current_setting('request.jwt.claim.sub',true) is distinct from claim_before then
+    raise exception 'actual replacement qualification failed complete state/identity rollback'; end if;
+end $$;
+-- A final audit failure MUST unwind predecessor demotion, successor/bindings,
+-- digest and VOI. Raise-only fixture trigger, exact random tenant+intent; no
+-- disabled production guard and no pg_temp dependency on a permanent table.
+do $$ declare f record; packet uuid; intent uuid:=gen_random_uuid(); request text;
+  baseline jsonb; snapshot jsonb; result jsonb; failure_schema text;
+  refused boolean:=false; qualified boolean:=false;
+  role_before text:=current_user; claim_before text:=current_setting('request.jwt.claim.sub',true);
+begin
+  select * into f from u18_fixture; select id into packet from u18_packet;
+  baseline:=pg_temp.u18_state();
+  begin
+    perform set_config('request.jwt.claim.sub',f.author::text,true);
+    update public.evidence_items set description=description||' Audit failure rollback-only drift.'
+      where id=f.verified and organization_id=f.org and risk_id=f.risk;
+    request:=pg_temp.u18_replacement_request(packet,intent,f.input);
+    failure_schema:='u18_failure_'||replace(gen_random_uuid()::text,'-','');
+    execute format('create schema %I',failure_schema);
+    execute format($ddl$create function %I.raise_replacement_audit() returns trigger language plpgsql as $body$
+      begin
+        if new.organization_id=%L::uuid and new.entity_type='risk_uncertainty_analysis_replaced'
+          and new.event_data->>'replacement_intent_id'=%L then
+          raise exception using errcode='ZX016',message='U18 injected final replacement audit failure';
+        end if;
+        return new;
+      end $body$$ddl$,failure_schema,f.org::text,intent::text);
+    execute format('create trigger %I before insert on public.audit_events for each row execute function %I.raise_replacement_audit()',
+      failure_schema,failure_schema);
+    snapshot:=pg_temp.u18_state();
+    begin
+      execute 'set local role authenticated';
+      result:=public.replace_risk_uncertainty_analysis(f.risk,request);
+      execute 'reset role';
+      raise exception 'injected replacement audit failure did not abort the public mutation';
+    exception when sqlstate 'ZX016' then refused:=true;
+    end;
+    if not refused or current_user is distinct from role_before or pg_temp.u18_state() is distinct from snapshot then
+      raise exception 'late replacement failure committed partial history, VOI, binding or audit artifacts'; end if;
+    execute 'set local role authenticated';
+    result:=public.get_risk_uncertainty_replacement_receipt(f.risk,intent,
+      encode(extensions.digest(convert_to(request,'UTF8'),'sha256'),'hex'));
+    execute 'reset role';
+    if result is distinct from jsonb_build_object('error','no matching committed replacement receipt is visible')
+      or pg_temp.u18_state() is distinct from snapshot then
+      raise exception 'rolled-back replacement created a reconcilable committed intent'; end if;
+    execute format('drop trigger %I on public.audit_events',failure_schema);
+    execute format('drop function %I.raise_replacement_audit()',failure_schema);
+    execute format('drop schema %I',failure_schema);
+    qualified:=true; raise exception using errcode='ZX018',message='U18 late audit failure fixture rollback';
+  exception when sqlstate 'ZX018' then null;
+  end;
+  if not qualified or pg_temp.u18_state() is distinct from baseline or current_user is distinct from role_before
+    or current_setting('request.jwt.claim.sub',true) is distinct from claim_before then
+    raise exception 'audit failure qualification failed complete state/identity rollback'; end if;
+end $$;
+-- U18 ATOMIC REPLACEMENT CONTROLS END
+
+-- U18 REPLACEMENT AUTHORITY REFUSALS BEGIN
+do $$ declare f record; packet uuid; mode text; actor uuid; actor_org uuid; request text;
+  baseline jsonb; snapshot jsonb; result jsonb; expected text; affected integer; qualified boolean;
+  role_before text:=current_user; claim_before text:=current_setting('request.jwt.claim.sub',true);
+  attempts integer:=0;
+begin
+  select * into f from u18_fixture; select id into packet from u18_packet;
+  baseline:=pg_temp.u18_state();
+  for mode in select name from (values('fresh'),('other-author'),('other-admin'),('ai_admin'),
+    ('foreign'),('unverified'),('wrong-risk'),('malformed-number'),('missing-receipt'),
+    ('archived'),('validated'),('rejected'),('superseded')) q(name) loop
+    qualified:=false;
+    begin
+      actor:=f.author; actor_org:=f.org;
+      if mode in ('validated','rejected') then
+        perform set_config('request.jwt.claim.sub',f.reviewer::text,true);
+        execute 'set local role authenticated';
+        result:=public.review_risk_uncertainty_analysis(packet,mode,
+          'Actual independent synthetic review before terminal replacement refusal.');
+        execute 'reset role';
+        if result ? 'error' then raise exception 'terminal refusal requires an actual successful independent review'; end if;
+      end if;
+      if mode<>'fresh' then
+        update public.evidence_items set description=description||' Actual refusal-fixture content drift.'
+          where id=f.verified and organization_id=f.org and risk_id=f.risk;
+        get diagnostics affected=row_count;
+        if affected<>1 then raise exception 'replacement refusal fixture failed its actual evidence change'; end if;
+      end if;
+      if mode in ('other-author','other-admin') then actor:=f.reviewer; end if;
+      if mode='other-admin' then
+        update public.user_profiles set role='admin' where id=f.reviewer and organization_id=f.org;
+        get diagnostics affected=row_count;
+        if affected<>1 then raise exception 'other-admin refusal control lacks its actual current role'; end if;
+      end if;
+      if mode='ai_admin' then
+        update public.user_profiles set role='ai_admin' where id=f.author and organization_id=f.org;
+        get diagnostics affected=row_count;
+        if affected<>1 then raise exception 'ai-admin refusal control lacks its actual current role'; end if;
+      end if;
+      if mode='foreign' then actor:=f.foreign_user; actor_org:=f.foreign_org; end if;
+      perform set_config('request.jwt.claim.sub',f.author::text,true);
+      if mode='archived' then
+        update public.risks set status='archived' where id=f.risk and organization_id=f.org;
+        get diagnostics affected=row_count;
+        if affected<>1 then raise exception 'archived refusal requires an actual archived scoped risk'; end if;
+      end if;
+      if mode='superseded' then
+        request:=pg_temp.u18_replacement_request(packet,gen_random_uuid(),f.input);
+        execute 'set local role authenticated';
+        result:=public.replace_risk_uncertainty_analysis(f.risk,request);
+        execute 'reset role';
+        if result ? 'error' then raise exception 'superseded refusal requires an actual successful original replacement'; end if;
+        set constraints all immediate;
+        set constraints all deferred;
+      end if;
+      request:=pg_temp.u18_replacement_request(packet,gen_random_uuid(),f.input);
+      request:=(request::jsonb||jsonb_build_object('actorId',actor,'organizationId',actor_org))::text;
+      if mode='unverified' then request:=jsonb_set(request::jsonb,'{evidenceItemIds}',to_jsonb(array[f.unverified]))::text; end if;
+      if mode='wrong-risk' then request:=jsonb_set(request::jsonb,'{evidenceItemIds}',to_jsonb(array[f.wrong_risk]))::text; end if;
+      if mode='malformed-number' then request:=jsonb_set(request::jsonb,'{analysis,probability_lower}','"0.15"'::jsonb)::text; end if;
+      perform set_config('request.jwt.claim.sub',actor::text,true);
+      snapshot:=pg_temp.u18_state();
+      execute 'set local role authenticated';
+      if mode='missing-receipt' then
+        result:=public.get_risk_uncertainty_replacement_receipt(f.risk,gen_random_uuid(),repeat('c',64));
+      else result:=public.replace_risk_uncertainty_analysis(f.risk,request);
+      end if;
+      execute 'reset role';
+      expected:=case mode
+        when 'fresh' then 'replacement requires stale inputs under an available adopted policy'
+        when 'other-author' then 'replacement requires the current pending packet and its original human author'
+        when 'other-admin' then 'replacement requires the current pending packet and its original human author'
+        when 'ai_admin' then 'risk uncertainty submission requires a named human engineering or management role'
+        when 'foreign' then 'risk not found in this organization'
+        when 'unverified' then 'all cited inputs must be verified evidence linked to this exact risk'
+        when 'wrong-risk' then 'all cited inputs must be verified evidence linked to this exact risk'
+        when 'malformed-number' then 'replacement proposal numeric inputs must be JSON numbers'
+        when 'missing-receipt' then 'no matching committed replacement receipt is visible' end;
+      if mode='archived' then expected:='archived risks cannot receive a new uncertainty analysis'; end if;
+      if mode in ('validated','rejected','superseded') then
+        expected:='replacement requires the current pending packet and its original human author'; end if;
+      if result is distinct from jsonb_build_object('error',expected) or pg_temp.u18_state() is distinct from snapshot then
+        raise exception 'exact replacement authority/input refusal or full artifact preservation failed'; end if;
+      qualified:=true;
+      raise exception using errcode='ZX019',message='U18 authority refusal fixture rollback';
+    exception when sqlstate 'ZX019' then null;
+    end;
+    if not qualified or pg_temp.u18_state() is distinct from baseline or current_user is distinct from role_before
+      or current_setting('request.jwt.claim.sub',true) is distinct from claim_before then
+      raise exception 'replacement refusal qualification failed full state/identity rollback'; end if;
+    attempts:=attempts+1;
+  end loop;
+  if attempts<>13 then raise exception 'replacement refusal coverage incomplete'; end if;
+end $$;
+-- U18 REPLACEMENT AUTHORITY REFUSALS END
+
 -- U18 REVIEW STANDING CONTROLS BEGIN
 -- Real public reads, private ACL refusals and raw policy CAS. Each changed
 -- policy/input probe rolls back all thirteen collections in both tenants.
@@ -659,6 +1021,7 @@ do $$ declare f record; a public.risk_uncertainty_analyses%rowtype;
   snapshot jsonb; changed record; qualified boolean; attempts integer:=0;
   old_actor text; old_timezone text; detail text; refused boolean; packet uuid; affected integer;
   candidate jsonb; tag jsonb; legacy_workspace jsonb; legacy_item jsonb; legacy_review jsonb; legacy_policy text;
+  legacy_request text; legacy_intent uuid; legacy_successor uuid; legacy_before jsonb; legacy_result jsonb;
   invalid_tags integer:=0; begin
   select * into f from u18_fixture;
   select * into a from public.risk_uncertainty_analyses where id=(select id from u18_packet);
@@ -935,6 +1298,41 @@ do $$ declare f record; a public.risk_uncertainty_analyses%rowtype;
       or pg_temp.u18_state() is distinct from snapshot then
       raise exception 'legacy current-policy refusal or full artifact preservation failed'; end if;
     -- U18 LEGACY CRITERIA REFUSAL END
+    -- U18 LEGACY ATOMIC REPLACEMENT BEGIN
+    -- Same actual legacy metadata hash, different raw policy: standing, not
+    -- digest inequality alone, permits the author's canonical v2 replacement.
+    perform set_config('request.jwt.claim.sub',f.author::text,true);
+    select to_jsonb(x) into legacy_before from public.risk_uncertainty_analyses x where id=packet;
+    legacy_intent:=gen_random_uuid();
+    legacy_request:=pg_temp.u18_replacement_request(packet,legacy_intent,f.input,array[f.wrong_risk]);
+    if legacy_request::jsonb->'predecessor'->>'analysisDigest' is distinct from current_digest
+      or legacy_request::jsonb->'predecessor'->>'currentDigest' is distinct from current_digest
+      or legacy_request::jsonb->'predecessor'->'digestVersion' is distinct from '1'::jsonb then
+      raise exception 'legacy replacement lost the equal-digest v1 control'; end if;
+    execute 'set local role authenticated';
+    legacy_result:=public.replace_risk_uncertainty_analysis(f.other_risk,legacy_request);
+    execute 'reset role';
+    if legacy_result ? 'error' or legacy_result->>'commitStatus' is distinct from 'committed'
+      or legacy_result->>'predecessorAnalysisId' is distinct from packet::text
+      or legacy_result->'digestVersion' is distinct from '2'::jsonb
+      or legacy_result->>'digestCoverage' is distinct from 'evidence_content_and_current_criteria'
+      or legacy_result->'version' is distinct from '2'::jsonb
+      or legacy_result->'compareAndSwap'->'digestVersion' is distinct from '1'::jsonb
+      or legacy_result->'operationalAuthorization' is distinct from 'false'::jsonb then
+      raise exception 'legacy policy-drift replacement failed its canonical bound v2 receipt'; end if;
+    legacy_successor:=(legacy_result->>'analysisId')::uuid;
+    set constraints all immediate;
+    set constraints all deferred;
+    select to_jsonb(x) into legacy_item from public.risk_uncertainty_analyses x where id=packet;
+    if (legacy_item-array['status','superseded_by_analysis_id','superseded_at','superseded_by_user_id'])
+      is distinct from (legacy_before-array['status','superseded_by_analysis_id','superseded_at','superseded_by_user_id'])
+      or legacy_item->>'status' is distinct from 'superseded'
+      or legacy_item->>'superseded_by_analysis_id' is distinct from legacy_successor::text
+      or legacy_item->'digest_version' is distinct from '1'::jsonb
+      or legacy_item->'input_binding_snapshot' is distinct from 'null'::jsonb then
+      raise exception 'legacy replacement rewrote submitted v1 history or backfilled coverage'; end if;
+    perform pg_temp.u18_history_refusals(packet,true);
+    -- U18 LEGACY ATOMIC REPLACEMENT END
     qualified:=true;
     raise exception using errcode='ZX011',message='U18 legacy v1 fixture rollback';
   exception when sqlstate 'ZX011' then null;
