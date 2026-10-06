@@ -18,9 +18,11 @@ import {
 } from "../../../src/lib/reliability/cox.ts";
 import { analyseCoxSurvival } from "../../../src/lib/reliability/cox-prediction.ts";
 import {
-  prepareSurvivalSource,
+  prepareSurvivalCensus,
+  prepareActiveSurvivalScenario,
   prepareSurvivalScenario,
-  type SurvivalSourceEvent,
+  SURVIVAL_CENSUS_VERSION,
+  type SurvivalCensus,
 } from "../../../src/lib/reliability/survival-source.ts";
 import {
   analyseModellingStudio,
@@ -215,6 +217,8 @@ Deno.serve(async (request) => {
     component?: unknown;
     planId?: unknown;
     covariates?: unknown;
+    scenario?: unknown;
+    activeScenario?: unknown;
   };
   try {
     const raw = await request.text();
@@ -228,6 +232,8 @@ Deno.serve(async (request) => {
   const actorId = userData.user.id;
 
   if (body.action === "reliability_survival") {
+    if (body.scenario !== undefined && body.activeScenario !== undefined)
+      return json({ error: "choose_one_explicit_survival_scenario" }, 400);
     const component =
       typeof body.component === "string" ? body.component.trim() : "";
     if (
@@ -273,20 +279,25 @@ Deno.serve(async (request) => {
         },
       );
       if (sourceError) throw new Error(sourceError.message);
-      const source = sourceData as {
-        error?: string;
-        events?: SurvivalSourceEvent[];
-        kernelVersion?: string;
-      } | null;
+      const source = sourceData as
+        | (SurvivalCensus & {
+            error?: string;
+            kernelVersion?: string;
+          })
+        | null;
       if (source?.error) return json({ error: source.error }, 403);
       if (
         !source ||
         source.kernelVersion !== COX_KERNEL_VERSION ||
-        !Array.isArray(source.events)
+        source.sourceVersion !== SURVIVAL_CENSUS_VERSION ||
+        !Array.isArray(source.events) ||
+        !Array.isArray(source.activeInstances) ||
+        !Array.isArray(source.removedInstances) ||
+        !Array.isArray(source.populationGaps)
       ) {
         throw new Error("pinned canonical survival source unavailable");
       }
-      const prepared = prepareSurvivalSource(source.events, covariates);
+      const prepared = prepareSurvivalCensus(source, covariates);
       const result: CoxResult = prepared.gaps.length
         ? {
             status: "refused",
@@ -300,13 +311,21 @@ Deno.serve(async (request) => {
             prepared.rows,
             covariates.map((item) => item.name),
             prepared.clusterBySubject,
-            body.scenario === undefined
-              ? undefined
-              : prepareSurvivalScenario(
+            body.activeScenario !== undefined
+              ? prepareActiveSurvivalScenario(
                   source.events,
                   covariates,
-                  body.scenario,
-                ),
+                  source.activeInstances,
+                  body.activeScenario,
+                )
+              : body.scenario === undefined
+                ? undefined
+                : prepareSurvivalScenario(
+                    source.events,
+                    covariates,
+                    body.scenario,
+                    source.activeInstances,
+                  ),
           );
       const refusals = prepared.gaps.length
         ? prepared.gaps
@@ -324,7 +343,7 @@ Deno.serve(async (request) => {
                 ? [
                     result.conditionalScenario.status === "refused"
                       ? result.conditionalScenario.reason
-                      : "The retained conditional scenario is not a live-asset forecast or predictive calibration; no operational authority is granted.",
+                      : "The retained conditional scenario is not a qualified live-asset forecast or predictive calibration; no operational authority is granted.",
                   ]
                 : []),
             ];
@@ -336,7 +355,7 @@ Deno.serve(async (request) => {
           p_component: component,
           p_source_snapshot: source,
           p_covariates: covariates,
-          p_result: result,
+          p_result: { ...result, populationVersion: SURVIVAL_CENSUS_VERSION },
           p_refusals: refusals,
         },
       );
