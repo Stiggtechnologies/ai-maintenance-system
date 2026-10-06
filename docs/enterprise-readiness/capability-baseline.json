@@ -1032,10 +1032,10 @@
     "backticked": 0
   },
   "E2.06": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 6,
-    "backticked": 6
+    "citations": 10,
+    "backticked": 10
   },
   "E2.07": {
     "status": "✅",

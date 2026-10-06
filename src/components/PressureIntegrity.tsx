@@ -1,6 +1,7 @@
 import { FormEvent, useState } from "react";
 import { Gauge, CheckCircle2, TriangleAlert } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import { RbiPlanner } from "./RbiPlanner";
 
 type Action = "circuit" | "reading" | "assessment";
 const control =
@@ -167,6 +168,7 @@ export function PressureIntegrity() {
           {busy ? "Working…" : "Submit"}
         </button>
       </form>
+      <RbiPlanner />
     </section>
   );
 }

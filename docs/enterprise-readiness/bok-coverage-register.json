@@ -94,8 +94,12 @@
       "exports": ["planRiskBasedInspection"],
       "testFile": "src/lib/bok-decision-kernels.test.ts",
       "registerRows": ["E2.06"],
-      "customerReachable": false,
-      "nextStep": "Feed PressureIntegrity circuits, CML corrosion rates and owner-licensed API 581 values into planRiskBasedInspection, and adopt the result through record_inspection_plan."
+      "customerReachable": true,
+      "nextStep": "Prefill the planner from stored corrosion-circuit CML rates and persist RBI inputs as structured evidence rather than basis text.",
+      "consumers": [
+        "src/lib/integrity/rbi-adoption.ts",
+        "src/components/RbiPlanner.tsx"
+      ]
     },
     {
       "id": "BOK-06",
