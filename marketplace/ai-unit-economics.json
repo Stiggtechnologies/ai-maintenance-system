@@ -62,8 +62,10 @@
       "defaultCapsPurpose": "abuse_protection_with_engineering_headroom"
     },
     "deployedDevelopAgentBoundary": {
-      "status": "implemented_pending_hosted_verification",
+      "status": "implemented_hosted_verified",
       "sharedBoundary": "supabase/functions/_shared/llm-commercial-usage.ts",
+      "verifiedHead": "9b1031779ffda2c270df7febe0a695c8eca0e69b",
+      "verifiedRun": "https://github.com/Stiggtechnologies/ai-maintenance-system/actions/runs/37536901041",
       "coveredFunctions": [
         "develop-evidence-agent",
         "develop-change-impact-agent",
@@ -78,6 +80,15 @@
       "providerFailureReleasesReservation": true,
       "settlementFailureDiscardsOutputAndRetainsReservation": true,
       "promptOrCompletionTextStoredByBoundary": false
+    },
+    "pricingModeBoundary": {
+      "status": "release_gate_required",
+      "standardRateModelPricesImplemented": true,
+      "explicitPremiumCacheWriteRequestedBySharedProvider": false,
+      "regionalProcessingEndpointRequestedBySharedProvider": false,
+      "longContextPremiumTierExplicitlyModeled": false,
+      "externalGatewayMarkupExplicitlyModeled": false,
+      "releaseRule": "An approved paid plan must use a verified standard-rate direct provider route with prompts bounded below any premium context tier, or carry a separately approved provider/tier cost schedule in the margin model. Opaque gateway economics cannot be treated as the model list price."
     },
     "commercialPlanPolicy": {
       "status": "implemented_not_configured",
@@ -106,6 +117,7 @@
       "basis": "worst-priced allowed model plus explicitly supplied non-inference variable cost",
       "appliesToBaseAllowance": true,
       "appliesToMeteredOverageUnit": true,
+      "standardRateOnlyUntilProviderAndTierGateSatisfied": true,
       "isTotalCompanyGrossMarginModel": false
     },
     "productionCogsReporting": {
@@ -147,6 +159,10 @@
     "productionMeasurementEvidence": {
       "status": "not_evidenced"
     },
+    "providerAndPricingTierEvidence": {
+      "status": "not_evidenced",
+      "reason": "The repository price ledger is model-level. It does not yet evidence an external gateway markup schedule or a commercial path constrained below every provider premium-pricing tier."
+    },
     "directChannelActivationGate": {
       "status": "not_implemented",
       "reason": "Direct-plan activation remains outside the automatic fail-closed subscription trigger to avoid retroactively interrupting unaudited legacy direct plans."
@@ -174,6 +190,7 @@
     "perDecisionCostCoverage": "supported runtime paths only: governed decision-capable paid runtimes, including the deployed Develop evidence, change-impact, contract-strategy, gate, and requirements agents; risk, methodology, recommendation enrichment, and asset onboarding carry their own canonical work subjects; any remaining unattributed call stays explicit and inside the hard token ceiling",
     "rawTokenMeterIsModelCostWeighted": false,
     "warning": "Equal token quantities can have materially different inference cost under different model routes.",
+    "pricingModeWarning": "The current margin evaluator is valid for the recorded standard model rates only. Premium context, regional-processing, explicit cache-write, or external-gateway adjustments require a separately evidenced cost schedule or must be technically excluded from the paid route.",
     "commercialAllowanceApproved": false,
     "overagePriceApproved": false,
     "grossMarginThresholdApproved": false
@@ -182,6 +199,8 @@
     "approved_offer_wide_pricing_model",
     "approved_commercial_unit_and_included_allowance",
     "approved_allowed_model_set_and_price_refresh_process",
+    "verified_standard_rate_provider_route_or_approved_provider_tier_cost_schedule",
+    "verified_prompt_ceiling_below_any_premium_context_tier",
     "approved_non_inference_variable_cost_input",
     "approved_gross_margin_threshold",
     "measured_production_cost_distribution",
@@ -204,6 +223,12 @@
     "microsoft": [
       "https://learn.microsoft.com/en-us/partner-center/marketplace-offers/saas-metered-billing",
       "https://learn.microsoft.com/en-us/partner-center/marketplace-offers/plan-saas-offer"
+    ],
+    "openai": [
+      "https://developers.openai.com/api/docs/pricing",
+      "https://developers.openai.com/api/docs/models/gpt-5.6-terra",
+      "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+      "https://developers.openai.com/api/docs/models/gpt-4o-mini"
     ]
   }
 }

@@ -37,7 +37,7 @@ canonical controls instead of creating a second ledger or quota system:
 | Atomic check-and-reserve quota gate                         | `check_llm_quota()`                                                                     | Built                                                        |
 | Per-organization quota overrides                            | `private.llm_org_quotas`                                                                | Built                                                        |
 | Anonymous public-rail abuse allowance                       | `consume_public_reliability_ip_allowance()`                                             | Built                                                        |
-| Decision/case/work cost subject and exact price snapshot    | Extended fields on `private.llm_usage`                                                  | Built on supported runtime paths; unattributed calls exposed |
+| Decision/case/work cost subject and exact price snapshot    | Extended fields on `private.llm_usage`                                                  | Built; all seven deployed Develop model callers are settlement-fail-closed at exact head `9b103177`, while other bounded paid paths can remain unattributed |
 | Paid Microsoft plan mapped to a commercial period allowance | `apply_ai_commercial_plan_allowance()` and subscription triggers                        | Built; no policy values configured or approved               |
 | Production COGS and p50/p95 cost-to-serve report            | `get_ai_unit_economics()`                                                               | Built; no production distribution evidenced                  |
 | Pre-activation variable-cost margin gate                    | `evaluate_ai_commercial_plan_policy()` and explicit approval                            | Built; commercial inputs remain owner decisions              |
@@ -62,13 +62,23 @@ Marketplace quantity field.
 
 The gross-margin gate is a conservative variable-cost gate: it uses the
 worst-priced allowed model plus an explicitly supplied non-inference variable
-cost. It is not a substitute for a complete company gross-margin model.
+cost. It is not a substitute for a complete company gross-margin model. The
+current model-level price table represents standard vendor rates. Before an
+approved paid plan can rely on those rates, its provider route must either be
+constrained to the verified standard-rate direct endpoint with prompts kept
+below every premium context tier, or carry a separately approved cost schedule
+for gateway markup and any premium processing tier. An opaque gateway alias
+cannot inherit the public model list price merely because it returns the same
+model name.
 
 No price, allowance, model set, overage rate, non-inference cost, or margin
 threshold was seeded or approved. Microsoft activation fails closed when the
 approved policy is absent. Direct-channel activation is not yet covered by that
 automatic trigger, and remains a named release gap rather than a completed
 claim.
+
+The exact-hosted proof for the deployed Develop boundary is GitHub Actions run
+`37536901041` on head `9b1031779ffda2c270df7febe0a695c8eca0e69b`.
 
 The controlled machine-readable record is
 [`ai-unit-economics.json`](../../marketplace/ai-unit-economics.json).
