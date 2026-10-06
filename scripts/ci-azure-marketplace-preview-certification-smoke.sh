@@ -11,6 +11,51 @@ begin;
 insert into public.organizations(id,name,industry) values
   ('c1111111-1111-4111-8111-111111111111','Marketplace Certification Tenant','technology');
 
+insert into auth.users (
+  instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,
+  created_at,updated_at,raw_app_meta_data,raw_user_meta_data,
+  confirmation_token,recovery_token,email_change,email_change_token_new,
+  email_change_token_current,phone_change,phone_change_token,reauthentication_token
+) values (
+  '00000000-0000-0000-0000-000000000000',
+  'c7777777-7777-4777-8777-777777777777','authenticated','authenticated',
+  'preview-admin@syncai.invalid',extensions.crypt('MarketplacePreview123!',extensions.gen_salt('bf')),
+  now(),now(),now(),'{"provider":"email","providers":["email"]}','{}',
+  '','','','','','','',''
+);
+insert into public.user_profiles(id,organization_id,email,full_name,role) values
+  ('c7777777-7777-4777-8777-777777777777','c1111111-1111-4111-8111-111111111111','preview-admin@syncai.invalid','Preview Admin','admin')
+on conflict(id) do update set
+  organization_id=excluded.organization_id,email=excluded.email,
+  full_name=excluded.full_name,role=excluded.role;
+
+-- CI-only preview fixture. Certification must start from a commercially
+-- bounded active plan, but these figures are not production prices.
+set local role service_role;
+do $commercial$
+declare v_result jsonb;
+begin
+  v_result := public.configure_ai_commercial_plan_policy(
+    'azure_marketplace','syncai-preview','enterprise-metered','flat_rate',
+    'hard_stop',10,1000,10,1000,5,1000,0,0.50,
+    array['gpt-4o-mini']::text[],null,null,null,
+    'CI-only Marketplace preview certification fixture'
+  );
+  if v_result->>'status'<>'draft'
+     or coalesce((v_result->'evaluation'->>'allowed')::boolean,false) is not true then
+    raise exception 'CI preview policy failed margin evaluation: %',v_result;
+  end if;
+  v_result := public.approve_ai_commercial_plan_policy(
+    'azure_marketplace','syncai-preview','enterprise-metered',
+    'c7777777-7777-4777-8777-777777777777'
+  );
+  if coalesce((v_result->>'approved')::boolean,false) is not true then
+    raise exception 'CI preview policy was not approved: %',v_result;
+  end if;
+end
+$commercial$;
+reset role;
+
 insert into public.billing_subscriptions(
   id,organization_id,plan,status,current_period_start,current_period_end,
   billing_source,marketplace_subscription_id,marketplace_publisher_id,

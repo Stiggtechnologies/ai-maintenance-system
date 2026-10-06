@@ -17,6 +17,12 @@ const realtime = readFileSync(
   "supabase/functions/sync-realtime-session/index.ts",
   "utf8",
 );
+const marketplaceSmokes = [
+  "scripts/ci-azure-marketplace-fulfillment-smoke.sh",
+  "scripts/ci-azure-marketplace-lifecycle-smoke.sh",
+  "scripts/ci-azure-marketplace-metering-smoke.sh",
+  "scripts/ci-azure-marketplace-preview-certification-smoke.sh",
+].map((path) => readFileSync(path, "utf8").toLowerCase());
 
 describe("AI commercial cost controls", () => {
   it("extends the canonical usage and quota records instead of creating a parallel ledger", () => {
@@ -88,6 +94,16 @@ describe("AI commercial cost controls", () => {
     expect(migration).toContain(
       "perform public.apply_ai_commercial_plan_allowance(new.id)",
     );
+  });
+
+  it("keeps every Marketplace activation fixture behind an approved commercial policy", () => {
+    for (const smoke of marketplaceSmokes) {
+      expect(smoke).toContain("configure_ai_commercial_plan_policy");
+      expect(smoke).toContain("approve_ai_commercial_plan_policy");
+      expect(smoke).toContain("ci-only");
+    }
+    expect(marketplaceSmokes[2]).toContain("'metered_overage'");
+    expect(marketplaceSmokes[2]).toContain("'tokens_1k'");
   });
 
   it("enforces commercial period calls, tokens, models, and decision count before spend", () => {
