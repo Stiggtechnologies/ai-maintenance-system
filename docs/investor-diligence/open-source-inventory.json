@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "source": "package-lock.json",
-  "lockfileSha256": "777fc12cac6f730e5aeef07937db1952a8371c467580e9322c7f079bff5fda49",
+  "lockfileSha256": "ccecae8242f866b1bac7ac635a6d588641484ca07e4d30a7b79f655c9446abc8",
   "packageInstances": 405,
   "directProductionDependencies": 14,
   "directDevelopmentDependencies": 26,
@@ -1293,7 +1293,7 @@
     },
     {
       "name": "brace-expansion",
-      "version": "5.0.9",
+      "version": "5.0.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/brace-expansion"
