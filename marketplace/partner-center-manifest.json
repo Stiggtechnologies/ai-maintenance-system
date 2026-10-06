@@ -369,7 +369,7 @@
     "repositoryHarness": "implemented_and_ci_verified",
     "repositoryHarnessEvidence": {
       "pullRequest": "https://github.com/Stiggtechnologies/ai-maintenance-system/pull/634",
-      "head": "7072c3d2",
+      "verifiedImplementationCommit": "7072c3d2",
       "githubActionsRun": "37524709308",
       "scope": "synthetic fresh-database migration, fulfillment, lifecycle, quantity-rebinding, entitlement, refusal, metering, preview-certification, and golden-path checks",
       "productionOrRealPurchaseEvidence": false
@@ -418,7 +418,7 @@
     {
       "id": "PC-003",
       "owner": "Product and engineering owners",
-      "action": "PR #634 at head 7072c3d2 passed the fresh-database synthetic enforcement suite in GitHub Actions run 37524709308, including 25-to-10 seat quantity rebinding. It is not merged or deployed, and no commercial values are approved. Obtain independent review, merge and deployment authorization, configure approved policies, and then prove the production runtime enforces every approved plan and meter boundary.",
+      "action": "Implementation commit 7072c3d2 in PR #634 passed the fresh-database synthetic enforcement suite in GitHub Actions run 37524709308, including 25-to-10 seat quantity rebinding. It is not merged or deployed, and no commercial values are approved. Obtain independent review, merge and deployment authorization, configure approved policies, and then prove the production runtime enforces every approved plan and meter boundary.",
       "status": "blocked"
     },
     {

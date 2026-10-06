@@ -93,9 +93,9 @@ const manifest = JSON.parse(
     repositoryHarness: string;
     repositoryHarnessEvidence: {
       githubActionsRun: string;
-      head: string;
       productionOrRealPurchaseEvidence: boolean;
       pullRequest: string;
+      verifiedImplementationCommit: string;
     };
   };
   taxAndPayout: {
@@ -284,7 +284,7 @@ describe("competitive pricing benchmark", () => {
       repositoryHarnessEvidence: {
         pullRequest:
           "https://github.com/Stiggtechnologies/ai-maintenance-system/pull/634",
-        head: "7072c3d2",
+        verifiedImplementationCommit: "7072c3d2",
         githubActionsRun: "37524709308",
         productionOrRealPurchaseEvidence: false,
       },
