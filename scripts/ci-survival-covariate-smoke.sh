@@ -119,6 +119,17 @@ PY
   noerr "$(rpc "$REVIEWER_TOKEN" review_survival_covariate_overlay "$REVIEW_PAYLOAD")"
 done
 
+# An unresolved LEGACY identity boundary, not proof of full-capacity ingestion:
+# the current writer cannot distinguish another physical life with identical
+# removal exposure on the same asset/component. A different source/work order
+# must not be made to fit by inventing hours or silently overwriting a life.
+LEGACY_COUNT=$(psqlc "select count(*) from component_life_events where organization_id='$ORG' and component='$COMPONENT';")
+LEGACY_APPROVALS=$(psqlc "select count(*) from approvals where organization_id='$ORG';")
+LEGACY_COLLISION=$(rpc "$AUTHOR_TOKEN" record_component_life_event "{\"p_asset_id\":\"$ASSET\",\"p_component\":\"$COMPONENT\",\"p_hours_at_change_out\":1,\"p_event_kind\":\"failure\",\"p_event_date\":\"2026-09-02\",\"p_work_order_ref\":\"A distinct synthetic physical-life removal\",\"p_source_file\":\"A distinct synthetic source record\",\"p_source_basis\":\"Different explicit synthetic life with identical exposure; current legacy identity is insufficient.\"}")
+BODY="$LEGACY_COLLISION" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert x.get("error")=="this component life event is already recorded" and not x.get("event_id"),x'
+test "$(psqlc "select count(*) from component_life_events where organization_id='$ORG' and component='$COMPONENT';")" = "$LEGACY_COUNT"
+test "$(psqlc "select count(*) from approvals where organization_id='$ORG';")" = "$LEGACY_APPROVALS"
+
 SOURCE=$(rpc "$AUTHOR_TOKEN" get_survival_covariate_workspace "{\"p_component\":\"$COMPONENT\"}")
 noerr "$SOURCE"
 BODY="$SOURCE" python3 - <<'PY'
@@ -448,4 +459,4 @@ test "$(psqlc "select count(*) from calculation_runs where id='$REFUSAL_ID' and 
 test "$(psqlc "select has_function_privilege('authenticated','public.survival_evidence_snapshot_internal(uuid,uuid,uuid,jsonb)','EXECUTE');")" = 'f'
 test "$(psqlc "select has_function_privilege('authenticated','public.record_survival_calculation(uuid,uuid,text,jsonb,jsonb,jsonb,jsonb)','EXECUTE');")" = 'f'
 
-echo 'Survival covariate smoke passed: canonical_cohort=true censoring_preserved=true independent_exact_review=true aal2_required=true ai_refused=true tenant_wall=true exact_asset_and_timestamp=true optimistic_version=true direct_metadata_forgery_refused=true source_facts_frozen=true quarantine_refused=true claim_purpose_preserved=true draft_source_refused=true superseded_source_refused=true stale_evidence_refused=true retained_fit=true retained_refusal=true history_rls=true legacy_population_reconciled=true duplicate_life_refused=true mfa_enrollment_verified=false predictive_qualification=false operational_authority=false'
+echo 'Survival covariate smoke passed: canonical_cohort=true censoring_preserved=true independent_exact_review=true aal2_required=true ai_refused=true tenant_wall=true exact_asset_and_timestamp=true optimistic_version=true direct_metadata_forgery_refused=true source_facts_frozen=true quarantine_refused=true claim_purpose_preserved=true draft_source_refused=true superseded_source_refused=true stale_evidence_refused=true retained_fit=true retained_refusal=true history_rls=true legacy_population_reconciled=true duplicate_life_refused=true legacy_same_exposure_life_ingestion=false mfa_enrollment_verified=false predictive_qualification=false operational_authority=false'

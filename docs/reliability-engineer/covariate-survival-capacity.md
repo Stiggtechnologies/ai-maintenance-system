@@ -61,7 +61,56 @@ compares SyncAI's complete shared-kernel results against the retained R witness.
 It separately refuses 2,001 intervals and a ninth covariate without mutating or
 fitting a truncated version of the original input.
 
+Published commit `7f93bc3adabd2b0daa03b5d34e3cef1b888e8a94` completed all five
+primary hosted gates in run `37420300152`, including the full migration/auth
+smoke and Golden-path E2E. Its exact-commit local regression passed 648 files
+and 8,257 tests. The browser artifact `11393415928` has digest
+`8a276cafa63825d390f1bc2a976c96df17d8d6e8ff7871b95f806f592879c56c`;
+the dedicated `installed-model-confidence-bounds.png` was downloaded and
+visually inspected. It shows failure bounds 26.3697%–30.4671%, survival bounds
+69.5329%–73.6303%, and explicit unqualified-coverage/advisory warnings. This is
+the small three-asset installed-life browser witness, **not** a 2,000-interval
+database/browser witness. The live-provider golden qualification was skipped,
+not passed. These checks do not establish independent review, merge or
+production deployment, nor cover changes made after that commit.
+
 ## Boundaries preserved and still open
+
+### Whole-source preparation and a discovered identity blocker
+
+`survival-capacity-source.test.ts` additionally prepares all 1,000 explicit
+synthetic physical lives through `prepareSurvivalCensus`, preserving all 2,000
+intervals, eight conditions, 32 asset clusters, delayed entry and censoring.
+The prepared fit is compared with the frozen independent R coefficients,
+model covariance and likelihood. A source, approval, unit or coverage defect
+in the final life refuses the entire cohort. A 1,001st two-interval life also
+refuses in full; no good subset is passed to the numerical kernel. The source
+fixture's approval/evidence flags are deliberately synthetic, not database
+receipts, and this test does **not** prove ingestion or full-stack acceptance.
+
+The pre-existing canonical life-event constraint in
+`20260830090000_component_life_events.sql` identifies events by organization,
+unit number, component, removal hours and event kind. For this exact recipe,
+only 789 of those legacy identities are unique: **211 distinct physical lives
+would collide**. The newer governed `lifeRef` identity cannot resolve a
+collision that prevents the initial event from being created. The existing
+writer receives no physical-life identity before insertion.
+
+The owned runtime smoke now witnesses this limitation through the actual
+authenticated `record_component_life_event` RPC: a distinct source, work order
+and removal date with identical same-asset/component exposure returns the
+legacy duplicate error, creates no event and changes no approval. Its explicit
+status is `legacy_same_exposure_life_ingestion=false`. Until a fresh hosted
+run executes that assertion, the new runtime witness remains pending.
+
+This needs a serialized architecture/invariant migration, not a numerical
+workaround. Required closure includes an explicit physical-life/source identity
+at initial capture, preservation of historical records and old API behavior,
+same-source retry idempotency, rejection of duplicate physical lives, tenant
+and independent-review boundaries, and an actual complete-cohort
+capture/review/calculation/history/browser witness. Do not alter measured
+exposure, relabel assets, drop colliding lives, disable the old constraint
+without a replacement identity, or fabricate approvals to claim capacity.
 
 The application solver, numerical pins, tenant/auth/source/approval rules,
 canonical calculation ledger and advisory authority are unchanged. This
