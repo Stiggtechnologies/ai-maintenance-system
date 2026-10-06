@@ -65,6 +65,43 @@ const baselineHints = {
 };
 
 describe("private restore source-function diagnostics", () => {
+  it("reuses the canonical read-only rendering preamble for the fresh catalog read", () => {
+    const inventory = readFileSync(
+      new URL("../../scripts/database-restore-inventory.sql", import.meta.url),
+      "utf8",
+    );
+    const setup = diagnostics.inventoryRenderingSessionSql(inventory);
+    expect(setup).toBe(
+      inventory.slice(0, inventory.indexOf("select jsonb_build_object")),
+    );
+    for (const setting of [
+      "set timezone = 'UTC';",
+      "set extra_float_digits = 3;",
+      "set search_path = pg_catalog;",
+      "set statement_timeout = '5min';",
+    ])
+      expect(setup).toContain(setting);
+    const runner = readFileSync(
+      new URL("../../scripts/database-restore-drill.mjs", import.meta.url),
+      "utf8",
+    );
+    expect(runner).toContain(
+      "${inventorySessionSql}\nset statement_timeout='30s';",
+    );
+  });
+  it.each([
+    "select 1;",
+    "set timezone = 'UTC';\nselect 1;",
+    "set timezone = 'UTC';\nset timezone = 'UTC';\nset extra_float_digits = 3;\nset search_path = pg_catalog;\nset statement_timeout = '5min';\nselect 1;",
+    "set timezone = 'UTC';\nset extra_float_digits = 3;\nset search_path = pg_catalog;\nset statement_timeout = '5min';\ndelete from private;\nselect 1;",
+  ])(
+    "refuses missing, duplicate or non-setting diagnostic preambles",
+    (source) => {
+      expect(() => diagnostics.inventoryRenderingSessionSql(source)).toThrow(
+        "Unqualified inventory rendering session",
+      );
+    },
+  );
   it("uses only bounded read-only catalog SQL and the existing canonical routine identities", () => {
     const sql = readFileSync(
       new URL(

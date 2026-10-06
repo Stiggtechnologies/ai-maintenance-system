@@ -14,6 +14,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   diagnoseSourceFunctionDrift,
+  inventoryRenderingSessionSql,
   parseSourceInventoryCapture,
 } from "./database-restore-diagnostics.mjs";
 
@@ -25,6 +26,7 @@ const inventorySql = readFileSync(
   join(here, "database-restore-inventory.sql"),
   "utf8",
 );
+const inventorySessionSql = inventoryRenderingSessionSql(inventorySql);
 const functionDiagnosticsSql = readFileSync(
   join(here, "database-restore-function-diagnostics.sql"),
   "utf8",
@@ -1392,7 +1394,9 @@ commit;`,
               source.id,
               "postgres",
               "/var/run/postgresql",
-              `begin isolation level repeatable read read only; set statement_timeout='30s';
+              `begin isolation level repeatable read read only;
+${inventorySessionSql}
+set statement_timeout='30s';
 ${functionDiagnosticsSql}
 commit;`,
             ),

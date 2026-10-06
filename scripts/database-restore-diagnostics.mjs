@@ -1,5 +1,37 @@
 import { isDeepStrictEqual as same } from "node:util";
 
+// Reuse, rather than copy, the canonical inventory's rendering SETs. No
+// arbitrary statement or incomplete/duplicate setting preamble is executable.
+export function inventoryRenderingSessionSql(source) {
+  const fail = () => new Error("Unqualified inventory rendering session");
+  if (typeof source !== "string" || Buffer.byteLength(source) > 1024 * 1024)
+    throw fail();
+  const boundary = source.search(/^select\b/im);
+  if (boundary < 0) throw fail();
+  const prefix = source.slice(0, boundary);
+  const lines = prefix
+    .replace(/^--[^\r\n]*(?:\r?\n|$)/gm, "")
+    .trim()
+    .split(/\r?\n/)
+    .filter((line) => line.trim());
+  const required = new Set([
+    "timezone",
+    "extra_float_digits",
+    "search_path",
+    "statement_timeout",
+  ]);
+  if (lines.length !== required.size) throw fail();
+  for (const line of lines) {
+    const match =
+      /^\s*set\s+(timezone|extra_float_digits|search_path|statement_timeout)\s*=\s*(?:'[A-Za-z0-9_./ -]+'|[A-Za-z0-9_]+);\s*$/i.exec(
+        line,
+      );
+    if (!match || !required.delete(match[1].toLowerCase())) throw fail();
+  }
+  if (required.size) throw fail();
+  return prefix;
+}
+
 // These private observations never qualify a restore or alter its comparison.
 const record = (value) =>
   value !== null && typeof value === "object" && !Array.isArray(value);

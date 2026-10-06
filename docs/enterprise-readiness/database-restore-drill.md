@@ -167,7 +167,11 @@ are stored separately in exclusive **0600** `source-function-diagnostics.json`,
 restore manifests and are never uploaded by the workflow.
 
 After a function-definition mismatch, one bounded read-only fresh catalog read
-can add fixed drift/equality flags to the public summary. Function identities,
+can add fixed drift/equality flags to the public summary. It reuses the actual
+inventory's validated rendering-setting preamble rather than depending on a
+fresh backend's default search path; its statement timeout is shortened to
+30 seconds. An incomplete, duplicate or non-setting preamble fails closed.
+Function identities,
 OIDs, raw SQL, catalog tuples, settings and identity digests remain private.
 Missing, malformed or uncorrelated observations are `UNAVAILABLE`, never assumed
 equal. These flags classify observations only: they do not establish a harmless
