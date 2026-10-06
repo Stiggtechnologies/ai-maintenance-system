@@ -191,6 +191,18 @@ describe("canonical survival source preparation", () => {
       prepareSurvivalSource(rows, [{ name: "temperature", unit: "degC" }]).gaps,
     ).not.toEqual([]);
   });
+  it("does not treat whitespace or component case variants as different physical lives", () => {
+    const rows = source();
+    rows.push(structuredClone(rows[0]));
+    rows[1].id = 2;
+    rows[1].component = " DRIVE ";
+    rows[1].overlay!.lifeRef = " serial-123-life-1 ";
+    const result = prepareSurvivalSource(rows, [
+      { name: "temperature", unit: "degC" },
+    ]);
+    expect(result.rows).toEqual([]);
+    expect(result.gaps.join(" ")).toContain("same physical component life");
+  });
   it("returns no fit-ready population when any source event has an unresolved gap", () => {
     const rows = source();
     rows.push({ ...structuredClone(rows[0]), id: 2, overlay: null });

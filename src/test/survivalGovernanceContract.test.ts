@@ -38,6 +38,14 @@ describe("C7.14 governed canonical covariates", () => {
     expect(sql).toContain("s.superseded_by_source_id is null");
     expect(sql).toContain("organization_id=p_organization_id");
   });
+  it("reconciles legacy whitespace variants instead of silently shrinking the population", () => {
+    expect(sql).toContain(
+      "lower(btrim(e.component))=lower(btrim(p_component))",
+    );
+    expect(sql).toContain("lower(btrim(component))");
+    expect(sql).toContain("btrim(survival_overlay->>'liferef')");
+    expect(sql).not.toContain("lower(e.component)=lower(btrim(p_component))");
+  });
   it("uses retained runs and adopted controls, including refusals, not model-created operational authority", () => {
     expect(sql).toContain("public.evaluate_agent_control_internal(");
     expect(sql).toContain("'analyse_censored_life_data'");
@@ -76,5 +84,8 @@ describe("C7.14 governed canonical covariates", () => {
     expect(smoke).toContain('analysis_denied "$FOREIGN_SESSION"');
     expect(smoke).toContain('FITTED=$(calculate "$AUTHOR_SESSION")');
     expect(smoke).not.toContain('denied "$(calculate');
+    expect(smoke).toContain("mfa_enrollment_verified=false");
+    expect(smoke).toContain("auth.identities");
+    expect(smoke).toContain("factor_type,status,secret,created_at,updated_at");
   });
 });

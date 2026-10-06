@@ -154,7 +154,7 @@ export function prepareSurvivalSource(
       );
       continue;
     }
-    const subjectId = `${event.assetId}:${event.component.toLowerCase()}:${overlay.lifeRef.trim()}`;
+    const subjectId = `${event.assetId}:${event.component.trim().toLowerCase()}:${overlay.lifeRef.trim()}`;
     if (seenLives.has(subjectId)) {
       gaps.push(
         `${label}: the same physical component life appears more than once.`,
