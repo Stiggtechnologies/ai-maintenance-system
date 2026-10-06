@@ -172,8 +172,13 @@ stronger source/content digest standing or full U18 completion.
 Published read/finite-door checkpoint `49dfa77d` subsequently passed complete
 core run `37535097211`, including the actual full uncertainty SQL/real HTTP
 smoke at `2026-10-06T21:56:10Z`, browser acceptance and both cleanup paths.
-Its native receipts do not qualify the later submitted-history checkpoint
-`7b1e347f`, published as a draft with fresh core run `37537518197` still live.
+Its native receipts did not qualify the later submitted-history checkpoint
+`7b1e347f`. That published draft subsequently passed complete core run
+`37537518197`: actual uncertainty preflight at `2026-10-06T22:08:51Z`, full
+native SQL/real GoTrue/PostgREST smoke at `2026-10-06T22:14:07Z`, browser
+acceptance and both cleanup paths. All required automated checks and three
+previews passed that immutable head. Those receipts qualify the submitted-history
+controls at `7b1e347f`, not the subsequent local version-two source below.
 
 The next **local, unpublished** phase introduces explicit digest coverage:
 legacy v1 retains its byte-identical original algorithm with no submission
@@ -208,10 +213,46 @@ refusals, original v1 dispatch and complete synthetic rollback witnesses.
 Actual criteria and security-event rows are included in those witnesses.
 **These added native controls remain unexecuted.** This is not cryptographic
 runtime qualification, complete source approval, field deployment or release
-approval. Explicit digest-coverage display/SDK integration, criteria post-wait
-races, ancestor/stakeholder concurrency, shared quarantine/claim-purpose
-eligibility and atomic stale-pending replacement remain open. A typed document
+approval. At that checkpoint digest-coverage display/SDK integration, criteria
+post-wait races, ancestor/stakeholder concurrency, shared quarantine/claim-purpose
+eligibility and atomic stale-pending replacement remained open. A typed document
 UUID is an anchor only; no KB content is dereferenced or claim fitness inferred.
+
+The subsequent **local, unpublished** integration closes the coverage-read and
+display gap: the actual public workspace returns the stored numeric digest
+version and its exact correlated coverage label. The existing SDK refuses
+missing, string, mismatched or invented coverage labels; the customer panel
+distinguishes legacy metadata coverage from version-two evidence content and
+current criteria. Both retain the explicit boundary that content commitment is
+not source approval, claim fitness or operational authority. Six adversarial
+cases execute the actual HTTP smoke script against **synthetic transport**;
+they do not establish live PostgreSQL/PostgREST behavior. Native v1 and v2
+public-reader and real HTTP label checks are specified but remain unexecuted.
+
+Independent security review then found eleven omitted canonical evidence
+fields. One private UTC-pinned pure evidence projection, reused by the scoped
+binding capture, now commits all 37 current canonical fields, including the
+nine signed-edge fields, related-asset text and creation time. Twelve source
+tests failed before that repair. Native diagnostics specify thirteen actual
+content-only rollback mutations and nine **non-persisted** schema-typed
+signed-field composite variants: they invoke the actual projection and change
+the actual version-two packet payload SHA while the persisted live digest and
+full artifact state remain unchanged. A schema-column/projection-key count
+gate detects subsequently omitted columns; all private helper ACLs are tested
+against anonymous, authenticated and service roles. No signed-edge immutability
+guard is disabled, no fabricated edge row is inserted, and no device ingestion
+or signature-validation qualification is inferred. Independent architecture
+review reproduced a BIGINT model-register fixture incorrectly using a UUID;
+the schema-grounded regression failed before correcting that fixture.
+
+The final local 13-file cohort passes **1,672 tests**, application TypeScript,
+scoped lint and HTTP script syntax checks. Independent bounded source review
+does not replace native qualification. These new version-two database/API
+controls have **not executed**, and neither earlier-head CI nor local tests
+authorize production or mark U18.02 complete. Criteria and inherited-privacy
+post-wait races, coordinated source quarantine/claim-purpose eligibility,
+atomic stale-pending replacement and shared observed-authentication freshness
+remain separate closeout requirements. Capability statuses are unchanged.
 
 SyncAI U18.02 adds versioned uncertainty packets to the canonical Risk Operating System. It supports bounded probability estimates, confidence intervals, best/expected/worst loss cases, ranked one-at-a-time sensitivity inputs, value-of-information analysis, adopted decision-threshold snapshots and measurable reassessment triggers.
 

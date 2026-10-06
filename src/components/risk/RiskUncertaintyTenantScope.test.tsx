@@ -41,6 +41,8 @@ function packet(label: string) {
       {
         id: analysisId,
         version: 1,
+        digestVersion: 2,
+        digestCoverage: "evidence_content_and_current_criteria",
         validationStatus: "pending_review",
         method: "Synthetic method",
         basis: label,

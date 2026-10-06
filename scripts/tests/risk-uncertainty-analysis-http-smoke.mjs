@@ -340,6 +340,8 @@ async function run() {
   assert.ok(item);
   assert.equal(item.validationStatus, "validated");
   assert.equal(item.storedStatus, "validated");
+  assert.equal(item.digestVersion, 2);
+  assert.equal(item.digestCoverage, "evidence_content_and_current_criteria");
   assert.equal(item.organizationId, f.org);
   assert.equal(item.riskId, f.risk);
   assert.deepEqual(item.decisionThresholds, {
@@ -373,6 +375,8 @@ async function run() {
   assert.ok(stale);
   assert.equal(stale.validationStatus, "stale");
   assert.equal(stale.storedStatus, "validated");
+  assert.equal(stale.digestVersion, 2);
+  assert.equal(stale.digestCoverage, "evidence_content_and_current_criteria");
   assert.equal(stale.organizationId, f.org);
   assert.equal(stale.riskId, f.risk);
   assert.notEqual(stale.analysisDigest, stale.currentDigest);

@@ -32,6 +32,8 @@ function body(name: string): string {
 }
 
 const snapshot = body("risk_uncertainty_input_binding_snapshot");
+const evidenceProjection = body("risk_uncertainty_evidence_digest_projection");
+const projectedEvidence = evidenceProjection || snapshot;
 const payload = body("risk_uncertainty_v2_digest_payload");
 const digest = body("risk_uncertainty_analysis_digest");
 const submit = body("submit_risk_uncertainty_analysis");
@@ -52,6 +54,14 @@ const evidenceCoverage = [
     ["quality_grade", "applicability_grade", "applicability"],
   ],
   ["revision", ["revision"]],
+  [
+    "asset/operational anchors",
+    ["asset_id", "recommendation_id", "development_case_id"],
+  ],
+  [
+    "measurement qualification",
+    ["ts", "data_quality", "confidence_contribution"],
+  ],
 ] as const;
 const packetFields = [
   "id",
@@ -142,11 +152,48 @@ describe("U18 v2 content and threshold digest source contract", () => {
   it.each(evidenceCoverage)(
     "hashes canonical evidence %s, not just verification metadata",
     (_group, fields) => {
-      expect(snapshot, "actual v2 binding projection exists").not.toBe("");
+      expect(
+        projectedEvidence,
+        "actual v2 evidence projection exists",
+      ).not.toBe("");
       for (const field of fields)
-        expect(snapshot).toMatch(new RegExp(`\\be\\.${field}\\b`));
+        expect(projectedEvidence).toMatch(new RegExp(`\\be\\.${field}\\b`));
     },
   );
+
+  it.each([
+    "related_asset",
+    "created_at",
+    "edge_node_id",
+    "edge_sensor_id",
+    "edge_model_register_id",
+    "edge_observation_id",
+    "edge_sequence",
+    "edge_payload_sha256",
+    "edge_signature_key_id",
+    "edge_signature_verified_at",
+    "edge_observation",
+  ])(
+    "commits canonical evidence field %s, including signed observations",
+    (field) => {
+      expect(projectedEvidence).toMatch(new RegExp(`\\be\\.${field}\\b`));
+    },
+  );
+
+  it("captures the same pure private UTC evidence projection used by native signed-field controls", () => {
+    expect(evidenceProjection).not.toBe("");
+    expect(snapshot).toContain(
+      "public.risk_uncertainty_evidence_digest_projection(e)",
+    );
+    expect(evidenceProjection).not.toMatch(/\b(?:from|join) public\./i);
+    expect(evidenceProjection).not.toMatch(/to_jsonb\(\s*e\s*\)/i);
+    expect(definition("risk_uncertainty_evidence_digest_projection")).toMatch(
+      /set\s+(?:timezone|time zone)\s*=\s*'UTC'/i,
+    );
+    expect(compact).toContain(
+      "revoke all on function public.risk_uncertainty_evidence_digest_projection(public.evidence_items) from public,anon,authenticated,service_role",
+    );
+  });
 
   it("binds the current risk criteria pointer, actual same-org profile version, adoption and thresholds", () => {
     expect(snapshot).toContain("r.criteria_profile_id");
@@ -267,7 +314,7 @@ describe("U18 v2 content and threshold digest source contract", () => {
 
   it("uses only the existing typed document anchor and makes no source-standing or approved-claim inference", () => {
     expect(snapshot).not.toBe("");
-    expect(snapshot).toContain("e.document_id");
+    expect(projectedEvidence).toContain("e.document_id");
     for (const name of [
       "kb_intake_documents",
       "reliability_kb_chunks",
@@ -285,6 +332,7 @@ describe("U18 v2 content and threshold digest source contract", () => {
   it("keeps all new digest and binding helpers inaccessible to every client role", () => {
     for (const signature of [
       "risk_uncertainty_analysis_digest_v1(uuid,uuid)",
+      "risk_uncertainty_evidence_digest_projection(public.evidence_items)",
       "risk_uncertainty_input_binding_snapshot(uuid,uuid,uuid[])",
       "risk_uncertainty_v2_digest_payload(public.risk_uncertainty_analyses,jsonb)",
     ]) {
@@ -353,11 +401,79 @@ describe("U18 v2 content and threshold digest source contract", () => {
     ])
       expect(control).toContain(witness);
     expect(control).not.toMatch(/disable trigger|session_replication_role/i);
-    expect(control).toContain("attempts<>11");
+    expect(control).toContain("attempts<>13");
     expect(control).toContain("attempts<>5");
     expect(control).toContain("invalid_tags<>5");
     expect(sql).toContain("'criteria',(select jsonb_agg(to_jsonb(c)");
     expect(sql).toContain("'securityEvents',(select jsonb_agg(to_jsonb(s)");
+  });
+
+  it("specifies actual private evidence projection and payload SHA variants without mutating signed rows", () => {
+    const sql = readFileSync(
+      "scripts/tests/risk-uncertainty-analysis-postgres-tests.sql",
+      "utf8",
+    );
+    const control = sql
+      .split("-- U18 V2 SIGNED-FIELD PROJECTION CONTROLS BEGIN")[1]
+      ?.split("-- U18 V2 SIGNED-FIELD PROJECTION CONTROLS END")[0];
+    expect(control).toBeDefined();
+    for (const witness of [
+      "public.risk_uncertainty_evidence_digest_projection(e)",
+      "select * into e from public.evidence_items where id=f.verified",
+      "jsonb_populate_record(null::public.evidence_items",
+      "jsonb_set(a.input_binding_snapshot,'{evidence,0}'",
+      "public.risk_uncertainty_v2_digest_payload(a,snapshot)",
+      "extensions.digest(",
+      "edge_attempts<>9",
+      "9007199254740993::bigint",
+      "pg_temp.u18_state() is distinct from baseline",
+      "information_schema.columns",
+      "jsonb_object_keys(evidence_projection)",
+    ])
+      expect(control).toContain(witness);
+    for (const field of [
+      "edge_node_id",
+      "edge_sensor_id",
+      "edge_model_register_id",
+      "edge_observation_id",
+      "edge_sequence",
+      "edge_payload_sha256",
+      "edge_signature_key_id",
+      "edge_signature_verified_at",
+      "edge_observation",
+    ])
+      expect(control).toContain(`'${field}'`);
+    expect(control).not.toMatch(
+      /\b(?:insert into|update|delete from|truncate|disable trigger)\s+public\./i,
+    );
+    for (const signature of [
+      "risk_uncertainty_analysis_digest_v1(uuid,uuid)",
+      "risk_uncertainty_evidence_digest_projection(public.evidence_items)",
+      "risk_uncertainty_input_binding_snapshot(uuid,uuid,uuid[])",
+      "risk_uncertainty_v2_digest_payload(public.risk_uncertainty_analyses,jsonb)",
+    ])
+      expect(sql).toContain(`public.${signature}`);
+    expect(sql).toContain("('anon'),('authenticated'),('service_role')");
+  });
+
+  it("uses the canonical BIGINT edge model identity in unpersisted native variants, never a UUID cast", () => {
+    const schema = readFileSync(
+      "supabase/migrations/20261226100000_edge_evidence_contract.sql",
+      "utf8",
+    );
+    const sql = readFileSync(
+      "scripts/tests/risk-uncertainty-analysis-postgres-tests.sql",
+      "utf8",
+    );
+    expect(schema).toMatch(
+      /edge_model_register_id bigint references public\.model_register\(id\)/,
+    );
+    expect(sql).toContain(
+      "('edge_model_register_id','edgeModelRegisterId',to_jsonb(9007199254740993::bigint))",
+    );
+    expect(sql).not.toContain(
+      "('edge_model_register_id','edgeModelRegisterId',to_jsonb(gen_random_uuid()))",
+    );
   });
 
   it("preserves advisory human-review semantics and creates no parallel source, approval or audit store", () => {

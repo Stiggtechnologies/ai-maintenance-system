@@ -71,6 +71,8 @@ beforeEach(() => {
       {
         id: "analysis-1",
         version: 2,
+        digestVersion: 2,
+        digestCoverage: "evidence_content_and_current_criteria",
         validationStatus: "stale",
         method: "Three-point estimate",
         basis: "Based on the exact verified inspection and operating extract.",

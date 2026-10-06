@@ -34,6 +34,12 @@ describe("uncertainty workspace canonical identity projection, source only", () 
       "when a.analysis_digest is distinct from v_current then 'stale'",
     );
     expect(body).toContain("'sensitivityInputs',a.sensitivity_inputs");
+    expect(body).toContain("'digestVersion',a.digest_version");
+    expect(body).toContain("'digestCoverage',case a.digest_version");
+    expect(body).toContain("when 1 then 'legacy_metadata'");
+    expect(body).toContain(
+      "when 2 then 'evidence_content_and_current_criteria'",
+    );
     expect(body).toContain("where x.organization_id=v_org and x.risk_id=r.id");
   });
 

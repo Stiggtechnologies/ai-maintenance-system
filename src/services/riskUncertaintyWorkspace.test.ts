@@ -94,6 +94,8 @@ function workspace() {
         organizationId,
         riskId,
         version: 1,
+        digestVersion: 2,
+        digestCoverage: "evidence_content_and_current_criteria",
         storedStatus: "pending_review",
         validationStatus: "pending_review",
         method: "Synthetic estimate",
@@ -181,6 +183,93 @@ describe("uncertainty canonical workspace read qualification", () => {
       wire.body,
     );
     expect(wire.requests).toEqual([{ p_risk_id: riskId }]);
+  });
+
+  it.each([
+    [1, "legacy_metadata"],
+    [2, "evidence_content_and_current_criteria"],
+  ])(
+    "retains explicit coverage %s/%s without upgrading legacy history",
+    async (digestVersion, digestCoverage) => {
+      const data = workspace();
+      Object.assign(data.analyses[0], { digestVersion, digestCoverage });
+      wire.body = data;
+      await expect(
+        getRiskUncertaintyWorkspace(riskId, context),
+      ).resolves.toEqual(data);
+      expect(wire.requests).toEqual([{ p_risk_id: riskId }]);
+    },
+  );
+
+  it.each([
+    [undefined, "evidence_content_and_current_criteria"],
+    [null, "evidence_content_and_current_criteria"],
+    ["2", "evidence_content_and_current_criteria"],
+    [true, "legacy_metadata"],
+    [0, "legacy_metadata"],
+    [3, "evidence_content_and_current_criteria"],
+    [2, undefined],
+    [2, null],
+    [2, "legacy_metadata"],
+    [1, "evidence_content_and_current_criteria"],
+    [2, "source_approved"],
+    [2, {}],
+  ])(
+    "refuses malformed or falsely upgraded coverage %s/%s",
+    async (digestVersion, digestCoverage) => {
+      const data = workspace();
+      Object.assign(data.analyses[0], { digestVersion, digestCoverage });
+      wire.body = data;
+      await expect(
+        getRiskUncertaintyWorkspace(riskId, context),
+      ).rejects.toThrow();
+      expect(wire.requests).toEqual([{ p_risk_id: riskId }]);
+    },
+  );
+
+  it("shows canonical coverage through the real reader and panel, without source approval inference", async () => {
+    render(
+      createElement(RiskUncertaintyPanel, {
+        riskId,
+        currentOrganizationId: organizationId,
+        currentUserId: actorId,
+        currentUserRole: "viewer",
+      }),
+    );
+    expect(
+      await screen.findByText(
+        "Digest v2 · evidence content and current criteria",
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Digest coverage does not establish source approval, claim fitness or operational authority.",
+      ),
+    ).toBeInTheDocument();
+    expect(wire.requests).toEqual([{ p_risk_id: riskId }]);
+  });
+
+  it("labels legacy coverage through the real reader and panel, never as full content coverage", async () => {
+    const data = workspace();
+    Object.assign(data.analyses[0], {
+      digestVersion: 1,
+      digestCoverage: "legacy_metadata",
+    });
+    wire.body = data;
+    render(
+      createElement(RiskUncertaintyPanel, {
+        riskId,
+        currentOrganizationId: organizationId,
+        currentUserId: actorId,
+        currentUserRole: "viewer",
+      }),
+    );
+    expect(
+      await screen.findByText("Digest v1 · legacy evidence metadata only"),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText("Digest v2 · evidence content and current criteria"),
+    ).not.toBeInTheDocument();
   });
 
   it.each([

@@ -398,6 +398,22 @@ describe("U18 isolated CI transport qualification", () => {
             organizationId: f.org,
             riskId: f.risk,
             storedStatus: "validated",
+            digestVersion:
+              mode === "coverage-version-string"
+                ? "2"
+                : mode === "coverage-version-missing"
+                  ? undefined
+                  : mode === "coverage-legacy"
+                    ? 1
+                    : 2,
+            digestCoverage:
+              mode === "coverage-label-missing"
+                ? undefined
+                : mode === "coverage-mismatch" || mode === "coverage-legacy"
+                  ? "legacy_metadata"
+                  : mode === "coverage-source-claim"
+                    ? "source_approved"
+                    : "evidence_content_and_current_criteria",
             validationStatus: stale ? "stale" : "validated",
             analysisDigest: digest,
             currentDigest: stale ? "b".repeat(64) : digest,
@@ -478,6 +494,36 @@ describe("U18 isolated CI transport qualification", () => {
       expect(options.redirect).toBe("error");
     }
   });
+
+  it.each([
+    "coverage-version-string",
+    "coverage-version-missing",
+    "coverage-label-missing",
+    "coverage-mismatch",
+    "coverage-legacy",
+    "coverage-source-claim",
+  ])(
+    "rejects %s in the actual HTTP script against synthetic transport without replay or fabricated approval",
+    async (mode) => {
+      const h = transcript(mode);
+      await expect(h.run()).rejects.toThrow(
+        "U18.02 isolated CI qualification failed",
+      );
+      expect(
+        h.fetch.mock.calls.filter(
+          ([url, options]) =>
+            url.endsWith("submit_risk_uncertainty_analysis") &&
+            JSON.parse(String(options.body)).p_risk_id ===
+              (h.fixture as Record<string, unknown>).risk,
+        ),
+      ).toHaveLength(4);
+      expect(
+        h.fetch.mock.calls.filter(([url]) =>
+          url.endsWith("review_risk_uncertainty_analysis"),
+        ),
+      ).toHaveLength(2);
+    },
+  );
 
   it.each([
     "representation-lost",

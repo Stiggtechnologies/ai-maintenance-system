@@ -16,11 +16,23 @@ import {
   submitRiskUncertaintyAnalysis,
   type RiskUncertaintySensitivityInput,
   type RiskUncertaintySubmission,
+  type RiskUncertaintyAnalysis,
 } from "../../services/riskOperatingService";
 import { ErrorState, LoadingState } from "../ui/AsyncStates";
 
 const INPUT =
   "w-full rounded-lg border border-white/10 bg-[#101B27] p-2 text-xs text-white placeholder:text-slate-600";
+
+function digestCoverageLabel(packet: RiskUncertaintyAnalysis): string {
+  if (packet.digestVersion === 1 && packet.digestCoverage === "legacy_metadata")
+    return "Digest v1 · legacy evidence metadata only";
+  if (
+    packet.digestVersion === 2 &&
+    packet.digestCoverage === "evidence_content_and_current_criteria"
+  )
+    return "Digest v2 · evidence content and current criteria";
+  return "Digest coverage unverified";
+}
 const GOVERNANCE_ROLES = new Set([
   "reliability_engineer",
   "maintenance_manager",
@@ -479,11 +491,20 @@ export function RiskUncertaintyPanel({
               Latest packet
             </p>
             {latest ? (
-              <div className="mt-2 flex items-center gap-2">
-                <span className="text-sm font-semibold text-slate-200">
-                  v{latest.version}
-                </span>
-                <StatusBadge status={latest.validationStatus} />
+              <div className="mt-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-semibold text-slate-200">
+                    v{latest.version}
+                  </span>
+                  <StatusBadge status={latest.validationStatus} />
+                </div>
+                <p className="mt-2 text-xs text-slate-300">
+                  {digestCoverageLabel(latest)}
+                </p>
+                <p className="mt-1 text-[10px] leading-relaxed text-slate-500">
+                  Digest coverage does not establish source approval, claim
+                  fitness or operational authority.
+                </p>
               </div>
             ) : (
               <p className="mt-2 text-xs text-slate-500">
@@ -826,6 +847,9 @@ export function RiskUncertaintyPanel({
                   <p className="text-xs text-amber-100/80">
                     Version {item.version} awaits an independent named-human
                     review.
+                    <span className="mt-1 block text-[10px] text-slate-400">
+                      {digestCoverageLabel(item)}
+                    </span>
                   </p>
                   {item.authorId !== currentUserId ? (
                     <button

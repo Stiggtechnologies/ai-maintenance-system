@@ -382,7 +382,15 @@ do $$ declare packet uuid; before_row jsonb; detail text; refused boolean; total
       or has_function_privilege('service_role',signature,'EXECUTE')
       or has_function_privilege('anon',signature,'EXECUTE')
       or not has_function_privilege('authenticated',signature,'EXECUTE'))
-    or has_function_privilege('authenticated','public.risk_uncertainty_analysis_digest(uuid,uuid)','EXECUTE') then
+    or exists(select 1 from (values
+      ('public.risk_uncertainty_analysis_digest(uuid,uuid)'),
+      ('public.risk_uncertainty_analysis_digest_v1(uuid,uuid)'),
+      ('public.risk_uncertainty_evidence_digest_projection(public.evidence_items)'),
+      ('public.risk_uncertainty_input_binding_snapshot(uuid,uuid,uuid[])'),
+      ('public.risk_uncertainty_v2_digest_payload(public.risk_uncertainty_analyses,jsonb)')) q(signature)
+      cross join (values ('anon'),('authenticated'),('service_role')) roles(role_name)
+      where to_regprocedure(signature) is null
+        or has_function_privilege(role_name,signature,'EXECUTE')) then
     raise exception 'native uncertainty RPC/helper ACL failed'; end if;
 end $$;
 
@@ -540,10 +548,13 @@ end $$;
 -- probe. No guard is disabled or source approval/engineering authority inferred.
 reset role;
 do $$ declare f record; a public.risk_uncertainty_analyses%rowtype;
+  e public.evidence_items%rowtype; evidence_variant public.evidence_items%rowtype;
+  evidence_projection jsonb; variant_projection jsonb; edge_attempts integer:=0;
   baseline jsonb; original_digest text; stored_digest text; current_digest text;
   snapshot jsonb; changed record; qualified boolean; attempts integer:=0;
   old_actor text; old_timezone text; detail text; refused boolean; packet uuid; affected integer;
-  candidate jsonb; tag jsonb; invalid_tags integer:=0; begin
+  candidate jsonb; tag jsonb; legacy_workspace jsonb; legacy_item jsonb;
+  invalid_tags integer:=0; begin
   select * into f from u18_fixture;
   select * into a from public.risk_uncertainty_analyses where id=(select id from u18_packet);
   baseline:=pg_temp.u18_state(); original_digest:=a.analysis_digest;
@@ -593,6 +604,47 @@ do $$ declare f record; a public.risk_uncertainty_analyses%rowtype;
     raise exception 'incomplete v2 projection leaked foreign-tenant evidence or criteria'; end if;
   if public.risk_uncertainty_analysis_digest(f.foreign_org,a.id) is not null then
     raise exception 'v2 packet digest returned foreign-tenant content'; end if;
+  -- U18 V2 SIGNED-FIELD PROJECTION CONTROLS BEGIN
+  -- Actual projection of the bound fixture, followed by non-persisted composite
+  -- variants. Canonical signed rows and their immutable guards are untouched:
+  -- this is content commitment, not device ingestion/signature qualification.
+  select * into e from public.evidence_items where id=f.verified;
+  evidence_projection:=public.risk_uncertainty_evidence_digest_projection(e);
+  if e.id is distinct from f.verified
+    or evidence_projection is distinct from a.input_binding_snapshot->'evidence'->0
+    or (select count(*) from jsonb_object_keys(evidence_projection)) is distinct from
+       (select count(*) from information_schema.columns
+        where table_schema='public' and table_name='evidence_items') then
+    raise exception 'actual v2 evidence projection is incomplete or differs from captured row'; end if;
+  for changed in select * from (values
+    ('edge_node_id','edgeNodeId',to_jsonb(gen_random_uuid())),
+    ('edge_sensor_id','edgeSensorId',to_jsonb(gen_random_uuid())),
+    ('edge_model_register_id','edgeModelRegisterId',to_jsonb(9007199254740993::bigint)),
+    ('edge_observation_id','edgeObservationId',to_jsonb('ci-observation-projection-only'::text)),
+    ('edge_sequence','edgeSequence',to_jsonb(9007199254740993::bigint)),
+    ('edge_payload_sha256','edgePayloadSha256',to_jsonb(repeat('c',64))),
+    ('edge_signature_key_id','edgeSignatureKeyId',to_jsonb('ci-signature-projection-only'::text)),
+    ('edge_signature_verified_at','edgeSignatureVerifiedAt',to_jsonb('2026-10-06T12:00:00.123456+00:00'::text)),
+    ('edge_observation','edgeObservation','{"measurement":{"value":17,"unit":"mm/s"},"ci_projection_only":true}'::jsonb)
+  ) q(field,key,value) loop
+    evidence_variant:=jsonb_populate_record(null::public.evidence_items,
+      to_jsonb(e)||jsonb_build_object(changed.field,changed.value));
+    variant_projection:=public.risk_uncertainty_evidence_digest_projection(evidence_variant);
+    snapshot:=jsonb_set(a.input_binding_snapshot,'{evidence,0}',variant_projection,false);
+    current_digest:=encode(extensions.digest(
+      public.risk_uncertainty_v2_digest_payload(a,snapshot)::text,'sha256'),'hex');
+    if variant_projection->changed.key is distinct from changed.value
+      or variant_projection is not distinct from evidence_projection
+      or current_digest is null or current_digest !~ '^[0-9a-f]{64}$'
+      or current_digest is not distinct from original_digest
+      or public.risk_uncertainty_analysis_digest(f.org,a.id) is distinct from original_digest
+      or pg_temp.u18_state() is distinct from baseline then
+      raise exception 'signed-field projection did not preserve exact content, alter hash or retain unchanged artifacts'; end if;
+    edge_attempts:=edge_attempts+1;
+  end loop;
+  if edge_attempts<>9 or pg_temp.u18_state() is distinct from baseline then
+    raise exception 'signed-field projection coverage incomplete or changed persisted artifacts'; end if;
+  -- U18 V2 SIGNED-FIELD PROJECTION CONTROLS END
   -- Content-only mutations are each a real row change with unchanged revision.
   -- Service corrections remain governed/audited by existing evidence triggers;
   -- every resulting audit/security row is inside the rollback witness.
@@ -609,7 +661,9 @@ do $$ declare f record; a public.risk_uncertainty_analyses%rowtype;
     ('verification_note',to_jsonb('Changed CI verification basis.'::text)),
     ('quality_grade',to_jsonb('moderate'::text)),
     ('applicability_grade',to_jsonb('indirect'::text)),
-    ('applicability',to_jsonb('Changed CI applicability basis.'::text))
+    ('applicability',to_jsonb('Changed CI applicability basis.'::text)),
+    ('related_asset',to_jsonb('Changed canonical related-asset description.'::text)),
+    ('created_at',to_jsonb(e.created_at+interval '1 microsecond'))
   ) q(field,value) loop
     qualified:=false;
     begin
@@ -627,7 +681,7 @@ do $$ declare f record; a public.risk_uncertainty_analyses%rowtype;
       raise exception 'v2 evidence drift qualification or complete rollback witness failed'; end if;
     attempts:=attempts+1;
   end loop;
-  if attempts<>11 then raise exception 'v2 content drift coverage incomplete'; end if;
+  if attempts<>13 then raise exception 'v2 content drift coverage incomplete'; end if;
   -- Current policy drift, not just the old packet's threshold copy.
   attempts:=0;
   for changed in select * from (values
@@ -730,6 +784,17 @@ do $$ declare f record; a public.risk_uncertainty_analyses%rowtype;
     if not exists(select 1 from public.risk_uncertainty_analyses where id=packet
       and digest_version=1 and input_binding_snapshot is null and analysis_digest=current_digest) then
       raise exception 'legacy v1 initializer failed its original algorithm'; end if;
+    perform set_config('request.jwt.claim.sub',f.author::text,true);
+    legacy_workspace:=public.get_risk_uncertainty_workspace(f.other_risk);
+    select x into legacy_item from jsonb_array_elements(legacy_workspace->'analyses') x
+      where x->>'id'=packet::text;
+    if legacy_workspace->>'organizationId' is distinct from f.org::text
+      or legacy_workspace->>'actorId' is distinct from f.author::text
+      or legacy_item->'digestVersion' is distinct from '1'::jsonb
+      or legacy_item->>'digestCoverage' is distinct from 'legacy_metadata'
+      or legacy_item->>'currentDigest' is distinct from current_digest
+      or legacy_item->>'analysisDigest' is distinct from current_digest then
+      raise exception 'legacy v1 public workspace mislabeled or omitted actual coverage'; end if;
     qualified:=true;
     raise exception using errcode='ZX011',message='U18 legacy v1 fixture rollback';
   exception when sqlstate 'ZX011' then null;
@@ -782,6 +847,9 @@ do $$ declare f record; packet uuid; result jsonb; workspace jsonb; item jsonb; 
     raise exception 'independent review receipt lacks bound canonical artifacts'; end if;
   workspace:=public.get_risk_uncertainty_workspace(f.risk);
   select x into item from jsonb_array_elements(workspace->'analyses') x where x->>'id'=packet::text;
+  if item->'digestVersion' is distinct from '2'::jsonb
+    or item->>'digestCoverage' is distinct from 'evidence_content_and_current_criteria' then
+    raise exception 'v2 public workspace lacks exact stored digest coverage'; end if;
   if workspace->>'organizationId' is distinct from f.org::text
     or workspace->>'actorId' is distinct from f.reviewer::text
     or workspace->'risk'->>'id' is distinct from f.risk::text

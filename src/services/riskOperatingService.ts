@@ -69,6 +69,8 @@ export interface RiskUncertaintyAnalysis {
   riskId: string;
   version: number;
   storedStatus: "pending_review" | "validated" | "rejected";
+  digestVersion: 1 | 2;
+  digestCoverage: "legacy_metadata" | "evidence_content_and_current_criteria";
   validationStatus: "pending_review" | "validated" | "rejected" | "stale";
   method: string;
   basis: string;
@@ -553,6 +555,12 @@ function uncertaintyAnalysis(
     !uncertaintySameUuid(value.organizationId, organizationId) ||
     !uncertaintySameUuid(value.riskId, riskId) ||
     !uncertaintyVersion(value.version) ||
+    !(
+      (value.digestVersion === 1 &&
+        value.digestCoverage === "legacy_metadata") ||
+      (value.digestVersion === 2 &&
+        value.digestCoverage === "evidence_content_and_current_criteria")
+    ) ||
     !uncertaintyEnum(value.storedStatus, [
       "pending_review",
       "validated",

@@ -341,6 +341,36 @@ begin
   return encode(extensions.digest(v_payload::text,'sha256'),'hex');
 end $$;
 
+-- Pure canonical evidence-row content projection shared by scoped capture
+-- and native record diagnostics. This does not bypass signed-edge immutability
+-- or establish device ingestion, signature validity or approved source claims.
+create or replace function public.risk_uncertainty_evidence_digest_projection(
+  e public.evidence_items
+) returns jsonb language plpgsql immutable
+set search_path=public set timezone='UTC' as $$
+begin
+  return jsonb_build_object(
+    'id',e.id,'organizationId',e.organization_id,'riskId',e.risk_id,
+    'assetId',e.asset_id,'recommendationId',e.recommendation_id,
+    'developmentCaseId',e.development_case_id,'relatedAsset',e.related_asset,'createdAt',e.created_at,
+    'description',e.description,'sourceSystem',e.source_system,
+    'evidenceType',e.evidence_type,'signalKind',e.signal_kind,
+    'sourceReference',e.source_reference,'provenance',e.provenance,
+    'documentId',e.document_id,'evidenceClass',e.evidence_class,
+    'verificationStatus',e.verification_status,'verifiedBy',e.verified_by,
+    'verifiedAt',e.verified_at,'verificationMethod',e.verification_method,
+    'verificationNote',e.verification_note,'qualityGrade',e.quality_grade,
+    'applicabilityGrade',e.applicability_grade,'applicability',e.applicability,
+    'revision',e.revision,'timestamp',e.ts,'dataQuality',e.data_quality,
+    'confidenceContribution',e.confidence_contribution,
+    'edgeNodeId',e.edge_node_id,'edgeSensorId',e.edge_sensor_id,
+    'edgeModelRegisterId',e.edge_model_register_id,'edgeObservationId',e.edge_observation_id,
+    'edgeSequence',e.edge_sequence,'edgePayloadSha256',e.edge_payload_sha256,
+    'edgeSignatureKeyId',e.edge_signature_key_id,'edgeSignatureVerifiedAt',e.edge_signature_verified_at,
+    'edgeObservation',e.edge_observation
+  );
+end $$;
+
 -- Version-two content projection. Missing/rebound dependencies remain an
 -- explicit incomplete object, not NULL or an empty-array freshness success.
 -- Every found row is scoped to the requested canonical tenant and risk. A
@@ -356,21 +386,8 @@ declare
 begin
   select coalesce(array_agg(distinct x order by x),'{}'::uuid[])
     into v_expected_ids from unnest(coalesce(p_evidence_item_ids,'{}'::uuid[])) x;
-  select count(*),coalesce(jsonb_agg(jsonb_build_object(
-    'id',e.id,'organizationId',e.organization_id,'riskId',e.risk_id,
-    'assetId',e.asset_id,'recommendationId',e.recommendation_id,
-    'developmentCaseId',e.development_case_id,
-    'description',e.description,'sourceSystem',e.source_system,
-    'evidenceType',e.evidence_type,'signalKind',e.signal_kind,
-    'sourceReference',e.source_reference,'provenance',e.provenance,
-    'documentId',e.document_id,'evidenceClass',e.evidence_class,
-    'verificationStatus',e.verification_status,'verifiedBy',e.verified_by,
-    'verifiedAt',e.verified_at,'verificationMethod',e.verification_method,
-    'verificationNote',e.verification_note,'qualityGrade',e.quality_grade,
-    'applicabilityGrade',e.applicability_grade,'applicability',e.applicability,
-    'revision',e.revision,'timestamp',e.ts,'dataQuality',e.data_quality,
-    'confidenceContribution',e.confidence_contribution
-  ) order by e.id),'[]'::jsonb) into v_found_count,v_evidence
+  select count(*),coalesce(jsonb_agg(public.risk_uncertainty_evidence_digest_projection(e)
+    order by e.id),'[]'::jsonb) into v_found_count,v_evidence
   from public.evidence_items e
   where e.id=any(v_expected_ids) and e.organization_id=p_organization_id
     and e.risk_id=p_risk_id;
@@ -859,6 +876,8 @@ begin
         'probabilityDecisionChanges',a.voi_probability_decision_changes,'expectedValue',a.voi_expected_value,
         'netValue',a.voi_net_value,'recommendation',a.voi_recommendation),
       'analysisDigest',a.analysis_digest,'currentDigest',v_current,
+      'digestVersion',a.digest_version,'digestCoverage',case a.digest_version
+        when 1 then 'legacy_metadata' when 2 then 'evidence_content_and_current_criteria' else null end,
       'authorId',a.author_id,'createdAt',a.created_at,'reviewerId',a.reviewer_id,
       'reviewedAt',a.reviewed_at,'reviewNote',a.review_note,'approvalId',a.approval_id,
       'derivedEvidenceItemId',a.derived_evidence_item_id,
@@ -881,6 +900,7 @@ revoke all on function public.refuse_risk_uncertainty_truncate() from public,ano
 revoke all on function public.risk_uncertainty_analysis_digest(uuid,uuid) from public,anon,authenticated,service_role;
 revoke all on function public.risk_uncertainty_analysis_digest_v1(uuid,uuid) from public,anon,authenticated,service_role;
 revoke all on function public.risk_uncertainty_input_binding_snapshot(uuid,uuid,uuid[]) from public,anon,authenticated,service_role;
+revoke all on function public.risk_uncertainty_evidence_digest_projection(public.evidence_items) from public,anon,authenticated,service_role;
 revoke all on function public.risk_uncertainty_v2_digest_payload(public.risk_uncertainty_analyses,jsonb) from public,anon,authenticated,service_role;
 revoke all on function public.submit_risk_uncertainty_analysis(uuid,jsonb,uuid[]) from public,anon,service_role;
 revoke all on function public.review_risk_uncertainty_analysis(uuid,text,text) from public,anon,service_role;
