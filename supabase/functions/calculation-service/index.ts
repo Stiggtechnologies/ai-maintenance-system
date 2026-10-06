@@ -13,6 +13,15 @@ import {
 } from "../../../src/lib/value/index.ts";
 import { selectWeibullMethod } from "../../../src/lib/reliability/method-selection.ts";
 import {
+  COX_KERNEL_VERSION,
+  fitCox,
+  type CoxResult,
+} from "../../../src/lib/reliability/cox.ts";
+import {
+  prepareSurvivalSource,
+  type SurvivalSourceEvent,
+} from "../../../src/lib/reliability/survival-source.ts";
+import {
   analyseModellingStudio,
   type ModellingCostSource,
   type ModellingGraphSource,
@@ -204,6 +213,7 @@ Deno.serve(async (request) => {
     budget?: unknown;
     component?: unknown;
     planId?: unknown;
+    covariates?: unknown;
   };
   try {
     const raw = await request.text();
@@ -215,6 +225,108 @@ Deno.serve(async (request) => {
   }
   const organizationId = profile.organization_id;
   const actorId = userData.user.id;
+
+  if (body.action === "reliability_survival") {
+    const component =
+      typeof body.component === "string" ? body.component.trim() : "";
+    if (
+      component.length < 2 ||
+      component.length > 160 ||
+      !Array.isArray(body.covariates) ||
+      body.covariates.length < 1 ||
+      body.covariates.length > 8 ||
+      body.covariates.some(
+        (item) =>
+          !item ||
+          typeof item.name !== "string" ||
+          item.name.trim().length < 1 ||
+          item.name.length > 80 ||
+          typeof item.unit !== "string" ||
+          item.unit.trim().length < 1 ||
+          item.unit.length > 80,
+      )
+    ) {
+      return json(
+        { error: "bounded_component_and_named_covariates_with_units_required" },
+        400,
+      );
+    }
+    const covariates = body.covariates.map((item) => ({
+      name: item.name.trim(),
+      unit: item.unit.trim(),
+    }));
+    if (
+      new Set(covariates.map((item) => item.name)).size !== covariates.length
+    ) {
+      return json({ error: "covariate_names_must_be_unique" }, 400);
+    }
+    try {
+      // The requester supplies only a scope and named predictors. Every
+      // observation, review, approval and authority fact is server-derived.
+      const { data: sourceData, error: sourceError } = await service.rpc(
+        "get_survival_source_internal",
+        {
+          p_organization_id: organizationId,
+          p_actor_id: actorId,
+          p_component: component,
+        },
+      );
+      if (sourceError) throw new Error(sourceError.message);
+      const source = sourceData as {
+        error?: string;
+        events?: SurvivalSourceEvent[];
+        kernelVersion?: string;
+      } | null;
+      if (source?.error) return json({ error: source.error }, 403);
+      if (
+        !source ||
+        source.kernelVersion !== COX_KERNEL_VERSION ||
+        !Array.isArray(source.events)
+      ) {
+        throw new Error("pinned canonical survival source unavailable");
+      }
+      const prepared = prepareSurvivalSource(source.events, covariates);
+      const result: CoxResult = prepared.gaps.length
+        ? {
+            status: "refused",
+            code: "invalid_input",
+            reason:
+              "Canonical source has unresolved evidence, exposure or review gaps.",
+            kernelVersion: COX_KERNEL_VERSION,
+            authority: "advisory_only",
+          }
+        : fitCox(
+            prepared.rows,
+            covariates.map((item) => item.name),
+          );
+      const refusals = prepared.gaps.length
+        ? prepared.gaps
+        : result.status === "refused"
+          ? [result.reason]
+          : [
+              "Proportional hazards, clustered uncertainty and predictive calibration remain unqualified; no maintenance decision is authorized.",
+            ];
+      const { data: receiptData, error: receiptError } = await service.rpc(
+        "record_survival_calculation",
+        {
+          p_organization_id: organizationId,
+          p_actor_id: actorId,
+          p_component: component,
+          p_source_snapshot: source,
+          p_covariates: covariates,
+          p_result: result,
+          p_refusals: refusals,
+        },
+      );
+      if (receiptError) throw new Error(receiptError.message);
+      const receipt = receiptData as { error?: string } | null;
+      if (receipt?.error) return json({ error: receipt.error }, 422);
+      return json(receipt);
+    } catch (error) {
+      console.error("governed survival calculation failed", error);
+      return json({ error: "reliability_survival_calculation_failed" }, 422);
+    }
+  }
 
   if (body.action === "reliability_life_data") {
     const component =
