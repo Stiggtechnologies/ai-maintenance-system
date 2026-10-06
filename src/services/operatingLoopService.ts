@@ -1222,7 +1222,6 @@ export async function sendCoworkMessage(
   workspaceId: string,
   objective: string,
   text: string,
-  costObjectType: "cowork_workspace" | "decision_case" = "cowork_workspace",
 ): Promise<void> {
   const ctx = await getOrgContext();
   const { error } = await supabase.from("cowork_messages").insert({
@@ -1240,8 +1239,6 @@ export async function sendCoworkMessage(
     {
       body: {
         agentType: "ReliabilityAgent",
-        costObjectType,
-        costObjectId: workspaceId,
         query: `Workspace objective: ${objective}\n\nTeam member says: ${text}\n\nRespond as the collaborating reliability engineering agent — concise, specific, actionable.`,
       },
     },

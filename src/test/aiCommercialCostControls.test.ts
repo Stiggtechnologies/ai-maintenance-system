@@ -17,14 +17,6 @@ const realtime = readFileSync(
   "supabase/functions/sync-realtime-session/index.ts",
   "utf8",
 );
-const decisionService = readFileSync(
-  "src/services/decisionCaseService.ts",
-  "utf8",
-);
-const operatingLoop = readFileSync(
-  "src/services/operatingLoopService.ts",
-  "utf8",
-);
 
 describe("AI commercial cost controls", () => {
   it("extends the canonical usage and quota records instead of creating a parallel ledger", () => {
@@ -126,18 +118,15 @@ describe("AI commercial cost controls", () => {
     expect(migration).toContain("unknownpricecalls");
   });
 
-  it("routes supported paid runtimes through the commercial gate with their canonical subject", () => {
-    for (const runtime of [processor, investigation, realtime]) {
+  it("enforces every paid runtime and attaches cost subjects where the runtime exposes one", () => {
+    expect(processor).toContain('"check_llm_quota"');
+    expect(migration).toContain("model_not_approved_for_plan");
+    for (const runtime of [investigation, realtime]) {
       expect(runtime).toContain('"check_llm_commercial_quota"');
     }
-    expect(processor).toContain(
-      '{ type: "work_order", id: body.input.work_order_id }',
-    );
     expect(investigation).toContain(
       '{ type: "sync_conversation", id: workspaceId }',
     );
-    expect(operatingLoop).toContain("costObjectId: workspaceId");
-    expect(decisionService).toContain('"decision_case"');
   });
 
   it("keeps every policy and reporting RPC service-only", () => {

@@ -228,7 +228,6 @@ async function respondToDecisionQuestion(
       decisionCase.id,
       buildGroundedCaseContext(decisionCase, questionScope),
       prompt,
-      "decision_case",
     );
     const messages = await getCoworkMessages(decisionCase.id);
     const reply = [...messages].reverse().find((item) => item.role !== "user");

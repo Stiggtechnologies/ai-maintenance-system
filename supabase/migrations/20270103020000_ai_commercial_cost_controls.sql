@@ -621,6 +621,7 @@ declare
   c_default_max_calls constant integer := 5184;
   c_default_max_tokens constant bigint := 22000000;
   v_quota private.llm_org_quotas%rowtype;
+  v_policy private.ai_commercial_plan_policies%rowtype;
   v_max_calls integer;
   v_max_tokens bigint;
   v_calls bigint;
@@ -655,6 +656,18 @@ begin
     return jsonb_build_object(
       'allowed',false,'limit','commercial_allowance_unconfigured'
     );
+  end if;
+
+  if v_quota.billing_subscription_id is not null then
+    select * into v_policy from private.ai_commercial_plan_policies
+    where billing_source=v_quota.commercial_billing_source
+      and offer_id=v_quota.commercial_offer_id
+      and plan_id=v_quota.commercial_plan_id and status='approved';
+    if not found or not (p_model=any(v_policy.allowed_models)) then
+      return jsonb_build_object(
+        'allowed',false,'limit','model_not_approved_for_plan'
+      );
+    end if;
   end if;
 
   if v_quota.billing_subscription_id is not null then
