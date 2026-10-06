@@ -70,6 +70,7 @@ as $$
       on owner.id=r.verification_owner_id
      and owner.organization_id=r.organization_id
      and coalesce(owner.role,'')<>'ai_admin'
+     and owner.role in ('admin','executive','maintenance_manager','reliability_engineer','planner','technician','operator')
     join public.user_profiles planner
       on planner.id=r.verification_planned_by
      and planner.organization_id=r.organization_id
@@ -106,6 +107,7 @@ as $$
       on owner.id=o.verification_owner_id
      and owner.organization_id=o.organization_id
      and coalesce(owner.role,'')<>'ai_admin'
+     and owner.role in ('admin','executive','maintenance_manager','reliability_engineer','planner','technician','operator')
     join public.user_profiles planner
       on planner.id=o.planned_by
      and planner.organization_id=o.organization_id
@@ -248,7 +250,8 @@ begin
   end if;
   select role into v_owner_role from public.user_profiles
   where id=p_owner_id and organization_id=v_org;
-  if not found or coalesce(v_owner_role,'')='ai_admin' then
+  if not found or coalesce(v_owner_role,'') not in
+     ('admin','executive','maintenance_manager','reliability_engineer','planner','technician','operator') then
     return jsonb_build_object('error','select a named same-tenant human verification owner');
   end if;
 
@@ -405,6 +408,37 @@ revoke all on function public.create_verification_obligation()
 
 -- Eligibility is checked at the persistence wall as well as at the RPC. A
 -- caller cannot turn a same-tenant row into evidence merely by knowing its id.
+-- The classification review approves these observation facts too. Moving the
+-- timestamp or changing the measured description after that review would make
+-- old evidence look like a new post-action observation without any new review.
+create or replace function public.protect_verification_evidence_observation()
+returns trigger
+language plpgsql
+security definer
+set search_path=public
+as $$
+begin
+  if old.recommendation_provenance_status in ('validated','rejected') and (
+    new.organization_id is distinct from old.organization_id
+    or new.asset_id is distinct from old.asset_id
+    or new.ts is distinct from old.ts
+    or new.description is distinct from old.description
+    or new.evidence_type is distinct from old.evidence_type
+    or new.evidence_class is distinct from old.evidence_class
+  ) then
+    raise exception 'reviewed recommendation evidence observations are immutable; record a new evidence item and obtain independent review';
+  end if;
+  return new;
+end
+$$;
+
+revoke all on function public.protect_verification_evidence_observation()
+  from public,anon,authenticated,service_role;
+drop trigger if exists trg_verification_evidence_observation on public.evidence_items;
+create trigger trg_verification_evidence_observation
+  before update on public.evidence_items
+  for each row execute function public.protect_verification_evidence_observation();
+
 create or replace function public.verification_evidence_item_eligible(
   p_organization_id uuid,
   p_recommendation_id uuid,
@@ -506,6 +540,17 @@ as $$
           and s.entity_type='work_order'
           and s.external_id=w.external_id
           and s.status='accepted'
+          -- A retained receipt proves the facts imported, not every later
+          -- edit to the operational work record carrying that external id.
+          and lower(btrim(s.payload->>'status'))=lower(btrim(w.status))
+          and nullif(s.payload->>'completed_at','')::timestamptz=w.completed_at
+          and exists(
+            select 1 from public.assets source_asset
+            where source_asset.id=w.asset_id
+              and source_asset.organization_id=w.organization_id
+              and source_asset.source_system=c.connector_key
+              and source_asset.external_id=btrim(s.payload->>'asset_external_id')
+          )
       )
   );
 $$;
@@ -642,7 +687,7 @@ begin
   where id=auth.uid() and organization_id=o.organization_id;
   if coalesce(v_role,'')='ai_admin' then
     return query select 'refused'::text,null::uuid,
-      ('Recording a verification result is a named-human act. The AI-operator identity may report that an obligation is open, overdue or unverified; it may not decide whether the outcome was achieved.')::text;
+      ('Recording a verification result is a §70 human act. The AI-operator identity may report that an obligation is open, overdue or unverified; it may not decide whether the outcome was achieved.')::text;
     return;
   end if;
   if coalesce(v_role,'') not in
@@ -656,14 +701,14 @@ begin
       format('Obligation is already %s. A verification is recorded once; a second opinion belongs in a new observation, not an overwrite.',o.status);
     return;
   end if;
-  if p_result not in ('achieved','not_achieved','inconclusive') then
+  if p_result is null or p_result not in ('achieved','not_achieved','inconclusive') then
     return query select 'error'::text,null::uuid,
       'Result must be achieved, not_achieved or inconclusive.'::text;
     return;
   end if;
   if length(btrim(coalesce(p_measured_note,'')))<10 then
     return query select 'refused'::text,null::uuid,
-      'A result with no substantive measurement is an opinion. Record what was measured, against what, and when.'::text;
+      'A result with no measurement is an opinion. Record a substantive measurement: what was measured, against what, and when.'::text;
     return;
   end if;
 
@@ -786,17 +831,22 @@ begin
     jsonb_build_object(
       'obligation_id',o.id,'recommendation_id',o.recommendation_id,
       'requirement_id',o.requirement_id,'result',p_result,
+      'requirement_ref',d.requirement_ref,'method_code',o.method_code,
+      'supersedes_obligation_id',o.supersedes_obligation_id,
+      'held_by_standing_failure',v_held,
       'evidence_id',p_evidence_id,'work_order_id',p_work_order_id,
       'verification_owner_id',o.verification_owner_id,
       'recorded_by',auth.uid(),'learning_event_id',v_le,
       'operational_authorization',false),
     jsonb_build_object(
       'obligation_status',o.status,'result',o.result,
+      'verification_status',d.verification_status,
       'evidence_id',o.evidence_id,'work_order_id',o.work_order_id),
     jsonb_build_object(
       'obligation_status','completed','result',p_result,
       'evidence_id',p_evidence_id,'work_order_id',p_work_order_id,
       'verified_by',auth.uid(),
+      'verification_status',v_new_status,
       'requirement_verification_status',v_new_status,
       'held_by_standing_failure',v_held,
       'operational_authorization',false)
@@ -805,15 +855,23 @@ begin
   return query select 'recorded'::text,v_le,
     case
       when v_held then
-        format('Result recorded as achieved, but %s stays failed because an earlier failure has not been explicitly superseded.',d.requirement_ref)
+        format('Result recorded as achieved, but %s STAYS FAILED because an earlier failure has not been explicitly superseded.',d.requirement_ref)
       when p_result='achieved' then
-        'Outcome verified as achieved against the recorded criteria, measurement and governed source. This loop is closed.'
+        case when o.requirement_id is not null then
+          'Requirement verified as achieved, with the measurement on record. Its status is derived from the recorded result.'
+        else
+          'Outcome verified as achieved against the recorded criteria, measurement and governed source. This loop is closed.'
+        end
       when p_result='not_achieved' and v_le is not null then
         format('Outcome not achieved. The measured result and governed source are recorded, and learning event %s carries the failure into strategy re-examination.',v_le)
       when p_result='not_achieved' then
         'Requirement not verified. The measured failure remains on record.'
       else
-        'Inconclusive, with the measurement and governed source on record. The result is preserved without claiming success.'
+        case when o.requirement_id is not null then
+          'Inconclusive, with the measurement on record. The requirement remains open; this result does not claim success.'
+        else
+          'Inconclusive, with the measurement and governed source on record. The result is preserved without claiming success.'
+        end
     end;
 end
 $$;

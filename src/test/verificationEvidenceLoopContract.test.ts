@@ -96,6 +96,21 @@ describe("C4.08 evidence-linked verification contract", () => {
       "cr.source_contract_hash=public.cmms_read_contract_hash(c.id)",
     );
     expect(migration).toContain("run_actor.id=cr.triggered_by");
+    expect(migration).toContain("lower(btrim(s.payload->>'status'))=lower(btrim(w.status))");
+    expect(migration).toContain("nullif(s.payload->>'completed_at','')::timestamptz=w.completed_at");
+    expect(migration).toContain("source_asset.id=w.asset_id");
+  });
+
+  it("preserves requirement audit vocabulary and the source facts reviewed for verification", () => {
+    expect(migration).toContain("'verification_status',d.verification_status");
+    expect(migration).toContain("'verification_status',v_new_status");
+    expect(migration).toContain("'supersedes_obligation_id',o.supersedes_obligation_id");
+    expect(migration).toContain("§70 human act");
+    expect(migration).toContain("stays failed");
+    expect(migration).toContain("protect_verification_evidence_observation");
+    expect(migration).toContain("new.ts is distinct from old.ts");
+    expect(migration).toContain("new.description is distinct from old.description");
+    expect(migration).toContain("p_result is null or p_result not in");
   });
 
   it("enforces tenancy and immutability behind the RPC door", () => {

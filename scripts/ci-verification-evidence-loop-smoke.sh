@@ -134,6 +134,10 @@ R=$(rpc "$MANAGER" record_recommendation_verification_plan "{\"p_recommendation_
 expect_contains "$R" 'same-tenant human verification owner'
 R=$(rpc "$AIBOT" record_recommendation_verification_plan "{\"p_recommendation_id\":\"$REC_EVIDENCE\",\"p_method\":\"Compare post-repair leakage and vibration against the accepted baseline.\",\"p_acceptance_criteria\":\"No visible leakage and overall vibration remains below 3.0 mm/s through 72 operating hours.\",\"p_intended_outcome\":\"The repeat startup seal-failure pattern is removed.\",\"p_due_date\":\"$DUE\",\"p_owner_id\":\"$RE_ID\"}")
 expect_contains "$R" 'named human act'
+SUPERVISOR_ID=$(psqlc "select id from user_profiles where organization_id='$ORG' and role='supervisor' limit 1")
+test -n "$SUPERVISOR_ID"
+R=$(rpc "$MANAGER" record_recommendation_verification_plan "{\"p_recommendation_id\":\"$REC_EVIDENCE\",\"p_method\":\"Compare post-repair leakage and vibration against the accepted baseline.\",\"p_acceptance_criteria\":\"No visible leakage and overall vibration remains below 3.0 mm/s through 72 operating hours.\",\"p_intended_outcome\":\"The repeat startup seal-failure pattern is removed.\",\"p_due_date\":\"$DUE\",\"p_owner_id\":\"$SUPERVISOR_ID\"}")
+expect_contains "$R" 'same-tenant human verification owner'
 
 for REC in "$REC_EVIDENCE" "$REC_CMMS"; do
   R=$(rpc "$MANAGER" record_recommendation_verification_plan "{\"p_recommendation_id\":\"$REC\",\"p_method\":\"Compare the measured post-action condition with the accepted exact-asset baseline.\",\"p_acceptance_criteria\":\"The measured result remains inside the approved condition limit for at least 72 operating hours.\",\"p_intended_outcome\":\"The approved action removes the bounded repeat-failure condition.\",\"p_due_date\":\"$DUE\",\"p_owner_id\":\"$RE_ID\"}")
@@ -173,10 +177,17 @@ noerr "$R"
 R=$(rpc "$MANAGER" review_recommendation_evidence_classification "{\"p_evidence_id\":\"$EVIDENCE_VALID\",\"p_decision\":\"validated\",\"p_review_note\":\"Independent review confirms the exact source, revision, asset, window and recommendation applicability.\"}")
 noerr "$R"
 
+OUT=$(sql_must_fail "update evidence_items set ts=now()+interval '1 day' where id='$EVIDENCE_VALID';")
+grep -q 'observations are immutable' <<<"$OUT"
+OUT=$(sql_must_fail "update evidence_items set description='Substituted measurement after independent review' where id='$EVIDENCE_VALID';")
+grep -q 'observations are immutable' <<<"$OUT"
+
 EVIDENCE_OBL=$(psqlc "select id from verification_obligations where recommendation_id='$REC_EVIDENCE'")
 EVIDENCE_NOT_BEFORE=$(psqlc "select created_at::text from verification_obligations where id='$EVIDENCE_OBL'")
 test "$(psqlc "select public.verification_evidence_item_eligible('$ORG','$REC_EVIDENCE','$EVIDENCE_VALID','$EVIDENCE_NOT_BEFORE'::timestamptz)::text")" = 'true'
 test "$(psqlc "select public.verification_evidence_item_eligible('$ORG','$REC_EVIDENCE','$EVIDENCE_VALID',now()+interval '1 day')::text")" = 'false'
+R=$(rpc "$RE" record_verification_result "{\"p_obligation_id\":\"$EVIDENCE_OBL\",\"p_result\":null,\"p_measured_note\":\"Leakage measured 2.1 mm/s through 72 hours.\",\"p_evidence_id\":\"$EVIDENCE_VALID\",\"p_work_order_id\":null}")
+expect_contains "$R" 'result must be'
 R=$(rpc "$MANAGER" record_verification_result "{\"p_obligation_id\":\"$EVIDENCE_OBL\",\"p_result\":\"achieved\",\"p_measured_note\":\"Leakage was zero and vibration measured 2.1 mm/s through 72 hours.\",\"p_evidence_id\":\"$EVIDENCE_VALID\",\"p_work_order_id\":null}")
 expect_contains "$R" 'only the named verification owner'
 R=$(rpc "$RE" record_verification_result "{\"p_obligation_id\":\"$EVIDENCE_OBL\",\"p_result\":\"achieved\",\"p_measured_note\":\"Leakage was zero and vibration measured 2.1 mm/s through 72 hours.\",\"p_evidence_id\":null,\"p_work_order_id\":null}")
@@ -216,6 +227,14 @@ CMMS_NOT_BEFORE=$(psqlc "select created_at::text from verification_obligations w
 test "$(psqlc "select public.verification_work_order_eligible('$ORG','$ASSET','$IMPORTED_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'true'
 test "$(psqlc "select public.verification_work_order_eligible('$ORG','$ASSET','$STALE_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'false'
 test "$(psqlc "select public.verification_work_order_eligible('$ORG','$ASSET','$OPEN_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'false'
+
+# A manual completion of an imported open order cannot borrow its old accepted
+# receipt. The source must itself have reported the completed-work facts.
+psqlc "update work_orders set status='completed' where id='$OPEN_WO'" >/dev/null
+test "$(psqlc "select public.verification_work_order_eligible('$ORG','$ASSET','$OPEN_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'false'
+psqlc "update work_orders set status='in_progress' where id='$OPEN_WO'; update work_orders set completed_at=completed_at+interval '1 second' where id='$IMPORTED_WO'" >/dev/null
+test "$(psqlc "select public.verification_work_order_eligible('$ORG','$ASSET','$IMPORTED_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'false'
+psqlc "update work_orders set completed_at=completed_at-interval '1 second' where id='$IMPORTED_WO'" >/dev/null
 
 CONNECTOR_ID=$(psqlc "select id from connectors where organization_id='$ORG' and connector_key='$CONNECTOR_KEY'")
 MAPPING_ID=$(psqlc "select id from connector_entity_mappings where connector_id='$CONNECTOR_ID' and entity_type='work_order'")
