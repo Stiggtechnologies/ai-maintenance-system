@@ -166,26 +166,6 @@ end
 $test$;
 
 reset role;
-do $allowance$
-begin
-  -- Inspect the private commercial binding only as the PostgreSQL test owner.
-  -- The service role exercised above must remain unable to read this schema.
-  if not exists (
-    select 1 from private.llm_org_quotas
-    where organization_id='91111111-1111-4111-8111-111111111111'
-      and commercial_billing_source='azure_marketplace'
-      and commercial_offer_id='syncai-enterprise'
-      and commercial_plan_id='enterprise-plus'
-      and commercial_allowance_mode='hard_stop'
-      and included_calls_per_period=20 and max_calls_per_period=20
-      and included_tokens_per_period=2000 and max_tokens_per_period=2000
-      and max_decisions_per_period=10
-  ) then
-    raise exception 'authoritative plan change did not rebind the AI allowance';
-  end if;
-end
-$allowance$;
-
 select set_config('request.jwt.claim.sub','92222222-2222-4222-8222-222222222222',true);
 set local role authenticated;
 do $entitlement$
@@ -231,6 +211,27 @@ end
 $reinstate$;
 
 reset role;
+do $allowance$
+begin
+  -- Inspect the private commercial binding only as the PostgreSQL test owner,
+  -- after reinstate has made the upgraded plan active again. Suspension above
+  -- correctly clears this binding; service_role must still not read it.
+  if not exists (
+    select 1 from private.llm_org_quotas
+    where organization_id='91111111-1111-4111-8111-111111111111'
+      and commercial_billing_source='azure_marketplace'
+      and commercial_offer_id='syncai-enterprise'
+      and commercial_plan_id='enterprise-plus'
+      and commercial_allowance_mode='hard_stop'
+      and included_calls_per_period=20 and max_calls_per_period=20
+      and included_tokens_per_period=2000 and max_tokens_per_period=2000
+      and max_decisions_per_period=10
+  ) then
+    raise exception 'authoritative plan change and reinstate did not bind the upgraded AI allowance';
+  end if;
+end
+$allowance$;
+
 select set_config('request.jwt.claim.sub','92222222-2222-4222-8222-222222222222',true);
 set local role authenticated;
 do $restored$
