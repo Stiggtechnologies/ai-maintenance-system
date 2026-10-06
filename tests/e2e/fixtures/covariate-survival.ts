@@ -1,12 +1,15 @@
 import { execFileSync } from "node:child_process";
-import { createHmac, randomUUID } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import {
   createClient,
   type Session,
   type SupabaseClient,
 } from "@supabase/supabase-js";
 import type { BrowserContext } from "@playwright/test";
-import { requireLocalEndpoint } from "../../../src/test/support/survivalBrowserBoundary";
+import {
+  assuranceFixture,
+  requireLocalEndpoint,
+} from "../../../src/test/support/survivalBrowserBoundary";
 
 // Disposable LOCAL assurance fixtures, not real MFA enrollment, customer
 // evidence, engineering qualification or production credentials. Do not log
@@ -100,26 +103,6 @@ function clientFor(apiUrl: string, anonKey: string, token?: string) {
   });
 }
 
-function assuranceFixture(session: Session, signingKey: string): Session {
-  const [header, body] = session.access_token.split(".");
-  const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
-  const now = Math.floor(Date.now() / 1000);
-  payload.aal = "aal2";
-  payload.iat = now;
-  payload.exp = now + 3600;
-  payload.amr = [...(payload.amr ?? []), { method: "totp", timestamp: now }];
-  const unsigned = `${header}.${Buffer.from(JSON.stringify(payload)).toString("base64url")}`;
-  const signature = createHmac("sha256", signingKey)
-    .update(unsigned)
-    .digest("base64url");
-  return {
-    ...session,
-    access_token: `${unsigned}.${signature}`,
-    expires_at: payload.exp,
-    expires_in: 3600,
-  };
-}
-
 export async function installLocalBrowserSession(
   context: BrowserContext,
   apiUrl: string,
@@ -177,7 +160,9 @@ export async function createSurvivalBrowserFixture(baseURL: string) {
     );
     const verified = await client.auth.getUser(session.access_token);
     if (verified.error || verified.data.user?.id !== id)
-      throw new Error("Actual GoTrue getUser must verify the local session");
+      throw new Error(
+        `Actual GoTrue getUser must verify the local session (status=${verified.error?.status ?? "none"}, code=${verified.error?.code ?? "none"})`,
+      );
     return {
       client,
       session,
