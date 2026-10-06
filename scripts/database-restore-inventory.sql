@@ -71,10 +71,35 @@ order by nspname;
 select jsonb_build_object('kind','relation','key',n.nspname||'.'||c.relname,'value',
   jsonb_build_array(c.relkind,c.relpersistence,pg_get_userbyid(c.relowner),
     c.relrowsecurity,c.relforcerowsecurity,
-    case when c.relacl is null then null else array(select x::text from unnest(c.relacl) x order by x::text) end,c.reloptions))
+    case when c.relacl is null then null else array(select x::text from unnest(c.relacl) x order by x::text) end,c.reloptions,c.relispopulated))
 from pg_class c join pg_namespace n on n.oid=c.relnamespace
 where n.nspname in ('public','auth','storage','supabase_migrations')
   and c.relkind in ('r','p','v','m','S','f') order by n.nspname,c.relname;
+
+-- Sequence counters are not MVCC snapshot state. Never call nextval/setval.
+-- Text preserves full bigint precision; a second source inventory after dump
+-- must match before the source snapshot is released.
+select format($sequence$
+  select jsonb_build_object('kind','sequence','key',%L,'value',
+    %L::jsonb || jsonb_build_object('lastValue',last_value::text,'isCalled',is_called))
+  from %I.%I;
+$sequence$,n.nspname||'.'||c.relname,jsonb_build_object(
+  'dataType',format_type(s.seqtypid,null),'start',s.seqstart::text,
+  'increment',s.seqincrement::text,'minimum',s.seqmin::text,'maximum',s.seqmax::text,
+  'cache',s.seqcache::text,'cycle',s.seqcycle,
+  'ownedBy',(select jsonb_agg(jsonb_build_array(rn.nspname,rc.relname,a.attname,d.deptype)
+    order by rn.nspname,rc.relname,a.attname,d.deptype)
+    from pg_depend d join pg_class rc on rc.oid=d.refobjid
+    join pg_namespace rn on rn.oid=rc.relnamespace
+    join pg_attribute a on a.attrelid=rc.oid and a.attnum=d.refobjsubid
+    where d.classid='pg_class'::regclass and d.objid=c.oid
+      and d.refclassid='pg_class'::regclass and d.refobjsubid>0 and d.deptype in ('a','i'))),
+  n.nspname,c.relname)
+from pg_sequence s join pg_class c on c.oid=s.seqrelid
+join pg_namespace n on n.oid=c.relnamespace
+where n.nspname in ('public','auth','storage','supabase_migrations')
+order by n.nspname,c.relname
+\gexec
 
 select jsonb_build_object('kind','view','key',n.nspname||'.'||c.relname,'value',pg_get_viewdef(c.oid))
 from pg_class c join pg_namespace n on n.oid=c.relnamespace
@@ -121,8 +146,9 @@ where n.nspname in ('public','auth','storage') and not t.tgisinternal order by n
 select jsonb_build_object('kind','index','key',schemaname||'.'||indexname,'value',indexdef)
 from pg_indexes where schemaname in ('public','auth','storage','supabase_migrations') order by schemaname,indexname;
 
--- Each ordinary table contributes count + ordered multiset SHA-256, including
--- duplicates and nulls. No sampling, no row contents in the inventory.
+-- Each ordinary table or populated materialized view contributes count +
+-- ordered multiset SHA-256, including duplicates and nulls. No sampling or row
+-- contents in the inventory. WITH NO DATA availability is checked above.
 -- Partition parents are deliberately not double-counted; leaf tables are read.
 select format($query$
   select jsonb_build_object('kind','data','key',%L,'value',jsonb_build_object(
@@ -130,6 +156,7 @@ select format($query$
   from (select encode(sha256(convert_to(to_jsonb(t)::text,'UTF8')),'hex') h from %I.%I t) rows;
 $query$,n.nspname||'.'||c.relname,n.nspname,c.relname)
 from pg_class c join pg_namespace n on n.oid=c.relnamespace
-where n.nspname in ('public','auth','storage','supabase_migrations') and c.relkind='r'
+where n.nspname in ('public','auth','storage','supabase_migrations')
+  and (c.relkind='r' or (c.relkind='m' and c.relispopulated))
 order by n.nspname,c.relname
 \gexec

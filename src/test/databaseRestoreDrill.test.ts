@@ -24,6 +24,123 @@ const local = {
 
 describe("database restore-drill boundaries", () => {
   afterEach(() => vi.unstubAllEnvs());
+  it("inventories exact sequence configuration and counters without advancing them or losing bigint precision", () => {
+    const inventory = readFileSync(
+      new URL("../../scripts/database-restore-inventory.sql", import.meta.url),
+      "utf8",
+    );
+    expect(inventory).toContain("'kind','sequence'");
+    expect(inventory).toContain("from pg_sequence s");
+    for (const field of [
+      "seqstart",
+      "seqincrement",
+      "seqmin",
+      "seqmax",
+      "seqcache",
+    ])
+      expect(inventory).toContain(`${field}::text`);
+    expect(inventory).toContain("last_value::text");
+    expect(inventory).toContain("'isCalled',is_called");
+    expect(inventory).toContain("s.seqcycle");
+    expect(inventory).toContain("'ownedBy'");
+    expect(inventory).toContain("d.deptype in ('a','i')");
+    expect(inventory).not.toMatch(/\b(?:nextval|setval)\s*\(/i);
+  });
+  it("qualifies materialized-view availability and populated rows without querying WITH NO DATA views", () => {
+    const inventory = readFileSync(
+      new URL("../../scripts/database-restore-inventory.sql", import.meta.url),
+      "utf8",
+    );
+    expect(inventory).toContain("c.reloptions,c.relispopulated");
+    expect(inventory).toContain(
+      "(c.relkind='r' or (c.relkind='m' and c.relispopulated))",
+    );
+  });
+  it("checks snapshot inventory and nontransactional sequence stability after backup, before closing the source snapshot", () => {
+    const implementation = readFileSync(
+      new URL("../../scripts/database-restore-drill.mjs", import.meta.url),
+      "utf8",
+    );
+    const guard = implementation.indexOf('timed("source_backup_inventory"');
+    expect(guard).toBeGreaterThan(implementation.indexOf('timed("backup"'));
+    expect(guard).toBeLessThan(
+      implementation.indexOf("await snapshotSession.close();"),
+    );
+    expect(implementation).toContain("compareManifests(before, afterBackup)");
+    expect(implementation).toContain(
+      "report.sourceBackupInventoryStable = true;",
+    );
+    const output = drill.createPrivateOutput();
+    drill.writePrivateArtifact(
+      output,
+      "source-after-backup-inventory.json",
+      "[]",
+    );
+    expect(
+      statSync(join(output, "source-after-backup-inventory.json")).mode & 0o777,
+    ).toBe(0o600);
+  });
+  it("rejects counter, called-state, definition and materialized population changes with private values redacted", () => {
+    const data = ["public", "auth", "storage", "supabase_migrations"].map(
+      (schema) => ({
+        kind: "data",
+        key: `${schema}.fixture`,
+        value: { count: 0, digest: "a".repeat(64) },
+      }),
+    );
+    const sequence = {
+      kind: "sequence",
+      key: "public.private_counter",
+      value: {
+        dataType: "bigint",
+        start: "1",
+        increment: "1",
+        minimum: "1",
+        maximum: "9223372036854775807",
+        cache: "1",
+        cycle: false,
+        lastValue: "9007199254740993",
+        isCalled: true,
+      },
+    };
+    const original = [...data, sequence];
+    for (const value of [
+      { ...sequence.value, lastValue: "9007199254740992" },
+      { ...sequence.value, isCalled: false },
+      { ...sequence.value, increment: "2" },
+      { ...sequence.value, cycle: true },
+    ])
+      expect(() =>
+        drill.compareManifests(original, [...data, { ...sequence, value }]),
+      ).toThrow("differs");
+    const summary = drill.inventoryMismatchSummary(original, [
+      ...data,
+      { ...sequence, value: { ...sequence.value, isCalled: false } },
+    ]);
+    expect(summary.differences[0]).toMatchObject({
+      kind: "sequence",
+      changed: 1,
+      fields: { isCalled: 1 },
+    });
+    expect(JSON.stringify(summary)).not.toMatch(/private_counter|900719925/);
+    const materialized = {
+      kind: "relation",
+      key: "public.private_materialized",
+      value: ["m", "p", "postgres", false, false, null, null, true],
+    };
+    expect(() =>
+      drill.compareManifests(
+        [...data, materialized],
+        [
+          ...data,
+          {
+            ...materialized,
+            value: [...materialized.value.slice(0, 7), false],
+          },
+        ],
+      ),
+    ).toThrow("differs");
+  });
   it("reparses captured NOT VALID CHECKs only in a bounded rollback-only reference transaction", () => {
     const entry = {
       kind: "constraint",

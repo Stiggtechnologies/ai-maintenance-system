@@ -31,11 +31,23 @@ recommendations, decisions, approvals, work, audit history and customer identity
 remain the existing tables. No application queue, workflow engine, audit store,
 new migration or parallel evidence model is introduced.
 
-Qualification compares all ordinary table rows in `public`, `auth`, `storage`
-and `supabase_migrations` using counts and ordered multiset SHA-256 digests.
+Qualification compares all ordinary table and populated materialized-view rows
+in `public`, `auth`, `storage` and `supabase_migrations` using counts and ordered
+multiset SHA-256 digests. Materialized-view populated/unpopulated state is also
+compared. An intentionally unpopulated view is not queried or treated as a
+populated empty view. Its definition, columns, owner and privileges still match.
 It compares roles/memberships, extensions and schemas, plus canonical relation
 owners/ACLs/RLS flags, columns, policies, functions (including SECURITY DEFINER,
 owner/search path/grants), constraints, indexes and noninternal triggers.
+Sequences include exact data type, start/increment/minimum/maximum/cache/cycle,
+canonical owning column, current counter and called state. Integer values are
+captured as text so JavaScript cannot round bigint counters. Inventory reads
+never advance or reset a sequence. Sequence state is not protected by the
+exported MVCC snapshot, so a second source inventory under the same snapshot
+must match after the dump and before snapshot release; observed counter drift
+fails qualification before any target is created. The restored sequence state
+must match as well. This checks the observed backup interval, not an assertion
+that the source has no concurrent activity.
 Column position is the ordinal among live columns, not the physical `attnum`
 slot left after a historical column drop. Logical dump/restore does not recreate
 inaccessible tombstone slots. Live-column identity and order still compare
@@ -116,6 +128,9 @@ counts only; unknown names become `other`. Constraint-definition diagnostics
 report fixed constraint types and NOT VALID booleans only, never expressions.
 Definition deltas report changed-span lengths and fixed character classes only;
 they do not print changed values or normalize a definition mismatch away.
+Source-after-backup inventory and exact sequence values remain private. The
+summary contains only the source-stability result and counts of compared
+sequences/materialized views, never their identities, counters or row digests.
 
 For a differing, nondeferrable NOT VALID CHECK only, a bounded reference witness
 may reparse the captured source definition on the restored relation in a
@@ -198,6 +213,16 @@ describe `pg_get_constraintdef` as a reconstructed creating command, not origina
 SQL text. The [NOT VALID constraint semantics](https://www.postgresql.org/docs/17/sql-altertable.html)
 allow the reference to be parsed without scanning or modifying existing rows;
 the transaction is rolled back and its inventory effects are verified absent.
+PostgreSQL's [sequence semantics](https://www.postgresql.org/docs/16/functions-sequence.html)
+distinguish the next value from its called state and explain why changes are not
+rolled back. Its [sequence catalog](https://www.postgresql.org/docs/16/catalog-pg-sequence.html)
+defines the configuration controls, while the [relation catalog](https://www.postgresql.org/docs/16/catalog-pg-class.html)
+identifies materialized-view population state. A real synthetic phased
+dump/restore retained counters beyond JavaScript's exact-number range and both
+populated and unpopulated views. The previous inventory missed a changed counter
+and materialized-view availability; the extended inventory rejected those,
+called-state, increment, owning-column, materialized-row and source-counter-drift
+mutations. This is a mechanism proof, not hosted full-chain or production proof.
 Synthetic socket-only PostgreSQL 16 probes reproduced the missing-member ACL
 failure and passed after reconstruction; a separate phased restore retained
 database owner/ACL/settings and rejected changed grant options and null-to-empty

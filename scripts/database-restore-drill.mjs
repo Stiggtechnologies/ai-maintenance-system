@@ -434,7 +434,7 @@ export function createPrivateOutput(parent = tmpdir()) {
 
 export function writePrivateArtifact(output, name, value) {
   if (
-    !/^(report\.json|source-inventory\.json|restored-inventory\.json|post-reference-inventory\.json|constraint-references\.json|roles\.sql|database\.dump|graphql-overlay\.sql|graphql-schema-acl\.sql)$/.test(
+    !/^(report\.json|source-inventory\.json|source-after-backup-inventory\.json|restored-inventory\.json|post-reference-inventory\.json|constraint-references\.json|roles\.sql|database\.dump|graphql-overlay\.sql|graphql-schema-acl\.sql)$/.test(
       name,
     )
   ) {
@@ -532,7 +532,20 @@ export function inventoryMismatchSummary(source, target) {
       "forceRowSecurity",
       "acl",
       "options",
+      "populated",
     ],
+    sequence: {
+      dataType: "dataType",
+      start: "start",
+      increment: "increment",
+      minimum: "minimum",
+      maximum: "maximum",
+      cache: "cache",
+      cycle: "cycle",
+      ownedBy: "ownedBy",
+      lastValue: "lastValue",
+      isCalled: "isCalled",
+    },
     view: null,
     column: [
       "position",
@@ -1189,6 +1202,31 @@ export async function runRestoreDrill({
         }
       }
     });
+    const afterBackup = await timed("source_backup_inventory", async () =>
+      parseInventory(
+        await sql(
+          source.id,
+          "postgres",
+          "/var/run/postgresql",
+          `begin isolation level repeatable read read only; set transaction snapshot '${snapshotSession.snapshot}';\n${inventorySql}\ncommit;`,
+        ),
+      ),
+    );
+    writePrivateArtifact(
+      output,
+      "source-after-backup-inventory.json",
+      JSON.stringify(afterBackup),
+    );
+    try {
+      compareManifests(before, afterBackup);
+    } catch (error) {
+      report.inventoryMismatchSummary = inventoryMismatchSummary(
+        before,
+        afterBackup,
+      );
+      throw error;
+    }
+    report.sourceBackupInventoryStable = true;
     await snapshotSession.close();
     snapshotSession = undefined;
     report.backupSha256 = sha(readFileSync(join(output, "database.dump")));
@@ -1476,6 +1514,12 @@ export async function runRestoreDrill({
       report.inventoryMismatchSummary = inventoryMismatchSummary(before, after);
       throw error;
     }
+    report.sequenceCountersCompared = before.filter(
+      (entry) => entry.kind === "sequence",
+    ).length;
+    report.materializedViewsCompared = before.filter(
+      (entry) => entry.kind === "relation" && entry.value[0] === "m",
+    ).length;
     const witness = await timed("tenant_runtime", () =>
       sql(targetId, bootstrap, "/tmp", restoredWitness),
     );
