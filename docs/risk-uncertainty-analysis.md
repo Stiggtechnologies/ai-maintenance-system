@@ -144,6 +144,31 @@ database/API witnesses and additive workspace scope/lifecycle echoes still
 require fresh runtime qualification. Applied migrations and production are
 unchanged; U18.02 remains partial.
 
+The following submitted-history phase passes 1,833 local tests in 20 files,
+application TypeScript and scoped lint. Six new source failures preceded the
+repair: identity, organization, author, creation time and every engineering
+column are frozen from submission, not only after review. The whole-row guard
+excludes exactly seven digest/review fields, then restricts them to the single
+actual initial digest finalization or the retained human review transition.
+Reviewed terminal rows refuse every update. Evidence bindings can only be
+inserted while the initial pending packet still has its zero digest; finalized
+cited history cannot be appended. Existing submit/review/digest/calculation
+bodies, table schema, human gates and ACLs are unchanged.
+
+Additive native diagnostics specify all 33 submitted immutable columns, all
+40 columns of validated and rejected records, exact digest/metadata/binding and
+noninitial insertion refusals, and full artifact preservation. A separate
+initializer control requires wrong-digest and fabricated-review refusal before
+exact canonical finalization, then rolls back all provisional data and marker
+state. The rejected control uses the actual independent review RPC on version
+2 and qualifies its exact packet/digest/human approval before subtransaction
+rollback. Missing receipt versions cannot pass through SQL NULL comparisons.
+Owner/internal-marker diagnostics are not authenticated API bypass tests; the
+original API/RLS/refusal tests remain. These new history database controls have
+**not executed** at this local checkpoint. Neither source tests nor old-head
+CI establish native history qualification, atomic stale-pending replacement,
+stronger source/content digest standing or full U18 completion.
+
 SyncAI U18.02 adds versioned uncertainty packets to the canonical Risk Operating System. It supports bounded probability estimates, confidence intervals, best/expected/worst loss cases, ranked one-at-a-time sensitivity inputs, value-of-information analysis, adopted decision-threshold snapshots and measurable reassessment triggers.
 
 It does not add a second risk register, evidence store, approval queue or audit ledger. Each packet belongs to a canonical `risks` record, cites canonical `evidence_items`, records its human disposition in `approvals`, and writes its lifecycle events to `audit_events`.

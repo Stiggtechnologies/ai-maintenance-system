@@ -197,39 +197,52 @@ begin
   if v_marker<>'granted' then
     raise exception 'risk uncertainty analysis changes require the governed submit and review functions';
   end if;
-  if tg_op='UPDATE' and old.status in ('validated','rejected') and (
-    new.risk_id is distinct from old.risk_id
-    or new.version is distinct from old.version
-    or new.method is distinct from old.method
-    or new.basis is distinct from old.basis
-    or new.probability_lower is distinct from old.probability_lower
-    or new.probability_central is distinct from old.probability_central
-    or new.probability_upper is distinct from old.probability_upper
-    or new.confidence_level is distinct from old.confidence_level
-    or new.confidence_interval_lower is distinct from old.confidence_interval_lower
-    or new.confidence_interval_upper is distinct from old.confidence_interval_upper
-    or new.best_case_loss is distinct from old.best_case_loss
-    or new.expected_case_loss is distinct from old.expected_case_loss
-    or new.worst_case_loss is distinct from old.worst_case_loss
-    or new.currency is distinct from old.currency
-    or new.sensitivity_inputs is distinct from old.sensitivity_inputs
-    or new.sensitivity_results is distinct from old.sensitivity_results
-    or new.threshold_profile_id is distinct from old.threshold_profile_id
-    or new.decision_thresholds is distinct from old.decision_thresholds
-    or new.reassessment_triggers is distinct from old.reassessment_triggers
-    or new.review_due_at is distinct from old.review_due_at
-    or new.voi_action is distinct from old.voi_action
-    or new.voi_information_cost is distinct from old.voi_information_cost
-    or new.voi_decision_cost_if_wrong is distinct from old.voi_decision_cost_if_wrong
-    or new.voi_uncertainty_reduction is distinct from old.voi_uncertainty_reduction
-    or new.voi_probability_decision_changes is distinct from old.voi_probability_decision_changes
-    or new.voi_expected_value is distinct from old.voi_expected_value
-    or new.voi_net_value is distinct from old.voi_net_value
-    or new.voi_recommendation is distinct from old.voi_recommendation
-    or new.analysis_digest is distinct from old.analysis_digest
-    or new.author_id is distinct from old.author_id
-  ) then
-    raise exception 'reviewed risk uncertainty analysis inputs are immutable; submit a new version';
+  if tg_op='INSERT' then
+    if new.status is distinct from 'pending_review'
+      or new.analysis_digest is distinct from repeat('0',64)
+      or new.reviewer_id is not null or new.reviewed_at is not null
+      or new.review_note is not null or new.approval_id is not null
+      or new.derived_evidence_item_id is not null then
+      raise exception 'risk uncertainty insertion requires an initial pending packet without review artifacts';
+    end if;
+  end if;
+  if tg_op='UPDATE' then
+    if old.status in ('validated','rejected') then
+      raise exception 'reviewed risk uncertainty analysis history is immutable; submit a new version';
+    end if;
+    -- Every submitted identity, engineering input and future column is frozen.
+    -- Only the one initialization and named-human review channels below differ.
+    if (to_jsonb(new) - array['status','analysis_digest','reviewer_id','reviewed_at','review_note','approval_id','derived_evidence_item_id'])
+      is distinct from
+      (to_jsonb(old) - array['status','analysis_digest','reviewer_id','reviewed_at','review_note','approval_id','derived_evidence_item_id']) then
+      raise exception 'submitted risk uncertainty analysis inputs are immutable; submit a new version';
+    end if;
+    if old.analysis_digest=repeat('0',64) then
+      if old.status is distinct from 'pending_review'
+        or new.status is distinct from 'pending_review'
+        or new.analysis_digest=repeat('0',64)
+        or new.analysis_digest is distinct from public.risk_uncertainty_analysis_digest(old.organization_id,old.id)
+        or new.reviewer_id is distinct from old.reviewer_id
+        or new.reviewed_at is distinct from old.reviewed_at
+        or new.review_note is distinct from old.review_note
+        or new.approval_id is distinct from old.approval_id
+        or new.derived_evidence_item_id is distinct from old.derived_evidence_item_id then
+        raise exception 'risk uncertainty initial digest finalization must bind the exact pending inputs and evidence';
+      end if;
+    else
+      if new.analysis_digest is distinct from old.analysis_digest then
+        raise exception 'submitted risk uncertainty analysis digest is immutable; submit a new version';
+      end if;
+      if new is distinct from old and (
+        old.status is distinct from 'pending_review'
+        or new.status not in ('validated','rejected')
+      ) then
+        raise exception 'risk uncertainty lifecycle changes require the independent review transition';
+      end if;
+      -- The existing row CHECK requires the complete independent reviewer,
+      -- date, substantive note, approval and validated calculated-evidence tuple.
+      -- The sole public review RPC retains current role/tenant and self-review gates.
+    end if;
   end if;
   return new;
 end $$;
@@ -253,6 +266,7 @@ begin
     select 1 from public.risk_uncertainty_analyses a
     join public.evidence_items e on e.id=new.evidence_item_id
     where a.id=new.analysis_id and a.organization_id=new.organization_id
+      and a.status='pending_review' and a.analysis_digest=repeat('0',64)
       and e.organization_id=new.organization_id and e.risk_id=a.risk_id
       and e.verification_status='verified'
   ) then

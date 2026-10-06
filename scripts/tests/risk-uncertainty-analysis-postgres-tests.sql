@@ -384,6 +384,154 @@ do $$ declare packet uuid; before_row jsonb; detail text; refused boolean; total
     raise exception 'native uncertainty RPC/helper ACL failed'; end if;
 end $$;
 
+-- U18 SUBMITTED HISTORY REFUSALS BEGIN
+-- Owner/internal-marker diagnostics deliberately exercise the row triggers;
+-- they are not an authenticated API bypass, and touch only this random fixture.
+create function pg_temp.u18_history_refusals(p_packet uuid,p_terminal boolean)
+returns void language plpgsql as $$
+declare baseline jsonb; before_row jsonb; field record; changed jsonb;
+  old_marker text:=coalesce(current_setting('app.risk_uncertainty_write',true),'');
+  detail text; refused boolean; attempts integer:=0; required_count bigint;
+  expected_error text;
+begin
+  baseline:=pg_temp.u18_state();
+  select to_jsonb(a) into before_row from public.risk_uncertainty_analyses a where id=p_packet;
+  if before_row is null
+    or (p_terminal and before_row->>'status' not in ('validated','rejected'))
+    or (not p_terminal and before_row->>'status' is distinct from 'pending_review')
+    or before_row->>'analysis_digest'=repeat('0',64) then
+    raise exception 'history refusal target must be an actual finalized submitted packet'; end if;
+  perform set_config('app.risk_uncertainty_write','granted',true);
+  expected_error:=case when p_terminal
+    then 'reviewed risk uncertainty analysis history is immutable; submit a new version'
+    else 'submitted risk uncertainty analysis inputs are immutable; submit a new version' end;
+  for field in select a.attname as name,format_type(a.atttypid,a.atttypmod) as kind
+    from pg_catalog.pg_attribute a
+    where a.attrelid='public.risk_uncertainty_analyses'::regclass and a.attnum>0 and not a.attisdropped
+      and (p_terminal or a.attname not in
+        ('status','analysis_digest','reviewer_id','reviewed_at','review_note','approval_id','derived_evidence_item_id'))
+    order by a.attnum loop
+    case field.kind
+      when 'uuid' then changed:=to_jsonb(gen_random_uuid());
+      when 'text' then changed:=to_jsonb(coalesce(before_row->>field.name,'')||'-changed');
+      when 'integer' then changed:=to_jsonb((before_row->>field.name)::integer+1);
+      when 'numeric' then changed:=to_jsonb((before_row->>field.name)::numeric+1);
+      when 'boolean' then changed:=to_jsonb(not (before_row->>field.name)::boolean);
+      when 'timestamp with time zone' then changed:=to_jsonb((before_row->>field.name)::timestamptz+interval '1 microsecond');
+      when 'text[]' then changed:=(before_row->field.name)||jsonb_build_array('New immutable history probe trigger');
+      when 'jsonb' then changed:=(before_row->field.name)||jsonb_build_object('history_mutation_probe',true);
+      else raise exception 'new packet column type requires an explicit history witness';
+    end case;
+    refused:=false;
+    begin
+      execute format('update public.risk_uncertainty_analyses set %I=(jsonb_populate_record(null::public.risk_uncertainty_analyses,$1)).%I where id=$2',field.name,field.name)
+        using jsonb_build_object(field.name,changed),p_packet;
+    exception when raise_exception then
+      get stacked diagnostics detail=message_text;
+      refused:=detail=expected_error;
+    end;
+    if not refused or pg_temp.u18_state() is distinct from baseline then
+      raise exception 'exact submitted/terminal history refusal or complete artifact preservation failed'; end if;
+    attempts:=attempts+1;
+  end loop;
+  select count(*) into required_count from jsonb_object_keys(before_row);
+  if not p_terminal then required_count:=required_count-7; end if;
+  if attempts<>required_count or required_count<33 then
+    raise exception 'submitted history all-column refusal coverage failed'; end if;
+  if not p_terminal then
+    refused:=false;
+    begin update public.risk_uncertainty_analyses set analysis_digest=repeat('0',64) where id=p_packet;
+    exception when raise_exception then get stacked diagnostics detail=message_text;
+      refused:=detail='submitted risk uncertainty analysis digest is immutable; submit a new version'; end;
+    if not refused or pg_temp.u18_state() is distinct from baseline then
+      raise exception 'finalized digest cannot be reset or leave artifacts'; end if;
+    refused:=false;
+    begin update public.risk_uncertainty_analyses set review_note='Metadata-only mutation without an independent review transition.' where id=p_packet;
+    exception when raise_exception then get stacked diagnostics detail=message_text;
+      refused:=detail='risk uncertainty lifecycle changes require the independent review transition'; end;
+    if not refused or pg_temp.u18_state() is distinct from baseline then
+      raise exception 'metadata-only pending mutation refusal or artifact preservation failed'; end if;
+    -- Even a valid existing evidence binding must hit the history guard before
+    -- duplicate-key handling: any unrelated constraint error is NOT a pass.
+    refused:=false;
+    begin insert into public.risk_uncertainty_analysis_evidence(organization_id,analysis_id,evidence_item_id)
+      select organization_id,p_packet,evidence_item_id from public.risk_uncertainty_analysis_evidence
+      where analysis_id=p_packet limit 1;
+    exception when raise_exception then get stacked diagnostics detail=message_text;
+      refused:=detail='analysis evidence must be verified evidence linked to this exact risk and organization'; end;
+    if not refused or pg_temp.u18_state() is distinct from baseline then
+      raise exception 'finalized evidence-binding append refusal or artifact preservation failed'; end if;
+    for changed in select value from (values
+      (before_row||jsonb_build_object('id',gen_random_uuid())),
+      (before_row||jsonb_build_object('id',gen_random_uuid(),'status','validated')),
+      (before_row||jsonb_build_object('id',gen_random_uuid(),'analysis_digest',repeat('0',64),
+        'review_note','A fake review tuple on an initial pending packet.'))
+    ) q(value) loop
+      refused:=false;
+      begin insert into public.risk_uncertainty_analyses
+        select (jsonb_populate_record(null::public.risk_uncertainty_analyses,changed)).*;
+      exception when raise_exception then get stacked diagnostics detail=message_text;
+        refused:=detail='risk uncertainty insertion requires an initial pending packet without review artifacts'; end;
+      if not refused or pg_temp.u18_state() is distinct from baseline then
+        raise exception 'noninitial packet insertion refusal or artifact preservation failed'; end if;
+    end loop;
+  end if;
+  perform set_config('app.risk_uncertainty_write',old_marker,true);
+end $$;
+select pg_temp.u18_history_refusals((select id from u18_packet),false);
+-- Initializer-only control uses the otherwise empty secondary synthetic risk.
+-- Prove both exact digest refusal and successful single finalization, then
+-- remove the complete temporary packet/binding footprint by subtransaction.
+do $$ declare f record; baseline jsonb; initial_state jsonb; candidate jsonb;
+  packet uuid:=gen_random_uuid(); digest text; wrong_digest text; detail text;
+  refused boolean; qualified boolean:=false; old_marker text; begin
+  select * into f from u18_fixture;
+  baseline:=pg_temp.u18_state();
+  old_marker:=coalesce(current_setting('app.risk_uncertainty_write',true),'');
+  begin
+    perform set_config('app.risk_uncertainty_write','granted',true);
+    select to_jsonb(a)||jsonb_build_object('id',packet,'risk_id',f.other_risk,
+      'version',1,'analysis_digest',repeat('0',64)) into candidate
+      from public.risk_uncertainty_analyses a where a.id=(select id from u18_packet);
+    insert into public.risk_uncertainty_analyses
+      select (jsonb_populate_record(null::public.risk_uncertainty_analyses,candidate)).*;
+    insert into public.risk_uncertainty_analysis_evidence(organization_id,analysis_id,evidence_item_id)
+      values(f.org,packet,f.wrong_risk);
+    initial_state:=pg_temp.u18_state();
+    digest:=public.risk_uncertainty_analysis_digest(f.org,packet);
+    if digest is null or digest=repeat('0',64) then
+      raise exception 'initialization control needs the actual nonzero canonical digest'; end if;
+    wrong_digest:=case when digest=repeat('a',64) then repeat('b',64) else repeat('a',64) end;
+    refused:=false;
+    begin update public.risk_uncertainty_analyses set analysis_digest=wrong_digest where id=packet;
+    exception when raise_exception then get stacked diagnostics detail=message_text;
+      refused:=detail='risk uncertainty initial digest finalization must bind the exact pending inputs and evidence'; end;
+    if not refused or pg_temp.u18_state() is distinct from initial_state then
+      raise exception 'incorrect initial digest refusal or complete artifact preservation failed'; end if;
+    refused:=false;
+    begin update public.risk_uncertainty_analyses set analysis_digest=digest,
+      review_note='Initial digest finalization must not fabricate review metadata.' where id=packet;
+    exception when raise_exception then get stacked diagnostics detail=message_text;
+      refused:=detail='risk uncertainty initial digest finalization must bind the exact pending inputs and evidence'; end;
+    if not refused or pg_temp.u18_state() is distinct from initial_state then
+      raise exception 'initial digest metadata refusal or complete artifact preservation failed'; end if;
+    update public.risk_uncertainty_analyses set analysis_digest=digest where id=packet;
+    if not exists(select 1 from public.risk_uncertainty_analyses a
+      where a.id=packet and a.organization_id=f.org and a.risk_id=f.other_risk
+        and a.analysis_digest=digest and a.status='pending_review' and a.reviewer_id is null
+        and a.review_note is null and a.approval_id is null and a.derived_evidence_item_id is null)
+      or public.risk_uncertainty_analysis_digest(f.org,packet) is distinct from digest then
+      raise exception 'exact initial digest did not finalize the unchanged pending packet'; end if;
+    qualified:=true;
+    raise exception using errcode='ZX005',message='U18 digest initialization fixture rollback';
+  exception when sqlstate 'ZX005' then null;
+  end;
+  if not qualified or pg_temp.u18_state() is distinct from baseline
+    or coalesce(current_setting('app.risk_uncertainty_write',true),'') is distinct from old_marker then
+    raise exception 'initialization qualification or full state/marker rollback witness failed'; end if;
+end $$;
+-- U18 SUBMITTED HISTORY REFUSALS END
+
 set local role authenticated;
 select set_config('request.jwt.claim.sub',reviewer::text,true) from u18_fixture;
 do $$ declare f record; packet uuid; result jsonb; workspace jsonb; item jsonb; begin
@@ -427,6 +575,52 @@ do $$ declare f record; packet uuid; result jsonb; workspace jsonb; item jsonb; 
     raise exception 'canonical workspace projection parity failed'; end if;
 end $$;
 reset role;
+-- U18 TERMINAL HISTORY REFUSALS BEGIN
+select pg_temp.u18_history_refusals((select id from u18_packet),true);
+-- Qualify the rejected branch through the actual independent review RPC, then
+-- roll back its entire successor/advisory/approval/audit footprint.
+do $$ declare f record; baseline jsonb; result jsonb; packet uuid; packet_digest text; qualified boolean:=false; begin
+  select * into f from u18_fixture;
+  baseline:=pg_temp.u18_state();
+  begin
+    perform set_config('request.jwt.claim.sub',f.author::text,true);
+    result:=public.submit_risk_uncertainty_analysis(f.risk,f.input,array[f.verified]);
+    if result ? 'error' or result->>'riskId' is distinct from f.risk::text
+      or result->>'validationStatus' is distinct from 'pending_review'
+      or (result->>'version')::integer is distinct from 2
+      or result->>'analysisId' is null or result->>'analysisDigest' is null
+      or result->>'analysisDigest' !~ '^[0-9a-f]{64}$'
+      or result->'operationalAuthorization' is distinct from 'false'::jsonb then
+      raise exception 'rejected history control requires an actual new pending version'; end if;
+    packet:=(result->>'analysisId')::uuid;
+    packet_digest:=result->>'analysisDigest';
+    perform set_config('request.jwt.claim.sub',f.reviewer::text,true);
+    result:=public.review_risk_uncertainty_analysis(packet,'rejected',
+      'Independent synthetic reviewer rejects this separate rollback-only history control.');
+    if result ? 'error' or result->>'analysisId' is distinct from packet::text
+      or result->>'riskId' is distinct from f.risk::text
+      or result->>'analysisDigest' is distinct from packet_digest
+      or result->>'decision' is distinct from 'rejected'
+      or result->'operationalAuthorization' is distinct from 'false'::jsonb
+      or not exists(select 1 from public.risk_uncertainty_analyses a
+        join public.approvals p on p.id=a.approval_id and p.organization_id=a.organization_id and p.risk_id=a.risk_id
+        where a.id=packet and a.organization_id=f.org and a.risk_id=f.risk and a.version=2
+          and a.status='rejected' and a.author_id=f.author and a.reviewer_id=f.reviewer
+          and a.analysis_digest=packet_digest and not a.operational_authorization
+          and a.approval_id=(result->>'approvalId')::uuid and a.derived_evidence_item_id is null
+          and p.status='rejected' and p.approver_user_id=f.reviewer
+          and p.approval_scope->>'analysisId'=packet::text and p.approval_scope->>'analysisDigest'=packet_digest
+          and p.approval_scope->'operationalAuthorization'='false'::jsonb) then
+      raise exception 'rejected history control lacks its actual independent disposition'; end if;
+    perform pg_temp.u18_history_refusals(packet,true);
+    qualified:=true;
+    raise exception using errcode='ZX004',message='U18 rejected history fixture rollback';
+  exception when sqlstate 'ZX004' then null;
+  end;
+  if not qualified or pg_temp.u18_state() is distinct from baseline then
+    raise exception 'rejected history qualification or full no-artifact rollback witness failed'; end if;
+end $$;
+-- U18 TERMINAL HISTORY REFUSALS END
 -- Only the newly generated evidence; require one actual edit before stale proof.
 do $$ declare affected bigint; begin
   update evidence_items set quality_grade='moderate' where id=(select verified from u18_fixture) and quality_grade='high';
