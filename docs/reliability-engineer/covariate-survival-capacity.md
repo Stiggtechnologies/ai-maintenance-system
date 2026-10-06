@@ -103,6 +103,21 @@ legacy duplicate error, creates no event and changes no approval. Its explicit
 status is `legacy_same_exposure_life_ingestion=false`. Until a fresh hosted
 run executes that assertion, the new runtime witness remains pending.
 
+The capture client recognizes only the exact known duplicate response, returns
+an explicit `LifeEventIdentityCollisionError`, and never retries with changed
+exposure or fabricates a successful identity. The workbench preserves rejected
+inputs and pauses both analysis entry points for the affected normalized
+component in the current session. Changing the component label and back, or
+recording another event successfully, does not clear that unresolved gap.
+This is a bounded UI mitigation only: it creates no parallel persistence,
+approval or server policy, does not survive a reload as a canonical gap record,
+and does not repair the shared identity contract. Reloading is not evidence of
+reconciliation. The actual installed-life browser scenarios additionally
+exercise the duplicate capture through the real customer UI, assert unchanged
+canonical life and calculation IDs, and retain `life-identity-capture-gap.png`.
+That new browser witness also remains pending until its exact-head hosted run
+executes and the screenshot is inspected.
+
 This needs a serialized architecture/invariant migration, not a numerical
 workaround. Required closure includes an explicit physical-life/source identity
 at initial capture, preservation of historical records and old API behavior,

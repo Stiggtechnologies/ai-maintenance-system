@@ -153,6 +153,10 @@ describe("actual installed-life browser acceptance boundary", () => {
       "Joint conditional hazard sampling uncertainty · 3 assets",
       "Pointwise nominal 95% model confidence bounds",
       "installed-model-confidence-bounds.png",
+      "life-identity-capture-gap.png",
+      "Life event was not recorded:",
+      "This component has an unresolved physical-life capture",
+      "afterCollisionHistory.data).toEqual(beforeCollisionHistory.data)",
       'boundsVersion: "cox-model-confidence/1/draft"',
       "coverageValidated: false",
       "futureEventPredictionInterval: false",
@@ -169,7 +173,12 @@ describe("actual installed-life browser acceptance boundary", () => {
     const selections = [
       ...acceptance.matchAll(/\.(getBy\w+)\(([^)]*)\)\s*\.selectOption\(/g),
     ];
-    expect(selections).toHaveLength(9);
+    expect(selections).toHaveLength(11);
+    expect(acceptance).toContain('name: "Asset", exact: true');
+    expect(acceptance).toContain('name: "Event classification", exact: true');
+    expect(acceptance).toContain(
+      'const lifeWorkbench = page.getByRole("region"',
+    );
     for (const [, method, args] of selections) {
       expect(method).toBe("getByRole");
       expect(args).toContain('"combobox"');

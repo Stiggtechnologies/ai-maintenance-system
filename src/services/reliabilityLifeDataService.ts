@@ -49,6 +49,21 @@ export interface LifeEventInput {
   evidenceBasis: string;
 }
 
+/** The legacy key cannot distinguish an exact retry from a different life.
+ * Do not manufacture exposure, a successful event ID or a retry workaround.
+ * This error is a client explanation, not a new canonical gap/approval record.
+ */
+export class LifeEventIdentityCollisionError extends Error {
+  readonly code = "legacy_physical_life_collision";
+
+  constructor() {
+    super(
+      "Life event was not recorded: the existing asset/component/removal-hours/event-kind key already exists. This may be a retry or a different physical life; the legacy capture identity cannot distinguish them. Reconcile the original source and physical-life identity with the engineering/data steward. Do not alter measured hours, dates or asset identity to bypass this refusal. Do not omit the unresolved life and claim the remaining population is complete.",
+    );
+    this.name = "LifeEventIdentityCollisionError";
+  }
+}
+
 export interface LifeDataRunReceipt {
   report_id: string;
   run_id: string;
@@ -131,6 +146,8 @@ export async function recordComponentLifeEvent(
   });
   if (error) throw new Error(error.message);
   const result = data as { error?: string; event_id?: number } | null;
+  if (result?.error === "this component life event is already recorded")
+    throw new LifeEventIdentityCollisionError();
   if (result?.error) throw new Error(result.error);
   if (!result?.event_id)
     throw new Error("No life-event identity was returned.");
