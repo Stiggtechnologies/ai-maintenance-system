@@ -240,6 +240,28 @@ Command was: GRANT EXECUTE ON FUNCTION private_name() TO private_role;`),
       ),
     ).toEqual(["pg_stat_statements"]);
   });
+  it("classifies source routine metadata without exposing unknown namespace or extension names", () => {
+    expect(
+      drill.classifyMissingFunctionCatalog({
+        schema: "pg_catalog",
+        extension: null,
+        builtin: false,
+      }),
+    ).toEqual({
+      missingFunctionSourceHint: "catalog_custom",
+      missingFunctionNamespaceHint: "pg_catalog",
+    });
+    expect(
+      drill.classifyMissingFunctionCatalog({
+        schema: "private_schema",
+        extension: "private_extension",
+        builtin: false,
+      }),
+    ).toEqual({ missingFunctionSourceHint: "extension_member" });
+    expect(drill.classifyMissingFunctionCatalog(null)).toEqual({
+      missingFunctionSourceHint: "not_found",
+    });
+  });
   it.each([
     [
       "permission denied to grant privileges as role private-grantor",

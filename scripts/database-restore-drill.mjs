@@ -59,6 +59,56 @@ export function platformExtensionVersionMismatches(source, target) {
   });
 }
 
+export function classifyMissingFunctionCatalog(metadata) {
+  if (!metadata) return { missingFunctionSourceHint: "not_found" };
+  if (
+    typeof metadata.schema !== "string" ||
+    typeof metadata.builtin !== "boolean" ||
+    !(metadata.extension === null || typeof metadata.extension === "string")
+  )
+    throw new Error("Unqualified routine diagnostic metadata");
+  const namespace = [
+    "pg_catalog",
+    "public",
+    "auth",
+    "storage",
+    "extensions",
+    "net",
+    "cron",
+    "vault",
+    "graphql",
+    "graphql_public",
+  ].includes(metadata.schema)
+    ? metadata.schema
+    : undefined;
+  const extension = [
+    "pg_stat_statements",
+    "pg_cron",
+    "pg_net",
+    "pgsodium",
+    "supabase_vault",
+    "postgis",
+    "vector",
+    "pg_graphql",
+    "pgcrypto",
+    "uuid-ossp",
+    "pgjwt",
+  ].includes(metadata.extension)
+    ? metadata.extension
+    : undefined;
+  return {
+    missingFunctionSourceHint: metadata.extension
+      ? "extension_member"
+      : metadata.schema === "pg_catalog"
+        ? metadata.builtin
+          ? "catalog_builtin"
+          : "catalog_custom"
+        : "custom_routine",
+    ...(namespace ? { missingFunctionNamespaceHint: namespace } : {}),
+    ...(extension ? { missingFunctionExtensionHint: extension } : {}),
+  };
+}
+
 export function prepareRolesRestore(script, bootstrap) {
   if (!["postgres", "supabase_admin"].includes(bootstrap))
     throw new Error("Unqualified source bootstrap identity");
@@ -336,7 +386,7 @@ export function safeDiagnostic(diagnostic) {
 async function command(
   binary,
   args,
-  { input, outputFd, timeout = 300000 } = {},
+  { input, outputFd, timeout = 300000, onFailureDiagnostic } = {},
 ) {
   return new Promise((resolve, reject) => {
     const child = spawn(binary, args, {
@@ -364,16 +414,23 @@ async function command(
       finished = true;
       reject(new Error("Recovery subprocess could not start"));
     });
-    child.on("close", (code) => {
+    child.on("close", async (code) => {
       clearTimeout(timer);
       if (finished) return;
-      if (code !== 0 || bytes > 32 * 1024 * 1024)
+      if (code !== 0 || bytes > 32 * 1024 * 1024) {
+        if (onFailureDiagnostic) {
+          try {
+            await onFailureDiagnostic(diagnostic);
+          } catch {
+            // Diagnostic failure must never swallow the original restore failure.
+          }
+        }
         reject(
           Object.assign(new Error("Recovery subprocess failed"), {
             ...safeDiagnostic(diagnostic),
           }),
         );
-      else resolve(output.trim());
+      } else resolve(output.trim());
     });
     if (input !== undefined) child.stdin.end(input);
     else child.stdin.end();
@@ -752,6 +809,28 @@ export async function runRestoreDrill({
       try {
         await command("docker", databaseRestoreArgs(targetId, bootstrap), {
           input: readFileSync(join(output, "database.dump")),
+          onFailureDiagnostic: async (diagnostic) => {
+            const identity = diagnostic.match(
+              /ERROR:\s+(?:[0-9A-Z]{5}:\s+)?function ([^\r\n]{1,2000}) does not exist/,
+            )?.[1];
+            if (!identity) return;
+            try {
+              // Encode the literal rather than interpolate identifiers or SQL.
+              // Metadata stays in memory; only fixed classifications enter reports.
+              const identityHex = Buffer.from(identity, "utf8").toString("hex");
+              const metadata = JSON.parse(
+                await sql(
+                  source.id,
+                  "postgres",
+                  "/var/run/postgresql",
+                  `set statement_timeout='5s'; select coalesce((select jsonb_build_object('schema',n.nspname,'extension',e.extname,'builtin',p.oid<16384) from pg_proc p join pg_namespace n on n.oid=p.pronamespace left join pg_depend d on d.classid='pg_proc'::regclass and d.objid=p.oid and d.deptype='e' left join pg_extension e on e.oid=d.refobjid where p.oid=to_regprocedure(convert_from(decode('${identityHex}','hex'),'UTF8'))),'null'::jsonb);`,
+                ),
+              );
+              Object.assign(report, classifyMissingFunctionCatalog(metadata));
+            } catch {
+              report.functionCatalogDiagnosticUnavailable = true;
+            }
+          },
         });
       } catch (error) {
         // Read-only diagnosis of the partial throwaway target. A regular archive
