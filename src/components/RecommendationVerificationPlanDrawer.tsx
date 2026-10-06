@@ -60,8 +60,7 @@ export function RecommendationVerificationPlanDrawer({
     void load();
   }, [load]);
 
-  const editable =
-    canGovern && plan !== null && plan.state !== "closed";
+  const editable = canGovern && plan !== null && plan.state !== "closed";
   const canSave =
     editable &&
     method.trim().length >= 10 &&
@@ -87,7 +86,7 @@ export function RecommendationVerificationPlanDrawer({
       setPlan(next);
       setSaved(
         next.state === "open_obligation"
-          ? "Open verification debt replanned. The named owner must still measure and cite governed evidence."
+          ? "Outcome obligation planned. The named owner must still measure and cite governed evidence."
           : "Verification plan recorded. Approval will snapshot it into the outcome obligation.",
       );
       onSaved?.();
@@ -119,9 +118,7 @@ export function RecommendationVerificationPlanDrawer({
               <CalendarCheck2 className="h-4 w-4 text-teal-400" aria-hidden />
               Outcome verification plan
             </h2>
-            <p className="mt-1 text-xs text-slate-400">
-              {recommendationTitle}
-            </p>
+            <p className="mt-1 text-xs text-slate-400">{recommendationTitle}</p>
           </div>
           <button
             aria-label="Close"
@@ -152,17 +149,26 @@ export function RecommendationVerificationPlanDrawer({
                 <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
                 {plan.state === "closed"
                   ? "Plan closed — read-only record"
-                  : plan.planComplete
-                    ? "Plan complete"
-                    : plan.legacyDebt
-                      ? "Legacy obligation requires an explicit plan"
-                      : "Approval is blocked until this plan is complete"}
+                  : plan.state === "unwatched_action"
+                    ? "Unwatched action — create an explicit obligation"
+                    : plan.planComplete
+                      ? "Plan complete"
+                      : plan.legacyDebt
+                        ? "Legacy obligation requires an explicit plan"
+                        : "Approval is blocked until this plan is complete"}
               </p>
               {plan.state === "closed" && (
                 <p className="mt-2 text-slate-400">
                   A closed plan does not prove a verified outcome. Consult the
                   recorded result and governed evidence; historical outcomes
                   remain labelled separately.
+                </p>
+              )}
+              {plan.state === "unwatched_action" && (
+                <p className="mt-2 text-slate-400">
+                  Recording this plan creates open verification debt now, not a
+                  historical result. New evidence must be observed after that
+                  obligation is created; no outcome is assumed or backdated.
                 </p>
               )}
               <p className="mt-2 text-slate-400">
@@ -176,6 +182,7 @@ export function RecommendationVerificationPlanDrawer({
               <label className="block text-xs text-slate-400">
                 Verification method
                 <textarea
+                  aria-label="Verification method"
                   value={method}
                   onChange={(event) => setMethod(event.target.value)}
                   rows={3}
@@ -187,6 +194,7 @@ export function RecommendationVerificationPlanDrawer({
               <label className="block text-xs text-slate-400">
                 Intended outcome
                 <textarea
+                  aria-label="Intended outcome"
                   value={outcome}
                   onChange={(event) => setOutcome(event.target.value)}
                   rows={2}
@@ -198,6 +206,7 @@ export function RecommendationVerificationPlanDrawer({
               <label className="block text-xs text-slate-400">
                 Acceptance criteria
                 <textarea
+                  aria-label="Acceptance criteria"
                   value={acceptance}
                   onChange={(event) => setAcceptance(event.target.value)}
                   rows={3}
@@ -210,6 +219,7 @@ export function RecommendationVerificationPlanDrawer({
                 <label className="block text-xs text-slate-400">
                   Outcome verification date
                   <input
+                    aria-label="Outcome verification date"
                     type="date"
                     value={dueDate}
                     min={new Date().toISOString().slice(0, 10)}
@@ -221,6 +231,7 @@ export function RecommendationVerificationPlanDrawer({
                 <label className="block text-xs text-slate-400">
                   Named verification owner
                   <select
+                    aria-label="Named verification owner"
                     value={ownerId}
                     onChange={(event) => setOwnerId(event.target.value)}
                     disabled={!editable || busy}

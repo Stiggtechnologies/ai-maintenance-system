@@ -59,7 +59,9 @@ describe("RecommendationVerificationPlanDrawer", () => {
     );
 
     expect(
-      await screen.findByText(/Approval is blocked until this plan is complete/),
+      await screen.findByText(
+        /Approval is blocked until this plan is complete/,
+      ),
     ).toBeTruthy();
     expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
     expect(screen.getByText(/do not authorize work/)).toBeTruthy();
@@ -143,12 +145,89 @@ describe("RecommendationVerificationPlanDrawer", () => {
       />,
     );
 
-    expect(await screen.findByText("Plan closed — read-only record")).toBeTruthy();
+    expect(
+      await screen.findByText("Plan closed — read-only record"),
+    ).toBeTruthy();
     expect(screen.queryByText(/Approval is blocked/)).toBeNull();
     expect(screen.getByText(/does not prove a verified outcome/)).toBeTruthy();
     expect(screen.getByLabelText("Verification method")).toBeDisabled();
     expect(
-      screen.queryByRole("button", { name: "Record governed verification plan" }),
+      screen.queryByRole("button", {
+        name: "Record governed verification plan",
+      }),
     ).toBeNull();
+  });
+
+  it("keeps exact field labels stable when a saved plan and owner options are populated", async () => {
+    getPlan.mockResolvedValue({
+      ...EMPTY_PLAN,
+      method: "Observe the accepted CMMS completion and subsequent condition",
+      intendedOutcome: "Sustained seal containment",
+      acceptanceCriteria: "No repeat leak across the agreed observation window",
+      dueDate: "2026-10-20",
+      ownerId: "owner-1",
+    });
+    render(
+      <RecommendationVerificationPlanDrawer
+        recommendationId="rec-1"
+        recommendationTitle="Replace P-101 seal"
+        canGovern
+        onClose={() => undefined}
+      />,
+    );
+    await screen.findByText(/Approval is blocked/);
+    for (const label of [
+      "Verification method",
+      "Intended outcome",
+      "Acceptance criteria",
+      "Outcome verification date",
+      "Named verification owner",
+    ]) {
+      expect(screen.getByLabelText(label, { exact: true })).toHaveAttribute(
+        "aria-label",
+        label,
+      );
+    }
+    fireEvent.change(
+      screen.getByLabelText("Verification method", { exact: true }),
+      {
+        target: {
+          value: "Compare fresh evidence against the approved baseline",
+        },
+      },
+    );
+    expect(
+      screen.getByLabelText("Verification method", { exact: true }),
+    ).toHaveValue("Compare fresh evidence against the approved baseline");
+  });
+
+  it("opens a recoverable unwatched action without pretending an outcome exists", async () => {
+    getPlan.mockResolvedValue({
+      ...EMPTY_PLAN,
+      recommendationStatus: "approved",
+      state: "unwatched_action",
+      legacyDebt: true,
+    });
+    render(
+      <RecommendationVerificationPlanDrawer
+        recommendationId="rec-1"
+        recommendationTitle="Unwatched seal intervention"
+        canGovern
+        onClose={() => undefined}
+      />,
+    );
+    expect(
+      await screen.findByText(
+        "Unwatched action — create an explicit obligation",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/New evidence must be observed after/),
+    ).toBeTruthy();
+    expect(screen.getByLabelText("Verification method")).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "Record governed verification plan" }),
+    ).toBeDisabled();
+    expect(screen.queryByText(/Approval is blocked/)).toBeNull();
   });
 });

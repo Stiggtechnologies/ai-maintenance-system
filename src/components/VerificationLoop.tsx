@@ -26,6 +26,7 @@ import { supabase } from "../lib/supabase";
 import {
   recordVerificationResult,
   type OpenVerification,
+  type UnwatchedVerificationAction,
   type VerificationResultKind,
 } from "../services/operatingLoopService";
 import { assessLoop, type VerificationPosture } from "../lib/verification-loop";
@@ -44,17 +45,23 @@ const VERIFICATION_PLAN_ROLES = new Set([
 export function VerificationLoop() {
   const { profile } = useAuth();
   const canPlanVerification = VERIFICATION_PLAN_ROLES.has(profile?.role ?? "");
-  const [planRow, setPlanRow] = useState<OpenVerification | null>(null);
+  const [planRow, setPlanRow] = useState<Pick<
+    OpenVerification,
+    "recommendationId" | "recommendationTitle"
+  > | null>(null);
   const { data, loading, error, refetch } = useAsyncData<{
     posture: VerificationPosture | null;
     open: OpenVerification[];
+    unwatched: UnwatchedVerificationAction[];
   }>(async () => {
-    const [p, o] = await Promise.all([
+    const [p, o, u] = await Promise.all([
       supabase.rpc("get_verification_posture"),
       supabase.rpc("get_open_verifications", { p_limit: 20 }),
+      supabase.rpc("get_unwatched_verification_actions", { p_limit: 20 }),
     ]);
     if (p.error) throw new Error(p.error.message);
     if (o.error) throw new Error(o.error.message);
+    if (u.error) throw new Error(u.error.message);
     const raw = (p.data as Record<string, number>[])?.[0] ?? null;
     return {
       posture: raw
@@ -69,15 +76,14 @@ export function VerificationLoop() {
             waived: Number(raw.waived),
             actionedWithoutObligation: Number(raw.actionedWithoutObligation),
             unplannedOpen: Number(raw.unplannedOpen ?? 0),
-            evidenceBackedCompleted: Number(
-              raw.evidenceBackedCompleted ?? 0,
-            ),
+            evidenceBackedCompleted: Number(raw.evidenceBackedCompleted ?? 0),
             legacyCompletedWithoutEvidence: Number(
               raw.legacyCompletedWithoutEvidence ?? 0,
             ),
           }
         : null,
       open: (o.data as OpenVerification[]) ?? [],
+      unwatched: (u.data as UnwatchedVerificationAction[]) ?? [],
     };
   }, []);
 
@@ -168,6 +174,44 @@ export function VerificationLoop() {
         </div>
       </div>
 
+      {data && data.unwatched.length > 0 && (
+        <div className="rounded-xl border border-rose-500/20 p-4">
+          <h3 className="text-sm font-semibold text-white">
+            Unwatched actions need an explicit plan
+          </h3>
+          <p className="mt-2 text-xs text-slate-400">
+            Showing {data.unwatched.length} of {loop.unwatched} unwatched
+            actions, oldest first. Planning creates an open obligation, not a
+            verified outcome. As actions are planned, the next ones appear.
+          </p>
+          <ul className="mt-3 space-y-2">
+            {data.unwatched.map((action) => (
+              <li
+                key={action.recommendationId}
+                className="rounded-lg border border-white/6 p-3"
+              >
+                <p className="text-sm text-slate-200">
+                  {action.recommendationTitle}
+                </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  {action.assetName ?? "Asset not recorded"} ·{" "}
+                  {action.recommendationStatus}
+                </p>
+                <button
+                  onClick={() => setPlanRow(action)}
+                  className="mt-2 flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-1.5 text-xs font-medium text-amber-200"
+                >
+                  <CalendarCheck2 className="h-3 w-3" aria-hidden />
+                  {canPlanVerification
+                    ? "Plan missing verification"
+                    : "View missing verification"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {data && data.open.length === 0 && (
         <div className="rounded-xl border border-white/6 p-4">
           <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
@@ -176,7 +220,8 @@ export function VerificationLoop() {
           </h3>
           <p className="mt-2 text-sm text-slate-400">
             No open verification obligations. Approving a recommendation creates
-            one. Until an obligation is open, there is nothing here to record.
+            one; explicitly planning an unwatched action also creates one. Until
+            an obligation is open, there is nothing here to record.
           </p>
         </div>
       )}
@@ -259,10 +304,7 @@ export function VerificationLoop() {
                     </button>
                   </div>
                 ) : (
-                  <RecordVerificationForm
-                    obligation={o}
-                    onRecorded={refetch}
-                  />
+                  <RecordVerificationForm obligation={o} onRecorded={refetch} />
                 )}
               </li>
             ))}

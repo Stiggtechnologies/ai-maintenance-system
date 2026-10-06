@@ -21,6 +21,7 @@ REC_EVIDENCE='c4080000-0000-4000-8000-000000000012'
 REC_CMMS='c4080000-0000-4000-8000-000000000013'
 REC_LEGACY='c4080000-0000-4000-8000-000000000014'
 FOREIGN_REC='c4080000-0000-4000-8000-000000000015'
+REC_UNWATCHED='c4080000-0000-4000-8000-000000000016'
 EVIDENCE_VALID='c4080000-0000-4000-8000-000000000021'
 EVIDENCE_UNVALIDATED='c4080000-0000-4000-8000-000000000022'
 EVIDENCE_FOREIGN='c4080000-0000-4000-8000-000000000023'
@@ -32,6 +33,10 @@ OPEN_WO_EXTERNAL='C408-WO-OPEN-1'
 token(){ curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}" | python3 -c "import json,sys;print(json.load(sys.stdin).get('access_token',''))"; }
 rpc(){ curl -sS -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "authorization: Bearer $1" -H 'content-type: application/json' -d "$3"; }
 psqlc(){ PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -tAc "$1"; }
+# Internal CMMS eligibility derives its contract hash from app_current_org.
+# Supply the same seeded human identity as the real recorder, without granting
+# this internal predicate to API clients or weakening its tenant filter.
+psql_human(){ PGPASSWORD=postgres PGOPTIONS="-c request.jwt.claim.sub=$RE_ID -c request.jwt.claim.role=authenticated" psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -tAc "$1"; }
 field(){ BODY="$1" KEY="$2" python3 - <<'PY'
 import json,os
 x=json.loads(os.environ['BODY'])
@@ -101,7 +106,8 @@ RE=$(token 'demo@syncai.ca' 'Demo123!@#')
 MANAGER=$(token 'manager@syncai.ca' 'Manager123!@#')
 ADMIN=$(token 'c408-admin@syncai.ca' 'C408Admin123!@#')
 AIBOT=$(token 'smoke-aibot@syncai.ca' 'AiBot123!@#')
-test -n "$RE"; test -n "$MANAGER"; test -n "$ADMIN"; test -n "$AIBOT"
+FOREIGN=$(token 'c408-foreign@syncai.ca' 'C408Foreign123!@#')
+test -n "$RE"; test -n "$MANAGER"; test -n "$ADMIN"; test -n "$AIBOT"; test -n "$FOREIGN"
 RE_ID='00000000-0000-0000-0000-000000000001'
 DUE=$(psqlc "select (current_date+60)::text")
 
@@ -120,6 +126,7 @@ values
 ('$REC_EVIDENCE','$ORG','$ASSET','C4.08 evidence outcome','Seal leakage recurs after solids-heavy startup.','Correct the verified startup seal mechanism.','Avoid repeated leakage and production interruption.',84,'action','pending','Exact-asset evidence supports bounded correction and explicit verification.','A wrong mechanism preserves the repeat failure and downtime.','Continue monitoring or inspect before changing the strategy.',current_date+30,'maintenance_manager','Compare leakage and vibration with the accepted baseline after repair.','Medium','\$140k'),
 ('$REC_CMMS','$ORG','$ASSET','C4.08 CMMS outcome','Completed inspection must be tied to governed source history.','Verify the completed exact-asset inspection outcome.','Close the loop without granting write-back authority.',80,'action','pending','The governed CMMS import provides exact completed-work evidence.','Wrong-asset or unaudited history could falsely close the loop.','Keep the obligation open until exact-asset work evidence exists.',current_date+30,'maintenance_manager','Confirm the imported completed inspection and acceptance result.','Low','\$80k'),
 ('$REC_LEGACY','$ORG','$ASSET','C4.08 legacy open debt','An older approved action has an assumed verification date.','Replan the open obligation before recording its result.','Prevent inherited assumptions from becoming fabricated assurance.',75,'advisory','approved','The historical obligation must become explicit before it closes.','Closing without a named plan would manufacture confidence.','Keep the obligation open until a human owner replans it.',current_date+20,'maintenance_manager','Historical placeholder method requiring explicit replan.','Low','\$40k'),
+('$REC_UNWATCHED','$ORG','$ASSET','C4.08 unwatched action','An older approved action has no outcome obligation.','Create explicit open verification debt, without claiming a historical outcome.','Recover the unwatched loop without inventing evidence.',75,'advisory','approved','The approved historical action still owes an observable outcome.','An absent obligation cannot be counted as a successful verification.','Record a human plan now and collect new exact-asset evidence.',current_date+20,'maintenance_manager','Historical method is not an explicit current verification plan.','Low','\$40k'),
 ('$FOREIGN_REC','$FOREIGN_ORG','c4080000-0000-4000-8000-000000000099','C4.08 foreign recommendation','Foreign issue.','Foreign action.','Foreign impact.',70,'advisory','pending','Foreign rationale.','Foreign consequence is intentionally substantive.','Foreign alternative is intentionally substantive.',current_date+20,'reliability_engineer','Foreign verification statement is deliberately substantive.','Low','\$10k');" >/dev/null
 
 R=$(rpc "$MANAGER" record_recommendation_assumptions "{\"p_recommendation_id\":\"$REC_NOPLAN\",\"p_packet\":{\"disposition\":\"none_identified\",\"basis\":\"The evidence, alternatives, consequence and validation scope were reviewed for material assumptions before release.\",\"items\":[]},\"p_note\":\"C4.08 independent assumption review for the exact recommendation.\"}")
@@ -138,6 +145,36 @@ SUPERVISOR_ID=$(psqlc "select id from user_profiles where organization_id='$ORG'
 test -n "$SUPERVISOR_ID"
 R=$(rpc "$MANAGER" record_recommendation_verification_plan "{\"p_recommendation_id\":\"$REC_EVIDENCE\",\"p_method\":\"Compare post-repair leakage and vibration against the accepted baseline.\",\"p_acceptance_criteria\":\"No visible leakage and overall vibration remains below 3.0 mm/s through 72 operating hours.\",\"p_intended_outcome\":\"The repeat startup seal-failure pattern is removed.\",\"p_due_date\":\"$DUE\",\"p_owner_id\":\"$SUPERVISOR_ID\"}")
 expect_contains "$R" 'same-tenant human verification owner'
+
+echo '— unwatched action recovery creates open debt now, not a prior outcome —'
+R=$(rpc "$RE" get_recommendation_verification_plan "{\"p_recommendation_id\":\"$REC_UNWATCHED\"}")
+test "$(field "$R" state)" = 'unwatched_action'
+test "$(psqlc "select count(*) from verification_obligations where recommendation_id='$REC_UNWATCHED'")" = '0'
+R=$(rpc "$RE" get_unwatched_verification_actions '{"p_limit":200}')
+expect_contains "$R" "$REC_UNWATCHED"
+R=$(rpc "$FOREIGN" get_unwatched_verification_actions '{"p_limit":200}')
+BODY="$R" TARGET="$REC_UNWATCHED" python3 -c 'import json,os; assert all(row["recommendationId"]!=os.environ["TARGET"] for row in json.loads(os.environ["BODY"]))'
+R=$(rpc "$FOREIGN" record_recommendation_verification_plan "{\"p_recommendation_id\":\"$REC_UNWATCHED\",\"p_method\":\"Inspect the measured post-action condition against the approved asset baseline.\",\"p_acceptance_criteria\":\"The observed condition meets the stated approved limit for the full verification window.\",\"p_intended_outcome\":\"The historical action is checked without backdating the evidence.\",\"p_due_date\":\"$DUE\",\"p_owner_id\":\"$FOREIGN_OWNER\"}")
+expect_contains "$R" 'same-tenant recommendation not found'
+UNWATCHED_PLAN="{\"p_recommendation_id\":\"$REC_UNWATCHED\",\"p_method\":\"Inspect the measured post-action condition against the approved asset baseline.\",\"p_acceptance_criteria\":\"The observed condition meets the stated approved limit for the full verification window.\",\"p_intended_outcome\":\"The historical action is checked without backdating the evidence.\",\"p_due_date\":\"$DUE\",\"p_owner_id\":\"$RE_ID\"}"
+R=$(rpc "$AIBOT" record_recommendation_verification_plan "$UNWATCHED_PLAN")
+expect_contains "$R" 'named human act'
+test "$(psqlc "select count(*) from verification_obligations where recommendation_id='$REC_UNWATCHED'")" = '0'
+R=$(rpc "$MANAGER" record_recommendation_verification_plan "$UNWATCHED_PLAN")
+noerr "$R"
+UNWATCHED_OBL=$(field "$R" obligationId); test -n "$UNWATCHED_OBL"
+test "$(psqlc "select (status='open' and result is null and verified_at is null and verified_by is null and evidence_id is null and work_order_id is null and evidence_required and not due_date_assumed and verification_owner_id='$RE_ID' and planned_at is not null)::text from verification_obligations where id='$UNWATCHED_OBL'")" = 'true'
+test "$(psqlc "select status from recommendations where id='$REC_UNWATCHED'")" = 'approved'
+test "$(psqlc "select count(*) from audit_events where entity_type='recommendation_verification_plan' and event_data->>'recommendation_id'='$REC_UNWATCHED' and event_data->>'previously_unwatched'='true' and jsonb_typeof(previous_state->'obligation_id')='null'")" = '1'
+R=$(rpc "$MANAGER" record_recommendation_verification_plan "$UNWATCHED_PLAN")
+noerr "$R"; test "$(field "$R" obligationId)" = "$UNWATCHED_OBL"
+test "$(psqlc "select count(*) from verification_obligations where recommendation_id='$REC_UNWATCHED'")" = '1'
+R=$(rpc "$RE" get_recommendation_verification_plan "{\"p_recommendation_id\":\"$REC_UNWATCHED\"}")
+test "$(field "$R" state)" = 'open_obligation'
+R=$(rpc "$RE" get_unwatched_verification_actions '{"p_limit":200}')
+BODY="$R" TARGET="$REC_UNWATCHED" python3 -c 'import json,os; assert all(row["recommendationId"]!=os.environ["TARGET"] for row in json.loads(os.environ["BODY"]))'
+R=$(rpc "$RE" get_unwatched_verification_actions '{"p_limit":1}')
+BODY="$R" python3 -c 'import json,os; assert len(json.loads(os.environ["BODY"]))<=1'
 
 for REC in "$REC_EVIDENCE" "$REC_CMMS"; do
   R=$(rpc "$MANAGER" record_recommendation_verification_plan "{\"p_recommendation_id\":\"$REC\",\"p_method\":\"Compare the measured post-action condition with the accepted exact-asset baseline.\",\"p_acceptance_criteria\":\"The measured result remains inside the approved condition limit for at least 72 operating hours.\",\"p_intended_outcome\":\"The approved action removes the bounded repeat-failure condition.\",\"p_due_date\":\"$DUE\",\"p_owner_id\":\"$RE_ID\"}")
@@ -225,28 +262,29 @@ OPEN_WO=$(psqlc "select id from work_orders where organization_id='$ORG' and sou
 test -n "$IMPORTED_WO"
 CMMS_OBL=$(psqlc "select id from verification_obligations where recommendation_id='$REC_CMMS'")
 CMMS_NOT_BEFORE=$(psqlc "select created_at::text from verification_obligations where id='$CMMS_OBL'")
-test "$(psqlc "select public.verification_work_order_eligible('$ORG','$ASSET','$IMPORTED_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'true'
-test "$(psqlc "select public.verification_work_order_eligible('$ORG','$ASSET','$STALE_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'false'
-test "$(psqlc "select public.verification_work_order_eligible('$ORG','$ASSET','$OPEN_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'false'
+test "$(psqlc "select public.verification_work_order_eligible('$ORG','$ASSET','$IMPORTED_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'false'
+test "$(psql_human "select public.verification_work_order_eligible('$ORG','$ASSET','$IMPORTED_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'true'
+test "$(psql_human "select public.verification_work_order_eligible('$ORG','$ASSET','$STALE_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'false'
+test "$(psql_human "select public.verification_work_order_eligible('$ORG','$ASSET','$OPEN_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'false'
 
 # A manual completion of an imported open order cannot borrow its old accepted
 # receipt. The source must itself have reported the completed-work facts.
 psqlc "update work_orders set status='completed' where id='$OPEN_WO'" >/dev/null
-test "$(psqlc "select public.verification_work_order_eligible('$ORG','$ASSET','$OPEN_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'false'
+test "$(psql_human "select public.verification_work_order_eligible('$ORG','$ASSET','$OPEN_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'false'
 psqlc "update work_orders set status='in_progress' where id='$OPEN_WO'; update work_orders set completed_at=completed_at+interval '1 second' where id='$IMPORTED_WO'" >/dev/null
-test "$(psqlc "select public.verification_work_order_eligible('$ORG','$ASSET','$IMPORTED_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'false'
+test "$(psql_human "select public.verification_work_order_eligible('$ORG','$ASSET','$IMPORTED_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'false'
 psqlc "update work_orders set completed_at=completed_at-interval '1 second' where id='$IMPORTED_WO'" >/dev/null
 
 CONNECTOR_ID=$(psqlc "select id from connectors where organization_id='$ORG' and connector_key='$CONNECTOR_KEY'")
 MAPPING_ID=$(psqlc "select id from connector_entity_mappings where connector_id='$CONNECTOR_ID' and entity_type='work_order'")
 psqlc "update connectors set enabled=false where id='$CONNECTOR_ID'" >/dev/null
-test "$(psqlc "select public.verification_work_order_eligible('$ORG','$ASSET','$IMPORTED_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'false'
+test "$(psql_human "select public.verification_work_order_eligible('$ORG','$ASSET','$IMPORTED_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'false'
 psqlc "update connectors set enabled=true where id='$CONNECTOR_ID'; update connector_entity_mappings set status='draft' where id='$MAPPING_ID'" >/dev/null
-test "$(psqlc "select public.verification_work_order_eligible('$ORG','$ASSET','$IMPORTED_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'false'
+test "$(psql_human "select public.verification_work_order_eligible('$ORG','$ASSET','$IMPORTED_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'false'
 psqlc "update connector_entity_mappings set status='approved' where id='$MAPPING_ID'; update connectors set direction='read_write',write_enabled=true where id='$CONNECTOR_ID'" >/dev/null
-test "$(psqlc "select public.verification_work_order_eligible('$ORG','$ASSET','$IMPORTED_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'false'
+test "$(psql_human "select public.verification_work_order_eligible('$ORG','$ASSET','$IMPORTED_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'false'
 psqlc "update connectors set direction='read_only',write_enabled=false where id='$CONNECTOR_ID'" >/dev/null
-test "$(psqlc "select public.verification_work_order_eligible('$ORG','$OTHER_ASSET','$IMPORTED_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'false'
+test "$(psql_human "select public.verification_work_order_eligible('$ORG','$OTHER_ASSET','$IMPORTED_WO','$CMMS_NOT_BEFORE'::timestamptz)::text")" = 'false'
 
 R=$(rpc "$RE" record_verification_result "{\"p_obligation_id\":\"$CMMS_OBL\",\"p_result\":\"achieved\",\"p_measured_note\":\"Completed inspection recorded zero visible leakage on the exact asset.\",\"p_evidence_id\":\"$EVIDENCE_VALID\",\"p_work_order_id\":\"$IMPORTED_WO\"}")
 expect_contains "$R" 'exactly one governed source'
@@ -255,6 +293,13 @@ noerr "$R"; test "$(field "$R" outcome)" = 'recorded'
 
 R=$(rpc "$RE" record_verification_result "{\"p_obligation_id\":\"$LEGACY_OBL\",\"p_result\":\"achieved\",\"p_measured_note\":\"Exact-asset completed inspection recorded zero visible leakage.\",\"p_evidence_id\":null,\"p_work_order_id\":\"$IMPORTED_WO\"}")
 noerr "$R"
+R=$(rpc "$RE" record_verification_result "{\"p_obligation_id\":\"$UNWATCHED_OBL\",\"p_result\":\"achieved\",\"p_measured_note\":\"Historical work must not become evidence of a new outcome.\",\"p_evidence_id\":null,\"p_work_order_id\":\"$STALE_WO\"}")
+expect_contains "$R" 'not a completed same-asset record'
+R=$(rpc "$RE" record_verification_result "{\"p_obligation_id\":\"$UNWATCHED_OBL\",\"p_result\":\"achieved\",\"p_measured_note\":\"The new inspection records the accepted exact-asset condition.\",\"p_evidence_id\":null,\"p_work_order_id\":\"$IMPORTED_WO\"}")
+noerr "$R"
+R=$(rpc "$MANAGER" record_recommendation_verification_plan "$UNWATCHED_PLAN")
+expect_contains "$R" 'completed or waived outcome is never overwritten'
+test "$(psqlc "select count(*) from verification_obligations where recommendation_id='$REC_UNWATCHED'")" = '1'
 
 echo '— persistence walls refuse direct plan, evidence-link and result forgery —'
 OUT=$(sql_must_fail "update recommendations set verification_due_date=current_date+90 where id='$REC_NOPLAN';")
@@ -265,10 +310,10 @@ OUT=$(sql_must_fail "update verification_obligations set measured_note='forged r
 grep -q 'frozen once' <<<"$OUT"
 
 test "$(psqlc "select count(*) from learning_events where recommendation_id='$REC_EVIDENCE' and event_type='verification_failed'")" = '1'
-test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='verification_result' and event_data->>'recommendation_id' in ('$REC_EVIDENCE','$REC_CMMS','$REC_LEGACY') and event_data->>'operational_authorization'='false'")" = '3'
+test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='verification_result' and event_data->>'recommendation_id' in ('$REC_EVIDENCE','$REC_CMMS','$REC_LEGACY','$REC_UNWATCHED') and event_data->>'operational_authorization'='false'")" = '4'
 test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='recommendation_verification_plan' and event_data->>'operational_authorization'='false'")" -ge 3
 test "$(psqlc "select (direction='read_only' and not write_enabled)::text from connectors where id='$CONNECTOR_ID'")" = 'true'
-test "$(psqlc "select count(*) from verification_obligations where id in ('$EVIDENCE_OBL','$CMMS_OBL','$LEGACY_OBL') and status='completed' and ((evidence_id is not null)::int+(work_order_id is not null)::int)=1")" = '3'
+test "$(psqlc "select count(*) from verification_obligations where id in ('$EVIDENCE_OBL','$CMMS_OBL','$LEGACY_OBL','$UNWATCHED_OBL') and status='completed' and ((evidence_id is not null)::int+(work_order_id is not null)::int)=1")" = '4'
 POSTURE=$(rpc "$RE" get_verification_posture '{}')
-test "$(field "$POSTURE" evidenceBackedCompleted)" -ge 3
-echo 'C4.08 verification-evidence smoke passed: explicit_plan=true no_assumed_date=true named_owner=true tenant_wall=true ai_refused=true exact_one_source=true independent_evidence=true governed_cmms_lineage=true legacy_replanned=true immutable_result=true learning=true audit=true no_write_authority=true'
+test "$(field "$POSTURE" evidenceBackedCompleted)" -ge 4
+echo 'C4.08 verification-evidence smoke passed: explicit_plan=true no_assumed_date=true named_owner=true tenant_wall=true ai_refused=true exact_one_source=true independent_evidence=true governed_cmms_lineage=true legacy_replanned=true unwatched_recovered=true no_backdated_outcome=true immutable_result=true learning=true audit=true no_write_authority=true'

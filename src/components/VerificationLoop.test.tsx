@@ -17,6 +17,7 @@ const OPEN_OBLIGATION = {
 const { rpcState } = vi.hoisted(() => ({
   rpcState: {
     open: [] as Array<Record<string, unknown>>,
+    unwatched: [] as Array<Record<string, unknown>>,
   },
 }));
 
@@ -47,7 +48,7 @@ vi.mock("../lib/supabase", () => ({
               notAchieved: 0,
               inconclusive: 0,
               waived: 0,
-              actionedWithoutObligation: 0,
+              actionedWithoutObligation: rpcState.unwatched.length,
             },
           ],
           error: null,
@@ -58,6 +59,9 @@ vi.mock("../lib/supabase", () => ({
           data: rpcState.open,
           error: null,
         });
+      }
+      if (name === "get_unwatched_verification_actions") {
+        return Promise.resolve({ data: rpcState.unwatched, error: null });
       }
       return Promise.resolve({ data: null, error: { message: "unknown rpc" } });
     }),
@@ -70,6 +74,7 @@ describe("VerificationLoop — named-human recorder", () => {
   beforeEach(() => {
     recordVerificationResult.mockReset();
     rpcState.open = [{ ...OPEN_OBLIGATION }];
+    rpcState.unwatched = [];
   });
 
   it("states that no obligation is open rather than hiding the list", async () => {
@@ -271,6 +276,29 @@ describe("VerificationLoop — named-human recorder", () => {
     expect(
       screen.getByRole("button", { name: "Complete verification plan" }),
     ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Record verification" }),
+    ).toBeNull();
+  });
+
+  it("makes unwatched action recovery reachable without offering a result recorder", async () => {
+    rpcState.open = [];
+    rpcState.unwatched = [
+      {
+        recommendationId: "old-rec-1",
+        recommendationTitle: "Historical pump intervention",
+        assetName: "P-101",
+        recommendationStatus: "approved",
+      },
+    ];
+    render(<VerificationLoop />);
+    expect(
+      await screen.findByText("Historical pump intervention"),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Plan missing verification" }),
+    ).toBeTruthy();
+    expect(screen.getByText(/Showing 1 of 1 unwatched/)).toBeTruthy();
     expect(
       screen.queryByRole("button", { name: "Record verification" }),
     ).toBeNull();

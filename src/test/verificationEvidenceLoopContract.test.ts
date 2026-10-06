@@ -20,7 +20,9 @@ describe("C4.08 evidence-linked verification contract", () => {
     expect(migration).toContain("verification_acceptance_criteria");
     expect(migration).toContain("verification_owner_id");
     expect(migration).toContain("alter table public.verification_obligations");
-    expect(migration).toContain("work_order_id uuid references public.work_orders");
+    expect(migration).toContain(
+      "work_order_id uuid references public.work_orders",
+    );
     expect(migration).not.toMatch(/create table[^;]*(verification|evidence)/);
   });
 
@@ -28,8 +30,12 @@ describe("C4.08 evidence-linked verification contract", () => {
     expect(migration).toContain(
       "enforce_recommendation_verification_plan_on_release",
     );
-    expect(migration).toContain("new.status in ('approved','released','scheduled')");
-    expect(migration).toContain("length(btrim(coalesce(r.verification_method,'')))>=10");
+    expect(migration).toContain(
+      "new.status in ('approved','released','scheduled')",
+    );
+    expect(migration).toContain(
+      "length(btrim(coalesce(r.verification_method,'')))>=10",
+    );
     expect(migration).toContain(
       "length(btrim(coalesce(r.verification_acceptance_criteria,'')))>=20",
     );
@@ -50,20 +56,20 @@ describe("C4.08 evidence-linked verification contract", () => {
     const triggerBody = migration.slice(triggerStart, triggerEnd);
     expect(triggerBody).toContain("new.verification_due_date,false");
     expect(triggerBody).not.toMatch(/interval\s*'30 days'|\+\s*30/);
-    expect(migration).toContain("syncai will not invent a +30-day verification date");
+    expect(migration).toContain(
+      "syncai will not invent a +30-day verification date",
+    );
   });
 
   it("requires the named owner and exactly one independently governed source", () => {
-    expect(migration).toContain("auth.uid() is distinct from o.verification_owner_id");
+    expect(migration).toContain(
+      "auth.uid() is distinct from o.verification_owner_id",
+    );
     expect(migration).toContain(
       "(p_evidence_id is null)=(p_work_order_id is null)",
     );
-    expect(migration).toContain(
-      "recommendation_provenance_status='validated'",
-    );
-    expect(migration).toContain(
-      "e.recommendation_id=p_recommendation_id",
-    );
+    expect(migration).toContain("recommendation_provenance_status='validated'");
+    expect(migration).toContain("e.recommendation_id=p_recommendation_id");
     expect(migration).toContain(
       "recommendation_provenance_reviewed_by is not null",
     );
@@ -96,49 +102,90 @@ describe("C4.08 evidence-linked verification contract", () => {
       "cr.source_contract_hash=public.cmms_read_contract_hash(c.id)",
     );
     expect(migration).toContain("run_actor.id=cr.triggered_by");
-    expect(migration).toContain("lower(btrim(s.payload->>'status'))=lower(btrim(w.status))");
-    expect(migration).toContain("nullif(s.payload->>'completed_at','')::timestamptz=w.completed_at");
+    expect(migration).toContain(
+      "lower(btrim(s.payload->>'status'))=lower(btrim(w.status))",
+    );
+    expect(migration).toContain(
+      "nullif(s.payload->>'completed_at','')::timestamptz=w.completed_at",
+    );
     expect(migration).toContain("source_asset.id=w.asset_id");
   });
 
   it("preserves requirement audit vocabulary and the source facts reviewed for verification", () => {
     expect(migration).toContain("'verification_status',d.verification_status");
     expect(migration).toContain("'verification_status',v_new_status");
-    expect(migration).toContain("'supersedes_obligation_id',o.supersedes_obligation_id");
+    expect(migration).toContain(
+      "'supersedes_obligation_id',o.supersedes_obligation_id",
+    );
     expect(migration).toContain("§70 human act");
     expect(migration).toContain("stays failed");
     expect(migration).toContain("protect_verification_evidence_observation");
     expect(migration).toContain("new.ts is distinct from old.ts");
-    expect(migration).toContain("new.description is distinct from old.description");
+    expect(migration).toContain(
+      "new.description is distinct from old.description",
+    );
     expect(migration).toContain("p_result is null or p_result not in");
     expect(migration).toContain("new.evidence_required:=true");
-    expect(migration).toContain("where status='completed' and evidence_required");
-    expect(migration).toContain("historical completed outcomes predate that gate");
+    expect(migration).toContain(
+      "where status='completed' and evidence_required",
+    );
+    expect(migration).toContain(
+      "historical completed outcomes predate that gate",
+    );
   });
 
   it("leaves shared requirement and pre-gate citation governance with its existing provenance wall", () => {
     const planGuard = migration.slice(
-      migration.indexOf("create or replace function public.enforce_verification_plan_write()"),
-      migration.indexOf("revoke all on function public.enforce_verification_plan_write()"),
+      migration.indexOf(
+        "create or replace function public.enforce_verification_plan_write()",
+      ),
+      migration.indexOf(
+        "revoke all on function public.enforce_verification_plan_write()",
+      ),
     );
     expect(planGuard).toContain("if old.recommendation_id is null then");
     const sourceGuard = migration.slice(
-      migration.indexOf("create or replace function public.enforce_verification_evidence_link()"),
-      migration.indexOf("revoke all on function public.enforce_verification_evidence_link()"),
+      migration.indexOf(
+        "create or replace function public.enforce_verification_evidence_link()",
+      ),
+      migration.indexOf(
+        "revoke all on function public.enforce_verification_evidence_link()",
+      ),
     );
     expect(sourceGuard).toContain(
       "if new.recommendation_id is null or not new.evidence_required then",
     );
     expect(sourceGuard.indexOf("new.evidence_required:=true")).toBeLessThan(
-      sourceGuard.indexOf("if new.recommendation_id is null or not new.evidence_required then"),
+      sourceGuard.indexOf(
+        "if new.recommendation_id is null or not new.evidence_required then",
+      ),
     );
     expect(sourceGuard).toContain(
       "cmms work-order evidence is supported only for recommendation outcome verification",
     );
     // The existing guard still freezes closed methods and records FK citation
     // severance. This slice must not replace or disable that backstop.
-    expect(migration).not.toContain("drop trigger if exists trg_verification_result_provenance");
-    expect(migration).not.toContain("disable trigger trg_verification_result_provenance");
+    expect(migration).not.toContain(
+      "drop trigger if exists trg_verification_result_provenance",
+    );
+    expect(migration).not.toContain(
+      "disable trigger trg_verification_result_provenance",
+    );
+  });
+
+  it("recovers an unwatched action as new open debt, never a fabricated prior outcome", () => {
+    expect(migration).toContain("v_created_obligation boolean:=false");
+    expect(migration).toContain("if o.status<>'open' then");
+    expect(migration).toContain("v_created_obligation:=true");
+    expect(migration).toContain("'previously_unwatched',v_created_obligation");
+    expect(migration).toContain("'unwatched_action'");
+    expect(migration).toContain("public.get_unwatched_verification_actions");
+    expect(migration).toContain("not exists(");
+    expect(migration).toContain(
+      "limit greatest(1,least(coalesce(p_limit,20),200))",
+    );
+    expect(loop).toContain("Plan missing verification");
+    expect(drawer).toContain("New evidence must be observed after");
   });
 
   it("enforces tenancy and immutability behind the RPC door", () => {
@@ -157,9 +204,7 @@ describe("C4.08 evidence-linked verification contract", () => {
       "verification_evidence_item_eligible",
       "verification_work_order_eligible",
     ]) {
-      expect(migration).toContain(
-        `revoke all on function public.${helper}`,
-      );
+      expect(migration).toContain(`revoke all on function public.${helper}`);
       expect(migration).not.toMatch(
         new RegExp(`grant\\s+execute\\s+on\\s+function\\s+public\\.${helper}`),
       );
@@ -172,7 +217,9 @@ describe("C4.08 evidence-linked verification contract", () => {
     expect(migration).toContain(
       "this migration does not enable plant execution or source-system write-back",
     );
-    expect(migration).not.toMatch(/execute[_ ]plant|write[_ -]?back\s*=\s*true/);
+    expect(migration).not.toMatch(
+      /execute[_ ]plant|write[_ -]?back\s*=\s*true/,
+    );
   });
 
   it("wires planning before approval and governed evidence selection at closure", () => {

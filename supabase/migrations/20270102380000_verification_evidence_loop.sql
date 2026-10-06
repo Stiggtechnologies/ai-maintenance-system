@@ -201,7 +201,9 @@ create trigger trg_recommendation_verification_plan_on_release
   before update of status on public.recommendations
   for each row execute function public.enforce_recommendation_verification_plan_on_release();
 
--- Re-plan an existing open debt or plan a pending recommendation. The same
+-- Re-plan existing open debt, recover unwatched actioned debt, or plan a
+-- pending recommendation. A recovered obligation begins now, with no invented
+-- result and no backdated observation window. The same
 -- function serves both states so there is one planning door and one audit
 -- vocabulary.
 create or replace function public.record_recommendation_verification_plan(
@@ -223,6 +225,7 @@ declare
   r public.recommendations%rowtype;
   o public.verification_obligations%rowtype;
   v_actioned boolean;
+  v_created_obligation boolean:=false;
 begin
   if auth.uid() is null or v_org is null then
     return jsonb_build_object('error','authenticated organization member required');
@@ -256,7 +259,7 @@ begin
   end if;
 
   select * into r from public.recommendations
-  where id=p_recommendation_id and organization_id=v_org for update;
+  where id=p_recommendation_id and organization_id=v_org for no key update;
   if not found then
     return jsonb_build_object('error','same-tenant recommendation not found');
   end if;
@@ -267,23 +270,37 @@ begin
 
   if v_actioned then
     select * into o from public.verification_obligations
-    where organization_id=v_org and recommendation_id=r.id and status='open'
+    where organization_id=v_org and recommendation_id=r.id
     for update;
     if not found then
-      return jsonb_build_object('error','this action has no open verification obligation to plan; a completed outcome is never overwritten');
+      perform set_config('app.verification_plan_write','granted',true);
+      insert into public.verification_obligations(
+        organization_id,recommendation_id,asset_id,method,intended_outcome,
+        due_date,due_date_assumed,acceptance_criteria,verification_owner_id,
+        evidence_required,planned_by,planned_at
+      ) values(
+        v_org,r.id,r.asset_id,btrim(p_method),btrim(p_intended_outcome),
+        p_due_date,false,btrim(p_acceptance_criteria),p_owner_id,
+        true,auth.uid(),now()
+      ) returning * into o;
+      v_created_obligation:=true;
+    else
+      if o.status<>'open' then
+        return jsonb_build_object('error','this action has no open verification obligation to plan; a completed or waived outcome is never overwritten');
+      end if;
+      perform set_config('app.verification_plan_write','granted',true);
+      update public.verification_obligations set
+        method=btrim(p_method),
+        acceptance_criteria=btrim(p_acceptance_criteria),
+        intended_outcome=btrim(p_intended_outcome),
+        due_date=p_due_date,
+        due_date_assumed=false,
+        verification_owner_id=p_owner_id,
+        evidence_required=true,
+        planned_by=auth.uid(),
+        planned_at=now()
+      where id=o.id;
     end if;
-    perform set_config('app.verification_plan_write','granted',true);
-    update public.verification_obligations set
-      method=btrim(p_method),
-      acceptance_criteria=btrim(p_acceptance_criteria),
-      intended_outcome=btrim(p_intended_outcome),
-      due_date=p_due_date,
-      due_date_assumed=false,
-      verification_owner_id=p_owner_id,
-      evidence_required=true,
-      planned_by=auth.uid(),
-      planned_at=now()
-    where id=o.id;
     perform set_config('app.verification_plan_write','',true);
   else
     perform set_config('app.verification_plan_write','granted',true);
@@ -306,14 +323,16 @@ begin
     jsonb_build_object(
       'recommendation_id',r.id,'obligation_id',o.id,
       'planned_by',auth.uid(),'verification_owner_id',p_owner_id,
+      'previously_unwatched',v_created_obligation,
       'operational_authorization',false),
     jsonb_build_object(
-      'method',case when v_actioned then o.method else r.verification_method end,
-      'acceptance_criteria',case when v_actioned then o.acceptance_criteria else r.verification_acceptance_criteria end,
-      'intended_outcome',case when v_actioned then o.intended_outcome else r.verification_intended_outcome end,
-      'due_date',case when v_actioned then o.due_date else r.verification_due_date end,
-      'due_date_assumed',case when v_actioned then o.due_date_assumed else null end,
-      'owner_id',case when v_actioned then o.verification_owner_id else r.verification_owner_id end),
+      'obligation_id',case when v_created_obligation then null else o.id end,
+      'method',case when v_created_obligation then null when v_actioned then o.method else r.verification_method end,
+      'acceptance_criteria',case when v_created_obligation then null when v_actioned then o.acceptance_criteria else r.verification_acceptance_criteria end,
+      'intended_outcome',case when v_created_obligation then null when v_actioned then o.intended_outcome else r.verification_intended_outcome end,
+      'due_date',case when v_created_obligation then null when v_actioned then o.due_date else r.verification_due_date end,
+      'due_date_assumed',case when v_created_obligation then null when v_actioned then o.due_date_assumed else null end,
+      'owner_id',case when v_created_obligation then null when v_actioned then o.verification_owner_id else r.verification_owner_id end),
     jsonb_build_object(
       'method',btrim(p_method),'acceptance_criteria',btrim(p_acceptance_criteria),
       'intended_outcome',btrim(p_intended_outcome),'due_date',p_due_date,
@@ -943,6 +962,7 @@ declare
   r public.recommendations%rowtype;
   o public.verification_obligations%rowtype;
   v_owner text;
+  v_unwatched boolean;
 begin
   select * into r from public.recommendations
   where id=p_recommendation_id and organization_id=v_org;
@@ -970,6 +990,11 @@ begin
     );
   end if;
 
+  v_unwatched:=r.status in ('approved','released','scheduled','completed')
+    and not exists(
+      select 1 from public.verification_obligations prior
+      where prior.organization_id=v_org and prior.recommendation_id=r.id
+    );
   select coalesce(nullif(btrim(p.full_name),''),p.email,p.id::text)
   into v_owner from public.user_profiles p
   where p.id=r.verification_owner_id and p.organization_id=v_org;
@@ -981,9 +1006,10 @@ begin
     'dueDate',r.verification_due_date,'dueDateAssumed',false,
     'ownerId',r.verification_owner_id,'ownerName',v_owner,
     'plannedBy',r.verification_planned_by,'plannedAt',r.verification_planned_at,
-    'planComplete',public.recommendation_verification_plan_valid(v_org,r.id),
-    'state',case when r.status='pending' then 'recommendation' else 'closed' end,
-    'legacyDebt',false,'operationalAuthorization',false
+    'planComplete',case when v_unwatched then false else public.recommendation_verification_plan_valid(v_org,r.id) end,
+    'state',case when r.status='pending' then 'recommendation'
+      when v_unwatched then 'unwatched_action' else 'closed' end,
+    'legacyDebt',v_unwatched,'operationalAuthorization',false
   );
 end
 $$;
@@ -991,6 +1017,40 @@ $$;
 revoke all on function public.get_recommendation_verification_plan(uuid)
   from public,anon;
 grant execute on function public.get_recommendation_verification_plan(uuid)
+  to authenticated;
+
+-- This is a view of canonical recommendations, not another work queue. The
+-- total remains in get_verification_posture; the UI labels its bounded page.
+create or replace function public.get_unwatched_verification_actions(
+  p_limit int default 20
+) returns table(
+  "recommendationId" uuid,
+  "recommendationTitle" text,
+  "assetName" text,
+  "recommendationStatus" text
+)
+language sql
+stable
+security definer
+set search_path=public
+as $$
+  select r.id,r.title,a.name,r.status
+  from public.recommendations r
+  left join public.assets a
+    on a.id=r.asset_id and a.organization_id=r.organization_id
+  where r.organization_id=public.app_current_org()
+    and r.status in ('approved','released','scheduled','completed')
+    and not exists(
+      select 1 from public.verification_obligations o
+      where o.organization_id=r.organization_id and o.recommendation_id=r.id
+    )
+  order by r.created_at,r.id
+  limit greatest(1,least(coalesce(p_limit,20),200));
+$$;
+
+revoke all on function public.get_unwatched_verification_actions(int)
+  from public,anon,service_role;
+grant execute on function public.get_unwatched_verification_actions(int)
   to authenticated;
 
 drop function if exists public.get_open_verifications(int);

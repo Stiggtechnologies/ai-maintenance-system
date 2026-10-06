@@ -295,9 +295,16 @@ export interface RecommendationVerificationPlan {
   plannedBy: string | null;
   plannedAt: string | null;
   planComplete: boolean;
-  state: "recommendation" | "open_obligation" | "closed";
+  state: "recommendation" | "open_obligation" | "unwatched_action" | "closed";
   legacyDebt: boolean;
   operationalAuthorization: false;
+}
+
+export interface UnwatchedVerificationAction {
+  recommendationId: string;
+  recommendationTitle: string;
+  assetName: string | null;
+  recommendationStatus: string;
 }
 
 function firstRpcRow<T>(data: unknown): T | null {
