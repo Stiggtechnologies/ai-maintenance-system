@@ -152,6 +152,7 @@ describe("actual installed-life browser acceptance boundary", () => {
       "confidenceInterval: null",
       "Joint conditional hazard sampling uncertainty · 3 assets",
       "Pointwise nominal 95% model confidence bounds",
+      "installed-model-confidence-bounds.png",
       'boundsVersion: "cox-model-confidence/1/draft"',
       "coverageValidated: false",
       "futureEventPredictionInterval: false",

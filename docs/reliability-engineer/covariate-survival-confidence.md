@@ -97,6 +97,9 @@ changes operating limits or authorizes return to service.
 Fresh exact-head migration/browser gates, independent architecture/security/domain
 review, customer applicability and predictive calibration, parent-stack
 integration, merge and production verification remain required. Three synthetic
-cohorts are not high-dimensional or fleet-scale load qualification. Disabling
-this draft surface must preserve the canonical source, approval, calculation and
-audit history; rollback must not rewrite existing receipts.
+cohorts alone are not high-dimensional or fleet-scale load qualification. The
+separate [declared-boundary witness](covariate-survival-capacity.md) exercises
+2,000 intervals and eight covariates against independent R results; it remains
+synthetic numerical qualification, not concurrent endpoint or customer-fleet
+acceptance. Disabling this draft surface must preserve the canonical source,
+approval, calculation and audit history; rollback must not rewrite receipts.

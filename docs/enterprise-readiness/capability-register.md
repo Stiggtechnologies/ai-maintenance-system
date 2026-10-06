@@ -224,7 +224,37 @@ and all exact source, authentication, independent review and freshness gates
 remain required. The final application confidence increment passed 647 files /
 8,252 tests before this clock regression was added; the regression and final
 combined head still require their own complete local and hosted verification.
-No three-asset browser pass, merge or production deployment is claimed.
+No three-asset browser pass, merge or production deployment is claimed at that
+checkpoint.
+
+**C7.14 subsequent executed witness — 2026-10-06 UTC:** published
+`42b607ff19844a70ebdd54f55b563ffb66b3c026`, run `37419283012`, browser job
+`112124779886` completed SUCCESS for both governed single-asset and three-asset
+workflows. The exact-head covariate survival database/ledger smoke in
+`112124780067` also completed SUCCESS, including computed bound versions,
+ordered probabilities, canonical input/approval retention, false coverage and
+future-event flags, horizon refusal and genuine-newer-meter invalidation.
+The entire run subsequently completed all five primary jobs successfully,
+including the full migration/auth chain; all six ancillary workflows and three
+Vercel previews passed. The provider live golden suite was explicitly skipped,
+not passed. This proves the synthetic runtime assertions, not customer
+calibration, independent review, merge or production deployment. Newer-head
+qualification remains a distinct gate.
+
+**C7.14 declared numerical boundary:** `cox-capacity.test.ts` compares the
+complete 2,000-interval/eight-covariate boundary to actually executed R 4.6.0 /
+survival 3.8.6 references. The retained deterministic recipe has 1,000 lives,
+four strata, delayed entry, right censoring, time-varying conditions and 32
+explicit synthetic asset clusters. Coefficients, covariance, all identity PH
+score tests, constant/piecewise conditional hazards, full joint asset
+influences and nominal confidence bounds agree with the independent witness;
+192 perturbed-model fits check derivative stability. Excess intervals or a
+ninth covariate refuse the whole cohort rather than truncating it. No solver,
+schema, authority or computational limit changes. This is synthetic numerical
+qualification, not customer suitability, concurrent endpoint load acceptance or
+predictive coverage (`docs/reliability-engineer/covariate-survival-capacity.md`).
+C7.14 remains yellow pending the remaining customer, review, integration and
+production gates.
 
 ### C8 — Operating mandate (management system + recommendation contract)
 
