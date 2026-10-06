@@ -42,15 +42,17 @@ function ConditionalScenarioSummary({
       </p>
       <p className="text-xs text-slate-400">
         {scenario.scenarioVersion} · {scenario.eventTimesInWindow} observed
-        event times in the window · profile source life{" "}
-        {scenario.profile.source?.eventId ?? "not retained"}, version{" "}
-        {scenario.profile.source?.overlayVersion ?? "unknown"}
+        event times in the window · profile source{" "}
+        {scenario.profile.source?.kind === "active_component"
+          ? `installed component ${scenario.profile.source.componentInstanceId}, meter as of ${scenario.profile.source.asOf}`
+          : `life ${scenario.profile.source?.eventId ?? "not retained"}`}
+        , version {scenario.profile.source?.overlayVersion ?? "unknown"}
       </p>
       <p className="text-xs text-amber-200">
         Unqualified calibration; no predictive confidence interval. This
-        historical measured profile is a numerical scenario, not a forecast for
-        a currently installed component, a held-out validation result or
-        authority to change maintenance.
+        measured profile is a numerical scenario, not a qualified live-asset
+        forecast, a held-out validation result or authority to change
+        maintenance.
       </p>
     </div>
   );
@@ -399,6 +401,12 @@ export function CovariateSurvivalWorkbench({
           Scheduled working removals remain censored; uncertain removals require
           an evidenced independent exclusion. Capture and review require
           MFA/AAL2 and different named humans.
+        </p>
+        <p className="mt-2 text-xs text-amber-200">
+          This application path currently covers recorded completed life events.
+          The installed-component census and current meter/condition capture are
+          not yet connected. A source-ready completed-event cohort does not
+          establish a representative fleet model or a qualified live forecast.
         </p>
       </div>
 
