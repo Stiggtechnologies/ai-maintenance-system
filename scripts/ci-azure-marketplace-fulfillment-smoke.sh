@@ -76,6 +76,27 @@ begin
     raise exception 'cross-tenant rebinding was not refused: %',v_result;
   end if;
 
+  -- This is an isolated smoke fixture, not an approved production price. The
+  -- Marketplace activation must prove that an explicit, margin-safe AI policy
+  -- exists before the canonical subscription can become active.
+  v_result := public.configure_ai_commercial_plan_policy(
+    'azure_marketplace','syncai-enterprise','enterprise','per_user',
+    'hard_stop',10,1000,10,1000,5,1000,0,0.50,
+    array['gpt-4o-mini']::text[],null,null,null,
+    'CI-only Marketplace fulfillment fixture'
+  );
+  if v_result->>'status'<>'draft'
+     or coalesce((v_result->'evaluation'->>'allowed')::boolean,false) is not true then
+    raise exception 'commercial policy fixture failed margin evaluation: %',v_result;
+  end if;
+
+  v_result := public.approve_ai_commercial_plan_policy(
+    'azure_marketplace','syncai-enterprise','enterprise',
+    '83333333-3333-4333-8333-333333333333');
+  if coalesce((v_result->>'approved')::boolean,false) is not true then
+    raise exception 'commercial policy fixture was not approved: %',v_result;
+  end if;
+
   v_result := public.record_marketplace_fulfillment_status(
     v_resolution_id,'Subscribed','83333333-3333-4333-8333-333333333333',
     'request-smoke','correlation-smoke');
@@ -139,6 +160,19 @@ begin
       and marketplace_status='Subscribed' and status='active'
   ) then
     raise exception 'canonical billing record did not become active';
+  end if;
+  if not exists (
+    select 1 from private.llm_org_quotas
+    where organization_id='81111111-1111-4111-8111-111111111111'
+      and commercial_billing_source='azure_marketplace'
+      and commercial_offer_id='syncai-enterprise'
+      and commercial_plan_id='enterprise'
+      and commercial_allowance_mode='hard_stop'
+      and included_calls_per_period=10 and max_calls_per_period=10
+      and included_tokens_per_period=1000 and max_tokens_per_period=1000
+      and max_decisions_per_period=5
+  ) then
+    raise exception 'approved AI commercial allowance was not bound to the tenant';
   end if;
   if (select count(*) from public.billing_subscriptions
       where marketplace_subscription_id='86666666-6666-4666-8666-666666666666')<>1 then
