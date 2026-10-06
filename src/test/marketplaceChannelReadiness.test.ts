@@ -70,15 +70,17 @@ describe("marketplace channel readiness", () => {
       "docs/marketplace/dynamics-agent-channel.md",
       "utf8",
     );
-    expect(strategy).toMatch(/MRO Readiness Agent/);
-    expect(strategy).toMatch(/FRACAS Investigation Agent/);
+    expect(strategy).toMatch(/SyncAI Industrial Reliability Agents/);
+    expect(strategy).toMatch(/Maintenance Readiness Agent/);
+    expect(strategy).toMatch(/Failure Elimination Agent/);
+    expect(strategy).toMatch(/Downtime Recovery Agent/);
+    expect(strategy).toMatch(/Preventive Maintenance Decision Agent/);
+    expect(strategy).toMatch(/not trademark clearance/i);
     expect(strategy).toMatch(/same governed SyncAI platform/);
     expect(strategy).toMatch(/56 million monthly active Power Platform users/);
     expect(strategy).toMatch(/not a Dynamics user count/i);
     expect(strategy).toMatch(/US\$100\.8M ARR/);
-    expect(strategy).toMatch(
-      /does not\s+authorize Partner Center submission/i,
-    );
+    expect(strategy).toMatch(/does not\s+authorize Partner Center submission/i);
   });
 
   it("keeps AWS source scaffolding separate from buyer readiness", () => {
