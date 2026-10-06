@@ -450,6 +450,9 @@ jobs:
       - name: Smoke — multi-dimensional consequence model
         run: bash scripts/ci-consequence-model-smoke.sh
 
+      - name: Smoke — governed risk decision preview and sensitive audit boundaries
+        run: bash scripts/ci-risk-decision-preview-smoke.sh
+
       - name: Smoke — explicit asset condition knowledge states
         run: bash scripts/ci-condition-state-smoke.sh
 

@@ -712,11 +712,18 @@ function decisionFor(score: number, criteria: RiskCriteria): RiskDecision {
   return "ACCEPT";
 }
 
+/**
+ * Offline diagnostic estimate, not a PostgreSQL numeric parity contract.
+ * `authoritative` describes criteria adoption only; it grants no authority.
+ * Live risk decisions use the governed server preview and canonical writer.
+ */
 export function analyzeRisk(
   input: RiskAnalysisInput,
   criteria: RiskCriteria,
 ): RiskAnalysisResult {
-  const maximumLikelihood = Math.max(...criteria.likelihoodScale, 1);
+  const maximumLikelihood = Math.max(...criteria.likelihoodScale);
+  if (!Number.isFinite(maximumLikelihood) || maximumLikelihood <= 0)
+    throw new Error("A configured positive likelihood scale is required");
   const maximumConsequence = 5;
   const peak = peakConsequence(input.consequences);
   const inherent = clamp(
@@ -782,7 +789,7 @@ export function analyzeRisk(
       capacityLoad: clamp(input.capacityLoad),
       velocity: clamp(input.velocity),
     },
-    explanation: `${criteriaText} Risk is not a bare matrix product: the score preserves existing-control effectiveness, exposure, uncertainty, complexity/connectivity, velocity, time pressure and aggregate capacity.${kindText}`,
+    explanation: `Offline diagnostic estimate; classifications near thresholds require the governed PostgreSQL preview. ${criteriaText} Risk is not a bare matrix product: the score preserves existing-control effectiveness, exposure, uncertainty, complexity/connectivity, velocity, time pressure and aggregate capacity.${kindText}`,
   };
 }
 

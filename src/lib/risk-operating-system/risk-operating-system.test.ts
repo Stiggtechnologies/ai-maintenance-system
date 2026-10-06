@@ -165,6 +165,21 @@ describe("ISO 31000 risk analysis", () => {
     expect(result.explanation).toContain("draft");
   });
 
+  it("does not invent a likelihood-scale floor for offline diagnostics", () => {
+    const result = analyzeRisk(
+      { ...base, likelihood: 0.2, consequences: { safety: 5 } },
+      { ...criteria, likelihoodScale: [0.1, 0.2, 0.3, 0.4, 0.5] },
+    );
+    expect(result.inherentScore).toBe(40);
+    expect(result.explanation).toContain("Offline diagnostic estimate");
+  });
+
+  it("refuses an unconfigured likelihood scale instead of inventing one", () => {
+    expect(() =>
+      analyzeRisk(base, { ...criteria, likelihoodScale: [] }),
+    ).toThrow("likelihood scale");
+  });
+
   it("models opportunity as well as threat", () => {
     const result = analyzeRisk(
       {

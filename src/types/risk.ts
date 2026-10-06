@@ -295,6 +295,28 @@ export interface RiskDecisionPreviewContext {
   human_decision_required: true;
 }
 
+/** Advisory result from the same PostgreSQL numeric calculator used by recording.
+ * Display scores are rounded; level/action are the server's unrounded decisions.
+ */
+export interface RiskAnalysisPreview {
+  risk_id: string;
+  criteria_id: string;
+  criteria_version: number;
+  criteria_status: "draft" | "adopted" | "superseded";
+  analysis: Record<string, unknown>;
+  generated_at: string;
+  advisory_only: true;
+  human_decision_required: true;
+  inherent_score: number;
+  controlled_score: number;
+  current_score: number;
+  opportunity_score: number;
+  time_pressure: number;
+  level: RiskLevel;
+  recommended_action: RiskDecision;
+  authoritative: boolean;
+}
+
 export interface RiskMaturity {
   id: string;
   level: 0 | 1 | 2 | 3 | 4 | 5;
