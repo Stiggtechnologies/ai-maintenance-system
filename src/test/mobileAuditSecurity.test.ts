@@ -1,5 +1,6 @@
 // @vitest-environment node
 import {
+  existsSync,
   mkdtempSync,
   readFileSync,
   readdirSync,
@@ -119,6 +120,161 @@ afterEach(() => {
 });
 
 describe("mobile audit private artifacts and honest execution", () => {
+  it.each(["initial", "route", "final"])(
+    "contains an async %s notification rejection using the actual script in an isolated subprocess",
+    (stage) => {
+      const fixture = mkdtempSync(
+        join(tmpdir(), "syncai-mobile-async-fixture-"),
+      );
+      directories.push(fixture);
+      const script = join(process.cwd(), "scripts/mobile-audit.mjs");
+      const code = `
+        import { chromium } from 'playwright';
+        import { readFileSync } from 'node:fs';
+        import { join } from 'node:path';
+        import { pathToFileURL } from 'node:url';
+        // The listener exists only in this disposable synthetic process. It
+        // counts escaped rejections so the pre-fix bug fails an assertion
+        // without becoming a falsely ignored Vitest-global rejection.
+        let unhandled = 0;
+        process.on('unhandledRejection', () => { unhandled += 1; });
+        let url = 'https://app.syncai.ca/signin';
+        let directory;
+        let contextClosed = 0;
+        let browserClosed = 0;
+        let launches = 0;
+        let screenshots = 0;
+        const page = {
+          goto: async destination => { url = destination; return { status: () => 200 }; },
+          getByRole: () => ({ fill: async () => {}, click: async () => { url = 'https://app.syncai.ca/mission-control'; } }),
+          locator: () => ({ fill: async () => {} }),
+          waitForURL: async () => {}, waitForLoadState: async () => {}, waitForTimeout: async () => {},
+          url: () => url,
+          evaluate: async () => ({ overflow: 0, wide: [], clipped: [] }),
+          screenshot: async () => { screenshots += 1; return Buffer.from('synthetic-not-customer-data'); },
+        };
+        const context = { newPage: async () => page, close: async () => { contextClosed += 1; } };
+        chromium.launch = async () => { launches += 1; return { newContext: async () => context, close: async () => { browserClosed += 1; } }; };
+        const { runMobileAudit } = await import(pathToFileURL(${JSON.stringify(script)}).href);
+        let rejected = false;
+        let safeError = false;
+        try {
+          await runMobileAudit({
+            env: { DEMO_EMAIL: 'audit@example.invalid', DEMO_PASSWORD: 'synthetic-async-secret' },
+            log: async message => {
+              if (message.startsWith('artifacts: ')) directory = message.slice(11);
+              const current = message.startsWith('artifacts: ') ? 'initial'
+                : message.startsWith('report target: ') ? 'final' : 'route';
+              if (current === ${JSON.stringify(stage)}) throw new Error('synthetic-private-async-diagnostic');
+              await Promise.resolve();
+            },
+          });
+        } catch (error) {
+          rejected = true;
+          safeError = error instanceof Error && error.message === 'Mobile audit did not complete; private report saved but output notification failed';
+        }
+        await new Promise(resolve => setImmediate(resolve));
+        const report = JSON.parse(readFileSync(join(directory, 'mobile-audit-report.json'), 'utf8'));
+        process.stdout.write(JSON.stringify({
+          rejected, safeError, unhandled, launches, screenshots, contextClosed, browserClosed,
+          allPass: report.every(row => row.verdict === 'PASS'),
+          notificationFailure: report.some(row => row.note === 'Audit output notification failed' || row.note === 'Audit output notification failed before sign-in was attempted'),
+          reportContainsDiagnostic: JSON.stringify(report).includes('synthetic-private-async-diagnostic') || JSON.stringify(report).includes('synthetic-async-secret'),
+        }));
+      `;
+      const result = spawnSync(
+        process.execPath,
+        ["--input-type=module", "-e", code],
+        {
+          cwd: process.cwd(),
+          env: { PATH: process.env.PATH, TMPDIR: fixture },
+          encoding: "utf8",
+          timeout: 10_000,
+          maxBuffer: 8192,
+        },
+      );
+      expect(result.error).toBeUndefined();
+      expect(result.status).toBe(0);
+      const probe = JSON.parse(result.stdout);
+      expect(probe).toMatchObject({
+        rejected: true,
+        safeError: true,
+        unhandled: 0,
+        allPass: false,
+        notificationFailure: true,
+        reportContainsDiagnostic: false,
+      });
+      expect(probe.launches).toBe(stage === "initial" ? 0 : 1);
+      expect(probe.screenshots).toBe(
+        stage === "initial" ? 0 : stage === "route" ? 1 : 49,
+      );
+      expect(probe.contextClosed).toBe(stage === "initial" ? 0 : 1);
+      expect(probe.browserClosed).toBe(stage === "initial" ? 0 : 1);
+      expect(result.stderr).not.toContain("synthetic-private-async-diagnostic");
+      expect(result.stderr).not.toContain("synthetic-async-secret");
+    },
+  );
+
+  it.each(["initial", "route", "final"])(
+    "awaits a deferred successful %s notification before progressing or saving a report",
+    async (stage) => {
+      const { page, context, browser } = mockBrowser();
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let directory = "";
+      let blocked = false;
+      let settled = false;
+      const completion = runMobileAudit({
+        env,
+        log: async (message) => {
+          if (message.startsWith("artifacts: ")) {
+            directory = message.slice(11);
+            directories.push(directory);
+          }
+          const current = message.startsWith("artifacts: ")
+            ? "initial"
+            : message.startsWith("report target: ")
+              ? "final"
+              : "route";
+          if (current === stage && !blocked) {
+            blocked = true;
+            await gate;
+          }
+        },
+      }).then((result) => {
+        settled = true;
+        return result;
+      });
+      try {
+        await vi.waitFor(() => expect(blocked).toBe(true));
+        if (stage === "initial") expect(harness.launch).not.toHaveBeenCalled();
+        else if (stage === "route")
+          expect(page.screenshot).toHaveBeenCalledOnce();
+        else {
+          expect(context.close).toHaveBeenCalledOnce();
+          expect(browser.close).toHaveBeenCalledOnce();
+        }
+        expect(settled).toBe(false);
+        expect(existsSync(join(directory, "mobile-audit-report.json"))).toBe(
+          false,
+        );
+        release();
+        const result = await completion;
+        expect(result.report).toHaveLength(49);
+        expect(result.report.every((row) => row.verdict === "PASS")).toBe(true);
+        expect(existsSync(result.reportPath)).toBe(true);
+        expect(context.close).toHaveBeenCalledOnce();
+        expect(browser.close).toHaveBeenCalledOnce();
+      } finally {
+        // Resolve the synthetic gate even if a pre-fix ordering assertion fails.
+        release();
+        await completion;
+      }
+    },
+  );
+
   it("sanitizes output allocation failure before attempting authentication or promising a report", async () => {
     setupFault.allocation = true;
     const log = vi.fn();

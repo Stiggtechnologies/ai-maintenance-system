@@ -16,7 +16,7 @@ export function writeAuditArtifact(
 ): void;
 export function runMobileAudit(options?: {
   env?: Record<string, string | undefined>;
-  log?: (message: string) => void;
+  log?: (message: string) => void | Promise<void>;
 }): Promise<{
   directory: string;
   reportPath: string;

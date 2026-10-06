@@ -56,8 +56,10 @@ Both context and browser closure are attempted even if one fails. Cleanup
 failure adds an `AUDIT_FAIL` row before the exclusive report write, and rejects
 with a fixed sanitized error. Report-write failures also reject with a fixed
 error after both closure attempts; a failed report write is never reported as
-success. Initial, route and final output callback failures are sanitized and
-recorded as failed verdicts before the report write. A successful report write
+success. Output callbacks may be synchronous or return a promise. Initial,
+route and final notifications are awaited before execution progresses; thrown
+errors and promise rejections are sanitized and recorded as failed verdicts
+before the report write. A successful report write
 followed by a notification failure is not claimed: the final notification occurs
 before the write, and a fixed error distinguishes saved report/failed notification
 from a failed write. The controlled `runMobileAudit` execution and shipped CLI's
@@ -100,12 +102,26 @@ The startup/output-boundary repair was test-first: nine new cases failed against
 the prior implementation while all 20 existing cases passed. They include actual
 CLI subprocesses exercising the shipped entry point with allocation failure,
 permission failure and an initial throwing output callback. No browser is launched
-by those subprocesses. The corrected focused suite has 31 passing cases, including
+by those subprocesses. That corrected focused suite had 31 passing cases, including
 additional pre-authentication page/cleanup and route-notification failure coverage.
 The final callback regression checks that a failed verdict is written instead of
 an all-PASS report; both browser resource closures are attempted. All fault strings,
 credentials, screenshot bytes and directories are synthetic. This does not prove
 a live production sweep, production browser startup, or POSIX behavior on Windows.
+
+Independent review then found that a promise-returning output callback was not
+awaited. Six additional test-first cases failed against that implementation while
+the prior 31 passed. Three actual-script subprocess probes counted escaped async
+initial/route/final rejections and the incorrectly saved all-PASS reports. Their
+rejection listeners exist only in the disposable synthetic subprocesses; the
+production tool does not suppress unhandled rejections. Three deferred successful
+callback probes verify that browser launch, later route captures and report
+completion wait for their respective notification. The awaited-callback correction
+passes all 37 mobile-audit tests, with no escaped callback rejection and with
+failed verdicts saved before rejection is returned. These probes use a synthetic
+browser harness, not a live browser or provider connection. Detached asynchronous
+work that a callback neither returns nor awaits remains outside the callback
+promise contract, as do the module-loader and terminal/stream boundaries above.
 
 Existing MarkdownRenderer, FieldFailureCapture and booth-fast-path tests are
 also run as bounded triage evidence, not substitutes for browser exploit

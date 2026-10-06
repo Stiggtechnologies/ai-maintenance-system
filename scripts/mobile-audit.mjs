@@ -97,9 +97,9 @@ export async function runMobileAudit(options = {}) {
   let failed = false;
   let outputNotificationFailed = false;
   let credentialFailure;
-  const notify = (message) => {
+  const notify = async (message) => {
     try {
-      log(message);
+      await log(message);
     } catch {
       outputNotificationFailed = true;
       throw new Error("Audit output notification failed");
@@ -121,7 +121,7 @@ export async function runMobileAudit(options = {}) {
     }
     directory = createAuditOutput();
     reportPath = join(directory, "mobile-audit-report.json");
-    notify(`artifacts: ${directory}`);
+    await notify(`artifacts: ${directory}`);
     browser = await chromium.launch({ headless: true });
     context = await browser.newContext({
       viewport: { width: 390, height: 844 },
@@ -225,7 +225,7 @@ export async function runMobileAudit(options = {}) {
               ? "CLIPPED-CANDIDATES"
               : "PASS";
       report.push({ route, verdict, ...checks });
-      notify(
+      await notify(
         `${verdict.padEnd(18)} ${route}  overflow=${checks.overflow}px wide=${checks.wide.length} clipped=${checks.clipped.length}`,
       );
     }
@@ -288,7 +288,7 @@ export async function runMobileAudit(options = {}) {
       try {
         // Announce only the target, not a successful save. A callback failure
         // must be recorded before the one exclusive report write.
-        notify(`report target: ${reportPath}`);
+        await notify(`report target: ${reportPath}`);
       } catch {
         report.push({
           route: currentRoute,
