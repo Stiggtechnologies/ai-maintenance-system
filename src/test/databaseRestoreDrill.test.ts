@@ -1299,8 +1299,11 @@ Command was: GRANT EXECUTE ON FUNCTION private_name() TO private_role;`),
       );
       expect.fail("Unsafe target was accepted");
     } catch (error) {
-      expect(error.category).toBe("target_isolation_unqualified");
-      expect(error.targetIsolationHints).toEqual(["privilege", "mounts"]);
+      if (!(error instanceof Error)) throw error;
+      expect(error).toMatchObject({
+        category: "target_isolation_unqualified",
+        targetIsolationHints: ["privilege", "mounts"],
+      });
       expect(JSON.stringify(error)).not.toContain("private-operator-name");
       expect(JSON.stringify(error)).not.toContain("customer-data");
       expect(error.message).not.toContain("private-operator-name");
