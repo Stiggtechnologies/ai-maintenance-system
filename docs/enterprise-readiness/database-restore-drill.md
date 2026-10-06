@@ -202,6 +202,9 @@ changed function. The OID witness alone does not qualify all remaining fields.
 The fresh observation records read success/failure independently of snapshot
 correlation, plus capture qualification and identity presence. Direct helper
 calls without a recorded read use `NOT_RECORDED`, not an inferred success.
+`readStatus` describes the complete existing observation callback, including
+envelope parsing and private artifact persistence. `FAILED` alone does not
+establish that the SQL read failed; `SUCCEEDED` does not qualify malformed data.
 A successfully read and qualified fresh observation does not enable equality
 or catalog-drift claims when either snapshot is uncorrelated; those hints remain
 `UNAVAILABLE`. Only fixed labels are public: no routine identities, indices,
