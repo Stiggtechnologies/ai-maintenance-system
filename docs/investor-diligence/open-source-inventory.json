@@ -1,10 +1,10 @@
 {
   "schemaVersion": 1,
   "source": "package-lock.json",
-  "lockfileSha256": "2a6eab8ece02ee393cb43a150917cb2c7fedf596c93f998c6bc16930511b18ff",
+  "lockfileSha256": "72b7daf93b3b53749b77bb40f9a7606086cf5c6d795b67730382a76b3e9db1e6",
   "packageInstances": 406,
   "directProductionDependencies": 14,
-  "directDevelopmentDependencies": 26,
+  "directDevelopmentDependencies": 27,
   "prohibitedCount": 0,
   "unknownCount": 0,
   "licenseCounts": {
@@ -2828,7 +2828,7 @@
       "name": "yaml",
       "version": "2.9.0",
       "license": "ISC",
-      "direct": "transitive",
+      "direct": "development",
       "packagePath": "node_modules/yaml"
     },
     {
