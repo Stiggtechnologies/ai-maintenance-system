@@ -7,7 +7,7 @@ set statement_timeout = '5min';
 select jsonb_build_object('kind','role','key',rolname,'value',
   jsonb_build_array(rolsuper,rolinherit,rolcreaterole,rolcreatedb,rolcanlogin,
     rolreplication,rolbypassrls,rolconnlimit,rolvaliduntil,rolconfig))
-from pg_roles where rolname <> 'syncai_dr_bootstrap' order by rolname;
+from pg_roles order by rolname;
 
 select jsonb_build_object('kind','membership','key',
   pg_get_userbyid(roleid)||':'||pg_get_userbyid(member),'value',

@@ -53,6 +53,14 @@ On failure it records only a SQLSTATE and fixed allowlisted diagnostic hints;
 verbose provider errors remain in memory and are never printed or uploaded.
 The target's expected bootstrap-superuser identity is checked before restoring
 roles. A permission failure is not bypassed by dropping grants or ownership.
+The local source's OID-10 bootstrap identity must be `postgres` or
+`supabase_admin`, with the superuser attribute. The fresh target is initialized
+with that same identity/OID so PostgreSQL's grant graph retains its root. Only
+the single, exact duplicate bootstrap `CREATE ROLE` is replaced with a comment;
+every `ALTER ROLE`, membership, grantor and option remains unchanged. Missing
+or duplicate creation statements are refused. Both the original roles dump and
+applied script have recorded SHA-256 digests. No bootstrap role is excluded from
+the control comparison.
 
 The report records measured local database-drill durations, **not an approved
 RTO, RPO, production outage duration or service-level commitment**. Its

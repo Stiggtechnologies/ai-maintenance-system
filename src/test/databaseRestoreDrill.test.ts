@@ -24,6 +24,38 @@ const local = {
 
 describe("database restore-drill boundaries", () => {
   afterEach(() => vi.unstubAllEnvs());
+  it.each(["postgres", "supabase_admin"])(
+    "preserves the source bootstrap %s while removing only its duplicate creation",
+    (bootstrap) => {
+      const script = `-- source roles\nCREATE ROLE ${bootstrap};\nALTER ROLE ${bootstrap} WITH SUPERUSER;\nCREATE ROLE customer_role;\nGRANT customer_role TO postgres GRANTED BY ${bootstrap};\n`;
+      const restored = drill.prepareRolesRestore(script, bootstrap);
+      expect(restored).toBe(
+        script.replace(
+          `CREATE ROLE ${bootstrap};`,
+          "-- Bootstrap role was created by isolated initdb with the source identity.",
+        ),
+      );
+      expect(restored).toContain(`ALTER ROLE ${bootstrap} WITH SUPERUSER;`);
+      expect(restored).toContain(`GRANTED BY ${bootstrap};`);
+    },
+  );
+  it("refuses missing, duplicate or arbitrary bootstrap creation", () => {
+    expect(() =>
+      drill.prepareRolesRestore(
+        "ALTER ROLE postgres WITH SUPERUSER;",
+        "postgres",
+      ),
+    ).toThrow("exactly one");
+    expect(() =>
+      drill.prepareRolesRestore(
+        "CREATE ROLE postgres;\nCREATE ROLE postgres;",
+        "postgres",
+      ),
+    ).toThrow("exactly one");
+    expect(() =>
+      drill.prepareRolesRestore("CREATE ROLE unsafe;", "unsafe"),
+    ).toThrow("Unqualified");
+  });
   it.each(["DOCKER_HOST", "DOCKER_CONTEXT"])(
     "cannot hide actual process %s through a partial environment argument",
     async (key) => {

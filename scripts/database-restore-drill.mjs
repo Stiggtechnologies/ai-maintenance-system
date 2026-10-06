@@ -14,7 +14,6 @@ import { dirname, join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const sourceName = "supabase_db_ai-maintenance-system";
-const bootstrap = "syncai_dr_bootstrap";
 const sha = (value) => createHash("sha256").update(value).digest("hex");
 const here = dirname(fileURLToPath(import.meta.url));
 const root = dirname(here);
@@ -35,6 +34,24 @@ export function fingerprint(value) {
           )
         : v;
   return sha(JSON.stringify(canonical(value)));
+}
+
+export function prepareRolesRestore(script, bootstrap) {
+  if (!["postgres", "supabase_admin"].includes(bootstrap))
+    throw new Error("Unqualified source bootstrap identity");
+  const creation = `CREATE ROLE ${bootstrap};`;
+  const lines = script.split("\n");
+  if (lines.filter((line) => line === creation).length !== 1)
+    throw new Error("Expected exactly one source bootstrap creation");
+  // OID 10 is the grant graph root, not an interchangeable superuser. initdb
+  // already created this exact identity. Preserve every ALTER, GRANT and grantor.
+  return lines
+    .map((line) =>
+      line === creation
+        ? "-- Bootstrap role was created by isolated initdb with the source identity."
+        : line,
+    )
+    .join("\n");
 }
 
 export function validateSource(source, endpoint, env) {
@@ -407,8 +424,17 @@ export async function runRestoreDrill({
       ),
     );
     const source = validateSource(await inspect(sourceName), endpoint, env);
+    const bootstrap = await sql(
+      source.id,
+      "postgres",
+      "/var/run/postgresql",
+      "select rolname from pg_roles where oid=10 and rolsuper;",
+    );
+    if (!["postgres", "supabase_admin"].includes(bootstrap))
+      throw new Error("Unqualified source bootstrap identity");
     output = createPrivateOutput();
     report.sourceImage = source.image;
+    report.sourceBootstrapRole = bootstrap;
     report.sourceCommit = await command("git", ["rev-parse", "HEAD"]);
     const migrationFiles = readdirSync(join(root, "supabase", "migrations"))
       .filter((f) => /^\d{14}_.+\.sql$/.test(f))
@@ -563,7 +589,7 @@ export async function runRestoreDrill({
         targetId,
         bootstrap,
         "/tmp",
-        "select current_user='syncai_dr_bootstrap' and rolsuper from pg_roles where rolname=current_user;",
+        `select current_user='${bootstrap}' and oid=10 and rolsuper from pg_roles where rolname=current_user;`,
       );
       if (authority !== "t")
         throw new Error(
@@ -573,12 +599,12 @@ export async function runRestoreDrill({
     });
     await timed("restore", async () => {
       phase = "restore_roles";
-      await sql(
-        targetId,
-        bootstrap,
-        "/tmp",
+      const rolesRestore = prepareRolesRestore(
         readFileSync(join(output, "roles.sql"), "utf8"),
+        bootstrap,
       );
+      report.rolesRestoreSha256 = sha(rolesRestore);
+      await sql(targetId, bootstrap, "/tmp", rolesRestore);
       phase = "restore_database";
       await command(
         "docker",
