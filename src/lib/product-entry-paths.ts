@@ -1,7 +1,7 @@
 import type { PublicAskIntentId } from "./public-ask-intents";
 
 export type ProductEntryId =
-  | "downtime-reduction"
+  | "failure-investigation"
   | "recovery-coordination"
   | "maintenance-cost-reduction"
   | "maintenance-readiness"
@@ -17,6 +17,7 @@ export type ProductEntryPath = {
   intentId: PublicAskIntentId;
   priority: "primary" | "secondary" | "portfolio";
   name: string;
+  agentProduct: string;
   platformSurface: string;
   buyerQuestion: string;
   input: string;
@@ -124,11 +125,12 @@ export const PRODUCT_CUSTOMER_FLOW = [
  */
 export const PRODUCT_ENTRY_PATHS: readonly ProductEntryPath[] = [
   {
-    id: "downtime-reduction",
+    id: "failure-investigation",
     intentId: "troubleshoot",
     priority: "primary",
     name: "Unplanned Downtime Reduction",
-    platformSurface: "Reliability Copilot, FRACAS, and Decision Cases",
+    agentProduct: "SyncAI Failure Investigation Agent",
+    platformSurface: "SyncAI copilot, FRACAS, and Decision Cases",
     buyerQuestion:
       "Why does this asset keep stopping, and what should we do next?",
     input: "Failure history, work orders, observations, and available evidence",
@@ -144,6 +146,7 @@ export const PRODUCT_ENTRY_PATHS: readonly ProductEntryPath[] = [
     intentId: "compare",
     priority: "primary",
     name: "Downtime Recovery Coordination",
+    agentProduct: "SyncAI Downtime Recovery Agent",
     platformSurface: "Sync Recovery, Work, Materials, Handover, and Value",
     buyerQuestion:
       "How do we return this asset to stable service without hidden blockers or unsafe shortcuts?",
@@ -161,6 +164,7 @@ export const PRODUCT_ENTRY_PATHS: readonly ProductEntryPath[] = [
     intentId: "learn",
     priority: "secondary",
     name: "Maintenance Cost Reduction",
+    agentProduct: "SyncAI Preventive Maintenance Decision Agent",
     platformSurface:
       "PM Programme, Interval Decisions, Job Plans, and Learning",
     buyerQuestion:
@@ -179,6 +183,7 @@ export const PRODUCT_ENTRY_PATHS: readonly ProductEntryPath[] = [
     intentId: "health",
     priority: "portfolio",
     name: "Maintenance Readiness Assurance",
+    agentProduct: "SyncAI Maintenance Readiness Agent",
     platformSurface: "Execution Readiness, Materials, Scheduling, and Work",
     buyerQuestion:
       "What will stop this work from starting safely and finishing when promised?",
@@ -196,6 +201,7 @@ export const PRODUCT_ENTRY_PATHS: readonly ProductEntryPath[] = [
     intentId: "fact-check",
     priority: "portfolio",
     name: "Shift Handover Continuity",
+    agentProduct: "SyncAI Reliability Briefing Agent",
     platformSurface:
       "Handover, Operational Briefing, Notifications, and Recovery",
     buyerQuestion:
@@ -214,6 +220,7 @@ export const PRODUCT_ENTRY_PATHS: readonly ProductEntryPath[] = [
     intentId: "compare",
     priority: "portfolio",
     name: "Backlog and Schedule Stability",
+    agentProduct: "SyncAI Maintenance Readiness Agent",
     platformSurface:
       "Work Action Board, Weekly Scheduling, Materials, and Execution Readiness",
     buyerQuestion:
@@ -232,6 +239,7 @@ export const PRODUCT_ENTRY_PATHS: readonly ProductEntryPath[] = [
     intentId: "health",
     priority: "portfolio",
     name: "Production Risk Response",
+    agentProduct: "SyncAI Failure Investigation Agent",
     platformSurface:
       "Risk Operating System, Decision Cases, Approvals, and Work",
     buyerQuestion:
@@ -250,6 +258,7 @@ export const PRODUCT_ENTRY_PATHS: readonly ProductEntryPath[] = [
     intentId: "fact-check",
     priority: "portfolio",
     name: "Downtime Evidence Audit",
+    agentProduct: "SyncAI Failure Investigation Agent",
     platformSurface:
       "Decision Evidence, Assessments, Knowledge, and Reliability",
     buyerQuestion:
@@ -268,6 +277,7 @@ export const PRODUCT_ENTRY_PATHS: readonly ProductEntryPath[] = [
     intentId: "compare",
     priority: "portfolio",
     name: "Reliability Spend Prioritization",
+    agentProduct: "SyncAI Reliability Briefing Agent",
     platformSurface:
       "Executive Intelligence, Value Realization, Decision Cases, and Risk",
     buyerQuestion: "Where should the next reliability dollar go?",
@@ -285,6 +295,7 @@ export const PRODUCT_ENTRY_PATHS: readonly ProductEntryPath[] = [
     intentId: "fact-check",
     priority: "portfolio",
     name: "Asset Criticality and Reliability Foundation",
+    agentProduct: "SyncAI Preventive Maintenance Decision Agent",
     platformSurface:
       "Asset Onboarding, Asset Twins, Failure Modes, and Reliability Strategy",
     buyerQuestion:
@@ -307,7 +318,9 @@ export type ProductEntryAttribution = {
 };
 
 export function productEntryById(id: string): ProductEntryPath | undefined {
-  return PRODUCT_ENTRY_PATHS.find((entry) => entry.id === id);
+  const canonicalId =
+    id === "downtime-reduction" ? "failure-investigation" : id;
+  return PRODUCT_ENTRY_PATHS.find((entry) => entry.id === canonicalId);
 }
 
 export function productEntryPath(entry: Pick<ProductEntryPath, "id">): string {

@@ -58,13 +58,13 @@
   },
   "acquisitionExperiments": [
     {
-      "entry": "downtime-reduction",
+      "entry": "failure-investigation",
       "priority": "primary",
-      "headline": "Reduce repeat unplanned downtime with evidence-governed decisions",
-      "promise": "Turn failure history, work orders, observations, and available evidence into a reviewable downtime-reduction case with hypotheses, gaps, actions, owners, and approval gates.",
+      "headline": "Reduce recurring unplanned downtime with evidence-governed failure investigation",
+      "promise": "Use the SyncAI Failure Investigation Agent to turn failure history, work orders, observations, and available evidence into a reviewable investigation with hypotheses, gaps, actions, owners, approval gates, and outcome verification.",
       "successMetric": "Unplanned downtime hours, repeat-event rate, and verified avoided downtime",
       "claimsBoundary": "SyncAI does not guarantee downtime elimination or claim a root cause that the supplied evidence cannot establish.",
-      "attributedDestination": "https://app.syncai.ca/solutions/downtime-reduction?source=aws-marketplace&campaign=pain-entry&variant=downtime-reduction"
+      "attributedDestination": "https://app.syncai.ca/solutions/failure-investigation?source=aws-marketplace&campaign=pain-entry&variant=failure-investigation"
     },
     {
       "entry": "recovery-coordination",

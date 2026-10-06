@@ -38,12 +38,12 @@
   },
   "acquisitionExperiments": [
     {
-      "entry": "downtime-reduction",
+      "entry": "failure-investigation",
       "priority": "primary",
-      "headline": "Build a defensible plan for recurring unplanned downtime",
+      "headline": "Build a defensible plan to reduce recurring unplanned downtime",
       "buyerQuestion": "Why does this asset keep stopping, and what should we do next?",
       "claimsBoundary": "SyncAI does not guarantee downtime elimination or claim a root cause that the supplied evidence cannot establish.",
-      "attributedDestination": "https://app.syncai.ca/solutions/downtime-reduction?source=salesforce-appexchange&campaign=service-listing&variant=downtime-reduction"
+      "attributedDestination": "https://app.syncai.ca/solutions/failure-investigation?source=salesforce-appexchange&campaign=service-listing&variant=failure-investigation"
     },
     {
       "entry": "recovery-coordination",

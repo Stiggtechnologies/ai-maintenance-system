@@ -131,7 +131,7 @@ describe("marketplace channel readiness", () => {
       expect(draft.releaseGates.length).toBeGreaterThanOrEqual(6);
 
       expect(draft.acquisitionExperiments.map(({ entry }) => entry)).toEqual([
-        "downtime-reduction",
+        "failure-investigation",
         "recovery-coordination",
         "maintenance-cost-reduction",
       ]);

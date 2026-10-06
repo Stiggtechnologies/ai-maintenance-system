@@ -45,9 +45,11 @@ describe("product entry paths", () => {
       new Set(PRODUCT_ENTRY_PATHS.map((entry) => entry.intentId)).size,
     ).toBe(5);
     expect(PRODUCT_ENTRY_PATHS[0]).toMatchObject({
-      id: "downtime-reduction",
+      id: "failure-investigation",
       intentId: "troubleshoot",
       priority: "primary",
+      name: "Unplanned Downtime Reduction",
+      agentProduct: "SyncAI Failure Investigation Agent",
     });
     expect(PRODUCT_ENTRY_PATHS[1]).toMatchObject({
       id: "recovery-coordination",
@@ -56,6 +58,11 @@ describe("product entry paths", () => {
     });
     expect(
       PRODUCT_ENTRY_PATHS.every((entry) => entry.platformSurface.length > 0),
+    ).toBe(true);
+    expect(
+      PRODUCT_ENTRY_PATHS.every((entry) =>
+        entry.agentProduct.startsWith("SyncAI "),
+      ),
     ).toBe(true);
   });
 
@@ -82,5 +89,16 @@ describe("product entry paths", () => {
       "/capabilities/fact-check?entry=downtime-evidence-audit",
     );
     expect(productEntryById("unsupported")).toBeUndefined();
+  });
+
+  it("keeps the old downtime route working while canonicalizing new attribution", () => {
+    const legacyEntry = productEntryById("downtime-reduction");
+    expect(legacyEntry).toMatchObject({
+      id: "failure-investigation",
+      agentProduct: "SyncAI Failure Investigation Agent",
+    });
+    expect(productEntryDestination(legacyEntry!)).toBe(
+      "/capabilities/troubleshoot?entry=failure-investigation",
+    );
   });
 });

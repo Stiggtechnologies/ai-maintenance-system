@@ -40,6 +40,11 @@ export function ProductEntryPathsPage() {
             the same evidence, recommendation, human approval, controlled work,
             and verified-value loop.
           </p>
+          <p className="mt-3 text-sm leading-6 text-slate-400">
+            The named agent is the bounded product. The shared SyncAI copilot is
+            the conversational experience for starting and working with those
+            agents.
+          </p>
         </header>
 
         <section
@@ -141,6 +146,9 @@ export function ProductEntryPathsPage() {
               <h2 className="mt-4 text-xl font-semibold text-white">
                 {entry.name}
               </h2>
+              <p className="mt-1 text-sm font-semibold text-teal-100">
+                {entry.agentProduct}
+              </p>
               <p className="mt-1 text-xs text-teal-200/80">
                 {entry.platformSurface}
               </p>
