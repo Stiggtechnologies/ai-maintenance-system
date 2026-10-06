@@ -88,4 +88,15 @@ describe("C7.14 governed canonical covariates", () => {
     expect(smoke).toContain("auth.identities");
     expect(smoke).toContain("factor_type,status,secret,created_at,updated_at");
   });
+  it("distinguishes client RLS zero-row refusal from the privileged metadata-trigger refusal", () => {
+    expect(smoke).toContain("CLIENT_STATUS=${CLIENT_FORGE##*$'\\n'}");
+    expect(smoke).toContain("200) test \"$CLIENT_BODY\" = '[]'");
+    expect(smoke).toContain(
+      "select survival_version from component_life_events",
+    );
+    expect(smoke).toContain(
+      'FORGE=$(sql_must_fail "update component_life_events',
+    );
+    expect(smoke).not.toContain('FORGE=$(sql_must_fail "begin; set local role');
+  });
 });
