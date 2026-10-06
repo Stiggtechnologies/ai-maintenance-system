@@ -13,38 +13,42 @@ Owner check: confirm this is the existing public offer name before changing it.
 
 ### Search results summary (100 characters maximum)
 
-`Governed reliability and engineering decision support for industrial asset teams.`
+`Governed condition monitoring and reliability decision support for industrial asset teams.`
 
-Length: 81 characters.
+Length: 90 characters.
 
 ### Description
 
-> SyncAI helps industrial asset teams turn operational records and engineering
-> evidence into traceable reliability decisions. It connects asset and
-> component context, evidence-linked engineering knowledge, deterministic
-> calculations where the available inputs support them, and AI-assisted
-> analysis in one governed workspace.
+> SyncAI helps industrial asset teams turn condition readings, work history,
+> operating context, asset data, and engineering evidence into traceable
+> reliability decisions. It combines organization-scoped records,
+> evidence-linked engineering knowledge, governed AI-assisted analysis, and
+> deterministic engineering methods in one workspace.
 >
-> Teams can investigate equipment issues, structure reliability cases, review
-> recommendations, and preserve the evidence and rationale behind a decision.
-> Consequential recommendations remain subject to defined human review and
-> approval. SyncAI is decision support: it does not replace qualified
-> engineering judgment, operating authority, legal requirements, OEM limits,
-> or site procedures.
+> Current pilot capabilities include governed condition monitoring across
+> vibration, oil analysis, thermography, motor current, and process-condition
+> signals; evidence-graded FRACAS, root-cause, inspection, and failure-analysis
+> workflows; censored life-data analysis; selected deterministic reliability
+> and physics-of-failure calculations; asset onboarding; downtime-recovery
+> coordination; and auditable decision cases. Analyses expose data-quality,
+> context, applicability, and evidence gaps rather than inventing a diagnosis,
+> threshold, or source record.
 >
-> Current capabilities include organization-scoped operational records,
-> role-shaped workspaces, governed recommendation and approval workflows,
-> asset and reliability onboarding, evidence-graded analysis, selected
-> deterministic reliability and engineering calculations, inspection and
-> failure analysis workflows, and auditable lifecycle records. Availability of
-> a capability depends on the purchased scope, configured data, deployment,
-> and applicable agreement.
+> SyncAI can begin with customer-provided exports and supports integration
+> patterns using APIs, database views, file exchange, event streams, or a
+> customer-side gateway. Read-only CMMS connector patterns include generic
+> HTTPS JSON, SAP PM, IBM Maximo, and Oracle EAM for scoped validation.
+> Production connectors and historian links are configured and validated for
+> each customer environment.
 >
-> SyncAI is in advanced pilot development. Production identity, integrations,
-> deployment topology, retention, support, service levels, security
-> representations, and data-processing terms are confirmed for each purchased
-> scope. No savings, uptime, failure avoidance, accuracy, certification, or ROI
-> outcome is guaranteed.
+> Consequential recommendations remain subject to named human review and
+> approval. SyncAI does not autonomously change engineering limits,
+> maintenance intervals, work orders, schedules, asset state, or return
+> equipment to service. It does not replace qualified engineering judgment,
+> operating authority, legal requirements, OEM limits, or site procedures.
+> Availability depends on the purchased scope, authorized data, deployment,
+> and applicable agreement. No savings, uptime, failure-avoidance, accuracy,
+> certification, or ROI outcome is guaranteed.
 
 ### Getting started instructions
 
@@ -63,9 +67,9 @@ Length: 81 characters.
 
 ### Search keywords
 
-1. `asset reliability`
-2. `maintenance engineering`
-3. `industrial decision support`
+1. `condition monitoring`
+2. `asset reliability`
+3. `maintenance engineering`
 
 ### Contacts and URLs
 
