@@ -26,7 +26,7 @@ The controlled sequence is:
 
 | Gate | Deliverable                                                                                                 | Current evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | ---- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A1   | Azure-hosted web foundation, managed identity, registry, Key Vault, logs, health proof                      | Implemented in `infra/azure`; a dedicated client-secret-free Entra deployment application exists and the three identity identifiers are stored in the protected GitHub environment. Deployment remains blocked because the federated credential is not yet saved, the Azure directory has no subscription, no resource group or scoped roles exist, and five required environment secrets remain absent                                                                     |
+| A1   | Azure-hosted web foundation, managed identity, registry, Key Vault, logs, health proof                      | Implemented in `infra/azure`; a dedicated client-secret-free Entra deployment application exists and six required values are stored in the protected GitHub environment. Deployment remains blocked because the federated credential is not yet saved, the Azure directory has no subscription, no resource group or scoped roles exist, and `AZURE_SUBSCRIPTION_ID` plus `ENRICH_SHARED_SECRET` remain absent                                                              |
 | A2   | Azure-hosted compute/data plane whose consumption grows with customer use                                   | Azure Intelligence plane implemented in code: Container Apps + Azure OpenAI with managed identity, Key Vault references, strict Azure-only inference and controlled canonical-cron cutover. It remains unproven until the protected production workflow deploys it and usage evidence shows Azure is the fastest-scaling resource; existing Supabase/Vercel production remains authoritative                                                                                |
 | A3   | Microsoft Entra SSO that establishes a verified application session                                         | Supported Supabase OAuth/PKCE path implemented: hosted Auth owns the provider exchange, the callback verifies the issued user against the Auth server and requires an Azure-backed identity, and identity cannot assign a tenant or activate commerce. Production remains unproven until the multi-tenant Entra app credentials are configured and a real buyer-tenant sign-in is witnessed. The legacy hand-decoded-token path remains blocked.                            |
 | A4   | Backend-only SaaS Fulfillment APIs v2 resolve and activation flow                                           | Governed v2 resolve, explicit activation and authoritative status refresh are deployed. Purchase tokens are scrubbed from the browser URL and never persisted; activation requires a server-verified Microsoft tenant plus an existing SyncAI organization administrator and writes the canonical billing/audit records. The legacy function remains blocked. Publisher credentials are not configured and no real purchase has been witnessed end to end.                  |
@@ -104,12 +104,23 @@ federated-credential form is prepared for the protected `azure-production`
 environment and immutable GitHub organization/repository IDs, but the final
 credential has not yet been saved.
 
-The GitHub environment now contains exactly three names: `AZURE_CLIENT_ID`,
-`AZURE_TENANT_ID`, and `AZURE_DEPLOYMENT_PRINCIPAL_OBJECT_ID`. Values are not
-exposed by the inventory. The remaining five required names are absent:
-`AZURE_SUBSCRIPTION_ID`, `VITE_SUPABASE_URL`,
-`VITE_SUPABASE_PUBLISHABLE_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and
-`ENRICH_SHARED_SECRET`.
+The GitHub environment now contains exactly six required names:
+`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`,
+`AZURE_DEPLOYMENT_PRINCIPAL_OBJECT_ID`, `VITE_SUPABASE_URL`,
+`VITE_SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`. Values are not
+exposed by the inventory. The public URL and publishable key were sourced from
+the production `app.syncai.ca` deployment, and the service-role value was
+transferred directly from the active Supabase project without printing or
+storing it in the repository. The remaining two required names are absent:
+`AZURE_SUBSCRIPTION_ID` and `ENRICH_SHARED_SECRET`.
+
+The active Supabase project contains an `ENRICH_SHARED_SECRET`, but its value is
+write-only through the available administration boundary and the database
+correctly refuses direct reads from `private.enrichment_config`. Do not create a
+placeholder. Either the existing value must be supplied through an authorized
+secure handoff, or a separately approved rotation must update the Supabase
+function secret, canonical private cron configuration, and protected GitHub
+environment together.
 
 The Azure portal subscription inventory for the publisher directory reports
 **zero subscriptions**. Therefore no production resource group or scoped Azure
