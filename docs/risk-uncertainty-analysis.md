@@ -299,6 +299,89 @@ native controls remain unexecuted.** Broader ancestor/stakeholder privacy,
 source/quarantine/claim-purpose standing, authorized atomic replacement,
 shared authentication freshness and production release remain open.
 
+**2026-10-06 subsequent exact-head execution receipt:** the published criteria
+checkpoint `604ac2dcf49ad9d9d86f2c1adf187400f424e3d0` (tree
+`cc139d7fd8b7e306a6939e613baf977c246df5bf`) completed core CI run
+[`37541611819`](https://github.com/Stiggtechnologies/ai-maintenance-system/actions/runs/37541611819)
+successfully. Its actual isolated preflight passed at `22:43:07Z`; full native
+SQL, real GoTrue/PostgREST and the actual four-session criteria harness passed
+at `22:46:46Z`. The logs contain the exact concurrent-criteria PASS witness,
+not a mocked SQL response. Auth-job Stop Supabase completed at `22:47:33Z`;
+the sixteen browser cases and their cleanup completed at `22:45:38Z`.
+All **8,494 tests in 537 files**, required checks and three Vercel previews
+passed. This receipt qualifies that published criteria checkpoint only, not
+the later privacy changes below, source-purpose standing or production.
+
+The next **local, unpublished** visibility checkpoint fences dependencies of
+the existing canonical `can_read_risk` rule before either mutation takes its
+old target-only lock. One private, non-definer, volatile boolean helper walks
+every canonical secondary origin without a hop cap or alternate permission
+ladder. It locks the complete same-org risk set in UUID order with `FOR UPDATE`,
+all inverse stakeholder-view references to those actual risks, and same-org
+origin scenarios. Existing view rows are locked regardless of their current
+user or organization: correcting those fields does not recheck an unchanged
+risk FK. No dependency identity or foreign content is returned. New grants and
+repointed references cannot pass their immediate risk FK while the risk fence
+is held; canonical origin receipts likewise need the actual child risk lock.
+The complete ordered lineage and origin tuples are recollected after locks;
+drift refuses rather than silently adding an unheld dependency. Final current
+profile, canonical visibility and digest checks remain unchanged.
+
+All context locks use `NOWAIT`. This is a conservative availability tradeoff:
+an otherwise authorized request can receive the existing generic unavailable
+refusal under contention. It is not proof of absent risk or durable access
+revocation, and it never authorizes a retry. Only `lock_not_available` is caught
+before any writes; that exception unwinds the helper subtransaction's partial
+locks. Normal false returns retain already acquired locks until the caller's
+transaction ends. Shared canonical policies, origin guards and writers are not
+modified to manufacture a passing schedule.
+
+Eight source contracts failed before that repair. A ninth failed before the
+additive native specification: exact direct-execution denial for all three
+client roles, actual public/internal/confidential/restricted owner and
+decision-owner branches, withdrawn-but-existing canonical stakeholder grants,
+every ancestor's independent eligibility, wrong-org references, actual bound
+submission/review, revoked review refusal and the foreign public-reader wall.
+All diagnostic fixtures, actor state and role changes must roll back together.
+The existing full-state witness now includes both newly generated synthetic
+organizations in all thirteen artifact/context collections. These rollback
+controls and the new multi-session privacy qualification are **unexecuted**;
+source review does not establish their scheduling or runtime isolation.
+The added multi-session specification uses actual public submission/review,
+fresh typed three-generation ancestry, real approval/evidence barriers and
+observed blocking PIDs. Writer-wins schedules require a prompt exact generic
+refusal, no artifacts and a third-session partial-lock-release witness.
+Helper-wins schedules require legitimate ancestor/view/scenario writers to
+wait, then exact bound receipts and normalized before-to-after accounting of
+all thirteen collections in both organizations, allowing only the qualified
+action and the named legitimate writer mutation.
+Additional schedules cover final role revalidation and overlapping sibling
+ancestry. Ancestor deletion is explicitly **open**, not counted as a passing
+writer: the canonical provenance guard prohibits that legitimate commit.
+
+Two independently reproduced SDK issues also have bounded source repairs.
+Submission and review use the existing strict UUID identity comparator so
+PostgreSQL case normalization cannot falsely classify a successful receipt as
+unknown. Review captures primitive risk/digest context before dispatch, so
+later caller mutation cannot accept a rebound ACK or invalidate the original
+one. Six actual service-SDK tests with mocked RPC failed before repair;
+digest/action/approval/derived
+evidence/VOI/authority checks and the no-retry unknown-outcome behavior remain.
+The retained mount-local unknown-action lock now has a static, non-sensitive
+alert across observed organization changes. An existing tenant test failed
+before this warning; actions stay disabled, messages/drafts remain scope-bound,
+and no old organization, actor, risk, receipt or error content is exposed in
+the new scope. Qualified receipts remain privately retained by the existing
+acknowledged-action guard so a scope switch cannot enable resubmission.
+The warning does not unlock controls, reconcile an outcome or supply durable
+idempotency. Shared authentication/cockpit ownership and the broader source,
+atomic-replacement and production holds remain open.
+The final local cohort passes **1,719 tests in 16 files**, including the
+unchanged shared tenancy/definer guards. Four additional malformed-review
+cases positively confirm the existing pre-dispatch refusal without any RPC;
+they are not claimed as new red-before-repair defects. These local results do
+not replace fresh exact-head native privacy qualification.
+
 SyncAI U18.02 adds versioned uncertainty packets to the canonical Risk Operating System. It supports bounded probability estimates, confidence intervals, best/expected/worst loss cases, ranked one-at-a-time sensitivity inputs, value-of-information analysis, adopted decision-threshold snapshots and measurable reassessment triggers.
 
 It does not add a second risk register, evidence store, approval queue or audit ledger. Each packet belongs to a canonical `risks` record, cites canonical `evidence_items`, records its human disposition in `approvals`, and writes its lifecycle events to `audit_events`.

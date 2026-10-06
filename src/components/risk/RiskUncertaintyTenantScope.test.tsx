@@ -232,12 +232,16 @@ describe("uncertainty observed canonical tenant scope", () => {
     view.rerender(panel(organizationB));
     await screen.findByText("Organization B packet · v1");
     await act(async () => finish({ data: {}, error: null }));
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "An earlier uncertainty action has an unresolved outcome",
+    );
     expect(
       screen.getByRole("button", { name: "Review packet" }),
     ).toBeDisabled();
     workspace.mockResolvedValue(packet("Organization A return packet"));
     view.rerender(panel(organizationA));
     await screen.findByText("Organization A return packet · v1");
+    expect(screen.getByRole("alert")).toHaveTextContent("Do not resend it");
     expect(
       screen.getByRole("button", { name: "Review packet" }),
     ).toBeDisabled();

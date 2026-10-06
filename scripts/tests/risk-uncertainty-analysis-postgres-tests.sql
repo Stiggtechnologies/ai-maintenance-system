@@ -65,16 +65,19 @@ grant select,insert on u18_packet to authenticated;
 -- Session-local test snapshot, not an application store or authority bypass.
 create function pg_temp.u18_state() returns jsonb language sql as $$
  select jsonb_build_object(
-   'risks',(select jsonb_agg(to_jsonb(r) order by r.id) from risks r where organization_id=(select org from u18_fixture)),
-   'packets',(select jsonb_agg(to_jsonb(a) order by a.id) from risk_uncertainty_analyses a where organization_id=(select org from u18_fixture)),
-   'bindings',(select jsonb_agg(to_jsonb(b) order by b.analysis_id,b.evidence_item_id) from risk_uncertainty_analysis_evidence b where organization_id=(select org from u18_fixture)),
-   'approvals',(select jsonb_agg(to_jsonb(a) order by a.id) from approvals a where organization_id=(select org from u18_fixture)),
-   'audit',(select jsonb_agg(to_jsonb(a) order by a.id) from audit_events a where organization_id=(select org from u18_fixture)),
-   'evidence',(select jsonb_agg(to_jsonb(e) order by e.id) from evidence_items e where organization_id=(select org from u18_fixture)),
-   'criteria',(select jsonb_agg(to_jsonb(c) order by c.id) from risk_criteria_profiles c where organization_id=(select org from u18_fixture)),
-   'securityEvents',(select jsonb_agg(to_jsonb(s) order by s.id) from security_events s where organization_id=(select org from u18_fixture)),
-   'decisions',(select jsonb_agg(to_jsonb(d) order by d.id) from decisions d where organization_id=(select org from u18_fixture)),
-   'work',(select jsonb_agg(to_jsonb(w) order by w.id) from work_orders w where organization_id=(select org from u18_fixture)))
+   'risks',(select jsonb_agg(to_jsonb(r) order by r.id) from risks r where organization_id in((select org from u18_fixture),(select foreign_org from u18_fixture))),
+   'packets',(select jsonb_agg(to_jsonb(a) order by a.id) from risk_uncertainty_analyses a where organization_id in((select org from u18_fixture),(select foreign_org from u18_fixture))),
+   'bindings',(select jsonb_agg(to_jsonb(b) order by b.analysis_id,b.evidence_item_id) from risk_uncertainty_analysis_evidence b where organization_id in((select org from u18_fixture),(select foreign_org from u18_fixture))),
+   'approvals',(select jsonb_agg(to_jsonb(a) order by a.id) from approvals a where organization_id in((select org from u18_fixture),(select foreign_org from u18_fixture))),
+   'audit',(select jsonb_agg(to_jsonb(a) order by a.id) from audit_events a where organization_id in((select org from u18_fixture),(select foreign_org from u18_fixture))),
+   'evidence',(select jsonb_agg(to_jsonb(e) order by e.id) from evidence_items e where organization_id in((select org from u18_fixture),(select foreign_org from u18_fixture))),
+   'criteria',(select jsonb_agg(to_jsonb(c) order by c.id) from risk_criteria_profiles c where organization_id in((select org from u18_fixture),(select foreign_org from u18_fixture))),
+   'securityEvents',(select jsonb_agg(to_jsonb(s) order by s.id) from security_events s where organization_id in((select org from u18_fixture),(select foreign_org from u18_fixture))),
+   'decisions',(select jsonb_agg(to_jsonb(d) order by d.id) from decisions d where organization_id in((select org from u18_fixture),(select foreign_org from u18_fixture))),
+   'work',(select jsonb_agg(to_jsonb(w) order by w.id) from work_orders w where organization_id in((select org from u18_fixture),(select foreign_org from u18_fixture))),
+   'stakeholderViews',(select jsonb_agg(to_jsonb(sv) order by sv.id) from risk_stakeholder_views sv where organization_id in((select org from u18_fixture),(select foreign_org from u18_fixture))),
+   'scenarios',(select jsonb_agg(to_jsonb(s) order by s.id) from scenarios s where organization_id in((select org from u18_fixture),(select foreign_org from u18_fixture))),
+   'profiles',(select jsonb_agg(to_jsonb(p) order by p.id) from user_profiles p where organization_id in((select org from u18_fixture),(select foreign_org from u18_fixture))))
 $$;
 set local role authenticated;
 select set_config('request.jwt.claim.sub',author::text,true) from u18_fixture;
@@ -843,6 +846,163 @@ do $$ declare f record; a public.risk_uncertainty_analyses%rowtype;
     raise exception 'v2 digest controls incomplete or left artifacts'; end if;
 end $$;
 -- U18 V2 DIGEST CONTROLS END
+
+-- U18 VISIBILITY CONTROLS BEGIN
+-- Actual canonical policy branches, not a concurrency or private-API bypass
+-- claim. Owner diagnostics use the fixture JWT actor; actual public mutation
+-- RPCs retain their named-human gates. Everything below rolls back together.
+do $$ declare f record; baseline jsonb; snapshot jsonb; branch text; client text;
+  grandparent uuid:=gen_random_uuid(); parent uuid:=gen_random_uuid(); child uuid:=gen_random_uuid();
+  parent_scenario uuid:=gen_random_uuid(); child_scenario uuid:=gen_random_uuid();
+  grand_view uuid:=gen_random_uuid(); parent_view uuid:=gen_random_uuid();
+  evidence uuid:=gen_random_uuid(); packet uuid; receipt jsonb; packet_digest text;
+  qualified boolean:=false; refused boolean; detail text;
+  original_role text:=current_user; original_actor text:=current_setting('request.jwt.claim.sub',true);
+begin
+  select * into f from u18_fixture;
+  baseline:=pg_temp.u18_state();
+  foreach client in array array['anon','authenticated','service_role'] loop
+    if has_function_privilege(client,'public.risk_uncertainty_lock_visibility_context(uuid,uuid)','execute') then
+      raise exception 'private visibility fence executable by a client role'; end if;
+    refused:=false;
+    begin
+      execute format('set local role %I',client);
+      perform public.risk_uncertainty_lock_visibility_context(f.org,child);
+    exception when insufficient_privilege then
+      get stacked diagnostics detail=message_text;
+      refused:=detail='permission denied for function risk_uncertainty_lock_visibility_context';
+    end;
+    if not refused or current_user is distinct from original_role
+      or pg_temp.u18_state() is distinct from baseline then
+      raise exception 'direct client visibility-fence execution was not exactly denied'; end if;
+  end loop;
+  begin
+    perform set_config('request.jwt.claim.sub','',true);
+    insert into public.risks(id,organization_id,criteria_profile_id,title,status,value_currency,created_by)
+    values(grandparent,f.org,f.criteria,'U18 synthetic privacy grandparent','draft','CAD',f.author);
+    insert into public.scenarios(id,organization_id,risk_id,key,label)
+    values(parent_scenario,f.org,grandparent,'u18_privacy_parent','Synthetic privacy parent origin');
+    insert into public.risks(id,organization_id,criteria_profile_id,title,status,value_currency,created_by,
+      secondary_to_risk_id,arising_from_scenario_id)
+    values(parent,f.org,f.criteria,'U18 synthetic privacy parent','draft','CAD',f.author,
+      grandparent,parent_scenario);
+    insert into public.scenarios(id,organization_id,risk_id,key,label)
+    values(child_scenario,f.org,parent,'u18_privacy_child','Synthetic privacy child origin');
+    insert into public.risks(id,organization_id,criteria_profile_id,title,status,value_currency,created_by,
+      risk_owner_id,secondary_to_risk_id,arising_from_scenario_id)
+    values(child,f.org,f.criteria,'U18 synthetic privacy child','draft','CAD',f.author,
+      f.reviewer,parent,child_scenario);
+    insert into public.evidence_items(id,organization_id,risk_id,source_system,evidence_type,description,
+      evidence_class,verification_status,verified_by,verified_at,verification_method,quality_grade,applicability_grade,revision)
+    values(evidence,f.org,child,'CMMS','inspection','Synthetic privacy child inspection, not engineering evidence.',
+      'INSPECTED','verified',f.reviewer,now(),'Synthetic privacy inspection fixture','high','direct','R2');
+    perform set_config('request.jwt.claim.sub',f.reviewer::text,true);
+    foreach branch in array array['public','internal','confidential'] loop
+      update public.risks set information_sensitivity=branch where id=grandparent;
+      snapshot:=pg_temp.u18_state();
+      if public.risk_uncertainty_lock_visibility_context(f.org,child) is distinct from true
+        or pg_temp.u18_state() is distinct from snapshot then
+        raise exception 'canonical public/internal/engineering-role visibility control failed'; end if;
+    end loop;
+    update public.risks set information_sensitivity='restricted' where id=grandparent;
+    snapshot:=pg_temp.u18_state();
+    if public.risk_uncertainty_lock_visibility_context(f.org,child) is distinct from false
+      or public.can_read_risk(child) is distinct from false
+      or pg_temp.u18_state() is distinct from snapshot then
+      raise exception 'child ownership declassified an unreadable ancestor'; end if;
+    receipt:=public.submit_risk_uncertainty_analysis(child,f.input,array[evidence]);
+    if receipt is distinct from jsonb_build_object('error','risk not found in this organization')
+      or pg_temp.u18_state() is distinct from snapshot then
+      raise exception 'unreadable ancestor submission did not refuse without artifacts'; end if;
+    update public.risks set risk_owner_id=f.reviewer where id=grandparent;
+    snapshot:=pg_temp.u18_state();
+    if public.risk_uncertainty_lock_visibility_context(f.org,child) is distinct from true
+      or pg_temp.u18_state() is distinct from snapshot then
+      raise exception 'canonical ancestor-owner visibility control failed'; end if;
+    update public.risks set risk_owner_id=null,decision_owner_id=f.reviewer where id=grandparent;
+    snapshot:=pg_temp.u18_state();
+    if public.risk_uncertainty_lock_visibility_context(f.org,child) is distinct from true
+      or pg_temp.u18_state() is distinct from snapshot then
+      raise exception 'canonical ancestor-decision-owner visibility control failed'; end if;
+    update public.risks set decision_owner_id=null where id=grandparent;
+    insert into public.risk_stakeholder_views(id,organization_id,risk_id,stakeholder_user_id,stakeholder_name,rationale)
+    values(grand_view,f.org,grandparent,f.reviewer,'Synthetic privacy reviewer','Synthetic explicit ancestor grant.');
+    -- Current canonical policy consumes existence, not consultation status.
+    update public.risk_stakeholder_views set status='withdrawn' where id=grand_view;
+    snapshot:=pg_temp.u18_state();
+    if public.risk_uncertainty_lock_visibility_context(f.org,child) is distinct from true
+      or pg_temp.u18_state() is distinct from snapshot then
+      raise exception 'visibility fence invented a stakeholder status permission gate'; end if;
+    update public.risks set information_sensitivity='restricted' where id=parent;
+    snapshot:=pg_temp.u18_state();
+    if public.risk_uncertainty_lock_visibility_context(f.org,child) is distinct from false
+      or pg_temp.u18_state() is distinct from snapshot then
+      raise exception 'one ancestor grant overrode another unreadable ancestor'; end if;
+    insert into public.risk_stakeholder_views(id,organization_id,risk_id,stakeholder_user_id,stakeholder_name,rationale)
+    values(parent_view,f.org,parent,f.reviewer,'Synthetic privacy reviewer','Synthetic second explicit ancestor grant.');
+    snapshot:=pg_temp.u18_state();
+    if public.risk_uncertainty_lock_visibility_context(f.org,child) is distinct from true
+      or pg_temp.u18_state() is distinct from snapshot then
+      raise exception 'complete canonical stakeholder ancestry was not readable'; end if;
+    update public.risk_stakeholder_views set organization_id=f.foreign_org where id=grand_view;
+    snapshot:=pg_temp.u18_state();
+    if public.risk_uncertainty_lock_visibility_context(f.org,child) is distinct from false
+      or pg_temp.u18_state() is distinct from snapshot then
+      raise exception 'wrong-tenant stakeholder reference granted ancestor visibility'; end if;
+    update public.risk_stakeholder_views set organization_id=f.org where id=grand_view;
+    perform set_config('request.jwt.claim.sub',f.author::text,true);
+    snapshot:=pg_temp.u18_state();
+    if public.risk_uncertainty_lock_visibility_context(f.org,child) is distinct from true
+      or pg_temp.u18_state() is distinct from snapshot then
+      raise exception 'canonical administrator ancestor visibility control failed'; end if;
+    receipt:=public.submit_risk_uncertainty_analysis(child,f.input,array[evidence]);
+    if receipt ? 'error' or receipt->>'riskId' is distinct from child::text
+      or receipt->>'analysisId' is null or receipt->>'analysisDigest' !~ '^[0-9a-f]{64}$'
+      or receipt->>'analysisDigest' is null or receipt->>'version' is distinct from '1'
+      or receipt->>'validationStatus' is distinct from 'pending_review'
+      or receipt->'operationalAuthorization' is distinct from 'false'::jsonb then
+      raise exception 'readable inherited privacy submission did not return its bound receipt'; end if;
+    packet:=(receipt->>'analysisId')::uuid; packet_digest:=receipt->>'analysisDigest';
+    perform set_config('request.jwt.claim.sub',f.reviewer::text,true);
+    update public.risk_stakeholder_views set stakeholder_user_id=null where id=parent_view;
+    snapshot:=pg_temp.u18_state();
+    receipt:=public.review_risk_uncertainty_analysis(packet,'validated',
+      'Synthetic reviewer must not approve copied context after an ancestor grant revocation.');
+    if receipt is distinct from jsonb_build_object('error','same-tenant uncertainty analysis is not awaiting review')
+      or pg_temp.u18_state() is distinct from snapshot then
+      raise exception 'revoked ancestor review did not refuse without artifacts'; end if;
+    update public.risk_stakeholder_views set stakeholder_user_id=f.reviewer where id=parent_view;
+    receipt:=public.review_risk_uncertainty_analysis(packet,'validated',
+      'Synthetic independent review of the exact readable inherited-context packet.');
+    if receipt ? 'error' or receipt->>'analysisId' is distinct from packet::text
+      or receipt->>'riskId' is distinct from child::text
+      or receipt->>'analysisDigest' is distinct from packet_digest
+      or receipt->>'decision' is distinct from 'validated'
+      or receipt->>'approvalId' is null or receipt->>'derivedEvidenceItemId' is null
+      or receipt->'operationalAuthorization' is distinct from 'false'::jsonb
+      or not exists(select 1 from public.risk_uncertainty_analyses a
+        join public.approvals p on p.id=a.approval_id and p.organization_id=a.organization_id and p.risk_id=a.risk_id
+        join public.evidence_items e on e.id=a.derived_evidence_item_id and e.organization_id=a.organization_id and e.risk_id=a.risk_id
+        where a.id=packet and a.status='validated' and a.author_id=f.author and a.reviewer_id=f.reviewer
+          and a.analysis_digest=packet_digest and p.status='approved' and p.approver_user_id=f.reviewer
+          and p.id::text=receipt->>'approvalId' and e.id::text=receipt->>'derivedEvidenceItemId'
+          and e.evidence_class='CALCULATED' and e.verification_status='unverified') then
+      raise exception 'readable inherited-context review lost its actual human/approval/evidence binding'; end if;
+    perform set_config('request.jwt.claim.sub',f.foreign_user::text,true);
+    snapshot:=pg_temp.u18_state();
+    if public.risk_uncertainty_lock_visibility_context(f.org,child) is distinct from false
+      or public.get_risk_uncertainty_workspace(child) is distinct from jsonb_build_object('error','risk not found in this organization')
+      or pg_temp.u18_state() is distinct from snapshot then
+      raise exception 'foreign actor received inherited private context'; end if;
+    qualified:=true;
+    raise exception using errcode='ZX014',message='U18 privacy branch fixture rollback';
+  exception when sqlstate 'ZX014' then null;
+  end;
+  if not qualified or pg_temp.u18_state() is distinct from baseline
+    or current_setting('request.jwt.claim.sub',true) is distinct from original_actor then
+    raise exception 'privacy branch qualification or complete two-tenant rollback failed'; end if;
+end $$;
+-- U18 VISIBILITY CONTROLS END
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub',reviewer::text,true) from u18_fixture;

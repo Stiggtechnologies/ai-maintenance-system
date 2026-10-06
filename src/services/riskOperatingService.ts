@@ -869,7 +869,7 @@ export async function submitRiskUncertaintyAnalysis(
   });
   const voi = data.valueOfInformation;
   if (
-    data.riskId !== riskId ||
+    !uncertaintySameUuid(data.riskId, riskId) ||
     !uncertaintyUuid(data.analysisId) ||
     !uncertaintyDigest(data.analysisDigest) ||
     !Number.isSafeInteger(data.version) ||
@@ -902,10 +902,14 @@ export async function reviewRiskUncertaintyAnalysis(
   note: string,
   context: RiskUncertaintyReviewContext,
 ): Promise<RpcResult> {
+  const observed = {
+    riskId: context?.riskId,
+    analysisDigest: context?.analysisDigest,
+  };
   if (
     !uncertaintyUuid(analysisId) ||
-    !uncertaintyUuid(context?.riskId) ||
-    !uncertaintyDigest(context?.analysisDigest) ||
+    !uncertaintyUuid(observed.riskId) ||
+    !uncertaintyDigest(observed.analysisDigest) ||
     !["validated", "rejected"].includes(decision)
   ) {
     fail(
@@ -918,9 +922,9 @@ export async function reviewRiskUncertaintyAnalysis(
     p_review_note: note,
   });
   if (
-    data.riskId !== context.riskId ||
-    data.analysisId !== analysisId ||
-    data.analysisDigest !== context.analysisDigest ||
+    !uncertaintySameUuid(data.riskId, observed.riskId) ||
+    !uncertaintySameUuid(data.analysisId, analysisId) ||
+    data.analysisDigest !== observed.analysisDigest ||
     data.decision !== decision ||
     !uncertaintyUuid(data.approvalId) ||
     data.operationalAuthorization !== false ||

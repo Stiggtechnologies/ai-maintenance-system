@@ -475,6 +475,72 @@ begin
   return null;
 end $$;
 
+-- Transaction-scoped visibility fence, not a second permission model. Walk
+-- the canonical origin, lock its actual dependencies, then ask can_read_risk
+-- again. NOWAIT avoids tuple/FK inversions with outside writers; contention
+-- refuses before writes and the exception subtransaction releases its locks.
+create or replace function public.risk_uncertainty_lock_visibility_context(
+  p_org uuid,p_risk_id uuid
+) returns boolean language plpgsql volatile set search_path=public as $$
+declare
+  v_pass integer; v_cursor uuid; v_row public.risks%rowtype; v_origin jsonb;
+  v_path uuid[]; v_scenarios uuid[]; v_origins jsonb;
+  v_initial_path uuid[]; v_initial_origins jsonb; v_locked integer;
+begin
+  if auth.uid() is null or p_org is null or p_risk_id is null
+    or public.app_current_org() is distinct from p_org
+    or public.can_read_risk(p_risk_id) is distinct from true then return false; end if;
+  for v_pass in 1..2 loop
+    v_cursor:=p_risk_id; v_path:='{}'::uuid[];
+    v_scenarios:='{}'::uuid[]; v_origins:='[]'::jsonb;
+    while v_cursor is not null loop
+      if v_cursor=any(v_path) then return false; end if;
+      select * into v_row from public.risks
+      where id=v_cursor and organization_id=p_org;
+      if not found then return false; end if;
+      v_path:=array_append(v_path,v_cursor);
+      v_origin:=public.get_risk_secondary_origin_internal(v_row);
+      if v_origin->'valid' is distinct from 'true'::jsonb then return false; end if;
+      v_origins:=v_origins||jsonb_build_array(jsonb_build_object('risk',v_cursor,'origin',v_origin));
+      if public.sync_text_as_uuid(v_origin->>'scenario_id') is not null then
+        v_scenarios:=array_append(v_scenarios,public.sync_text_as_uuid(v_origin->>'scenario_id'));
+      end if;
+      v_cursor:=public.sync_text_as_uuid(v_origin->>'parent_id');
+    end loop;
+    if v_pass=1 then
+      v_initial_path:=v_path; v_initial_origins:=v_origins;
+      -- UPDATE, not NO KEY UPDATE: immediate view FKs request KEY SHARE.
+      -- The complete set is ordered BEFORE either RPC's original target lock.
+      perform r.id from public.risks r
+      where r.organization_id=p_org and r.id=any(v_path)
+      order by r.id for update of r nowait;
+      get diagnostics v_locked=row_count;
+      if v_locked<>cardinality(v_path) then return false; end if;
+      -- Lock inverse references, not only today's matching actor/org grants.
+      -- A wrong-org/user row can be corrected without changing its risk FK.
+      -- No stakeholder content or foreign identity is returned to a caller.
+      perform sv.id from public.risk_stakeholder_views sv
+      join public.risks r on r.id=sv.risk_id
+      where r.organization_id=p_org and r.id=any(v_path)
+      order by sv.id for share of sv nowait;
+      perform s.id from public.scenarios s
+      where s.organization_id=p_org and s.id=any(v_scenarios)
+      order by s.id for share of s nowait;
+      get diagnostics v_locked=row_count;
+      if v_locked<>(select count(distinct x) from unnest(v_scenarios) x) then return false; end if;
+    elsif v_path is distinct from v_initial_path
+      or v_origins is distinct from v_initial_origins then
+      -- Never silently expand a held set after locks, in a different order.
+      return false;
+    end if;
+  end loop;
+  return public.can_read_risk(p_risk_id) is true
+    and public.app_current_org() is not distinct from p_org;
+exception when lock_not_available then
+  return false;
+end $$;
+revoke all on function public.risk_uncertainty_lock_visibility_context(uuid,uuid) from public,anon,authenticated,service_role;
+
 create or replace function public.submit_risk_uncertainty_analysis(
   p_risk_id uuid,p_analysis jsonb,p_evidence_item_ids uuid[]
 ) returns jsonb language plpgsql security definer set search_path=public as $$
@@ -498,6 +564,9 @@ begin
   select role into v_role from public.user_profiles where id=v_user and organization_id=v_org;
   if coalesce(v_role,'') not in ('reliability_engineer','maintenance_manager','executive','admin') then
     return jsonb_build_object('error','risk uncertainty submission requires a named human engineering or management role');
+  end if;
+  if public.risk_uncertainty_lock_visibility_context(v_org,p_risk_id) is distinct from true then
+    return jsonb_build_object('error','risk not found in this organization');
   end if;
   select * into r from public.risks
   where id=p_risk_id and organization_id=v_org and public.can_read_risk(id) for update;
@@ -756,6 +825,9 @@ begin
   select risk_id into v_risk_id from public.risk_uncertainty_analyses
   where id=p_analysis_id and organization_id=v_org and public.can_read_risk(risk_id);
   if not found then return jsonb_build_object('error','same-tenant uncertainty analysis is not awaiting review'); end if;
+  if public.risk_uncertainty_lock_visibility_context(v_org,v_risk_id) is distinct from true then
+    return jsonb_build_object('error','risk not found in this organization');
+  end if;
   select * into r from public.risks
   where id=v_risk_id and organization_id=v_org and public.can_read_risk(id) for update;
   if not found then return jsonb_build_object('error','same-tenant uncertainty analysis is not awaiting review'); end if;

@@ -425,6 +425,16 @@ export function RiskUncertaintyPanel({
 
   return (
     <section className="rounded-2xl border border-violet-500/20 bg-[#0D1520] p-5">
+      {outcomeUnknown && (
+        <div
+          role="alert"
+          className="mb-4 rounded-xl border border-amber-400/25 bg-amber-400/5 px-4 py-3 text-xs leading-relaxed text-amber-200"
+        >
+          An earlier uncertainty action has an unresolved outcome. Actions
+          remain locked until its canonical packet is reconciled. Do not resend
+          it.
+        </div>
+      )}
       <fieldset
         disabled={
           busy ||

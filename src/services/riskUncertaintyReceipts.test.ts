@@ -53,6 +53,102 @@ beforeEach(() => {
 });
 
 describe("uncertainty acknowledgement qualification", () => {
+  it.each([
+    { id: "not-a-uuid", ctx: context, decision: "validated" },
+    {
+      id: analysisId,
+      ctx: { ...context, riskId: "not-a-uuid" },
+      decision: "validated",
+    },
+    {
+      id: analysisId,
+      ctx: { ...context, analysisDigest: "not-a-sha256" },
+      decision: "validated",
+    },
+    { id: analysisId, ctx: context, decision: "approve-operation" },
+  ])(
+    "refuses malformed review context before any RPC ($id, $decision)",
+    async ({ id, ctx, decision }) => {
+      await expect(
+        reviewRiskUncertaintyAnalysis(
+          id,
+          decision as "validated",
+          "Independent exact packet review basis.",
+          ctx,
+        ),
+      ).rejects.toThrow("selected canonical risk and frozen packet digest");
+      expect(rpc).not.toHaveBeenCalled();
+    },
+  );
+
+  it("accepts the same canonical submission UUID when PostgreSQL normalizes caller case", async () => {
+    rpc.mockResolvedValue({ data: submitted, error: null });
+    await expect(
+      submitRiskUncertaintyAnalysis(riskId.toUpperCase(), submission, []),
+    ).resolves.toEqual(submitted);
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["risk", "analysis", "receipt"])(
+    "preserves review identity across UUID case in %s",
+    async (branch) => {
+      const receipt =
+        branch === "receipt"
+          ? {
+              ...reviewed,
+              riskId: riskId.toUpperCase(),
+              analysisId: analysisId.toUpperCase(),
+            }
+          : reviewed;
+      rpc.mockResolvedValue({ data: receipt, error: null });
+      await expect(
+        reviewRiskUncertaintyAnalysis(
+          branch === "analysis" ? analysisId.toUpperCase() : analysisId,
+          "validated",
+          "Independent exact packet review basis.",
+          {
+            ...context,
+            riskId: branch === "risk" ? riskId.toUpperCase() : riskId,
+          },
+        ),
+      ).resolves.toEqual(receipt);
+      expect(rpc).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it.each([false, true])(
+    "captures the original review risk/digest before dispatch despite later context mutation (rebound %s)",
+    async (rebound) => {
+      let release!: (value: unknown) => void;
+      rpc.mockReturnValue(
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+      );
+      const mutable = { ...context };
+      const pending = reviewRiskUncertaintyAnalysis(
+        analysisId,
+        "validated",
+        "Independent exact packet review basis.",
+        mutable,
+      );
+      mutable.riskId = otherId;
+      mutable.analysisDigest = "b".repeat(64);
+      const receipt = rebound
+        ? {
+            ...reviewed,
+            riskId: mutable.riskId,
+            analysisDigest: mutable.analysisDigest,
+          }
+        : reviewed;
+      release({ data: receipt, error: null });
+      if (rebound)
+        await expect(pending).rejects.toMatchObject({ outcomeUnknown: true });
+      else await expect(pending).resolves.toEqual(reviewed);
+      expect(rpc).toHaveBeenCalledTimes(1);
+    },
+  );
+
   it("retains the complete canonical submission receipt", async () => {
     rpc.mockResolvedValue({ data: submitted, error: null });
     await expect(
