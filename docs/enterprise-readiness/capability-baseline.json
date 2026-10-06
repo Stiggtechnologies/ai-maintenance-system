@@ -2306,8 +2306,8 @@
   "U18.02": {
     "status": "🟡",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 4,
+    "backticked": 4
   },
   "U19.01": {
     "status": "✅",
@@ -2564,8 +2564,8 @@
   "R4.02": {
     "status": "🟡",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 8,
+    "backticked": 8
   },
   "R4.03": {
     "status": "✅",
@@ -2618,8 +2618,8 @@
   "R5.03": {
     "status": "🟡",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 4,
+    "backticked": 4
   },
   "R5.04": {
     "status": "✅",

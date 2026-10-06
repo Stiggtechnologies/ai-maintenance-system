@@ -47,6 +47,7 @@ const criteria: RiskCriteria = {
     connectivity: 0.1,
     velocity: 0.05,
     capacity: 0.1,
+    timePressure: 0.1,
   },
   thresholds: {
     low: 20,
@@ -164,6 +165,21 @@ describe("ISO 31000 risk analysis", () => {
     expect(result.explanation).toContain("draft");
   });
 
+  it("does not invent a likelihood-scale floor for offline diagnostics", () => {
+    const result = analyzeRisk(
+      { ...base, likelihood: 0.2, consequences: { safety: 5 } },
+      { ...criteria, likelihoodScale: [0.1, 0.2, 0.3, 0.4, 0.5] },
+    );
+    expect(result.inherentScore).toBe(40);
+    expect(result.explanation).toContain("Offline diagnostic estimate");
+  });
+
+  it("refuses an unconfigured likelihood scale instead of inventing one", () => {
+    expect(() =>
+      analyzeRisk(base, { ...criteria, likelihoodScale: [] }),
+    ).toThrow("likelihood scale");
+  });
+
   it("models opportunity as well as threat", () => {
     const result = analyzeRisk(
       {
@@ -192,6 +208,23 @@ describe("ISO 31000 risk analysis", () => {
 
     expect(fast.currentScore).toBeGreaterThan(slow.currentScore);
     expect(fast.timePressure).toBeGreaterThan(slow.timePressure);
+  });
+
+  it("uses the bound criteria time-pressure weight instead of a fixed browser constant", () => {
+    const input = { ...base, timeToUnacceptableDays: 1, velocity: 0 };
+    const withoutTimeWeight = analyzeRisk(input, {
+      ...criteria,
+      weights: { ...criteria.weights, timePressure: 0 },
+    });
+    const withTimeWeight = analyzeRisk(input, {
+      ...criteria,
+      weights: { ...criteria.weights, timePressure: 0.2 },
+    });
+
+    expect(withTimeWeight.currentScore).toBeGreaterThan(
+      withoutTimeWeight.currentScore,
+    );
+    expect(withTimeWeight.timePressure).toBe(withoutTimeWeight.timePressure);
   });
 });
 
@@ -269,6 +302,27 @@ describe("scope, information and stakeholder discipline", () => {
 
     expect(result.expectedValue).toBeGreaterThan(result.informationCost);
     expect(result.recommendation).toBe("GATHER_INFORMATION");
+  });
+
+  it("matches the database's two-decimal value-of-information rounding", () => {
+    const result = evaluateValueOfInformation({
+      informationCost: 1.11,
+      decisionCostIfWrong: 10,
+      uncertaintyReduction: 0.333,
+      probabilityDecisionChanges: 0.777,
+    });
+
+    expect(result.expectedValue).toBe(2.59);
+    expect(result.netValue).toBe(1.48);
+
+    const negativeTie = evaluateValueOfInformation({
+      informationCost: 2.01,
+      decisionCostIfWrong: 1.005,
+      uncertaintyReduction: 1,
+      probabilityDecisionChanges: 1,
+    });
+    expect(negativeTie.expectedValue).toBe(1.01);
+    expect(negativeTie.netValue).toBe(-1.01);
   });
 });
 
