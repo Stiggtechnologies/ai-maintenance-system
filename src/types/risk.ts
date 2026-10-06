@@ -267,6 +267,56 @@ export interface RiskCriteriaProfile {
   review_date: string | null;
 }
 
+export interface RiskDecisionPreviewCriteria {
+  id: string;
+  name: string;
+  status: "draft" | "adopted" | "superseded";
+  version: number;
+  consequence_dimensions: Array<Record<string, unknown> | string>;
+  likelihood_scale: Array<Record<string, unknown> | number>;
+  thresholds: Record<string, unknown>;
+  scoring_weights: Record<string, unknown>;
+  decision_thresholds: Record<string, unknown>;
+  risk_capacity: Record<string, unknown>;
+  time_factors: Record<string, unknown>;
+}
+
+/**
+ * Exact inputs used by the authoritative risk-analysis and treatment writers.
+ * The projection is advisory only and is already filtered by tenant and risk
+ * sensitivity in the database.
+ */
+export interface RiskDecisionPreviewContext {
+  risk_id: string;
+  criteria: RiskDecisionPreviewCriteria;
+  active_competencies: string[];
+  generated_at: string;
+  advisory_only: true;
+  human_decision_required: true;
+}
+
+/** Advisory result from the same PostgreSQL numeric calculator used by recording.
+ * Display scores are rounded; level/action are the server's unrounded decisions.
+ */
+export interface RiskAnalysisPreview {
+  risk_id: string;
+  criteria_id: string;
+  criteria_version: number;
+  criteria_status: "draft" | "adopted" | "superseded";
+  analysis: Record<string, unknown>;
+  generated_at: string;
+  advisory_only: true;
+  human_decision_required: true;
+  inherent_score: number;
+  controlled_score: number;
+  current_score: number;
+  opportunity_score: number;
+  time_pressure: number;
+  level: RiskLevel;
+  recommended_action: RiskDecision;
+  authoritative: boolean;
+}
+
 export interface RiskMaturity {
   id: string;
   level: 0 | 1 | 2 | 3 | 4 | 5;

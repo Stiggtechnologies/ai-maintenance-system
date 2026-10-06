@@ -289,9 +289,18 @@ describe("the tightened tables are scoped, and scoped to app_current_org()", () 
     for (const table of BUCKET_A_READ_ONLY) {
       const commands = policiesOn(table)
         .filter((p) => grantsAuthenticated(p.text))
+        .filter((p) => !isRestrictive(p.text))
         .map((p) => commandOf(p.text))
         .sort();
       expect(commands, `${table}`).toEqual(["select"]);
+      // Restrictive policies cannot grant access, but must not introduce a
+      // client write command on a read-only table either.
+      expect(
+        policiesOn(table)
+          .filter((p) => grantsAuthenticated(p.text))
+          .every((p) => commandOf(p.text) === "select"),
+        `${table} has a client write policy`,
+      ).toBe(true);
     }
   });
 
@@ -300,9 +309,42 @@ describe("the tightened tables are scoped, and scoped to app_current_org()", () 
     // grant exactly that within the caller's own organization.
     const commands = policiesOn("audit_events")
       .filter((p) => grantsAuthenticated(p.text))
+      .filter((p) => !isRestrictive(p.text))
       .map((p) => commandOf(p.text));
     expect(commands).toEqual(["select"]);
     expect(commands).not.toContain("all");
+  });
+
+  it("risk audit sensitivity is restrictive AND preserves the sole tenant SELECT grant", () => {
+    const policies = policiesOn("audit_events").filter((p) =>
+      grantsAuthenticated(p.text),
+    );
+    expect(policies).toHaveLength(2);
+    const tenant = policies.filter((p) => !isRestrictive(p.text));
+    expect(tenant).toHaveLength(1);
+    expect(usingOf(tenant[0].text)).toMatch(
+      /organization_id = app_current_org\(\)/,
+    );
+    const sensitivity = policies.filter((p) => isRestrictive(p.text));
+    expect(sensitivity).toHaveLength(1);
+    expect(sensitivity[0].policy).toBe("risk_decision_audit_sensitivity");
+    expect(commandOf(sensitivity[0].text)).toBe("select");
+    const predicate = normalise(usingOf(sensitivity[0].text) ?? "");
+    expect(predicate).toContain("organization_id = public.app_current_org()");
+    expect(predicate).toContain(
+      "public.can_read_risk(public.sync_text_as_uuid(event_data->>'risk_id'))",
+    );
+    expect(predicate).toContain(
+      "public.can_read_risk(public.sync_text_as_uuid(event_data->>'parent_risk_id'))",
+    );
+    for (const family of [
+      "risk_analysis",
+      "risk_value_of_information",
+      "risk_treatment",
+      "risk_treatment_readiness_correction",
+      "risk_secondary_created",
+    ])
+      expect(predicate).toContain(`'${family}'`);
   });
 
   it("acknowledge/resolve and mark-read still have their UPDATE", () => {
