@@ -71,6 +71,8 @@ create function pg_temp.u18_state() returns jsonb language sql as $$
    'approvals',(select jsonb_agg(to_jsonb(a) order by a.id) from approvals a where organization_id=(select org from u18_fixture)),
    'audit',(select jsonb_agg(to_jsonb(a) order by a.id) from audit_events a where organization_id=(select org from u18_fixture)),
    'evidence',(select jsonb_agg(to_jsonb(e) order by e.id) from evidence_items e where organization_id=(select org from u18_fixture)),
+   'criteria',(select jsonb_agg(to_jsonb(c) order by c.id) from risk_criteria_profiles c where organization_id=(select org from u18_fixture)),
+   'securityEvents',(select jsonb_agg(to_jsonb(s) order by s.id) from security_events s where organization_id=(select org from u18_fixture)),
    'decisions',(select jsonb_agg(to_jsonb(d) order by d.id) from decisions d where organization_id=(select org from u18_fixture)),
    'work',(select jsonb_agg(to_jsonb(w) order by w.id) from work_orders w where organization_id=(select org from u18_fixture)))
 $$;
@@ -491,7 +493,8 @@ do $$ declare f record; baseline jsonb; initial_state jsonb; candidate jsonb;
   begin
     perform set_config('app.risk_uncertainty_write','granted',true);
     select to_jsonb(a)||jsonb_build_object('id',packet,'risk_id',f.other_risk,
-      'version',1,'analysis_digest',repeat('0',64)) into candidate
+      'version',1,'analysis_digest',repeat('0',64),
+      'input_binding_snapshot',public.risk_uncertainty_input_binding_snapshot(f.org,f.other_risk,array[f.wrong_risk])) into candidate
       from public.risk_uncertainty_analyses a where a.id=(select id from u18_packet);
     insert into public.risk_uncertainty_analyses
       select (jsonb_populate_record(null::public.risk_uncertainty_analyses,candidate)).*;
@@ -531,6 +534,233 @@ do $$ declare f record; baseline jsonb; initial_state jsonb; candidate jsonb;
     raise exception 'initialization qualification or full state/marker rollback witness failed'; end if;
 end $$;
 -- U18 SUBMITTED HISTORY REFUSALS END
+
+-- U18 V2 DIGEST CONTROLS BEGIN
+-- Owner-side diagnostics mutate only new synthetic rows and roll back each
+-- probe. No guard is disabled or source approval/engineering authority inferred.
+reset role;
+do $$ declare f record; a public.risk_uncertainty_analyses%rowtype;
+  baseline jsonb; original_digest text; stored_digest text; current_digest text;
+  snapshot jsonb; changed record; qualified boolean; attempts integer:=0;
+  old_actor text; old_timezone text; detail text; refused boolean; packet uuid; affected integer;
+  candidate jsonb; tag jsonb; invalid_tags integer:=0; begin
+  select * into f from u18_fixture;
+  select * into a from public.risk_uncertainty_analyses where id=(select id from u18_packet);
+  baseline:=pg_temp.u18_state(); original_digest:=a.analysis_digest;
+  if a.digest_version is distinct from 2
+    or a.input_binding_snapshot->'digestVersion' is distinct from '2'::jsonb
+    or a.input_binding_snapshot->'bindingComplete' is distinct from 'true'::jsonb
+    or a.input_binding_snapshot->'expectedEvidenceIds' is distinct from to_jsonb(array[f.verified])
+    or a.input_binding_snapshot->'expectedEvidenceCount' is distinct from '1'::jsonb
+    or a.input_binding_snapshot->'foundEvidenceCount' is distinct from '1'::jsonb then
+    raise exception 'v2 submission lacks a typed complete exact-input stored snapshot'; end if;
+  old_timezone:=current_setting('TimeZone');
+  foreach old_actor in array array['UTC','America/Edmonton','Asia/Kolkata'] loop
+    perform set_config('TimeZone',old_actor,true);
+    stored_digest:=encode(extensions.digest(public.risk_uncertainty_v2_digest_payload(
+      a,a.input_binding_snapshot)::text,'sha256'),'hex');
+    current_digest:=public.risk_uncertainty_analysis_digest(f.org,a.id);
+    if stored_digest is distinct from original_digest or current_digest is distinct from original_digest then
+      raise exception 'v2 stored/live digest changed across session timezones'; end if;
+  end loop;
+  perform set_config('TimeZone',old_timezone,true);
+  -- Pure payload excludes exactly the mutable review artifact tuple, not inputs.
+  candidate:=to_jsonb(a)||jsonb_build_object('status','validated','reviewer_id',f.reviewer,
+    'reviewed_at',now(),'review_note','Synthetic payload-only review artifacts are not persisted.',
+    'approval_id',gen_random_uuid(),'derived_evidence_item_id',gen_random_uuid());
+  if public.risk_uncertainty_v2_digest_payload(a,a.input_binding_snapshot) is distinct from
+    public.risk_uncertainty_v2_digest_payload(
+      jsonb_populate_record(null::public.risk_uncertainty_analyses,candidate),a.input_binding_snapshot) then
+    raise exception 'review artifacts incorrectly alter immutable v2 payload'; end if;
+  -- Sorted/deduplicated same-risk bindings; wrong-risk inputs must remain
+  -- explicitly incomplete and contain no found content from the other risk.
+  snapshot:=public.risk_uncertainty_input_binding_snapshot(f.org,f.risk,array[f.verified,f.verified]);
+  if snapshot is distinct from a.input_binding_snapshot then
+    raise exception 'v2 expected binding identity is not deterministic'; end if;
+  snapshot:=public.risk_uncertainty_input_binding_snapshot(f.org,f.risk,array[f.wrong_risk]);
+  if snapshot->'bindingComplete' is distinct from 'false'::jsonb
+    or snapshot->'expectedEvidenceIds' is distinct from to_jsonb(array[f.wrong_risk])
+    or snapshot->'expectedEvidenceCount' is distinct from '1'::jsonb
+    or snapshot->'foundEvidenceCount' is distinct from '0'::jsonb
+    or snapshot->'evidence' is distinct from '[]'::jsonb
+    or snapshot::text like '%Synthetic verified evidence from another CI risk.%' then
+    raise exception 'incomplete v2 projection leaked wrong-risk evidence or masked absence'; end if;
+  snapshot:=public.risk_uncertainty_input_binding_snapshot(f.foreign_org,f.risk,array[f.verified]);
+  if snapshot->'bindingComplete' is distinct from 'false'::jsonb
+    or snapshot->'evidence' is distinct from '[]'::jsonb
+    or snapshot->'currentCriteria' is distinct from 'null'::jsonb
+    or snapshot::text like '%Synthetic verified inspection extract%' then
+    raise exception 'incomplete v2 projection leaked foreign-tenant evidence or criteria'; end if;
+  if public.risk_uncertainty_analysis_digest(f.foreign_org,a.id) is not null then
+    raise exception 'v2 packet digest returned foreign-tenant content'; end if;
+  -- Content-only mutations are each a real row change with unchanged revision.
+  -- Service corrections remain governed/audited by existing evidence triggers;
+  -- every resulting audit/security row is inside the rollback witness.
+  old_actor:=coalesce(current_setting('request.jwt.claim.sub',true),'');
+  perform set_config('request.jwt.claim.sub','',true);
+  for changed in select * from (values
+    ('description',to_jsonb('Changed exact CI evidence content.'::text)),
+    ('source_system',to_jsonb('Changed CI source system'::text)),
+    ('evidence_type',to_jsonb('Changed CI evidence type'::text)),
+    ('signal_kind',to_jsonb('Changed CI signal kind'::text)),
+    ('source_reference',to_jsonb('ci://changed-bound-input'::text)),
+    ('provenance','{"changed_ci_provenance":true}'::jsonb),
+    ('verification_method',to_jsonb('Changed CI verification method'::text)),
+    ('verification_note',to_jsonb('Changed CI verification basis.'::text)),
+    ('quality_grade',to_jsonb('moderate'::text)),
+    ('applicability_grade',to_jsonb('indirect'::text)),
+    ('applicability',to_jsonb('Changed CI applicability basis.'::text))
+  ) q(field,value) loop
+    qualified:=false;
+    begin
+      execute format('update public.evidence_items set %I=(jsonb_populate_record(null::public.evidence_items,$1)).%I where id=$2',changed.field,changed.field)
+        using jsonb_build_object(changed.field,changed.value),f.verified;
+      get diagnostics affected=row_count;
+      if affected<>1 or public.risk_uncertainty_analysis_digest(f.org,a.id) is not distinct from original_digest
+        or not exists(select 1 from public.evidence_items where id=f.verified and revision='R2') then
+        raise exception 'content-only evidence change did not stale the v2 digest'; end if;
+      qualified:=true;
+      raise exception using errcode='ZX006',message='U18 content digest fixture rollback';
+    exception when sqlstate 'ZX006' then null;
+    end;
+    if not qualified or pg_temp.u18_state() is distinct from baseline then
+      raise exception 'v2 evidence drift qualification or complete rollback witness failed'; end if;
+    attempts:=attempts+1;
+  end loop;
+  if attempts<>11 then raise exception 'v2 content drift coverage incomplete'; end if;
+  -- Current policy drift, not just the old packet's threshold copy.
+  attempts:=0;
+  for changed in select * from (values
+    ('decision_thresholds','{"escalateAbove":17,"stopAbove":25}'::jsonb),
+    ('version',to_jsonb(2)),('status',to_jsonb('draft'::text)),
+    ('adopted_at',to_jsonb(now()+interval '1 microsecond')),
+    ('basis',to_jsonb('Changed synthetic criteria adoption basis.'::text))
+  ) q(field,value) loop
+    qualified:=false;
+    begin
+      execute format('update public.risk_criteria_profiles set %I=(jsonb_populate_record(null::public.risk_criteria_profiles,$1)).%I where id=$2',changed.field,changed.field)
+        using jsonb_build_object(changed.field,changed.value),f.criteria;
+      get diagnostics affected=row_count;
+      if affected<>1 or public.risk_uncertainty_analysis_digest(f.org,a.id) is not distinct from original_digest then
+        raise exception 'current criteria drift did not stale the v2 digest'; end if;
+      qualified:=true;
+      raise exception using errcode='ZX007',message='U18 criteria digest fixture rollback';
+    exception when sqlstate 'ZX007' then null;
+    end;
+    if not qualified or pg_temp.u18_state() is distinct from baseline then
+      raise exception 'v2 criteria drift qualification or complete rollback witness failed'; end if;
+    attempts:=attempts+1;
+  end loop;
+  if attempts<>5 then raise exception 'v2 criteria drift coverage incomplete'; end if;
+  qualified:=false;
+  begin
+    update public.risks set criteria_profile_id=null where id=f.risk;
+    snapshot:=public.risk_uncertainty_input_binding_snapshot(f.org,f.risk,array[f.verified]);
+    current_digest:=public.risk_uncertainty_analysis_digest(f.org,a.id);
+    if snapshot->'bindingComplete' is distinct from 'false'::jsonb
+      or current_digest is null or current_digest !~ '^[0-9a-f]{64}$'
+      or current_digest is not distinct from original_digest then
+      raise exception 'missing current criteria must yield an explicit incomplete stale hex digest'; end if;
+    qualified:=true;
+    raise exception using errcode='ZX008',message='U18 incomplete criteria fixture rollback';
+  exception when sqlstate 'ZX008' then null;
+  end;
+  if not qualified or pg_temp.u18_state() is distinct from baseline then
+    raise exception 'missing criteria qualification or complete rollback witness failed'; end if;
+  qualified:=false;
+  begin
+    update public.evidence_items set risk_id=f.other_risk where id=f.verified;
+    snapshot:=public.risk_uncertainty_input_binding_snapshot(f.org,f.risk,array[f.verified]);
+    current_digest:=public.risk_uncertainty_analysis_digest(f.org,a.id);
+    if snapshot->'bindingComplete' is distinct from 'false'::jsonb
+      or snapshot->'foundEvidenceCount' is distinct from '0'::jsonb
+      or snapshot->'evidence' is distinct from '[]'::jsonb
+      or current_digest is null or current_digest !~ '^[0-9a-f]{64}$'
+      or current_digest is not distinct from original_digest then
+      raise exception 'rebound evidence must yield incomplete stale digest without foreign content'; end if;
+    qualified:=true;
+    raise exception using errcode='ZX009',message='U18 incomplete evidence fixture rollback';
+  exception when sqlstate 'ZX009' then null;
+  end;
+  if not qualified or pg_temp.u18_state() is distinct from baseline then
+    raise exception 'moved evidence qualification or complete rollback witness failed'; end if;
+  perform set_config('request.jwt.claim.sub',old_actor,true);
+  -- Wrong stored snapshot, despite correct typed tags and legitimate links,
+  -- cannot be finalized against a different live digest via the internal marker.
+  qualified:=false;
+  begin
+    perform set_config('app.risk_uncertainty_write','granted',true);
+    packet:=gen_random_uuid();
+    candidate:=to_jsonb(a)||jsonb_build_object('id',packet,'risk_id',f.other_risk,'version',1,
+      'analysis_digest',repeat('0',64),'input_binding_snapshot',a.input_binding_snapshot);
+    insert into public.risk_uncertainty_analyses
+      select (jsonb_populate_record(null::public.risk_uncertainty_analyses,candidate)).*;
+    insert into public.risk_uncertainty_analysis_evidence(organization_id,analysis_id,evidence_item_id)
+      values(f.org,packet,f.wrong_risk);
+    snapshot:=pg_temp.u18_state(); refused:=false;
+    begin
+      update public.risk_uncertainty_analyses set analysis_digest=public.risk_uncertainty_analysis_digest(f.org,packet)
+        where id=packet;
+    exception when raise_exception then get stacked diagnostics detail=message_text;
+      refused:=detail='risk uncertainty initial digest finalization must bind the exact pending inputs and evidence'; end;
+    if not refused or pg_temp.u18_state() is distinct from snapshot then
+      raise exception 'corrupted stored snapshot finalized or left refusal artifacts'; end if;
+    qualified:=true;
+    raise exception using errcode='ZX010',message='U18 stored snapshot fixture rollback';
+  exception when sqlstate 'ZX010' then null;
+  end;
+  if not qualified or pg_temp.u18_state() is distinct from baseline then
+    raise exception 'stored snapshot qualification or complete rollback witness failed'; end if;
+  -- Identifiable v1 compatibility, not a backfilled claim of content coverage.
+  qualified:=false;
+  begin
+    perform set_config('app.risk_uncertainty_write','granted',true);
+    packet:=gen_random_uuid();
+    candidate:=to_jsonb(a)||jsonb_build_object('id',packet,'risk_id',f.other_risk,'version',1,
+      'analysis_digest',repeat('0',64),'digest_version',1,'input_binding_snapshot',null);
+    insert into public.risk_uncertainty_analyses
+      select (jsonb_populate_record(null::public.risk_uncertainty_analyses,candidate)).*;
+    insert into public.risk_uncertainty_analysis_evidence(organization_id,analysis_id,evidence_item_id)
+      values(f.org,packet,f.wrong_risk);
+    current_digest:=public.risk_uncertainty_analysis_digest(f.org,packet);
+    if current_digest is null or current_digest !~ '^[0-9a-f]{64}$'
+      or current_digest is distinct from public.risk_uncertainty_analysis_digest_v1(f.org,packet) then
+      raise exception 'legacy v1 dispatch changed or falsely claimed v2 snapshot coverage'; end if;
+    update public.risk_uncertainty_analyses set analysis_digest=current_digest where id=packet;
+    if not exists(select 1 from public.risk_uncertainty_analyses where id=packet
+      and digest_version=1 and input_binding_snapshot is null and analysis_digest=current_digest) then
+      raise exception 'legacy v1 initializer failed its original algorithm'; end if;
+    qualified:=true;
+    raise exception using errcode='ZX011',message='U18 legacy v1 fixture rollback';
+  exception when sqlstate 'ZX011' then null;
+  end;
+  if not qualified or pg_temp.u18_state() is distinct from baseline then
+    raise exception 'legacy v1 qualification or complete rollback witness failed'; end if;
+  -- Exact null/string/false/missing tags must hit the named row CHECK, not
+  -- unrelated PK/FK/trigger errors. These never persist a packet or binding.
+  perform set_config('app.risk_uncertainty_write','granted',true);
+  for tag in select value from (values
+    ('{}'::jsonb),('{"digestVersion":"2","bindingComplete":true}'::jsonb),
+    ('{"digestVersion":2,"bindingComplete":false}'::jsonb),
+    ('{"digestVersion":2,"bindingComplete":null}'::jsonb),
+    ('{"digestVersion":null,"bindingComplete":true}'::jsonb)
+  ) q(value) loop
+    candidate:=to_jsonb(a)||jsonb_build_object('id',gen_random_uuid(),'risk_id',f.other_risk,
+      'version',1,'analysis_digest',repeat('0',64),'input_binding_snapshot',tag);
+    refused:=false;
+    begin insert into public.risk_uncertainty_analyses
+      select (jsonb_populate_record(null::public.risk_uncertainty_analyses,candidate)).*;
+    exception when check_violation then get stacked diagnostics detail=constraint_name;
+      refused:=detail='risk_uncertainty_binding_snapshot_check'; end;
+    if not refused or pg_temp.u18_state() is distinct from baseline then
+      raise exception 'invalid v2 typed tag refusal or complete artifact preservation failed'; end if;
+    invalid_tags:=invalid_tags+1;
+  end loop;
+  perform set_config('app.risk_uncertainty_write','',true);
+  if invalid_tags<>5 or pg_temp.u18_state() is distinct from baseline then
+    raise exception 'v2 digest controls incomplete or left artifacts'; end if;
+end $$;
+-- U18 V2 DIGEST CONTROLS END
 
 set local role authenticated;
 select set_config('request.jwt.claim.sub',reviewer::text,true) from u18_fixture;

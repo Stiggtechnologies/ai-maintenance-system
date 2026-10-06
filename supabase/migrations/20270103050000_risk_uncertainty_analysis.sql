@@ -122,6 +122,10 @@ create table if not exists public.risk_uncertainty_analyses (
   voi_recommendation text not null
     check (voi_recommendation in ('GATHER_INFORMATION','DECIDE_WITH_CURRENT_INFORMATION')),
   analysis_digest text not null check (analysis_digest ~ '^[0-9a-f]{64}$'),
+  -- Legacy coverage is explicit; never backfill today's dependencies as a
+  -- historical submission snapshot. The governed writer always creates v2.
+  digest_version integer not null default 1 check (digest_version in (1,2)),
+  input_binding_snapshot jsonb,
   author_id uuid not null references auth.users(id) on delete restrict,
   created_at timestamptz not null default now(),
   reviewer_id uuid references auth.users(id) on delete restrict,
@@ -137,6 +141,13 @@ create table if not exists public.risk_uncertainty_analyses (
   check (best_case_loss <= expected_case_loss and expected_case_loss <= worst_case_loss),
   check (cardinality(reassessment_triggers) between 1 and 20),
   check (review_due_at > created_at),
+  constraint risk_uncertainty_binding_snapshot_check check (
+    (digest_version=1 and input_binding_snapshot is null)
+    or (digest_version=2 and input_binding_snapshot is not null
+      and jsonb_typeof(input_binding_snapshot)='object'
+      and input_binding_snapshot->'digestVersion' is not distinct from '2'::jsonb
+      and input_binding_snapshot->'bindingComplete' is not distinct from 'true'::jsonb)
+  ),
   check (
     (status='pending_review' and reviewer_id is null and reviewed_at is null
       and review_note is null and approval_id is null and derived_evidence_item_id is null)
@@ -222,6 +233,9 @@ begin
         or new.status is distinct from 'pending_review'
         or new.analysis_digest=repeat('0',64)
         or new.analysis_digest is distinct from public.risk_uncertainty_analysis_digest(old.organization_id,old.id)
+        or (old.digest_version=2 and new.analysis_digest is distinct from
+          encode(extensions.digest(public.risk_uncertainty_v2_digest_payload(
+            old,old.input_binding_snapshot)::text,'sha256'),'hex'))
         or new.reviewer_id is distinct from old.reviewer_id
         or new.reviewed_at is distinct from old.reviewed_at
         or new.review_note is distinct from old.review_note
@@ -295,7 +309,7 @@ create trigger trg_refuse_risk_uncertainty_evidence_truncate
   before truncate on public.risk_uncertainty_analysis_evidence
   for each statement execute function public.refuse_risk_uncertainty_truncate();
 
-create or replace function public.risk_uncertainty_analysis_digest(
+create or replace function public.risk_uncertainty_analysis_digest_v1(
   p_organization_id uuid,p_analysis_id uuid
 ) returns text language plpgsql stable security definer set search_path=public as $$
 declare v_payload jsonb;
@@ -327,6 +341,123 @@ begin
   return encode(extensions.digest(v_payload::text,'sha256'),'hex');
 end $$;
 
+-- Version-two content projection. Missing/rebound dependencies remain an
+-- explicit incomplete object, not NULL or an empty-array freshness success.
+-- Every found row is scoped to the requested canonical tenant and risk. A
+-- document UUID is only an anchor: no claim approval or KB eligibility is
+-- inferred here while the shared quarantine/claim-purpose contract is pending.
+create or replace function public.risk_uncertainty_input_binding_snapshot(
+  p_organization_id uuid,p_risk_id uuid,p_evidence_item_ids uuid[]
+) returns jsonb language plpgsql stable security definer
+set search_path=public set timezone='UTC' as $$
+declare
+  v_expected_ids uuid[]; v_found_count integer; v_evidence jsonb;
+  v_criteria jsonb; v_criteria_profile_id uuid;
+begin
+  select coalesce(array_agg(distinct x order by x),'{}'::uuid[])
+    into v_expected_ids from unnest(coalesce(p_evidence_item_ids,'{}'::uuid[])) x;
+  select count(*),coalesce(jsonb_agg(jsonb_build_object(
+    'id',e.id,'organizationId',e.organization_id,'riskId',e.risk_id,
+    'assetId',e.asset_id,'recommendationId',e.recommendation_id,
+    'developmentCaseId',e.development_case_id,
+    'description',e.description,'sourceSystem',e.source_system,
+    'evidenceType',e.evidence_type,'signalKind',e.signal_kind,
+    'sourceReference',e.source_reference,'provenance',e.provenance,
+    'documentId',e.document_id,'evidenceClass',e.evidence_class,
+    'verificationStatus',e.verification_status,'verifiedBy',e.verified_by,
+    'verifiedAt',e.verified_at,'verificationMethod',e.verification_method,
+    'verificationNote',e.verification_note,'qualityGrade',e.quality_grade,
+    'applicabilityGrade',e.applicability_grade,'applicability',e.applicability,
+    'revision',e.revision,'timestamp',e.ts,'dataQuality',e.data_quality,
+    'confidenceContribution',e.confidence_contribution
+  ) order by e.id),'[]'::jsonb) into v_found_count,v_evidence
+  from public.evidence_items e
+  where e.id=any(v_expected_ids) and e.organization_id=p_organization_id
+    and e.risk_id=p_risk_id;
+  select r.criteria_profile_id,jsonb_build_object(
+    'id',c.id,'organizationId',c.organization_id,'version',c.version,
+    'status',c.status,'adoptedBy',c.adopted_by,'adoptedAt',c.adopted_at,
+    'supersededBy',c.superseded_by,'decisionThresholds',c.decision_thresholds,
+    'contextId',c.context_id,'name',c.name,'industryCode',c.industry_code,
+    'jurisdiction',c.jurisdiction,'consequenceDimensions',c.consequence_dimensions,
+    'likelihoodScale',c.likelihood_scale,'thresholds',c.thresholds,
+    'scoringWeights',c.scoring_weights,'riskCapacity',c.risk_capacity,
+    'aggregateRules',c.aggregate_rules,'timeFactors',c.time_factors,
+    'toleranceStatements',c.tolerance_statements,'basis',c.basis,'reviewDate',c.review_date
+  ) into v_criteria_profile_id,v_criteria
+  from public.risks r join public.risk_criteria_profiles c
+    on c.id=r.criteria_profile_id and c.organization_id=p_organization_id
+  where r.id=p_risk_id and r.organization_id=p_organization_id;
+  -- Preserve the same-org pointer even when its profile is missing or moved;
+  -- never join through a foreign profile merely to obtain its content.
+  if not found then
+    select r.criteria_profile_id into v_criteria_profile_id from public.risks r
+    where r.id=p_risk_id and r.organization_id=p_organization_id;
+    v_criteria:=null;
+  end if;
+  return jsonb_build_object(
+    'digestVersion',2,'organizationId',p_organization_id,'riskId',p_risk_id,
+    'expectedEvidenceIds',to_jsonb(v_expected_ids),
+    'expectedEvidenceCount',cardinality(v_expected_ids),'foundEvidenceCount',v_found_count,
+    'bindingComplete',cardinality(v_expected_ids) between 1 and 20
+      and v_found_count=cardinality(v_expected_ids) and v_criteria is not null,
+    'evidence',v_evidence,'currentCriteriaProfileId',v_criteria_profile_id,
+    'currentCriteria',v_criteria
+  );
+end $$;
+
+-- Pure allowlisted immutable packet + bindings. The same projection hashes
+-- the stored submission snapshot and current live inputs. Review, approval,
+-- audit and derived-evidence artifacts cannot make a packet stale themselves.
+create or replace function public.risk_uncertainty_v2_digest_payload(
+  p_analysis public.risk_uncertainty_analyses,p_input_binding_snapshot jsonb
+) returns jsonb language plpgsql immutable
+set search_path=public set timezone='UTC' as $$
+begin
+  return jsonb_build_object(
+    'digestVersion',2,'analysisId',p_analysis.id,
+    'organizationId',p_analysis.organization_id,'riskId',p_analysis.risk_id,
+    'version',p_analysis.version,'authorId',p_analysis.author_id,'createdAt',p_analysis.created_at,
+    'method',p_analysis.method,'basis',p_analysis.basis,
+    'probability',jsonb_build_object('lower',p_analysis.probability_lower,
+      'central',p_analysis.probability_central,'upper',p_analysis.probability_upper),
+    'confidence',jsonb_build_object('level',p_analysis.confidence_level,
+      'lower',p_analysis.confidence_interval_lower,'upper',p_analysis.confidence_interval_upper),
+    'lossCases',jsonb_build_object('best',p_analysis.best_case_loss,
+      'expected',p_analysis.expected_case_loss,'worst',p_analysis.worst_case_loss,'currency',p_analysis.currency),
+    'sensitivityInputs',p_analysis.sensitivity_inputs,'sensitivityResults',p_analysis.sensitivity_results,
+    'thresholdProfileId',p_analysis.threshold_profile_id,'decisionThresholds',p_analysis.decision_thresholds,
+    'reassessmentTriggers',to_jsonb(p_analysis.reassessment_triggers),'reviewDueAt',p_analysis.review_due_at,
+    'valueOfInformation',jsonb_build_object('action',p_analysis.voi_action,'informationCost',p_analysis.voi_information_cost,
+      'decisionCostIfWrong',p_analysis.voi_decision_cost_if_wrong,'uncertaintyReduction',p_analysis.voi_uncertainty_reduction,
+      'probabilityDecisionChanges',p_analysis.voi_probability_decision_changes,'expectedValue',p_analysis.voi_expected_value,
+      'netValue',p_analysis.voi_net_value,'recommendation',p_analysis.voi_recommendation),
+    'inputBindings',p_input_binding_snapshot
+  );
+end;
+$$;
+
+create or replace function public.risk_uncertainty_analysis_digest(
+  p_organization_id uuid,p_analysis_id uuid
+) returns text language plpgsql stable security definer set search_path=public as $$
+declare a public.risk_uncertainty_analyses%rowtype; v_ids uuid[]; v_payload jsonb;
+begin
+  select * into a from public.risk_uncertainty_analyses
+  where id=p_analysis_id and organization_id=p_organization_id;
+  if not found then return null; end if;
+  if a.digest_version=1 then
+    return public.risk_uncertainty_analysis_digest_v1(p_organization_id,p_analysis_id);
+  elsif a.digest_version=2 then
+    select coalesce(array_agg(b.evidence_item_id order by b.evidence_item_id),'{}'::uuid[])
+      into v_ids from public.risk_uncertainty_analysis_evidence b
+      where b.organization_id=p_organization_id and b.analysis_id=a.id;
+    v_payload:=public.risk_uncertainty_v2_digest_payload(a,
+      public.risk_uncertainty_input_binding_snapshot(p_organization_id,a.risk_id,v_ids));
+    return encode(extensions.digest(v_payload::text,'sha256'),'hex');
+  end if;
+  return null;
+end $$;
+
 create or replace function public.submit_risk_uncertainty_analysis(
   p_risk_id uuid,p_analysis jsonb,p_evidence_item_ids uuid[]
 ) returns jsonb language plpgsql security definer set search_path=public as $$
@@ -341,6 +472,8 @@ declare
   v_info_cost numeric; v_wrong_cost numeric; v_uncertainty_reduction numeric; v_change_probability numeric;
   v_voi_expected_raw numeric; v_voi_net_raw numeric;
   v_voi_expected numeric; v_voi_net numeric; v_voi_recommendation text; v_review_due timestamptz;
+  v_input_binding_snapshot jsonb; v_stored_digest text;
+  v_packet public.risk_uncertainty_analyses%rowtype;
 begin
   if v_user is null or v_org is null then
     return jsonb_build_object('error','authenticated organization member required');
@@ -516,6 +649,10 @@ begin
     and e.organization_id=v_org and e.risk_id=r.id and e.verification_status='verified')<>cardinality(v_evidence_ids) then
     return jsonb_build_object('error','all cited inputs must be verified evidence linked to this exact risk');
   end if;
+  v_input_binding_snapshot:=public.risk_uncertainty_input_binding_snapshot(v_org,r.id,v_evidence_ids);
+  if v_input_binding_snapshot->'bindingComplete' is distinct from 'true'::jsonb then
+    return jsonb_build_object('error','current uncertainty input bindings are incomplete');
+  end if;
   -- Match canonical record_risk_value_of_information: classify the unrounded
   -- numeric benefit minus cost before independently rounding either display.
   v_voi_expected_raw:=v_wrong_cost*v_uncertainty_reduction*v_change_probability;
@@ -534,18 +671,28 @@ begin
     sensitivity_inputs,sensitivity_results,threshold_profile_id,decision_thresholds,
     reassessment_triggers,review_due_at,voi_action,voi_information_cost,
     voi_decision_cost_if_wrong,voi_uncertainty_reduction,voi_probability_decision_changes,
-    voi_expected_value,voi_net_value,voi_recommendation,analysis_digest,author_id
+    voi_expected_value,voi_net_value,voi_recommendation,analysis_digest,author_id,
+    digest_version,input_binding_snapshot
   ) values(
     v_org,r.id,v_version,btrim(p_analysis->>'method'),btrim(p_analysis->>'basis'),
     v_probability_lower,v_probability_central,v_probability_upper,
     v_confidence_level,v_ci_lower,v_ci_upper,v_best,v_expected,v_worst,v_currency,
     v_sensitivity,v_sensitivity_results,c.id,c.decision_thresholds,v_triggers,v_review_due,
     btrim(p_analysis->>'voi_action'),v_info_cost,v_wrong_cost,v_uncertainty_reduction,v_change_probability,
-    v_voi_expected,v_voi_net,v_voi_recommendation,repeat('0',64),v_user
-  ) returning id into v_id;
+    v_voi_expected,v_voi_net,v_voi_recommendation,repeat('0',64),v_user,
+    2,v_input_binding_snapshot
+  ) returning * into v_packet;
+  v_id:=v_packet.id;
   insert into public.risk_uncertainty_analysis_evidence(organization_id,analysis_id,evidence_item_id)
   select v_org,v_id,x from unnest(v_evidence_ids) x;
+  v_stored_digest:=encode(extensions.digest(public.risk_uncertainty_v2_digest_payload(
+    v_packet,v_input_binding_snapshot)::text,'sha256'),'hex');
   v_digest:=public.risk_uncertainty_analysis_digest(v_org,v_id);
+  -- A mismatch after insertion must roll back, not return a normal error ACK
+  -- that would leave an orphan pending packet or evidence binding.
+  if v_digest is distinct from v_stored_digest then
+    raise exception 'uncertainty input binding changed during submission';
+  end if;
   update public.risk_uncertainty_analyses set analysis_digest=v_digest where id=v_id;
   update public.risks set value_of_information=jsonb_build_object(
     'information_action',btrim(p_analysis->>'voi_action'),'information_cost',v_info_cost,
@@ -732,6 +879,9 @@ revoke all on function public.enforce_risk_uncertainty_analysis_write() from pub
 revoke all on function public.enforce_risk_uncertainty_evidence_link() from public,anon,authenticated,service_role;
 revoke all on function public.refuse_risk_uncertainty_truncate() from public,anon,authenticated,service_role;
 revoke all on function public.risk_uncertainty_analysis_digest(uuid,uuid) from public,anon,authenticated,service_role;
+revoke all on function public.risk_uncertainty_analysis_digest_v1(uuid,uuid) from public,anon,authenticated,service_role;
+revoke all on function public.risk_uncertainty_input_binding_snapshot(uuid,uuid,uuid[]) from public,anon,authenticated,service_role;
+revoke all on function public.risk_uncertainty_v2_digest_payload(public.risk_uncertainty_analyses,jsonb) from public,anon,authenticated,service_role;
 revoke all on function public.submit_risk_uncertainty_analysis(uuid,jsonb,uuid[]) from public,anon,service_role;
 revoke all on function public.review_risk_uncertainty_analysis(uuid,text,text) from public,anon,service_role;
 revoke all on function public.get_risk_uncertainty_workspace(uuid) from public,anon,service_role;

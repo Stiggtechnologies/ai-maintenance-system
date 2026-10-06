@@ -169,6 +169,50 @@ original API/RLS/refusal tests remain. These new history database controls have
 CI establish native history qualification, atomic stale-pending replacement,
 stronger source/content digest standing or full U18 completion.
 
+Published read/finite-door checkpoint `49dfa77d` subsequently passed complete
+core run `37535097211`, including the actual full uncertainty SQL/real HTTP
+smoke at `2026-10-06T21:56:10Z`, browser acceptance and both cleanup paths.
+Its native receipts do not qualify the later submitted-history checkpoint
+`7b1e347f`, published as a draft with fresh core run `37537518197` still live.
+
+The next **local, unpublished** phase introduces explicit digest coverage:
+legacy v1 retains its byte-identical original algorithm with no submission
+snapshot; governed new submissions store a typed version-two binding snapshot
+only after all explicit waits and the current actor check. The same private
+UTC-pinned allowlisted packet projection hashes stored and current bindings.
+V2 covers canonical evidence content, source reference/provenance, verification
+basis, quality/applicability/revision, existing typed document and operational
+anchors, and the current same-org criteria pointer, policy version, adoption
+and threshold content. Missing, moved or wrong-scope dependencies produce a
+deterministic **incomplete** projection and a changed hex digest, never foreign
+content or a NULL/empty-array freshness success. Neither v1 history nor today's
+dependencies are relabelled as historical version-two coverage.
+
+Independent source review identified and corrected a persistence invariant:
+initial digest finalization must authenticate **both** the stored snapshot and
+current live bindings, even for internal-marker diagnostics. Coverage tags are
+exact JSON numeric `2` and boolean `true`, with NULL-safe named CHECKs. The public
+submit comparison rolls back a mismatch after insertion rather than returning
+a normal error acknowledgement with partial persisted artifacts. All new
+helpers revoke client execution; review/approval/audit/derived evidence and
+mutable risk VOI artifacts are excluded from the payload.
+
+The local 13-file source/SDK/tenancy cohort passes **1,634 tests**, including
+22 digest contracts after 18 genuine baseline failures and two positive
+controls. Independent architecture/domain source review passed the frozen SQL,
+native specification and source contracts. Additive database controls specify
+three timezone pairs, 11 content-only changes with unchanged revision, five
+criteria changes, missing policy and rebound evidence, wrong-risk/tenant
+content exclusions, exact corrupted-snapshot refusal, five named CHECK tag
+refusals, original v1 dispatch and complete synthetic rollback witnesses.
+Actual criteria and security-event rows are included in those witnesses.
+**These added native controls remain unexecuted.** This is not cryptographic
+runtime qualification, complete source approval, field deployment or release
+approval. Explicit digest-coverage display/SDK integration, criteria post-wait
+races, ancestor/stakeholder concurrency, shared quarantine/claim-purpose
+eligibility and atomic stale-pending replacement remain open. A typed document
+UUID is an anchor only; no KB content is dereferenced or claim fitness inferred.
+
 SyncAI U18.02 adds versioned uncertainty packets to the canonical Risk Operating System. It supports bounded probability estimates, confidence intervals, best/expected/worst loss cases, ranked one-at-a-time sensitivity inputs, value-of-information analysis, adopted decision-threshold snapshots and measurable reassessment triggers.
 
 It does not add a second risk register, evidence store, approval queue or audit ledger. Each packet belongs to a canonical `risks` record, cites canonical `evidence_items`, records its human disposition in `approvals`, and writes its lifecycle events to `audit_events`.
@@ -179,7 +223,7 @@ It does not add a second risk register, evidence store, approval queue or audit 
 - The risk must use an adopted criteria profile with non-empty decision thresholds. The exact threshold JSON is copied into the packet so later criteria changes cannot silently rewrite the historical basis.
 - Every cited item must already be verified, belong to the same organization and link to the exact risk. Unverified evidence remains visible in the workspace but is ineligible for submission.
 - The server validates ordering and bounds and derives both the sensitivity ranking and value-of-information result. Client calculations are previews only.
-- A SHA-256 digest freezes the packet, threshold snapshot and cited-evidence provenance. Changes to cited evidence make the packet visibly stale and prevent review.
+- A SHA-256 digest freezes the packet, threshold snapshot and cited-evidence metadata. Explicit v2 coverage additionally binds canonical content and current criteria; legacy v1 retains its original narrower algorithm. Full source-standing and concurrency qualification remain pending as described above.
 - One pending-review packet per risk prevents competing review candidates. A new version is required after review or rejection.
 - The author cannot review their own packet. Independent review validates the analysis packet; it does not verify an unverified source.
 - Reviewed inputs are retained and immutable. Direct writes, deletes, truncation, anonymous access and service-role RPC bypass are refused.
