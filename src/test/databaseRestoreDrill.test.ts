@@ -39,6 +39,7 @@ describe("database restore-drill boundaries", () => {
   it("restores with PostgreSQL default ownership reconstruction, never stripping owners or ACLs", () => {
     const args = drill.databaseRestoreArgs("c".repeat(64), "supabase_admin");
     expect(args).toContain("--exit-on-error");
+    expect(args).toContain("--verbose");
     expect(args).toContain("--clean");
     expect(args).toContain("--create");
     expect(args.slice(-2)).toEqual(["-d", "template1"]);
@@ -176,20 +177,22 @@ GRANT EXECUTE ON FUNCTION private_function() TO private_recipient;`),
       statementHint: "grant",
     });
   });
-  it.each(["gen_random_uuid", "uuid_generate_v4", "digest"])(
-    "identifies only approved platform primitive %s",
-    (name) => {
-      expect(
-        drill.safeDiagnostic(
-          `ERROR: function extensions.${name}() does not exist`,
-        ),
-      ).toEqual({
-        category: "missing_object",
-        missingObjectHint: "function",
-        platformFunctionHint: name,
-      });
-    },
-  );
+  it.each([
+    "gen_random_uuid",
+    "uuid_generate_v4",
+    "digest",
+    "pg_stat_statements_reset",
+  ])("identifies only approved platform primitive %s", (name) => {
+    expect(
+      drill.safeDiagnostic(
+        `ERROR: function extensions.${name}() does not exist`,
+      ),
+    ).toEqual({
+      category: "missing_object",
+      missingObjectHint: "function",
+      platformFunctionHint: name,
+    });
+  });
   it("does not disclose unknown TOC types or private function identifiers", () => {
     expect(
       drill.safeDiagnostic(`pg_restore: from TOC entry 1; 0 0 SECRET_TYPE private_identifier

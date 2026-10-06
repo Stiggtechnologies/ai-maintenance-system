@@ -71,6 +71,7 @@ export function databaseRestoreArgs(targetId, bootstrap) {
     targetId,
     "pg_restore",
     "--exit-on-error",
+    "--verbose",
     "--clean",
     "--if-exists",
     "--create",
@@ -249,6 +250,9 @@ export function safeDiagnostic(diagnostic) {
           "uuid_generate_v1mc",
           "uuid_generate_v3",
           "uuid_generate_v5",
+          "pg_stat_statements_reset",
+          "pg_stat_statements",
+          "pg_stat_statements_info",
         ].find((name) =>
           new RegExp(
             `\\bfunction (?:(?:extensions|public|pg_catalog)\\.)?${name}\\([^\\r\\n]{0,200}\\) does not exist`,
