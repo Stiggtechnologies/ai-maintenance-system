@@ -84,6 +84,17 @@ from risk_preview_fixture f cross join risk_preview_cases c where c.label='exact
 union all select f.incomplete_risk,f.org,f.objective,'Incomplete synthetic risk',c.criteria_id,'internal',f.administrator,f.administrator
 from risk_preview_fixture f cross join risk_preview_cases c where c.label='exact sixty';
 
+-- Both directions of a visible/private connection must be filtered; a fully
+-- visible connection must retain its original nested projection.
+insert into risk_links(organization_id,source_risk_id,target_risk_id,relationship,dependency_key,rationale)
+select f.org,a.risk_id,b.risk_id,'common_dependency','visible-fixture-link','Visible link fixture'
+from risk_preview_fixture f cross join risk_preview_cases a cross join risk_preview_cases b
+where a.label='fractional scale' and b.label='draft criteria'
+union all select f.org,a.risk_id,f.restricted_risk,'common_dependency','private-outbound-fixture','Private outbound fixture'
+from risk_preview_fixture f cross join risk_preview_cases a where a.label='fractional scale'
+union all select f.org,f.restricted_risk,b.risk_id,'common_dependency','private-inbound-fixture','Private inbound fixture'
+from risk_preview_fixture f cross join risk_preview_cases b where b.label='draft criteria';
+
 -- A future-dated canonical qualification and missing resource reproduce the
 -- previously fabricated executable=true/incomplete audit snapshot together.
 insert into workforce_members(organization_id,employee_ref,display_name,craft)
@@ -158,6 +169,48 @@ begin
   exception when insufficient_privilege then blocked:=true;
   end;
   if not blocked then raise exception 'authenticated caller directly executed private calculator'; end if;
+  blocked:=false;
+  begin perform public.get_risk_operating_cockpit();
+  exception when insufficient_privilege then blocked:=true; end;
+  if not blocked then raise exception 'unfiltered legacy cockpit remains public'; end if;
+  blocked:=false;
+  begin perform public.get_aggregate_risk_exposure(null);
+  exception when insufficient_privilege then blocked:=true; end;
+  if not blocked then raise exception 'unfiltered legacy aggregate remains public'; end if;
+  blocked:=false;
+  begin perform public.get_risk_management_effectiveness();
+  exception when insufficient_privilege then blocked:=true; end;
+  if not blocked then raise exception 'unfiltered legacy effectiveness remains public'; end if;
+  blocked:=false;
+  begin perform public.get_risk_audience_view_internal(f.restricted_risk,'manager');
+  exception when insufficient_privilege then blocked:=true; end;
+  if not blocked then raise exception 'private audience implementation remains public'; end if;
+  if has_function_privilege('anon','public.get_risk_operating_cockpit()','EXECUTE')
+    or has_function_privilege('service_role','public.get_risk_operating_cockpit()','EXECUTE')
+    or has_function_privilege('anon','public.get_aggregate_risk_exposure(uuid)','EXECUTE')
+    or has_function_privilege('service_role','public.get_aggregate_risk_exposure(uuid)','EXECUTE')
+    or has_function_privilege('anon','public.get_risk_management_effectiveness()','EXECUTE')
+    or has_function_privilege('service_role','public.get_risk_management_effectiveness()','EXECUTE')
+    or has_function_privilege('anon','public.get_risk_audience_view_internal(uuid,text)','EXECUTE')
+    or has_function_privilege('service_role','public.get_risk_audience_view_internal(uuid,text)','EXECUTE')
+    or has_function_privilege('anon','public.get_sensitive_risk_operating_cockpit_internal()','EXECUTE')
+    or has_function_privilege('service_role','public.get_sensitive_risk_operating_cockpit_internal()','EXECUTE') then
+    raise exception 'legacy projection helper grants were not fully revoked'; end if;
+  blocked:=false;
+  begin perform public.get_sensitive_risk_operating_cockpit_internal();
+  exception when insufficient_privilege then blocked:=true; end;
+  if not blocked then raise exception 'internal sensitive cockpit remains public'; end if;
+  preview:=public.get_sensitive_risk_operating_cockpit();
+  if (select count(*) from jsonb_array_elements(preview->'risks') r,
+      lateral jsonb_array_elements(r->'links') l
+      where l->>'dependency_key' in('visible-fixture-link','private-outbound-fixture','private-inbound-fixture'))
+      is distinct from 6::bigint then
+    raise exception 'authorized administrator nested links changed'; end if;
+  if jsonb_typeof(preview) is distinct from 'object' or preview ? 'error'
+    or jsonb_typeof(preview->'risks') is distinct from 'array'
+    or not exists(select 1 from jsonb_array_elements(preview->'risks') item
+      where item->>'id'=f.restricted_risk::text) then
+    raise exception 'authorized sensitivity cockpit cannot compose its private helpers'; end if;
   option:='{"strategy":"change_likelihood","label":"Synthetic nonselected treatment","residual_risk":10,"introduced_risks":[],"required_resources":["fixture crane"],"available_resources":[],"required_competencies":["risk-preview-future"]}';
   receipt:=public.create_risk_treatment(f.restricted_risk,option,false);
   if receipt ? 'error' or receipt->'executable' is distinct from 'false'::jsonb
@@ -214,6 +267,12 @@ begin
       raise exception 'canonical child did not inherit bound sensitivity/objective: %',receipt;
     end if;
     insert into risk_preview_children values(child,parent,scenario);
+    evidence_receipt:=public.get_risk_audience_view(child,'manager');
+    if jsonb_typeof(evidence_receipt) is distinct from 'object'
+      or evidence_receipt->>'risk_id' is distinct from child::text
+      or evidence_receipt->>'objective' is distinct from (select objective_at_risk from risks where id=child)
+      or evidence_receipt->>'event' is distinct from (select event_description from risks where id=child) then
+      raise exception 'authorized audience wrapper changed the canonical projection'; end if;
     evidence_receipt:=public.record_risk_value_of_information(child,
       '{"information_action":"Synthetic child evidence","information_cost":10,"decision_cost_if_wrong":100,"uncertainty_reduction":0.5,"probability_decision_changes":0.5,"currency":"CAD"}');
     if evidence_receipt ? 'error' or public.sync_text_as_uuid(evidence_receipt->>'evidence_id') is null then
@@ -334,6 +393,24 @@ do $$ declare f record; payload jsonb; begin
     or (public.get_risk_secondary_risks(c.id) ? 'error') is distinct from true
     or (public.get_risk_decision_preview_context(c.id) ? 'error') is distinct from true) then
     raise exception 'derived risk definer read bypassed ancestor restriction'; end if;
+  if (public.get_risk_audience_view(f.restricted_risk,'manager')->>'error') is distinct from 'risk not available to this user'
+    or exists(select 1 from risk_preview_children c where
+      public.get_risk_audience_view(c.id,'manager')->>'error' is distinct from 'risk not available to this user') then
+    raise exception 'public audience read bypassed parent or inherited restriction'; end if;
+  payload:=public.get_sensitive_risk_operating_cockpit();
+  if jsonb_typeof(payload->'risks') is distinct from 'array'
+    or exists(select 1 from jsonb_array_elements(payload->'risks') item
+      where item->>'id'=f.restricted_risk::text or item->>'id' in(select id::text from risk_preview_children)) then
+    raise exception 'sensitive cockpit leaked inherited private context'; end if;
+  if exists(select 1 from jsonb_array_elements(payload->'risks') r,
+      lateral jsonb_array_elements(r->'links') l
+      where l->>'related_risk_id'=f.restricted_risk::text
+        or l->>'dependency_key' in('private-outbound-fixture','private-inbound-fixture')) then
+    raise exception 'nested cockpit links leaked a restricted endpoint'; end if;
+  if (select count(*) from jsonb_array_elements(payload->'risks') r,
+      lateral jsonb_array_elements(r->'links') l where l->>'dependency_key'='visible-fixture-link')
+      is distinct from 2::bigint then
+    raise exception 'fully visible nested link was not preserved in both directions'; end if;
 end $$;
 select set_config('request.jwt.claim.sub',foreign_user::text,true) from risk_preview_fixture;
 do $$ declare target uuid; payload jsonb; begin
@@ -344,4 +421,4 @@ do $$ declare target uuid; payload jsonb; begin
 end $$;
 reset role;
 rollback;
-select 'risk_decision_preview: nine canonical boundaries PASS; read-only projection PASS; writer/persistence parity PASS; lifecycle/role/private-helper refusals PASS; restricted-ledger and tenant walls PASS; actual readiness before/after PASS; exact-risk information receipt PASS; canonical secondary creation/sensitivity and immutable origin PASS; late ancestor restriction across raw risks/evidence/audit/RPCs PASS; fixtures rolled back';
+select 'risk_decision_preview: nine canonical boundaries PASS; read-only projection PASS; writer/persistence parity PASS; lifecycle/role/private-helper refusals PASS; restricted-ledger and tenant walls PASS; actual readiness before/after PASS; exact-risk information receipt PASS; canonical secondary creation/sensitivity and immutable origin PASS; late ancestor restriction across raw risks/evidence/audit/RPCs PASS; legacy helper ACLs and authorized sensitive/audience composition PASS; fixtures rolled back';

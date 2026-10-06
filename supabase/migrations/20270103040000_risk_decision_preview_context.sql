@@ -323,6 +323,81 @@ create trigger trg_risk_secondary_origin_receipt before insert on public.audit_e
   for each row when (new.entity_type = 'risk_secondary_created')
   execute function public.enforce_risk_secondary_origin_receipt();
 
+-- Preserve the exact legacy computations for owner-internal composition.
+-- The live SDK already uses the sensitivity-filtered public cockpit; direct
+-- RPC calls must not bypass it to read restricted context/dependency metrics.
+revoke all on function public.get_risk_operating_cockpit()
+  from public, anon, authenticated, service_role;
+revoke all on function public.get_aggregate_risk_exposure(uuid)
+  from public, anon, authenticated, service_role;
+revoke all on function public.get_risk_management_effectiveness()
+  from public, anon, authenticated, service_role;
+
+-- Keep the existing audience contract and implementation verbatim. The public
+-- signature now uses the ONE canonical visibility rule, including ancestors,
+-- before any copied objective/event, work or evidence can be projected.
+alter function public.get_risk_audience_view(uuid, text)
+  rename to get_risk_audience_view_internal;
+revoke all on function public.get_risk_audience_view_internal(uuid, text)
+  from public, anon, authenticated, service_role;
+create or replace function public.get_risk_audience_view(p_risk_id uuid, p_audience text)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare v_org uuid := public.app_current_org();
+begin
+  if v_org is null or not exists(select 1 from public.risks
+    where id = p_risk_id and organization_id = v_org
+      and public.can_read_risk(p_risk_id)) then
+    return jsonb_build_object('error', 'risk not available to this user');
+  end if;
+  return public.get_risk_audience_view_internal(p_risk_id, p_audience);
+end;
+$$;
+revoke all on function public.get_risk_audience_view(uuid, text) from public, anon;
+grant execute on function public.get_risk_audience_view(uuid, text) to authenticated, service_role;
+
+-- Preserve the original filtered cockpit calculations and projection contract.
+-- Its nested links came from the owner-only unfiltered cockpit: apply the same
+-- BOTH-endpoint visibility rule as the canonical risk_links read policy.
+alter function public.get_sensitive_risk_operating_cockpit()
+  rename to get_sensitive_risk_operating_cockpit_internal;
+revoke all on function public.get_sensitive_risk_operating_cockpit_internal()
+  from public, anon, authenticated, service_role;
+create or replace function public.get_sensitive_risk_operating_cockpit()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare v_org uuid := public.app_current_org(); v_result jsonb; v_risks jsonb;
+begin
+  if v_org is null then return jsonb_build_object('error', 'forbidden'); end if;
+  v_result := public.get_sensitive_risk_operating_cockpit_internal();
+  if v_result ? 'error' then return v_result; end if;
+  select coalesce(jsonb_agg(jsonb_set(item, '{links}', (
+    select coalesce(jsonb_agg(link order by link_order), '[]'::jsonb)
+    from jsonb_array_elements(coalesce(item->'links', '[]'::jsonb))
+      with ordinality as nested(link, link_order)
+    where exists(select 1 from public.risk_links l
+      where l.organization_id = v_org and l.id::text = link->>'id'
+        and public.can_read_risk(l.source_risk_id)
+        and public.can_read_risk(l.target_risk_id)
+        and (l.source_risk_id::text = item->>'id'
+          or l.target_risk_id::text = item->>'id'))
+  )) order by item_order), '[]'::jsonb) into v_risks
+  from jsonb_array_elements(coalesce(v_result->'risks', '[]'::jsonb))
+    with ordinality as projected(item, item_order);
+  return jsonb_set(v_result, '{risks}', v_risks);
+end;
+$$;
+revoke all on function public.get_sensitive_risk_operating_cockpit() from public, anon;
+grant execute on function public.get_sensitive_risk_operating_cockpit() to authenticated, service_role;
+
 create or replace function public.get_risk_decision_preview_context(
   p_risk_id uuid
 )

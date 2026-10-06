@@ -246,6 +246,40 @@ describe("R4.02 / U18.02 / R5.03 governed decision previews", () => {
       );
   });
 
+  it("makes unfiltered legacy risk projections owner-internal instead of bypass doors", () => {
+    for (const signature of [
+      "get_risk_operating_cockpit()",
+      "get_aggregate_risk_exposure(uuid)",
+      "get_risk_management_effectiveness()",
+      "get_risk_audience_view_internal(uuid, text)",
+    ]) {
+      expect(
+        migration.includes(
+          `revoke all on function public.${signature}\n  from public, anon, authenticated, service_role`,
+        ),
+      ).toBe(true);
+    }
+    expect(service.includes('"get_sensitive_risk_operating_cockpit"')).toBe(
+      true,
+    );
+  });
+
+  it("keeps the public audience signature behind canonical ancestor-sensitive visibility", () => {
+    const audience = functionBody("get_risk_audience_view");
+    expect(audience.includes("public.app_current_org()")).toBe(true);
+    expect(audience.includes("organization_id = v_org")).toBe(true);
+    expect(audience.includes("public.can_read_risk(p_risk_id)")).toBe(true);
+    expect(
+      audience.includes(
+        "public.get_risk_audience_view_internal(p_risk_id, p_audience)",
+      ),
+    ).toBe(true);
+    expect(audience.includes("risk not available to this user")).toBe(true);
+    expect(
+      migration.includes("rename to get_risk_audience_view_internal"),
+    ).toBe(true);
+  });
+
   it("shares one PostgreSQL numeric calculation between advisory preview and recording", () => {
     const calculator = functionBody("calculate_risk_analysis_internal");
     const preview = functionBody("get_risk_analysis_preview");
@@ -270,6 +304,21 @@ describe("R4.02 / U18.02 / R5.03 governed decision previews", () => {
     );
     expect(migration).toContain(
       "revoke all on function public.calculate_risk_analysis_internal",
+    );
+  });
+
+  it("filters nested cockpit links by both canonical endpoint permissions", () => {
+    const cockpit = functionBody("get_sensitive_risk_operating_cockpit");
+    expect(cockpit).toContain(
+      "public.get_sensitive_risk_operating_cockpit_internal()",
+    );
+    expect(cockpit).toContain("public.can_read_risk(l.source_risk_id)");
+    expect(cockpit).toContain("public.can_read_risk(l.target_risk_id)");
+    expect(cockpit).toContain("l.organization_id = v_org");
+    expect(cockpit).toContain("l.id::text = link->>'id'");
+    expect(cockpit).toContain("'{links}'");
+    expect(migration).toContain(
+      "revoke all on function public.get_sensitive_risk_operating_cockpit_internal()",
     );
   });
 

@@ -7,6 +7,11 @@ assert.equal(
   "true",
   "CI-only risk HTTP qualification",
 );
+assert.equal(
+  Object.keys(process.env).some((name) => name.startsWith("PG")),
+  false,
+  "ambient PostgreSQL connection environment is prohibited",
+);
 const status = spawnSync("supabase", ["status", "-o", "env"], {
   encoding: "utf8",
 });
@@ -45,7 +50,18 @@ function sql(statement) {
       "-c",
       statement,
     ],
-    { encoding: "utf8", env: { ...process.env, PGPASSWORD: "postgres" } },
+    {
+      encoding: "utf8",
+      env: {
+        PATH: process.env.PATH,
+        LC_ALL: "C",
+        LANG: "C",
+        PGPASSWORD: "postgres",
+        PGHOSTADDR: "127.0.0.1",
+        PGOPTIONS: "-c search_path=public",
+        PGSSLMODE: "disable",
+      },
+    },
   );
   assert.equal(result.status, 0, `isolated CI SQL failed: ${result.stderr}`);
   return result.stdout.trim();
@@ -56,6 +72,7 @@ async function login(email, password) {
     {
       method: "POST",
       signal: AbortSignal.timeout(15_000),
+      redirect: "error",
       headers: { apikey: config.ANON_KEY, "content-type": "application/json" },
       body: JSON.stringify({ email, password }),
     },
@@ -74,6 +91,7 @@ async function rpc(name, token, args) {
   const response = await fetch(`${config.API_URL}/rest/v1/rpc/${name}`, {
     method: "POST",
     signal: AbortSignal.timeout(15_000),
+    redirect: "error",
     headers: {
       apikey: config.ANON_KEY,
       "content-type": "application/json",
@@ -148,6 +166,46 @@ assert.equal(preview.body.recommended_action, "INVESTIGATE");
 assert.equal(preview.body.authoritative, false);
 assert.equal(preview.body.advisory_only, true);
 assert.equal(preview.body.human_decision_required, true);
+const audience = await rpc("get_risk_audience_view", admin, {
+  p_risk_id: risk,
+  p_audience: "manager",
+});
+assert.equal(audience.status, 200);
+assert.equal(audience.body.risk_id, risk);
+const privateAudience = await rpc("get_risk_audience_view", ordinary, {
+  p_risk_id: risk,
+  p_audience: "manager",
+});
+assert.equal(privateAudience.status, 200);
+assert.deepEqual(privateAudience.body, {
+  error: "risk not available to this user",
+});
+for (const token of [admin, ordinary]) {
+  const cockpit = await rpc("get_sensitive_risk_operating_cockpit", token, {});
+  assert.equal(cockpit.status, 200);
+  assert.ok(Array.isArray(cockpit.body.risks));
+  assert.equal(
+    cockpit.body.risks.some((item) => item.id === risk),
+    token === admin,
+  );
+}
+for (const name of [
+  "get_risk_operating_cockpit",
+  "get_aggregate_risk_exposure",
+  "get_risk_management_effectiveness",
+]) {
+  const closed = await rpc(name, admin, {});
+  // Native tests separately prove the functions exist and exact EXECUTE ACLs.
+  // PostgREST may hide owner-only functions from its callable schema cache.
+  assert.ok(
+    [403, 404].includes(closed.status),
+    "unfiltered legacy projection must not be callable",
+  );
+  assert.ok(
+    ["42501", "PGRST202"].includes(closed.body.code),
+    "expected privilege/schema-cache refusal",
+  );
+}
 for (const name of [
   "get_risk_decision_preview_context",
   "get_risk_analysis_preview",
