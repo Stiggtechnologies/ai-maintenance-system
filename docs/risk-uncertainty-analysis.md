@@ -2,6 +2,38 @@
 
 **2026-10-06 — PARTIAL, CURRENT-MAIN DRAFT COMPOSITION; NOT RELEASE QUALIFICATION.**
 
+**2026-10-07 — authority-refusal failure isolated to its test block; diagnosis pending.**
+Core run `37686465047` on published `5c4a87c8` is terminal failure. Its
+golden-path browser, unit, lint/typecheck/build and migration-order jobs passed.
+The database applied the full chain and passed demo authentication/RLS and the
+governed-risk preflight. Uncertainty preflight advanced through the corrected
+final-audit rollback block, then failed at `21:14:18Z`, native SQL line 920:
+`exact replacement authority/input refusal or full artifact preservation failed`.
+Database cleanup completed at `21:14:38Z`; later uncertainty SQL, HTTP and
+concurrency qualification were skipped, not passed.
+
+The shared assertion did not retain the failing case or distinguish an exact
+refusal mismatch from a full-state change. Read-only source review found no
+justified expected-message change. The bounded follow-up preserves the exact
+failure predicate, all thirteen cases, complete two-tenant snapshots, identity
+restoration and the narrow `ZX019` rollback catch. Its exception now emits only
+the controlled case name and two match/preservation booleans, never request,
+actor, row or response contents. This is diagnostic instrumentation, not a
+repair or qualification of the unknown mismatch. Test-first source coverage
+failed before that addition and passes afterward. Product code, migration,
+RLS/ACL, register claims and production remain unchanged; the next exact-head
+native run is required to establish the next action. The separately scoped
+clock-panel reachability follow-up is draft PR #649 and is not deployed.
+
+The diagnostic follow-up's local cohort passes **934 tests in 25 files**
+(uncertainty source/service/panel and decision-preview service/contracts),
+plus application TypeScript and owned zero-warning lint. This selection is
+not the earlier 810-test or 2,053-test cohort. An isolated rollback-only
+PostgreSQL **16.13** mechanism proof exercised all three failing combinations
+of refusal/state booleans and observed the exact diagnostic formatting. Its
+private server was stopped; this does not execute the application migration
+chain, the replacement RPC or the failing authority-refusal fixture.
+
 **2026-10-07 — third native-harness failure repaired; browser failure remains open.**
 Core run `37684254587` on published `a5e8c412` is terminal failure. The unit
 job passed **8,852 tests in 548 files**; lint/typecheck/build and migration

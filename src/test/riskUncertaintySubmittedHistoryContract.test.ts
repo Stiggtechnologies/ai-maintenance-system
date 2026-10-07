@@ -85,6 +85,35 @@ function excludedFields(source: string): string[] {
 }
 
 describe("U18 submitted-history immutable source contract", () => {
+  it("identifies a failing authority-refusal case without printing fixture identities, input content or weakening preservation", () => {
+    const refusals =
+      native
+        .split("-- U18 REPLACEMENT AUTHORITY REFUSALS BEGIN")[1]
+        ?.split("-- U18 REPLACEMENT AUTHORITY REFUSALS END")[0] ?? "";
+    expect(refusals).toContain(
+      "if result is distinct from jsonb_build_object('error',expected) or pg_temp.u18_state() is distinct from snapshot then",
+    );
+    expect(refusals).toContain(
+      "raise exception 'exact replacement authority/input refusal or full artifact preservation failed (mode=%, refusal_matches=%, state_preserved=%)'",
+    );
+    expect(refusals).toContain(
+      "mode, result is not distinct from jsonb_build_object('error',expected),",
+    );
+    expect(refusals).toContain(
+      "pg_temp.u18_state() is not distinct from snapshot; end if;",
+    );
+    const diagnostics = [
+      ...refusals.matchAll(/raise (?:notice|exception)[^;]*;/gi),
+    ]
+      .map((match) => match[0])
+      .join("\n");
+    expect(diagnostics).not.toMatch(
+      /,\s*(?:actor|actor_org|request|result|snapshot)\s*[,;]/i,
+    );
+    expect(refusals).toContain("if attempts<>13");
+    expect(refusals).toContain("exception when sqlstate 'ZX019' then null");
+  });
+
   it("separates nested audit-failure dollar delimiters without removing the rollback witness", () => {
     // Adjacent tagged delimiters contain $$ and prematurely terminate the
     // enclosing DO $$ body. This source check is not PostgreSQL execution.

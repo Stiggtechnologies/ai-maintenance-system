@@ -906,7 +906,9 @@ begin
       if mode in ('validated','rejected','superseded') then
         expected:='replacement requires the current pending packet and its original human author'; end if;
       if result is distinct from jsonb_build_object('error',expected) or pg_temp.u18_state() is distinct from snapshot then
-        raise exception 'exact replacement authority/input refusal or full artifact preservation failed'; end if;
+        raise exception 'exact replacement authority/input refusal or full artifact preservation failed (mode=%, refusal_matches=%, state_preserved=%)',
+          mode, result is not distinct from jsonb_build_object('error',expected),
+          pg_temp.u18_state() is not distinct from snapshot; end if;
       qualified:=true;
       raise exception using errcode='ZX019',message='U18 authority refusal fixture rollback';
     exception when sqlstate 'ZX019' then null;
