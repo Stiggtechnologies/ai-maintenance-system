@@ -85,6 +85,29 @@ function excludedFields(source: string): string[] {
 }
 
 describe("U18 submitted-history immutable source contract", () => {
+  it("types literal polymorphic JSON conversions without removing the committed-intent collision witness", () => {
+    // PostgreSQL cannot resolve to_jsonb(anyelement) from an unknown string
+    // literal. This is a native-source regression guard, not SQL execution.
+    expect(
+      /\b(?:to_jsonb|to_json)\s*\(\s*(?:'(?:''|[^'])*'|null)\s*\)/i.test(
+        native,
+      ),
+    ).toBe(false);
+    expect(native).toContain(
+      "to_jsonb('A different request must never reuse the same committed intent.'::text)",
+    );
+    const collision =
+      native
+        .split("-- U18 COMMITTED INTENT COLLISION WITNESS BEGIN")[1]
+        ?.split("-- U18 COMMITTED INTENT COLLISION WITNESS END")[0] ?? "";
+    expect(collision).toContain("public.replace_risk_uncertainty_analysis");
+    expect(collision).toContain(
+      "replacement intent is already bound to a different request",
+    );
+    expect(collision).toContain(
+      "pg_temp.u18_state() is distinct from snapshot",
+    );
+  });
   it("executes deferred pair checks before testing the actual truncate-retention guard", () => {
     const block =
       native

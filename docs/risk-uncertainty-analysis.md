@@ -2,6 +2,26 @@
 
 **2026-10-06 — PARTIAL, CURRENT-MAIN DRAFT COMPOSITION; NOT RELEASE QUALIFICATION.**
 
+**2026-10-07 — second exact-head harness failure repaired; qualification pending.**
+Core run `37682076877` on published `cb85fe67` is terminal failure. Its unit,
+lint/typecheck/build, migration-order and golden-path browser jobs passed. The
+native preflight executed beyond the corrected retention witness, but stopped
+at `2026-10-07T20:39:24Z`: the changed-request collision fixture passed an
+unknown string literal to polymorphic `to_jsonb`. Later full uncertainty SQL,
+HTTP and concurrency steps were skipped, not qualified. The database job's
+actual cleanup completed at `20:39:44Z`.
+
+An explicit `::text` cast preserves the same reason-only changed request,
+actual public RPC, exact committed-intent collision refusal and complete
+state/identity preservation. Test-first coverage failed before that repair and
+passes afterward; it also rejects remaining bare string/null JSON conversions
+in the whole native source. Independent bounded review reproduced 21 source
+tests and found no blocker. An isolated rollback-only PostgreSQL 16.13 mechanism
+proof reproduced the exact unknown-type error and executed the typed one-field
+mutation; its server was stopped. This is not full-chain qualification. The
+refreshed local cohort passes **2,053 tests in 25 files**. The authority batch
+below remains unexecuted; production migration and register claims are unchanged.
+
 **2026-10-07 — additional authority-race specifications; not executed.**
 The next bounded qualification batch extends only the existing disposable-CI
 harness: replacement versus predecessor review and ordinary submission in both

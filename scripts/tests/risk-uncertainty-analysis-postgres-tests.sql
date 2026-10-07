@@ -752,13 +752,15 @@ begin
     execute 'reset role';
     if result is distinct from receipt or pg_temp.u18_state() is distinct from snapshot then
       raise exception 'read-only exact intent receipt changed history or authority'; end if;
-    foreach bad in array array[jsonb_set(request::jsonb,'{reason}',to_jsonb('A different request must never reuse the same committed intent.'))] loop
+    -- U18 COMMITTED INTENT COLLISION WITNESS BEGIN
+    foreach bad in array array[jsonb_set(request::jsonb,'{reason}',to_jsonb('A different request must never reuse the same committed intent.'::text))] loop
       execute 'set local role authenticated'; result:=public.replace_risk_uncertainty_analysis(f.risk,bad::text);
       execute 'reset role';
       if result is distinct from jsonb_build_object('error','replacement intent is already bound to a different request')
         or pg_temp.u18_state() is distinct from snapshot then
         raise exception 'changed fingerprint reused a committed intent or changed artifacts'; end if;
     end loop;
+    -- U18 COMMITTED INTENT COLLISION WITNESS END
     qualified:=true; raise exception using errcode='ZX017',message='U18 actual replacement fixture rollback';
   exception when sqlstate 'ZX017' then null;
   end;
