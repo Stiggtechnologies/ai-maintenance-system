@@ -9,10 +9,89 @@ const replacement =
   script
     .split("// U18_REPLACEMENT_CONCURRENCY BEGIN")[1]
     ?.split("// U18_REPLACEMENT_CONCURRENCY END")[0] ?? "";
+const authorityRaces =
+  script
+    .split("// U18_REPLACEMENT_AUTHORITY_RACES BEGIN")[1]
+    ?.split("// U18_REPLACEMENT_AUTHORITY_RACES END")[0] ?? "";
 
 // Source specifications only; no mock, elapsed timeout or source substring
 // qualifies actual PostgreSQL FK/tuple races. Exact-head native CI is required.
 describe("U18 replacement native concurrency source contract", () => {
+  it("specifies replacement authority races separately from earlier ordinary-submit/review coverage", () => {
+    expect(authorityRaces).not.toBe("");
+    for (const phase of [
+      "U18_REPLACEMENT_VS_REVIEW",
+      "U18_REVIEW_VS_REPLACEMENT",
+      "U18_REPLACEMENT_VS_SUBMIT",
+      "U18_SUBMIT_VS_REPLACEMENT",
+      "U18_REPLACEMENT_POLICY_BEFORE",
+      "U18_REPLACEMENT_POLICY_AFTER",
+      "U18_REPLACEMENT_PROFILE_BEFORE",
+      "U18_REPLACEMENT_PROFILE_AFTER",
+      "U18_REPLACEMENT_VISIBILITY_BEFORE",
+      "U18_REPLACEMENT_VISIBILITY_AFTER",
+      "U18_REPLACEMENT_OLD_EVIDENCE_BEFORE",
+      "U18_REPLACEMENT_NEW_EVIDENCE_BEFORE",
+      "U18_REPLACEMENT_WORKSPACE_SNAPSHOT",
+    ]) {
+      expect(script).toContain(`"${phase}"`);
+      expect(authorityRaces).toContain(`"${phase}"`);
+    }
+    expect(authorityRaces).toContain("await blocked(");
+    expect(authorityRaces).toContain("replaceSQL(");
+    expect(authorityRaces).toContain("assertReplacementTransition(");
+    expect(authorityRaces).not.toMatch(
+      /disable trigger|session_replication_role|catch[^]*?(?:deadlock_detected|query_canceled)/i,
+    );
+  });
+
+  it("removes restricted-ancestor owner and privileged-role shortcuts from replacement visibility fixtures", () => {
+    const fixture =
+      authorityRaces
+        .split("async function replacementAuthorityFixture(")[1]
+        ?.split("async function restoreAuthorityAuthorRole(")[0] ?? "";
+    expect(fixture).not.toBe("");
+    expect(fixture).toContain("role='reliability_engineer'");
+    expect(fixture).toContain(
+      "risk_owner_id='${f.reviewer}',decision_owner_id=null",
+    );
+    expect(fixture).toContain(
+      'assert.equal(risk.information_sensitivity, "restricted")',
+    );
+    expect(fixture).toContain("assert.equal(risk.risk_owner_id, f.reviewer)");
+    expect(fixture).toContain("assert.equal(risk.decision_owner_id, null)");
+    expect(fixture).toContain("assert.equal(grants.length, 1)");
+    expect(fixture).toContain("row.stakeholder_user_id === f.author");
+    expect(fixture).toContain("public.can_read_risk");
+    expect(fixture).toContain("assertWholeStatePreserved(ready");
+  });
+
+  it("allows only the independently checked canonical membership event while retaining zero-event defaults", () => {
+    const writer =
+      authorityRaces
+        .split("function profileWriter(")[1]
+        ?.split("// Replacement's final audit INSERT")[0] ?? "";
+    expect(writer).not.toBe("");
+    expect(writer).toContain("securityEventDelta: 1");
+    expect(writer).toContain(
+      'assert.equal(delta(after, before, "securityEvents"), 1)',
+    );
+    expect(writer).toContain("assert.deepEqual(event, {");
+    expect(writer).toContain('"role_changed" : "org_changed"');
+    expect(writer).toContain("actor_id: null, actor_label: null");
+    expect(writer).toContain("Role for ${subject} changed from ${old.role");
+    expect(writer).toContain(
+      "Organization for ${subject} changed from ${old.organization_id",
+    );
+    expect(writer).toContain(
+      "normalized.securityEvents.filter((row) => row.id !== added[0].id)",
+    );
+    expect(script).toContain(
+      "securityEvents: replacement?.securityEventDelta ?? 0",
+    );
+    expect(script).toContain("writer.expectStale ?? (writer !== noWriter)");
+    expect(script).toContain("writer.securityEventDelta ?? 0");
+  });
   it("retains the isolated pinned seed/four-session observer and finite diagnostics", () => {
     expect(script).toContain(
       '"1707a52effd3556b025cce99df081a360924d63904d604f94bec2e616f4ab379"',
@@ -100,7 +179,9 @@ describe("U18 replacement native concurrency source contract", () => {
 
   it("observes replacement holding evidence through the last audit barrier and verifies subsequent digest drift", () => {
     const afterCheck =
-      replacement.split("// U18_REPLACEMENT_AFTER_CHECK")[1] ?? "";
+      replacement
+        .split("// U18_REPLACEMENT_AFTER_CHECK")[1]
+        ?.split("// U18_REPLACEMENT_AUTHORITY_RACES BEGIN")[0] ?? "";
     expect(afterCheck).toContain(
       "lock table public.audit_events in share mode",
     );

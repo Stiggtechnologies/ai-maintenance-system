@@ -27,6 +27,19 @@ const allowedPhases = new Set([
   "U18_REPLACEMENT_RISK_COMPETITION",
   "U18_REPLACEMENT_EVIDENCE_RESTORE",
   "U18_REPLACEMENT_AFTER_CHECK",
+  "U18_REPLACEMENT_VS_REVIEW",
+  "U18_REVIEW_VS_REPLACEMENT",
+  "U18_REPLACEMENT_VS_SUBMIT",
+  "U18_SUBMIT_VS_REPLACEMENT",
+  "U18_REPLACEMENT_POLICY_BEFORE",
+  "U18_REPLACEMENT_POLICY_AFTER",
+  "U18_REPLACEMENT_PROFILE_BEFORE",
+  "U18_REPLACEMENT_PROFILE_AFTER",
+  "U18_REPLACEMENT_VISIBILITY_BEFORE",
+  "U18_REPLACEMENT_VISIBILITY_AFTER",
+  "U18_REPLACEMENT_OLD_EVIDENCE_BEFORE",
+  "U18_REPLACEMENT_NEW_EVIDENCE_BEFORE",
+  "U18_REPLACEMENT_WORKSPACE_SNAPSHOT",
   "U18_OPEN_ANCESTOR_DELETE",
   "U18_COMPLETE",
 ]);
@@ -399,7 +412,7 @@ async function qualify() {
           approvals: 0,
           evidence: 0,
           audit: 1,
-          securityEvents: 0,
+          securityEvents: replacement?.securityEventDelta ?? 0,
           decisions: 0,
           work: 0,
         },
@@ -1610,7 +1623,8 @@ async function qualify() {
         expectedValue: 37500, netValue: 27500, recommendation: "GATHER_INFORMATION",
       });
       assertSubmitState(receipt, fixture, before, after, expectedSnapshot, currentDigest,
-        { ...info, expectStale: writer !== noWriter });
+        { ...info, expectStale: writer.expectStale ?? (writer !== noWriter),
+          securityEventDelta: writer.securityEventDelta ?? 0 });
       const successor = byId(after, "packets", receipt.analysisId);
       assert.deepEqual(byId(after, "packets", fixture.packet.analysisId), {
         ...byId(before, "packets", fixture.packet.analysisId), status: "superseded",
@@ -1622,7 +1636,7 @@ async function qualify() {
       const audit = audits[0];
       assert.equal(audit.entity_type, "risk_uncertainty_analysis_replaced");
       assert.equal(audit.organization_id, f.org);
-      assert.equal(audit.actor, "admin");
+      assert.equal(audit.actor, fixture.authorRole ?? "admin");
       assert.deepEqual(audit.event_data, {
         risk_id: fixture.child, analysis_id: receipt.analysisId, version: 2,
         analysis_digest: receipt.analysisDigest, evidence_item_ids: fixture.newEvidence,
@@ -1747,6 +1761,516 @@ async function qualify() {
       assertReplacementTransition(receipt, fixture, info, before, after, expectedSnapshot,
         await analysisDigest(receipt.analysisId), writer);
     }
+    // U18_REPLACEMENT_AUTHORITY_RACES BEGIN
+    // Actual session barriers and explicit committed-before evidence controls.
+    // A normal refusal must preserve all thirteen
+    // collections; canonical service-side membership changes have their own
+    // independently checked security event, never an uncertainty artifact.
+    async function assertActorContext(handle, user = f.author, organization = f.org) {
+      const context = json(await handle.query(`select jsonb_build_object(
+        'marker',coalesce(current_setting('app.risk_uncertainty_write',true),''),
+        'claim',current_setting('request.jwt.claim.sub',true),'actor',auth.uid(),
+        'organization',public.app_current_org(),'role',current_user)`));
+      assert.deepEqual(context, { marker: "", claim: user, actor: user,
+        organization, role: "authenticated" });
+    }
+    function assertWholeStatePreserved(before, after, fixture, writer = noWriter) {
+      writer.verify(before, after, fixture);
+      const normalized = copy(after);
+      writer.normalize(normalized, before, fixture);
+      assert.deepEqual(Object.keys(normalized).sort(), [...wholeStateKeys].sort());
+      assert.deepEqual(normalized, before);
+    }
+    async function promptRefusal(handle, sql, expected, user = f.author, organization = f.org) {
+      const started = Date.now();
+      assert.deepEqual(json(await handle.query(sql)), { error: expected });
+      assert(Date.now() - started < 5000);
+      await assertActorContext(handle, user, organization);
+    }
+    const serviceSQL = "reset role; select set_config('request.jwt.claim.sub','',false)";
+    function profileWriter(field, value) {
+      assert(["role", "organization_id"].includes(field));
+      const changed = replacementWriter("profiles", () => f.author, () => ({ [field]: value }));
+      const events = (before, after) => after.securityEvents.filter(
+        (row) => !before.securityEvents.some((old) => old.id === row.id));
+      return {
+        expectStale: false, securityEventDelta: 1,
+        verify(before, after, fixture) {
+          changed.verify(before, after, fixture);
+          assert.equal(delta(after, before, "securityEvents"), 1);
+          const added = events(before, after);
+          assert.equal(added.length, 1);
+          const event = added[0];
+          assert.match(event.id, uuid);
+          assert.match(event.created_at, /^\d{4}-\d{2}-\d{2}T/);
+          const old = byId(before, "profiles", f.author);
+          const subject = old.email ?? old.id;
+          assert.deepEqual(event, {
+            id: event.id, created_at: event.created_at,
+            organization_id: field === "organization_id" ? value : old.organization_id,
+            actor_id: null, actor_label: null,
+            event_type: field === "role" ? "role_changed" : "org_changed",
+            severity: field === "role" && !["admin", "ai_admin"].includes(value) ? "notice" : "warning",
+            detail: field === "role"
+              ? `Role for ${subject} changed from ${old.role ?? "none"} to ${value}`
+              : `Organization for ${subject} changed from ${old.organization_id ?? "none"} to ${value}`,
+            ip: null, user_agent: null,
+          });
+        },
+        normalize(normalized, before, fixture) {
+          // Only the one exact event above is removed; old events stay frozen.
+          const added = events(before, normalized);
+          assert.equal(added.length, 1);
+          normalized.securityEvents = normalized.securityEvents.filter((row) => row.id !== added[0].id);
+          changed.normalize(normalized, before, fixture);
+        },
+      };
+    }
+
+    // Replacement's final audit INSERT holds the predecessor and risk context:
+    // old-packet review and ordinary submit each refuse NOWAIT, then refuse their
+    // lifecycle/pending gate after the winner has committed.
+    for (const contender of [
+      { phase: "U18_REPLACEMENT_VS_REVIEW", sql: (x) => reviewSQLFor(x.packet),
+        user: f.reviewer, after: "same-tenant uncertainty analysis is not awaiting review" },
+      { phase: "U18_REPLACEMENT_VS_SUBMIT", sql: (x) => submitSQLFor(x.child, x.evidence),
+        user: f.author, after: "this risk already has an uncertainty analysis awaiting independent review" },
+    ]) {
+      markPhase(contender.phase);
+      const fixture = await replacementFixture(contender.phase);
+      const info = await replacementRequest(fixture);
+      const before = await state();
+      const expectedSnapshot = await replacementSnapshot(fixture);
+      await barrier.query("begin; lock table public.audit_events in share mode");
+      const replacing = actor.query(replaceSQL(fixture, info));
+      replacing.catch(() => {});
+      await blocked(actorPid, barrierPid);
+      await promptRefusal(changer, contender.sql(fixture), "risk not found in this organization", contender.user);
+      assertWholeStatePreserved(before, await state(), fixture);
+      await barrier.query("commit");
+      const receipt = json(await replacing);
+      await assertActorContext(actor);
+      const after = await state();
+      assertReplacementTransition(receipt, fixture, info, before, after, expectedSnapshot,
+        await analysisDigest(receipt.analysisId));
+      await promptRefusal(changer, contender.sql(fixture), contender.after, contender.user);
+      assertWholeStatePreserved(after, await state(), fixture);
+    }
+
+    // An actually successful predecessor review requires restored reviewable
+    // inputs. A stale packet must never be called a positive review control.
+    {
+      markPhase("U18_REVIEW_VS_REPLACEMENT");
+      const fixture = await replacementFixture("U18_REVIEW_VS_REPLACEMENT");
+      const info = await replacementRequest(fixture);
+      const drift = " Committed synthetic content drift.";
+      const drifted = await state();
+      const evidence = byId(drifted, "evidence", fixture.evidence);
+      assert(evidence.description.endsWith(drift));
+      const description = evidence.description.slice(0, -drift.length);
+      await monitor.query(`update public.evidence_items set description=${literal(description)}
+        where id='${fixture.evidence}' returning id`);
+      const before = await state();
+      assertWholeStatePreserved(drifted, before, fixture,
+        replacementWriter("evidence", (x) => x.evidence, () => ({ description })));
+      assert.equal(await analysisDigest(fixture.packet.analysisId), fixture.packet.analysisDigest);
+      await barrier.query("begin; lock table public.approvals in share mode");
+      const reviewing = actor.query(reviewSQLFor(fixture.packet));
+      reviewing.catch(() => {});
+      await blocked(actorPid, barrierPid);
+      await promptRefusal(changer, replaceSQL(fixture, info), "risk not found in this organization");
+      assertWholeStatePreserved(before, await state(), fixture);
+      await barrier.query("commit");
+      const receipt = json(await reviewing);
+      await assertActorContext(actor, f.reviewer);
+      const after = await state();
+      assertReviewStateTransition(receipt, fixture.packet, fixture, before, after, noWriter);
+      await promptRefusal(changer, replaceSQL(fixture, info),
+        "replacement requires the current pending packet and its original human author");
+      assertWholeStatePreserved(after, await state(), fixture);
+    }
+
+    // Ordinary submit reaches the policy wait BEFORE its pending-packet gate.
+    // It can win contention, but cannot create a second pending proposal.
+    {
+      markPhase("U18_SUBMIT_VS_REPLACEMENT");
+      const fixture = await replacementFixture("U18_SUBMIT_VS_REPLACEMENT");
+      const info = await replacementRequest(fixture);
+      const before = await state();
+      await barrier.query(`begin; select id from public.risk_criteria_profiles
+        where id='${fixture.criteria}' for update`);
+      const submitting = actor.query(submitSQLFor(fixture.child, fixture.evidence));
+      submitting.catch(() => {});
+      await blocked(actorPid, barrierPid);
+      await promptRefusal(changer, replaceSQL(fixture, info), "risk not found in this organization");
+      assertWholeStatePreserved(before, await state(), fixture);
+      await barrier.query("commit");
+      assert.deepEqual(json(await submitting), {
+        error: "this risk already has an uncertainty analysis awaiting independent review",
+      });
+      await assertActorContext(actor);
+      assertWholeStatePreserved(before, await state(), fixture);
+    }
+
+    // BEFORE-policy: a committed raw policy-field correction invalidates frozen
+    // CAS even with identical thresholds; draft policy refuses before CAS.
+    for (const field of ["basis", "status"]) {
+      markPhase("U18_REPLACEMENT_POLICY_BEFORE");
+      const fixture = await replacementFixture(`U18_REPLACEMENT_POLICY_BEFORE_${field}`);
+      const info = await replacementRequest(fixture);
+      const before = await state();
+      const value = field === "basis" ? `${byId(before, "criteria", fixture.criteria).basis} Corrected.` : "draft";
+      const writer = replacementWriter("criteria", (x) => x.criteria, () => ({ [field]: value }));
+      await barrier.query(`begin; update public.risk_criteria_profiles set ${field}=${literal(value)}
+        where id='${fixture.criteria}' returning id`);
+      const replacing = actor.query(replaceSQL(fixture, info));
+      replacing.catch(() => {});
+      await blocked(actorPid, barrierPid);
+      assertWholeStatePreserved(before, await state(), fixture);
+      await barrier.query("commit");
+      assert.deepEqual(json(await replacing), { error: field === "basis"
+        ? "replacement inputs or policy changed; reload the governed workspace"
+        : "criteria profile must be adopted with decision thresholds before uncertainty analysis" });
+      await assertActorContext(actor);
+      assertWholeStatePreserved(before, await state(), fixture, writer);
+    }
+    {
+      markPhase("U18_REPLACEMENT_POLICY_AFTER");
+      const fixture = await replacementFixture("U18_REPLACEMENT_POLICY_AFTER");
+      const info = await replacementRequest(fixture);
+      const before = await state();
+      const expectedSnapshot = await replacementSnapshot(fixture);
+      const basis = `${byId(before, "criteria", fixture.criteria).basis} After replacement.`;
+      const writer = replacementWriter("criteria", (x) => x.criteria, () => ({ basis }));
+      await barrier.query("begin; lock table public.audit_events in share mode");
+      const replacing = actor.query(replaceSQL(fixture, info));
+      replacing.catch(() => {});
+      await blocked(actorPid, barrierPid);
+      const changing = changer.query(`${serviceSQL}; begin;
+        update public.risk_criteria_profiles set basis=${literal(basis)}
+        where id='${fixture.criteria}' returning id; select 'policy corrected'`);
+      changing.catch(() => {});
+      await blocked(changerPid, actorPid);
+      assertWholeStatePreserved(before, await state(), fixture);
+      await barrier.query("commit");
+      const receipt = json(await replacing);
+      await assertActorContext(actor);
+      assert.equal((await changing).at(-1), "policy corrected");
+      await changer.query("commit");
+      const after = await state();
+      assert.notEqual(await analysisDigest(receipt.analysisId), receipt.analysisDigest);
+      assertReplacementTransition(receipt, fixture, info, before, after, expectedSnapshot,
+        await analysisDigest(receipt.analysisId), writer);
+    }
+
+    // Service-side role/org correction, never a self-service membership bypass.
+    // Each BEFORE and AFTER phase executes BOTH named membership dimensions.
+    for (const field of ["role", "organization_id"]) {
+      markPhase("U18_REPLACEMENT_PROFILE_BEFORE");
+      const fixture = await replacementFixture(`U18_REPLACEMENT_PROFILE_BEFORE_${field}`);
+      const info = await replacementRequest(fixture);
+      const before = await state();
+      const old = byId(before, "profiles", f.author);
+      const value = field === "role" ? "technician" : f.foreign_org;
+      const writer = profileWriter(field, value);
+      await barrier.query(`begin; select id from public.risk_criteria_profiles
+        where id='${fixture.criteria}' for update`);
+      const replacing = actor.query(replaceSQL(fixture, info));
+      replacing.catch(() => {});
+      await blocked(actorPid, barrierPid);
+      await changer.query(`${serviceSQL}; begin; update public.user_profiles
+        set ${field}=${literal(value)} where id='${f.author}' returning id; commit`);
+      const changed = await state();
+      assertWholeStatePreserved(before, changed, fixture, writer);
+      await barrier.query("commit");
+      assert.deepEqual(json(await replacing), {
+        error: "current named human engineering or management membership required",
+      });
+      await assertActorContext(actor, f.author, field === "organization_id" ? f.foreign_org : f.org);
+      assertWholeStatePreserved(changed, await state(), fixture);
+      await monitor.query(`update public.user_profiles set ${field}=${literal(old[field])}
+        where id='${f.author}' returning id`);
+      assertWholeStatePreserved(changed, await state(), fixture, profileWriter(field, old[field]));
+    }
+    for (const field of ["role", "organization_id"]) {
+      markPhase("U18_REPLACEMENT_PROFILE_AFTER");
+      const fixture = await replacementFixture(`U18_REPLACEMENT_PROFILE_AFTER_${field}`);
+      const info = await replacementRequest(fixture);
+      const before = await state();
+      const old = byId(before, "profiles", f.author);
+      const expectedSnapshot = await replacementSnapshot(fixture);
+      const value = field === "role" ? "technician" : f.foreign_org;
+      const writer = profileWriter(field, value);
+      await barrier.query("begin; lock table public.audit_events in share mode");
+      const replacing = actor.query(replaceSQL(fixture, info));
+      replacing.catch(() => {});
+      await blocked(actorPid, barrierPid);
+      const changing = changer.query(`${serviceSQL}; begin; update public.user_profiles
+        set ${field}=${literal(value)} where id='${f.author}' returning id; select 'membership corrected'`);
+      changing.catch(() => {});
+      await blocked(changerPid, actorPid);
+      assertWholeStatePreserved(before, await state(), fixture);
+      await barrier.query("commit");
+      const receipt = json(await replacing);
+      // Membership remains old until the separately blocked writer commits.
+      await assertActorContext(actor);
+      assert.equal((await changing).at(-1), "membership corrected");
+      await changer.query("commit");
+      const after = await state();
+      assert.equal(await analysisDigest(receipt.analysisId), receipt.analysisDigest);
+      assertReplacementTransition(receipt, fixture, info, before, after, expectedSnapshot,
+        await analysisDigest(receipt.analysisId), writer);
+      await monitor.query(`update public.user_profiles set ${field}=${literal(old[field])}
+        where id='${f.author}' returning id`);
+      assertWholeStatePreserved(after, await state(), fixture, profileWriter(field, old[field]));
+    }
+
+    async function replacementAuthorityFixture(label) {
+      const fixture = await replacementFixture(label);
+      fixture.authorRole = "reliability_engineer";
+      // Only random fixture rows: remove BOTH owner and role shortcuts.
+      await monitor.query(`begin; update public.user_profiles set role='reliability_engineer'
+        where id='${f.author}';
+        update public.risks set risk_owner_id='${f.reviewer}',decision_owner_id=null,
+          information_sensitivity='restricted'
+        where id in ('${fixture.parent}','${fixture.grandparent}');
+        update public.risk_stakeholder_views set stakeholder_user_id='${f.author}'
+        where id in ('${fixture.parentView}','${fixture.grandView}'); commit`);
+      const ready = await state();
+      assert.equal(byId(ready, "profiles", f.author).role, "reliability_engineer");
+      for (const id of [fixture.parent, fixture.grandparent]) {
+        const risk = byId(ready, "risks", id);
+        assert.equal(risk.information_sensitivity, "restricted");
+        assert.equal(risk.risk_owner_id, f.reviewer);
+        assert.equal(risk.decision_owner_id, null);
+        const grants = ready.stakeholderViews.filter((row) => row.risk_id === id &&
+          row.organization_id === f.org && row.stakeholder_user_id === f.author);
+        assert.equal(grants.length, 1);
+        assert.equal(grants[0].id, id === fixture.parent ? fixture.parentView : fixture.grandView);
+      }
+      assert.deepEqual(json(await actor.query(`reset role; set role authenticated;
+        select set_config('request.jwt.claim.sub','${f.author}',false);
+        select jsonb_build_object('readable',public.can_read_risk('${fixture.child}'))`)), { readable: true });
+      await assertActorContext(actor);
+      assertWholeStatePreserved(ready, await state(), fixture);
+      return fixture;
+    }
+    async function restoreAuthorityAuthorRole(fixture) {
+      const before = await state();
+      await monitor.query(`update public.user_profiles set role='admin' where id='${f.author}' returning id`);
+      assertWholeStatePreserved(before, await state(), fixture, profileWriter("role", "admin"));
+    }
+    for (const kind of ["view", "scenario"]) {
+      markPhase("U18_REPLACEMENT_VISIBILITY_BEFORE");
+      const fixture = await replacementAuthorityFixture(`U18_REPLACEMENT_VISIBILITY_BEFORE_${kind}`);
+      const info = await replacementRequest(fixture);
+      const before = await state();
+      const writer = kind === "view" ? deletionWriter("stakeholderViews", (x) => x.parentView)
+        : replacementWriter("scenarios", (x) => x.parentScenario,
+          (row) => ({ label: `${row.label} Corrected.` }));
+      const mutation = kind === "view"
+        ? `delete from public.risk_stakeholder_views where id='${fixture.parentView}' returning id`
+        : `update public.scenarios set label=label||' Corrected.' where id='${fixture.parentScenario}' returning id`;
+      await barrier.query(`${serviceSQL}; begin; ${mutation}`);
+      await promptRefusal(actor, `begin; ${replaceSQL(fixture, info)}`, "risk not found in this organization");
+      assert.deepEqual(json(await actor.query(`reset role; ${stateSQL}`)), before);
+      assertWholeStatePreserved(before, await state(), fixture);
+      // Earlier ancestry locks must be released even while the actor's outer
+      // refusal transaction stays open and the view/scenario writer is pending.
+      assert.equal((await changer.query(`${serviceSQL}; begin;
+        select id from public.risks where id='${fixture.grandparent}' for update nowait;
+        commit; select 'authority partial locks released'`)).at(-1), "authority partial locks released");
+      await actor.query("rollback");
+      await barrier.query("commit");
+      const changed = await state();
+      assertWholeStatePreserved(before, changed, fixture, writer);
+      if (kind === "view") {
+        await promptRefusal(actor, replaceSQL(fixture, info), "risk not found in this organization");
+        await promptRefusal(actor, `select public.get_risk_uncertainty_workspace('${fixture.child}')`,
+          "risk not found in this organization");
+        assertWholeStatePreserved(changed, await state(), fixture);
+      }
+      await restoreAuthorityAuthorRole(fixture);
+    }
+    for (const kind of ["view", "scenario"]) {
+      markPhase("U18_REPLACEMENT_VISIBILITY_AFTER");
+      const fixture = await replacementAuthorityFixture(`U18_REPLACEMENT_VISIBILITY_AFTER_${kind}`);
+      const info = await replacementRequest(fixture);
+      const before = await state();
+      const expectedSnapshot = await replacementSnapshot(fixture);
+      const writer = { expectStale: false, ...(kind === "view"
+        ? deletionWriter("stakeholderViews", (x) => x.parentView)
+        : replacementWriter("scenarios", (x) => x.parentScenario,
+          (row) => ({ label: `${row.label} Corrected.` }))) };
+      const mutation = kind === "view"
+        ? `delete from public.risk_stakeholder_views where id='${fixture.parentView}' returning id`
+        : `update public.scenarios set label=label||' Corrected.' where id='${fixture.parentScenario}' returning id`;
+      await barrier.query("begin; lock table public.audit_events in share mode");
+      const replacing = actor.query(replaceSQL(fixture, info));
+      replacing.catch(() => {});
+      await blocked(actorPid, barrierPid);
+      const changing = changer.query(`${serviceSQL}; begin; ${mutation}; select 'visibility corrected'`);
+      changing.catch(() => {});
+      await blocked(changerPid, actorPid);
+      assertWholeStatePreserved(before, await state(), fixture);
+      await barrier.query("commit");
+      const receipt = json(await replacing);
+      // The revocation is still uncommitted; the author is still readable here.
+      await assertActorContext(actor);
+      assert.equal((await changing).at(-1), "visibility corrected");
+      await changer.query("commit");
+      const after = await state();
+      assert.equal(await analysisDigest(receipt.analysisId), receipt.analysisDigest);
+      assertReplacementTransition(receipt, fixture, info, before, after, expectedSnapshot,
+        await analysisDigest(receipt.analysisId), writer);
+      if (kind === "view") {
+        await promptRefusal(actor, `select public.get_risk_uncertainty_workspace('${fixture.child}')`,
+          "risk not found in this organization");
+        await promptRefusal(actor, `select public.get_risk_uncertainty_replacement_receipt(
+          '${fixture.child}','${info.request.intentId}','${info.fingerprint}')`,
+          "risk not found in this organization");
+        assertWholeStatePreserved(after, await state(), fixture);
+      }
+      await restoreAuthorityAuthorRole(fixture);
+    }
+    // A prepared request freezes predecessor live-digest CAS, not previously
+    // displayed contents of newly selected IDs. A committed OLD-only change
+    // refuses; a committed NEW-only change is captured exactly, still pending
+    // independent review and without approval/derived-evidence/work artifacts.
+    for (const kind of ["old", "new"]) {
+      markPhase(kind === "old" ? "U18_REPLACEMENT_OLD_EVIDENCE_BEFORE"
+        : "U18_REPLACEMENT_NEW_EVIDENCE_BEFORE");
+      const fixture = await replacementFixture(`U18_REPLACEMENT_${kind.toUpperCase()}_EVIDENCE_BEFORE`);
+      const info = await replacementRequest(fixture);
+      const before = await state();
+      const id = kind === "old" ? fixture.evidence : fixture.newEvidence[0];
+      const description = `${byId(before, "evidence", id).description} Corrected before replacement.`;
+      const writer = replacementWriter("evidence", () => id, () => ({ description }));
+      await changer.query(`${serviceSQL}; begin; update public.evidence_items
+        set description=${literal(description)} where id='${id}' returning id; commit`);
+      const changed = await state();
+      assertWholeStatePreserved(before, changed, fixture, writer);
+      if (kind === "old") {
+        assert.notEqual(await analysisDigest(fixture.packet.analysisId), info.request.predecessor.currentDigest);
+        await promptRefusal(actor, replaceSQL(fixture, info),
+          "replacement inputs or policy changed; reload the governed workspace");
+        assertWholeStatePreserved(changed, await state(), fixture);
+      } else {
+        assert.equal(await analysisDigest(fixture.packet.analysisId), info.request.predecessor.currentDigest);
+        const expectedSnapshot = await replacementSnapshot(fixture);
+        assert.equal(expectedSnapshot.evidence.find((row) => row.id === id).description, description);
+        const receipt = json(await actor.query(replaceSQL(fixture, info)));
+        await assertActorContext(actor);
+        assertReplacementTransition(receipt, fixture, info, changed, await state(), expectedSnapshot,
+          await analysisDigest(receipt.analysisId));
+      }
+    }
+    // Instrumented statement-snapshot specification, NOT top-level HTTP
+    // mid-read proof. This session-local STABLE gate has no writes and calls
+    // the real public RPC. Its work_orders relation is planned INSIDE the
+    // function, after the outer SELECT has acquired its statement snapshot.
+    // A top-level CTE could instead wait during planning, before that snapshot.
+    {
+      markPhase("U18_REPLACEMENT_WORKSPACE_SNAPSHOT");
+      const fixture = await replacementFixture("U18_REPLACEMENT_WORKSPACE_SNAPSHOT");
+      const info = await replacementRequest(fixture);
+      const before = await state();
+      const expectedSnapshot = await replacementSnapshot(fixture);
+      const priorWorkspace = json(await changer.query(`reset role; set role authenticated;
+        select set_config('request.jwt.claim.sub','${f.author}',false);
+        select public.get_risk_uncertainty_workspace('${fixture.child}')`));
+      await assertActorContext(changer);
+      assert.equal(priorWorkspace.analyses.length, 1);
+      assert.equal(priorWorkspace.analyses[0].id, fixture.packet.analysisId);
+      assert.equal(priorWorkspace.analyses[0].storedStatus, "pending_review");
+      assert.equal(priorWorkspace.analyses[0].validationStatus, "stale");
+      assert.equal(priorWorkspace.analyses[0].reviewStanding, "replacement_required");
+      assert.equal(priorWorkspace.analyses[0].currentDigest, info.request.predecessor.currentDigest);
+      assert.equal(priorWorkspace.criteria.policyDigest, info.request.policyDigest);
+      assertWholeStatePreserved(before, await state(), fixture);
+      await changer.query(`${serviceSQL};
+        create function pg_temp.u18_workspace_snapshot_gate(p_risk_id uuid)
+        returns jsonb language plpgsql stable set search_path=public as $$
+        begin
+          perform count(*) from public.work_orders
+            where organization_id=public.app_current_org();
+          return public.get_risk_uncertainty_workspace(p_risk_id);
+        end $$;
+        select jsonb_build_object(
+          'rpcStable',(select provolatile='s' from pg_proc where oid=
+            to_regprocedure('public.get_risk_uncertainty_workspace(uuid)')),
+          'gateStable',(select provolatile='s' from pg_proc where oid=
+            to_regprocedure('pg_temp.u18_workspace_snapshot_gate(uuid)')))`);
+      const volatility = json(await changer.query(`select jsonb_build_object(
+        'rpcStable',(select provolatile='s' from pg_proc where oid=
+          to_regprocedure('public.get_risk_uncertainty_workspace(uuid)')),
+        'gateStable',(select provolatile='s' from pg_proc where oid=
+          to_regprocedure('pg_temp.u18_workspace_snapshot_gate(uuid)')))`));
+      assert.deepEqual(volatility, { rpcStable: true, gateStable: true });
+      assertWholeStatePreserved(before, await state(), fixture);
+      await barrier.query("begin; lock table public.work_orders in access exclusive mode");
+      const reading = changer.query(`reset role; set role authenticated;
+        select set_config('request.jwt.claim.sub','${f.author}',false);
+        select pg_temp.u18_workspace_snapshot_gate('${fixture.child}')`);
+      reading.catch(() => {});
+      await blocked(changerPid, barrierPid);
+      const receipt = json(await actor.query(replaceSQL(fixture, info)));
+      await assertActorContext(actor);
+      // Replacement has actually committed while the earlier read is still
+      // blocked on the observed gate. No timeout or fabricated response proves it.
+      await blocked(changerPid, barrierPid);
+      await barrier.query("commit");
+      assert.deepEqual(json(await reading), priorWorkspace);
+      await assertActorContext(changer);
+      const after = await state();
+      assertReplacementTransition(receipt, fixture, info, before, after, expectedSnapshot,
+        await analysisDigest(receipt.analysisId));
+      assert.equal(await analysisDigest(fixture.packet.analysisId), info.request.predecessor.currentDigest);
+      const freshWorkspace = json(await changer.query(
+        `select public.get_risk_uncertainty_workspace('${fixture.child}')`));
+      await assertActorContext(changer);
+      const successor = byId(after, "packets", receipt.analysisId);
+      const predecessor = copy(priorWorkspace.analyses[0]);
+      predecessor.storedStatus = "superseded";
+      predecessor.supersession = {
+        successorAnalysisId: receipt.analysisId, at: successor.created_at, byUserId: f.author,
+      };
+      // Exact new projection independently follows already-verified canonical
+      // persisted fields and receipt, not a copy of the observed workspace.
+      const projectedSuccessor = {
+        id: receipt.analysisId, organizationId: f.org, riskId: fixture.child,
+        version: 2, storedStatus: "pending_review", validationStatus: "pending_review",
+        reviewStanding: "reviewable", method: f.input.method, basis: f.input.basis,
+        probability: { lower: f.input.probability_lower, central: f.input.probability_central,
+          upper: f.input.probability_upper },
+        confidence: { level: f.input.confidence_level, lower: f.input.confidence_interval_lower,
+          upper: f.input.confidence_interval_upper },
+        lossCases: { best: f.input.best_case_loss, expected: f.input.expected_case_loss,
+          worst: f.input.worst_case_loss, currency: f.input.currency },
+        sensitivityInputs: f.input.sensitivity, sensitivityResults: successor.sensitivity_results,
+        thresholdProfileId: fixture.criteria, decisionThresholds: { escalateAbove: 16, stopAbove: 24 },
+        reassessmentTriggers: f.input.reassessment_triggers, reviewDueAt: successor.review_due_at,
+        valueOfInformation: { action: f.input.voi_action, informationCost: 10000,
+          decisionCostIfWrong: 250000, uncertaintyReduction: 0.5, probabilityDecisionChanges: 0.3,
+          expectedValue: 37500, netValue: 27500, recommendation: "GATHER_INFORMATION" },
+        analysisDigest: receipt.analysisDigest, currentDigest: receipt.analysisDigest,
+        digestVersion: 2, digestCoverage: "evidence_content_and_current_criteria",
+        authorId: f.author, createdAt: successor.created_at, reviewerId: null, reviewedAt: null,
+        reviewNote: null, approvalId: null, derivedEvidenceItemId: null,
+        replacement: { predecessorAnalysisId: fixture.packet.analysisId,
+          intentId: info.request.intentId, requestFingerprint: info.fingerprint,
+          compareAndSwap: receipt.compareAndSwap, reason: info.request.reason },
+        supersession: null, evidenceItemIds: fixture.newEvidence, operationalAuthorization: false,
+      };
+      assert.deepEqual(freshWorkspace, {
+        ...priorWorkspace, analyses: [projectedSuccessor, predecessor],
+      });
+      assert.equal(freshWorkspace.criteria.policyDigest, info.request.policyDigest);
+      assertWholeStatePreserved(after, await state(), fixture);
+      await changer.query(`${serviceSQL}; drop function pg_temp.u18_workspace_snapshot_gate(uuid)`);
+      assertWholeStatePreserved(after, await state(), fixture);
+    }
+    // U18_REPLACEMENT_AUTHORITY_RACES END
     // U18_REPLACEMENT_CONCURRENCY END
 
     // U18_OPEN_ANCESTOR_DELETE: this is deliberately OPEN, not counted as a

@@ -2,6 +2,35 @@
 
 **2026-10-06 — PARTIAL, CURRENT-MAIN DRAFT COMPOSITION; NOT RELEASE QUALIFICATION.**
 
+**2026-10-07 — additional authority-race specifications; not executed.**
+The next bounded qualification batch extends only the existing disposable-CI
+harness: replacement versus predecessor review and ordinary submission in both
+lock orders; adopted-policy/draft-policy changes; role and organization changes
+before and after the final membership lock; and view/scenario writers before and
+after replacement's audit barrier. Restricted-ancestor visibility cases use a
+non-owner `reliability_engineer` author with exactly one named view per ancestor,
+not an administrator whose access survives view deletion. Expected profile
+changes allow only their independently checked canonical security event;
+ordinary and earlier replacement witnesses retain zero-event defaults.
+
+Committed-before evidence controls distinguish predecessor-only drift, which
+must refuse frozen CAS, from newly selected evidence, whose current contents
+can be captured in an independently reviewable pending successor. A session-local
+`pg_temp` STABLE gate blocks on an unrelated canonical work table after the
+outer SELECT has its snapshot, calls the unchanged actual workspace RPC, and
+requires wholly old then wholly new projections around an actual replacement
+commit. This is an **instrumented statement-snapshot specification**, not direct
+HTTP mid-read qualification or a production helper.
+
+The local regression cohort passes **2,052 tests in 25 files**. Independent
+read-only source review reproduced 65 tests in five files and found no concrete
+harness blocker. These receipts do **not** execute the new PostgreSQL schedules.
+Wider criteria-pointer, new-grant/repoint/wrong-scope correction schedules,
+opposite-order policy/risk availability, direct HTTP mid-read qualification,
+typed-source standing, shared authentication/cockpit freshness, protected merge
+and production verification remain open. No migration, product authority,
+applied history, register status or production claim changes in this batch.
+
 **2026-10-07 — bounded native-harness repair; fresh exact-head CI still required.**
 Published replacement head `1e9b3c92` failed core run `37548810281` at the
 isolated uncertainty preflight: PostgreSQL refused `TRUNCATE` because deferred
