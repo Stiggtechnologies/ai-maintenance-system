@@ -54,11 +54,11 @@ begin
   end if;
   if (v_result->'evaluation'->>'providerCostMultiplier')::numeric<>2
      or (v_result->'evaluation'->>'modeledWorstCaseCadPerMillionTokens')::numeric
-       <>1.66668
+       <>1.70712
      or (v_result->'evaluation'->>'includedInferenceCostCad')::numeric
-       <>0.00166668
+       <>0.00170712
      or (v_result->'evaluation'->>'overageUnitCostCad')::numeric
-       <>0.00166668 then
+       <>0.00170712 then
     raise exception 'provider pricing multiplier was not applied to both base and overage cost: %',v_result;
   end if;
   v_result := public.approve_ai_commercial_plan_policy(

@@ -7,6 +7,10 @@ const migration = readFileSync(
 ).toLowerCase();
 const evaluationHarness = readFileSync("scripts/eval-models.mjs", "utf8");
 const scriptReadme = readFileSync("scripts/README.md", "utf8");
+const marketplaceMeteringSmoke = readFileSync(
+  "scripts/ci-azure-marketplace-metering-smoke.sh",
+  "utf8",
+);
 const unitEconomics = JSON.parse(
   readFileSync("marketplace/ai-unit-economics.json", "utf8"),
 ) as {
@@ -54,6 +58,13 @@ describe("current commercial OpenAI price snapshot", () => {
     );
     expect(scriptReadme).toContain("USD/CAD **1.4226**");
     expect(scriptReadme).toContain("2026-10-06");
+  });
+
+  it("keeps the Marketplace provider-multiplier witness on the refreshed price", () => {
+    expect(marketplaceMeteringSmoke).toContain("<>1.70712");
+    expect(marketplaceMeteringSmoke.match(/<>0\.00170712/g)).toHaveLength(2);
+    expect(marketplaceMeteringSmoke).not.toContain("<>1.66668");
+    expect(marketplaceMeteringSmoke).not.toContain("<>0.00166668");
   });
 
   it("publishes the same machine-readable commercial evidence", () => {
