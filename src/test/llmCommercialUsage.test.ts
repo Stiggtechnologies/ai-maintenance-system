@@ -158,7 +158,7 @@ describe("commercial LLM usage boundary", () => {
     expect(fetchLike).toHaveBeenCalledTimes(1);
   });
 
-  it("withholds paid output and retains the reservation when the provider reports a non-Standard tier", async () => {
+  it("withholds paid output and records a durable breach when the provider reports a non-Standard tier", async () => {
     const rpc: CommercialRpc = vi.fn(async (name) => ({
       data:
         name === "check_llm_commercial_quota"
@@ -195,7 +195,15 @@ describe("commercial LLM usage boundary", () => {
       "release_llm_reservation",
       expect.anything(),
     );
-    expect(rpc).not.toHaveBeenCalledWith("record_llm_usage", expect.anything());
+    expect(rpc).toHaveBeenCalledWith("record_llm_usage", {
+      p_organization_id: boundary.organizationId,
+      p_fn: boundary.functionName,
+      p_model: "gpt-4o-mini",
+      p_prompt_tokens: 20,
+      p_completion_tokens: 5,
+      p_reservation_id: 46,
+      p_service_tier: "fast",
+    });
   });
 
   it("retains gateway-first resilience for an unbound engineering call", async () => {
@@ -366,6 +374,7 @@ describe("commercial LLM usage boundary", () => {
       if (name === "check_llm_commercial_quota") {
         expect(args).toMatchObject({
           p_model: "gpt-4o-mini",
+          p_estimated_tokens: paidStandardRateTokenUpperBound(options),
           p_cost_object_type: "development_case",
           p_cost_object_id: "case-1",
         });
@@ -377,6 +386,7 @@ describe("commercial LLM usage boundary", () => {
         p_prompt_tokens: 20,
         p_completion_tokens: 5,
         p_reservation_id: 42,
+        p_service_tier: null,
       });
       return { data: null, error: null };
     });

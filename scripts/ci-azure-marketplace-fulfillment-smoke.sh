@@ -114,6 +114,41 @@ begin
     raise exception 'commercial policy fixture was not approved: %',v_result;
   end if;
 
+  -- A completed call on a non-default pricing tier must be retained with its
+  -- actual usage as an unknown-price breach, then freeze later paid spend.
+  insert into public.billing_subscriptions (
+    id,organization_id,plan,status,current_period_start,current_period_end,
+    billing_source,marketplace_subscription_id,marketplace_publisher_id,
+    marketplace_offer_id,marketplace_plan_id,marketplace_quantity,
+    marketplace_status,marketplace_activated_at
+  ) values (
+    '8aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    '82222222-2222-4222-8222-222222222222','enterprise','active',now(),
+    now()+interval '30 days','azure_marketplace',
+    '8bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','syncai-publisher',
+    'syncai-enterprise','enterprise',1,'Subscribed',now()
+  );
+  v_result := public.check_llm_commercial_quota(
+    '82222222-2222-4222-8222-222222222222','marketplace-pricing-mode-smoke',
+    'gpt-4o-mini',100,'decision','smoke-nonstandard-tier'
+  );
+  if v_result->>'allowed'<>'true' then
+    raise exception 'pricing-mode reservation failed: %',v_result;
+  end if;
+  v_reservation_id := (v_result->>'reservation_id')::bigint;
+  perform public.record_llm_usage(
+    '82222222-2222-4222-8222-222222222222',
+    'marketplace-pricing-mode-smoke','gpt-4o-mini-2024-07-18',
+    60,20,v_reservation_id,'fast'
+  );
+  v_result := public.check_llm_commercial_quota(
+    '82222222-2222-4222-8222-222222222222','marketplace-pricing-mode-smoke',
+    'gpt-4o-mini',100,'decision','smoke-frozen-after-pricing-mode'
+  );
+  if v_result->>'limit'<>'commercial_pricing_mode_breached' then
+    raise exception 'pricing-mode mismatch did not freeze later spend: %',v_result;
+  end if;
+
   v_result := public.record_marketplace_fulfillment_status(
     v_resolution_id,'Subscribed','83333333-3333-4333-8333-333333333333',
     'request-smoke','correlation-smoke');
@@ -133,7 +168,7 @@ begin
   v_reservation_id := (v_result->>'reservation_id')::bigint;
   perform public.record_llm_usage(
     '81111111-1111-4111-8111-111111111111','marketplace-smoke',
-    'gpt-4o-mini-2024-07-18',500,200,v_reservation_id
+    'gpt-4o-mini-2024-07-18',500,200,v_reservation_id,'default'
   );
 
   -- A gateway route outside the reservation's approved-model snapshot has
@@ -149,7 +184,7 @@ begin
   v_reservation_id := (v_result->>'reservation_id')::bigint;
   perform public.record_llm_usage(
     '81111111-1111-4111-8111-111111111111','marketplace-smoke',
-    'gpt-5.6-terra',500,200,v_reservation_id
+    'gpt-5.6-terra',500,200,v_reservation_id,'default'
   );
   v_result := public.check_llm_commercial_quota(
     '81111111-1111-4111-8111-111111111111','marketplace-smoke',
@@ -212,6 +247,17 @@ begin
       and inference_cost_cad>0
   ) then
     raise exception 'unapproved actual model was not retained as a priced policy violation';
+  end if;
+  if not exists (
+    select 1 from private.llm_usage
+    where organization_id='82222222-2222-4222-8222-222222222222'
+      and fn='marketplace-pricing-mode-smoke'
+      and model='gpt-4o-mini-2024-07-18'
+      and prompt_tokens=60 and completion_tokens=20
+      and service_tier='fast' and pricing_mode_status='nonstandard_tier'
+      and cost_status='unknown_price' and inference_cost_cad is null
+  ) then
+    raise exception 'non-default tier was not retained as an unknown-price breach';
   end if;
 end
 $usage_evidence$;

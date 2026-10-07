@@ -60,6 +60,8 @@ describe("AI commercial cost controls", () => {
       "cost_object_type",
       "cost_object_id",
       "billing_subscription_id",
+      "service_tier",
+      "pricing_mode_status",
       "inference_cost_cad",
       "cost_status",
     ]) {
@@ -168,6 +170,8 @@ describe("AI commercial cost controls", () => {
       "max_tokens_per_commercial_period",
       "model_not_approved_for_plan",
       "max_decisions_per_commercial_period",
+      "commercial_pricing_mode_breached",
+      "commercial_runtime_boundary_unavailable",
     ]) {
       expect(migration).toContain(limit);
     }
@@ -188,9 +192,9 @@ describe("AI commercial cost controls", () => {
     expect(migration).toContain("else 'unapproved_model'");
     expect(migration).toContain("commercial_model_policy_breached");
     expect(migration).toContain(
-      "input_cad_per_mtok=v_price.input_cad_per_mtok",
+      "then v_price.input_cad_per_mtok else null end",
     );
-    expect(migration).toContain("price_effective_date=v_price.effective_date");
+    expect(migration).toContain("then v_price.effective_date else null end");
     expect(migration).toContain("cost_status=v_status");
     expect(migration).toContain(
       "create or replace function public.get_ai_unit_economics",
@@ -200,14 +204,26 @@ describe("AI commercial cost controls", () => {
     expect(migration).toContain("unattributedcalls");
     expect(migration).toContain("unknownpricecalls");
     expect(migration).toContain("modelpolicyviolationcalls");
+    expect(migration).toContain("pricingmodeviolationcalls");
+    expect(migration).toContain("nonstandard_tier");
+    expect(migration).toContain("missing_tier");
     expect(marketplaceSmokes[0]).toContain("gpt-4o-mini-2024-07-18");
     expect(marketplaceSmokes[0]).toContain(
       "actual-model mismatch did not freeze later spend",
+    );
+    expect(marketplaceSmokes[0]).toContain(
+      "pricing-mode mismatch did not freeze later spend",
+    );
+    expect(marketplaceSmokes[0]).toContain(
+      "pricing_mode_status='nonstandard_tier'",
     );
   });
 
   it("enforces the known customer-paid runtime surfaces and attaches their cost subjects", () => {
     expect(processor).toContain('"check_llm_quota"');
+    expect(migration).toContain(
+      "coalesce(nullif(btrim(p_fn),''),'unknown')='ai-agent-processor'",
+    );
     expect(migration).toContain("model_not_approved_for_plan");
     for (const runtime of [
       investigation,
@@ -260,6 +276,8 @@ describe("AI commercial cost controls", () => {
     expect(commercialUsageBoundary).toContain(
       'error: "commercial_service_tier_mismatch"',
     );
+    expect(commercialUsageBoundary).toContain("reservationTokenUpperBound");
+    expect(commercialUsageBoundary).toContain("p_service_tier:");
     for (const runtime of developPaidRuntimes) {
       expect(runtime.source).toContain("callWithCommercialBoundary(");
       expect(runtime.source).toContain(`functionName: "${runtime.name}"`);

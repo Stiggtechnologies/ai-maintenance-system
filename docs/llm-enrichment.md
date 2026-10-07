@@ -64,8 +64,19 @@ long-context price tier and GPT-4o Mini below its smaller 128,000-token context
 window. Bound paid calls also request `service_tier: default`, require the
 successful response to report `default`, and disable GPT-5.6 implicit cache
 writes with explicit mode and no breakpoint. A non-default or missing reported
-tier withholds output and preserves the reservation for reconciliation. This
-code is not reviewed, merged, deployed, or a production pricing witness.
+tier withholds output, settles actual model and tokens as an unknown-price
+pricing-mode breach, and freezes later paid calls for reconciliation. The
+pre-call reservation uses the same conservative UTF-8 upper bound as the
+standard-rate envelope rather than the looser engineering estimate.
+
+The protected `ai-agent-processor` Reliability Engineer surface still owns a
+legacy provider and fail-soft telemetry path. A bound commercial subscription
+is therefore refused at the database quota gate before that surface contacts a
+provider. This preserves the qualification baseline and prevents unpriced paid
+traffic, but it is also a release blocker for any paid package that promises
+that surface. A separately reviewed and qualified protected-surface change is
+required before enabling it for paid customers. This code is not reviewed,
+merged, deployed, or a production pricing witness.
 
 ## Governed verification and activation runbook
 

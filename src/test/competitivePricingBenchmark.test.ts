@@ -62,10 +62,19 @@ const unitEconomics = JSON.parse(
         maximumOutputTokens: number;
         maximumUtf8BytePlusOutputAndFramingUpperBound: number;
         overLimitBehavior: string;
+        reservationUsesSameConservativeUpperBound: boolean;
         sourceEvidence: string[];
         status: string;
       };
       unboundEngineeringTrafficRetainsGatewayResilience: boolean;
+    };
+    protectedReliabilityEngineerCommercialBoundary: {
+      databaseRefusal: string;
+      paidPackageReleaseBlocked: boolean;
+      paidProviderContactAllowed: boolean;
+      qualificationBaselinePreserved: boolean;
+      runtime: string;
+      status: string;
     };
     paidRealtime: {
       status: string;
@@ -385,7 +394,7 @@ describe("competitive pricing benchmark", () => {
       requiredRequestServiceTier: "default",
       requiredObservedResponseServiceTier: "default",
       nonStandardObservedTierBehavior:
-        "withhold_output_retain_reservation_for_reconciliation",
+        "withhold_output_settle_actual_model_and_tokens_as_unknown_price_pricing_mode_breach_freeze_later_paid_calls",
       gpt56PromptCacheMode: "explicit_without_breakpoints",
       gpt56ImplicitCacheWritesAllowed: false,
       externalGatewayAllowedForBoundPaidPlan: false,
@@ -396,6 +405,7 @@ describe("competitive pricing benchmark", () => {
         maximumOutputTokens: 8192,
         maximumUtf8BytePlusOutputAndFramingUpperBound: 100000,
         framingTokenAllowance: 1024,
+        reservationUsesSameConservativeUpperBound: true,
         gpt4oMiniContextWindowTokens: 128000,
         gpt56TerraAndLunaLongContextInputThresholdTokens: 272000,
         overLimitBehavior: "release_reservation_refuse_provider_contact",
@@ -408,6 +418,17 @@ describe("competitive pricing benchmark", () => {
         ],
       },
       unboundEngineeringTrafficRetainsGatewayResilience: true,
+    });
+    expect(
+      unitEconomics.implemented.protectedReliabilityEngineerCommercialBoundary,
+    ).toMatchObject({
+      status:
+        "commercially_blocked_pending_separately_reviewed_qualification_change",
+      runtime: "ai-agent-processor",
+      paidProviderContactAllowed: false,
+      databaseRefusal: "commercial_runtime_boundary_unavailable",
+      qualificationBaselinePreserved: true,
+      paidPackageReleaseBlocked: true,
     });
   });
 

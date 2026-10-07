@@ -1,8 +1,8 @@
 {
-  "schemaVersion": 4,
-  "asOf": "2026-10-06",
+  "schemaVersion": 5,
+  "asOf": "2026-10-07",
   "scope": "AI inference cost controls and Microsoft Marketplace commercial compatibility",
-  "finding": "commercial_cost_controls_paid_direct_route_and_standard_rate_envelope_implemented_not_reviewed_merged_deployed_or_configured",
+  "finding": "commercial_cost_controls_paid_direct_route_standard_rate_envelope_and_durable_pricing_breach_implemented_protected_reliability_surface_blocked_not_reviewed_merged_deployed_or_configured",
   "implemented": {
     "usageLedger": {
       "status": "implemented",
@@ -24,7 +24,9 @@
         "inference_cost_cad",
         "cost_status",
         "commercial_allowed_models_snapshot",
-        "model_policy_status"
+        "model_policy_status",
+        "service_tier",
+        "pricing_mode_status"
       ],
       "storesPromptOrCompletionText": false,
       "unattributedCallsReported": true
@@ -108,7 +110,7 @@
       "requiresExactRequestedModel": true,
       "requiredRequestServiceTier": "default",
       "requiredObservedResponseServiceTier": "default",
-      "nonStandardObservedTierBehavior": "withhold_output_retain_reservation_for_reconciliation",
+      "nonStandardObservedTierBehavior": "withhold_output_settle_actual_model_and_tokens_as_unknown_price_pricing_mode_breach_freeze_later_paid_calls",
       "gpt56PromptCacheMode": "explicit_without_breakpoints",
       "gpt56ImplicitCacheWritesAllowed": false,
       "externalGatewayAllowedForBoundPaidPlan": false,
@@ -119,6 +121,7 @@
         "maximumOutputTokens": 8192,
         "maximumUtf8BytePlusOutputAndFramingUpperBound": 100000,
         "framingTokenAllowance": 1024,
+        "reservationUsesSameConservativeUpperBound": true,
         "gpt4oMiniContextWindowTokens": 128000,
         "gpt56TerraAndLunaLongContextInputThresholdTokens": 272000,
         "overLimitBehavior": "release_reservation_refuse_provider_contact",
@@ -131,6 +134,15 @@
         ]
       },
       "unboundEngineeringTrafficRetainsGatewayResilience": true
+    },
+    "protectedReliabilityEngineerCommercialBoundary": {
+      "status": "commercially_blocked_pending_separately_reviewed_qualification_change",
+      "runtime": "ai-agent-processor",
+      "reason": "The protected Reliability Engineer surface still owns a legacy provider and fail-soft telemetry path rather than the shared commercial reservation, exact-route, pricing-mode-witness, and settlement boundary.",
+      "paidProviderContactAllowed": false,
+      "databaseRefusal": "commercial_runtime_boundary_unavailable",
+      "qualificationBaselinePreserved": true,
+      "paidPackageReleaseBlocked": true
     },
     "commercialPlanPolicy": {
       "status": "implemented_not_configured",
@@ -172,6 +184,7 @@
         "unknown_price_calls",
         "unpriced_calls",
         "model_policy_violation_calls",
+        "pricing_mode_violation_calls",
         "unattributed_calls",
         "attributed_decisions",
         "priced_attributed_decisions",
@@ -269,7 +282,7 @@
     "canonicalFormula": "input_tokens * input_cad_per_mtok / 1000000 + completion_tokens * output_cad_per_mtok / 1000000",
     "currentGranularity": "model_call_with_supported_cost_object_rollup",
     "perDecisionCostAvailable": true,
-    "perDecisionCostCoverage": "supported runtime paths only: governed decision-capable paid runtimes, including the deployed Develop evidence, change-impact, contract-strategy, gate, and requirements agents; risk, methodology, recommendation enrichment, and asset onboarding carry their own canonical work subjects; any remaining unattributed call stays explicit and inside the hard token ceiling",
+    "perDecisionCostCoverage": "supported runtime paths only: governed decision-capable paid runtimes, including the deployed Develop evidence, change-impact, contract-strategy, gate, and requirements agents; risk, methodology, recommendation enrichment, and asset onboarding carry their own canonical work subjects. The protected Reliability Engineer ai-agent-processor is refused before paid provider contact pending a separately reviewed qualification change; it is not falsely counted as covered. Any remaining unattributed call stays explicit and inside the hard token ceiling.",
     "rawTokenMeterIsModelCostWeighted": false,
     "warning": "Equal token quantities can have materially different inference cost under different model routes.",
     "pricingModeWarning": "The margin evaluator applies an explicit policy-level provider cost multiplier to standard model rates. The release candidate technically excludes long-context pricing for bound paid calls with an 8,192-token output ceiling and a 100,000-token conservative UTF-8-byte-plus-output-and-framing upper bound. It explicitly requests service_tier=default, requires the response to report default, and disables GPT-5.6 implicit cache writes with explicit mode and no breakpoints. A value of 1 still requires deployment proof of that route; regional-processing, any non-default processing tier, explicit cache writes, or external-gateway adjustments require a sourced multiplier or technical exclusion from the paid route.",
@@ -290,7 +303,8 @@
     "measured_production_cost_distribution",
     "protected_marketplace_meter_certification_if_metered",
     "live_accepted_metering_event_if_metered",
-    "paid_realtime_usage_settlement_before_realtime_enablement"
+    "paid_realtime_usage_settlement_before_realtime_enablement",
+    "protected_reliability_engineer_shared_boundary_and_qualification_before_paid_enablement"
   ],
   "sources": {
     "repository": [

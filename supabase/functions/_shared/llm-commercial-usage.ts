@@ -5,7 +5,9 @@
  * been settled. A caller therefore cannot accidentally parse, persist, or
  * present model output whose actual model and token usage were not recorded.
  * Provider failure releases the reservation because no inference completed;
- * settlement failure keeps the conservative reservation in place.
+ * settlement failure keeps the conservative reservation in place. A completed
+ * paid call with a missing/non-standard pricing-mode witness is settled as an
+ * unknown-price breach so the ledger freezes later commercial spend.
  */
 
 import {
@@ -210,13 +212,20 @@ export async function callWithCommercialBoundary(
   providerOptions: LlmCallOptions,
   boundary: CommercialUsageBoundary,
 ): Promise<CommercialLlmCallResult> {
+  const suppliedEstimate = Number.isFinite(boundary.estimatedTokens)
+    ? Math.max(1, Math.ceil(boundary.estimatedTokens))
+    : 1;
+  const reservationTokenUpperBound = Math.max(
+    suppliedEstimate,
+    paidStandardRateTokenUpperBound(providerOptions),
+  );
   let quota: CommercialRpcResult;
   try {
     quota = await rpc("check_llm_commercial_quota", {
       p_organization_id: boundary.organizationId,
       p_fn: boundary.functionName,
       p_model: boundary.requestedModel,
-      p_estimated_tokens: Math.max(1, Math.ceil(boundary.estimatedTokens)),
+      p_estimated_tokens: reservationTokenUpperBound,
       p_cost_object_type: boundary.costObject.type,
       p_cost_object_id: boundary.costObject.id,
     });
@@ -318,19 +327,9 @@ export async function callWithCommercialBoundary(
     };
   }
 
-  if (hasCommercialPlan && paidRouteWitness.serviceTier !== "default") {
-    // Inference may already have completed. Keep the conservative reservation
-    // so cost is never understated, withhold output, and require operator
-    // reconciliation rather than settling against the wrong pricing tier.
-    return {
-      status: "settlement_failed",
-      events: providerResult.events,
-      model: providerResult.model,
-      error: "commercial_service_tier_mismatch",
-    };
-  }
-
   const usage = providerResult.usage ?? {};
+  const pricingModeMismatch =
+    hasCommercialPlan && paidRouteWitness.serviceTier !== "default";
   let settlement: CommercialRpcResult;
   try {
     settlement = await rpc("record_llm_usage", {
@@ -340,6 +339,7 @@ export async function callWithCommercialBoundary(
       p_prompt_tokens: usage.prompt_tokens ?? 0,
       p_completion_tokens: usage.completion_tokens ?? 0,
       p_reservation_id: reservationId,
+      p_service_tier: hasCommercialPlan ? paidRouteWitness.serviceTier : null,
     });
   } catch (error) {
     return {
@@ -355,6 +355,18 @@ export async function callWithCommercialBoundary(
       events: providerResult.events,
       model: providerResult.model,
       error: settlement.error,
+    };
+  }
+
+  if (pricingModeMismatch) {
+    // The provider completed inference. The settlement RPC records actual
+    // model/tokens, unknown cost and a durable pricing-mode breach that freezes
+    // later paid calls. Output remains withheld for operator reconciliation.
+    return {
+      status: "settlement_failed",
+      events: providerResult.events,
+      model: providerResult.model,
+      error: "commercial_service_tier_mismatch",
     };
   }
 

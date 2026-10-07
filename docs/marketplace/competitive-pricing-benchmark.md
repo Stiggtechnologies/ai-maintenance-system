@@ -119,10 +119,19 @@ uncached input rate. The release candidate therefore injects
 `service_tier: default`, requires a successful response to report `default`,
 and sets GPT-5.6 `prompt_cache_options.mode` to `explicit` without adding a
 breakpoint, which creates no cache write. If a completed request reports a
-non-default or missing tier, SyncAI withholds the output and retains the
-conservative reservation for reconciliation instead of recording standard-rate
-COGS or releasing spent capacity. Deployment and a controlled response witness
-remain mandatory.
+non-default or missing tier, SyncAI withholds the output, records actual model
+and tokens as an unknown-price pricing-mode breach, and freezes later paid
+calls instead of recording standard-rate COGS. The atomic reservation now uses
+the same conservative UTF-8 upper bound as the paid envelope, preventing
+concurrent calls from reserving less capacity than their admitted worst case.
+
+The protected Reliability Engineer `ai-agent-processor` still uses a legacy
+provider and fail-soft telemetry path. The database refuses that runtime before
+provider contact for a bound commercial subscription. That is cost-safe but
+not a sellable paid Reliability Engineer path; Marketplace publication remains
+blocked until a separately reviewed and qualified protected-surface change
+adopts the shared settlement boundary. Deployment and a controlled response
+witness remain mandatory.
 
 No price, allowance, model set, overage rate, non-inference cost, or margin
 threshold was seeded or approved. Microsoft activation fails closed when the
