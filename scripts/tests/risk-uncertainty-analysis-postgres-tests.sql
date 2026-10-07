@@ -792,7 +792,7 @@ begin
           raise exception using errcode='ZX016',message='U18 injected final replacement audit failure';
         end if;
         return new;
-      end $body$$ddl$,failure_schema,f.org::text,intent::text);
+      end; $body$ $ddl$,failure_schema,f.org::text,intent::text);
     execute format('create trigger %I before insert on public.audit_events for each row execute function %I.raise_replacement_audit()',
       failure_schema,failure_schema);
     snapshot:=pg_temp.u18_state();

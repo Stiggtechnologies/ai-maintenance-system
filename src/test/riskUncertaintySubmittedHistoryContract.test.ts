@@ -85,6 +85,27 @@ function excludedFields(source: string): string[] {
 }
 
 describe("U18 submitted-history immutable source contract", () => {
+  it("separates nested audit-failure dollar delimiters without removing the rollback witness", () => {
+    // Adjacent tagged delimiters contain $$ and prematurely terminate the
+    // enclosing DO $$ body. This source check is not PostgreSQL execution.
+    expect(/\$[a-z_]\w*\$\$[a-z_]\w*\$/i.test(native)).toBe(false);
+    const auditFailure =
+      native
+        .split("-- A final audit failure MUST unwind")[1]
+        ?.split("-- U18 ATOMIC REPLACEMENT CONTROLS END")[0] ?? "";
+    expect(auditFailure).toContain("end; $body$ $ddl$");
+    expect(auditFailure).toContain("public.replace_risk_uncertainty_analysis");
+    expect(auditFailure).toContain("exception when sqlstate 'ZX016'");
+    expect(auditFailure).toContain(
+      "pg_temp.u18_state() is distinct from snapshot",
+    );
+    expect(auditFailure).toContain(
+      "no matching committed replacement receipt is visible",
+    );
+    expect(auditFailure).not.toMatch(
+      /disable trigger|session_replication_role|when others/i,
+    );
+  });
   it("types literal polymorphic JSON conversions without removing the committed-intent collision witness", () => {
     // PostgreSQL cannot resolve to_jsonb(anyelement) from an unknown string
     // literal. This is a native-source regression guard, not SQL execution.

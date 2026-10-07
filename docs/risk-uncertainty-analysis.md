@@ -2,6 +2,44 @@
 
 **2026-10-06 — PARTIAL, CURRENT-MAIN DRAFT COMPOSITION; NOT RELEASE QUALIFICATION.**
 
+**2026-10-07 — third native-harness failure repaired; browser failure remains open.**
+Core run `37684254587` on published `a5e8c412` is terminal failure. The unit
+job passed **8,852 tests in 548 files**; lint/typecheck/build and migration
+ordering passed. Native preflight advanced through the committed-intent
+collision block but failed at `20:54:35Z`, native SQL line 795: adjacent
+`$body$` and `$ddl$` delimiters contain `$$`, prematurely ending the outer
+procedural block. Database cleanup completed at `20:54:55Z`. Later full
+uncertainty SQL, HTTP and concurrency qualification were skipped, not passed.
+
+Separating those delimiters preserves the same narrowly scoped final-audit
+failure injection, exact `ZX016` catch, actual replacement RPC, complete-state
+rollback and absent committed-receipt checks. The new source regression failed
+before the repair and passes afterward. An independent whole-owned-source
+delimiter/literal scan found no additional instance and reproduced **22 tests
+in two files**; this is not a full SQL/PL/pgSQL grammar check. An isolated
+rollback-only PostgreSQL **16.13** mechanism proof executed the corrected
+dynamic trigger, observed its exact injected SQLSTATE/message, preserved an
+empty table after refusal and admitted three unrelated controls. Its private
+server was stopped. This is not execution of the actual application migration
+chain or replacement rollback fixture.
+
+The repair's scoped local suite passes **810 tests in 25 files** (uncertainty
+source/client/panel and finite-VOI/display contracts), plus application
+TypeScript, zero-warning owned lint, formatting and both register ratchets.
+This is not the same selection as the earlier 2,053-test cohort or a full
+application regression.
+
+The browser job passed 15 scenarios but failed the existing disabled-source
+clock-assurance scenario: reload timed out awaiting its status RPC, and retry
+encountered the exact contract persisted by the first attempt. Artifact
+`11511250748`, digest
+`sha256:eda7961791d0d80b59a30f06b239cdd5fa986ae700d7443e9dc13131ff6f9460`,
+was retrieved; its first-attempt screenshot and error context show an
+Integrations page without the Event-time assurance panel. Cause and repair
+remain under review; this is not dismissed as a harmless flake or a successful
+browser receipt. Production migration, application code, register claims and
+release holds are unchanged; fresh exact-head qualification remains required.
+
 **2026-10-07 — second exact-head harness failure repaired; qualification pending.**
 Core run `37682076877` on published `cb85fe67` is terminal failure. Its unit,
 lint/typecheck/build, migration-order and golden-path browser jobs passed. The
