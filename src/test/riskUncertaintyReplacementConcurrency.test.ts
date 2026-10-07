@@ -17,6 +17,62 @@ const authorityRaces =
 // Source specifications only; no mock, elapsed timeout or source substring
 // qualifies actual PostgreSQL FK/tuple races. Exact-head native CI is required.
 describe("U18 replacement native concurrency source contract", () => {
+  it("specifies after-lock criteria-pointer drift as two separately verified commits without weakening the replacement delta", () => {
+    const pointer =
+      authorityRaces
+        .split("// U18_REPLACEMENT_POINTER_AFTER BEGIN")[1]
+        ?.split("// U18_REPLACEMENT_POINTER_AFTER END")[0] ?? "";
+    expect(pointer).not.toBe("");
+    expect(script).toContain('"U18_REPLACEMENT_POINTER_AFTER"');
+    expect(pointer).toContain('for (const kind of ["adopted", "missing"])');
+    expect(pointer).toContain(
+      "assert.equal(destination.organization_id, f.org)",
+    );
+    expect(pointer).toContain('assert.equal(destination.status, "adopted")');
+    expect(pointer).toContain("lock table public.audit_events in share mode");
+    expect(pointer).toContain("await blocked(actorPid, barrierPid)");
+    expect(pointer).toContain("await blocked(changerPid, actorPid)");
+    expect(pointer).toContain("update public.risks set criteria_profile_id=");
+    expect(pointer).toContain(
+      "assertWholeStatePreserved(before, await state(), fixture)",
+    );
+    expect(pointer).toContain(
+      "assertReplacementTransition(receipt, fixture, info, before, replacementState,",
+    );
+    expect(pointer.indexOf("assertReplacementTransition(")).toBeLessThan(
+      pointer.indexOf('await changer.query("commit")'),
+    );
+    expect(pointer).toContain(
+      "assertWholeStatePreserved(replacementState, after, fixture, writer)",
+    );
+    expect(pointer).toContain("criteria_profile_id: destinationId");
+    expect(pointer).not.toMatch(
+      /delete from|truncate|disable trigger|session_replication_role|catch[^]*?(?:deadlock_detected|query_canceled)/i,
+    );
+  });
+
+  it("keeps the original replacement receipt and history immutable while live pointer drift removes review standing", () => {
+    const pointer =
+      authorityRaces
+        .split("// U18_REPLACEMENT_POINTER_AFTER BEGIN")[1]
+        ?.split("// U18_REPLACEMENT_POINTER_AFTER END")[0] ?? "";
+    for (const witness of [
+      "assert.notEqual(currentDigest, receipt.analysisDigest)",
+      'assert.deepEqual(byId(after, "packets", receipt.analysisId), successor)',
+      "assert.equal(successor.threshold_profile_id, fixture.criteria)",
+      "assert.deepEqual(successor.input_binding_snapshot, expectedSnapshot)",
+      "public.get_risk_uncertainty_workspace",
+      'assert.equal(current.validationStatus, "stale")',
+      'kind === "adopted" ? "replacement_required" : "policy_unavailable"',
+      "assert.equal(workspace.operationalAuthorization, false)",
+      "reviewSQLFor({ analysisId: receipt.analysisId })",
+      "analysis changed after submission; submit a new version against the current evidence and thresholds",
+      "assert.deepEqual(json(await actor.query(replaceSQL(fixture, info))), receipt)",
+      "assertWholeStatePreserved(after, await state(), fixture)",
+    ])
+      expect(pointer).toContain(witness);
+  });
+
   it("specifies replacement authority races separately from earlier ordinary-submit/review coverage", () => {
     expect(authorityRaces).not.toBe("");
     for (const phase of [

@@ -2,6 +2,34 @@
 
 **2026-10-06 — PARTIAL, CURRENT-MAIN DRAFT COMPOSITION; NOT RELEASE QUALIFICATION.**
 
+**2026-10-07 — additional criteria-pointer schedules; native execution pending.**
+The next local harness checkpoint specifies two isolated owner-write
+persistence-fence schedules, not a customer criteria-rebind workflow. After
+replacement reaches the actual audit barrier while holding its risk, a second
+session attempts to repoint only that risk's criteria to either a fresh,
+same-tenant adopted profile or NULL. Actual `pg_blocking_pids` witnesses are
+required for both the audit wait and pointer writer's risk wait.
+
+The replacement commit is first checked against the unchanged complete
+replacement assertion while the pointer update remains uncommitted. Only
+afterward is the pointer committed and checked as the sole allowed row-field
+delta across all thirteen collections in both tenants. Immutable successor,
+predecessor, bindings, digest, snapshot, CAS and audit history are preserved.
+Fresh public workspace reads must report stale inputs with respectively
+`replacement_required` or `policy_unavailable`; independent review must refuse
+exactly, while an identical committed-intent replay retains its historical
+receipt with no new state delta. The adopted destination is created before the
+baseline; no earlier policy or history is reset to make the schedule pass.
+
+Two source regressions failed before these schedules and pass afterward.
+Root's three concurrency-source files pass **40 tests**; independent review
+passes **25 tests in two files**, syntax and diff checks. The broader local
+uncertainty/decision-preview cohort passes **936 tests in 25 files**. These are source
+specifications, not executed native schedules. Published diagnostic head
+`4713c5b0` and its exact-head CI remain unchanged while this next checkpoint is
+reviewed. No product, migration, register or production claim changes; wider
+opposite-order availability and source-standing qualification remain open.
+
 **2026-10-07 — authority-refusal failure isolated to its test block; diagnosis pending.**
 Core run `37686465047` on published `5c4a87c8` is terminal failure. Its
 golden-path browser, unit, lint/typecheck/build and migration-order jobs passed.

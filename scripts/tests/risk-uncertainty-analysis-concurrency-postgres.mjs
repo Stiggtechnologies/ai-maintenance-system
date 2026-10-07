@@ -33,6 +33,7 @@ const allowedPhases = new Set([
   "U18_SUBMIT_VS_REPLACEMENT",
   "U18_REPLACEMENT_POLICY_BEFORE",
   "U18_REPLACEMENT_POLICY_AFTER",
+  "U18_REPLACEMENT_POINTER_AFTER",
   "U18_REPLACEMENT_PROFILE_BEFORE",
   "U18_REPLACEMENT_PROFILE_AFTER",
   "U18_REPLACEMENT_VISIBILITY_BEFORE",
@@ -1962,6 +1963,97 @@ async function qualify() {
       assertReplacementTransition(receipt, fixture, info, before, after, expectedSnapshot,
         await analysisDigest(receipt.analysisId), writer);
     }
+
+    // U18_REPLACEMENT_POINTER_AFTER BEGIN
+    // Isolated owner-write persistence-fence schedules, not a customer pointer
+    // rebind workflow. Never reset a prior policy: earlier f.criteria is draft.
+    // Qualify replacement and pointer commits separately so the exact existing
+    // replacement-state assertion does not absorb arbitrary risk-row changes.
+    for (const kind of ["adopted", "missing"]) {
+      markPhase("U18_REPLACEMENT_POINTER_AFTER");
+      const fixture = await replacementFixture(`U18_REPLACEMENT_POINTER_AFTER_${kind}`);
+      const destinationId = kind === "adopted" ? randomUUID() : null;
+      if (destinationId !== null) {
+        await monitor.query(`insert into public.risk_criteria_profiles(
+          id,organization_id,name,version,status,consequence_dimensions,likelihood_scale,
+          thresholds,scoring_weights,decision_thresholds,risk_capacity,aggregate_rules,
+          time_factors,tolerance_statements,basis,adopted_by,adopted_at)
+          select '${destinationId}',organization_id,'Synthetic pointer destination',1,'adopted',
+            consequence_dimensions,likelihood_scale,thresholds,scoring_weights,decision_thresholds,
+            risk_capacity,aggregate_rules,time_factors,tolerance_statements,
+            'Disposable same-tenant pointer destination, not customer policy.','${f.reviewer}',now()
+          from public.risk_criteria_profiles where id='${fixture.criteria}'
+            and organization_id='${f.org}' returning id`);
+      }
+      const info = await replacementRequest(fixture);
+      const before = await state();
+      const expectedSnapshot = await replacementSnapshot(fixture);
+      if (destinationId !== null) {
+        assert.notEqual(destinationId, fixture.criteria);
+        const destination = byId(before, "criteria", destinationId);
+        assert(destination);
+        assert.equal(destination.organization_id, f.org);
+        assert.equal(destination.status, "adopted");
+        assert.deepEqual(destination.decision_thresholds, { escalateAbove: 16, stopAbove: 24 });
+      }
+      await barrier.query("begin; lock table public.audit_events in share mode");
+      const replacing = actor.query(replaceSQL(fixture, info));
+      replacing.catch(() => {});
+      await blocked(actorPid, barrierPid);
+      const changing = changer.query(`${serviceSQL}; begin;
+        update public.risks set criteria_profile_id=${destinationId === null ? "null" : `'${destinationId}'::uuid`}
+        where id='${fixture.child}' and organization_id='${f.org}' returning id;
+        select 'pointer changed'`);
+      changing.catch(() => {});
+      await blocked(changerPid, actorPid);
+      assertWholeStatePreserved(before, await state(), fixture);
+      await barrier.query("commit");
+      const receipt = json(await replacing);
+      await assertActorContext(actor);
+      const changeLines = await changing;
+      assert.deepEqual(changeLines.slice(-2), [fixture.child, "pointer changed"]);
+      // The waiting owner's update is now visible only to its uncommitted TX.
+      const replacementState = await state();
+      assertReplacementTransition(receipt, fixture, info, before, replacementState,
+        expectedSnapshot, await analysisDigest(receipt.analysisId));
+      const successor = copy(byId(replacementState, "packets", receipt.analysisId));
+      assert.equal(successor.threshold_profile_id, fixture.criteria);
+      assert.deepEqual(successor.input_binding_snapshot, expectedSnapshot);
+      const writer = replacementWriter("risks", (x) => x.child,
+        () => ({ criteria_profile_id: destinationId }));
+      await changer.query("commit");
+      const after = await state();
+      assertWholeStatePreserved(replacementState, after, fixture, writer);
+      assert.deepEqual(byId(after, "packets", receipt.analysisId), successor);
+      const currentDigest = await analysisDigest(receipt.analysisId);
+      assert.match(currentDigest, /^[0-9a-f]{64}$/);
+      assert.notEqual(currentDigest, receipt.analysisDigest);
+      const workspace = json(await actor.query(`select public.get_risk_uncertainty_workspace('${fixture.child}')`));
+      await assertActorContext(actor);
+      assert.equal(workspace.operationalAuthorization, false);
+      if (destinationId === null) assert.equal(workspace.criteria, null);
+      else {
+        assert.equal(workspace.criteria.id, destinationId);
+        assert.notEqual(workspace.criteria.policyDigest, info.request.policyDigest);
+      }
+      const current = workspace.analyses.find((row) => row.id === receipt.analysisId);
+      assert(current);
+      assert.equal(current.storedStatus, "pending_review");
+      assert.equal(current.validationStatus, "stale");
+      assert.equal(current.reviewStanding, kind === "adopted" ? "replacement_required" : "policy_unavailable");
+      assert.equal(current.thresholdProfileId, fixture.criteria);
+      assert.equal(current.analysisDigest, receipt.analysisDigest);
+      assert.equal(current.currentDigest, currentDigest);
+      assert.equal(current.operationalAuthorization, false);
+      assertWholeStatePreserved(after, await state(), fixture);
+      await promptRefusal(changer, reviewSQLFor({ analysisId: receipt.analysisId }),
+        "analysis changed after submission; submit a new version against the current evidence and thresholds", f.reviewer);
+      assertWholeStatePreserved(after, await state(), fixture);
+      assert.deepEqual(json(await actor.query(replaceSQL(fixture, info))), receipt);
+      await assertActorContext(actor);
+      assertWholeStatePreserved(after, await state(), fixture);
+    }
+    // U18_REPLACEMENT_POINTER_AFTER END
 
     // Service-side role/org correction, never a self-service membership bypass.
     // Each BEFORE and AFTER phase executes BOTH named membership dimensions.
