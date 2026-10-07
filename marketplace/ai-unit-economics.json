@@ -36,6 +36,26 @@
       "source": "private.llm_prices",
       "currency": "CAD",
       "unit": "per_million_tokens",
+      "latestRefreshMigration": "supabase/migrations/20270103040002_llm_price_refresh_20261007.sql",
+      "officialUsdRatesReverifiedAt": "2026-10-07",
+      "fx": {
+        "rate": 1.4226,
+        "observationDate": "2026-10-06"
+      },
+      "ratesCadPerMillionTokens": {
+        "gpt-5.6-terra": {
+          "input": 2.8452,
+          "output": 17.0712
+        },
+        "gpt-5.6-luna": {
+          "input": 0.28452,
+          "output": 1.70712
+        },
+        "gpt-4o-mini": {
+          "input": 0.21339,
+          "output": 0.85356
+        }
+      },
       "requiresPeriodicRefresh": true,
       "unknownPriceTreatedAsFree": false
     },

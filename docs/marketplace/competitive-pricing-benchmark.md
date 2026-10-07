@@ -1,6 +1,6 @@
 # Competitive pricing benchmark — outcome-led entry
 
-**Controlled recommendation — 2026-10-06. This record is research and a test
+**Controlled recommendation — 2026-10-07. This record is research and a test
 design, not owner approval for a price change, Partner Center mutation, customer
 quote, discount, or outcome guarantee.**
 
@@ -72,6 +72,14 @@ premium context tier. Otherwise, the multiplier must come from a separately
 approved cost schedule for gateway markup and premium processing. An opaque
 gateway alias cannot inherit the public model list price merely because it
 returns the same model name.
+
+The three proposed OpenAI USD rates were reverified on 7 October 2026 and are
+unchanged. The CAD snapshot was refreshed from the Bank of Canada's latest
+available business-day USD/CAD observation, 1.4226 on 6 October. That moves the
+worst proposed standard output rate from the stale C$16.6668 to C$17.0712 per
+million tokens. Historical usage retains its settled price snapshot; new plan
+evaluation and settlement use the current table. A newer price observation is
+never downgraded by the refresh migration.
 
 The current policy candidate is therefore **not release-executable on the
 observed gateway-first route**. The local gateway configuration requests
