@@ -265,7 +265,11 @@ describe("U18 review criteria serialization", () => {
   });
 
   it("handles stdin failure and confirms bounded subprocess termination", () => {
-    expect(script).toContain('child.stdin.on("error", refused)');
+    expect(script).toContain('child.stdin.on("error", processFailed)');
+    expect(script).not.toContain('child.on("exit", refused)');
+    expect(script).toContain(
+      'refused(sqlState === null ? "process" : "server")',
+    );
     expect(script).toContain('child.once("close"');
     expect(script).toContain('child.kill("SIGKILL")');
     expect(script).toContain(

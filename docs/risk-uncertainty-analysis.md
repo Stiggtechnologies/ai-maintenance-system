@@ -2,6 +2,48 @@
 
 **2026-10-06 — PARTIAL, CURRENT-MAIN DRAFT COMPOSITION; NOT RELEASE QUALIFICATION.**
 
+**2026-10-07 — actual role-fixture repair and bounded session diagnostics; new native qualification required.**
+Published `4713c5b0`, core run `37688784757`, is terminal failure. Unit,
+lint/typecheck/build, migration order and golden-path browser jobs passed.
+The uncertainty preflight failed at `21:33:39Z` in the `ai_admin` control,
+with both refusal-match and state-preservation false. Later uncertainty SQL,
+HTTP and concurrency qualifications were skipped, not passed.
+
+Independent diagnosis traced the fixture failure to the unchanged canonical
+`pin_user_profile_privileges` trigger: the inherited author JWT makes even an
+owner-session role UPDATE an end-user attempt. Row count is still one, but the
+author remains the seeded human admin. The other-admin case also failed to
+provision an actual admin and could misleadingly pass its author-only refusal.
+Only disposable fixture profile provisioning now clears both JWT claim
+representations and requires the original owner with NULL `auth.uid()`. Both
+persisted roles and organizations are explicitly checked before the intended
+authenticated actor calls the real public RPC. All thirteen exact refusals,
+full two-tenant state witnesses and narrow `ZX019` rollback remain.
+
+Both custom claim settings have defined initial baselines. An isolated
+PostgreSQL 16.13 mechanism proof reproduced the previously unset setting's
+NULL-to-empty rollback edge and verified exact initialized two-channel rollback.
+The private server was stopped. This is not application migration-chain,
+replacement-RPC or native authorization qualification. Independent bounded
+fixture review passed **31 tests in three files**, with no remaining finding.
+
+The subprocess adapter retains only a bounded, strictly framed first SQLSTATE
+from controlled stdin diagnostics. It waits for stderr drain at process close,
+including late stderr after stdin failure, and distinguishes server, process,
+watchdog and qualification failures without emitting arbitrary error content.
+No deadlock is caught as a successful refusal, retried or converted to PASS.
+The original 20-second server timeout, 25-second watchdog and bounded cleanup
+are unchanged. Independent adapter review passed **61 tests in four files**,
+including **21 injected adapter fault cases**; these are not native schedules.
+
+The combined local uncertainty/decision-preview cohort passes **958 tests in
+26 files**, application TypeScript, owned zero-warning lint, Node syntax and
+diff checks. The uncertainty migration hash remains unchanged. Source,
+adapter and rollback-mechanism evidence do not qualify the application: a
+fresh exact-candidate full-chain run is required. Opposite policy/risk lock
+ordering, wider source-standing, protected review/merge and production
+verification remain open; no register status is promoted.
+
 **2026-10-07 — additional criteria-pointer schedules; native execution pending.**
 The next local harness checkpoint specifies two isolated owner-write
 persistence-fence schedules, not a customer criteria-rebind workflow. After

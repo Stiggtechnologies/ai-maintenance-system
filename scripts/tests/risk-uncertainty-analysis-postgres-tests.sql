@@ -81,6 +81,9 @@ create function pg_temp.u18_state() returns jsonb language sql as $$
 $$;
 set local role authenticated;
 select set_config('request.jwt.claim.sub',author::text,true) from u18_fixture;
+-- Establish both custom-GUC baselines before any subtransaction: a previously
+-- unset custom setting can become an empty placeholder after rollback.
+select set_config('request.jwt.claims','',true);
 -- U18 FINITE INPUT REFUSALS BEGIN
 -- Additive cases use the same newly generated tenant and outer rollback.
 -- Exact structured refusals and complete row snapshots precede the valid packet.
@@ -828,6 +831,7 @@ end $$;
 do $$ declare f record; packet uuid; mode text; actor uuid; actor_org uuid; request text;
   baseline jsonb; snapshot jsonb; result jsonb; expected text; affected integer; qualified boolean;
   role_before text:=current_user; claim_before text:=current_setting('request.jwt.claim.sub',true);
+  claims_before text:=current_setting('request.jwt.claims',true);
   attempts integer:=0;
 begin
   select * into f from u18_fixture; select id into packet from u18_packet;
@@ -853,15 +857,28 @@ begin
         if affected<>1 then raise exception 'replacement refusal fixture failed its actual evidence change'; end if;
       end if;
       if mode in ('other-author','other-admin') then actor:=f.reviewer; end if;
+      if mode in ('other-admin','ai_admin') then
+        -- Provision only disposable fixture profiles through the canonical
+        -- claimless owner path. RESET ROLE alone does not clear auth.uid(),
+        -- so the privilege pin otherwise retains the original human role.
+        perform set_config('request.jwt.claim.sub','',true);
+        perform set_config('request.jwt.claims','',true);
+        if current_user is distinct from role_before or auth.uid() is not null then
+          raise exception 'role refusal fixture provisioning requires the original claimless owner'; end if;
+      end if;
       if mode='other-admin' then
         update public.user_profiles set role='admin' where id=f.reviewer and organization_id=f.org;
         get diagnostics affected=row_count;
-        if affected<>1 then raise exception 'other-admin refusal control lacks its actual current role'; end if;
+        if affected<>1 or not exists(select 1 from public.user_profiles
+          where id=f.reviewer and organization_id=f.org and role='admin') then
+          raise exception 'other-admin refusal control lacks its actual current role'; end if;
       end if;
       if mode='ai_admin' then
         update public.user_profiles set role='ai_admin' where id=f.author and organization_id=f.org;
         get diagnostics affected=row_count;
-        if affected<>1 then raise exception 'ai-admin refusal control lacks its actual current role'; end if;
+        if affected<>1 or not exists(select 1 from public.user_profiles
+          where id=f.author and organization_id=f.org and role='ai_admin') then
+          raise exception 'ai-admin refusal control lacks its actual current role'; end if;
       end if;
       if mode='foreign' then actor:=f.foreign_user; actor_org:=f.foreign_org; end if;
       perform set_config('request.jwt.claim.sub',f.author::text,true);
@@ -914,7 +931,8 @@ begin
     exception when sqlstate 'ZX019' then null;
     end;
     if not qualified or pg_temp.u18_state() is distinct from baseline or current_user is distinct from role_before
-      or current_setting('request.jwt.claim.sub',true) is distinct from claim_before then
+      or current_setting('request.jwt.claim.sub',true) is distinct from claim_before
+      or current_setting('request.jwt.claims',true) is distinct from claims_before then
       raise exception 'replacement refusal qualification failed full state/identity rollback'; end if;
     attempts:=attempts+1;
   end loop;

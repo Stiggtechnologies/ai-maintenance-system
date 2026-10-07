@@ -49,6 +49,14 @@ const markPhase = (phase) => {
   assert(allowedPhases.has(phase));
   currentPhase = phase;
 };
+class U18QualificationError extends Error {
+  constructor(kind, sqlState = null) {
+    super(`U18 concurrent PostgreSQL qualification failed: ${currentPhase} (${kind}${sqlState === null ? "" : ` SQLSTATE=${sqlState}`})`);
+    this.name = "U18QualificationError";
+    this.kind = kind;
+    this.sqlState = sqlState;
+  }
+}
 
 async function qualify() {
   assert.equal(process.env.GITHUB_ACTIONS, "true");
@@ -84,16 +92,22 @@ async function qualify() {
     createHash("sha256").update(seed).digest("hex"),
     "1707a52effd3556b025cce99df081a360924d63904d604f94bec2e616f4ab379",
   );
+  const spawnProcess = (command, args, options) => {
+    try { return spawn(command, args, options); }
+    catch { throw new U18QualificationError("process"); }
+  };
   const sessions = [];
   const suffix = randomUUID();
   function session(name) {
-    const child = spawn(
+    const child = spawnProcess(
       "psql",
       [
         "-X",
         "-qAt",
         "-v",
         "ON_ERROR_STOP=1",
+        "-v",
+        "VERBOSITY=sqlstate",
         "-h",
         "127.0.0.1",
         "-p",
@@ -123,14 +137,32 @@ async function qualify() {
     let pending;
     let ended = false;
     let finish;
+    let sqlState = null;
+    let stderrLine = "";
+    let discardLine = false;
     const stopped = new Promise((resolve) => {
       finish = resolve;
     });
-    const failure = () =>
-      new Error(
-        `U18 concurrent PostgreSQL qualification failed: ${currentPhase}`,
-      );
-    child.stderr.on("data", () => {}); // Never echo private server diagnostics.
+    const failure = (kind) => new U18QualificationError(kind, kind === "server" ? sqlState : null);
+    const collectCode = () => {
+      // Only code-only ERROR/FATAL lines from psql's sqlstate verbosity.
+      // Bound the buffer and never retain/echo SQL, row or provider messages.
+      if (!discardLine) {
+        const code = stderrLine.trim().match(/^(?:psql:<stdin>:[0-9]+:\s*)?(?:ERROR|FATAL):\s+([A-Z0-9]{5})\s*$/)?.[1];
+        if (code !== undefined && sqlState === null) sqlState = code;
+      }
+      stderrLine = "";
+      discardLine = false;
+    };
+    child.stderr.on("data", (chunk) => {
+      for (const character of chunk.toString("utf8")) {
+        if (character === "\n") collectCode();
+        else if (!discardLine) {
+          if (stderrLine.length < 512) stderrLine += character;
+          else { stderrLine = ""; discardLine = true; }
+        }
+      }
+    });
     createInterface({ input: child.stdout }).on("line", (line) => {
       if (!pending) return;
       if (line === pending.marker) {
@@ -140,19 +172,24 @@ async function qualify() {
         done.resolve(done.lines);
       } else pending.lines.push(line);
     });
-    const refused = () => {
+    const refused = (kind) => {
       if (!pending) return;
       const done = pending;
       pending = undefined;
       clearTimeout(done.timer);
-      done.reject(failure());
+      done.reject(failure(kind));
     };
-    child.on("error", refused);
-    child.on("exit", refused);
-    child.stdin.on("error", refused);
+    const processFailed = () => {
+      // Wait for close so a server error delivered after exit is not erased
+      // by an earlier stdin EPIPE. The original watchdog still bounds this.
+      if (pending && !ended && child.exitCode === null) child.kill("SIGTERM");
+    };
+    child.on("error", () => refused("process"));
+    child.stdin.on("error", processFailed);
     child.once("close", () => {
       ended = true;
-      refused();
+      collectCode();
+      refused(sqlState === null ? "process" : "server");
       finish();
     });
     const handle = {
@@ -161,17 +198,18 @@ async function qualify() {
         assert(!ended && child.exitCode === null && !child.stdin.destroyed);
         return new Promise((resolve, reject) => {
           const marker = `U18_END_${randomUUID()}`;
+          sqlState = null;
           const timer = setTimeout(() => {
-            refused();
+            refused("watchdog");
             child.kill("SIGTERM");
           }, 25000);
           pending = { marker, timer, lines: [], resolve, reject };
           try {
             child.stdin.write(`${sql};\nselect '${marker}';\n`, (error) => {
-              if (error) refused();
+              if (error) processFailed();
             });
           } catch {
-            refused();
+            processFailed();
           }
         });
       },
@@ -2387,8 +2425,9 @@ async function qualify() {
   }
 }
 
-await qualify().catch(() => {
-  throw new Error(
-    `U18 concurrent PostgreSQL qualification failed: ${currentPhase}`,
-  );
+await qualify().catch((error) => {
+  // Retain only our finite safe category/code. Arbitrary provider/assertion
+  // errors stay private and cannot be mistaken for a server deadlock receipt.
+  if (error instanceof U18QualificationError) throw error;
+  throw new U18QualificationError("qualification");
 });

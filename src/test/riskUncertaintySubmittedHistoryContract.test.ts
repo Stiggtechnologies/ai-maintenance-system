@@ -85,6 +85,56 @@ function excludedFields(source: string): string[] {
 }
 
 describe("U18 submitted-history immutable source contract", () => {
+  it("provisions actual disposable admin and AI roles without bypassing the canonical privilege pin", () => {
+    const refusals =
+      native
+        .split("-- U18 REPLACEMENT AUTHORITY REFUSALS BEGIN")[1]
+        ?.split("-- U18 REPLACEMENT AUTHORITY REFUSALS END")[0] ?? "";
+    const provisioning =
+      refusals
+        .split("if mode in ('other-admin','ai_admin') then")[1]
+        ?.split("if mode='foreign'")[0] ?? "";
+    expect(provisioning).toContain(
+      "set_config('request.jwt.claim.sub','',true)",
+    );
+    expect(provisioning).toContain("set_config('request.jwt.claims','',true)");
+    expect(provisioning).toContain("auth.uid() is not null");
+    for (const [identity, role] of [
+      ["reviewer", "admin"],
+      ["author", "ai_admin"],
+    ]) {
+      expect(provisioning).toContain(
+        `where id=f.${identity} and organization_id=f.org and role='${role}'`,
+      );
+    }
+    expect(refusals).toContain(
+      "claims_before text:=current_setting('request.jwt.claims',true)",
+    );
+    expect(refusals).toContain(
+      "current_setting('request.jwt.claims',true) is distinct from claims_before",
+    );
+    const initialClaims = native.split("-- U18 FINITE INPUT REFUSALS BEGIN")[0];
+    expect(initialClaims).toContain(
+      "select set_config('request.jwt.claims','',true);",
+    );
+    expect(
+      refusals.indexOf("set_config('request.jwt.claim.sub',actor::text,true)"),
+    ).toBeGreaterThan(
+      refusals.indexOf("update public.user_profiles set role='ai_admin'"),
+    );
+    expect(refusals).toContain("pg_temp.u18_state() is distinct from snapshot");
+    expect(refusals).toContain("exception when sqlstate 'ZX019' then null");
+    expect(refusals).not.toMatch(
+      /disable trigger|session_replication_role|when others/i,
+    );
+    const privilegePin = readFileSync(
+      "supabase/migrations/20260910090000_lockdown_user_profiles.sql",
+      "utf8",
+    );
+    expect(privilegePin).toContain("if auth.uid() is null then");
+    expect(privilegePin).toContain("new.role := old.role;");
+  });
+
   it("identifies a failing authority-refusal case without printing fixture identities, input content or weakening preservation", () => {
     const refusals =
       native
