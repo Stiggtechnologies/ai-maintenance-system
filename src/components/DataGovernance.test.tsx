@@ -54,7 +54,7 @@ const workspace: TimeAssuranceWorkspace = {
       configurationRevision: 0,
       configurationEvidenceReference: null,
       configuredAt: null,
-      state: "disabled",
+      state: "unconfigured",
       eligibleForTimeSensitiveEvidence: false,
       withinClockContract: false,
       configurationEvidenceVerified: false,
