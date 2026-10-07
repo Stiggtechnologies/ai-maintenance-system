@@ -1,5 +1,24 @@
 # Time-synchronization assurance
 
+**2026-10-07 — first follow-up candidate passes hosted gates; final-head/production pending.**
+Core run `37687633903` on `e0420aac` completed successfully at `21:30:07Z`:
+**8,035 tests in 524 files**, lint/typecheck/build, migration ordering,
+**16 browser scenarios** including both clock-assurance cases, and the full
+migration-chain/authentication smoke suite. The existing clock native smoke at
+`21:29:21Z` passed configuration/observation serialization, exact intent
+replays, rollback retries, post-wait authority and historical contract checks;
+canonical evidence approval and operational authority remain explicitly false.
+
+Two independent agent reviews found no bounded architecture/security/domain
+blocker and reproduced the local **167 tests in five files**. A requested
+test-only cleanup changes the new revision-zero/null-protocol fixture state
+from `disabled` to canonical `unconfigured`; it was independently re-reviewed
+with the same cohort passing. These are agent review receipts, not GitHub
+account approvals. The final candidate includes that cleanup and this dated
+receipt, so fresh exact-head gates, applicable non-author merge and live
+verification are still required. PR #649 is not deployed; no register status,
+collector integration or clock-evidence eligibility is promoted.
+
 **2026-10-07 — clock-panel reachability follow-up; hosted qualification pending.**
 Current-main composition CI `37684254587` exposed an independent read-lifecycle
 defect: a Data Governance upstream response error prevented its clock child
