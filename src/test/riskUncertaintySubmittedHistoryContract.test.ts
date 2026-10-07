@@ -9,6 +9,10 @@ const migration = readFileSync(
   "supabase/migrations/20270103050000_risk_uncertainty_analysis.sql",
   "utf8",
 );
+const native = readFileSync(
+  "scripts/tests/risk-uncertainty-analysis-postgres-tests.sql",
+  "utf8",
+);
 
 function body(name: string): string {
   const value = migration.match(
@@ -81,6 +85,30 @@ function excludedFields(source: string): string[] {
 }
 
 describe("U18 submitted-history immutable source contract", () => {
+  it("executes deferred pair checks before testing the actual truncate-retention guard", () => {
+    const block =
+      native
+        .split("-- U18 TRUNCATE RETENTION WITNESS BEGIN")[1]
+        ?.split("-- U18 TRUNCATE RETENTION WITNESS END")[0] ?? "";
+    expect(block).not.toBe("");
+    expect(block.indexOf("set constraints all immediate;")).toBeGreaterThan(-1);
+    expect(block.indexOf("set constraints all immediate;")).toBeLessThan(
+      block.indexOf("begin truncate table risk_uncertainty_analyses cascade;"),
+    );
+    expect(block.indexOf("set constraints all deferred;")).toBeGreaterThan(
+      block.indexOf("set constraints all immediate;"),
+    );
+    expect(block.indexOf("set constraints all deferred;")).toBeLessThan(
+      block.indexOf("begin truncate table risk_uncertainty_analyses cascade;"),
+    );
+    expect(block).toContain("exception when raise_exception");
+    expect(block).toContain(
+      "detail='risk uncertainty history is retained; truncate refused'",
+    );
+    expect(block).not.toMatch(
+      /disable trigger|session_replication_role|when others|object_in_use/i,
+    );
+  });
   it("freezes the whole submitted row except exactly the digest/finalization and review transition fields", () => {
     // Select the ordinary initialization/review projection, not the separately
     // qualified four-field supersession branch. Neither guard is weakened.

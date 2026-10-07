@@ -2,6 +2,28 @@
 
 **2026-10-06 — PARTIAL, CURRENT-MAIN DRAFT COMPOSITION; NOT RELEASE QUALIFICATION.**
 
+**2026-10-07 — bounded native-harness repair; fresh exact-head CI still required.**
+Published replacement head `1e9b3c92` failed core run `37548810281` at the
+isolated uncertainty preflight: PostgreSQL refused `TRUNCATE` because deferred
+trigger events were pending, before the actual retention guard could run.
+Later replacement SQL, HTTP and concurrency steps were skipped, not passed.
+The harness now executes deferred checks before that witness and restores
+deferral before `TRUNCATE`; integrity-check failures remain fatal, and the
+exact retention error and full row-preservation assertions remain unchanged.
+Production migrations, RPCs, RLS and ACLs are untouched.
+
+Test-first source coverage failed before the repair and passes afterward.
+The refreshed local cohort passes **2,049 tests in 25 files**, with TypeScript,
+scoped lint and unchanged register ratchets passing. A rollback-only isolated
+PostgreSQL **16.13** mechanism proof reproduced the original pending-event
+error, executed a deferred check, observed the exact retention refusal on
+both synthetic tables, and proved invalid deferred checks still fail and roll
+back. Its private Unix-socket server was stopped afterward. This mechanism
+model is **not** the actual SyncAI migration chain or replacement qualification.
+Independent bounded source review found no blocker in the two-file harness
+repair. Fresh full-chain CI and the release holds below remain required; no
+register status or production claim is promoted.
+
 **Current local closeout — atomic stale-proposal replacement; runtime pending.**
 The replacement implementation extends the canonical packet and its evidence,
 VOI and audit records, not a separate intent store. Only the original named
@@ -37,7 +59,7 @@ policy/profile/view schedules, typed source approval/claim-purpose (#569),
 shared cockpit/authentication freshness (#618), protected non-author merge and
 production verification remain release holds. No register item is promoted.
 
-The frozen local replacement cohort passes **2,048 tests in 25 files**, including
+The October 6 frozen local replacement cohort passed **2,048 tests in 25 files**, including
 the unchanged shared tenancy/definer guards. Application TypeScript, scoped
 lint, formatting, syntax, diff hygiene and both register ratchets pass. The
 72-case synthetic HTTP containment transcript executes the real program's
@@ -45,8 +67,9 @@ assertions unchanged, including 24 adversarial cases; its clock and transport
 are synthetic, not native-runtime evidence. Architecture/domain SQL and
 security/tenancy client/UI/HTTP/concurrency source re-reviews found no remaining
 blocker in their bounded implemented paths. Local execution uses the existing
-Vitest 4.1.10 runtime. No full local build/database is claimed; disk availability
-is below 300 MiB, so fresh isolated CI must qualify the actual database chain.
+Vitest 4.1.10 runtime. No full local build/database was claimed; disk availability
+then was below 300 MiB. The bounded October 7 mechanism proof above does not
+replace fresh isolated CI qualification of the actual database chain.
 
 The published `16c82f7a` checkpoint's database job completed successfully:
 full rollback SQL at `2026-10-06T23:38:08Z`, real HTTP at `23:38:10Z`, actual

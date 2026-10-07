@@ -369,6 +369,13 @@ do $$ declare packet uuid; before_row jsonb; detail text; refused boolean; total
     refused:=detail='risk uncertainty analysis changes require the governed submit and review functions'; end;
   if not refused or (select to_jsonb(a) from risk_uncertainty_analyses a where id=packet) is distinct from before_row then
     raise exception 'actual direct mutation trigger or state preservation failed'; end if;
+  -- U18 TRUNCATE RETENTION WITNESS BEGIN
+  -- Fire the completed packet's deferred reciprocal/FK checks first. Without
+  -- this, PostgreSQL's pending-trigger-event refusal masks the actual BEFORE
+  -- TRUNCATE retention guard. Restore normal deferral; never disable a guard
+  -- or accept that unrelated engine error as proof of our retention policy.
+  set constraints all immediate;
+  set constraints all deferred;
   select count(*) into total from risk_uncertainty_analyses;
   refused:=false;
   begin truncate table risk_uncertainty_analyses cascade;
@@ -377,6 +384,7 @@ do $$ declare packet uuid; before_row jsonb; detail text; refused boolean; total
   if not refused or (select count(*) from risk_uncertainty_analyses) is distinct from total
     or (select to_jsonb(a) from risk_uncertainty_analyses a where id=packet) is distinct from before_row then
     raise exception 'actual truncate refusal or preservation failed'; end if;
+  -- U18 TRUNCATE RETENTION WITNESS END
   if exists(select 1 from (values
       ('public.submit_risk_uncertainty_analysis(uuid,jsonb,uuid[])'),
       ('public.review_risk_uncertainty_analysis(uuid,text,text)'),
