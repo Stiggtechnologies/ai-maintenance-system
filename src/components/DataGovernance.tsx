@@ -47,6 +47,18 @@ interface SensorRow {
 }
 
 export function DataGovernance() {
+  // Independent canonical reads must not disappear when an unrelated identity
+  // or sensor read fails. Stable siblings also retain unresolved clock intents
+  // while the governance readout retries; no approval or clock state is inferred.
+  return (
+    <div className="space-y-6">
+      <DataGovernanceReadout />
+      <TimeSynchronizationAssurance />
+    </div>
+  );
+}
+
+function DataGovernanceReadout() {
   const { data, loading, error, refetch } = useAsyncData<{
     posture: Posture | null;
     assets: AssetIdentity[];
@@ -57,9 +69,12 @@ export function DataGovernance() {
       supabase.rpc("get_asset_identities", { p_limit: 500 }),
       supabase.rpc("get_sensor_validation"),
     ]);
-    if (p.error) throw new Error(p.error.message);
-    if (a.error) throw new Error(a.error.message);
-    if (s.error) throw new Error(s.error.message);
+    if (p.error)
+      throw new Error(`Identity posture unavailable: ${p.error.message}`);
+    if (a.error)
+      throw new Error(`Asset identities unavailable: ${a.error.message}`);
+    if (s.error)
+      throw new Error(`Sensor validation unavailable: ${s.error.message}`);
     return {
       posture: (p.data as Posture[])?.[0] ?? null,
       assets: (a.data as AssetIdentity[]) ?? [],
@@ -217,8 +232,6 @@ export function DataGovernance() {
           </ul>
         </div>
       )}
-
-      <TimeSynchronizationAssurance />
     </section>
   );
 }
