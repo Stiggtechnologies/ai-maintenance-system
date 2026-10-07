@@ -23,10 +23,13 @@
         "weibullLogLikelihood"
       ],
       "testFile": "src/lib/reliability/bok-life-data.test.ts",
-      "consumers": ["src/lib/optimization/interval-under-uncertainty.ts"],
+      "consumers": [
+        "src/lib/optimization/interval-under-uncertainty.ts",
+        "src/lib/reliability/life-data-sensitivity.ts"
+      ],
       "registerRows": [],
       "customerReachable": false,
-      "nextStep": "Wire weibullFisherBounds into runReliabilityLifeDataAgent so every life-data report carries the beta interval and B10 bounds."
+      "nextStep": "Wire weibullFisherBounds into runReliabilityLifeDataAgent so every life-data report carries the beta interval and B10 bounds. Likelihood-ratio bounds and the planned-removal recoding sensitivity (life-data-sensitivity.ts, #648) are library-only and wait on the same wiring, which is held for #636."
     },
     {
       "id": "BOK-02",
