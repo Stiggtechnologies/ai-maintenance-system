@@ -777,8 +777,14 @@ begin
     end if;
   end if;
   if r.status='archived' then return jsonb_build_object('error','archived risks cannot receive a new uncertainty analysis'); end if;
-  select * into c from public.risk_criteria_profiles
-  where id=r.criteria_profile_id and organization_id=v_org for share;
+  begin
+    select * into c from public.risk_criteria_profiles
+    where id=r.criteria_profile_id and organization_id=v_org for share nowait;
+  exception when lock_not_available then
+    -- A private signal caught by the encompassing exception block unwinds
+    -- this call's earlier visibility/risk/packet fences, not caller locks.
+    raise exception using errcode='U1801',message='uncertainty current criteria acquisition busy';
+  end;
   if not found or c.status<>'adopted' or c.decision_thresholds='{}'::jsonb then
     return jsonb_build_object('error','criteria profile must be adopted with decision thresholds before uncertainty analysis');
   end if;
@@ -1054,6 +1060,8 @@ begin
       'uncertaintyReduction',v_uncertainty_reduction,'probabilityDecisionChanges',v_change_probability,
       'expectedValue',v_voi_expected,'netValue',v_voi_net,'recommendation',v_voi_recommendation),
     'operationalAuthorization',false);
+exception when sqlstate 'U1801' then
+  return jsonb_build_object('error','criteria profile is busy; reload the governed workspace');
 end $$;
 
 create or replace function public.submit_risk_uncertainty_analysis(
@@ -1271,8 +1279,14 @@ begin
   -- The risk lock stabilizes its pointer; this shared lock prevents a policy
   -- change after the digest check. Legacy metadata digests must also match the
   -- actual submitted policy instead of silently inheriting today's thresholds.
-  select * into c from public.risk_criteria_profiles
-  where id=r.criteria_profile_id and organization_id=v_org for share;
+  begin
+    select * into c from public.risk_criteria_profiles
+    where id=r.criteria_profile_id and organization_id=v_org for share nowait;
+  exception when lock_not_available then
+    -- Unwind this call's acquired fences before reporting contention. Never
+    -- turn a server deadlock or a later evidence/profile timeout into an ACK.
+    raise exception using errcode='U1801',message='uncertainty current criteria acquisition busy';
+  end;
   if not found or c.status is distinct from 'adopted'
     or c.id is distinct from a.threshold_profile_id or c.decision_thresholds='{}'::jsonb
     or c.decision_thresholds is distinct from a.decision_thresholds then
@@ -1355,6 +1369,8 @@ begin
   return jsonb_build_object('riskId',a.risk_id,'analysisId',a.id,'decision',p_decision,
     'analysisDigest',v_current,'approvalId',v_approval,'derivedEvidenceItemId',v_evidence,
     'operationalAuthorization',false);
+exception when sqlstate 'U1801' then
+  return jsonb_build_object('error','criteria profile is busy; reload the governed workspace');
 end $$;
 
 create or replace function public.get_risk_uncertainty_workspace(p_risk_id uuid)

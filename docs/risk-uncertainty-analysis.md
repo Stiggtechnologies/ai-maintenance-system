@@ -2,6 +2,63 @@
 
 **2026-10-06 — PARTIAL, CURRENT-MAIN DRAFT COMPOSITION; NOT RELEASE QUALIFICATION.**
 
+**2026-10-09 — published baseline qualified in disposable CI; local policy-availability extension pending native qualification.**
+Published `dcf6b1d289685c8a6c92e83255e0705683c1ec08`, core run
+`37691244193`, completed successfully on October 7. The database job
+`113031674461` executed the full migration chain, rollback-only native SQL,
+real GoTrue/PostgREST acceptance and multi-session concurrency qualification.
+Its native baseline receipt was recorded at `21:58:41Z`, HTTP receipt at
+`21:58:53Z` and concurrency receipt at `21:59:01Z`. Unit qualification passed
+**8,878 tests in 549 files**; lint/typecheck/build, migration order and
+golden-path browser jobs passed. These receipts supersede the older pending
+and failed-run notes below **only for that exact published commit**. They do
+not prove production deployment or complete U18 source-standing qualification.
+
+The next bounded change uses the same private submission/replacement writer
+and public independent-review function. Current criteria acquisition now uses
+`FOR SHARE NOWAIT`: a concurrent policy writer causes a structured busy refusal
+instead of allowing a policy-first/risk-first lock cycle. Only that acquisition's
+`55P03` is mapped to private `U1801`; the encompassing exception block rolls
+back the call's new locks and changes before returning the refusal. Prior caller
+locks and context remain intact. `NOWAIT` bounds tuple contention, not conflicting
+table-level locks; this is not a universal prompt-availability guarantee.
+Server deadlocks, statement timeouts and other
+errors remain failures, not successful acknowledgements. A caller must reload
+and explicitly retry; there is no automatic write retry. Historical committed
+replacement receipts are still recognized before mutable current-policy gates.
+Final human membership, tenant visibility, evidence, policy snapshot, digest,
+CAS and operational-authority boundaries are unchanged.
+
+The native harness specifies busy-policy and post-commit stale refusals as
+separate actual calls. A third session must prove release of the call's new
+risk/packet, inverse-view and origin-scenario fences while its caller transaction
+remains open, and must prove
+that the caller's prior lock and context survive. The opposite-order service
+writer must then commit its risk update before that caller transaction ends;
+all thirteen state collections remain checked with only its named field delta.
+Competition and membership-drift schedules use packet/profile barriers instead
+of the removed policy wait. Ordinary submit is explicitly observed refusing
+before its caller's instrumented audit-table lock, not claimed to wait inside
+an audit insert. Existing policy-after and criteria-pointer schedules remain.
+
+The source guard formerly forbidding every error return after replacement DML
+now exempts **only the exact encompassing `U1801` rollback handler at the end
+of the function**; all normal after-DML error returns remain prohibited.
+New compensating source tests require the exact acquisition, private signal,
+handler boundary, historical receipt order and unchanged final authority gates.
+These are source specifications, not proof of actual RPC lock release. The
+edited migration is reserved and unapplied; deployed history and shared writers
+are not changed. Local uncertainty/decision-preview/client/panel and shared
+tenancy/definer qualification passed **2,198 tests in 28 files**, application
+TypeScript, owned zero-warning ESLint, formatting, Node syntax, diff checks and
+both unchanged register ratchets. Independent migration/security review passed
+**1,286 tests in six files**; independent harness/domain review and additive
+inverse-view/scenario probe re-review passed **40 tests in two files**. Neither
+agent review is external GitHub account approval or actual native qualification.
+Fresh exact-candidate full-chain/native/HTTP qualification,
+independent review, protected merge and production verification are required.
+No register status is promoted. Earlier dated entries below are historical.
+
 **2026-10-07 — actual role-fixture repair and bounded session diagnostics; new native qualification required.**
 Published `4713c5b0`, core run `37688784757`, is terminal failure. Unit,
 lint/typecheck/build, migration order and golden-path browser jobs passed.

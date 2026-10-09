@@ -17,6 +17,55 @@ const authorityRaces =
 // Source specifications only; no mock, elapsed timeout or source substring
 // qualifies actual PostgreSQL FK/tuple races. Exact-head native CI is required.
 describe("U18 replacement native concurrency source contract", () => {
+  it("keeps the opposite-order policy writer progressing while the refused caller transaction stays open", () => {
+    const opposite =
+      authorityRaces
+        .split("// U18_REPLACEMENT_POLICY_OPPOSITE BEGIN")[1]
+        ?.split("// U18_REPLACEMENT_POLICY_OPPOSITE END")[0] ?? "";
+    expect(opposite).toContain(
+      "criteria profile is busy; reload the governed workspace",
+    );
+    expect(opposite).toContain("assertPolicyFenceReleased(actor,");
+    expect(opposite).toContain("public.risk_criteria_profiles");
+    expect(opposite).toContain("update public.risks");
+    expect(opposite).toContain(
+      "assertWholeStatePreserved(before, after, fixture, writer)",
+    );
+    expect(opposite.indexOf('await barrier.query("commit")')).toBeLessThan(
+      opposite.indexOf('await actor.query("rollback")'),
+    );
+    expect(opposite).not.toMatch(
+      /40P01|57014|deadlock_detected|query_canceled/,
+    );
+  });
+  it("uses non-policy barriers for retained risk and old-evidence competition coverage", () => {
+    const competition =
+      replacement
+        .split("// U18_REPLACEMENT_RISK_COMPETITION")[1]
+        ?.split("// U18_REPLACEMENT_EVIDENCE_RESTORE")[0] ?? "";
+    const restore =
+      replacement
+        .split("// U18_REPLACEMENT_EVIDENCE_RESTORE")[1]
+        ?.split("// U18_REPLACEMENT_AFTER_CHECK")[0] ?? "";
+    expect(competition).toContain("public.user_profiles");
+    expect(restore).toContain("public.risk_uncertainty_analyses");
+    expect(competition).not.toContain("public.risk_criteria_profiles");
+    expect(restore).not.toContain("public.risk_criteria_profiles");
+  });
+  it("uses the profile-owning service session to commit membership drift at final revalidation", () => {
+    const profile =
+      authorityRaces
+        .split('markPhase("U18_REPLACEMENT_PROFILE_BEFORE")')[1]
+        ?.split('markPhase("U18_REPLACEMENT_PROFILE_AFTER")')[0] ?? "";
+    expect(profile).toContain("public.user_profiles");
+    expect(profile).toContain(
+      "await barrier.query(`${serviceSQL}; update public.user_profiles",
+    );
+    expect(profile).toContain(
+      "assertWholeStatePreserved(before, changed, fixture, writer)",
+    );
+    expect(profile).not.toContain("public.risk_criteria_profiles");
+  });
   it("specifies after-lock criteria-pointer drift as two separately verified commits without weakening the replacement delta", () => {
     const pointer =
       authorityRaces
@@ -181,7 +230,7 @@ describe("U18 replacement native concurrency source contract", () => {
     expect(replacement).toContain("evidenceItemIds: fixture.newEvidence");
   });
 
-  it("observes criteria and FK waits then demands an exact prompt busy refusal with the actor transaction still open", () => {
+  it("observes predecessor-packet and FK waits then demands an exact prompt busy refusal with the actor transaction still open", () => {
     const restore =
       replacement
         .split("// U18_REPLACEMENT_EVIDENCE_RESTORE")[1]

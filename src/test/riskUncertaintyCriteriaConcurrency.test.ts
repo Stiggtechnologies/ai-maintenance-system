@@ -34,6 +34,39 @@ const execute = new AsyncFunction(
 // Source contracts and actual-script containment, not execution of concurrent
 // SQL. Only the exact-head disposable PostgreSQL witness can qualify races.
 describe("U18 review criteria serialization", () => {
+  it("keeps busy-policy review and post-commit stale review as distinct actual RPC calls", () => {
+    const before =
+      script.split("// BEFORE-check:")[1]?.split("// Writer wins:")[0] ?? "";
+    expect(before).toContain(
+      "criteria profile is busy; reload the governed workspace",
+    );
+    expect(before).toContain(
+      "assertPolicyFenceReleased(actor, [f.other_risk], secondPacket.analysisId, f.reviewer)",
+    );
+    expect(before).toContain("begin;");
+    expect(before).toContain('await actor.query("rollback")');
+    expect(before).toContain(
+      "json(await actor.query(reviewSQL(secondPacket)))",
+    );
+    expect(before).toContain(
+      "assert.deepEqual(await state(), expectedRefusalState)",
+    );
+    expect(before).not.toContain("await blocked(actorPid, barrierPid)");
+  });
+  it("proves policy-busy rollback releases new canonical locks while retaining caller context", () => {
+    const release =
+      script
+        .split("async function assertPolicyFenceReleased(")[1]
+        ?.split("// U18 POLICY FENCE RELEASE END")[0] ?? "";
+    expect(release).toContain("for update nowait");
+    expect(release).toContain("public.risk_uncertainty_analyses");
+    expect(release).toContain("for update of sv nowait");
+    expect(release).toContain("for update of s nowait");
+    expect(release).toContain("public.get_risk_secondary_origin_internal(r)");
+    expect(release).toContain("await assertActorContext(handle, user)");
+    expect(release).toContain("U18 policy fence released");
+    expect(release).not.toMatch(/40P01|57014|deadlock_detected|query_canceled/);
+  });
   it("locks the current canonical same-org criterion before evidence, actor and digest/approval", () => {
     const packet = review.indexOf(
       "where id=p_analysis_id and organization_id=v_org and risk_id=r.id for update",

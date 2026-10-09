@@ -156,9 +156,18 @@ describe("U18 atomic uncertainty replacement source contract", () => {
     expect(audit).toBeGreaterThan(
       writer.indexOf("update public.risks set value_of_information"),
     );
-    const afterTransition = writer.slice(transition);
+    // The one policy-contention handler unwinds the entire function block;
+    // no normal return after DML may acknowledge an error/partial commit.
+    const policyRollback = writer.lastIndexOf(
+      "exception when sqlstate 'U1801'",
+    );
+    expect(policyRollback).toBeGreaterThan(transition);
+    const afterTransition = writer.slice(transition, policyRollback);
     expect(afterTransition).not.toMatch(/return jsonb_build_object\('error'/);
     expect(afterTransition).toContain("raise exception");
+    expect(writer.slice(policyRollback).trim()).toBe(
+      "exception when sqlstate 'U1801' then return jsonb_build_object('error','criteria profile is busy; reload the governed workspace'); end",
+    );
     expect(writer).not.toMatch(
       /insert into public\.(?:approvals|evidence_items|decisions|work_orders)/,
     );
@@ -170,8 +179,15 @@ describe("U18 atomic uncertainty replacement source contract", () => {
     expect(writer).toMatch(
       /if p_replacement is not null then begin perform 1 from public\.evidence_items e where e\.id=any\(v_lock_evidence_ids\) order by e\.id for update of e nowait; exception when lock_not_available then return jsonb_build_object\('error','replacement evidence is busy; reload the governed workspace'\); end; else/,
     );
+    const evidenceAcquisition = writer.indexOf(
+      "if p_replacement is not null then begin perform 1 from public.evidence_items",
+    );
+    expect(evidenceAcquisition).toBeGreaterThan(-1);
     expect(
-      writer.indexOf("exception when lock_not_available then"),
+      writer.indexOf(
+        "exception when lock_not_available then",
+        evidenceAcquisition,
+      ),
     ).toBeLessThan(writer.indexOf("set status='superseded'"));
   });
 

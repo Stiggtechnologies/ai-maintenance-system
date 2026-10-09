@@ -33,6 +33,7 @@ const allowedPhases = new Set([
   "U18_SUBMIT_VS_REPLACEMENT",
   "U18_REPLACEMENT_POLICY_BEFORE",
   "U18_REPLACEMENT_POLICY_AFTER",
+  "U18_REPLACEMENT_POLICY_OPPOSITE",
   "U18_REPLACEMENT_POINTER_AFTER",
   "U18_REPLACEMENT_PROFILE_BEFORE",
   "U18_REPLACEMENT_PROFILE_AFTER",
@@ -372,6 +373,35 @@ async function qualify() {
       select set_config('request.jwt.claim.sub','${user}',false);
       select public.review_risk_uncertainty_analysis('${packet.analysisId}','validated',
         'Synthetic independent visibility-context qualification, not customer approval or operational authority.')`;
+    // A busy policy must release only the RPC's new fence locks, even when
+    // its caller keeps an explicit transaction and an earlier lock alive.
+    async function assertPolicyFenceReleased(handle, riskIds, packetId, user = f.author) {
+      await assertActorContext(handle, user);
+      assert.equal((await handle.query("select current_setting('app.u18_policy_caller',true)")).at(-1), "retained");
+      assert.equal((await changer.query(`reset role;
+        select set_config('request.jwt.claim.sub','',false);
+        select set_config('request.jwt.claims','',false);
+        begin;
+        select id from public.risks where id=any(array[${riskIds.map(literal).join(',')}]::uuid[])
+          order by id for update nowait;
+        select id from public.risk_uncertainty_analyses where id='${packetId}' for update nowait;
+        select sv.id from public.risk_stakeholder_views sv join public.risks r on r.id=sv.risk_id
+          where r.organization_id='${f.org}' and r.id=any(array[${riskIds.map(literal).join(',')}]::uuid[])
+          order by sv.id for update of sv nowait;
+        select s.id from public.scenarios s where s.organization_id='${f.org}' and s.id in (
+          select public.sync_text_as_uuid(public.get_risk_secondary_origin_internal(r)->>'scenario_id')
+          from public.risks r where r.organization_id='${f.org}'
+            and r.id=any(array[${riskIds.map(literal).join(',')}]::uuid[])
+        ) order by s.id for update of s nowait;
+        rollback; select 'U18 policy fence released'`)).at(-1), "U18 policy fence released");
+      const prior = riskIds.includes(f.other_risk) ? f.risk : f.other_risk;
+      await changer.query(`do $body$ declare refused boolean:=false; begin
+        begin perform id from public.risks where id='${prior}' for update nowait;
+        exception when lock_not_available then refused:=true; end;
+        if not refused then raise exception 'policy refusal released its callers prior lock'; end if;
+        end $body$`);
+    }
+    // U18 POLICY FENCE RELEASE END
     const delta = (after, before, key) =>
       (after[key]?.length ?? 0) - (before[key]?.length ?? 0);
     const wholeStateKeys = [
@@ -1193,18 +1223,25 @@ async function qualify() {
     assert.equal(stale.storedStatus, "validated");
     assert.equal(stale.validationStatus, "stale");
     assert.notEqual(stale.currentDigest, firstPacket.analysisDigest);
-    // BEFORE-check: current criteria become ineligible while the reviewer is
-    // genuinely waiting for that exact row. On wake, refuse before ALL writes.
+    // BEFORE-check: policy contention and post-commit staleness are separate
+    // real calls. Never count a deadlock/timeout as a structured refusal.
     markPhase("U18_CRITERIA_BEFORE_CHECK");
     const secondPacket = await submitReceipt(f.other_risk, f.wrong_risk);
+    const beforeBusy = await state();
     await barrier.query(`begin; update public.risk_criteria_profiles set status='draft'
       where id='${f.criteria}' returning id`);
     const expectedRefusalState = await state(barrier);
-    const waiting = actor.query(reviewSQL(secondPacket));
-    waiting.catch(() => {});
-    await blocked(actorPid, barrierPid);
+    const startedBusy = Date.now();
+    assert.deepEqual(json(await actor.query(`begin;
+      select set_config('app.u18_policy_caller','retained',true);
+      select id from public.risks where id='${f.risk}' for update;
+      ${reviewSQL(secondPacket)}`)), { error: "criteria profile is busy; reload the governed workspace" });
+    assert(Date.now() - startedBusy < 5000);
+    await assertPolicyFenceReleased(actor, [f.other_risk], secondPacket.analysisId, f.reviewer);
+    assert.deepEqual(await state(), beforeBusy);
     await barrier.query("commit");
-    assert.deepEqual(json(await waiting), {
+    await actor.query("rollback");
+    assert.deepEqual(json(await actor.query(reviewSQL(secondPacket))), {
       error:
         "analysis changed after submission; submit a new version against the current evidence and thresholds",
     });
@@ -1697,7 +1734,7 @@ async function qualify() {
     }
 
     // U18_REPLACEMENT_RISK_COMPETITION: one actual replacement holds the risk
-    // at a criterion wait. A different-intent actual same-risk RPC must refuse
+    // at its final profile wait. A different-intent same-risk RPC must refuse
     // NOWAIT without a second successor; the first then commits positively.
     {
       markPhase("U18_REPLACEMENT_RISK_COMPETITION");
@@ -1707,8 +1744,8 @@ async function qualify() {
       assert.notEqual(info.request.intentId, competingInfo.request.intentId);
       const before = await state();
       const expectedSnapshot = await replacementSnapshot(fixture);
-      await barrier.query(`begin; select id from public.risk_criteria_profiles
-        where id='${fixture.criteria}' for update`);
+      await barrier.query(`begin; select id from public.user_profiles
+        where id='${f.author}' for update`);
       const replacing = actor.query(replaceSQL(fixture, info));
       replacing.catch(() => {});
       await blocked(actorPid, barrierPid);
@@ -1732,8 +1769,8 @@ async function qualify() {
       const fixture = await replacementFixture("U18_REPLACEMENT_EVIDENCE_RESTORE", true);
       const info = await replacementRequest(fixture);
       const before = await state();
-      await barrier.query(`begin; select id from public.risk_criteria_profiles
-        where id='${fixture.criteria}' for update`);
+      await barrier.query(`begin; select id from public.risk_uncertainty_analyses
+        where id='${fixture.packet.analysisId}' for update`);
       const replacing = actor.query(`begin; ${replaceSQL(fixture, info)}`);
       replacing.catch(() => {});
       await blocked(actorPid, barrierPid);
@@ -1929,26 +1966,31 @@ async function qualify() {
       assertWholeStatePreserved(after, await state(), fixture);
     }
 
-    // Ordinary submit reaches the policy wait BEFORE its pending-packet gate.
-    // It can win contention, but cannot create a second pending proposal.
+    // The real ordinary submit refuses its pending-packet gate. Its caller's
+    // explicit transaction then waits on an audit-table LOCK, retaining the
+    // already acquired risk fence; this is NOT an in-RPC audit INSERT barrier.
     {
       markPhase("U18_SUBMIT_VS_REPLACEMENT");
       const fixture = await replacementFixture("U18_SUBMIT_VS_REPLACEMENT");
       const info = await replacementRequest(fixture);
       const before = await state();
-      await barrier.query(`begin; select id from public.risk_criteria_profiles
-        where id='${fixture.criteria}' for update`);
-      const submitting = actor.query(submitSQLFor(fixture.child, fixture.evidence));
+      await barrier.query("begin; lock table public.audit_events in share mode");
+      const submitting = actor.query(`begin; ${submitSQLFor(fixture.child, fixture.evidence)};
+        reset role; lock table public.audit_events in row exclusive mode;
+        set role authenticated`);
       submitting.catch(() => {});
       await blocked(actorPid, barrierPid);
       await promptRefusal(changer, replaceSQL(fixture, info), "risk not found in this organization");
       assertWholeStatePreserved(before, await state(), fixture);
       await barrier.query("commit");
-      assert.deepEqual(json(await submitting), {
+      const submitResponses = (await submitting).filter((line) => line.startsWith('{"'));
+      assert.equal(submitResponses.length, 1);
+      assert.deepEqual(json(submitResponses), {
         error: "this risk already has an uncertainty analysis awaiting independent review",
       });
       await assertActorContext(actor);
       assertWholeStatePreserved(before, await state(), fixture);
+      await actor.query("rollback");
     }
 
     // BEFORE-policy: a committed raw policy-field correction invalidates frozen
@@ -1962,17 +2004,51 @@ async function qualify() {
       const writer = replacementWriter("criteria", (x) => x.criteria, () => ({ [field]: value }));
       await barrier.query(`begin; update public.risk_criteria_profiles set ${field}=${literal(value)}
         where id='${fixture.criteria}' returning id`);
-      const replacing = actor.query(replaceSQL(fixture, info));
-      replacing.catch(() => {});
-      await blocked(actorPid, barrierPid);
+      await promptRefusal(actor, `begin;
+        select set_config('app.u18_policy_caller','retained',true);
+        select id from public.risks where id='${f.other_risk}' for update;
+        ${replaceSQL(fixture, info)}`, "criteria profile is busy; reload the governed workspace");
+      await assertPolicyFenceReleased(actor,
+        [fixture.child, fixture.parent, fixture.grandparent], fixture.packet.analysisId);
       assertWholeStatePreserved(before, await state(), fixture);
       await barrier.query("commit");
-      assert.deepEqual(json(await replacing), { error: field === "basis"
+      await actor.query("rollback");
+      assert.deepEqual(json(await actor.query(replaceSQL(fixture, info))), { error: field === "basis"
         ? "replacement inputs or policy changed; reload the governed workspace"
         : "criteria profile must be adopted with decision thresholds before uncertainty analysis" });
       await assertActorContext(actor);
       assertWholeStatePreserved(before, await state(), fixture, writer);
     }
+    // U18_REPLACEMENT_POLICY_OPPOSITE BEGIN
+    // The real service writer owns policy first. The actual RPC must refuse
+    // policy NOWAIT and release its new risk/packet fences, allowing that
+    // opposite-order writer to finish while the caller TX remains open.
+    {
+      markPhase("U18_REPLACEMENT_POLICY_OPPOSITE");
+      const fixture = await replacementFixture("U18_REPLACEMENT_POLICY_OPPOSITE");
+      const info = await replacementRequest(fixture);
+      const before = await state();
+      const title = `${byId(before, "risks", fixture.child).title} Opposite-order writer.`;
+      const writer = replacementWriter("risks", (x) => x.child, () => ({ title }));
+      await barrier.query(`${serviceSQL}; begin;
+        select id from public.risk_criteria_profiles where id='${fixture.criteria}' for update`);
+      await promptRefusal(actor, `begin;
+        select set_config('app.u18_policy_caller','retained',true);
+        select id from public.risks where id='${f.other_risk}' for update;
+        ${replaceSQL(fixture, info)}`, "criteria profile is busy; reload the governed workspace");
+      await assertPolicyFenceReleased(actor,
+        [fixture.child, fixture.parent, fixture.grandparent], fixture.packet.analysisId);
+      assertWholeStatePreserved(before, await state(), fixture);
+      assert.equal((await barrier.query(`update public.risks set title=${literal(title)}
+        where id='${fixture.child}' returning id`)).at(-1), fixture.child);
+      await barrier.query("commit");
+      const after = await state();
+      assertWholeStatePreserved(before, after, fixture, writer);
+      await assertActorContext(actor);
+      await actor.query("rollback");
+      assertWholeStatePreserved(before, await state(), fixture, writer);
+    }
+    // U18_REPLACEMENT_POLICY_OPPOSITE END
     {
       markPhase("U18_REPLACEMENT_POLICY_AFTER");
       const fixture = await replacementFixture("U18_REPLACEMENT_POLICY_AFTER");
@@ -2103,14 +2179,16 @@ async function qualify() {
       const old = byId(before, "profiles", f.author);
       const value = field === "role" ? "technician" : f.foreign_org;
       const writer = profileWriter(field, value);
-      await barrier.query(`begin; select id from public.risk_criteria_profiles
-        where id='${fixture.criteria}' for update`);
+      await barrier.query(`${serviceSQL}; begin; select id from public.user_profiles
+        where id='${f.author}' for update`);
       const replacing = actor.query(replaceSQL(fixture, info));
       replacing.catch(() => {});
       await blocked(actorPid, barrierPid);
-      await changer.query(`${serviceSQL}; begin; update public.user_profiles
-        set ${field}=${literal(value)} where id='${f.author}' returning id; commit`);
-      const changed = await state();
+      // The session owning this exact profile lock performs the correction;
+      // a separate writer would itself block behind our barrier.
+      await barrier.query(`${serviceSQL}; update public.user_profiles
+        set ${field}=${literal(value)} where id='${f.author}' returning id`);
+      const changed = await state(barrier);
       assertWholeStatePreserved(before, changed, fixture, writer);
       await barrier.query("commit");
       assert.deepEqual(json(await replacing), {
