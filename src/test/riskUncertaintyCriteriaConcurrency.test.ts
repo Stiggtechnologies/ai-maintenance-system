@@ -34,6 +34,46 @@ const execute = new AsyncFunction(
 // Source contracts and actual-script containment, not execution of concurrent
 // SQL. Only the exact-head disposable PostgreSQL witness can qualify races.
 describe("U18 review criteria serialization", () => {
+  it("acquires and verifies the synthetic caller's prior lock as owner before the authenticated RPC", async () => {
+    const helper = script.match(
+      /async function beginPolicyCaller\(handle, priorRisk\) \{([^]*?)\n {4}\}\n {4}\/\/ U18 PRIOR CALLER LOCK END/,
+    )?.[1];
+    expect(helper).toBeDefined();
+    const run = new AsyncFunction("assert", "handle", "priorRisk", helper!);
+    const priorRisk = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const query = vi.fn().mockResolvedValue(["retained", priorRisk]);
+    await run(assert, { query }, priorRisk);
+    expect(query).toHaveBeenCalledTimes(1);
+    const sql = query.mock.calls[0][0];
+    expect(sql).toMatch(/^reset role;\s*begin;/);
+    expect(sql).toContain("app.u18_policy_caller");
+    expect(sql).toContain(`where id='${priorRisk}' for update`);
+    expect(sql).not.toContain("set role authenticated");
+    for (const rows of [[], ["retained"], ["different-risk"]]) {
+      await expect(
+        run(assert, { query: vi.fn().mockResolvedValue(rows) }, priorRisk),
+      ).rejects.toThrow();
+    }
+    const before =
+      script.split("// BEFORE-check:")[1]?.split("// Writer wins:")[0] ?? "";
+    expect(
+      before.indexOf("await beginPolicyCaller(actor, f.risk)"),
+    ).toBeGreaterThan(-1);
+    expect(
+      before.indexOf("await beginPolicyCaller(actor, f.risk)"),
+    ).toBeLessThan(before.indexOf("actor.query(reviewSQL(secondPacket))"));
+    expect(before).not.toContain("for update;");
+    const replacementBefore =
+      script
+        .split("// BEFORE-policy:")[1]
+        ?.split("// U18_REPLACEMENT_POLICY_OPPOSITE END")[0] ?? "";
+    expect(
+      replacementBefore.match(
+        /await beginPolicyCaller\(actor, f.other_risk\)/g,
+      ),
+    ).toHaveLength(2);
+    expect(replacementBefore).not.toContain("for update;");
+  });
   it("keeps busy-policy review and post-commit stale review as distinct actual RPC calls", () => {
     const before =
       script.split("// BEFORE-check:")[1]?.split("// Writer wins:")[0] ?? "";
@@ -43,7 +83,7 @@ describe("U18 review criteria serialization", () => {
     expect(before).toContain(
       "assertPolicyFenceReleased(actor, [f.other_risk], secondPacket.analysisId, f.reviewer)",
     );
-    expect(before).toContain("begin;");
+    expect(before).toContain("await beginPolicyCaller(actor, f.risk)");
     expect(before).toContain('await actor.query("rollback")');
     expect(before).toContain(
       "json(await actor.query(reviewSQL(secondPacket)))",

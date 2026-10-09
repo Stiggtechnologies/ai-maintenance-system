@@ -2,6 +2,67 @@
 
 **2026-10-06 — PARTIAL, CURRENT-MAIN DRAFT COMPOSITION; NOT RELEASE QUALIFICATION.**
 
+**2026-10-09 — published policy candidate failed concurrency qualification; bounded fixture repair and real-browser acceptance wiring require a fresh run.**
+Published `6642c461e58367e9e0cb971fe01a11ddd1a0ea04`, core run
+`37920757648`, is terminal failure. Its **8,887 tests in 550 files**,
+lint/typecheck/build, migration order and existing **16 browser scenarios**
+passed. Full-chain uncertainty native SQL passed at `11:13:24Z` and real
+GoTrue/PostgREST acceptance passed at `11:13:36Z`. The concurrency harness
+then failed at `U18_CRITERIA_BEFORE_CHECK` with server SQLSTATE `P0001`.
+Those preceding receipts do not qualify the failed concurrent schedules or
+the new browser acceptance scenario described below.
+
+The fixture assumed its authenticated caller's direct `SELECT FOR UPDATE`
+had acquired a prior unrelated risk lock. Canonical risk RLS has SELECT-only
+policies; such a query can return zero rows even when an ordinary read sees
+the risk. The retained-lock assertion therefore correctly failed. The bounded
+repair acquires this synthetic prior lock as the disposable database owner,
+asserts its exact returned UUID, and only then switches to the real human
+authenticated RPC. The existing third-session retained-lock assertion,
+RPC refusals, released-fence probes, caller context and thirteen-collection
+state comparisons remain unchanged. No product function, RLS, ACL or migration
+change is part of this repair. A new helper regression failed before repair
+and now rejects empty/wrong-row acquisition. A rollback-only PostgreSQL 16.13
+private mechanism check confirmed ordinary SELECT sees one row while SELECT
+FOR UPDATE sees zero under SELECT-only RLS; owner acquisition returns the
+exact row before switching to the caller role. The private server was stopped;
+its generated database directory was discarded after local disk exhaustion,
+while the mechanism scripts and diagnostic logs were retained.
+This mechanism check is not SyncAI RPC or full-chain qualification.
+
+New insert-only browser fixtures isolate retries in two fresh synthetic
+tenants. Separate named synthetic administrators adopt complete, explicitly
+synthetic criteria through the canonical adoption function; authors and
+reviewers are distinct engineers with genuine GoTrue sessions. The new
+Playwright scenario specifies real UI submission, same-author restriction,
+cross-tenant read refusal, real evidence-revision drift, explicit original-author
+replacement, an actual committed replacement with deliberately lost response,
+read-only exact-receipt reconciliation without a second write, frozen predecessor
+history and independent successor review. All non-VOI operational risk fields,
+decisions, work, stakeholder views and scenarios must remain unchanged.
+The second replacement click is scoped to the unique reason-bearing form,
+avoiding the identically named retained-packet button. Its inner `has` locator
+is relative to the form, not chained through the ancestor panel; an isolated
+Chromium DOM check reproduced the chained selector's zero-match defect.
+Fixture and selector
+source regressions failed before implementation. CI now provisions these
+fixtures through a marked owner connection pinned to disposable loopback,
+runs the new spec alongside every existing browser suite, and retains
+always-run stack teardown. CI wiring regressions also failed before integration.
+Actual fixture/native/browser execution on the repaired candidate remains
+required; source tests, discovery and review do not prove that execution.
+No register row is promoted and no production deployment is claimed.
+Local uncertainty/decision-preview and unchanged tenancy/definer qualification
+passes **1,574 tests in 22 files**. Application TypeScript, standalone browser
+TypeScript, owned zero-warning lint, Node syntax, browser discovery, diff checks
+and unchanged register ratchets pass. Independent security/architecture review
+passes **35 tests in three files** and an actual network-free Chromium selector
+probe finds exactly one replacement form and submit button. Independent harness
+review passes **50 tests in four files**, syntax and diff checks. These reviews
+approve bounded publication for fresh qualification, not shipping or GitHub
+account approval. The policy migration SHA-256 remains unchanged at
+`de6d7196f94aa0457229e273aba93c272fc14f89b5957b949322ab811c6bd003`.
+
 **2026-10-09 — published baseline qualified in disposable CI; local policy-availability extension pending native qualification.**
 Published `dcf6b1d289685c8a6c92e83255e0705683c1ec08`, core run
 `37691244193`, completed successfully on October 7. The database job

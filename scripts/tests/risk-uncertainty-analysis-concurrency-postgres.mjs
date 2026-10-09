@@ -373,6 +373,18 @@ async function qualify() {
       select set_config('request.jwt.claim.sub','${user}',false);
       select public.review_risk_uncertainty_analysis('${packet.analysisId}','validated',
         'Synthetic independent visibility-context qualification, not customer approval or operational authority.')`;
+    // Authenticated risks have no direct UPDATE policy: a readable row can
+    // return zero rows for SELECT FOR UPDATE. Acquire this unrelated synthetic
+    // caller-owned lock as the disposable owner and verify its exact identity
+    // BEFORE switching to the real authenticated RPC. No product/RLS bypass.
+    async function beginPolicyCaller(handle, priorRisk) {
+      const rows = await handle.query(`reset role;
+        begin;
+        select set_config('app.u18_policy_caller','retained',true);
+        select id from public.risks where id='${priorRisk}' for update`);
+      assert.equal(rows.at(-1), priorRisk);
+    }
+    // U18 PRIOR CALLER LOCK END
     // A busy policy must release only the RPC's new fence locks, even when
     // its caller keeps an explicit transaction and an earlier lock alive.
     async function assertPolicyFenceReleased(handle, riskIds, packetId, user = f.author) {
@@ -1231,11 +1243,9 @@ async function qualify() {
     await barrier.query(`begin; update public.risk_criteria_profiles set status='draft'
       where id='${f.criteria}' returning id`);
     const expectedRefusalState = await state(barrier);
+    await beginPolicyCaller(actor, f.risk);
     const startedBusy = Date.now();
-    assert.deepEqual(json(await actor.query(`begin;
-      select set_config('app.u18_policy_caller','retained',true);
-      select id from public.risks where id='${f.risk}' for update;
-      ${reviewSQL(secondPacket)}`)), { error: "criteria profile is busy; reload the governed workspace" });
+    assert.deepEqual(json(await actor.query(reviewSQL(secondPacket))), { error: "criteria profile is busy; reload the governed workspace" });
     assert(Date.now() - startedBusy < 5000);
     await assertPolicyFenceReleased(actor, [f.other_risk], secondPacket.analysisId, f.reviewer);
     assert.deepEqual(await state(), beforeBusy);
@@ -2004,10 +2014,8 @@ async function qualify() {
       const writer = replacementWriter("criteria", (x) => x.criteria, () => ({ [field]: value }));
       await barrier.query(`begin; update public.risk_criteria_profiles set ${field}=${literal(value)}
         where id='${fixture.criteria}' returning id`);
-      await promptRefusal(actor, `begin;
-        select set_config('app.u18_policy_caller','retained',true);
-        select id from public.risks where id='${f.other_risk}' for update;
-        ${replaceSQL(fixture, info)}`, "criteria profile is busy; reload the governed workspace");
+      await beginPolicyCaller(actor, f.other_risk);
+      await promptRefusal(actor, replaceSQL(fixture, info), "criteria profile is busy; reload the governed workspace");
       await assertPolicyFenceReleased(actor,
         [fixture.child, fixture.parent, fixture.grandparent], fixture.packet.analysisId);
       assertWholeStatePreserved(before, await state(), fixture);
@@ -2032,10 +2040,8 @@ async function qualify() {
       const writer = replacementWriter("risks", (x) => x.child, () => ({ title }));
       await barrier.query(`${serviceSQL}; begin;
         select id from public.risk_criteria_profiles where id='${fixture.criteria}' for update`);
-      await promptRefusal(actor, `begin;
-        select set_config('app.u18_policy_caller','retained',true);
-        select id from public.risks where id='${f.other_risk}' for update;
-        ${replaceSQL(fixture, info)}`, "criteria profile is busy; reload the governed workspace");
+      await beginPolicyCaller(actor, f.other_risk);
+      await promptRefusal(actor, replaceSQL(fixture, info), "criteria profile is busy; reload the governed workspace");
       await assertPolicyFenceReleased(actor,
         [fixture.child, fixture.parent, fixture.grandparent], fixture.packet.analysisId);
       assertWholeStatePreserved(before, await state(), fixture);
