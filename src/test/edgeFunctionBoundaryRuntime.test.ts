@@ -1,0 +1,462 @@
+// @vitest-environment node
+import { spawnSync } from "node:child_process";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { describe, expect, it } from "vitest";
+import { parse } from "yaml";
+
+const reviewedInstaller = "45a513f8c64c0bc8e0e3dfe572b5c95be85f6359";
+const read = (relative: string) => readFileSync(relative, "utf8");
+const checker = read("scripts/check-edge-function-boundary.mjs");
+const boundaryJson = read("config/edge-function-boundary.json");
+const boundary = JSON.parse(boundaryJson) as {
+  supabaseCliVersion: string;
+  activeFunctions: string[];
+  blockedLegacyFunctions: string[];
+  allowedNoVerifyJwt: string[];
+};
+const deploy = read(".github/workflows/deploy-migrations.yml");
+// Exercise the intended v3 interface before the workflow repair is applied.
+const validDeploy = deploy.replace(/^\s*github-token:.*\n/gm, "");
+const installerInputs = "        with:\n          version: 2.84.2";
+const boundaryStep = "      - name: Verify approved Edge Function boundary";
+// GitHub owner/repository identity is case-insensitive. Classify subpaths of
+// the same repository too, while the approved interface remains exact/literal.
+const isSetupCliReference = (uses?: string) =>
+  /^supabase\/setup-cli(?:@|\/)/i.test(uses ?? "");
+
+function parsedInstallerSteps(workflow: string) {
+  return (
+    parse(workflow) as {
+      jobs: {
+        "push-migrations": {
+          steps: { uses?: string; with?: { version?: string } }[];
+        };
+      };
+    }
+  ).jobs["push-migrations"].steps.filter((step) =>
+    isSetupCliReference(step.uses),
+  );
+}
+
+function runChecker(workflow: string) {
+  const fixture = mkdtempSync(path.join(tmpdir(), "syncai-edge-boundary-"));
+  try {
+    for (const directory of ["scripts", "config", ".github/workflows"])
+      mkdirSync(path.join(fixture, directory), { recursive: true });
+    // Run the actual, unmodified checker from its own repository-shaped root.
+    writeFileSync(
+      path.join(fixture, "scripts/check-edge-function-boundary.mjs"),
+      checker,
+    );
+    writeFileSync(
+      path.join(fixture, "config/edge-function-boundary.json"),
+      boundaryJson,
+    );
+    writeFileSync(
+      path.join(fixture, ".github/workflows/deploy-migrations.yml"),
+      workflow,
+    );
+    const result = spawnSync(
+      process.execPath,
+      [path.join(fixture, "scripts/check-edge-function-boundary.mjs")],
+      {
+        cwd: fixture,
+        encoding: "utf8",
+        timeout: 10_000,
+      },
+    );
+    expect(result.error).toBeUndefined();
+    expect(result.signal).toBeNull();
+    return { status: result.status, output: result.stdout + result.stderr };
+  } finally {
+    // Only the exact fixture directory created by this invocation is removed.
+    rmSync(fixture, { recursive: true, force: true });
+  }
+}
+
+describe("Edge deployment checker runtime compatibility", () => {
+  it("accepts the reviewed v3 SHA and version-only interface with the unchanged boundary", () => {
+    const result = runChecker(validDeploy);
+    expect(result.status, result.output).toBe(0);
+    expect(result.output).toContain("Edge-function boundary verified");
+    expect(boundary.supabaseCliVersion).toBe("2.84.2");
+    expect(boundary.activeFunctions).toHaveLength(33);
+    expect(boundary.blockedLegacyFunctions).toHaveLength(14);
+    expect(boundary.allowedNoVerifyJwt).toHaveLength(5);
+  });
+
+  it.each([
+    ["moving tag", "v3.0.1"],
+    ["short SHA", reviewedInstaller.slice(0, 12)],
+    ["unreviewed full SHA", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"],
+  ])("rejects a %s even with the reviewed version comment", (_label, pin) => {
+    const result = runChecker(validDeploy.replace(reviewedInstaller, pin));
+    expect(result.status, result.output).toBe(1);
+    expect(result.output).toContain(
+      "reviewed immutable supabase/setup-cli v3.0.1",
+    );
+  });
+
+  it("rejects a misleading installer version comment", () => {
+    const result = runChecker(validDeploy.replace("# v3.0.1", "# v3.0.2"));
+    expect(result.status, result.output).toBe(1);
+    expect(result.output).toContain(
+      "reviewed immutable supabase/setup-cli v3.0.1",
+    );
+  });
+
+  it("rejects a second installer invocation", () => {
+    const result = runChecker(
+      validDeploy +
+        `\n      - uses: supabase/setup-cli@${reviewedInstaller} # v3.0.1\n        with:\n          version: 2.84.2\n`,
+    );
+    expect(result.status, result.output).toBe(1);
+    expect(result.output).toContain("exactly one");
+  });
+
+  it("rejects a second named installer rather than ignoring its alternate step spelling", () => {
+    const result = runChecker(
+      validDeploy +
+        `\n      - name: Unreviewed second installer\n        uses: supabase/setup-cli@v3\n        with:\n          version: latest\n`,
+    );
+    expect(result.status, result.output).toBe(1);
+    expect(result.output).toContain("exactly one");
+  });
+
+  it("rejects a valid YAML second installer with a quoted uses value", () => {
+    const workflow = validDeploy.replace(
+      boundaryStep,
+      `      - name: Second installer\n        uses: "supabase/setup-cli@v3"\n        with:\n          version: latest\n\n${boundaryStep}`,
+    );
+    expect(
+      parsedInstallerSteps(workflow).map((step) => step.with?.version),
+    ).toEqual(["2.84.2", "latest"]);
+    const result = runChecker(workflow);
+    expect(result.status, result.output).toBe(1);
+  });
+
+  it.each([
+    "Supabase/setup-cli",
+    "supabase/Setup-CLI",
+    "Supabase/Setup-CLI",
+    "SUPABASE/SETUP-CLI",
+    "Supabase/Setup-CLI/",
+    "Supabase/Setup-CLI/.",
+  ])(
+    "rejects a second installer with repository identity spelling %s",
+    (repository) => {
+      const workflow = validDeploy.replace(
+        boundaryStep,
+        `      - name: Second installer\n        uses: ${repository}@v3\n        with:\n          version: latest\n\n${boundaryStep}`,
+      );
+      expect(
+        parsedInstallerSteps(workflow).map((step) => step.with?.version),
+      ).toEqual(["2.84.2", "latest"]);
+      const result = runChecker(workflow);
+      expect(result.status, result.output).toBe(1);
+      expect(result.output).toContain("exactly one");
+    },
+  );
+
+  it("does not accept case normalization as a replacement for the exact reviewed literal template", () => {
+    const workflow = validDeploy.replace(
+      "supabase/setup-cli@",
+      "Supabase/Setup-CLI@",
+    );
+    expect(parsedInstallerSteps(workflow)).toHaveLength(1);
+    const result = runChecker(workflow);
+    expect(result.status, result.output).toBe(1);
+    expect(result.output).toContain("exactly one");
+  });
+
+  it("rejects valid YAML with decoy inputs inside an env scalar and an actual latest CLI", () => {
+    const workflow = validDeploy.replace(
+      installerInputs,
+      "        env:\n          DECOY: |\n            with:\n              version: 2.84.2\n        with:\n          version: latest",
+    );
+    expect(parsedInstallerSteps(workflow)[0].with?.version).toBe("latest");
+    const result = runChecker(workflow);
+    expect(result.status, result.output).toBe(1);
+  });
+
+  it.each([
+    [
+      "single-quoted action",
+      (workflow: string) =>
+        workflow.replace(
+          `supabase/setup-cli@${reviewedInstaller}`,
+          `'supabase/setup-cli@${reviewedInstaller}'`,
+        ),
+    ],
+    [
+      "flow-style second installer",
+      (workflow: string) =>
+        workflow.replace(
+          boundaryStep,
+          `      - { uses: "supabase/setup-cli@v3", with: { version: latest } }\n${boundaryStep}`,
+        ),
+    ],
+    [
+      "escaped second action",
+      (workflow: string) =>
+        workflow.replace(
+          boundaryStep,
+          `      - name: Escaped second installer\n        uses: "\\x73upabase/setup-cli@v3"\n        with:\n          version: latest\n${boundaryStep}`,
+        ),
+    ],
+    [
+      "quoted uses key",
+      (workflow: string) =>
+        workflow.replace(
+          boundaryStep,
+          `      - name: Second installer\n        "uses": supabase/setup-cli@v3\n        with:\n          version: latest\n${boundaryStep}`,
+        ),
+    ],
+    [
+      "flow-style inputs",
+      (workflow: string) =>
+        workflow.replace(installerInputs, "        with: { version: latest }"),
+    ],
+    [
+      "anchored inputs",
+      (workflow: string) =>
+        workflow.replace(
+          installerInputs,
+          "        with: &installer-inputs\n          version: latest",
+        ),
+    ],
+    [
+      "aliased inputs",
+      (workflow: string) =>
+        workflow.replace(
+          installerInputs,
+          "        env: &installer-inputs\n          version: latest\n        with: *installer-inputs",
+        ),
+    ],
+    [
+      "merge-key inputs",
+      (workflow: string) =>
+        workflow.replace(
+          installerInputs,
+          "        env: &installer-inputs\n          version: latest\n        with:\n          <<: *installer-inputs",
+        ),
+    ],
+    [
+      "folded scalar decoy",
+      (workflow: string) =>
+        workflow.replace(
+          installerInputs,
+          "        env:\n          DECOY: >-\n            with:\n              version: 2.84.2\n        with:\n          version: latest",
+        ),
+    ],
+    [
+      "explicitly indented scalar decoy",
+      (workflow: string) =>
+        workflow.replace(
+          installerInputs,
+          "        env:\n          DECOY: |2-\n            with:\n              version: 2.84.2\n        with:\n          version: latest",
+        ),
+    ],
+  ])("fails closed for valid but unsupported %s YAML", (_label, mutate) => {
+    const workflow = mutate(validDeploy);
+    expect(() => parse(workflow)).not.toThrow();
+    const result = runChecker(workflow);
+    expect(result.status, result.output).toBe(1);
+  });
+
+  it("rejects duplicate version inputs rather than taking the first text match", () => {
+    const workflow = validDeploy.replace(
+      installerInputs,
+      `${installerInputs}\n          version: latest`,
+    );
+    expect(() => parse(workflow)).toThrow();
+    const result = runChecker(workflow);
+    expect(result.status, result.output).toBe(1);
+    expect(result.output).toContain("only the supported version input");
+  });
+
+  it("rejects a duplicate with mapping rather than taking the first text match", () => {
+    const workflow = validDeploy.replace(
+      installerInputs,
+      `${installerInputs}\n        with:\n          version: latest`,
+    );
+    expect(() => parse(workflow)).toThrow();
+    const result = runChecker(workflow);
+    expect(result.status, result.output).toBe(1);
+    expect(result.output).toContain("only the supported version input");
+  });
+
+  it("requires the installer-bearing job to actually belong to jobs", () => {
+    const workflow = validDeploy.replace(
+      "  push-migrations:",
+      "other:\n  push-migrations:",
+    );
+    const parsed = parse(workflow) as {
+      jobs: Record<string, unknown>;
+      other: Record<string, unknown>;
+    };
+    expect(parsed.jobs["push-migrations"]).toBeUndefined();
+    expect(parsed.other["push-migrations"]).toBeDefined();
+    const result = runChecker(workflow);
+    expect(result.status, result.output).toBe(1);
+  });
+
+  it("rejects CLI drift even if the expected version appears elsewhere", () => {
+    const result = runChecker(
+      validDeploy.replace("version: 2.84.2", "version: 2.108.0") +
+        "\n# version: 2.84.2\n",
+    );
+    expect(result.status, result.output).toBe(1);
+    expect(result.output).toContain("pin Supabase CLI 2.84.2");
+  });
+
+  it.each([
+    ["obsolete github-token", "github-token: ${{ github.token }}"],
+    ["unrecognized input", "unreviewed-input: true"],
+  ])("rejects the %s input", (_label, input) => {
+    const result = runChecker(
+      validDeploy.replace(
+        "version: 2.84.2",
+        `version: 2.84.2\n          ${input}`,
+      ),
+    );
+    expect(result.status, result.output).toBe(1);
+    expect(result.output).toContain("only the supported version input");
+  });
+
+  it.each([
+    [
+      "deploy --all",
+      (workflow: string) =>
+        workflow + "\n          supabase functions deploy --all\n",
+      "deploy --all is prohibited",
+    ],
+    [
+      "unapproved function",
+      (workflow: string) =>
+        workflow + "\n          supabase functions deploy unapproved-runtime\n",
+      "do not match active boundary",
+    ],
+    [
+      "blocked function",
+      (workflow: string) =>
+        workflow +
+        `\n          supabase functions deploy ${boundary.blockedLegacyFunctions[0]}\n`,
+      "blocked legacy function",
+    ],
+    [
+      "extra JWT exception",
+      (workflow: string) =>
+        workflow.replace(
+          "supabase functions deploy sync-runtime",
+          "supabase functions deploy sync-runtime --no-verify-jwt",
+        ),
+      "do not match the reviewed exception set",
+    ],
+    [
+      "missing JWT exception",
+      (workflow: string) => workflow.replace("--no-verify-jwt", ""),
+      "do not match the reviewed exception set",
+    ],
+    [
+      "missing active trigger",
+      (workflow: string) =>
+        workflow.replace(
+          `supabase/functions/${boundary.activeFunctions[0]}/**`,
+          "supabase/functions/absent/**",
+        ),
+      "deployment trigger is missing",
+    ],
+    [
+      "blocked trigger",
+      (workflow: string) =>
+        workflow +
+        `\n# supabase/functions/${boundary.blockedLegacyFunctions[0]}/**\n`,
+      "is in deployment triggers",
+    ],
+  ])("still rejects %s", (_label, mutate, message) => {
+    const result = runChecker(mutate(validDeploy));
+    expect(result.status, result.output).toBe(1);
+    expect(result.output).toContain(message);
+  });
+});
+
+describe("Reviewed setup-cli interface in every existing workflow", () => {
+  it("classifies case variants and repository subpaths, not differently named repositories", () => {
+    expect(isSetupCliReference("Supabase/Setup-CLI@v3")).toBe(true);
+    expect(isSetupCliReference("SUPABASE/SETUP-CLI/@v3")).toBe(true);
+    expect(isSetupCliReference("supabase/setup-cli-fork@v3")).toBe(false);
+    expect(isSetupCliReference(undefined)).toBe(false);
+  });
+  it("uses the reviewed SHA and only CLI 2.84.2 in all ten invocations across nine workflows", () => {
+    const names = [
+      "approval-authority",
+      "approval-enforcement",
+      "ci",
+      "database-restore-drill",
+      "deploy-migrations",
+      "domain-specialists-closeout",
+      "migration-drift",
+      "recovery-closeout",
+      "ria-lifecycle",
+    ];
+    let invocations = 0;
+    for (const name of names) {
+      const workflow = parse(read(`.github/workflows/${name}.yml`)) as {
+        jobs: Record<
+          string,
+          {
+            "runs-on": string;
+            steps: { uses?: string; with?: Record<string, unknown> }[];
+          }
+        >;
+      };
+      let workflowInvocations = 0;
+      for (const job of Object.values(workflow.jobs)) {
+        for (const [index, step] of (job.steps ?? []).entries()) {
+          if (!isSetupCliReference(step.uses)) continue;
+          expect(job["runs-on"]).toBe("ubuntu-latest");
+          expect(step.uses).toBe(`supabase/setup-cli@${reviewedInstaller}`);
+          expect(step.with).toEqual({ version: "2.84.2" });
+          // v3 needs Node/npm >=20. Existing explicit setup steps pin 22;
+          // otherwise these jobs retain the hosted Ubuntu runner environment.
+          for (const earlier of job.steps.slice(0, index)) {
+            if (earlier.uses?.startsWith("actions/setup-node@"))
+              expect(
+                Number(earlier.with?.["node-version"]),
+              ).toBeGreaterThanOrEqual(20);
+          }
+          workflowInvocations++;
+          invocations++;
+        }
+      }
+      expect(workflowInvocations).toBe(name === "ci" ? 2 : 1);
+    }
+    expect(invocations).toBe(10);
+  });
+
+  it("keeps the main-only deployment gate and normal required unit-test discovery", () => {
+    const workflow = parse(deploy) as {
+      on: { push: { branches: string[] } };
+      jobs: { "push-migrations": { if: string } };
+    };
+    expect(workflow.on.push.branches).toEqual(["main"]);
+    expect(workflow.jobs["push-migrations"].if).toBe(
+      "github.ref == 'refs/heads/main'",
+    );
+    expect(read("vitest.config.ts")).toContain("src/**/*.{test,spec}.{ts,tsx}");
+    const packageJson = JSON.parse(read("package.json")) as {
+      scripts: { test: string };
+    };
+    expect(packageJson.scripts.test).toContain("vitest run");
+    expect(read(".github/workflows/ci.yml")).toContain("run: npm run test");
+  });
+});
