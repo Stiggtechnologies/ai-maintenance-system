@@ -105,12 +105,13 @@ async function openRisk(page: Page, attempt: number) {
     .click();
   const response = await read;
   const data = await receipt(response);
-  await expect(
-    page.getByRole("heading", {
-      name: `U18 browser synthetic cooling risk ${attempt}`,
-      exact: true,
-    }),
-  ).toBeVisible();
+  const detailHeading = page.getByRole("heading", {
+    name: `U18 browser synthetic cooling risk ${attempt}`,
+    exact: true,
+    level: 2,
+  });
+  await expect(detailHeading).toHaveCount(1);
+  await expect(detailHeading).toBeVisible();
   const panel = page.locator("section").filter({
     has: page.getByRole("heading", {
       name: "Governed uncertainty analysis",

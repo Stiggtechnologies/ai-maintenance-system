@@ -7,6 +7,20 @@ const spec = read("tests/e2e/risk-uncertainty.spec.ts");
 const fixture = read("scripts/tests/risk-uncertainty-browser-fixture.sql");
 
 describe("U18 actual browser acceptance containment", () => {
+  it("selects the unique level-two risk detail heading rather than its identically named card", () => {
+    const detail =
+      spec.match(
+        /const detailHeading = page\.getByRole\("heading", \{([^]*?)\}\);/,
+      )?.[1] ?? "";
+    expect(detail).toContain(
+      "name: `U18 browser synthetic cooling risk ${attempt}`",
+    );
+    expect(detail).toContain("exact: true");
+    expect(detail).toContain("level: 2");
+    expect(spec).toContain("await expect(detailHeading).toHaveCount(1)");
+    expect(spec).toContain("await expect(detailHeading).toBeVisible()");
+    expect(spec).not.toMatch(/\.first\(\)|\.nth\(/);
+  });
   it("evaluates the reason locator relative to its candidate form, without referring to the panel ancestor", () => {
     const filter =
       spec

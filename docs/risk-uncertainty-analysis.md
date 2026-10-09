@@ -2,6 +2,44 @@
 
 **2026-10-06 — PARTIAL, CURRENT-MAIN DRAFT COMPOSITION; NOT RELEASE QUALIFICATION.**
 
+**2026-10-09 — native policy/concurrency qualification passed; human-browser qualification failed; bounded heading repair requires fresh exact-head CI.**
+Published `95eae28833269fbcc3f4ee3cdc04f7c9398aa115`, core run
+`37924079866`, is terminal failure. Its unit job passed **8,897 tests in
+552 files**. Lint/typecheck/build and migration order passed. Database job
+`113798731425` succeeded: full migration chain, uncertainty preflight
+(`11:42:14Z`), actual native uncertainty SQL (`11:47:46Z`), real
+GoTrue/PostgREST acceptance (`11:47:58Z`) and multi-session concurrency
+(`11:48:05Z`) all passed. The concurrency receipt covers actual bound ACKs,
+criteria contention, retained prior locks, partial-lock release, inverse
+visibility/scenario/profile drift and competing replacement schedules with
+two-tenant state preservation. Ancestor deletion remains open because the
+canonical provenance guard does not permit the legitimate deletion witness.
+These are disposable-CI receipts, not production or complete source-standing
+qualification. They qualify that published head only.
+
+The insert-only synthetic browser fixture succeeded. All **16 existing browser
+scenarios** passed, but the new U18 scenario failed on both attempts at the
+first risk-detail heading check, before submission. The exact risk title occurs
+in both a list-card `h3` and the selected detail `h2`, so the unqualified heading
+locator violates Playwright strictness. No later submission, replacement,
+lost-response reconciliation or independent-review browser step is claimed
+executed by this run.
+
+This revision selects the exact risk's **level-two** detail heading and requires
+exactly one visible match. It does not use `first()`/`nth()`, remove assertions,
+or change product, authentication, tenant, approval or migration behavior.
+The new regression failed before repair. Local uncertainty/decision-preview
+and unchanged tenancy/definer checks pass **1,575 tests in 22 files**; owned
+zero-warning lint, strict browser TypeScript and diff checks pass. Independent
+security review passes **10 tests in two files**; independent harness review
+passes **51 tests in four files**. A real, network-free Chromium DOM probe
+confirms the old locator has two matches and the repaired locator has one
+visible match. These checks qualify bounded publication only: the complete
+original browser workflow and full CI must run on the new commit. The policy
+migration remains byte-identical. No register is promoted, merge is authorized
+or production deployment is claimed. Earlier dated entries below are historical
+and must not be read as the current qualification status.
+
 **2026-10-09 — published policy candidate failed concurrency qualification; bounded fixture repair and real-browser acceptance wiring require a fresh run.**
 Published `6642c461e58367e9e0cb971fe01a11ddd1a0ea04`, core run
 `37920757648`, is terminal failure. Its **8,887 tests in 550 files**,
