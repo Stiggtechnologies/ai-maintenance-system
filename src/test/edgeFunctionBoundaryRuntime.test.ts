@@ -27,6 +27,10 @@ const deploy = read(".github/workflows/deploy-migrations.yml");
 const validDeploy = deploy.replace(/^\s*github-token:.*\n/gm, "");
 const installerInputs = "        with:\n          version: 2.84.2";
 const boundaryStep = "      - name: Verify approved Edge Function boundary";
+// GitHub owner/repository identity is case-insensitive. Classify subpaths of
+// the same repository too, while the approved interface remains exact/literal.
+const isSetupCliReference = (uses?: string) =>
+  /^supabase\/setup-cli(?:@|\/)/i.test(uses ?? "");
 
 function parsedInstallerSteps(workflow: string) {
   return (
@@ -38,7 +42,7 @@ function parsedInstallerSteps(workflow: string) {
       };
     }
   ).jobs["push-migrations"].steps.filter((step) =>
-    step.uses?.startsWith("supabase/setup-cli@"),
+    isSetupCliReference(step.uses),
   );
 }
 
@@ -137,6 +141,40 @@ describe("Edge deployment checker runtime compatibility", () => {
     ).toEqual(["2.84.2", "latest"]);
     const result = runChecker(workflow);
     expect(result.status, result.output).toBe(1);
+  });
+
+  it.each([
+    "Supabase/setup-cli",
+    "supabase/Setup-CLI",
+    "Supabase/Setup-CLI",
+    "SUPABASE/SETUP-CLI",
+    "Supabase/Setup-CLI/",
+    "Supabase/Setup-CLI/.",
+  ])(
+    "rejects a second installer with repository identity spelling %s",
+    (repository) => {
+      const workflow = validDeploy.replace(
+        boundaryStep,
+        `      - name: Second installer\n        uses: ${repository}@v3\n        with:\n          version: latest\n\n${boundaryStep}`,
+      );
+      expect(
+        parsedInstallerSteps(workflow).map((step) => step.with?.version),
+      ).toEqual(["2.84.2", "latest"]);
+      const result = runChecker(workflow);
+      expect(result.status, result.output).toBe(1);
+      expect(result.output).toContain("exactly one");
+    },
+  );
+
+  it("does not accept case normalization as a replacement for the exact reviewed literal template", () => {
+    const workflow = validDeploy.replace(
+      "supabase/setup-cli@",
+      "Supabase/Setup-CLI@",
+    );
+    expect(parsedInstallerSteps(workflow)).toHaveLength(1);
+    const result = runChecker(workflow);
+    expect(result.status, result.output).toBe(1);
+    expect(result.output).toContain("exactly one");
   });
 
   it("rejects valid YAML with decoy inputs inside an env scalar and an actual latest CLI", () => {
@@ -352,6 +390,12 @@ describe("Edge deployment checker runtime compatibility", () => {
 });
 
 describe("Reviewed setup-cli interface in every existing workflow", () => {
+  it("classifies case variants and repository subpaths, not differently named repositories", () => {
+    expect(isSetupCliReference("Supabase/Setup-CLI@v3")).toBe(true);
+    expect(isSetupCliReference("SUPABASE/SETUP-CLI/@v3")).toBe(true);
+    expect(isSetupCliReference("supabase/setup-cli-fork@v3")).toBe(false);
+    expect(isSetupCliReference(undefined)).toBe(false);
+  });
   it("uses the reviewed SHA and only CLI 2.84.2 in all ten invocations across nine workflows", () => {
     const names = [
       "approval-authority",
@@ -378,7 +422,7 @@ describe("Reviewed setup-cli interface in every existing workflow", () => {
       let workflowInvocations = 0;
       for (const job of Object.values(workflow.jobs)) {
         for (const [index, step] of (job.steps ?? []).entries()) {
-          if (!step.uses?.startsWith("supabase/setup-cli@")) continue;
+          if (!isSetupCliReference(step.uses)) continue;
           expect(job["runs-on"]).toBe("ubuntu-latest");
           expect(step.uses).toBe(`supabase/setup-cli@${reviewedInstaller}`);
           expect(step.with).toEqual({ version: "2.84.2" });

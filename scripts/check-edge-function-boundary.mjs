@@ -193,9 +193,10 @@ const setupCliSteps = deploymentSteps
     ),
   }))
   .filter((step) => step.match !== null);
-// Count literal references everywhere too; quoted/flow/comment/scalar decoys
-// are not permitted to smuggle in a second reference outside the template.
-const setupCliReferences = [...workflow.matchAll(/supabase\/setup-cli/g)]
+// GitHub owner/repository names are case-insensitive: classify every spelling
+// of this repository, without relaxing the exact reviewed literal step above.
+// Quoted/flow/comment/scalar references outside that template fail closed too.
+const setupCliReferences = [...workflow.matchAll(/supabase\/setup-cli/gi)]
   .length;
 if (setupCliSteps.length !== 1 || setupCliReferences !== 1) {
   failures.push(
