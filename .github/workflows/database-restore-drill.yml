@@ -39,7 +39,6 @@ jobs:
       - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
         with:
           version: 2.84.2
-          github-token: ${{ github.token }}
       - name: Initialize the local source from the exact full migration chain
         run: supabase start
       - name: Restore into a new network-isolated database and qualify it

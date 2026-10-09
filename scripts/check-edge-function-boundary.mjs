@@ -88,22 +88,61 @@ for (const name of blocked) {
   }
 }
 
-if (
-  !/uses:\s*supabase\/setup-cli@[0-9a-f]{40}\s+#\s+v2(?:\.|\s|$)/i.test(
-    workflow,
-  )
-) {
+// Reviewed v3.0.1 action.yml supports only `version`; github-token was removed.
+// Pin the exact reviewed action, not any 40-character SHA labelled "v3".
+const reviewedSetupCli = "45a513f8c64c0bc8e0e3dfe572b5c95be85f6359";
+const setupCliSteps = [
+  ...workflow.matchAll(
+    /^([ \t]*)-\s+uses:[ \t]*supabase\/setup-cli@([^\s#]+)([^\r\n]*)$/gm,
+  ),
+];
+const setupCliInvocationCount = [
+  ...workflow.matchAll(/^[ \t]*(?:-[ \t]+)?uses:[ \t]*supabase\/setup-cli@/gm),
+].length;
+if (setupCliSteps.length !== 1 || setupCliInvocationCount !== 1) {
   failures.push(
-    "deployment workflow must use a full-length immutable SHA for supported supabase/setup-cli v2",
+    "deployment workflow must contain exactly one reviewed setup-cli step",
   );
 }
-if (!workflow.includes(`version: ${boundary.supabaseCliVersion}`)) {
-  failures.push(
-    `deployment workflow must pin Supabase CLI ${boundary.supabaseCliVersion}`,
-  );
-}
-if (!workflow.includes("github-token: ${{ github.token }}")) {
-  failures.push("deployment workflow must pass github-token to setup-cli");
+for (const step of setupCliSteps) {
+  if (
+    step[2] !== reviewedSetupCli ||
+    !/^[ \t]+#[ \t]+v3\.0\.1[ \t]*$/.test(step[3])
+  ) {
+    failures.push(
+      "deployment workflow must use the reviewed immutable supabase/setup-cli v3.0.1 SHA",
+    );
+  }
+  // Scope inputs to this step: a version in another step or comment is not a pin.
+  const indent = step[1].length;
+  const lines = [];
+  for (const line of workflow
+    .slice(step.index + step[0].length)
+    .split(/\r?\n/)) {
+    if (!line.trim() || line.trimStart().startsWith("#")) continue;
+    if (line.length - line.trimStart().length <= indent) break;
+    lines.push(line);
+  }
+  const withIndex = lines.findIndex((line) => line.trim() === "with:");
+  const inputs = [];
+  if (withIndex !== -1) {
+    const withIndent =
+      lines[withIndex].length - lines[withIndex].trimStart().length;
+    for (const line of lines.slice(withIndex + 1)) {
+      if (line.length - line.trimStart().length <= withIndent) break;
+      inputs.push(line.trim());
+    }
+  }
+  if (inputs.length !== 1 || !/^version:[ \t]+\S+$/.test(inputs[0] ?? "")) {
+    failures.push(
+      "setup-cli v3.0.1 must receive only the supported version input",
+    );
+  }
+  if (inputs[0] !== `version: ${boundary.supabaseCliVersion}`) {
+    failures.push(
+      `deployment workflow must pin Supabase CLI ${boundary.supabaseCliVersion} in setup-cli with.version`,
+    );
+  }
 }
 
 if (failures.length > 0) {
