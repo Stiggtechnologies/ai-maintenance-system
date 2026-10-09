@@ -25,6 +25,22 @@ const boundary = JSON.parse(boundaryJson) as {
 const deploy = read(".github/workflows/deploy-migrations.yml");
 // Exercise the intended v3 interface before the workflow repair is applied.
 const validDeploy = deploy.replace(/^\s*github-token:.*\n/gm, "");
+const installerInputs = "        with:\n          version: 2.84.2";
+const boundaryStep = "      - name: Verify approved Edge Function boundary";
+
+function parsedInstallerSteps(workflow: string) {
+  return (
+    parse(workflow) as {
+      jobs: {
+        "push-migrations": {
+          steps: { uses?: string; with?: { version?: string } }[];
+        };
+      };
+    }
+  ).jobs["push-migrations"].steps.filter((step) =>
+    step.uses?.startsWith("supabase/setup-cli@"),
+  );
+}
 
 function runChecker(workflow: string) {
   const fixture = mkdtempSync(path.join(tmpdir(), "syncai-edge-boundary-"));
@@ -109,6 +125,150 @@ describe("Edge deployment checker runtime compatibility", () => {
     );
     expect(result.status, result.output).toBe(1);
     expect(result.output).toContain("exactly one");
+  });
+
+  it("rejects a valid YAML second installer with a quoted uses value", () => {
+    const workflow = validDeploy.replace(
+      boundaryStep,
+      `      - name: Second installer\n        uses: "supabase/setup-cli@v3"\n        with:\n          version: latest\n\n${boundaryStep}`,
+    );
+    expect(
+      parsedInstallerSteps(workflow).map((step) => step.with?.version),
+    ).toEqual(["2.84.2", "latest"]);
+    const result = runChecker(workflow);
+    expect(result.status, result.output).toBe(1);
+  });
+
+  it("rejects valid YAML with decoy inputs inside an env scalar and an actual latest CLI", () => {
+    const workflow = validDeploy.replace(
+      installerInputs,
+      "        env:\n          DECOY: |\n            with:\n              version: 2.84.2\n        with:\n          version: latest",
+    );
+    expect(parsedInstallerSteps(workflow)[0].with?.version).toBe("latest");
+    const result = runChecker(workflow);
+    expect(result.status, result.output).toBe(1);
+  });
+
+  it.each([
+    [
+      "single-quoted action",
+      (workflow: string) =>
+        workflow.replace(
+          `supabase/setup-cli@${reviewedInstaller}`,
+          `'supabase/setup-cli@${reviewedInstaller}'`,
+        ),
+    ],
+    [
+      "flow-style second installer",
+      (workflow: string) =>
+        workflow.replace(
+          boundaryStep,
+          `      - { uses: "supabase/setup-cli@v3", with: { version: latest } }\n${boundaryStep}`,
+        ),
+    ],
+    [
+      "escaped second action",
+      (workflow: string) =>
+        workflow.replace(
+          boundaryStep,
+          `      - name: Escaped second installer\n        uses: "\\x73upabase/setup-cli@v3"\n        with:\n          version: latest\n${boundaryStep}`,
+        ),
+    ],
+    [
+      "quoted uses key",
+      (workflow: string) =>
+        workflow.replace(
+          boundaryStep,
+          `      - name: Second installer\n        "uses": supabase/setup-cli@v3\n        with:\n          version: latest\n${boundaryStep}`,
+        ),
+    ],
+    [
+      "flow-style inputs",
+      (workflow: string) =>
+        workflow.replace(installerInputs, "        with: { version: latest }"),
+    ],
+    [
+      "anchored inputs",
+      (workflow: string) =>
+        workflow.replace(
+          installerInputs,
+          "        with: &installer-inputs\n          version: latest",
+        ),
+    ],
+    [
+      "aliased inputs",
+      (workflow: string) =>
+        workflow.replace(
+          installerInputs,
+          "        env: &installer-inputs\n          version: latest\n        with: *installer-inputs",
+        ),
+    ],
+    [
+      "merge-key inputs",
+      (workflow: string) =>
+        workflow.replace(
+          installerInputs,
+          "        env: &installer-inputs\n          version: latest\n        with:\n          <<: *installer-inputs",
+        ),
+    ],
+    [
+      "folded scalar decoy",
+      (workflow: string) =>
+        workflow.replace(
+          installerInputs,
+          "        env:\n          DECOY: >-\n            with:\n              version: 2.84.2\n        with:\n          version: latest",
+        ),
+    ],
+    [
+      "explicitly indented scalar decoy",
+      (workflow: string) =>
+        workflow.replace(
+          installerInputs,
+          "        env:\n          DECOY: |2-\n            with:\n              version: 2.84.2\n        with:\n          version: latest",
+        ),
+    ],
+  ])("fails closed for valid but unsupported %s YAML", (_label, mutate) => {
+    const workflow = mutate(validDeploy);
+    expect(() => parse(workflow)).not.toThrow();
+    const result = runChecker(workflow);
+    expect(result.status, result.output).toBe(1);
+  });
+
+  it("rejects duplicate version inputs rather than taking the first text match", () => {
+    const workflow = validDeploy.replace(
+      installerInputs,
+      `${installerInputs}\n          version: latest`,
+    );
+    expect(() => parse(workflow)).toThrow();
+    const result = runChecker(workflow);
+    expect(result.status, result.output).toBe(1);
+    expect(result.output).toContain("only the supported version input");
+  });
+
+  it("rejects a duplicate with mapping rather than taking the first text match", () => {
+    const workflow = validDeploy.replace(
+      installerInputs,
+      `${installerInputs}\n        with:\n          version: latest`,
+    );
+    expect(() => parse(workflow)).toThrow();
+    const result = runChecker(workflow);
+    expect(result.status, result.output).toBe(1);
+    expect(result.output).toContain("only the supported version input");
+  });
+
+  it("requires the installer-bearing job to actually belong to jobs", () => {
+    const workflow = validDeploy.replace(
+      "  push-migrations:",
+      "other:\n  push-migrations:",
+    );
+    const parsed = parse(workflow) as {
+      jobs: Record<string, unknown>;
+      other: Record<string, unknown>;
+    };
+    expect(parsed.jobs["push-migrations"]).toBeUndefined();
+    expect(parsed.other["push-migrations"]).toBeDefined();
+    const result = runChecker(workflow);
+    expect(result.status, result.output).toBe(1);
   });
 
   it("rejects CLI drift even if the expected version appears elsewhere", () => {
