@@ -5,6 +5,7 @@ on:
       - ".github/workflows/native-implementation.yml"
       - "supabase/migrations/20270103140000_native_implementation_journey.sql"
       - "scripts/tests/implementation-*"
+      - "scripts/tests/run-native-browser.py"
       - "src/services/implementation/**"
       - "src/components/implementation/**"
       - "tests/e2e/native-implementation.spec.ts"
@@ -64,8 +65,8 @@ jobs:
       - name: Fresh local Supabase with full canonical migration chain
         run: supabase start
       - run: npx playwright install --with-deps chromium
-      - name: Signed-in native journey interruption and tenant isolation
-        run: npx playwright test tests/e2e/native-implementation.spec.ts
+      - name: Signed-in full-chain preparation, rollback, retry and tenant isolation
+        run: python3 scripts/tests/run-native-browser.py
       - name: Stop isolated Supabase
         if: always()
         run: supabase stop --no-backup
