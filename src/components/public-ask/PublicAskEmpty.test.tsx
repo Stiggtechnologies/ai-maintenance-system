@@ -23,6 +23,14 @@ describe("PublicAskEmpty", () => {
     expect(screen.getByText("pro")).toBeTruthy();
     expect(screen.getByText(/defensible engineering decisions/i)).toBeTruthy();
     expect(screen.getByText("US$35,000")).toBeTruthy();
+    expect(document.querySelector(".bolt-sales-hero")).not.toHaveTextContent(
+      "US$35,000",
+    );
+    expect(
+      screen.getByRole("region", { name: "Optional expert support" }),
+    ).toHaveTextContent("US$35,000");
+    expect(screen.getByText("Illustrative product paths")).toBeTruthy();
+    expect(screen.getByText("Human approval required")).toBeTruthy();
     expect(screen.getByText("6–8 weeks")).toBeTruthy();
     expect(screen.getByText("ask-slot")).toBeTruthy();
     expect(
@@ -39,10 +47,9 @@ describe("PublicAskEmpty", () => {
       "/capabilities/learn",
       "/capabilities/fact-check",
     ]);
-    expect(screen.getByRole("link", { name: /Assess/ })).toHaveAttribute(
-      "href",
-      "/setup",
-    );
+    expect(
+      screen.getByRole("link", { name: /Optional assessment/i }),
+    ).toHaveAttribute("href", "/setup");
     expect(screen.getByRole("link", { name: /Sign in/ })).toHaveAttribute(
       "href",
       "/signin?returnTo=%2Foverview",

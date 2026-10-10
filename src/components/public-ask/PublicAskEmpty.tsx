@@ -87,21 +87,21 @@ export function PublicAskEmpty({
             <span className="bolt-pro">pro</span>
           </div>
           <p className="bolt-eyebrow">
-            <Sparkles size={14} /> Industrial reliability intelligence
+            <Sparkles size={14} /> Governed engineering intelligence
           </p>
           <h2 id="public-hero-title">
-            Turn maintenance data into defensible engineering decisions.
+            Turn evidence into defensible engineering decisions.
           </h2>
           <p className="bolt-hero-lede">
-            Find what is driving repeat failures, where the evidence is weak,
-            and what your team should do next—without surrendering engineering
-            authority to AI.
+            Bring a real question, add the evidence, and review a bounded
+            recommendation with your team. Keep approvals and operating
+            authority with people.
           </p>
           <div
             className="bolt-hero-capabilities"
-            aria-label="Live capability paths"
+            aria-label="Product example paths"
           >
-            <span>Explore live capabilities</span>
+            <span>Explore product examples</span>
             <ul>
               {PUBLIC_ASK_INTENTS.map((intent) => (
                 <li key={intent.id}>
@@ -129,10 +129,10 @@ export function PublicAskEmpty({
           </div>
           <div className="bolt-trust-line" aria-label="Product safeguards">
             <span>
-              <ShieldCheck size={15} /> Evidence graded
+              <ShieldCheck size={15} /> Evidence and gaps visible
             </span>
             <span>
-              <Check size={15} /> Human approved
+              <Check size={15} /> Human approval required
             </span>
             <span>
               <Check size={15} /> No production access required
@@ -140,39 +140,38 @@ export function PublicAskEmpty({
           </div>
         </div>
 
-        <aside
-          className="bolt-offer-card"
-          aria-label="Reliability Intelligence Assessment"
-        >
+        <aside className="bolt-offer-card" aria-label="Your first decision">
           <div className="bolt-offer-topline">
-            <span>Entry engagement</span>
-            <span>6–8 weeks</span>
+            <span>SyncAI platform</span>
+            <span>Guided evaluation</span>
           </div>
-          <h3>Reliability Intelligence Assessment</h3>
-          <p>Know what your maintenance data actually proves.</p>
+          <h3>Your question. Your evidence. Your decision.</h3>
+          <p>
+            Begin with a real task and continue into the assistant when you are
+            ready.
+          </p>
           <ul>
             <li>
-              <Check size={16} /> Evidence-graded findings
+              <Check size={16} />
+              Your question and intent
             </li>
             <li>
-              <Check size={16} /> Prioritized failure opportunities
+              <Check size={16} />
+              File, paste or manual evidence
             </li>
             <li>
-              <Check size={16} /> Governed 90-day action plan
+              <Check size={16} />
+              Visible assumptions and missing inputs
             </li>
             <li>
-              <Check size={16} /> Executive decision briefing
+              <Check size={16} />
+              Human review and a clear next step
             </li>
           </ul>
-          <div className="bolt-offer-footer">
-            <div>
-              <span>Standard fee</span>
-              <strong>US$35,000</strong>
-            </div>
-            <button type="button" onClick={() => setIntakeOpen(true)}>
-              Request scope <ArrowRight size={15} />
-            </button>
-          </div>
+          <p>
+            Illustrative guidance is labeled. Sign-in does not grant industrial
+            approval.
+          </p>
         </aside>
       </section>
 
@@ -182,14 +181,15 @@ export function PublicAskEmpty({
       >
         <div className="bolt-capability-gallery-heading">
           <div>
-            <span>Finished and live</span>
+            <span>Illustrative product paths</span>
             <h2 id="capability-gallery-title">
               See SyncAI make the decision legible.
             </h2>
           </div>
           <p>
-            Open a governed example, inspect the evidence and authority
-            boundary, then share the exact capability with your team.
+            Open a labeled example to inspect evidence and approval boundaries.
+            Start with your own question for a customer evaluation; examples are
+            not customer outcome proof.
           </p>
         </div>
         <div className="bolt-capability-grid">
@@ -216,8 +216,8 @@ export function PublicAskEmpty({
               <ClipboardCheck size={15} />
             </span>
             <span className="bolt-capability-card-copy">
-              <small>Entry engagement</small>
-              <strong>Assess</strong>
+              <small>Optional expert service</small>
+              <strong>Optional assessment</strong>
               <span>
                 Scope a Reliability Intelligence Assessment and a governed
                 90-day action plan.
@@ -252,7 +252,7 @@ export function PublicAskEmpty({
       >
         <div className="bolt-demo-heading">
           <div>
-            <span>Live product</span>
+            <span>Ask the assistant</span>
             <h2 id="demo-title">Ask SyncAI about a reliability decision</h2>
           </div>
           <p>
@@ -289,38 +289,86 @@ export function PublicAskEmpty({
 
       <section
         className="bolt-value-strip"
-        aria-label="How the assessment works"
+        aria-label="How your first decision works"
       >
         <article>
           <span>01</span>
           <div>
-            <h3>Export</h3>
+            <h3>Ask</h3>
             <p>
-              Share bounded maintenance and work-history exports through an
-              agreed transfer method.
+              State your question and intent. Add a file, pasted data or a
+              manual note.
             </p>
           </div>
         </article>
         <article>
           <span>02</span>
           <div>
-            <h3>Prove</h3>
+            <h3>Review</h3>
             <p>
-              SyncAI separates supported findings from hypotheses and missing
-              evidence.
+              Inspect supplied evidence, assumptions and gaps. Guidance remains
+              bounded by those inputs.
             </p>
           </div>
         </article>
         <article>
           <span>03</span>
           <div>
-            <h3>Act</h3>
+            <h3>Decide</h3>
             <p>
-              Your team receives a prioritized, approval-ready 90-day action
-              plan.
+              Name the reviewer and record the next step. Verify actual results
+              before claiming value.
             </p>
           </div>
         </article>
+      </section>
+
+      <section
+        className="bolt-optional-service"
+        aria-label="Optional expert support"
+      >
+        <div className="bolt-service-copy">
+          <p className="bolt-eyebrow">Optional expert support</p>
+          <h2>Choose support when your team needs it.</h2>
+          <p>
+            An assessment can help establish readiness, scope and evidence. It
+            is separate from your platform workspace and agent experiences.
+          </p>
+        </div>
+        <aside
+          className="bolt-offer-card"
+          aria-label="Reliability Intelligence Assessment"
+        >
+          <div className="bolt-offer-topline">
+            <span>Optional expert service</span>
+            <span>6–8 weeks</span>
+          </div>
+          <h3>Reliability Intelligence Assessment</h3>
+          <p>Know what your maintenance data actually proves.</p>
+          <ul>
+            <li>
+              <Check size={16} /> Evidence-graded findings
+            </li>
+            <li>
+              <Check size={16} /> Prioritized failure opportunities
+            </li>
+            <li>
+              <Check size={16} /> Governed 90-day action plan
+            </li>
+            <li>
+              <Check size={16} /> Executive decision briefing
+            </li>
+          </ul>
+          <div className="bolt-offer-footer">
+            <div>
+              <span>Standard fee</span>
+              <strong>US$35,000</strong>
+            </div>
+            <button type="button" onClick={() => setIntakeOpen(true)}>
+              Request scope <ArrowRight size={15} />
+            </button>
+          </div>
+        </aside>
       </section>
 
       <footer className="bolt-public-footer">

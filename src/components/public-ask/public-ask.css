@@ -1873,3 +1873,25 @@
 .bolt-public .dw-message-markdown a {
   color: #075985;
 }
+
+.bolt-optional-service {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 480px);
+  align-items: center;
+  gap: 48px;
+  padding: 44px 0;
+  border-top: 1px solid #dce2e4;
+}
+.bolt-service-copy h2 {
+  margin: 12px 0;
+  font-size: clamp(24px, 3vw, 36px);
+  line-height: 1.15;
+  letter-spacing: -0.035em;
+}
+.bolt-service-copy > p:not(.bolt-eyebrow) {
+  max-width: 54ch;
+  line-height: 1.65;
+}
+@media (max-width: 760px) {
+  .bolt-optional-service { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+}
