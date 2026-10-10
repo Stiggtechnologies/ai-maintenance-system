@@ -189,7 +189,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
             {recoveryMode
               ? "Choose a strong password to restore access to your governed workspace."
               : journey
-                ? `${journey.asset} is staged and will be secured after authentication.`
+                ? `Your ${journey.caseNumber} browser draft is retained for review after sign-in. It is not a governed decision or industrial approval.`
                 : "Use your verified work identity to enter SyncAI."}
           </p>
         </div>
