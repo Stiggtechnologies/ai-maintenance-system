@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { trackUiEvent } from "../services/uiEvents";
 import {
@@ -46,6 +46,7 @@ import { CopilotDock } from "./CopilotDock";
 import { PresenceWelcome } from "./PresenceWelcome";
 import { useAuth } from "./AuthProvider";
 import { isNavItemVisible } from "../lib/roleNavigation";
+import { OperatingSiteScopeContext } from "./sync-context/OperatingSiteScope";
 
 interface AppShellProps {
   children: React.ReactNode;
@@ -80,7 +81,7 @@ const AUTONOMY_COLOR = "text-amber-400";
 // The tree follows the corrected spine (docs/enterprise-readiness/
 // navigation-lifecycle-ia.md §2): what we own → what work should exist → the
 // standing programme strategy justifies → the whole-life frame → this week's
-// work → performance. 47 items in 9 groups (5/4/5/2/4/11/8/3/5) — the counts
+// work → performance. 48 items in 9 groups (6/4/5/2/4/11/8/3/5) — the counts
 // roleNavigation.test.ts snapshots. Reliability Strategy sits directly above
 // Maintenance Programme so the parent edge — strategy → programme — reads
 // adjacently in the sidebar.
@@ -102,6 +103,7 @@ const navGroups: NavGroup[] = [
         path: "/command-centers",
       },
       { id: "readiness", label: "Readiness", path: "/readiness" },
+      { id: "sync-context", label: "Sync Context", path: "/context" },
       { id: "assessments", label: "Assessments", path: "/assessments" },
       {
         id: "cowork",
@@ -298,7 +300,24 @@ const navGroups: NavGroup[] = [
 ];
 
 export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
-  const { profile } = useAuth();
+  const { user, profile } = useAuth();
+  const profileOrg =
+    profile &&
+    "organization_id" in profile &&
+    typeof profile.organization_id === "string"
+      ? profile.organization_id
+      : null;
+  const currentActor = useRef<string | undefined>(user?.id);
+  currentActor.current = user?.id;
+  const currentTenant = useRef<string | null>(profileOrg);
+  currentTenant.current = profileOrg;
+  const identity = `${user?.id ?? ""}:${profile?.id ?? ""}:${profileOrg ?? ""}`;
+  const identityEpoch = useRef({ identity, generation: 0 });
+  if (identityEpoch.current.identity !== identity)
+    identityEpoch.current = {
+      identity,
+      generation: identityEpoch.current.generation + 1,
+    };
   const appRole = (profile?.role as string) ?? null;
   // Role-shaped command center: each level sees its own working surface.
   const visibleGroups = navGroups
@@ -308,6 +327,11 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
     }))
     .filter((group) => group.items.length > 0);
   const [userContext, setUserContext] = useState<UserContext | null>(null);
+  const scopeCurrent =
+    !!userContext &&
+    userContext.user_id === user?.id &&
+    profile?.id === user.id &&
+    profileOrg === userContext.organization_id;
   const [isCollapsed, setIsCollapsed] = useState(false);
   const isMobile = !useMediaQuery("(min-width: 768px)");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -335,8 +359,34 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   });
 
   useEffect(() => {
-    loadUserContext();
-  }, []);
+    let current = true;
+    setUserContext(null);
+    setSites([]);
+    setSelectedSiteId(null);
+    setBadges({ work: 0, approvals: 0 });
+    setNotifs([]);
+    setNotifOpen(false);
+    setSitePickerOpen(false);
+    if (user?.id)
+      void platformService
+        .getCurrentUserContext()
+        .then((context) => {
+          if (
+            !current ||
+            context?.user_id !== user.id ||
+            currentActor.current !== user.id
+          )
+            return;
+          setUserContext(context);
+          setSelectedSiteId(context.default_site_id ?? null);
+        })
+        .catch(() => {
+          if (current) setUserContext(null);
+        });
+    return () => {
+      current = false;
+    };
+  }, [user?.id, profileOrg]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -366,24 +416,26 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userContext]);
 
-  const loadUserContext = async () => {
-    const context = await platformService.getCurrentUserContext();
-    setUserContext(context);
-    if (context?.default_site_id) setSelectedSiteId(context.default_site_id);
-  };
-
   const loadSites = async () => {
     if (!userContext) return;
+    const generation = identityEpoch.current.generation;
     const { data } = await supabase
       .from("sites")
       .select("id, name, code")
       .eq("organization_id", userContext.organization_id)
       .order("name");
-    if (data) setSites(data);
+    if (
+      data &&
+      currentActor.current === userContext.user_id &&
+      currentTenant.current === userContext.organization_id &&
+      generation === identityEpoch.current.generation
+    )
+      setSites(data);
   };
 
   const loadBadges = async () => {
     if (!userContext) return;
+    const generation = identityEpoch.current.generation;
     const [woRes, approvalRes] = await Promise.all([
       supabase
         .from("work_orders")
@@ -394,16 +446,28 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
         .select("id", { count: "exact", head: true })
         .eq("status", "pending"),
     ]);
-    setBadges({ work: woRes.count || 0, approvals: approvalRes.count || 0 });
+    if (
+      currentActor.current === userContext.user_id &&
+      currentTenant.current === userContext.organization_id &&
+      generation === identityEpoch.current.generation
+    )
+      setBadges({ work: woRes.count || 0, approvals: approvalRes.count || 0 });
   };
 
   const handleSiteChange = async (siteId: string | null) => {
+    if (!scopeCurrent || !userContext) return;
+    const generation = identityEpoch.current.generation;
+    const actorId = userContext.user_id;
     setSelectedSiteId(siteId);
     setSitePickerOpen(false);
     const {
       data: { user },
     } = await supabase.auth.getUser();
-    if (user) {
+    if (
+      user?.id === actorId &&
+      generation === identityEpoch.current.generation &&
+      currentTenant.current === userContext.organization_id
+    ) {
       await supabase
         .from("user_profiles")
         .update({ default_site_id: siteId })
@@ -438,9 +502,11 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
     .sort((a, b) => b.path.length - a.path.length)[0]?.path;
   const isActive = (path: string) => path === activeNavPath;
 
-  const selectedSite = sites.find((s) => s.id === selectedSiteId);
+  const visibleSites = scopeCurrent ? sites : [];
+  const selectedSite = visibleSites.find((s) => s.id === selectedSiteId);
 
   const getBadge = (item: NavItem) => {
+    if (!scopeCurrent) return undefined;
     if (item.id === "work") return badges.work || undefined;
     if (item.id === "approvals") return badges.approvals || undefined;
     return item.badge;
@@ -519,7 +585,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                 {userContext.roles[0].name}
               </div>
             )}
-            {sites.length > 0 && (
+            {visibleSites.length > 0 && (
               <div className="relative mt-2">
                 <button
                   onClick={() => setSitePickerOpen(!sitePickerOpen)}
@@ -541,7 +607,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
                     >
                       All Sites
                     </button>
-                    {sites.map((site) => (
+                    {visibleSites.map((site) => (
                       <button
                         key={site.id}
                         onClick={() => handleSiteChange(site.id)}
@@ -744,24 +810,30 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
               <button
                 aria-label="Notifications"
                 onClick={async () => {
+                  if (!scopeCurrent) return;
+                  const generation = identityEpoch.current.generation;
                   const next = !notifOpen;
                   setNotifOpen(next);
                   if (next) {
                     try {
-                      setNotifs(await getNotifications());
+                      const notifications = await getNotifications();
+                      if (generation === identityEpoch.current.generation)
+                        setNotifs(notifications);
                     } catch {
-                      setNotifs([]);
+                      if (generation === identityEpoch.current.generation)
+                        setNotifs([]);
                     }
                   }
                 }}
                 className="relative p-1.5 text-slate-400 hover:text-slate-200 transition-colors"
               >
                 <Bell className="w-4 h-4" />
-                {(badges.approvals > 0 || notifs.some((n) => !n.read)) && (
-                  <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-red-500 rounded-full" />
-                )}
+                {scopeCurrent &&
+                  (badges.approvals > 0 || notifs.some((n) => !n.read)) && (
+                    <span className="absolute top-0.5 right-0.5 w-2 h-2 bg-red-500 rounded-full" />
+                  )}
               </button>
-              {notifOpen && (
+              {notifOpen && scopeCurrent && (
                 <div className="absolute right-0 top-9 z-50 w-80 bg-overlook-deep border border-white/10 rounded-xl shadow-xl shadow-black/40 p-2">
                   <div className="px-2 py-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400">
                     Notifications
@@ -811,7 +883,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
 
             {/* User */}
             <div className="w-7 h-7 rounded-full bg-linear-to-br from-teal-500 to-cyan-400 flex items-center justify-center text-xs font-bold text-white shrink-0">
-              {userContext?.organization_name?.[0] || "U"}
+              {(scopeCurrent && userContext?.organization_name?.[0]) || "U"}
             </div>
           </div>
         </header>
@@ -823,7 +895,25 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
           className="flex-1 overflow-auto bg-overlook-void min-w-0 pb-20 md:pb-0"
           data-sync-page-content
         >
-          {children}
+          <OperatingSiteScopeContext.Provider
+            value={
+              userContext &&
+              userContext.user_id === user?.id &&
+              profile?.id === user.id &&
+              profileOrg === userContext.organization_id
+                ? {
+                    actorId: user.id,
+                    organizationId: userContext.organization_id,
+                    siteId: selectedSiteId,
+                    siteName:
+                      selectedSite?.name ??
+                      (selectedSiteId ? "Selected site" : "All sites"),
+                  }
+                : null
+            }
+          >
+            {children}
+          </OperatingSiteScopeContext.Provider>
         </main>
       </div>
 
@@ -898,6 +988,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
       <CopilotDock currentPath={currentPath} onNavigate={onNavigate} />
       <CommandSearch
         open={commandSearchOpen}
+        role={appRole}
         onClose={() => setCommandSearchOpen(false)}
         onNavigate={onNavigate}
       />

@@ -12,11 +12,13 @@ import {
   Clock,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { canOpenSyncContext } from "../lib/sync-context/access";
 
 interface CommandSearchProps {
   open: boolean;
   onClose: () => void;
   onNavigate: (path: string) => void;
+  role?: string | null;
 }
 
 interface SearchResult {
@@ -33,6 +35,7 @@ interface SearchResult {
 // disqualifies it. /design returned when its RAM allocation stopped being
 // pinned to the demo project code.
 const allResults: SearchResult[] = [
+  { id: "sync-context", label: "Sync Context", path: "/context", category: "Mission", icon: Target },
   { id: "mc", label: "Mission Control", path: "/mission-control", category: "Mission", icon: Target },
   { id: "cc", label: "Command Centers", path: "/command-centers", category: "Mission", icon: Target },
   { id: "rd", label: "Readiness", path: "/readiness", category: "Mission", icon: Target },
@@ -82,18 +85,21 @@ const allResults: SearchResult[] = [
 // Conveyor C-22 fixture by name.
 const recentSearches = ["Work Action Board", "Approvals", "Notifications"];
 
-export function CommandSearch({ open, onClose, onNavigate }: CommandSearchProps) {
+export function CommandSearch({ open, onClose, onNavigate, role }: CommandSearchProps) {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const visibleResults = allResults.filter(
+    (result) => result.id !== "sync-context" || canOpenSyncContext(role),
+  );
   const filtered = query.trim()
-    ? allResults.filter(
+    ? visibleResults.filter(
         (result) =>
           result.label.toLowerCase().includes(query.toLowerCase()) ||
           result.category.toLowerCase().includes(query.toLowerCase()),
       )
-    : allResults;
+    : visibleResults;
 
   useEffect(() => {
     if (open && inputRef.current) setTimeout(() => inputRef.current?.focus(), 100);

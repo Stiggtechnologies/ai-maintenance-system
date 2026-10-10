@@ -75,7 +75,10 @@ describe("SC-02 server coordinate prerequisites (source assertions, not runtime 
 
 describe("SC-02 canonical scoped read contract (source assertions, not runtime proof)", () => {
   it("does not depend on an uninstalled ripgrep executable in hosted CI", () => {
-    const script = readFileSync("scripts/ci-sync-context-operating-picture-smoke.sh", "utf8");
+    const script = readFileSync(
+      "scripts/ci-sync-context-operating-picture-smoke.sh",
+      "utf8",
+    );
     expect(script).toContain("grep -E '^(ANON_KEY|API_URL)='");
     expect(script).not.toMatch(/\|\s*rg\s/);
   });
