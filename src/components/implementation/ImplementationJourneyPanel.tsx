@@ -47,24 +47,27 @@ export function ImplementationJourneyPanel() {
   const [support, setSupport] = useState("");
   const [statement, setStatement] = useState("");
   const [pending, setPending] = useState<ImplementationCommand | null>(null);
+  const [recoveryChecked, setRecoveryChecked] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const generation = useRef(0);
+  const readSequence = useRef(0);
   const identity = useRef("");
   const journalKey = useRef("");
   const journey = workspace?.journeys.find((j) => j.id === selected);
 
   async function reload(epoch = generation.current) {
+    const readId = ++readSequence.current;
     const { data, error: sessionError } = await supabase.auth.getUser();
     if (sessionError || !data.user)
       throw new Error("Sign in as a named company administrator to continue.");
     const w = await loadImplementationWorkspace();
-    const r = await loadImplementationResources(w.organizationId);
-    if (epoch !== generation.current) return;
+    if (epoch !== generation.current || readId !== readSequence.current) return;
     const key = `syncai-implementation-intent:${data.user.id}:${w.organizationId}`;
     const nextIdentity = `${data.user.id}:${w.organizationId}`;
     if (identity.current && identity.current !== nextIdentity) {
+      setResources(EMPTY);
       setSelected("");
       setScope({ assets: [], runIds: [] });
       setOutcome("");
@@ -95,7 +98,11 @@ export function ImplementationJourneyPanel() {
       retained = null;
     }
     setPending(retained);
+    setRecoveryChecked(true);
     setWorkspace(w);
+    // A later resource read failure cannot undo a known canonical commitment.
+    const r = await loadImplementationResources(w.organizationId);
+    if (epoch !== generation.current || readId !== readSequence.current) return;
     setResources(r);
     return w;
   }
@@ -117,6 +124,7 @@ export function ImplementationJourneyPanel() {
         setWorkspace(null);
         setResources(EMPTY);
         setPending(null);
+        setRecoveryChecked(false);
         setSelected("");
         setScope({ assets: [], runIds: [] });
         setOutcome("");
@@ -156,7 +164,14 @@ export function ImplementationJourneyPanel() {
     dryRun = false,
     retry = false,
   ) {
-    if (!workspace || busy || (pending && !retry)) return;
+    if (
+      !workspace ||
+      busy ||
+      (pending && !retry) ||
+      (retry && (!pending || !recoveryChecked))
+    )
+      return;
+    ++readSequence.current;
     const epoch = generation.current;
     const actor = identity.current;
     const key = journalKey.current;
@@ -177,6 +192,7 @@ export function ImplementationJourneyPanel() {
       if (!dryRun) {
         sessionStorage.setItem(key, JSON.stringify(command));
         setPending(command);
+        setRecoveryChecked(false);
       }
       const receipt = await sendImplementationCommand(command, dryRun);
       if (epoch !== generation.current || actor !== identity.current) return;
@@ -311,7 +327,7 @@ export function ImplementationJourneyPanel() {
             does not start another deployment.
           </p>
           <button
-            disabled={busy}
+            disabled={busy || !recoveryChecked}
             type="button"
             className="rounded border px-3 py-2"
             onClick={() =>
