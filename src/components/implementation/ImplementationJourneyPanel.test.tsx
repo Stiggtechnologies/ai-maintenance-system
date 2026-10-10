@@ -188,6 +188,51 @@ describe("native implementation controls", () => {
     ).not.toBeNull();
     expect(screen.getByText("Retry retained command")).toBeInTheDocument();
   });
+  it("requires a successful retained-status read before retrying a new unknown outcome", async () => {
+    const { ImplementationCommandError } =
+      await import("../../services/implementation/service");
+    mocks.send.mockRejectedValue(
+      new ImplementationCommandError("Unknown outcome", "unknown"),
+    );
+    mount();
+    await screen.findByText("Find the real failure cause — prepared");
+    fireEvent.click(screen.getByText("Find the real failure cause — prepared"));
+    fireEvent.click(screen.getByText("Prepare drafts using existing services"));
+    await screen.findByText("Unknown outcome");
+    expect(screen.getByText("Retry retained command")).toBeDisabled();
+    fireEvent.click(screen.getByText("Reload retained status"));
+    await waitFor(() =>
+      expect(screen.getByText("Retry retained command")).not.toBeDisabled(),
+    );
+    expect(mocks.send).toHaveBeenCalledTimes(1);
+  });
+  it("preserves a recovered commitment if a later resource read fails", async () => {
+    sessionStorage.setItem(
+      "syncai-implementation-intent:actor:org",
+      JSON.stringify({
+        commandId: "retained",
+        billingId: "billing",
+        instanceId: "journey",
+        revision: 2,
+        action: "prepare",
+        payload: {},
+      }),
+    );
+    mocks.load.mockResolvedValue({
+      ...w,
+      receipts: [{ commandId: "retained", instanceId: "journey", revision: 3 }],
+    });
+    mocks.resources.mockRejectedValue(new Error("Resource read unavailable"));
+    mount();
+    await screen.findByText("Resource read unavailable");
+    expect(
+      sessionStorage.getItem("syncai-implementation-intent:actor:org"),
+    ).toBeNull();
+    expect(
+      screen.queryByText("Retry retained command"),
+    ).not.toBeInTheDocument();
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
   it("discards a late response from the previous account and clears visible customer data", async () => {
     let resolve!: (value: unknown) => void;
     mocks.send.mockImplementation(
