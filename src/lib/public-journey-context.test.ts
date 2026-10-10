@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  publicDecisionJourneyPaths,
   publicJourneyParameters,
   publicJourneyPath,
   publicAuthJourneySearch,
@@ -61,4 +62,33 @@ describe("public acquisition context", () => {
     "refuses external destination %s",
     (path) => expect(() => publicJourneyPath(path, "")).toThrow("local paths"),
   );
+});
+
+describe("decision journey header paths", () => {
+  it("retains a committed browser case and bounded context without tokens", () => {
+    const paths = publicDecisionJourneyPaths(
+      "?case=draft-05214&view=evaluation&industry=mining&token=secret",
+      "https://app.syncai.ca",
+    );
+    expect(paths.assistant).toBe(
+      "/workspace/cases/draft-05214?industry=mining&origin=evaluation",
+    );
+    expect(paths.firstDecision).toContain("case=draft-05214");
+    expect(paths.firstDecision).not.toContain("secret");
+  });
+  it("recovers a case from a validated sign-in return but refuses external handoffs", () => {
+    const paths = publicDecisionJourneyPaths(
+      "?returnTo=" +
+        encodeURIComponent("/workspace/cases/draft-05214?industry=mining"),
+      "https://app.syncai.ca",
+    );
+    expect(paths.firstDecision).toContain("case=draft-05214");
+    expect(
+      publicDecisionJourneyPaths(
+        "?returnTo=" +
+          encodeURIComponent("//evil.invalid/workspace/cases/draft-05214"),
+        "https://app.syncai.ca",
+      ).assistant,
+    ).toBe("/workspace");
+  });
 });

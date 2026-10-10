@@ -1,6 +1,5 @@
 import { ArrowUpRight, ClipboardCheck, LogIn } from "lucide-react";
 import { BrandWordmark } from "./BrandWordmark";
-import { PublicJourneyThemeToggle } from "./PublicJourneyHeader";
 import { usePublicJourneyTheme } from "../lib/use-public-journey-theme";
 import { publicJourneyPath } from "../lib/public-journey-context";
 
@@ -17,7 +16,7 @@ export function PublicProductHeader({
   onSignIn,
   showSignIn = true,
 }: PublicProductHeaderProps) {
-  const { theme, toggleTheme } = usePublicJourneyTheme();
+  const { theme } = usePublicJourneyTheme();
   return (
     <header
       className="public-journey public-product-header sticky top-0 z-50"
@@ -63,7 +62,6 @@ export function PublicProductHeader({
               <span className="hidden sm:inline">Sign in</span>
             </a>
           )}
-          <PublicJourneyThemeToggle theme={theme} onToggle={toggleTheme} />
         </nav>
       </div>
     </header>

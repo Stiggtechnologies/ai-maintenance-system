@@ -1,5 +1,4 @@
 import { ClipboardCheck, Home, Layers, LogIn, Plus } from "lucide-react";
-import type { ReactNode } from "react";
 import { BrandWordmark } from "../BrandWordmark";
 import { publicJourneyPath } from "../../lib/public-journey-context";
 
@@ -8,8 +7,7 @@ type PublicAskRailProps = {
   onNewAsk: () => void;
   assessHref?: string;
   signInHref?: string;
-  onSignIn?: () => void;
-  themeControl?: ReactNode;
+  onSignIn?: () => boolean;
   search?: string;
   /**
    * Bolt Spaces = existing cowork threads of any intent on /workspace.
@@ -36,7 +34,6 @@ export function PublicAskRail({
   signInHref = "/signin?returnTo=%2F",
   onSignIn,
   spaces,
-  themeControl,
   search = "",
 }: PublicAskRailProps) {
   return (
@@ -96,14 +93,15 @@ export function PublicAskRail({
             className="bolt-rail-item"
             href={signInHref}
             aria-label="Sign in"
-            onClick={onSignIn}
+            onClick={(event) => {
+              if (onSignIn && !onSignIn()) event.preventDefault();
+            }}
           >
             <LogIn size={20} />
             Sign in
           </a>
         )}
       </div>
-      {themeControl}
     </nav>
   );
 }

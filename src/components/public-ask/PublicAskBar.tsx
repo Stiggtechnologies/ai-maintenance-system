@@ -23,7 +23,7 @@ type PublicAskBarProps = {
   fileInputRef: RefObject<HTMLInputElement | null>;
 };
 
-const ASK_PLACEHOLDER = "Ask anything or @mention a Space";
+const ASK_PLACEHOLDER = "Ask a reliability question";
 
 export function PublicAskBar({
   docked = false,

@@ -27,10 +27,10 @@ const PROOF = [
 ];
 
 export function AuthShell({ children, journey }: AuthShellProps) {
-  const { theme, toggleTheme } = usePublicJourneyTheme();
+  const { theme } = usePublicJourneyTheme();
   return (
     <div className="public-journey" data-theme={theme}>
-      <PublicJourneyHeader theme={theme} onToggle={toggleTheme} />
+      <PublicJourneyHeader />
       <main className="journey-auth-layout">
         <section className="journey-auth-story">
           <p className="journey-eyebrow">Governed engineering intelligence</p>

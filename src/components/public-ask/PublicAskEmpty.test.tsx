@@ -112,15 +112,15 @@ describe("PublicAskEmpty", () => {
     ).toBeTruthy();
   });
 
-  it("offers a persistent dark appearance mode", () => {
-    window.localStorage.removeItem("syncai-public-theme");
+  it("uses dark appearance despite legacy light preferences without changing other settings", () => {
+    window.localStorage.setItem("syncai-public-theme", "light");
+    window.localStorage.setItem("admin-theme", "light");
     render(
       <PublicAskEmpty askBar={<div>ask-slot</div>} onSelectIntent={vi.fn()} />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Use dark mode" }));
     expect(screen.getByTestId("first-paint-empty").dataset.theme).toBe("dark");
-    expect(window.localStorage.getItem("syncai-public-theme")).toBe("dark");
-    expect(screen.getByRole("button", { name: "Use light mode" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Use .* mode/ })).toBeNull();
+    expect(window.localStorage.getItem("admin-theme")).toBe("light");
   });
 
   it("submits the minimum buyer context through the existing intake contract", async () => {
