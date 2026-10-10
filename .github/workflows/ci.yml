@@ -642,8 +642,18 @@ jobs:
             psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -f scripts/tests/time-assurance-browser-fixture.sql
 
+      - name: Context browser fixtures (real auth and canonical independent review)
+        run: |
+          set -euo pipefail
+          test "${GITHUB_ACTIONS:-}" = true
+          bash scripts/ci-geospatial-operational-intelligence-smoke.sh
+          bash scripts/ci-sync-context-contract-smoke.sh
+          PGOPTIONS='-c app.ci_context_browser_fixture=github_actions_only' PGPASSWORD=postgres \
+            psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f scripts/tests/sync-context-browser-fixture.sql
+
       - name: Golden-path E2E (login → evidence → scenarios → approve → verify)
-        run: npx playwright test tests/e2e/golden-path.spec.ts tests/e2e/material-commercial-thread.spec.ts tests/e2e/project-fracas.spec.ts tests/e2e/time-synchronization-assurance.spec.ts
+        run: npx playwright test tests/e2e/golden-path.spec.ts tests/e2e/material-commercial-thread.spec.ts tests/e2e/project-fracas.spec.ts tests/e2e/time-synchronization-assurance.spec.ts tests/e2e/sync-context.spec.ts
 
       - name: Upload Playwright artifacts
         if: always()
