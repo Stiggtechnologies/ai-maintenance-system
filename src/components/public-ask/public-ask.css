@@ -1865,3 +1865,11 @@
     flex-direction: column;
   }
 }
+
+/* Light workspace markdown must override dark-renderer utility colors. */
+.bolt-public .dw-message-markdown :is(p, ul, ol, li, blockquote, td, th, strong, em) {
+  color: #3a4048;
+}
+.bolt-public .dw-message-markdown a {
+  color: #075985;
+}

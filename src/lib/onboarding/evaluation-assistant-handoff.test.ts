@@ -41,3 +41,28 @@ it("refuses to navigate when browser storage cannot preserve the case", () => {
     } as unknown as Storage),
   ).toThrow("storage unavailable");
 });
+it.each(["oil-gas", "mining", "manufacturing"] as const)(
+  "uses the %s case industry despite conflicting acquisition input",
+  (industry) => {
+    const decision = {
+      ...buildSpineDecisionCase({
+        question: "Review the evidence for this pump reliability decision",
+        intent: "solve",
+      }),
+      industry,
+    };
+    const path = stageEvaluationAssistantHandoff(
+      decision,
+      "?industry=wrong&source=marketplace",
+      sessionStorage,
+    );
+    expect(new URL(path, "https://app.test").searchParams.get("industry")).toBe(
+      industry,
+    );
+    expect(
+      JSON.parse(
+        sessionStorage.getItem(getPublicDecisionCaseStorageKey(industry))!,
+      ),
+    ).toEqual([decision]);
+  },
+);

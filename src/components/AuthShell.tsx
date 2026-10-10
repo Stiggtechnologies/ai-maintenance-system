@@ -21,8 +21,8 @@ const PROOF = [
     label: "Decision record",
     value: "context retained",
   },
-  { icon: BadgeCheck, label: "Human authority", value: "identity verified" },
-  { icon: ShieldCheck, label: "Value proof", value: "outcomes traced" },
+  { icon: BadgeCheck, label: "Human authority", value: "review required" },
+  { icon: ShieldCheck, label: "Value proof", value: "verification required" },
 ];
 
 export function AuthShell({ children, journey }: AuthShellProps) {
@@ -60,7 +60,7 @@ export function AuthShell({ children, journey }: AuthShellProps) {
             </h1>
             <p className="text-overlook-mist mt-6 max-w-xl text-base leading-relaxed">
               {journey
-                ? "Your question, evidence, recommendation, approval boundary, controlled work, and value trail will move with you."
+                ? "Your question and evidence remain browser drafts. Sign in to continue reviewing them; authentication does not grant approval or verify an outcome."
                 : "Return to the decisions, evidence, approvals, controlled work, and measured outcomes your team is governing."}
             </p>
             {journey && (
