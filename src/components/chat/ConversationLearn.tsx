@@ -87,7 +87,7 @@ export function ConversationLearn({
   }, [signedIn, recommendationId]);
 
   if (!signedIn) {
-    return <LearnUnpersistedPointer />;
+    return <LearnUnpersistedPointer illustrative />;
   }
 
   if (loading) {
@@ -117,8 +117,8 @@ export function ConversationLearn({
         </p>
         <p>
           Record achieved / not_achieved / inconclusive on{" "}
-          <Link to="/learning-loop">Learning Loop</Link> if an obligation
-          exists there.
+          <Link to="/learning-loop">Learning Loop</Link> if an obligation exists
+          there.
         </p>
       </aside>
     );
@@ -179,8 +179,8 @@ export function ConversationLearn({
       ) : (
         <aside className="dw-learn" data-testid="learn-select-needed">
           <p>
-            Choose an open recommendation obligation. Nothing is written until
-            a named human records a measured result.
+            Choose an open recommendation obligation. Nothing is written until a
+            named human records a measured result.
           </p>
         </aside>
       )}
