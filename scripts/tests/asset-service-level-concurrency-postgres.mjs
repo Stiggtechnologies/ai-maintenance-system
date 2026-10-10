@@ -91,6 +91,11 @@ let author, reviewer;
 let originalRiskSensitivity, originalEvidenceRisk;
 const originalProfiles = new Map();
 const publicEvidence = randomUUID(), documentedEvidence = randomUUID(), aiEvidence = randomUUID(), stakeholder = randomUUID();
+const derived = {
+  asset: randomUUID(), evidence: randomUUID(), child: randomUUID(), parent: randomUUID(), grandparent: randomUUID(),
+  childOrigin: randomUUID(), parentOrigin: randomUUID(), ancestorStakeholder: randomUUID(),
+};
+let derivedFixtureReady = false;
 
 async function state(connection = observer) {
   return json(await connection.query(`select jsonb_build_object(
@@ -282,6 +287,261 @@ async function forbiddenTruncate(role) {
   assert(rejected,"TRUNCATE unexpectedly admitted");
   assert.deepEqual(await state(),before);
   console.log(`U2.08 ${phase} PASS ${new Date().toISOString()}`);
+}
+
+// Privileged disposable setup below exercises canonical typed ancestry, not
+// creation/treatment workflow or audited source-correction acceptance. Never
+// fabricate an origin receipt: these synthetic rows have no ledger origin.
+async function derivedSources(connection = observer) {
+  return json(await connection.query(`select jsonb_build_object(
+    'risks',(select jsonb_agg(to_jsonb(r) order by r.id) from public.risks r where id in ('${derived.child}','${derived.parent}','${derived.grandparent}')),
+    'scenarios',(select jsonb_agg(to_jsonb(s) order by s.id) from public.scenarios s where id in ('${derived.childOrigin}','${derived.parentOrigin}')),
+    'evidence',(select to_jsonb(e) from public.evidence_items e where id='${derived.evidence}'),
+    'stakeholder',(select to_jsonb(sv) from public.risk_stakeholder_views sv where id='${derived.ancestorStakeholder}'))`));
+}
+async function assertDerivedNoWrite(before, sources) {
+  await assertNoWrite(before);
+  await caller.query("reset role");
+  assert.deepEqual(await derivedSources(caller), sources);
+  await caller.query("set local role authenticated");
+  assert.deepEqual(await derivedSources(), sources);
+}
+async function assertDerivedAccess(connection, actor, readable, evidenceRisk = derived.child) {
+  const access = json(await connection.query(`select jsonb_build_object(
+    'actor',auth.uid(),'org',public.app_current_org(),'sqlRole',current_user,
+    'profile',(select jsonb_build_object('role',role,'org',organization_id) from public.user_profiles where id=auth.uid()),
+    'read',jsonb_build_array(public.can_read_risk('${derived.child}'),public.can_read_risk('${derived.parent}'),public.can_read_risk('${derived.grandparent}')),
+    'riskRows',(select count(*) from public.risks where id in ('${derived.child}','${derived.parent}','${derived.grandparent}')),
+    'scenarioRows',(select count(*) from public.scenarios where id in ('${derived.childOrigin}','${derived.parentOrigin}')),
+    'evidenceRows',(select count(*) from public.evidence_items where id='${derived.evidence}' and risk_id='${evidenceRisk}'))`));
+  assert.deepEqual(access, { actor, org, sqlRole: "authenticated", profile: { role: "reliability_engineer", org },
+    read: [readable,readable,readable], riskRows: readable ? 3 : 0, scenarioRows: readable ? 2 : 0,
+    // A synthetic live rebind can be readable while its captured ancestor is not.
+    evidenceRows: readable || evidenceRisk === risk ? 1 : 0 });
+}
+const derivedLocks = actor => [
+  ["public.assets","id",derived.asset], ["public.asset_service_levels","asset_id",derived.asset],
+  ["public.evidence_items","id",derived.evidence],
+  ...[derived.child,derived.parent,derived.grandparent].map(id => ["public.risks","id",id]),
+  ...[derived.childOrigin,derived.parentOrigin].map(id => ["public.scenarios","id",id]),
+  ["public.risk_stakeholder_views","id",derived.ancestorStakeholder],
+  ["public.user_profiles","id",actor], ["auth.users","id",actor], ["public.organizations","id",org],
+];
+async function assertDerivedLocksReleased(actor, excludedId = null) {
+  await probe.query("begin");
+  for (const [table,key,id] of [...derivedLocks(actor),
+    // Captured-root schedules also acquire the different live root; replacement
+    // can acquire the separately readable evidence before refusing the old basis.
+    ["public.risks","id",risk], ["public.risk_stakeholder_views","id",stakeholder],
+    ["public.evidence_items","id",publicEvidence],
+  ]) {
+    if (id === excludedId) continue;
+    assert.equal((await probe.query(`select ${key} from ${table} where ${key}='${id}' for update nowait`)).at(-1),id);
+  }
+  await probe.query("rollback");
+}
+async function derivedCommand(operation, changes = {}) {
+  const version = Number((await observer.query(`select version from public.asset_service_levels where asset_id='${derived.asset}' and organization_id='${org}'`)).at(-1));
+  assert(Number.isInteger(version) && version > 0);
+  return target(operation,{p_asset_id:derived.asset,p_expected_version:version,
+    ...(operation === "record" ? {p_evidence_item_id:derived.evidence} : {}),...changes});
+}
+async function derivedBusy(operation, table, id, captured = false) {
+  phase = `${operation.toUpperCase()}_${captured ? "CAPTURED" : "LIVE"}_DERIVED_${table.toUpperCase()}_${id === derived.grandparent ? "GRANDPARENT" : id === derived.parent ? "PARENT" : "ORIGIN"}_BUSY_RELEASE`;
+  const before = await state(), sources = await derivedSources();
+  const command = await derivedCommand(operation), actor = command.request.p_observed_actor_id;
+  await beginCaller(actor,true);
+  await assertDerivedAccess(caller,actor,true,captured ? risk : derived.child);
+  assert.equal((await holder.query(`begin; select id from public.${table} where id='${id}' and organization_id='${org}' for update`)).at(-1),id);
+  const refused = json(await caller.query(command.sql));
+  assert.equal(refused.outcome,"refused"); assert.match(refused.error,/busy/);
+  assert.equal(refused.command_id,command.request.p_command_id);
+  assert.equal(refused.actor_id,actor); assert.equal(refused.organization_id,org);
+  await assertDerivedNoWrite(before,sources);
+  await assertRetained(actor);
+  await assertDerivedLocksReleased(actor,id);
+  // Real inverse writer owns the ancestor/scenario and requires the new asset.
+  // Completion while the caller is still open proves no new asset lock leaked.
+  assert.equal((await holder.query(`update public.assets set name=name where id='${derived.asset}' returning id`)).at(-1),derived.asset);
+  await holder.query("commit");
+  await assertDerivedLocksReleased(actor);
+  await assertRetained(actor);
+  await assertDerivedNoWrite(before,sources);
+  await caller.query("commit; reset role");
+  assert.deepEqual(await state(),before); assert.deepEqual(await derivedSources(),sources);
+  console.log(`U2.08 ${phase} PASS ${new Date().toISOString()}`);
+}
+async function derivedVisibilityAfterWait(operation, captured) {
+  phase = `${operation.toUpperCase()}_${captured ? "CAPTURED" : "LIVE"}_GRANDPARENT_VISIBILITY_AFTER_ASSET_WAIT`;
+  const command = await derivedCommand(operation,captured && operation === "record" ? {p_evidence_item_id:publicEvidence} : {});
+  const actor = command.request.p_observed_actor_id, before = await state();
+  const capturedReplacement = captured && operation === "record";
+  const priorSources = capturedReplacement ? await derivedSources() : null;
+  async function admissibleReplacement(connection, expected = null) {
+    assert.equal(command.request.p_evidence_item_id,publicEvidence);
+    assert.equal(command.request.p_tolerable_downtime_hours,null);
+    assert.equal(command.request.p_restoration_rank,null);
+    const basis = json(await connection.query(`select jsonb_build_object(
+      'standing',public.asset_service_level_evidence_standing('${org}','${derived.asset}','${publicEvidence}'),
+      'snapshot',(select to_jsonb(e) from public.evidence_items e where id='${publicEvidence}' and organization_id='${org}'))`));
+    assert.equal(basis.standing,true);
+    assert.equal(basis.snapshot.document_id,null);
+    assert.equal(basis.snapshot.evidence_class,"INSPECTED");
+    assert.equal(basis.snapshot.verification_status,"verified");
+    if (expected) assert.deepEqual(basis.snapshot,expected);
+    return basis.snapshot;
+  }
+  await beginCaller(actor,true);
+  await assertDerivedAccess(caller,actor,true,captured ? risk : derived.child);
+  const replacementSnapshot = capturedReplacement ? await admissibleReplacement(caller) : null;
+  if (capturedReplacement) {
+    assert.equal(priorSources.evidence.risk_id,risk);
+    assert.equal(before.services.find(row => row.asset_id === derived.asset).evidence_snapshot.risk_id,derived.child);
+  }
+  const callerPid = Number((await caller.query("select pg_backend_pid()")).at(-1));
+  const holderPid = Number((await holder.query(`begin; select id from public.assets where id='${derived.asset}' for update; select pg_backend_pid()`)).at(-1));
+  const pending = track(caller.query(command.sql));
+  await waitForBlock(callerPid,holderPid);
+  await changer.query(`update public.risks set information_sensitivity='restricted' where id='${derived.grandparent}' and organization_id='${org}'`);
+  const sources = await derivedSources();
+  if (capturedReplacement) {
+    // Counterfactual isolation: only the captured grandparent's sensitivity
+    // (and its canonical update timestamp) changed; current/captured evidence,
+    // typed origin/scenario tuples and every other risk field remain exact.
+    for (const field of ["scenarios","evidence","stakeholder"]) assert.deepEqual(sources[field],priorSources[field]);
+    for (const current of sources.risks) {
+      const prior = priorSources.risks.find(row => row.id === current.id);
+      if (current.id !== derived.grandparent) assert.deepEqual(current,prior);
+      else {
+        assert.equal(prior.information_sensitivity,"public"); assert.equal(current.information_sensitivity,"restricted");
+        const oldFields = {...prior}, newFields = {...current};
+        for (const field of ["information_sensitivity","updated_at"]) { delete oldFields[field]; delete newFields[field]; }
+        assert.deepEqual(newFields,oldFields);
+      }
+    }
+    assert.deepEqual(await state(),before);
+  }
+  const witness = session("derived-permission-witness");
+  await witness.query(`begin; set local role authenticated; select set_config('request.jwt.claim.sub','${actor}',true);
+    select set_config('request.jwt.claims',${literal(JSON.stringify({sub:actor,role:"authenticated"}))},true)`);
+  await assertDerivedAccess(witness,actor,false,captured ? risk : derived.child);
+  if (capturedReplacement) await admissibleReplacement(witness,replacementSnapshot);
+  await witness.query("commit"); await witness.close();
+  await holder.query("commit");
+  const refused = json(await pending);
+  assert.equal(refused.outcome,"refused"); assert.match(refused.error,/basis|evidence|available|visib/);
+  if (capturedReplacement) assert.equal(refused.error,"current service consequence is unavailable for replacement");
+  assert.equal(refused.command_id,command.request.p_command_id); assert.equal(refused.actor_id,actor); assert.equal(refused.organization_id,org);
+  await assertDerivedAccess(caller,actor,false,captured ? risk : derived.child);
+  const hidden = json(await caller.query(`select public.get_asset_service_level_editor('${actor}','${org}','levels',null)`));
+  assert(Array.isArray(hidden.rows)); assert(!hidden.rows.some(row => row.asset_id === derived.asset));
+  await assertDerivedNoWrite(before,sources); await assertRetained(actor);
+  // A semantic refusal may retain its protecting locks until the outer commit;
+  // only the busy exception promises immediate subtransaction lock release.
+  await caller.query("commit; reset role");
+  await assertDerivedLocksReleased(actor);
+  assert.deepEqual(await state(),before); assert.deepEqual(await derivedSources(),sources);
+  await changer.query(`update public.risks set information_sensitivity='public' where id='${derived.grandparent}' and organization_id='${org}'`);
+  console.log(`U2.08 ${phase} PASS ${new Date().toISOString()}`);
+}
+async function derivedSuccessfulFence(operation) {
+  phase = `${operation.toUpperCase()}_DERIVED_ANCESTOR_SCENARIO_COMMIT_FENCES`;
+  const before = await state(), sources = await derivedSources(), command = await derivedCommand(operation);
+  const actor = command.request.p_observed_actor_id;
+  await beginCaller(actor,true); await assertDerivedAccess(caller,actor,true);
+  const callerPid = Number((await caller.query("select pg_backend_pid()")).at(-1));
+  assertReceipt(json(await caller.query(command.sql)),command); await assertRetained(actor);
+  const competitors = [];
+  for (const [table,key,id] of derivedLocks(actor).filter(([table]) => ["public.risks","public.scenarios","public.risk_stakeholder_views"].includes(table))) {
+    const contender = session("derived-fence");
+    const pid = Number((await contender.query("begin; select pg_backend_pid()")).at(-1));
+    const pending = track(contender.query(`select ${key} from ${table} where ${key}='${id}' for update`));
+    competitors.push({contender,pending,id});
+    await waitForBlock(pid,callerPid);
+  }
+  assert.deepEqual(await state(),before); assert.deepEqual(await derivedSources(),sources);
+  await caller.query("reset role"); assertTransition(before,await state(caller),command);
+  await caller.query("set local role authenticated"); await assertRetained(actor);
+  await caller.query("commit; reset role");
+  for (const {contender,pending,id} of competitors) {
+    assert.equal((await pending).at(-1),id);
+    await contender.query("commit"); await contender.close();
+  }
+  assertTransition(before,await state(),command); assert.deepEqual(await derivedSources(),sources);
+  await assertDerivedLocksReleased(actor);
+  console.log(`U2.08 ${phase} PASS ${new Date().toISOString()}`);
+}
+async function derivedMatrix() {
+  phase = "PRIVILEGED_SYNTHETIC_TYPED_DERIVED_FIXTURE";
+  await observer.query(`begin;
+    insert into public.assets(id,organization_id,name,tag) values('${derived.asset}','${org}','Synthetic native ancestry fence asset; not customer state','U208-NATIVE-DERIVED');
+    insert into public.risks(id,organization_id,title,information_sensitivity) values('${derived.grandparent}','${org}','Synthetic ancestry root; no operational assertion','public');
+    insert into public.scenarios(id,organization_id,risk_id,key,label) values('${derived.parentOrigin}','${org}','${derived.grandparent}','synthetic_native_origin','Synthetic typed ancestry origin, not selected treatment');
+    insert into public.risks(id,organization_id,title,information_sensitivity,secondary_to_risk_id,arising_from_scenario_id)
+      values('${derived.parent}','${org}','Synthetic ancestry parent','public','${derived.grandparent}','${derived.parentOrigin}');
+    insert into public.scenarios(id,organization_id,risk_id,key,label) values('${derived.childOrigin}','${org}','${derived.parent}','synthetic_native_origin','Synthetic typed child origin, not selected treatment');
+    insert into public.risks(id,organization_id,title,information_sensitivity,risk_owner_id,secondary_to_risk_id,arising_from_scenario_id)
+      values('${derived.child}','${org}','Synthetic ancestry child; child ownership does not declassify ancestors','public','${author}','${derived.parent}','${derived.childOrigin}');
+    insert into public.risk_stakeholder_views(id,organization_id,risk_id,stakeholder_user_id,stakeholder_name,rationale)
+      values('${derived.ancestorStakeholder}','${org}','${derived.grandparent}',null,'Synthetic ancestor lock only','No sensitivity access grant');
+    insert into public.evidence_items(id,organization_id,asset_id,risk_id,source_system,evidence_type,description,evidence_class)
+      values('${derived.evidence}','${org}','${derived.asset}','${derived.child}','synthetic-native-fixture','synthetic_fixture','Privileged synthetic ancestry fixture, not governed capture or audited source correction.','INSPECTED');
+    commit`);
+  derivedFixtureReady = true;
+  for (const actor of [author,reviewer]) await observer.query(`update public.user_profiles set role='reliability_engineer' where id='${actor}' and organization_id='${org}'`);
+  const origins = json(await observer.query(`select jsonb_build_object(
+    'child',(select public.get_risk_secondary_origin_internal(r) from public.risks r where id='${derived.child}'),
+    'parent',(select public.get_risk_secondary_origin_internal(r) from public.risks r where id='${derived.parent}'),
+    'root',(select public.get_risk_secondary_origin_internal(r) from public.risks r where id='${derived.grandparent}'),
+    'receipts',(select count(*) from public.audit_events where entity_type='risk_secondary_created' and event_data->>'risk_id' in ('${derived.child}','${derived.parent}')))`));
+  assert.deepEqual(origins,{child:{valid:true,derived:true,parent_id:derived.parent,scenario_id:derived.childOrigin},
+    parent:{valid:true,derived:true,parent_id:derived.grandparent,scenario_id:derived.parentOrigin},
+    root:{valid:true,derived:false,parent_id:null,scenario_id:null},receipts:0});
+  await beginCaller(reviewer); await assertDerivedAccess(caller,reviewer,true);
+  assert(!json(await caller.query(`select public.verify_evidence_item('${derived.evidence}','Named inspection of labelled synthetic ancestry fixture','verified','No customer fact or normative source claim')`)).error);
+  await caller.query("commit; reset role");
+  const before = await state();
+  await beginCaller(author); await assertDerivedAccess(caller,author,true);
+  const seed = target("record",{p_asset_id:derived.asset,p_evidence_item_id:derived.evidence,p_expected_version:0});
+  assertReceipt(json(await caller.query(seed.sql)),seed); await caller.query("commit; reset role");
+  assertTransition(before,await state(),seed);
+  const dependencies = [["risks",derived.parent],["risks",derived.grandparent],
+    ["scenarios",derived.childOrigin],["scenarios",derived.parentOrigin],["risk_stakeholder_views",derived.ancestorStakeholder]];
+  for (const captured of [false,true]) {
+    if (captured) {
+      // Live rebind is an explicit privileged test control, NOT audited correction.
+      // The governed service's original snapshot must continue fencing ancestry.
+      await observer.query(`update public.evidence_items set risk_id='${risk}' where id='${derived.evidence}' and organization_id='${org}'`);
+      assert.equal((await observer.query(`select evidence_snapshot->>'risk_id' from public.asset_service_levels where asset_id='${derived.asset}'`)).at(-1),derived.child);
+    }
+    for (const operation of ["record","verify"]) {
+      for (const [table,id] of dependencies) await derivedBusy(operation,table,id,captured);
+      await derivedVisibilityAfterWait(operation,captured);
+    }
+    if (captured) await observer.query(`update public.evidence_items set risk_id='${derived.child}' where id='${derived.evidence}' and organization_id='${org}'`);
+  }
+  phase = "SCENARIO_TYPED_ORIGIN_IMMUTABILITY_REFUSAL";
+  const originState = await state(), originSources = await derivedSources();
+  for (const scenario of [derived.childOrigin,derived.parentOrigin]) {
+    await observer.query(`begin; do $origin$ declare refusal text; begin
+      begin update public.scenarios set risk_id=null where id='${scenario}';
+        raise exception 'synthetic origin reparent admitted' using errcode='P0001';
+      exception when check_violation then
+        get stacked diagnostics refusal=message_text;
+        if refusal <> 'A secondary risk treatment origin identity, tenant and parent are immutable' then raise; end if;
+      end;
+      begin delete from public.scenarios where id='${scenario}';
+        raise exception 'synthetic origin deletion admitted' using errcode='P0001';
+      exception when check_violation then
+        get stacked diagnostics refusal=message_text;
+        if refusal <> 'A secondary risk treatment origin cannot be deleted' then raise; end if;
+      end;
+    end $origin$; commit`);
+  }
+  assert.deepEqual(await state(),originState); assert.deepEqual(await derivedSources(),originSources);
+  console.log(`U2.08 ${phase} PASS ${new Date().toISOString()}`);
+  await derivedSuccessfulFence("record"); await derivedSuccessfulFence("verify");
+  for (const actor of [author,reviewer]) await observer.query(`update public.user_profiles set role=${literal(originalProfiles.get(actor).role)} where id='${actor}'`);
 }
 
 try {
@@ -542,6 +802,7 @@ try {
   console.log(`U2.08 ${phase} PASS ${new Date().toISOString()}`);
   await successfulFence("record");
   await successfulFence("verify");
+  await derivedMatrix();
 
   phase = "ERROR_PATH_PENDING_SESSION_CLEANUP";
   const beforeFailure = await state();
@@ -583,6 +844,13 @@ try {
   }
   if (author) {
     try { await observer.query(`update public.risk_stakeholder_views set stakeholder_user_id='${author}' where id='${stakeholder}' and organization_id='${org}'`); }
+    catch { process.exitCode = 1; }
+  }
+  if (derivedFixtureReady) {
+    // Restore only our synthetic controls after EVERY participant has settled.
+    // No delete, audit rewrite or false governing correction receipt.
+    try { await observer.query(`update public.risks set information_sensitivity='public' where id='${derived.grandparent}' and organization_id='${org}';
+      update public.evidence_items set risk_id='${derived.child}' where id='${derived.evidence}' and organization_id='${org}'`); }
     catch { process.exitCode = 1; }
   }
   await observer.close();

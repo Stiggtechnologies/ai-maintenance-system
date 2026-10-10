@@ -55,9 +55,17 @@ const draft = {
   analysis_eligible: false,
 };
 
+async function waitForDraftEditor() {
+  await screen.findByText(/excluded from analysis pending independent verification/i);
+  // Selected-row status precedes the effect that initializes/reset the editor.
+  await waitFor(() => expect(screen.getByLabelText("Service name")).toHaveValue(draft.service_name));
+}
+
 describe("ServiceLevelGovernancePanel", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    // An unconsumed one-shot response from a failed/deferred case must not
+    // become a later test's acknowledgement or workspace read.
+    vi.resetAllMocks();
     auth.user = { id: "33333333-3333-4333-8333-333333333333" };
     auth.profile = {
       id: auth.user.id,
@@ -92,6 +100,9 @@ describe("ServiceLevelGovernancePanel", () => {
     render(<ServiceLevelGovernancePanel onChanged={onChanged} />);
 
     await screen.findByRole("option", { name: /PW-101/ });
+    // A label exists before the asynchronous evidence request finishes. Wait
+    // for the actual selectable row before setting any engineering input.
+    await screen.findByRole("option", { name: "Verified process service narrative" });
     fireEvent.change(screen.getByLabelText("Service name"), {
       target: { value: "Process water delivery" },
     });
@@ -137,7 +148,7 @@ describe("ServiceLevelGovernancePanel", () => {
         observedOrganizationId: auth.profile!.organization_id,
       })),
     );
-    expect(onChanged).toHaveBeenCalled();
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
     expect(
       screen.getByText(/remains outside cascade and restoration analysis/i),
     ).toBeInTheDocument();
@@ -153,6 +164,7 @@ describe("ServiceLevelGovernancePanel", () => {
         /excluded from analysis pending independent verification/i,
       ),
     ).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByLabelText("Service name")).toHaveValue(draft.service_name));
     fireEvent.change(screen.getByLabelText("Independent review note"), {
       target: {
         value:
@@ -172,7 +184,7 @@ describe("ServiceLevelGovernancePanel", () => {
         { actorId: auth.user!.id, organizationId: auth.profile!.organization_id },
       ),
     );
-    expect(onChanged).toHaveBeenCalled();
+    await waitFor(() => expect(onChanged).toHaveBeenCalled());
     expect(
       screen.getByText(
         /does not authorize work, operation, risk acceptance or restoration/i,
@@ -231,7 +243,7 @@ describe("ServiceLevelGovernancePanel", () => {
     vi.mocked(listAssetServiceLevels).mockResolvedValue([draft]);
     vi.mocked(verifyAssetServiceLevel).mockRejectedValueOnce(new Error("Connection lost after submission"));
     render(<ServiceLevelGovernancePanel onChanged={vi.fn()} />);
-    await screen.findByText(/excluded from analysis pending independent verification/i);
+    await waitForDraftEditor();
     fireEvent.change(screen.getByLabelText("Independent review note"), {
       target: { value: "Independent review against the exact current draft basis." },
     });
@@ -244,27 +256,74 @@ describe("ServiceLevelGovernancePanel", () => {
     expect(recordAssetServiceLevel).not.toHaveBeenCalled();
   });
 
-  it("does not notify the new workspace when an old successful verification's refresh finishes", async () => {
-    vi.mocked(listAssetServiceLevels).mockResolvedValue([draft]);
+  it.each(["old refresh first", "new workspace first"])("does not notify the new workspace when an old successful verification's refresh finishes (%s)", async (order) => {
+    const oldScope = { actorId: auth.user!.id, organizationId: auth.profile!.organization_id };
+    const newScope = { ...oldScope, organizationId: "44444444-4444-4444-8444-444444444445" };
+    const oldAssets = [{ id: assetId, tag: "PW-101", name: "Process water pump" }];
+    const newAssetId = "11111111-1111-4111-8111-111111111113";
+    const newAssets = [{ id: newAssetId, tag: "NEW", name: "New workspace asset" }];
+    let oldReads = 0;
+    let releaseOld: ((value: Awaited<ReturnType<typeof listServiceLevelAssets>>) => void) | undefined;
+    let releaseNew: ((value: Awaited<ReturnType<typeof listServiceLevelAssets>>) => void) | undefined;
+    let acknowledge: ((value: Awaited<ReturnType<typeof verifyAssetServiceLevel>>) => void) | undefined;
+    vi.mocked(listServiceLevelAssets).mockImplementation((scope) => {
+      if (scope.organizationId === oldScope.organizationId) {
+        expect(scope).toEqual(oldScope);
+        oldReads += 1;
+        if (oldReads === 1) return Promise.resolve(oldAssets);
+        expect(oldReads).toBe(2);
+        // This barrier is created only when the OLD post-commit refresh really
+        // invokes the reader, not when a one-shot promise is configured.
+        return new Promise(resolve => { releaseOld = resolve; });
+      }
+      expect(scope).toEqual(newScope);
+      return new Promise(resolve => { releaseNew = resolve; });
+    });
+    vi.mocked(listAssetServiceLevels).mockImplementation(scope => {
+      expect([oldScope.organizationId, newScope.organizationId]).toContain(scope.organizationId);
+      return Promise.resolve(scope.organizationId === oldScope.organizationId ? [draft] : []);
+    });
+    vi.mocked(verifyAssetServiceLevel).mockImplementationOnce(() => new Promise(resolve => { acknowledge = resolve; }));
     const onChanged = vi.fn();
     const view = render(<ServiceLevelGovernancePanel onChanged={onChanged} />);
-    await screen.findByText(/excluded from analysis pending independent verification/i);
-    let release!: (value: Awaited<ReturnType<typeof listServiceLevelAssets>>) => void;
-    vi.mocked(listServiceLevelAssets).mockReturnValueOnce(new Promise(resolve => { release = resolve; }));
+    await waitForDraftEditor();
     fireEvent.change(screen.getByLabelText("Independent review note"), { target: { value: "Independent operations review against exact draft." } });
+    expect(screen.getByRole("button", { name: "Verify current version" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "Verify current version" }));
-    await waitFor(() => expect(release).toBeDefined());
-    auth.profile = { ...auth.profile!, organization_id: "44444444-4444-4444-8444-444444444445" };
+    await waitFor(() => expect(acknowledge).toBeDefined());
+    // Negative control: pending ACK is NOT evidence that the refresh started.
+    expect(releaseOld).toBeUndefined();
+    expect(oldReads).toBe(1);
+    expect(onChanged).not.toHaveBeenCalled();
+    expect(verifyAssetServiceLevel).toHaveBeenCalledWith(assetId, 1,
+      "Independent operations review against exact draft.", expect.any(String), oldScope);
+    await act(async () => acknowledge!({ status: "verified" }));
+    await waitFor(() => expect(releaseOld).toBeDefined());
+    expect(oldReads).toBe(2);
+    expect(listServiceLevelAssets).toHaveBeenNthCalledWith(2, oldScope);
+    auth.profile = { ...auth.profile!, organization_id: newScope.organizationId };
     view.rerender(<ServiceLevelGovernancePanel onChanged={onChanged} />);
-    await act(async () => release([{ id: assetId, tag: "OLD", name: "Old workspace asset" }]));
+    await waitFor(() => expect(releaseNew).toBeDefined());
+    expect(listServiceLevelAssets).toHaveBeenNthCalledWith(3, newScope);
+    if (order === "new workspace first") {
+      await act(async () => releaseNew!(newAssets));
+      expect(screen.getByRole("option", { name: /NEW/ })).toBeInTheDocument();
+    }
+    await act(async () => releaseOld!([{ id: assetId, tag: "OLD", name: "Old workspace asset" }]));
     expect(onChanged).not.toHaveBeenCalled();
     expect(screen.queryByRole("option", { name: /OLD/ })).not.toBeInTheDocument();
+    if (order === "old refresh first") await act(async () => releaseNew!(newAssets));
+    expect(screen.getByRole("option", { name: /NEW/ })).toBeInTheDocument();
+    expect(screen.getByLabelText("Asset")).toHaveValue(newAssetId);
+    expect(verifyAssetServiceLevel).toHaveBeenCalledTimes(1);
+    expect(recordAssetServiceLevel).not.toHaveBeenCalled();
+    expect(onChanged).not.toHaveBeenCalled();
   });
 
   it("retains a known committed receipt rather than calling a refresh failure an unknown write", async () => {
     vi.mocked(listAssetServiceLevels).mockResolvedValue([draft]);
     render(<ServiceLevelGovernancePanel onChanged={vi.fn()} />);
-    await screen.findByText(/excluded from analysis pending independent verification/i);
+    await waitForDraftEditor();
     vi.mocked(listServiceLevelAssets).mockRejectedValueOnce(new Error("Read unavailable"));
     fireEvent.change(screen.getByLabelText("Independent review note"), { target: { value: "Independent operations review against exact draft." } });
     fireEvent.click(screen.getByRole("button", { name: "Verify current version" }));
@@ -285,7 +344,7 @@ describe("ServiceLevelGovernancePanel", () => {
     vi.mocked(listAssetServiceLevels).mockResolvedValue([draft]);
     const onChanged = vi.fn();
     render(<ServiceLevelGovernancePanel onChanged={onChanged} />);
-    await screen.findByText(/excluded from analysis pending independent verification/i);
+    await waitForDraftEditor();
     vi.mocked(listServiceLevelAssets).mockRejectedValueOnce(new Error("Read unavailable"));
     fireEvent.change(screen.getByLabelText("Independent review note"), { target: { value: "Independent operations review against exact draft." } });
     fireEvent.click(screen.getByRole("button", { name: "Verify current version" }));
@@ -307,7 +366,7 @@ describe("ServiceLevelGovernancePanel", () => {
     vi.mocked(verifyAssetServiceLevel).mockRejectedValueOnce(new Error("Lost acknowledgement"));
     const onChanged = vi.fn();
     render(<ServiceLevelGovernancePanel onChanged={onChanged} />);
-    await screen.findByText(/excluded from analysis pending independent verification/i);
+    await waitForDraftEditor();
     fireEvent.change(screen.getByLabelText("Independent review note"), { target: { value: "Independent operations review against exact draft." } });
     fireEvent.click(screen.getByRole("button", { name: "Verify current version" }));
     await screen.findByText(/submission outcome is unknown/i);

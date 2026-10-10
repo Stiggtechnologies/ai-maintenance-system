@@ -655,7 +655,7 @@ test("bounded U2 real-browser governance, standing, recovery and observed-contex
         .getByRole("region", { name: "Canonical service consequence history" })
         .locator("details"),
     ).toHaveCount(0);
-    for (const section of ["levels", "history", "evidence"]) {
+    for (const section of ["levels", "history"]) {
       const projected = await rpc(page, "get_asset_service_level_editor", {
         p_observed_actor_id: MANAGER,
         p_observed_organization_id: ORG,
@@ -670,7 +670,42 @@ test("bounded U2 real-browser governance, standing, recovery and observed-contex
             (row.new_state as Json | undefined)?.asset_id === ASSET,
         ),
       ).toEqual([]);
+      // History is asset-scoped: no captured previous/new record may survive
+      // merely because some other evidence for this asset remains readable.
+      if (section === "history") expect(projected.rows).toEqual([]);
     }
+    const visibleEvidence = await rpc(page, "get_asset_service_level_editor", {
+      p_observed_actor_id: MANAGER,
+      p_observed_organization_id: ORG,
+      p_section: "evidence",
+      p_asset_id: ASSET,
+    });
+    const visibleEvidenceRows = visibleEvidence.rows as Json[];
+    expect(visibleEvidenceRows.filter((row) => row.id === EVIDENCE)).toEqual(
+      [],
+    );
+    // Only INSPECTED ...11 was risk-associated. Independently verified,
+    // risk-unlinked DOCUMENTED ...12 is allowed to remain visible by canonical
+    // evidence RLS. Visibility is NOT document-purpose/normative admission:
+    // the real document and numeric write-refusal oracles above remain intact.
+    expect(visibleEvidenceRows.filter((row) => row.id === DOCUMENT)).toEqual([
+      expect.objectContaining({
+        id: DOCUMENT,
+        asset_id: ASSET,
+        evidence_class: "DOCUMENTED",
+        source_system: "synthetic-u208-browser-inspection",
+      }),
+    ]);
+    await expect(
+      panel(page)
+        .getByLabel("Verified evidence")
+        .locator(`option[value="${EVIDENCE}"]`),
+    ).toHaveCount(0);
+    await expect(
+      panel(page)
+        .getByLabel("Verified evidence")
+        .locator(`option[value="${DOCUMENT}"]`),
+    ).toBeAttached();
     await graphService(page, false);
     await riskPage(reviewer, 4, "VERIFIED");
     await renderedHistory(reviewer, ADMIN, historical);
