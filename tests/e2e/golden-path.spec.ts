@@ -445,3 +445,62 @@ test.describe("Role-aware copilot dock", () => {
       page.getByRole("heading", { name: "Security Audit Log" }),
     ).not.toBeVisible({ timeout: 10_000 });
   });
+
+// Customer draft/auth acceptance uses only the existing isolated local fixture.
+// It creates one evaluation workspace, never a deployment or industrial action.
+test("public first decision retains full evidence through auth and reports failed revision saves", async ({page}) => {
+  const backend = new URL(process.env.E2E_SUPABASE_URL ?? "http://127.0.0.1:54321");
+  expect(["localhost","127.0.0.1","[::1]"]).toContain(backend.hostname);
+  const question = "Synthetic acceptance: review pump inspection evidence before the next shift";
+  const evidence = "Synthetic inspection observation, without verified measurements or engineering limits";
+  let workspaceCreates = 0;
+  page.on("request",request=>{if(request.method()==="POST" && new URL(request.url()).pathname==="/rest/v1/cowork_workspaces")workspaceCreates++;});
+  await page.goto("/get-started?source=local-acceptance&campaign=auth-handoff");
+  await page.getByTestId("inverted-ask").fill(question);
+  await page.getByRole("button",{name:/Coordinate field work/}).click();
+  await page.getByTestId("inverted-continue").click();
+  await page.getByTestId("inverted-save-continue").click();
+  await page.getByRole("button",{name:"Inspection",exact:true}).click();
+  await page.getByTestId("spine-evidence-body").fill(evidence);
+  await page.getByTestId("spine-add-evidence").click();
+  await expect(page.getByTestId("spine-proof-body")).toContainText(evidence);
+  const draftId = new URL(page.url()).searchParams.get("case");
+  expect(draftId).toBeTruthy();
+  await page.getByRole("button",{name:"Back to your question"}).click();
+  await page.getByTestId("inverted-continue").click();
+  await page.getByTestId("inverted-save-continue").click();
+  expect(new URL(page.url()).searchParams.get("case")).toBe(draftId);
+  await expect(page.getByTestId("spine-proof-body")).toContainText(evidence);
+  await page.reload();
+  await expect(page.getByTestId("spine-proof-body")).toContainText(evidence);
+  await page.getByTestId("spine-live-assistant").click();
+  await expect(page.getByRole("button",{name:"View record",exact:true})).toBeVisible();
+  await page.getByLabel("Sign in",{exact:true}).click();
+  await page.getByRole("textbox",{name:/work email/i}).fill(DEMO_EMAIL);
+  await page.locator('input[type="password"]').fill(DEMO_PASSWORD);
+  await page.getByRole("button",{name:/access syncai/i}).click();
+  await expect(page).toHaveURL(new RegExp(`/workspace/cases/${draftId}\\?`));
+  expect(new URL(page.url()).searchParams.get("source")).toBe("local-acceptance");
+  await expect(page.getByText(question,{exact:true}).first()).toBeVisible();
+  await expect(page.getByText(new RegExp(evidence)).first()).toBeVisible();
+  await page.goto(`/get-started?case=${draftId}&industry=oil-gas&view=evaluation`);
+  await expect(page.getByTestId("spine-proof-body")).toContainText("Intent is coordinate");
+  await expect(page.getByTestId("spine-proof-body")).toContainText(evidence);
+  await page.getByTestId("spine-save-workspace").click();
+  await expect(page.getByTestId("spine-gate-audit_trail")).toContainText("Met");
+  const persistedId = new URL(page.url()).searchParams.get("case");
+  expect(persistedId).toMatch(/^[0-9a-f-]{36}$/i);
+  expect(workspaceCreates).toBe(1);
+  await page.route("**/rest/v1/cowork_workspaces*",route=>route.request().method()==="PATCH" ? route.fulfill({status:503,contentType:"application/json",body:JSON.stringify({message:"Synthetic save outage"})}) : route.continue());
+  await page.getByTestId("spine-evidence-body").fill("Synthetic newer observation whose save is refused");
+  await page.getByTestId("spine-add-evidence").click();
+  await expect(page.getByTestId("spine-save-notice")).toContainText("Workspace save did not complete");
+  await expect(page.getByTestId("spine-gate-audit_trail")).toContainText("Open");
+  await page.getByRole("button",{name:"Back to your question"}).click();
+  await page.getByTestId("inverted-continue").click();
+  await page.getByTestId("inverted-save-continue").click();
+  expect(new URL(page.url()).searchParams.get("case")).toBe(persistedId);
+  expect(workspaceCreates).toBe(1);
+  await expect(page.getByTestId("spine-proof-body")).toContainText("Synthetic newer observation whose save is refused");
+  await expect(page.getByTestId("spine-gate-audit_trail")).toContainText("Open");
+});

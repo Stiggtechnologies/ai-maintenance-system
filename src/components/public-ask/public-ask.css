@@ -1368,6 +1368,15 @@
   display: flex;
 }
 
+/* Keep the dark canonical decision record readable on the light public canvas. */
+.bolt-public .dw-packet {
+  color: #dce5ec;
+}
+
+.bolt-public .dw-packet strong {
+  color: #dce5ec;
+}
+
 .bolt-layout.is-rail-open .dw-rail {
   display: flex;
   border-right-color: var(--bolt-line);
@@ -1855,4 +1864,58 @@
     align-items: stretch;
     flex-direction: column;
   }
+}
+
+/* Light workspace markdown must override dark-renderer utility colors. */
+.bolt-public
+  .dw-message-markdown
+  :is(p, ul, ol, li, blockquote, td, th, strong, em) {
+  color: #3a4048;
+}
+.bolt-public .dw-message-markdown a {
+  color: #075985;
+}
+
+.bolt-optional-service {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 480px);
+  align-items: center;
+  gap: 48px;
+  padding: 44px 0;
+  border-top: 1px solid #dce2e4;
+}
+.bolt-service-copy h2 {
+  margin: 12px 0;
+  font-size: clamp(24px, 3vw, 36px);
+  line-height: 1.15;
+  letter-spacing: -0.035em;
+}
+.bolt-service-copy > p:not(.bolt-eyebrow) {
+  max-width: 54ch;
+  line-height: 1.65;
+}
+@media (max-width: 760px) {
+  .bolt-optional-service {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+}
+
+/* Keep product examples and optional support readable in the public dark theme. */
+.bolt-empty.is-dark .bolt-hero-capabilities button {
+  color: #e2e8ea;
+  background: #141d22;
+  border-color: #3a4a52;
+}
+.bolt-empty.is-dark .bolt-hero-capabilities svg {
+  color: #7dd8cb;
+}
+.bolt-empty.is-dark .bolt-optional-service h2 {
+  color: #f3f7f7;
+}
+.bolt-empty.is-dark .bolt-optional-service > div > p:not(.bolt-eyebrow) {
+  color: #b7c2c8;
+}
+.bolt-empty.is-dark .bolt-optional-service {
+  border-color: #27383e;
 }

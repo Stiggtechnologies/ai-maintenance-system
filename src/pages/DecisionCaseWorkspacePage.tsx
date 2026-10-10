@@ -254,6 +254,7 @@ export function DecisionCaseWorkspacePage({
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const signInHref = `/signin?returnTo=${encodeURIComponent(`${location.pathname}${location.search}`)}`;
   const context = useMemo(() => getContext(params), [params]);
   const auth = useOptionalAuth();
   const orgSession = Boolean(auth?.user);
@@ -436,7 +437,10 @@ export function DecisionCaseWorkspacePage({
   }, [active.id, active.messages, publicMode]);
   useEffect(() => {
     if (publicMode && capabilityId && !routedPublicIntent) {
-      navigate({ pathname: "/", search: location.search }, { replace: true });
+      navigate(
+        { pathname: "/workspace", search: location.search },
+        { replace: true },
+      );
     }
   }, [capabilityId, location.search, navigate, publicMode, routedPublicIntent]);
 
@@ -492,7 +496,14 @@ export function DecisionCaseWorkspacePage({
     setTab(routedPublicIntent.recordTab);
     setRecordOpen(true);
     setRailOpen(false);
-  }, [context, industry, publicIntent?.id, publicMode, role, routedPublicIntent]);
+  }, [
+    context,
+    industry,
+    publicIntent?.id,
+    publicMode,
+    role,
+    routedPublicIntent,
+  ]);
 
   const chooseCase = (id: string) => {
     if (isSeedDecisionCaseId(id)) explicitDemoBound.current = true;
@@ -572,7 +583,7 @@ export function DecisionCaseWorkspacePage({
         setRailOpen(false);
         setRecordOpen(false);
         setPublicIntent(null);
-        navigate({ pathname: "/", search: location.search });
+        navigate({ pathname: "/workspace", search: location.search });
       }
       return;
     }
@@ -587,7 +598,7 @@ export function DecisionCaseWorkspacePage({
       setRailOpen(false);
       setRecordOpen(false);
       setPublicIntent(null);
-      navigate({ pathname: "/", search: location.search });
+      navigate({ pathname: "/workspace", search: location.search });
     }
     if (!publicMode) {
       try {
@@ -1315,6 +1326,7 @@ export function DecisionCaseWorkspacePage({
           publicMode={publicMode}
           proofComplete={active.financeStatus === "verified"}
           close={() => setUsageOpen(false)}
+          signInHref={signInHref}
           onSecure={() =>
             stageDecisionCaseHandoff(window.sessionStorage, active)
           }
@@ -1364,7 +1376,7 @@ export function DecisionCaseWorkspacePage({
         homeActive={emptyConversation}
         onNewAsk={() => void createCase()}
         assessHref="/setup"
-        signInHref="/signin?returnTo=%2F"
+        signInHref={signInHref}
         onSignIn={() => stageDecisionCaseHandoff(window.sessionStorage, active)}
         spaces={
           exposeSpaces
@@ -1376,6 +1388,18 @@ export function DecisionCaseWorkspacePage({
         }
       />
       <div className="bolt-stage">
+        {!emptyConversation && caseId === active.id &&
+        new URLSearchParams(location.search).get("origin") === "evaluation" ? (
+          <p
+            role="status"
+            className="mx-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+          >
+            Your evaluation question and evidence are carried forward. Existing
+            recommendations are illustrative; ask the assistant to review your
+            evidence before relying on an answer. No industrial action has been
+            approved.
+          </p>
+        ) : null}
         {exposeSpaces && railOpen && emptyConversation ? (
           <BoltSpacesPanel
             cases={cases}
@@ -1830,6 +1854,7 @@ export function DecisionCaseWorkspacePage({
           publicMode={publicMode}
           proofComplete={active.financeStatus === "verified"}
           close={() => setUsageOpen(false)}
+          signInHref={signInHref}
           onSecure={() =>
             stageDecisionCaseHandoff(window.sessionStorage, active)
           }
@@ -2059,6 +2084,7 @@ function AuthorityPanel({
         ))}
         <div className="dw-comment-entry">
           <input
+            aria-label="Authority comment"
             value={comment}
             onChange={(event) => setComment(event.target.value)}
             placeholder="Add rationale or a condition..."
@@ -2407,12 +2433,14 @@ function UsageModal({
   proofComplete,
   close,
   onSecure,
+  signInHref,
   choose,
 }: {
   publicMode: boolean;
   proofComplete: boolean;
   close: () => void;
   onSecure: () => void;
+  signInHref: string;
   choose: (mode: DecisionCase["billingMode"], allowance?: number) => void;
 }) {
   if (publicMode) {
@@ -2463,7 +2491,7 @@ function UsageModal({
               <small>Apply this workflow to sanitized customer evidence.</small>
               <em>Recommended next step</em>
             </a>
-            <a href="/signin?returnTo=%2F" onClick={onSecure}>
+            <a href={signInHref} onClick={onSecure}>
               <LockKeyhole size={18} />
               <strong>Sign in and retain it</strong>
               <small>Move the case into a governed company workspace.</small>
