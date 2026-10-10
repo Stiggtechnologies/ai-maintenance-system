@@ -2436,3 +2436,82 @@
     min-height: 40px;
   }
 }
+
+/* Explicit transcript children and open navigation surfaces share both themes. */
+.public-journey.bolt-public .dw-message p,
+.public-journey.bolt-public .dw-message-markdown,
+.public-journey.bolt-public
+  .dw-message-markdown
+  :is(p, ul, ol, li, blockquote, td, th, strong, em, h1, h2, h3, code) {
+  color: var(--journey-ink);
+}
+.public-journey.bolt-public .dw-message-markdown a,
+.public-journey.bolt-public .dw-message footer {
+  color: var(--journey-signal);
+}
+.public-journey.bolt-public .dw-message > div,
+.public-journey.bolt-public .dw-avatar,
+.public-journey.bolt-public
+  .dw-message-markdown
+  :is(pre, code, blockquote, th) {
+  background: var(--journey-soft);
+  border-color: var(--journey-line);
+}
+.public-journey.bolt-public
+  .dw-message-markdown
+  :is(td, th, .markdown-table-wrap) {
+  border-color: var(--journey-line);
+}
+.public-journey.bolt-public .dw-message-markdown pre code {
+  background: transparent;
+}
+.public-journey.bolt-public .bolt-capability-switcher,
+.public-journey.bolt-public .bolt-layout.is-rail-open .dw-rail,
+.public-journey.bolt-public .bolt-spaces-panel {
+  background: var(--journey-surface);
+  border-color: var(--journey-line);
+}
+.public-journey.bolt-public .bolt-capability-switcher button {
+  color: var(--journey-muted);
+}
+.public-journey.bolt-public
+  .bolt-capability-switcher
+  button:is(:hover, :focus-visible, .is-active) {
+  color: var(--journey-ink);
+  background: var(--journey-soft);
+  border-color: var(--journey-signal);
+  box-shadow: none;
+}
+.public-journey.bolt-public .dw-new,
+.public-journey.bolt-public .bolt-spaces-live {
+  color: var(--journey-signal) !important;
+  background: var(--journey-soft);
+  border-color: var(--journey-line);
+}
+.public-journey.bolt-public .dw-rec-block {
+  color: var(--journey-ink);
+  background: var(--journey-surface);
+  border-color: var(--journey-line);
+}
+.public-journey.bolt-public .dw-rec-block :is(h3, ul, li, p) {
+  color: var(--journey-ink);
+}
+.public-journey.bolt-public .dw-rec-recommendation h3 {
+  color: var(--journey-signal);
+}
+.public-journey.bolt-public .dw-rec-authority {
+  color: var(--journey-muted) !important;
+}
+.public-journey.bolt-public .dw-rec-actions button {
+  color: var(--journey-ink);
+  background: var(--journey-soft);
+  border-color: var(--journey-line);
+}
+.public-journey.bolt-public .dw-rec-approve {
+  color: var(--journey-signal) !important;
+  background: var(--journey-soft) !important;
+  border-color: var(--journey-signal) !important;
+}
+.public-journey.bolt-public .bolt-capability-lens {
+  color: var(--journey-signal);
+}

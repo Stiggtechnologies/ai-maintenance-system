@@ -2,9 +2,32 @@ import { describe, expect, it } from "vitest";
 import {
   publicJourneyParameters,
   publicJourneyPath,
+  publicAuthJourneySearch,
 } from "./public-journey-context";
 
 describe("public acquisition context", () => {
+  it("recovers only allowlisted context from a safe nested auth return", () => {
+    const search = `?view=signup&returnTo=${encodeURIComponent("/workspace/cases/draft-1?industry=mining&utm_source=partner&token=private")}`;
+    expect(
+      publicJourneyPath(
+        "/get-started",
+        publicAuthJourneySearch(search, "https://app.syncai.ca"),
+      ),
+    ).toBe("/get-started?industry=mining&utm_source=partner");
+  });
+
+  it.each([
+    "https://evil.invalid/?industry=mining",
+    "//evil.invalid/?industry=mining",
+    "/\\\\evil.invalid/?industry=mining",
+  ])("rejects unsafe nested auth context %s", (returnTo) => {
+    expect(
+      publicAuthJourneySearch(
+        `?returnTo=${encodeURIComponent(returnTo)}&source=outer`,
+        "https://app.syncai.ca",
+      ),
+    ).toBe("source=outer");
+  });
   it("preserves approved industry, attribution and standard UTM fields", () => {
     const path = publicJourneyPath(
       "/get-started",

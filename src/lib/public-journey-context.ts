@@ -2,6 +2,20 @@ import {
   normalizeDecisionIndustry,
   type DecisionIndustryId,
 } from "./decision-case";
+import { safeAuthReturnTo } from "./auth-return";
+
+/** Recover acquisition context from an auth handoff, never its private tokens. */
+export function publicAuthJourneySearch(
+  search: string,
+  origin: string,
+): string {
+  const outer = new URLSearchParams(search);
+  const safeReturn = safeAuthReturnTo(outer.get("returnTo"), origin);
+  const combined = publicJourneyParameters(new URL(safeReturn, origin).search);
+  for (const [key, value] of publicJourneyParameters(search))
+    combined.set(key, value);
+  return combined.toString();
+}
 
 const ATTRIBUTION_FIELDS = [
   "entry",

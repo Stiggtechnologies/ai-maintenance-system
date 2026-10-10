@@ -20,6 +20,53 @@ const C22_REC_TITLE = "Reschedule PM on Conveyor C-22";
 const C22_REC_ACTION = "Advance PM from Day 14 to Day 3 — bearing replacement";
 const C22_VALUE_LABEL = "Risk mitigated — Reschedule PM on Conveyor C-22";
 
+test("public sample transcript, Markdown and open drawer remain readable in both themes", async ({ page }) => {
+  await page.goto('/workspace?industry=mining');
+  await page.getByRole('button', { name: 'Compare', exact: true }).click();
+  await page.getByRole('button', { name: 'Conversations', exact: true }).click();
+  for (const theme of ['dark', 'light']) {
+    await page.getByRole('button', { name: `Use ${theme} mode`, exact: true }).click();
+    await expect(page.locator('.public-journey.bolt-public')).toHaveAttribute('data-theme', theme);
+    const ratios = await page.locator('.dw-message-markdown p, .dw-rec-block h3, .dw-rec-block li, .dw-rec-block p').evaluateAll(elements => {
+      const rgb = (value: string) => (value.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+      const lum = (value: string) => rgb(value).map(channel => channel / 255).map(channel => channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4).reduce((sum, channel, i) => sum + channel * [.2126, .7152, .0722][i], 0);
+      return elements.map(element => {
+        let parent: Element | null = element;
+        while (parent && getComputedStyle(parent).backgroundColor === 'rgba(0, 0, 0, 0)') parent = parent.parentElement;
+        const foreground = lum(getComputedStyle(element).color);
+        const background = lum(parent ? getComputedStyle(parent).backgroundColor : 'rgb(255, 255, 255)');
+        return (Math.max(foreground, background) + .05) / (Math.min(foreground, background) + .05);
+      });
+    });
+    expect(ratios.length).toBeGreaterThan(3);
+    for (const ratio of ratios) expect(ratio).toBeGreaterThanOrEqual(4.5);
+    const surfaceColors = await page.evaluate(() => ['.bolt-capability-switcher', '.bolt-layout.is-rail-open .dw-rail'].map(selector => getComputedStyle(document.querySelector(selector)!).backgroundColor));
+    expect(surfaceColors[0]).toBe(surfaceColors[1]);
+  }
+});
+
+test("evaluation client navigation selects signup and retains safe handoff context", async ({ page }) => {
+  await page.goto('/workspace?industry=mining&utm_source=partner&source=signup-regression');
+  await page.getByRole('link', { name: 'Start your first decision', exact: true }).click();
+  await page.getByTestId('inverted-ask').fill('Synthetic acceptance: inspect conveyor evidence before approving work');
+  await page.getByRole('button', { name: /Coordinate field work/ }).click();
+  await page.getByTestId('inverted-continue').click();
+  await page.getByTestId('inverted-save-continue').click();
+  const draftId = new URL(page.url()).searchParams.get('case');
+  const beforeNavigation = await page.evaluate(() => performance.timeOrigin);
+  await page.getByRole('link', { name: 'create an evaluation workspace' }).click();
+  await expect(page.getByRole('heading', { name: 'Create a private evaluation workspace' })).toBeVisible();
+  expect(await page.evaluate(() => performance.timeOrigin)).toBe(beforeNavigation);
+  const returnTo = new URL(page.url()).searchParams.get('returnTo');
+  expect(returnTo).toContain(`/workspace/cases/${draftId}`);
+  for (const name of ['Assistant', 'First decision']) {
+    const target = new URL(await page.getByRole('link', { name, exact: true }).getAttribute('href') ?? '', page.url());
+    expect(target.searchParams.get('industry')).toBe('mining');
+    expect(target.searchParams.get('utm_source')).toBe('partner');
+    expect(target.searchParams.has('returnTo')).toBe(false);
+  }
+});
+
 async function openLogin(page: Page) {
   await page.goto("/signin");
 }

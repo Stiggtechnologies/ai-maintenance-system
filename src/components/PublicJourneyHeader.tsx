@@ -1,6 +1,9 @@
 import { Moon, Sun } from "lucide-react";
 import { BrandWordmark } from "./BrandWordmark";
-import { publicJourneyPath } from "../lib/public-journey-context";
+import {
+  publicAuthJourneySearch,
+  publicJourneyPath,
+} from "../lib/public-journey-context";
 import "./public-journey.css";
 
 export function PublicJourneyThemeToggle({
@@ -31,18 +34,21 @@ export function PublicJourneyHeader({
   onToggle: () => void;
   search?: string;
 }) {
+  const journeySearch = publicAuthJourneySearch(search, window.location.origin);
   return (
     <header className="journey-header">
       <a
         className="journey-brand"
-        href={publicJourneyPath("/workspace", search)}
+        href={publicJourneyPath("/workspace", journeySearch)}
         aria-label="SyncAI workspace"
       >
         <BrandWordmark className="h-7" />
       </a>
       <nav aria-label="Public navigation">
-        <a href={publicJourneyPath("/workspace", search)}>Assistant</a>
-        <a href={publicJourneyPath("/get-started", search)}>First decision</a>
+        <a href={publicJourneyPath("/workspace", journeySearch)}>Assistant</a>
+        <a href={publicJourneyPath("/get-started", journeySearch)}>
+          First decision
+        </a>
         <a href="https://syncai.ca/contact">Discuss purchasing</a>
       </nav>
       <PublicJourneyThemeToggle theme={theme} onToggle={onToggle} />

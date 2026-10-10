@@ -214,6 +214,12 @@ export function DecisionCaseSpine({
   );
 
   const commit = (next: DecisionCase) => {
+    next = {
+      ...next,
+      updatedAt: new Date(
+        Math.max(Date.now(), Date.parse(decisionCase.updatedAt) || 0) + 1,
+      ).toISOString(),
+    };
     const currentRevision = ++revision.current;
     setDecisionCase(next);
     setSaved(false);

@@ -136,7 +136,8 @@ function AuthenticatedSignInTransition({
   return <LoadingScreen />;
 }
 
-function App() {
+function ApplicationRoutes() {
+  const location = useLocation();
   const [currentPage, setCurrentPage] = useState<Page>(() =>
     initialAuthPage(window.location.search),
   );
@@ -144,12 +145,20 @@ function App() {
   const [signInApproved, setSignInApproved] = useState(false);
   const [loading, setLoading] = useState(true);
   const signInTransition = useRef<Promise<void> | null>(null);
-  const signInParams = new URLSearchParams(window.location.search);
+  const signInParams = new URLSearchParams(location.search);
   const signInReturnTo = safeAuthReturnTo(
     signInParams.get("returnTo"),
     window.location.origin,
   );
   const isPasswordRecovery = signInParams.get("mode") === "recovery";
+
+  // Public auth links use client navigation. Follow the current route rather
+  // than retaining the page selected when /get-started first mounted.
+  useEffect(() => {
+    if (location.pathname !== "/") return;
+    const selected = initialAuthPage(location.search);
+    setCurrentPage((current) => (current === "app" ? current : selected));
+  }, [location.pathname, location.search]);
 
   useEffect(() => {
     supabase.auth
@@ -246,142 +255,137 @@ function App() {
 
   return (
     <MotionConfig reducedMotion="user">
-      <BrowserRouter>
-        <Routes>
-          <Route path="/marketplace/signup" element={<MarketplaceSignup />} />
-          <Route path="/marketplace/activate" element={<MarketplaceSignup />} />
-          <Route
-            path="/marketplace/aws/signup"
-            element={<AwsMarketplaceSignup />}
-          />
-          <Route
-            path="/marketplace/salesforce/signup"
-            element={<SalesforceSignup />}
-          />
-          <Route path="/auth/callback/azure" element={<AzureADCallback />} />
-          <Route
-            path="/privacy"
-            element={
-              <Privacy onNavigate={() => window.location.assign("/signin")} />
-            }
-          />
-          <Route
-            path="/terms"
-            element={
-              <Terms onNavigate={() => window.location.assign("/signin")} />
-            }
-          />
-          <Route
-            path="/security"
-            element={
-              <Security onNavigate={() => window.location.assign("/signin")} />
-            }
-          />
-          <Route
-            path="/signin"
-            element={
-              isAuthenticated && signInApproved && !isPasswordRecovery ? (
-                <AuthenticatedSignInTransition complete={handleSignInSuccess} />
-              ) : (
-                <Login
-                  onSuccess={handleSignInSuccess}
-                  onTabChange={(page) =>
-                    window.location.assign(
-                      ["privacy", "terms", "security"].includes(page)
-                        ? `/${page}`
-                        : `/?view=${page}`,
-                    )
-                  }
-                />
-              )
-            }
-          />
-          <Route path="/get-started" element={<InvertedOpeningPage />} />
-          <Route path="/setup" element={<FirstCustomerPilotPage />} />
-          <Route
-            path="/pilot/reliability"
-            element={<FirstCustomerPilotPage />}
-          />
-          <Route
-            path="/demo/copilot"
-            element={<Navigate to="/workspace" replace />}
-          />
-          <Route path="/decision-cases/demo" element={<DemoPathRedirect />} />
-          <Route path="/workspace" element={<PublicCopilotExperience />} />
-          <Route
-            path="/capabilities/:capabilityId"
-            element={<PublicCopilotExperience />}
-          />
-          <Route
-            path="/workspace/cases/demo"
-            element={<Navigate to="/workspace" replace />}
-          />
-          <Route
-            path="/workspace/cases/:caseId"
-            element={<DecisionCaseWorkspacePage publicMode />}
-          />
-          <Route
-            path="/*"
-            element={
-              <AnimatePresence mode="wait">
-                {currentPage === "demo" && !isAuthenticated && (
-                  <motion.div key="demo" {...pageTransition}>
-                    <PublicCopilotExperience />
-                  </motion.div>
-                )}
-                {currentPage === "signin" && (
-                  <motion.div key="signin" {...pageTransition}>
-                    <Login
-                      onSuccess={handleAuthSuccess}
-                      onTabChange={setCurrentPage}
-                    />
-                  </motion.div>
-                )}
-                {currentPage === "signup" && (
-                  <motion.div key="signup" {...pageTransition}>
-                    <Signup
-                      onSuccess={handleAuthSuccess}
-                      onTabChange={setCurrentPage}
-                    />
-                  </motion.div>
-                )}
-                {currentPage === "enterprise" && (
-                  <motion.div key="enterprise" {...pageTransition}>
-                    <EnterpriseAccess
-                      onSuccess={handleAuthSuccess}
-                      onTabChange={setCurrentPage}
-                    />
-                  </motion.div>
-                )}
-                {currentPage === "app" && isAuthenticated && (
-                  <motion.div
-                    key="app"
-                    {...pageTransition}
-                    style={{ height: "100vh" }}
-                  >
-                    <AuthenticatedApp />
-                  </motion.div>
-                )}
-                {currentPage === "security" && (
-                  <motion.div key="security" {...pageTransition}>
-                    <Security onNavigate={setCurrentPage} />
-                  </motion.div>
-                )}
-                {currentPage === "privacy" && (
-                  <motion.div key="privacy" {...pageTransition}>
-                    <Privacy onNavigate={setCurrentPage} />
-                  </motion.div>
-                )}
-                {currentPage === "terms" && (
-                  <motion.div key="terms" {...pageTransition}>
-                    <Terms onNavigate={setCurrentPage} />
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            }
-          />
-        </Routes>
-      </BrowserRouter>
+      <Routes>
+        <Route path="/marketplace/signup" element={<MarketplaceSignup />} />
+        <Route path="/marketplace/activate" element={<MarketplaceSignup />} />
+        <Route
+          path="/marketplace/aws/signup"
+          element={<AwsMarketplaceSignup />}
+        />
+        <Route
+          path="/marketplace/salesforce/signup"
+          element={<SalesforceSignup />}
+        />
+        <Route path="/auth/callback/azure" element={<AzureADCallback />} />
+        <Route
+          path="/privacy"
+          element={
+            <Privacy onNavigate={() => window.location.assign("/signin")} />
+          }
+        />
+        <Route
+          path="/terms"
+          element={
+            <Terms onNavigate={() => window.location.assign("/signin")} />
+          }
+        />
+        <Route
+          path="/security"
+          element={
+            <Security onNavigate={() => window.location.assign("/signin")} />
+          }
+        />
+        <Route
+          path="/signin"
+          element={
+            isAuthenticated && signInApproved && !isPasswordRecovery ? (
+              <AuthenticatedSignInTransition complete={handleSignInSuccess} />
+            ) : (
+              <Login
+                onSuccess={handleSignInSuccess}
+                onTabChange={(page) =>
+                  window.location.assign(
+                    ["privacy", "terms", "security"].includes(page)
+                      ? `/${page}`
+                      : `/?view=${page}`,
+                  )
+                }
+              />
+            )
+          }
+        />
+        <Route path="/get-started" element={<InvertedOpeningPage />} />
+        <Route path="/setup" element={<FirstCustomerPilotPage />} />
+        <Route path="/pilot/reliability" element={<FirstCustomerPilotPage />} />
+        <Route
+          path="/demo/copilot"
+          element={<Navigate to="/workspace" replace />}
+        />
+        <Route path="/decision-cases/demo" element={<DemoPathRedirect />} />
+        <Route path="/workspace" element={<PublicCopilotExperience />} />
+        <Route
+          path="/capabilities/:capabilityId"
+          element={<PublicCopilotExperience />}
+        />
+        <Route
+          path="/workspace/cases/demo"
+          element={<Navigate to="/workspace" replace />}
+        />
+        <Route
+          path="/workspace/cases/:caseId"
+          element={<DecisionCaseWorkspacePage publicMode />}
+        />
+        <Route
+          path="/*"
+          element={
+            <AnimatePresence mode="wait">
+              {currentPage === "demo" && !isAuthenticated && (
+                <motion.div key="demo" {...pageTransition}>
+                  <PublicCopilotExperience />
+                </motion.div>
+              )}
+              {currentPage === "signin" && (
+                <motion.div key="signin" {...pageTransition}>
+                  <Login
+                    onSuccess={handleAuthSuccess}
+                    onTabChange={setCurrentPage}
+                  />
+                </motion.div>
+              )}
+              {currentPage === "signup" && (
+                <motion.div key="signup" {...pageTransition}>
+                  <Signup
+                    onSuccess={handleAuthSuccess}
+                    onTabChange={setCurrentPage}
+                  />
+                </motion.div>
+              )}
+              {currentPage === "enterprise" && (
+                <motion.div key="enterprise" {...pageTransition}>
+                  <EnterpriseAccess
+                    onSuccess={handleAuthSuccess}
+                    onTabChange={setCurrentPage}
+                  />
+                </motion.div>
+              )}
+              {currentPage === "app" && isAuthenticated && (
+                <motion.div
+                  key="app"
+                  {...pageTransition}
+                  style={{ height: "100vh" }}
+                >
+                  <AuthenticatedApp />
+                </motion.div>
+              )}
+              {currentPage === "security" && (
+                <motion.div key="security" {...pageTransition}>
+                  <Security onNavigate={setCurrentPage} />
+                </motion.div>
+              )}
+              {currentPage === "privacy" && (
+                <motion.div key="privacy" {...pageTransition}>
+                  <Privacy onNavigate={setCurrentPage} />
+                </motion.div>
+              )}
+              {currentPage === "terms" && (
+                <motion.div key="terms" {...pageTransition}>
+                  <Terms onNavigate={setCurrentPage} />
+                </motion.div>
+              )}
+            </AnimatePresence>
+          }
+        />
+      </Routes>
     </MotionConfig>
   );
 }
@@ -726,6 +730,14 @@ function AuthenticatedApp() {
         </Routes>
       </ErrorBoundary>
     </AppShell>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <ApplicationRoutes />
+    </BrowserRouter>
   );
 }
 

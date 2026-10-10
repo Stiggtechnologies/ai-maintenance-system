@@ -74,6 +74,37 @@ describe("durable decision-case receipts", () => {
     ).resolves.toBeUndefined();
   });
 
+  it("rejects different content even when its timestamp matches", async () => {
+    const decisionCase = savedCase();
+    receipt.response.mockResolvedValue({
+      data: {
+        id,
+        case_state: {
+          ...decisionCase,
+          objective: "Stale content with the same timestamp",
+        },
+      },
+      error: null,
+    });
+    await expect(savePersistedDecisionCase(decisionCase)).rejects.toThrow(
+      "did not confirm this case revision",
+    );
+  });
+
+  it("accepts matching content when JSONB reorders object keys", async () => {
+    const decisionCase = savedCase();
+    receipt.response.mockResolvedValue({
+      data: {
+        id,
+        case_state: Object.fromEntries(Object.entries(decisionCase).reverse()),
+      },
+      error: null,
+    });
+    await expect(
+      savePersistedDecisionCase(decisionCase),
+    ).resolves.toBeUndefined();
+  });
+
   it("rejects initialization when the new workspace update returns no row", async () => {
     receipt.response.mockResolvedValue({ data: null, error: null });
     await expect(createPersistedDecisionCase(savedCase(), {})).rejects.toThrow(

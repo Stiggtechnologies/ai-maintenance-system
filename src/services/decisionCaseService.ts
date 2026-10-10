@@ -117,12 +117,30 @@ function requireCaseReceipt(
   if (
     receipt?.id !== expected.id ||
     receipt.case_state?.id !== expected.id ||
-    receipt.case_state.updatedAt !== expected.updatedAt
+    receipt.case_state.updatedAt !== expected.updatedAt ||
+    canonicalCaseContent(receipt.case_state) !== canonicalCaseContent(expected)
   ) {
     throw new Error(
       "The workspace did not confirm this case revision was saved. Your browser draft remains available.",
     );
   }
+}
+
+// JSONB may reorder keys. Compare the complete submitted content, while making
+// no claim about concurrent writes occurring after this request's receipt.
+function canonicalCaseContent(value: unknown): string {
+  if (Array.isArray(value))
+    return `[${value.map(canonicalCaseContent).join(",")}]`;
+  if (value !== null && typeof value === "object") {
+    return `{${Object.entries(value)
+      .filter(([, item]) => item !== undefined)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(
+        ([key, item]) => `${JSON.stringify(key)}:${canonicalCaseContent(item)}`,
+      )
+      .join(",")}}`;
+  }
+  return JSON.stringify(value);
 }
 
 export interface DecisionCaseReply {

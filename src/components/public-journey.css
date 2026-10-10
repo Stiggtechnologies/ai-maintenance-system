@@ -210,6 +210,12 @@
   border-radius: 4px;
   padding: clamp(24px, 3vw, 40px);
 }
+.journey-auth-form > .bg-industrial-slate {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  backdrop-filter: none;
+}
 .public-journey [class~="text-white"],
 .public-journey [class~="text-slate-200"],
 .public-journey [class~="text-slate-300"],
