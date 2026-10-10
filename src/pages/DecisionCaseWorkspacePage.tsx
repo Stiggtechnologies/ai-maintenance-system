@@ -108,6 +108,9 @@ import {
 } from "../services/decisionCaseService";
 import "./DecisionCaseWorkspacePage.css";
 import "../components/public-ask/public-ask.css";
+import { PublicJourneyThemeToggle } from "../components/PublicJourneyHeader";
+import { usePublicJourneyTheme } from "../lib/use-public-journey-theme";
+import { publicJourneyPath } from "../lib/public-journey-context";
 
 type PacketTab = "decision" | "evidence" | "authority" | "work" | "value";
 
@@ -257,6 +260,7 @@ export function DecisionCaseWorkspacePage({
   const signInHref = `/signin?returnTo=${encodeURIComponent(`${location.pathname}${location.search}`)}`;
   const context = useMemo(() => getContext(params), [params]);
   const auth = useOptionalAuth();
+  const journeyTheme = usePublicJourneyTheme();
   const orgSession = Boolean(auth?.user);
   const routedPublicIntent = capabilityId
     ? publicAskIntentById(capabilityId)
@@ -622,6 +626,12 @@ export function DecisionCaseWorkspacePage({
       file.type.startsWith("image/") ||
       /\.(png|jpe?g|gif|webp|heic|bmp|tiff?)$/i.test(file.name)
     ) {
+      if (publicMode) {
+        setAttachmentError(
+          "Image analysis is unavailable in this public assistant. Describe the observation or attach a CSV, TSV, text or log export.",
+        );
+        return;
+      }
       setPhoto(file);
       return;
     }
@@ -635,9 +645,15 @@ export function DecisionCaseWorkspacePage({
   };
 
   const sendMessage = async (suggestion?: string) => {
+    if (publicMode && photo) {
+      setAttachmentError(
+        "This photo has not been sent or analyzed. Remove it and describe the observation, or use a supported text export.",
+      );
+      return;
+    }
     const typed = (suggestion || composer).trim();
     const photoLine = photo
-      ? `[Attached photo — ${photo.name}]\nImage will be sent with this turn. The file is not read or transcribed here.`
+      ? `[Attached photo — ${photo.name}]\nFilename only. Image content is not sent or analyzed by this text assistant.`
       : "";
     // The attachment profile is prepended rather than hidden, so the message
     // in the transcript is exactly what was sent — the person can audit it.
@@ -886,7 +902,6 @@ export function DecisionCaseWorkspacePage({
       onToggleDictation={() =>
         dictation.listening ? dictation.stop() : dictation.start()
       }
-      photoInputRef={photoInputRef}
       fileInputRef={fileInputRef}
     />
   );
@@ -1369,10 +1384,18 @@ export function DecisionCaseWorkspacePage({
   // Packet and attach stay gated on a started case.
   return (
     <div
-      className={`bolt-public ${emptyConversation ? "is-empty" : "is-thread"}`}
+      className={`public-journey bolt-public ${emptyConversation ? "is-empty" : "is-thread"}`}
       data-layout="chat-first"
+      data-theme={journeyTheme.theme}
     >
       <PublicAskRail
+        search={location.search}
+        themeControl={
+          <PublicJourneyThemeToggle
+            theme={journeyTheme.theme}
+            onToggle={journeyTheme.toggleTheme}
+          />
+        }
         homeActive={emptyConversation}
         onNewAsk={() => void createCase()}
         assessHref="/setup"
@@ -1388,7 +1411,8 @@ export function DecisionCaseWorkspacePage({
         }
       />
       <div className="bolt-stage">
-        {!emptyConversation && caseId === active.id &&
+        {!emptyConversation &&
+        caseId === active.id &&
         new URLSearchParams(location.search).get("origin") === "evaluation" ? (
           <p
             role="status"
@@ -1411,6 +1435,8 @@ export function DecisionCaseWorkspacePage({
         {emptyConversation ? (
           <PublicAskEmpty
             askBar={publicAskBar}
+            search={location.search}
+            showThemeControl={false}
             onSelectIntent={tryPublicIntent}
             attachmentInputs={
               <>
@@ -1431,6 +1457,7 @@ export function DecisionCaseWorkspacePage({
                   accept="image/*"
                   className="bolt-file-input"
                   aria-label="Choose a photo"
+                  disabled
                   onChange={(event) => {
                     void handleAttach(event.target.files?.[0]);
                     event.target.value = "";
@@ -2485,10 +2512,15 @@ function UsageModal({
             auditable record.
           </p>
           <div className="dw-continuation">
-            <a href="/setup#value-proof-intake" onClick={onSecure}>
+            <a
+              href={publicJourneyPath("/get-started", window.location.search)}
+              onClick={onSecure}
+            >
               <Sparkles size={18} />
-              <strong>Start the 48-hour proof</strong>
-              <small>Apply this workflow to sanitized customer evidence.</small>
+              <strong>Start your first decision</strong>
+              <small>
+                Use your own question and evidence in the guided evaluation.
+              </small>
               <em>Recommended next step</em>
             </a>
             <a href={signInHref} onClick={onSecure}>

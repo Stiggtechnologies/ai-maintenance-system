@@ -1,5 +1,8 @@
 import { ArrowUpRight, ClipboardCheck, LogIn } from "lucide-react";
 import { BrandWordmark } from "./BrandWordmark";
+import { PublicJourneyThemeToggle } from "./PublicJourneyHeader";
+import { usePublicJourneyTheme } from "../lib/use-public-journey-theme";
+import { publicJourneyPath } from "../lib/public-journey-context";
 
 type PublicProductHeaderProps = {
   active: "copilot" | "proof";
@@ -10,16 +13,20 @@ type PublicProductHeaderProps = {
 
 export function PublicProductHeader({
   active,
-  signInHref = "/signin",
+  signInHref = "/signin?returnTo=%2F",
   onSignIn,
   showSignIn = true,
 }: PublicProductHeaderProps) {
+  const { theme, toggleTheme } = usePublicJourneyTheme();
   return (
-    <header className="sticky top-0 z-50 border-b border-white/[0.06] bg-[#080C11]/92 backdrop-blur-xl">
+    <header
+      className="public-journey public-product-header sticky top-0 z-50"
+      data-theme={theme}
+    >
       <div className="mx-auto flex h-[64px] max-w-[1440px] items-center justify-between gap-4 px-4 sm:px-6">
         <a
-          href="/workspace"
-          className="flex min-w-0 flex-col items-start justify-center gap-0"
+          href={publicJourneyPath("/workspace", window.location.search)}
+          className="journey-brand flex min-w-0 flex-col items-start justify-center gap-0"
           aria-label="SyncAI Reliability Engineer"
         >
           <BrandWordmark />
@@ -56,6 +63,7 @@ export function PublicProductHeader({
               <span className="hidden sm:inline">Sign in</span>
             </a>
           )}
+          <PublicJourneyThemeToggle theme={theme} onToggle={toggleTheme} />
         </nav>
       </div>
     </header>
