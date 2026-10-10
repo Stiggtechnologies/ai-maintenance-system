@@ -2748,3 +2748,8 @@
     display: none;
   }
 }
+/* Bound the conversation title to its lane so it never covers mobile controls. */
+.public-journey .bolt-thread-bar-side.is-center {overflow:hidden;}
+.public-journey .bolt-thread-bar-side.is-center > span {width:100%; overflow:hidden;}
+.public-journey .bolt-thread-title {display:block; width:100%; max-width:100%;}
+.public-journey .bolt-capability-lens {max-width:100%;}
