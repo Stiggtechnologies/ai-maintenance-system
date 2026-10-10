@@ -25,7 +25,6 @@ import {
   saveContextView,
   type ContextViewPreferences,
 } from "../lib/sync-context/view-preferences";
-import { usePublicJourneyTheme } from "../lib/use-public-journey-theme";
 import "../components/sync-context/context-workspace.css";
 
 export function SyncContextPage() {
@@ -38,7 +37,11 @@ export function SyncContextPage() {
 }
 function OperatingWorkspace({ role }: { role: string }) {
   const { scope, status, picture, refresh } = useOperatingPicture();
-  const { theme, toggleTheme } = usePublicJourneyTheme();
+  // Authenticated workspace appearance is local UI state, not a public-journey
+  // or administrator preference. Public journeys deliberately remain dark.
+  const [theme, setTheme] = useState<"dark" | "light">("dark");
+  const toggleTheme = () =>
+    setTheme((value) => (value === "dark" ? "light" : "dark"));
   return (
     <section
       className="context-workspace"

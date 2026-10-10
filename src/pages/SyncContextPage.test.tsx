@@ -51,6 +51,24 @@ beforeEach(() => {
   read.mockResolvedValue(contextOperatingFixture());
 });
 describe("governed customer-reachable Context workspace", () => {
+  it("keeps both workspace appearances usable independently of the fixed-dark public journey", async () => {
+    render(tree());
+    const workspace = screen.getByRole("region", {
+      name: "Sync Context workspace",
+    });
+    await screen.findByRole("group", { name: "Authorized source geometry" });
+    expect(workspace).toHaveAttribute("data-theme", "dark");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Switch Context to light mode" }),
+    );
+    expect(workspace).toHaveAttribute("data-theme", "light");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Switch Context to dark mode" }),
+    );
+    expect(workspace).toHaveAttribute("data-theme", "dark");
+    expect(localStorage.getItem("syncai-public-theme")).toBeNull();
+    expect(read).toHaveBeenCalledTimes(1);
+  });
   it("renders genuine query coverage, shape inspector and only exact canonical links", async () => {
     render(tree());
     expect(
