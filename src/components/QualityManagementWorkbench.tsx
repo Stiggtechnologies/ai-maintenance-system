@@ -1,4 +1,11 @@
-import { useMemo, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   BadgeCheck,
   CircleDollarSign,
@@ -7,14 +14,16 @@ import {
   FileWarning,
   ShieldCheck,
 } from "lucide-react";
-import { useAsyncData } from "../hooks/useAsyncData";
 import { QUALITY_METRIC_DEFINITIONS } from "../lib/quality-management";
+import { supabase } from "../lib/supabase";
 import {
   executeQualityAction,
   getQualityCockpit,
   type QualityAction,
+  type QualityCockpit,
 } from "../services/qualityManagementService";
 import { ErrorState, LoadingState } from "./ui/AsyncStates";
+import { useOptionalAuth } from "./AuthProvider";
 
 const ACTIONS: Array<{
   key: QualityAction;
@@ -264,7 +273,94 @@ function displayNumber(value: number | null, suffix = ""): string {
 }
 
 export function QualityManagementWorkbench() {
-  const { data, loading, error, refetch } = useAsyncData(getQualityCockpit, []);
+  const auth = useOptionalAuth();
+  if (auth?.loading)
+    return <LoadingState label="Validating quality session…" />;
+  if (!auth?.user)
+    return <ErrorState message="Sign in to access governed quality records." />;
+  const profile = auth.profile;
+  const org =
+    profile && "organization_id" in profile ? profile.organization_id : null;
+  if (
+    profile?.id !== auth.user.id ||
+    typeof org !== "string" ||
+    !org.trim() ||
+    typeof profile.role !== "string" ||
+    !profile.role.trim()
+  ) {
+    return (
+      <ErrorState message="A current organization profile is required for quality records." />
+    );
+  }
+  // Remount on every OBSERVED authority change, including A → B → A. This
+  // fences UI lifetimes, not unobserved membership changes or server RPC scope.
+  return (
+    <ScopedQualityWorkbench
+      key={JSON.stringify([auth.user.id, org, profile.role])}
+      actorId={auth.user.id}
+    />
+  );
+}
+
+async function validateQualityActor(actorId: string) {
+  const { data, error } = await supabase.auth.getUser();
+  if (error) throw new Error(error.message);
+  if (!data.user || data.user.id !== actorId) {
+    throw new Error("Quality session changed. Reload before continuing.");
+  }
+}
+
+function ScopedQualityWorkbench({ actorId }: { actorId: string }) {
+  const mounted = useRef(false);
+  const lifetime = useRef(0);
+  const readGeneration = useRef(0);
+  const inFlight = useRef(false);
+  const [data, setData] = useState<QualityCockpit | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<Record<string, unknown> | null>(null);
+  const [acknowledged, setAcknowledged] = useState(false);
+  useLayoutEffect(() => {
+    mounted.current = true;
+    lifetime.current += 1;
+    return () => {
+      mounted.current = false;
+      lifetime.current += 1;
+      readGeneration.current += 1;
+    };
+  }, []);
+  const refetch = useCallback(() => {
+    const generation = ++readGeneration.current;
+    const current = () =>
+      mounted.current && generation === readGeneration.current;
+    setData(null);
+    setError(null);
+    setLoading(true);
+    void (async () => {
+      let authenticated = false;
+      try {
+        await validateQualityActor(actorId);
+        if (!current()) return;
+        authenticated = true;
+        const next = await getQualityCockpit();
+        if (current()) setData(next);
+      } catch (cause) {
+        if (current()) {
+          if (!authenticated) clearPrivateDraft();
+          setError(
+            cause instanceof Error
+              ? cause.message
+              : "Could not load quality records.",
+          );
+        }
+      } finally {
+        if (current()) setLoading(false);
+      }
+    })();
+  }, [actorId]);
+  useEffect(() => {
+    refetch();
+  }, [refetch]);
   const [action, setAction] = useState<QualityAction>("record_requirement");
   const definition = useMemo(
     () => ACTIONS.find((candidate) => candidate.key === action)!,
@@ -275,7 +371,15 @@ export function QualityManagementWorkbench() {
   );
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [result, setResult] = useState<Record<string, unknown> | null>(null);
+
+  // Keep only a non-sensitive acknowledgement marker after failed auth.
+  // Neither old payload nor returned customer content may reappear on retry.
+  function clearPrivateDraft() {
+    setAction("record_requirement");
+    setPayload(JSON.stringify(ACTIONS[0].example, null, 2));
+    setActionError(null);
+    setResult(null);
+  }
 
   function changeAction(next: QualityAction) {
     const nextDefinition = ACTIONS.find((candidate) => candidate.key === next)!;
@@ -283,9 +387,11 @@ export function QualityManagementWorkbench() {
     setPayload(JSON.stringify(nextDefinition.example, null, 2));
     setActionError(null);
     setResult(null);
+    setAcknowledged(false);
   }
 
   async function execute() {
+    if (inFlight.current || !mounted.current) return;
     setActionError(null);
     let parsed: unknown;
     try {
@@ -299,29 +405,90 @@ export function QualityManagementWorkbench() {
       return;
     }
     setBusy(true);
+    setResult(null);
+    setAcknowledged(false);
+    inFlight.current = true;
+    const generation = lifetime.current;
+    const current = () => mounted.current && generation === lifetime.current;
+    const selectedAction = action;
+    let authenticated = false;
     try {
+      await validateQualityActor(actorId);
+      if (!current()) return;
+      authenticated = true;
       const response = await executeQualityAction(
-        action,
+        selectedAction,
         parsed as Record<string, unknown>,
       );
+      if (!current()) return;
       setResult(response);
+      setAcknowledged(true);
       refetch();
     } catch (cause) {
+      if (!current()) return;
+      if (!authenticated) {
+        readGeneration.current += 1;
+        setData(null);
+        clearPrivateDraft();
+        setLoading(false);
+        setError(
+          cause instanceof Error
+            ? cause.message
+            : "Quality session validation failed.",
+        );
+        return;
+      }
       setActionError(
-        cause instanceof Error ? cause.message : "Quality action failed.",
+        `${cause instanceof Error ? cause.message : "Quality action failed."} No automatic retry was sent. If acknowledgement was lost, the outcome may be unknown; check the canonical record before resubmitting.`,
       );
     } finally {
-      setBusy(false);
+      if (current()) {
+        inFlight.current = false;
+        setBusy(false);
+      }
     }
   }
 
+  const acknowledgement = acknowledged ? (
+    <div
+      role="status"
+      className="rounded-lg border border-teal-500/20 p-3 text-xs text-teal-200"
+    >
+      The last action was acknowledged. A failed refresh does not undo it; do
+      not resubmit it.
+      {result && (
+        <pre className="mt-2 overflow-auto">
+          {JSON.stringify(result, null, 2)}
+        </pre>
+      )}
+    </div>
+  ) : null;
   if (loading && !data)
-    return <LoadingState label="Loading governed quality records…" />;
-  if (error && !data) return <ErrorState message={error} onRetry={refetch} />;
+    return (
+      <>
+        {acknowledgement}
+        <LoadingState label="Loading governed quality records…" />
+      </>
+    );
+  if (error && !data)
+    return (
+      <>
+        {acknowledgement}
+        <ErrorState message={error} onRetry={refetch} />
+      </>
+    );
   if (!data) return null;
 
   return (
     <div className="space-y-5">
+      <button
+        type="button"
+        onClick={refetch}
+        disabled={busy}
+        className="text-xs text-cyan-300 disabled:opacity-40"
+      >
+        Refresh quality records
+      </button>
       <section className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-5">
         <div className="flex items-start gap-3">
           <div className="rounded-xl bg-cyan-500/12 p-2 text-cyan-300">
@@ -506,6 +673,7 @@ export function QualityManagementWorkbench() {
             <select
               aria-label="Quality action"
               value={action}
+              disabled={busy}
               onChange={(event) =>
                 changeAction(event.target.value as QualityAction)
               }
@@ -526,6 +694,7 @@ export function QualityManagementWorkbench() {
             <textarea
               aria-label="Governed quality payload"
               value={payload}
+              disabled={busy}
               onChange={(event) => setPayload(event.target.value)}
               spellCheck={false}
               className="mt-1.5 min-h-80 w-full rounded-xl border border-white/10 bg-[#071019] p-3 font-mono text-xs leading-relaxed text-slate-200"
