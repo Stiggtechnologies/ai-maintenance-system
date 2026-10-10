@@ -7,7 +7,7 @@ type PublicAskRailProps = {
   onNewAsk: () => void;
   assessHref?: string;
   signInHref?: string;
-  onSignIn?: () => void;
+  onSignIn?: () => boolean;
   search?: string;
   /**
    * Bolt Spaces = existing cowork threads of any intent on /workspace.
@@ -93,7 +93,9 @@ export function PublicAskRail({
             className="bolt-rail-item"
             href={signInHref}
             aria-label="Sign in"
-            onClick={onSignIn}
+            onClick={(event) => {
+              if (onSignIn && !onSignIn()) event.preventDefault();
+            }}
           >
             <LogIn size={20} />
             Sign in

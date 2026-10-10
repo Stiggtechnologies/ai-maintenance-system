@@ -552,14 +552,16 @@ export function DecisionCaseWorkspacePage({
   const stageActiveHandoff = () => {
     try {
       stageDecisionCaseHandoff(window.sessionStorage, active);
+      return true;
     } catch {
       setStorageUnavailable(true);
+      return false;
     }
   };
 
   const chooseCase = (id: string) => {
     explicitDemoBound.current = isSeedDecisionCaseId(id);
-    if (publicMode && capabilityId) {
+    if (publicMode) {
       navigate({
         pathname: `/workspace/cases/${id}`,
         search: location.search,
@@ -1703,7 +1705,11 @@ export function DecisionCaseWorkspacePage({
                   </aside>
                 ))}
               <main className="bolt-main">
-                <section className="dw-thread" aria-label="Conversation">
+                <section
+                  className="dw-thread"
+                  aria-label="Conversation"
+                  ref={publicThreadRef}
+                >
                   {publicIntent?.id === "compare" &&
                     active.id === "mining-crusher-2201" && (
                       <DecisionComparison
@@ -2591,7 +2597,7 @@ function UsageModal({
   publicMode: boolean;
   proofComplete: boolean;
   close: () => void;
-  onSecure: () => void;
+  onSecure: () => boolean;
   signInHref: string;
   choose: (mode: DecisionCase["billingMode"], allowance?: number) => void;
 }) {
@@ -2639,7 +2645,9 @@ function UsageModal({
           <div className="dw-continuation">
             <a
               href={publicJourneyPath("/get-started", window.location.search)}
-              onClick={onSecure}
+              onClick={(event) => {
+                if (!onSecure()) event.preventDefault();
+              }}
             >
               <Sparkles size={18} />
               <strong>Start your first decision</strong>
@@ -2648,7 +2656,12 @@ function UsageModal({
               </small>
               <em>Recommended next step</em>
             </a>
-            <a href={signInHref} onClick={onSecure}>
+            <a
+              href={signInHref}
+              onClick={(event) => {
+                if (!onSecure()) event.preventDefault();
+              }}
+            >
               <LockKeyhole size={18} />
               <strong>Sign in and retain it</strong>
               <small>Move the case into a governed company workspace.</small>

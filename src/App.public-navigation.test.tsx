@@ -180,7 +180,21 @@ it("actual capability navigation preserves a chosen customer conversation across
   ];
   window.sessionStorage.setItem(
     getPublicDecisionCaseStorageKey("oil-gas"),
-    JSON.stringify([customer]),
+    JSON.stringify([
+      customer,
+      {
+        ...customer,
+        id: "draft-customer-second",
+        title: "Second customer decision",
+        messages: [
+          {
+            ...customer.messages[0],
+            id: "user-2",
+            text: "Second customer evidence question",
+          },
+        ],
+      },
+    ]),
   );
   window.history.replaceState(null, "", "/capabilities/compare");
   const app = render(<App />);
@@ -216,10 +230,71 @@ it("actual capability navigation preserves a chosen customer conversation across
     ),
   );
   await screen.findByText("Synthetic customer evidence question");
+  fireEvent.click(screen.getByRole("button", { name: "Conversations" }));
+  fireEvent.click(
+    screen.getByRole("button", { name: /Second customer decision/ }),
+  );
+  await waitFor(() =>
+    expect(window.location.pathname).toBe(
+      "/workspace/cases/draft-customer-second",
+    ),
+  );
+  await screen.findByText("Second customer evidence question");
   app.unmount();
   render(<App />);
+  await screen.findByText("Second customer evidence question");
+  await act(async () => {
+    window.history.back();
+  });
   await screen.findByText("Synthetic customer evidence question");
+  await act(async () => {
+    window.history.forward();
+  });
+  await screen.findByText("Second customer evidence question");
   expect(
     screen.queryByRole("region", { name: "Example workspace" }),
   ).toBeNull();
+});
+
+it("blocked storage prevents sign-in from discarding the in-memory conversation", async () => {
+  const descriptor = Object.getOwnPropertyDescriptor(window, "sessionStorage");
+  const denied = () => {
+    throw new Error("Storage blocked");
+  };
+  Object.defineProperty(window, "sessionStorage", {
+    configurable: true,
+    value: { getItem: denied, setItem: denied, clear: () => {} },
+  });
+  try {
+    window.history.replaceState(null, "", "/capabilities/compare");
+    render(<App />);
+    await screen.findByRole("region", { name: "Example workspace" });
+    const link = screen.getByRole("link", { name: "Sign in" });
+    expect(fireEvent.click(link)).toBe(false);
+    expect(window.location.pathname).toBe("/capabilities/compare");
+    expect(
+      screen.getByText(/Browser storage is unavailable/),
+    ).toBeInTheDocument();
+    expect(document.querySelector(".bolt-main .dw-thread")).toBeTruthy();
+  } finally {
+    if (descriptor) Object.defineProperty(window, "sessionStorage", descriptor);
+  }
+});
+
+it("switching a scrolled public example resets the actual conversation container", async () => {
+  window.history.replaceState(null, "", "/capabilities/health");
+  render(<App />);
+  await screen.findByRole("region", { name: "Example workspace" });
+  const thread = document.querySelector<HTMLElement>(".bolt-main .dw-thread")!;
+  thread.scrollTop = 640;
+  await act(async () => {
+    window.history.pushState(null, "", "/capabilities/compare");
+    window.dispatchEvent(new PopStateEvent("popstate"));
+  });
+  await screen.findByRole("heading", { name: "Compare the next intervention" });
+  await waitFor(() =>
+    expect(
+      document.querySelector<HTMLElement>(".bolt-main .dw-thread")!.scrollTop,
+    ).toBe(0),
+  );
 });
