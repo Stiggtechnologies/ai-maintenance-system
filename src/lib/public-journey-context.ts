@@ -72,3 +72,54 @@ export function publicJourneyPath(path: string, search: string): string {
   }
   return `${destination.pathname}${destination.search}${destination.hash}`;
 }
+
+/** Keep a decision identity on explicit journey navigation; no arbitrary query forwarding. */
+export function publicDecisionJourneyPaths(
+  search: string,
+  origin: string,
+  pathname = "/",
+): { assistant: string; firstDecision: string } {
+  const outer = new URLSearchParams(search);
+  const returnUrl = new URL(
+    safeAuthReturnTo(outer.get("returnTo"), origin),
+    origin,
+  );
+  const validId = (value: string | null) =>
+    value &&
+    /^(?:draft-[a-zA-Z0-9][a-zA-Z0-9_-]{0,95}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.test(
+      value,
+    )
+      ? value
+      : null;
+  const routeCase = (path: string) => {
+    const match = path.match(/^\/workspace\/cases\/([^/]+)$/);
+    return validId(match?.[1] ?? null);
+  };
+  const id =
+    validId(outer.get("case")) ??
+    routeCase(pathname) ??
+    validId(returnUrl.searchParams.get("case")) ??
+    routeCase(returnUrl.pathname);
+  const context = publicAuthJourneySearch(search, origin);
+  if (!id)
+    return {
+      assistant: publicJourneyPath("/workspace", context),
+      firstDecision: publicJourneyPath("/get-started", context),
+    };
+  const first = new URL(publicJourneyPath("/get-started", context), origin);
+  first.searchParams.set("case", id);
+  first.searchParams.set(
+    "view",
+    outer.get("view") === "ask" ? "ask" : "evaluation",
+  );
+  first.searchParams.set("origin", "evaluation");
+  const assistant = new URL(
+    publicJourneyPath(`/workspace/cases/${id}`, context),
+    origin,
+  );
+  assistant.searchParams.set("origin", "evaluation");
+  return {
+    assistant: assistant.pathname + assistant.search,
+    firstDecision: first.pathname + first.search,
+  };
+}
