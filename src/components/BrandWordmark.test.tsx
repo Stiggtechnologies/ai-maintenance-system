@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { BrandWordmark } from "./BrandWordmark";
@@ -13,6 +14,43 @@ function pngColorType(bytes: Buffer): number {
 }
 
 describe("BrandWordmark", () => {
+  it("preserves every approved shared asset byte and updates legacy icon URLs", () => {
+    const manifest = JSON.parse(
+      readFileSync("public/brand/precision-v1-manifest.json", "utf8"),
+    );
+    expect(manifest.version).toBe("precision-v1-smooth");
+    expect(Object.keys(manifest.assets)).toHaveLength(12);
+    for (const [name, expected] of Object.entries(manifest.assets) as [
+      string,
+      { bytes: number; sha256: string },
+    ][]) {
+      const bytes = readFileSync(`public/brand/${name}`);
+      expect(bytes.length, name).toBe(expected.bytes);
+      expect(createHash("sha256").update(bytes).digest("hex"), name).toBe(
+        expected.sha256,
+      );
+    }
+    for (const [alias, original] of [
+      [WORDMARK, "syncai-wordmark.png"],
+      ["public/favicon.svg", "syncai-icon.svg"],
+      ["public/favicon.ico", "favicon.ico"],
+    ]) {
+      expect(
+        readFileSync(alias).equals(readFileSync(`public/brand/${original}`)),
+      ).toBe(true);
+    }
+    const html = readFileSync("index.html", "utf8");
+    for (const icon of [
+      "favicon.ico",
+      "syncai-icon-32.png",
+      "syncai-icon.svg",
+      "syncai-icon-180.png",
+    ]) {
+      expect(html).toContain(`href="/brand/${icon}"`);
+    }
+    expect(html).not.toMatch(/rel="manifest"/);
+  });
+
   it("commits a PNG with an alpha channel and no opaque black box", () => {
     const bytes = readFileSync(WORDMARK);
     expect(bytes.subarray(0, 8).equals(PNG_SIG)).toBe(true);
@@ -22,7 +60,7 @@ describe("BrandWordmark", () => {
   it("renders the wordmark image at nav-row size without a background plate", () => {
     const { container } = render(<BrandWordmark />);
     const img = screen.getByRole("img", { name: "SyncAI" });
-    expect(img).toHaveAttribute("src", "/brand/wordmark-ink.png");
+    expect(img).toHaveAttribute("src", "/brand/syncai-wordmark-light.svg");
     expect(img.className).toMatch(/\bh-9\b/);
     expect(img.className).toMatch(/\bshrink-0\b/);
     expect(img.className).not.toMatch(/bg-|rounded-lg|shadow-/);
@@ -47,6 +85,9 @@ describe("BrandWordmark", () => {
     const chrome = [
       "src/components/AppShell.tsx",
       "src/components/PublicProductHeader.tsx",
+      "src/components/PublicJourneyHeader.tsx",
+      "src/components/public-ask/PublicAskRail.tsx",
+      "src/components/public-ask/PublicAskEmpty.tsx",
       "src/components/AuthShell.tsx",
       "src/components/LoadingScreen.tsx",
       "src/components/HelpCenterWidget.tsx",
