@@ -1,8 +1,8 @@
 {
   "schemaVersion": 1,
   "source": "package-lock.json",
-  "lockfileSha256": "094c0411154bfb49f7f425bcf89a82cc79935015e6d87fedae65ee355554c201",
-  "packageInstances": 406,
+  "lockfileSha256": "ee8e3c7aad306c0d0b1d745a875f6ce341ab388aef6e53902bd9ddb888c88364",
+  "packageInstances": 425,
   "directProductionDependencies": 14,
   "directDevelopmentDependencies": 27,
   "prohibitedCount": 0,
@@ -16,9 +16,9 @@
     "CC-BY-4.0": 1,
     "CC0-1.0": 1,
     "ISC": 22,
-    "MIT": 323,
+    "MIT": 330,
     "MIT-0": 2,
-    "MPL-2.0": 12,
+    "MPL-2.0": 24,
     "OFL-1.1": 2
   },
   "policy": {
@@ -205,6 +205,20 @@
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@bramus/specificity"
+    },
+    {
+      "name": "@cacheable/memory",
+      "version": "2.2.0",
+      "license": "MIT",
+      "direct": "transitive",
+      "packagePath": "node_modules/@cacheable/memory"
+    },
+    {
+      "name": "@cacheable/utils",
+      "version": "2.5.0",
+      "license": "MIT",
+      "direct": "transitive",
+      "packagePath": "node_modules/@cacheable/utils"
     },
     {
       "name": "@csstools/color-helpers",
@@ -474,7 +488,7 @@
     },
     {
       "name": "@eslint/config-helpers",
-      "version": "0.6.0",
+      "version": "0.7.0",
       "license": "Apache-2.0",
       "direct": "transitive",
       "packagePath": "node_modules/@eslint/config-helpers"
@@ -502,7 +516,7 @@
     },
     {
       "name": "@eslint/plugin-kit",
-      "version": "0.7.2",
+      "version": "0.7.3",
       "license": "Apache-2.0",
       "direct": "transitive",
       "packagePath": "node_modules/@eslint/plugin-kit"
@@ -606,6 +620,20 @@
       "packagePath": "node_modules/@jridgewell/trace-mapping"
     },
     {
+      "name": "@keyv/bigmap",
+      "version": "1.3.1",
+      "license": "MIT",
+      "direct": "transitive",
+      "packagePath": "node_modules/@keyv/bigmap"
+    },
+    {
+      "name": "@keyv/serialize",
+      "version": "1.1.1",
+      "license": "MIT",
+      "direct": "transitive",
+      "packagePath": "node_modules/@keyv/serialize"
+    },
+    {
       "name": "@napi-rs/canvas-android-arm64",
       "version": "0.1.100",
       "license": "MIT",
@@ -698,119 +726,119 @@
     },
     {
       "name": "@oxc-project/types",
-      "version": "0.139.0",
+      "version": "0.152.0",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@oxc-project/types"
     },
     {
       "name": "@playwright/test",
-      "version": "1.61.1",
+      "version": "1.63.0",
       "license": "Apache-2.0",
       "direct": "development",
       "packagePath": "node_modules/@playwright/test"
     },
     {
+      "name": "@rolldown/binding-android-arm-eabi",
+      "version": "1.2.12",
+      "license": "MIT",
+      "direct": "transitive",
+      "packagePath": "node_modules/@rolldown/binding-android-arm-eabi"
+    },
+    {
       "name": "@rolldown/binding-android-arm64",
-      "version": "1.1.5",
+      "version": "1.2.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@rolldown/binding-android-arm64"
     },
     {
       "name": "@rolldown/binding-darwin-arm64",
-      "version": "1.1.5",
+      "version": "1.2.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@rolldown/binding-darwin-arm64"
     },
     {
       "name": "@rolldown/binding-darwin-x64",
-      "version": "1.1.5",
+      "version": "1.2.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@rolldown/binding-darwin-x64"
     },
     {
       "name": "@rolldown/binding-freebsd-x64",
-      "version": "1.1.5",
+      "version": "1.2.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@rolldown/binding-freebsd-x64"
     },
     {
       "name": "@rolldown/binding-linux-arm-gnueabihf",
-      "version": "1.1.5",
+      "version": "1.2.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@rolldown/binding-linux-arm-gnueabihf"
     },
     {
       "name": "@rolldown/binding-linux-arm64-gnu",
-      "version": "1.1.5",
+      "version": "1.2.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@rolldown/binding-linux-arm64-gnu"
     },
     {
       "name": "@rolldown/binding-linux-arm64-musl",
-      "version": "1.1.5",
+      "version": "1.2.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@rolldown/binding-linux-arm64-musl"
     },
     {
       "name": "@rolldown/binding-linux-ppc64-gnu",
-      "version": "1.1.5",
+      "version": "1.2.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@rolldown/binding-linux-ppc64-gnu"
     },
     {
       "name": "@rolldown/binding-linux-s390x-gnu",
-      "version": "1.1.5",
+      "version": "1.2.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@rolldown/binding-linux-s390x-gnu"
     },
     {
       "name": "@rolldown/binding-linux-x64-gnu",
-      "version": "1.1.5",
+      "version": "1.2.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@rolldown/binding-linux-x64-gnu"
     },
     {
       "name": "@rolldown/binding-linux-x64-musl",
-      "version": "1.1.5",
+      "version": "1.2.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@rolldown/binding-linux-x64-musl"
     },
     {
       "name": "@rolldown/binding-openharmony-arm64",
-      "version": "1.1.5",
+      "version": "1.2.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@rolldown/binding-openharmony-arm64"
     },
     {
-      "name": "@rolldown/binding-wasm32-wasi",
-      "version": "1.1.5",
-      "license": "MIT",
-      "direct": "transitive",
-      "packagePath": "node_modules/@rolldown/binding-wasm32-wasi"
-    },
-    {
       "name": "@rolldown/binding-win32-arm64-msvc",
-      "version": "1.1.5",
+      "version": "1.2.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@rolldown/binding-win32-arm64-msvc"
     },
     {
       "name": "@rolldown/binding-win32-x64-msvc",
-      "version": "1.1.5",
+      "version": "1.2.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@rolldown/binding-win32-x64-msvc"
@@ -1006,7 +1034,7 @@
     },
     {
       "name": "@testing-library/react",
-      "version": "16.3.2",
+      "version": "16.3.3",
       "license": "MIT",
       "direct": "development",
       "packagePath": "node_modules/@testing-library/react"
@@ -1062,7 +1090,7 @@
     },
     {
       "name": "@types/node",
-      "version": "24.13.3",
+      "version": "24.19.1",
       "license": "MIT",
       "direct": "development",
       "packagePath": "node_modules/@types/node"
@@ -1090,77 +1118,77 @@
     },
     {
       "name": "@typescript-eslint/eslint-plugin",
-      "version": "8.65.0",
+      "version": "8.71.1",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@typescript-eslint/eslint-plugin"
     },
     {
       "name": "@typescript-eslint/parser",
-      "version": "8.65.0",
+      "version": "8.71.1",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@typescript-eslint/parser"
     },
     {
       "name": "@typescript-eslint/project-service",
-      "version": "8.65.0",
+      "version": "8.71.1",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@typescript-eslint/project-service"
     },
     {
       "name": "@typescript-eslint/scope-manager",
-      "version": "8.65.0",
+      "version": "8.71.1",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@typescript-eslint/scope-manager"
     },
     {
       "name": "@typescript-eslint/tsconfig-utils",
-      "version": "8.65.0",
+      "version": "8.71.1",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@typescript-eslint/tsconfig-utils"
     },
     {
       "name": "@typescript-eslint/type-utils",
-      "version": "8.65.0",
+      "version": "8.71.1",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@typescript-eslint/type-utils"
     },
     {
       "name": "@typescript-eslint/types",
-      "version": "8.65.0",
+      "version": "8.71.1",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@typescript-eslint/types"
     },
     {
       "name": "@typescript-eslint/typescript-estree",
-      "version": "8.65.0",
+      "version": "8.71.1",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@typescript-eslint/typescript-estree"
     },
     {
       "name": "@typescript-eslint/utils",
-      "version": "8.65.0",
+      "version": "8.71.1",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@typescript-eslint/utils"
     },
     {
       "name": "@typescript-eslint/visitor-keys",
-      "version": "8.65.0",
+      "version": "8.71.1",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@typescript-eslint/visitor-keys"
     },
     {
       "name": "@vitejs/plugin-react",
-      "version": "6.0.3",
+      "version": "6.1.2",
       "license": "MIT",
       "direct": "development",
       "packagePath": "node_modules/@vitejs/plugin-react"
@@ -1318,6 +1346,13 @@
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/buffer-from"
+    },
+    {
+      "name": "cacheable",
+      "version": "2.5.0",
+      "license": "MIT",
+      "direct": "transitive",
+      "packagePath": "node_modules/cacheable"
     },
     {
       "name": "camelcase",
@@ -1545,7 +1580,7 @@
     },
     {
       "name": "eslint-plugin-react-refresh",
-      "version": "0.5.3",
+      "version": "0.5.7",
       "license": "MIT",
       "direct": "development",
       "packagePath": "node_modules/eslint-plugin-react-refresh"
@@ -1573,7 +1608,7 @@
     },
     {
       "name": "eslint",
-      "version": "10.7.0",
+      "version": "10.12.0",
       "license": "MIT",
       "direct": "development",
       "packagePath": "node_modules/eslint"
@@ -1664,7 +1699,7 @@
     },
     {
       "name": "file-entry-cache",
-      "version": "8.0.0",
+      "version": "11.1.5",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/file-entry-cache"
@@ -1685,14 +1720,14 @@
     },
     {
       "name": "flat-cache",
-      "version": "4.0.1",
+      "version": "6.1.23",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/flat-cache"
     },
     {
       "name": "flatted",
-      "version": "3.4.2",
+      "version": "3.4.4",
       "license": "ISC",
       "direct": "transitive",
       "packagePath": "node_modules/flatted"
@@ -1703,13 +1738,6 @@
       "license": "MIT",
       "direct": "production",
       "packagePath": "node_modules/framer-motion"
-    },
-    {
-      "name": "fsevents",
-      "version": "2.3.2",
-      "license": "MIT",
-      "direct": "transitive",
-      "packagePath": "node_modules/playwright/node_modules/fsevents"
     },
     {
       "name": "fsevents",
@@ -1741,7 +1769,7 @@
     },
     {
       "name": "globals",
-      "version": "17.7.0",
+      "version": "17.13.0",
       "license": "MIT",
       "direct": "development",
       "packagePath": "node_modules/globals"
@@ -1752,6 +1780,13 @@
       "license": "ISC",
       "direct": "transitive",
       "packagePath": "node_modules/graceful-fs"
+    },
+    {
+      "name": "hashery",
+      "version": "1.5.1",
+      "license": "MIT",
+      "direct": "transitive",
+      "packagePath": "node_modules/hashery"
     },
     {
       "name": "hermes-estree",
@@ -1766,6 +1801,20 @@
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/hermes-parser"
+    },
+    {
+      "name": "hookified",
+      "version": "1.15.1",
+      "license": "MIT",
+      "direct": "transitive",
+      "packagePath": "node_modules/hookified"
+    },
+    {
+      "name": "hookified",
+      "version": "2.2.0",
+      "license": "MIT",
+      "direct": "transitive",
+      "packagePath": "node_modules/qified/node_modules/hookified"
     },
     {
       "name": "html-encoding-sniffer",
@@ -1804,7 +1853,7 @@
     },
     {
       "name": "ignore",
-      "version": "7.0.6",
+      "version": "7.0.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@typescript-eslint/eslint-plugin/node_modules/ignore"
@@ -1901,13 +1950,6 @@
       "packagePath": "node_modules/jsesc"
     },
     {
-      "name": "json-buffer",
-      "version": "3.0.1",
-      "license": "MIT",
-      "direct": "transitive",
-      "packagePath": "node_modules/json-buffer"
-    },
-    {
       "name": "json-schema-traverse",
       "version": "0.4.1",
       "license": "MIT",
@@ -1930,7 +1972,7 @@
     },
     {
       "name": "keyv",
-      "version": "4.5.4",
+      "version": "5.6.0",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/keyv"
@@ -1950,11 +1992,25 @@
       "packagePath": "node_modules/lightningcss-android-arm64"
     },
     {
+      "name": "lightningcss-android-arm64",
+      "version": "1.33.0",
+      "license": "MPL-2.0",
+      "direct": "transitive",
+      "packagePath": "node_modules/vite/node_modules/lightningcss-android-arm64"
+    },
+    {
       "name": "lightningcss-darwin-arm64",
       "version": "1.32.0",
       "license": "MPL-2.0",
       "direct": "transitive",
       "packagePath": "node_modules/lightningcss-darwin-arm64"
+    },
+    {
+      "name": "lightningcss-darwin-arm64",
+      "version": "1.33.0",
+      "license": "MPL-2.0",
+      "direct": "transitive",
+      "packagePath": "node_modules/vite/node_modules/lightningcss-darwin-arm64"
     },
     {
       "name": "lightningcss-darwin-x64",
@@ -1964,11 +2020,25 @@
       "packagePath": "node_modules/lightningcss-darwin-x64"
     },
     {
+      "name": "lightningcss-darwin-x64",
+      "version": "1.33.0",
+      "license": "MPL-2.0",
+      "direct": "transitive",
+      "packagePath": "node_modules/vite/node_modules/lightningcss-darwin-x64"
+    },
+    {
       "name": "lightningcss-freebsd-x64",
       "version": "1.32.0",
       "license": "MPL-2.0",
       "direct": "transitive",
       "packagePath": "node_modules/lightningcss-freebsd-x64"
+    },
+    {
+      "name": "lightningcss-freebsd-x64",
+      "version": "1.33.0",
+      "license": "MPL-2.0",
+      "direct": "transitive",
+      "packagePath": "node_modules/vite/node_modules/lightningcss-freebsd-x64"
     },
     {
       "name": "lightningcss-linux-arm-gnueabihf",
@@ -1978,11 +2048,25 @@
       "packagePath": "node_modules/lightningcss-linux-arm-gnueabihf"
     },
     {
+      "name": "lightningcss-linux-arm-gnueabihf",
+      "version": "1.33.0",
+      "license": "MPL-2.0",
+      "direct": "transitive",
+      "packagePath": "node_modules/vite/node_modules/lightningcss-linux-arm-gnueabihf"
+    },
+    {
       "name": "lightningcss-linux-arm64-gnu",
       "version": "1.32.0",
       "license": "MPL-2.0",
       "direct": "transitive",
       "packagePath": "node_modules/lightningcss-linux-arm64-gnu"
+    },
+    {
+      "name": "lightningcss-linux-arm64-gnu",
+      "version": "1.33.0",
+      "license": "MPL-2.0",
+      "direct": "transitive",
+      "packagePath": "node_modules/vite/node_modules/lightningcss-linux-arm64-gnu"
     },
     {
       "name": "lightningcss-linux-arm64-musl",
@@ -1992,11 +2076,25 @@
       "packagePath": "node_modules/lightningcss-linux-arm64-musl"
     },
     {
+      "name": "lightningcss-linux-arm64-musl",
+      "version": "1.33.0",
+      "license": "MPL-2.0",
+      "direct": "transitive",
+      "packagePath": "node_modules/vite/node_modules/lightningcss-linux-arm64-musl"
+    },
+    {
       "name": "lightningcss-linux-x64-gnu",
       "version": "1.32.0",
       "license": "MPL-2.0",
       "direct": "transitive",
       "packagePath": "node_modules/lightningcss-linux-x64-gnu"
+    },
+    {
+      "name": "lightningcss-linux-x64-gnu",
+      "version": "1.33.0",
+      "license": "MPL-2.0",
+      "direct": "transitive",
+      "packagePath": "node_modules/vite/node_modules/lightningcss-linux-x64-gnu"
     },
     {
       "name": "lightningcss-linux-x64-musl",
@@ -2006,11 +2104,25 @@
       "packagePath": "node_modules/lightningcss-linux-x64-musl"
     },
     {
+      "name": "lightningcss-linux-x64-musl",
+      "version": "1.33.0",
+      "license": "MPL-2.0",
+      "direct": "transitive",
+      "packagePath": "node_modules/vite/node_modules/lightningcss-linux-x64-musl"
+    },
+    {
       "name": "lightningcss-win32-arm64-msvc",
       "version": "1.32.0",
       "license": "MPL-2.0",
       "direct": "transitive",
       "packagePath": "node_modules/lightningcss-win32-arm64-msvc"
+    },
+    {
+      "name": "lightningcss-win32-arm64-msvc",
+      "version": "1.33.0",
+      "license": "MPL-2.0",
+      "direct": "transitive",
+      "packagePath": "node_modules/vite/node_modules/lightningcss-win32-arm64-msvc"
     },
     {
       "name": "lightningcss-win32-x64-msvc",
@@ -2020,6 +2132,13 @@
       "packagePath": "node_modules/lightningcss-win32-x64-msvc"
     },
     {
+      "name": "lightningcss-win32-x64-msvc",
+      "version": "1.33.0",
+      "license": "MPL-2.0",
+      "direct": "transitive",
+      "packagePath": "node_modules/vite/node_modules/lightningcss-win32-x64-msvc"
+    },
+    {
       "name": "lightningcss",
       "version": "1.32.0",
       "license": "MPL-2.0",
@@ -2027,8 +2146,15 @@
       "packagePath": "node_modules/lightningcss"
     },
     {
+      "name": "lightningcss",
+      "version": "1.33.0",
+      "license": "MPL-2.0",
+      "direct": "transitive",
+      "packagePath": "node_modules/vite/node_modules/lightningcss"
+    },
+    {
       "name": "lint-staged",
-      "version": "17.1.0",
+      "version": "17.6.0",
       "license": "MIT",
       "direct": "development",
       "packagePath": "node_modules/lint-staged"
@@ -2126,7 +2252,7 @@
     },
     {
       "name": "nanoid",
-      "version": "3.3.18",
+      "version": "3.3.20",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/nanoid"
@@ -2252,21 +2378,21 @@
     },
     {
       "name": "picomatch",
-      "version": "4.0.5",
+      "version": "4.0.7",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/picomatch"
     },
     {
       "name": "playwright-core",
-      "version": "1.61.1",
+      "version": "1.63.0",
       "license": "Apache-2.0",
       "direct": "transitive",
       "packagePath": "node_modules/playwright-core"
     },
     {
       "name": "playwright",
-      "version": "1.61.1",
+      "version": "1.63.0",
       "license": "Apache-2.0",
       "direct": "transitive",
       "packagePath": "node_modules/playwright"
@@ -2280,7 +2406,7 @@
     },
     {
       "name": "postcss",
-      "version": "8.5.26",
+      "version": "8.5.29",
       "license": "MIT",
       "direct": "development",
       "packagePath": "node_modules/postcss"
@@ -2294,7 +2420,7 @@
     },
     {
       "name": "prettier",
-      "version": "3.9.5",
+      "version": "3.9.9",
       "license": "MIT",
       "direct": "development",
       "packagePath": "node_modules/prettier"
@@ -2312,6 +2438,13 @@
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/punycode"
+    },
+    {
+      "name": "qified",
+      "version": "0.10.1",
+      "license": "MIT",
+      "direct": "transitive",
+      "packagePath": "node_modules/qified"
     },
     {
       "name": "qrcode",
@@ -2392,7 +2525,7 @@
     },
     {
       "name": "rolldown",
-      "version": "1.1.5",
+      "version": "1.2.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/rolldown"
@@ -2546,7 +2679,7 @@
     },
     {
       "name": "terser",
-      "version": "5.49.0",
+      "version": "5.51.2",
       "license": "BSD-2-Clause",
       "direct": "development",
       "packagePath": "node_modules/terser"
@@ -2574,7 +2707,7 @@
     },
     {
       "name": "tinyexec",
-      "version": "1.2.4",
+      "version": "1.3.1",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/tinyexec"
@@ -2644,7 +2777,7 @@
     },
     {
       "name": "tsx",
-      "version": "4.23.1",
+      "version": "4.23.15",
       "license": "MIT",
       "direct": "development",
       "packagePath": "node_modules/tsx"
@@ -2658,7 +2791,7 @@
     },
     {
       "name": "typescript-eslint",
-      "version": "8.65.0",
+      "version": "8.71.1",
       "license": "MIT",
       "direct": "development",
       "packagePath": "node_modules/typescript-eslint"
@@ -2672,7 +2805,7 @@
     },
     {
       "name": "undici-types",
-      "version": "7.18.2",
+      "version": "7.24.6",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/undici-types"
@@ -2700,7 +2833,7 @@
     },
     {
       "name": "vite",
-      "version": "8.1.5",
+      "version": "8.3.3",
       "license": "MIT",
       "direct": "development",
       "packagePath": "node_modules/vite"
@@ -2826,7 +2959,7 @@
     },
     {
       "name": "yaml",
-      "version": "2.9.0",
+      "version": "2.9.1",
       "license": "ISC",
       "direct": "development",
       "packagePath": "node_modules/yaml"
