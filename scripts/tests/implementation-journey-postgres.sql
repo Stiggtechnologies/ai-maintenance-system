@@ -77,17 +77,11 @@ begin
  perform test_refusal(format('select command_implementation(gen_random_uuid(),%L,%L,4,''result'',''{"evidenceId":"40000000-0000-4000-8000-000000000002","statement":"Observed first result"}'')',b,j),'readiness is not approval');
  -- Synthetic gate state setup, not evidence that the existing go-live service works.
  update asset_onboarding_state set status='live',approved_by='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',approved_at=now();
- r := command_implementation(gen_random_uuid(),b,j,4,'result','{"evidenceId":"40000000-0000-4000-8000-000000000002","statement":"Observed first result"}');
- perform test_assert(r->>'phase'='result_reviewed','human first-result review');
- perform test_refusal(format('select command_implementation(gen_random_uuid(),%L,%L,5,''accept'',''{"acceptanceEvidenceId":"40000000-0000-4000-8000-000000000003","trainingEvidenceId":"40000000-0000-4000-8000-000000000003","supportEvidenceId":"40000000-0000-4000-8000-000000000005","statement":"Accepted"}'')',b,j),'distinct handoff proof');
- r := command_implementation(gen_random_uuid(),b,j,5,'accept','{"acceptanceEvidenceId":"40000000-0000-4000-8000-000000000003","trainingEvidenceId":"40000000-0000-4000-8000-000000000004","supportEvidenceId":"40000000-0000-4000-8000-000000000005","statement":"Customer accepts this outcome and handoff"}');
- perform test_assert(r->>'phase'='accepted','explicit customer acceptance');
- perform test_assert(get_implementation_workspace()->'journeys'->0->>'current'='true','current acceptance standing');
- update evidence_items set description='Fixture source corrected' where id='40000000-0000-4000-8000-000000000002';
- perform test_assert(get_implementation_workspace()->'journeys'->0->>'current'='false','changed evidence invalidates current completion');
- r := command_implementation(gen_random_uuid(),b,j,6,'pause','{}');
+ perform test_refusal(format('select command_implementation(gen_random_uuid(),%L,%L,4,''result'',''{"evidenceId":"40000000-0000-4000-8000-000000000002","statement":"Synthetic review"}'')',b,j),'forged approval fields and mutable verified content cannot qualify first result');
+ perform test_refusal(format('select command_implementation(gen_random_uuid(),%L,%L,4,''accept'',''{}'')',b,j),'acceptance blocked pending canonical provenance');
+ r := command_implementation(gen_random_uuid(),b,j,4,'pause','{}');
  perform test_assert((select count(*) from asset_twin_instances)=1 and (select count(*) from evidence_items)=6,'pause retains all records');
- r := command_implementation(gen_random_uuid(),b,j,7,'resume','{}');
+ r := command_implementation(gen_random_uuid(),b,j,5,'resume','{}');
  perform test_assert(r->>'phase'='planning','resume requires fresh review');
  perform test_refusal($q$update audit_events set event_data='{}' where entity_type='implementation_command'$q$,'immutable receipts');
  perform test_refusal($q$delete from audit_events where entity_type='implementation_command'$q$,'retained receipts');

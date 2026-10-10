@@ -43,3 +43,7 @@ jobs:
           -f scripts/tests/implementation-journey-postgres.sql
       - name: Concurrent duplicate starts in two PostgreSQL sessions
         run: python3 scripts/tests/implementation-concurrency.py
+      - name: Unchanged canonical engineering services (isolated original migrations)
+        run: |
+          createdb implementation_canonical
+          PGDATABASE=implementation_canonical psql -v ON_ERROR_STOP=1 -f scripts/tests/implementation-canonical-setup.sql -f scripts/tests/implementation-canonical-postgres.sql

@@ -27,6 +27,7 @@ create table asset_twin_instances(id uuid primary key default gen_random_uuid(),
  status text default 'draft', created_at timestamptz default now(), unique(asset_id,compiled_version));
 create table asset_onboarding_state(asset_id uuid primary key, organization_id uuid, status text,
  approved_by uuid, approved_at timestamptz);
+create table onboarding_requirements(key text primary key, required_for_golive boolean);
 create table asset_onboarding_items(id uuid primary key default gen_random_uuid(), organization_id uuid, asset_id uuid, requirement_key text, value jsonb, filled_at timestamptz, created_at timestamptz default now());
 create table connector_runs(id uuid primary key, organization_id uuid, status text, records_rejected int,
  records_accepted int, finished_at timestamptz);

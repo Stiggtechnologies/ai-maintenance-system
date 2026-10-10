@@ -28,6 +28,14 @@ begin
 end $$;
 revoke all on function public.implementation_evidence(uuid,uuid) from public,anon,authenticated,service_role;
 
+-- Store authorized source references and content fingerprints, never source rows.
+-- Direct deployment/audit readers must not inherit restricted evidence visibility.
+create or replace function public.implementation_reference(p_value jsonb)
+returns jsonb language sql immutable set search_path=public,pg_temp as $$
+  select jsonb_build_object('id',p_value->'id','fingerprint',encode(sha256(convert_to(p_value::text,'UTF8')),'hex'))
+$$;
+revoke all on function public.implementation_reference(jsonb) from public,anon,authenticated,service_role;
+
 create or replace function public.implementation_manifest(p_scope jsonb)
 returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
 declare
@@ -67,6 +75,12 @@ begin
     select coalesce(jsonb_agg(to_jsonb(i)-'filled_at'-'created_at' order by requirement_key),'[]') into v_checklist
       from public.asset_onboarding_items i where asset_id=a.id and organization_id=v_org;
     v_readiness := public.get_golive_readiness(a.id);
+    -- Compare against the whole required catalog, not just surviving checklist rows.
+    if exists(select 1 from public.onboarding_requirements q where q.required_for_golive
+      and not exists(select 1 from public.asset_onboarding_items i where i.asset_id=a.id
+        and i.organization_id=v_org and i.requirement_key=q.key)) then
+      v_readiness := v_readiness || jsonb_build_object('ready',false,'catalogIncomplete',true);
+    end if;
     -- Readiness is not implementation acceptance. Every required item and the human gate must stand.
     v_ready := v_ready and exists(select 1 from public.user_profiles p where p.id=s.approved_by
       and p.organization_id=v_org and p.role in ('admin','reliability_engineer','maintenance_manager')
@@ -77,9 +91,9 @@ begin
       and compiled_version=t.version||'+customer' and compiled_twin=t.template
       order by created_at limit 1 for share;
     v_assets := v_assets || jsonb_build_array(jsonb_build_object(
-      'assetId',a.id,'assetRecord',to_jsonb(a)-array['health_score','risk_score','updated_at'],'checklist',v_checklist,'tag',a.tag,'name',a.name,'assetClass',a.asset_class,'siteId',a.site_id,
-      'mapping',v_map,'template',jsonb_build_object('id',t.id,'version',t.version,'content',t.template),
-      'twinId',twin.id,'twinContent',twin.compiled_twin,'twinStatus',twin.status,
+      'assetId',a.id,'assetFingerprint',encode(sha256(convert_to((to_jsonb(a)-array['health_score','risk_score','updated_at'])::text,'UTF8')),'hex'),'checklistFingerprint',encode(sha256(convert_to(v_checklist::text,'UTF8')),'hex'),'tag',a.tag,'name',a.name,'assetClass',a.asset_class,'siteId',a.site_id,
+      'mapping',public.implementation_reference(v_map),'template',public.implementation_reference(to_jsonb(t)),
+      'twinId',twin.id,'twinFingerprint',public.implementation_reference(to_jsonb(twin)-'updated_at'),'twinStatus',twin.status,
       'onboarding',jsonb_build_object('status',s.status,'approvedBy',s.approved_by,'approvedAt',s.approved_at),
       'readiness',v_readiness));
   end loop;
@@ -90,7 +104,7 @@ begin
       raise exception 'clean completed same-tenant import run required; resolve retained rejects first';
     end if;
     v_run_seen := array_append(v_run_seen,r.id);
-    v_runs := v_runs || jsonb_build_array(to_jsonb(r));
+    v_runs := v_runs || jsonb_build_array(public.implementation_reference(to_jsonb(r)));
   end loop;
   return jsonb_build_object('assets',v_assets,'imports',v_runs,'assetsReady',v_ready,
     'infrastructure','human_assisted','operationalAuthority',false);
@@ -225,6 +239,17 @@ begin
           lock table public.asset_twin_instances in share row exclusive mode;
         end if;
         v_manifest := public.implementation_manifest(v_state->'scope');
+        -- Validate conflicts during dry-run too. Live mode already holds the
+        -- compiler-table lock; dry-run is a truthful read-only point-in-time check.
+        for x in select value from jsonb_array_elements(v_state->'scope'->'assets') loop
+          select id into v_twin from public.asset_twin_instances where organization_id=v_org
+            and asset_id=(x->>'assetId')::uuid and compiled_version=(select version||'+customer'
+              from public.asset_twin_templates where id=(x->>'templateId')::uuid);
+          if v_twin is not null and not exists(select 1 from jsonb_array_elements(v_manifest->'assets') m
+            where m->>'twinId'=v_twin::text) then
+            raise exception 'existing twin differs; request engineering assistance';
+          end if;
+        end loop;
         if not p_dry_run then
           -- One atomic bounded pass: an error rolls back ALL compilation/autofill writes,
           -- while a durable failure checkpoint lets a human repair and retry. No billable AI.
@@ -253,41 +278,12 @@ begin
           end;
         end if;
       when 'result' then
-        if v_state->>'phase'<>'prepared' or (p_payload-array['evidenceId','statement'])<>'{}'::jsonb
-          or nullif(btrim(p_payload->>'statement'),'') is null then raise exception 'prepared scope and explicit first-result review required'; end if;
-        v_manifest := public.implementation_manifest(v_state->'scope');
-        if not (v_manifest->>'assetsReady')::boolean or exists(select 1 from jsonb_array_elements(v_manifest->'assets') m
-          where m->>'twinId' is null or m->>'twinStatus'='retired') then raise exception 'asset approval, readiness and compiled twins must stand'; end if;
-        v_evidence := public.implementation_evidence((p_payload->>'evidenceId')::uuid);
-        if v_evidence->>'asset_id' is null or not exists(select 1 from jsonb_array_elements(v_manifest->'assets') m
-          where m->>'assetId'=v_evidence->>'asset_id') or v_evidence->>'verified_by'=auth.uid()::text then
-          raise exception 'independent exact-asset first-result evidence required'; end if;
-        v_state := v_state || jsonb_build_object('phase','result_reviewed','manifest',v_manifest,
-          'result',jsonb_build_object('evidence',v_evidence,'statement',p_payload->>'statement','reviewedBy',auth.uid(),'reviewedAt',now()));
+        -- Generic canonical evidence is mutable after verification, and legacy
+        -- asset approval fields are writable by same-company users. Neither is
+        -- an immutable authenticated act on the exact current source revision.
+        raise exception 'canonical verified-content provenance and authenticated asset approval qualification required; human-assisted review only';
       when 'accept' then
-        if v_state->>'phase'<>'result_reviewed' or (p_payload-array['acceptanceEvidenceId','trainingEvidenceId','supportEvidenceId','statement'])<>'{}'::jsonb
-          or nullif(btrim(p_payload->>'statement'),'') is null then raise exception 'explicit customer acceptance and handoff evidence required'; end if;
-        v_manifest := public.implementation_manifest(v_state->'scope');
-        if v_manifest is distinct from v_state->'manifest' or public.implementation_evidence((v_state->'result'->'evidence'->>'id')::uuid)
-          is distinct from v_state->'result'->'evidence' then raise exception 'source standing changed; review a fresh first result'; end if;
-        if (select count(distinct value) from jsonb_each_text(p_payload-array['statement']))<>3
-          or (v_state->'result'->'evidence'->>'id') in (p_payload->>'acceptanceEvidenceId',p_payload->>'trainingEvidenceId',p_payload->>'supportEvidenceId') then
-          raise exception 'distinct acceptance, training and support evidence required'; end if;
-        v_evidence := '{}'::jsonb;
-        for x in select to_jsonb(j) from jsonb_each_text(p_payload-array['statement']) j loop
-          v_manifest := public.implementation_evidence((x->>'value')::uuid);
-          if v_manifest->>'evidence_type' is distinct from (case x->>'key'
-              when 'acceptanceEvidenceId' then 'customer_acceptance'
-              when 'trainingEvidenceId' then 'training_completion'
-              when 'supportEvidenceId' then 'support_handoff' end)
-            or v_manifest->>'verified_by'=auth.uid()::text
-            or v_manifest->>'evidence_class' not in ('DOCUMENTED','TESTED','INSPECTED') then
-            raise exception 'independently verified acceptance, completed training and support handoff records required';
-          end if;
-          v_evidence := v_evidence || jsonb_build_object(x->>'key',v_manifest);
-        end loop;
-        v_state := v_state || jsonb_build_object('phase','accepted','acceptance',jsonb_build_object('evidence',v_evidence,
-          'statement',p_payload->>'statement','acceptedBy',auth.uid(),'acceptedAt',now()));
+        raise exception 'canonical verified-content provenance qualification required; customer handoff remains human-assisted';
       when 'pause' then
         if p_payload<>'{}'::jsonb then raise exception 'unsupported pause fields'; end if;
         v_state := v_state || jsonb_build_object('phase','paused','resumePhase',v_state->>'phase');
@@ -329,18 +325,7 @@ begin
     and role='admin' and nullif(btrim(full_name),'') is not null) then raise exception 'named organization administrator required'; end if;
   for d in select * from public.deployment_instances where organization_id=v_org and implementation is not null order by created_at desc loop
     v_current := false;
-    begin
-      if d.implementation->>'phase' in ('result_reviewed','accepted') then
-        v_manifest := public.implementation_manifest(d.implementation->'scope');
-        v_current := v_manifest=d.implementation->'manifest' and
-          public.implementation_evidence((d.implementation->'result'->'evidence'->>'id')::uuid)=d.implementation->'result'->'evidence';
-        if d.implementation->>'phase'='accepted' then
-          for x in select value from jsonb_each(d.implementation->'acceptance'->'evidence') loop
-            v_current := v_current and public.implementation_evidence((x->>'id')::uuid)=x;
-          end loop;
-        end if;
-      end if;
-    exception when others then v_current := false; end;
+    -- No completed claim until the owning canonical authority rails qualify.
     -- Retained snapshots are not returned: changed risk visibility must not leak old evidence.
     v_rows := v_rows || jsonb_build_array(jsonb_build_object('id',d.id,'billingId',d.implementation_billing_id,
       'outcome',d.use_case,'revision',d.implementation->'revision','phase',d.implementation->>'phase',
