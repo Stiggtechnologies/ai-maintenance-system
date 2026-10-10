@@ -48,6 +48,7 @@ import { Reliability } from "./pages/ReliabilityPage";
 import { ReadinessPage } from "./pages/ReadinessPage";
 import { OperationalBriefing } from "./pages/OperationalBriefing";
 import { AssetOntologyPage } from "./pages/AssetOntologyPage";
+import { SyncContextPage } from "./pages/SyncContextPage";
 import { AssetTwinsPage } from "./pages/AssetTwinsPage";
 import { LifecyclePositionPage } from "./pages/LifecyclePositionPage";
 import { ReliabilityByDesignPage } from "./pages/ReliabilityByDesignPage";
@@ -535,6 +536,7 @@ function AuthenticatedApp() {
           <Route path="/assets/ontology" element={<AssetOntologyPage />} />
           <Route path="/assets/twins" element={<AssetTwinsPage />} />
           <Route path="/assets" element={<AssetManagement />} />
+          <Route path="/context" element={<SyncContextPage />} />
           <Route path="/onboarding" element={<AssetOnboardingHub />} />
           <Route
             path="/reliability"

@@ -13,6 +13,7 @@ import {
 } from "../services/geospatialOperationalIntelligenceService";
 import { loadGeospatialPanelData } from "../services/geospatialPanelData";
 import type { SyncContextSnapshot } from "../lib/sync-context/contracts";
+import { parseContextGeometry } from "../lib/sync-context/geometry";
 
 const FEATURE_TYPES: GeospatialFeatureType[] = [
   "site",
@@ -51,6 +52,9 @@ export function GeospatialOperationalIntelligencePanel() {
   const [featureName, setFeatureName] = useState("");
   const [geometryType, setGeometryType] = useState("LineString");
   const [coordinates, setCoordinates] = useState("[]");
+  const [coordinateSystem, setCoordinateSystem] = useState("");
+  const [coordinateBasis, setCoordinateBasis] = useState("");
+  const [horizontalAccuracy, setHorizontalAccuracy] = useState("");
   const [sourceConnectorId, setSourceConnectorId] = useState("");
   const [sourceReference, setSourceReference] = useState("");
   const [observedAt, setObservedAt] = useState("");
@@ -160,12 +164,26 @@ export function GeospatialOperationalIntelligencePanel() {
               } catch {
                 throw new Error("Coordinates must be valid JSON.");
               }
+              const supplied = parseContextGeometry(
+                { type: geometryType, coordinates: parsed },
+                geometryType,
+                {
+                  referenceSystem: coordinateSystem,
+                  axisOrder: "longitude_latitude",
+                  basis: coordinateBasis,
+                  horizontalAccuracyM:
+                    horizontalAccuracy === ""
+                      ? null
+                      : Number(horizontalAccuracy),
+                },
+              );
               await recordGeospatialFeature({
                 feature_type: featureType,
                 feature_key: featureKey,
                 name: featureName,
                 geometry_type: geometryType,
-                geometry: { type: geometryType, coordinates: parsed },
+                geometry: supplied.geometry,
+                coordinate: supplied.coordinate,
                 source_connector_id: sourceConnectorId,
                 source_reference: sourceReference,
                 observed_at: new Date(observedAt).toISOString(),
@@ -181,6 +199,9 @@ export function GeospatialOperationalIntelligencePanel() {
               setFeatureKey("");
               setFeatureName("");
               setCoordinates("[]");
+              setCoordinateSystem("");
+              setCoordinateBasis("");
+              setHorizontalAccuracy("");
               setSourceReference("");
               setFeatureMissing("");
             });
@@ -244,6 +265,49 @@ export function GeospatialOperationalIntelligencePanel() {
             placeholder="Source coordinates, e.g. [[-113.5,53.5],[-113.4,53.6]]"
             className="min-h-20 w-full rounded-lg border border-white/10 bg-slate-900 p-2 font-mono text-xs text-white"
           />
+          <label className="block text-xs text-slate-400">
+            Coordinate reference system
+            <select
+              required
+              value={coordinateSystem}
+              onChange={(e) => setCoordinateSystem(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-sm text-white"
+            >
+              <option value="">Confirm the source coordinate encoding</option>
+              <option value="EPSG:4326">
+                WGS84 · EPSG:4326 · longitude, latitude
+              </option>
+            </select>
+          </label>
+          <label className="block text-xs text-slate-400">
+            Source coordinate basis
+            <textarea
+              required
+              minLength={20}
+              maxLength={4000}
+              value={coordinateBasis}
+              onChange={(e) => setCoordinateBasis(e.target.value)}
+              className="mt-1 min-h-20 w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-sm text-white"
+            />
+          </label>
+          <label className="block text-xs text-slate-400">
+            Horizontal accuracy (metres)
+            <input
+              type="number"
+              min="5e-324"
+              step="any"
+              value={horizontalAccuracy}
+              onChange={(e) => setHorizontalAccuracy(e.target.value)}
+              className="mt-1 w-full rounded-lg border border-white/10 bg-slate-900 p-2 text-sm text-white"
+            />
+          </label>
+          <p className="text-xs leading-relaxed text-amber-200">
+            Confirm the source uses longitude, latitude order. Other coordinate
+            systems must be converted by an authorized source; SyncAI does not
+            swap or convert coordinates. Leave accuracy blank when unknown;
+            supplied accuracy must be greater than zero. This description is
+            asserted metadata, not independent survey evidence.
+          </p>
           <div className="grid grid-cols-2 gap-2">
             <select
               required
@@ -596,6 +660,42 @@ export function GeospatialOperationalIntelligencePanel() {
                 <p className="mt-1 text-xs text-slate-400">
                   {label(feature.feature_type)} · {feature.source_system} ·{" "}
                   {feature.source_reference}
+                </p>
+                <dl className="mt-2 space-y-1 text-xs text-slate-300">
+                  <div>
+                    <dt className="inline text-slate-400">
+                      Coordinate encoding:{" "}
+                    </dt>
+                    <dd className="inline">
+                      {feature.coordinate_reference_system ?? "unknown"} ·{" "}
+                      {feature.coordinate_axis_order
+                        ? label(feature.coordinate_axis_order)
+                        : "axis order unknown"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="inline text-slate-400">
+                      Asserted coordinate basis:{" "}
+                    </dt>
+                    <dd className="inline whitespace-pre-wrap break-words">
+                      {feature.coordinate_basis ??
+                        "unavailable — no historical provenance was inferred"}
+                    </dd>
+                  </div>
+                  <div>
+                    <dt className="inline text-slate-400">
+                      Horizontal accuracy:{" "}
+                    </dt>
+                    <dd className="inline">
+                      {feature.horizontal_accuracy_m == null
+                        ? "unknown"
+                        : `${feature.horizontal_accuracy_m} metres (source supplied)`}
+                    </dd>
+                  </div>
+                </dl>
+                <p className="mt-1 text-[11px] text-amber-200">
+                  Coordinate metadata does not certify survey or engineering
+                  suitability.
                 </p>
                 {feature.source_connector_id &&
                   context?.sources.find(

@@ -159,12 +159,12 @@ describe("navigation integrity", () => {
     ).toEqual([]);
   });
 
-  it("keeps the §2 tree at 47 items in 9 groups", () => {
+  it("keeps the §2 tree at 48 items in 9 groups with governed Context", () => {
     // Sync Recovery is the ninth Work Management surface and owns the governed
     // downtime-event orchestration flow. Sync Develop (Slice 1) is the fourth
     // Whole Life surface — problem-first development cases under gates.
-    expect(groupSizes).toEqual([5, 4, 5, 2, 4, 11, 8, 3, 5]);
-    expect(navItems.length).toBe(47);
+    expect(groupSizes).toEqual([6, 4, 5, 2, 4, 11, 8, 3, 5]);
+    expect(navItems.length).toBe(48);
   });
 
   it("keeps the §3 role-matrix sizes after Recovery and Develop are added", () => {
@@ -174,13 +174,27 @@ describe("navigation integrity", () => {
       operator: 8,
       technician: 10,
       supervisor: 10,
-      planner: 22,
-      reliability_engineer: 33,
-      maintenance_manager: 32,
-      executive: 24,
+      planner: 23,
+      reliability_engineer: 34,
+      maintenance_manager: 33,
+      executive: 25,
       board: 8,
       assessment_sponsor: 2,
     });
+  });
+  it("makes Context reachable through its guarded private route, shell and palette", () => {
+    expect(navItems).toContainEqual({ id: "sync-context", path: "/context" });
+    expect(paletteItems).toContainEqual({
+      label: "Sync Context",
+      path: "/context",
+    });
+    expect(matchRoutes(routes, "/context")).not.toBeNull();
+    expect(APP).toContain(
+      '<Route path="/context" element={<SyncContextPage />} />',
+    );
+    expect(readFileSync("src/pages/SyncContextPage.tsx", "utf8")).toContain(
+      "canOpenSyncContext",
+    );
   });
 
   it("makes Sync Recovery reachable from shell, palette and router", () => {
