@@ -7,6 +7,27 @@ function luminance(hex: string) {
     .reduce((sum, x, i) => sum + x * [0.2126, 0.7152, 0.0722][i], 0);
 }
 describe("public decision record contrast", () => {
+  it("uses explicit readable light warning and markdown pairs", () => {
+    const page = readFileSync(
+      "src/pages/DecisionCaseWorkspacePage.tsx",
+      "utf8",
+    );
+    expect(page).toContain("bg-amber-50 p-3 text-sm text-amber-950");
+    expect(
+      (luminance("fffbeb") + 0.05) / (luminance("451a03") + 0.05),
+    ).toBeGreaterThanOrEqual(4.5);
+    const css = readFileSync(
+      "src/components/public-ask/public-ask.css",
+      "utf8",
+    );
+    expect(css).toMatch(
+      /\.bolt-public \.dw-message-markdown :is\(p, ul, ol, li, blockquote, td, th, strong, em\)\s*\{\s*color: #3a4048;/,
+    );
+    expect(
+      (luminance("ffffff") + 0.05) / (luminance("3a4048") + 0.05),
+    ).toBeGreaterThanOrEqual(4.5);
+  });
+
   it("sets a scoped readable foreground on the existing dark packet", () => {
     const css = readFileSync(
       "src/components/public-ask/public-ask.css",

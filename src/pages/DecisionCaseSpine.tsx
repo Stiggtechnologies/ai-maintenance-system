@@ -5,7 +5,7 @@
  * verification-owner attribution, a case class, and a local proof summary.
  * P3 shows short Help on every stage of this spine.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown, ChevronRight, Shield, TriangleAlert } from "lucide-react";
 import { useOptionalAuth } from "../components/AuthProvider";
@@ -65,7 +65,10 @@ import {
   savePersistedDecisionCase,
 } from "../services/decisionCaseService";
 
-import { stageEvaluationAssistantHandoff } from "../lib/onboarding/evaluation-assistant-handoff";
+import {
+  stageEvaluationAssistantHandoff,
+  evaluationAssistantDestination,
+} from "../lib/onboarding/evaluation-assistant-handoff";
 
 const emptyPeople = (): CasePeople => ({
   decisionOwner: "",
@@ -90,6 +93,7 @@ export function DecisionCaseSpine({
   initiallySaved = false,
   blockWorkspacePersist = false,
   openingNotice = null,
+  onCaseChange,
 }: {
   question: string;
   intent: InvertedIntentId;
@@ -97,12 +101,17 @@ export function DecisionCaseSpine({
   initiallySaved?: boolean;
   blockWorkspacePersist?: boolean;
   openingNotice?: string | null;
+  onCaseChange?: (decisionCase: DecisionCase, saved: boolean) => void;
 }) {
   const auth = useOptionalAuth();
   const [decisionCase, setDecisionCase] = useState(
     () => initialCase ?? buildSpineDecisionCase({ question, intent }),
   );
   const [saved, setSaved] = useState(initiallySaved);
+  const revision = useRef(0);
+  useEffect(() => {
+    onCaseChange?.(decisionCase, saved);
+  }, [decisionCase, saved, onCaseChange]);
   const [saveNotice, setSaveNotice] = useState(
     openingNotice
       ? openingNotice
@@ -203,19 +212,28 @@ export function DecisionCaseSpine({
   );
 
   const commit = (next: DecisionCase) => {
+    const currentRevision = ++revision.current;
     setDecisionCase(next);
+    setSaved(false);
     if (
       blockWorkspacePersist ||
       isExamplePrompt(next.objective) ||
       !isPersistedDecisionCase(next.id)
-    ) {
+    )
       return;
-    }
-    void savePersistedDecisionCase(next).catch(() => {
-      setSaveNotice(
-        "Updates stayed in this session. Workspace save did not complete.",
-      );
-    });
+    void savePersistedDecisionCase(next)
+      .then(() => {
+        if (revision.current !== currentRevision) return;
+        setSaved(true);
+        setSaveNotice("Current revision saved on the evaluation workspace.");
+      })
+      .catch(() => {
+        if (revision.current !== currentRevision) return;
+        setSaved(false);
+        setSaveNotice(
+          "Updates stayed in this session. Workspace save did not complete.",
+        );
+      });
   };
 
   const persistIfPossible = async () => {
@@ -232,6 +250,7 @@ export function DecisionCaseSpine({
       );
       return;
     }
+    const submittedRevision = revision.current;
     setSaving(true);
     try {
       const persisted = isPersistedDecisionCase(decisionCase.id)
@@ -240,6 +259,14 @@ export function DecisionCaseSpine({
       if (!isPersistedDecisionCase(persisted.id))
         throw new Error("Workspace save did not produce a persisted case");
       await savePersistedDecisionCase(persisted);
+      if (revision.current !== submittedRevision) {
+        setDecisionCase((current) => ({ ...current, id: persisted.id }));
+        setSaved(false);
+        setSaveNotice(
+          "An earlier revision was saved. Your current edits still need saving.",
+        );
+        return;
+      }
       setDecisionCase(persisted);
       setSaved(true);
       setSaveNotice(
@@ -1216,7 +1243,7 @@ export function DecisionCaseSpine({
           Optional:{" "}
           <Link
             className="text-teal-400"
-            to={`/?view=signup&invertedAsk=${encodeURIComponent(question)}&intent=${intent}`}
+            to={`/?view=signup&returnTo=${encodeURIComponent(evaluationAssistantDestination(decisionCase, window.location.search))}`}
             onClick={() => {
               if (
                 blockWorkspacePersist ||

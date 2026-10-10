@@ -43,7 +43,9 @@ test.describe("Golden path: the buyer-value loop", () => {
     await login(page);
 
     // Readiness hero + live stats render from Supabase
-    await expect(page.getByText("MISSION READINESS", { exact: false })).toBeVisible();
+    await expect(
+      page.getByText("MISSION READINESS", { exact: false }),
+    ).toBeVisible();
     await expect(page.getByText("Top AI Recommendations")).toBeVisible();
     await expect(page.getByText(C22_REC_TITLE)).toBeVisible();
     await expect(page.getByText("Value Created")).toBeVisible();
@@ -93,9 +95,7 @@ test.describe("Golden path: the buyer-value loop", () => {
     await expect(page.getByText(C22_REC_ACTION).first()).toBeVisible({
       timeout: 20_000,
     });
-    await expect(
-      page.getByText("Awaiting Approval").first(),
-    ).toBeVisible();
+    await expect(page.getByText("Awaiting Approval").first()).toBeVisible();
 
     // Decision Governance: the human decision is logged
     await page.goto("/governance");
@@ -111,7 +111,10 @@ test.describe("Golden path: the buyer-value loop", () => {
     await expect(page.getByText(C22_VALUE_LABEL).first()).toBeVisible();
 
     // Operator verifies — value becomes real and feeds the Learning Loop
-    await page.getByRole("button", { name: "Verify", exact: true }).first().click();
+    await page
+      .getByRole("button", { name: "Verify", exact: true })
+      .first()
+      .click();
     await expect(page.getByText(/Verified \$2\.4M/)).toBeVisible({
       timeout: 20_000,
     });
@@ -142,14 +145,21 @@ test.describe("Wired controls: no dead buttons on the core loop", () => {
 
     // The WO created by test 3's approval is approval-gated — approve it here.
     await page.getByText(C22_REC_ACTION).first().click();
-    await page.getByRole("button", { name: "Approve", exact: true }).first().click();
-    await expect(page.getByText(/now scheduled/i)).toBeVisible({ timeout: 15_000 });
+    await page
+      .getByRole("button", { name: "Approve", exact: true })
+      .first()
+      .click();
+    await expect(page.getByText(/now scheduled/i)).toBeVisible({
+      timeout: 15_000,
+    });
 
     // New Work Order modal creates a real row
     await page.getByRole("button", { name: /New Work Order/i }).click();
     await page.getByLabel("Title").fill("E2E inspection — HX-08 bypass valve");
     await page.getByRole("button", { name: "Create", exact: true }).click();
-    await expect(page.getByText(/Work order created/i)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/Work order created/i)).toBeVisible({
+      timeout: 15_000,
+    });
     await expect(
       page.getByText("E2E inspection — HX-08 bypass valve").first(),
     ).toBeVisible({ timeout: 15_000 });
@@ -173,7 +183,9 @@ test.describe("Wired controls: no dead buttons on the core loop", () => {
     // The modal sits in a continuously-animating framer-motion wrapper which
     // never passes Playwright's stability check — force skips only that.
     await submit.click({ force: true });
-    await expect(page.getByText(/logged|Challenge Logged/i).first()).toBeVisible({
+    await expect(
+      page.getByText(/logged|Challenge Logged/i).first(),
+    ).toBeVisible({
       timeout: 15_000,
     });
 
@@ -206,7 +218,9 @@ test.describe("Autonomous asset onboarding: RAM checklist + HITL + go-live gate"
     // Go-live gate reports autonomous progress against Section-21 requirements
     const gate = page.getByTestId("golive-gate");
     await expect(gate).toBeVisible();
-    await expect(gate.getByText(/of \d+ go-live requirements satisfied/)).toBeVisible({
+    await expect(
+      gate.getByText(/of \d+ go-live requirements satisfied/),
+    ).toBeVisible({
       timeout: 20_000,
     });
 
@@ -271,9 +285,9 @@ test.describe("Autonomous asset onboarding: RAM checklist + HITL + go-live gate"
       .getByRole("button", { name: "Start Work" })
       .click({ timeout: 10_000 })
       .catch(() => {});
-    await expect(page.getByRole("button", { name: "Mark Completed" })).toBeVisible(
-      { timeout: 15_000 },
-    );
+    await expect(
+      page.getByRole("button", { name: "Mark Completed" }),
+    ).toBeVisible({ timeout: 15_000 });
     await page.getByRole("button", { name: "Mark Completed" }).click();
     await expect(page.getByText("Close out work order")).toBeVisible();
 
@@ -318,7 +332,9 @@ test.describe("ISO 55000 KPI service: access-controlled executive intelligence",
     await expect(
       dash.getByText("Overall Equipment Effectiveness").first(),
     ).toBeVisible();
-    await expect(dash.getByText(/visible to the reliability engineer role/)).toBeVisible();
+    await expect(
+      dash.getByText(/visible to the reliability engineer role/),
+    ).toBeVisible();
     await expect(dash.getByText("Asset Value Realization")).toHaveCount(0);
 
     // Executive: board-tier KPIs appear.
@@ -335,9 +351,9 @@ test.describe("ISO 55000 KPI service: access-controlled executive intelligence",
     await expect(
       page.getByRole("heading", { name: "Executive Asset Intelligence" }),
     ).toBeVisible({ timeout: 30_000 });
-    await expect(
-      page.getByText("Asset Value Realization").first(),
-    ).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText("Asset Value Realization").first()).toBeVisible(
+      { timeout: 20_000 },
+    );
     await expect(page.getByText(/visible to the executive role/)).toBeVisible();
     // Role-trimmed navigation: executives see governance, not the setup wizard.
     await expect(
@@ -384,9 +400,13 @@ test.describe("Role-aware copilot dock", () => {
     await expect(page.getByTestId("copilot-suggestions")).toBeVisible();
 
     // Asking works end-to-end and degrades gracefully without an LLM locally.
-    await dock.getByRole("button", { name: /Which assets are trending/ }).click();
+    await dock
+      .getByRole("button", { name: /Which assets are trending/ })
+      .click();
     await expect(
-      dock.getByText(/unavailable right now|failure|vibration|monitor/i).first(),
+      dock
+        .getByText(/unavailable right now|failure|vibration|monitor/i)
+        .first(),
     ).toBeVisible({ timeout: 30_000 });
 
     // Technician persona differs.
@@ -408,40 +428,137 @@ test.describe("Role-aware copilot dock", () => {
   });
 });
 
-  test("11 — security audit log is admin-only and records sign-ins", async ({
-    page,
-  }) => {
-    // Admin (seeded by migration 19) sees the log — including their own
-    // sign-in event, recorded moments ago by the AuthProvider hook.
-    await openLogin(page);
-    const email = page.getByRole("textbox", { name: /work email/i });
-    await expect(email).toBeVisible({ timeout: 20_000 });
-    await email.fill("admin@syncai.ca");
-    await page.locator('input[type="password"]').fill("Admin123!@#");
-    await page.getByRole("button", { name: /access syncai/i }).click();
-    await page.waitForTimeout(1500); // let the sign_in event record
-    await page.goto("/security-log");
-    await expect(
-      page.getByRole("heading", { name: "Security Audit Log" }),
-    ).toBeVisible({ timeout: 30_000 });
-    await expect(page.getByText("sign in").first()).toBeVisible({
-      timeout: 15_000,
-    });
-
-    // Technician is bounced by the AdminGate and never sees the page.
-    await page.goto("/");
-    await page.evaluate(() => window.localStorage.clear());
-    await openLogin(page);
-    const email2 = page.getByRole("textbox", { name: /work email/i });
-    await expect(email2).toBeVisible({ timeout: 20_000 });
-    await email2.fill("technician@syncai.ca");
-    await page.locator('input[type="password"]').fill("Tech123!@#");
-    await page.getByRole("button", { name: /access syncai/i }).click();
-    await expect(
-      page.getByRole("heading", { name: "Work Action Board" }),
-    ).toBeVisible({ timeout: 30_000 });
-    await page.goto("/security-log");
-    await expect(
-      page.getByRole("heading", { name: "Security Audit Log" }),
-    ).not.toBeVisible({ timeout: 10_000 });
+test("11 — security audit log is admin-only and records sign-ins", async ({
+  page,
+}) => {
+  // Admin (seeded by migration 19) sees the log — including their own
+  // sign-in event, recorded moments ago by the AuthProvider hook.
+  await openLogin(page);
+  const email = page.getByRole("textbox", { name: /work email/i });
+  await expect(email).toBeVisible({ timeout: 20_000 });
+  await email.fill("admin@syncai.ca");
+  await page.locator('input[type="password"]').fill("Admin123!@#");
+  await page.getByRole("button", { name: /access syncai/i }).click();
+  await page.waitForTimeout(1500); // let the sign_in event record
+  await page.goto("/security-log");
+  await expect(
+    page.getByRole("heading", { name: "Security Audit Log" }),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(page.getByText("sign in").first()).toBeVisible({
+    timeout: 15_000,
   });
+
+  // Technician is bounced by the AdminGate and never sees the page.
+  await page.goto("/");
+  await page.evaluate(() => window.localStorage.clear());
+  await openLogin(page);
+  const email2 = page.getByRole("textbox", { name: /work email/i });
+  await expect(email2).toBeVisible({ timeout: 20_000 });
+  await email2.fill("technician@syncai.ca");
+  await page.locator('input[type="password"]').fill("Tech123!@#");
+  await page.getByRole("button", { name: /access syncai/i }).click();
+  await expect(
+    page.getByRole("heading", { name: "Work Action Board" }),
+  ).toBeVisible({ timeout: 30_000 });
+  await page.goto("/security-log");
+  await expect(
+    page.getByRole("heading", { name: "Security Audit Log" }),
+  ).not.toBeVisible({ timeout: 10_000 });
+});
+
+// Customer draft/auth acceptance uses only the existing isolated local fixture.
+// It creates one evaluation workspace, never a deployment or industrial action.
+test("public first decision retains full evidence through auth and reports failed revision saves", async ({
+  page,
+}) => {
+  const backend = new URL(
+    process.env.E2E_SUPABASE_URL ?? "http://127.0.0.1:54321",
+  );
+  expect(["localhost", "127.0.0.1", "[::1]"]).toContain(backend.hostname);
+  const question =
+    "Synthetic acceptance: review pump inspection evidence before the next shift";
+  const evidence =
+    "Synthetic inspection observation, without verified measurements or engineering limits";
+  let workspaceCreates = 0;
+  page.on("request", (request) => {
+    if (
+      request.method() === "POST" &&
+      new URL(request.url()).pathname === "/rest/v1/cowork_workspaces"
+    )
+      workspaceCreates++;
+  });
+  await page.goto("/get-started?source=local-acceptance&campaign=auth-handoff");
+  await page.getByTestId("inverted-ask").fill(question);
+  await page.getByRole("button", { name: /Coordinate field work/ }).click();
+  await page.getByTestId("inverted-continue").click();
+  await page.getByTestId("inverted-save-continue").click();
+  await page.getByRole("button", { name: "Inspection", exact: true }).click();
+  await page.getByTestId("spine-evidence-body").fill(evidence);
+  await page.getByTestId("spine-add-evidence").click();
+  await expect(page.getByTestId("spine-proof-body")).toContainText(evidence);
+  const draftId = new URL(page.url()).searchParams.get("case");
+  expect(draftId).toBeTruthy();
+  await page.getByRole("button", { name: "Back to your question" }).click();
+  await page.getByTestId("inverted-continue").click();
+  await page.getByTestId("inverted-save-continue").click();
+  expect(new URL(page.url()).searchParams.get("case")).toBe(draftId);
+  await expect(page.getByTestId("spine-proof-body")).toContainText(evidence);
+  await page.reload();
+  await expect(page.getByTestId("spine-proof-body")).toContainText(evidence);
+  await page.getByTestId("spine-live-assistant").click();
+  await expect(
+    page.getByRole("button", { name: "View record", exact: true }),
+  ).toBeVisible();
+  await page.getByLabel("Sign in", { exact: true }).click();
+  await page.getByRole("textbox", { name: /work email/i }).fill(DEMO_EMAIL);
+  await page.locator('input[type="password"]').fill(DEMO_PASSWORD);
+  await page.getByRole("button", { name: /access syncai/i }).click();
+  await expect(page).toHaveURL(new RegExp(`/workspace/cases/${draftId}\\?`));
+  expect(new URL(page.url()).searchParams.get("source")).toBe(
+    "local-acceptance",
+  );
+  await expect(page.getByText(question, { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(new RegExp(evidence)).first()).toBeVisible();
+  await page.goto(
+    `/get-started?case=${draftId}&industry=oil-gas&view=evaluation`,
+  );
+  await expect(page.getByTestId("spine-proof-body")).toContainText(
+    "Intent is coordinate",
+  );
+  await expect(page.getByTestId("spine-proof-body")).toContainText(evidence);
+  await page.getByTestId("spine-save-workspace").click();
+  await expect(page.getByTestId("spine-gate-audit_trail")).toContainText("Met");
+  const persistedId = new URL(page.url()).searchParams.get("case");
+  expect(persistedId).toMatch(/^[0-9a-f-]{36}$/i);
+  expect(workspaceCreates).toBe(1);
+  await page.route("**/rest/v1/cowork_workspaces*", (route) =>
+    route.request().method() === "PATCH"
+      ? route.fulfill({
+          status: 503,
+          contentType: "application/json",
+          body: JSON.stringify({ message: "Synthetic save outage" }),
+        })
+      : route.continue(),
+  );
+  await page
+    .getByTestId("spine-evidence-body")
+    .fill("Synthetic newer observation whose save is refused");
+  await page.getByTestId("spine-add-evidence").click();
+  await expect(page.getByTestId("spine-save-notice")).toContainText(
+    "Workspace save did not complete",
+  );
+  await expect(page.getByTestId("spine-gate-audit_trail")).toContainText(
+    "Open",
+  );
+  await page.getByRole("button", { name: "Back to your question" }).click();
+  await page.getByTestId("inverted-continue").click();
+  await page.getByTestId("inverted-save-continue").click();
+  expect(new URL(page.url()).searchParams.get("case")).toBe(persistedId);
+  expect(workspaceCreates).toBe(1);
+  await expect(page.getByTestId("spine-proof-body")).toContainText(
+    "Synthetic newer observation whose save is refused",
+  );
+  await expect(page.getByTestId("spine-gate-audit_trail")).toContainText(
+    "Open",
+  );
+});

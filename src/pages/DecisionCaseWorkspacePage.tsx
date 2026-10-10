@@ -1431,11 +1431,11 @@ export function DecisionCaseWorkspacePage({
         }
       />
       <div className="bolt-stage">
-        {publicMode &&
+        {publicMode && !emptyConversation && caseId === active.id &&
         new URLSearchParams(location.search).get("origin") === "evaluation" ? (
           <p
             role="status"
-            className="mx-4 rounded-lg border border-amber-300/30 p-3 text-sm text-amber-100"
+            className="mx-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
           >
             Your evaluation question and evidence are carried forward. Existing
             recommendations are illustrative; ask the assistant to review your
