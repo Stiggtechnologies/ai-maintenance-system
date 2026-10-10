@@ -98,6 +98,16 @@ function loadSample() {
 }
 
 describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
+  it("retains the chosen case and acquisition context in sign-in return routing", () => {
+    const destination =
+      "/workspace/cases/evaluation-case?origin=evaluation&entry=reliability&source=marketplace";
+    renderWorkspace(destination);
+    expect(screen.getByLabelText("Sign in")).toHaveAttribute(
+      "href",
+      `/signin?returnTo=${encodeURIComponent(destination)}`,
+    );
+  });
+
   beforeEach(() => {
     const storage = new Map<string, string>();
     Object.defineProperty(window, "localStorage", {
@@ -144,7 +154,7 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     );
     expect(screen.getByLabelText("Sign in")).toHaveAttribute(
       "href",
-      "/signin?returnTo=%2F",
+      "/signin?returnTo=%2Fworkspace",
     );
     expect(screen.queryByTestId("bolt-rail-compass")).toBeNull();
     expect(screen.queryByText("Discover")).toBeNull();

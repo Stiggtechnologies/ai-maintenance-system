@@ -265,6 +265,7 @@ export function DecisionCaseWorkspacePage({
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const signInHref = `/signin?returnTo=${encodeURIComponent(`${location.pathname}${location.search}`)}`;
   const context = useMemo(() => getContext(params), [params]);
   const publicEntryAttribution = useMemo(
     () => getPublicEntryAttribution(params),
@@ -1368,6 +1369,7 @@ export function DecisionCaseWorkspacePage({
           publicMode={publicMode}
           proofComplete={active.financeStatus === "verified"}
           close={() => setUsageOpen(false)}
+          signInHref={signInHref}
           onSecure={() =>
             stageDecisionCaseHandoff(window.sessionStorage, active)
           }
@@ -1417,7 +1419,7 @@ export function DecisionCaseWorkspacePage({
         homeActive={emptyConversation}
         onNewAsk={() => void createCase()}
         assessHref="/setup"
-        signInHref="/signin?returnTo=%2F"
+        signInHref={signInHref}
         onSignIn={() => stageDecisionCaseHandoff(window.sessionStorage, active)}
         spaces={
           exposeSpaces
@@ -1895,6 +1897,7 @@ export function DecisionCaseWorkspacePage({
           publicMode={publicMode}
           proofComplete={active.financeStatus === "verified"}
           close={() => setUsageOpen(false)}
+          signInHref={signInHref}
           onSecure={() =>
             stageDecisionCaseHandoff(window.sessionStorage, active)
           }
@@ -2473,12 +2476,14 @@ function UsageModal({
   proofComplete,
   close,
   onSecure,
+  signInHref,
   choose,
 }: {
   publicMode: boolean;
   proofComplete: boolean;
   close: () => void;
   onSecure: () => void;
+  signInHref: string;
   choose: (mode: DecisionCase["billingMode"], allowance?: number) => void;
 }) {
   if (publicMode) {
@@ -2529,7 +2534,7 @@ function UsageModal({
               <small>Apply this workflow to sanitized customer evidence.</small>
               <em>Recommended next step</em>
             </a>
-            <a href="/signin?returnTo=%2F" onClick={onSecure}>
+            <a href={signInHref} onClick={onSecure}>
               <LockKeyhole size={18} />
               <strong>Sign in and retain it</strong>
               <small>Move the case into a governed company workspace.</small>

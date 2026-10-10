@@ -1206,8 +1206,8 @@ export function DecisionCaseSpine({
       <div className="flex items-start gap-2 text-[11px] text-slate-500">
         <Shield className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal-300" />
         <span>
-          {INVERTED_OPENING_AUTHORITY} This spine does not claim seamless
-          self-guided onboarding is live.
+          {INVERTED_OPENING_AUTHORITY} Review the evidence and approval
+          requirements before relying on this evaluation.
         </span>
       </div>
       {!auth?.user ? (
