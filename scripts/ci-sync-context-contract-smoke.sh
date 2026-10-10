@@ -16,6 +16,9 @@ OTHER_REC='99999999-9999-4999-8999-999999999943'
 OTHER_WORK='99999999-9999-4999-8999-999999999944'
 EVENT_APPROVAL='99999999-9999-4999-8999-999999999945'
 OTHER_APPROVAL='99999999-9999-4999-8999-999999999946'
+# The fixture author explicitly declares its synthetic encoding. No production
+# row is backfilled, and unknown accuracy is not replaced with a fabricated 0.
+COORDINATE='"coordinate":{"referenceSystem":"EPSG:4326","axisOrder":"longitude_latitude","basis":"Synthetic CI source explicitly declares WGS84 longitude/latitude encoding.","horizontalAccuracyM":null}'
 
 token(){ curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}" | python3 -c "import json,sys;print(json.load(sys.stdin).get('access_token',''))"; }
 rpc(){ curl -sS -w '\n%{http_code}' -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "authorization: Bearer $1" -H 'content-type: application/json' -d "$3"; }
@@ -142,7 +145,7 @@ REVOKE_CHECK=$(psqlc "select to_char(greatest(clock_timestamp(),context_checked_
 REVOKE_OBS=$(psqlc "select to_char(('$REVOKE_CHECK'::timestamptz-interval '1 second') at time zone 'UTC','YYYY-MM-DD\"T\"HH24:MI:SS.US\"Z\"')")
 REVOKE_LIVE=$(rpc "$ADMIN" record_context_source_health "{\"p_connector_id\":\"$REVOKE_CONNECTOR\",\"p_state\":\"live\",\"p_checked_at\":\"$REVOKE_CHECK\",\"p_observed_at\":\"$REVOKE_OBS\",\"p_detail\":\"Live immediately before governed revocation.\"}")
 ok "$REVOKE_LIVE"
-REVOKE_FEATURE=$(rpc "$ADMIN" record_geospatial_feature "{\"p_feature\":{\"feature_type\":\"asset\",\"feature_key\":\"sc01-revoked-object\",\"name\":\"SC-01 rights-revoked object\",\"geometry_type\":\"Point\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[3,3]},\"source_connector_id\":\"$REVOKE_CONNECTOR\",\"source_reference\":\"SC01-REVOKE-1\",\"observed_at\":\"$REVOKE_OBS\",\"validity_kind\":\"permanent\",\"data_quality\":\"good\",\"missing_evidence\":[\"Independent coordinate survey remains required before operational use\"]}}")
+REVOKE_FEATURE=$(rpc "$ADMIN" record_geospatial_feature "{\"p_feature\":{$COORDINATE,\"feature_type\":\"asset\",\"feature_key\":\"sc01-revoked-object\",\"name\":\"SC-01 rights-revoked object\",\"geometry_type\":\"Point\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[3,3]},\"source_connector_id\":\"$REVOKE_CONNECTOR\",\"source_reference\":\"SC01-REVOKE-1\",\"observed_at\":\"$REVOKE_OBS\",\"validity_kind\":\"permanent\",\"data_quality\":\"good\",\"missing_evidence\":[\"Independent coordinate survey remains required before operational use\"]}}")
 ok "$REVOKE_FEATURE"
 REVOKE_ID=$(field "$REVOKE_FEATURE" feature_id)
 psqlc "update geospatial_features set status='verified',data_quality='verified',verified_by='$AI_ADMIN_USER',verified_at=now(),verification_note='Independent CI verification before governed source-rights revocation.' where id='$REVOKE_ID'; insert into geospatial_subject_links(organization_id,feature_id,relationship_type,asset_id,basis,evidence_item_ids,recorded_by) values('$ORG','$REVOKE_ID','located_at','$ASSET_ID','CI proves verified geometry is visible only while source rights permit it.','{}','$AI_ADMIN_USER') on conflict do nothing" >/dev/null
@@ -156,9 +159,9 @@ REVOKED=$(rpc "$ADMIN" transition_context_source_rights "{\"p_connector_id\":\"$
 ok "$REVOKED"
 BODY="$(body "$REVOKED")" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x['rights_state']=='blocked' and x['display_as_live'] is False"
 
-LOCAL_FEATURE=$(rpc "$ADMIN" record_geospatial_feature "{\"p_feature\":{\"feature_type\":\"hazard_zone\",\"feature_key\":\"sc01-local-zone\",\"name\":\"SC-01 supplied zone\",\"geometry_type\":\"Polygon\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[0,0],[1,0],[0,1],[0,0]]]},\"source_connector_id\":\"$LOCAL_CONNECTOR\",\"source_reference\":\"SC01-LOCAL-1\",\"observed_at\":\"$OBSERVED_AT\",\"validity_kind\":\"permanent\",\"data_quality\":\"good\",\"missing_evidence\":[\"Independent coordinate survey remains required before operational use\"]}}")
+LOCAL_FEATURE=$(rpc "$ADMIN" record_geospatial_feature "{\"p_feature\":{$COORDINATE,\"feature_type\":\"hazard_zone\",\"feature_key\":\"sc01-local-zone\",\"name\":\"SC-01 supplied zone\",\"geometry_type\":\"Polygon\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[0,0],[1,0],[0,1],[0,0]]]},\"source_connector_id\":\"$LOCAL_CONNECTOR\",\"source_reference\":\"SC01-LOCAL-1\",\"observed_at\":\"$OBSERVED_AT\",\"validity_kind\":\"permanent\",\"data_quality\":\"good\",\"missing_evidence\":[\"Independent coordinate survey remains required before operational use\"]}}")
 ok "$LOCAL_FEATURE"
-FOREIGN_FEATURE=$(rpc "$FOREIGN" record_geospatial_feature "{\"p_feature\":{\"feature_type\":\"asset\",\"feature_key\":\"sc01-foreign-object\",\"name\":\"SC-01 simulated foreign object\",\"geometry_type\":\"Point\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[2,2]},\"source_connector_id\":\"$FOREIGN_CONNECTOR\",\"source_reference\":\"SC01-SIM-1\",\"observed_at\":\"$FOREIGN_OBSERVED_AT\",\"validity_kind\":\"permanent\",\"data_quality\":\"good\",\"missing_evidence\":[\"Synthetic fixture has no operational evidence\"]}}")
+FOREIGN_FEATURE=$(rpc "$FOREIGN" record_geospatial_feature "{\"p_feature\":{$COORDINATE,\"feature_type\":\"asset\",\"feature_key\":\"sc01-foreign-object\",\"name\":\"SC-01 simulated foreign object\",\"geometry_type\":\"Point\",\"geometry\":{\"type\":\"Point\",\"coordinates\":[2,2]},\"source_connector_id\":\"$FOREIGN_CONNECTOR\",\"source_reference\":\"SC01-SIM-1\",\"observed_at\":\"$FOREIGN_OBSERVED_AT\",\"validity_kind\":\"permanent\",\"data_quality\":\"good\",\"missing_evidence\":[\"Synthetic fixture has no operational evidence\"]}}")
 ok "$FOREIGN_FEATURE"
 LOCAL_ID=$(field "$LOCAL_FEATURE" feature_id)
 FOREIGN_ID=$(field "$FOREIGN_FEATURE" feature_id)
@@ -249,6 +252,38 @@ test "$TECH_ASSESSMENTS" = '[]'
 AUTHORITY_AFTER=$(psqlc "select (select count(*) from approvals where organization_id='$ORG')||'|'||(select count(*) from work_orders where organization_id='$ORG')")
 test "$AUTHORITY_AFTER" = "$AUTHORITY_BEFORE"
 
+# Exercise the actual authenticated writer, not a client mock. Invalid inputs
+# must leave the entire tenant's feature rows and feature-audit count unchanged.
+COORDINATE_STATE_BEFORE=$(psqlc "select md5(coalesce((select jsonb_agg(to_jsonb(f) order by id)::text from geospatial_features f where organization_id='$ORG'),'[]'))||'|'||(select count(*) from audit_events where organization_id='$ORG' and entity_type='geospatial_feature')")
+test "$(psqlc "select status from geospatial_features where organization_id='$ORG' and feature_key='sc01-local-zone' and status in ('draft','verified')")" = verified
+for CASE in missing wrong_crs wrong_axis short_basis missing_accuracy zero_accuracy string_accuracy malformed_geometry timestamp_rollback; do
+  REQUEST=$(SOURCE="$LOCAL_CONNECTOR" OBSERVED="$OBSERVED_AT" CASE="$CASE" node -e '
+    const coordinate={referenceSystem:"EPSG:4326",axisOrder:"longitude_latitude",basis:"Synthetic source explicitly declares WGS84 longitude/latitude.",horizontalAccuracyM:null};
+    const feature={feature_type:"asset",feature_key:"sc02-refused-coordinate",name:"Refused coordinate fixture",geometry_type:"Point",geometry:{type:"Point",coordinates:[0,0]},source_connector_id:process.env.SOURCE,source_reference:"sc02-refused-source",observed_at:process.env.OBSERVED,validity_kind:"permanent",data_quality:"good",missing_evidence:["Synthetic fixture is not field evidence."],coordinate};
+    switch(process.env.CASE){
+      case "missing": delete feature.coordinate; break;
+      case "wrong_crs": coordinate.referenceSystem="EPSG:3857"; break;
+      case "wrong_axis": coordinate.axisOrder="latitude_longitude"; break;
+      case "short_basis": coordinate.basis="guess"; break;
+      case "missing_accuracy": delete coordinate.horizontalAccuracyM; break;
+      case "zero_accuracy": coordinate.horizontalAccuracyM=0; break;
+      case "string_accuracy": coordinate.horizontalAccuracyM="0.25"; break;
+      case "malformed_geometry": feature.geometry.coordinates=[181,0]; break;
+      case "timestamp_rollback": feature.feature_key="sc01-local-zone"; feature.observed_at="not-a-timestamp"; break;
+      default: throw new Error("Unknown coordinate refusal probe");
+    }
+    process.stdout.write(JSON.stringify({p_feature:feature}));
+  ')
+  REFUSED_COORDINATE=$(rpc "$ADMIN" record_geospatial_feature "$REQUEST")
+  if [[ "$CASE" = malformed_geometry ]]; then err "$REFUSED_COORDINATE" 'structural GeoJSON';
+  elif [[ "$CASE" = zero_accuracy ]]; then err "$REFUSED_COORDINATE" 'accuracy must be positive';
+  elif [[ "$CASE" = timestamp_rollback ]]; then err "$REFUSED_COORDINATE" 'identifiers and timestamps';
+  else err "$REFUSED_COORDINATE" 'explicit WGS84'; fi
+done
+COORDINATE_STATE_AFTER=$(psqlc "select md5(coalesce((select jsonb_agg(to_jsonb(f) order by id)::text from geospatial_features f where organization_id='$ORG'),'[]'))||'|'||(select count(*) from audit_events where organization_id='$ORG' and entity_type='geospatial_feature')")
+test "$COORDINATE_STATE_AFTER" = "$COORDINATE_STATE_BEFORE"
+
 NOAUTH=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$API_URL/rest/v1/rpc/get_sync_context_snapshot" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d '{}')
 test "$NOAUTH" = 401
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -f scripts/tests/sync-context-operating-gates.sql
 echo 'SC-01 canonical Context smoke passed: two_tenants=true source_identity_immutable=true monotonic_health=true rights_gated=true revocation_hides_prior_geometry=true simulated_not_live=true layer_health=true canonical_projection=true authority_unchanged=true'

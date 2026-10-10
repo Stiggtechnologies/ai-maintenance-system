@@ -9,6 +9,8 @@ ORG='11111111-1111-1111-1111-111111111111'
 OTHER_ORG='99999999-9999-9999-9999-999999999915'
 FOREIGN_SITE='98500000-0000-0000-0000-000000000002'
 EVIDENCE='98500000-0000-0000-0000-000000000021'
+# Explicit synthetic coordinate provenance; accuracy remains unknown.
+COORDINATE='"coordinate":{"referenceSystem":"EPSG:4326","axisOrder":"longitude_latitude","basis":"Synthetic CI source explicitly declares WGS84 longitude/latitude encoding.","horizontalAccuracyM":null}'
 
 token(){ curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}" | python3 -c "import json,sys;print(json.load(sys.stdin).get('access_token',''))"; }
 rpc(){ curl -sS -w '\n%{http_code}' -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "authorization: Bearer $1" -H 'content-type: application/json' -d "$3"; }
@@ -42,7 +44,7 @@ SOURCE_OBSERVED_AT=$(psqlc "select to_char(('$SOURCE_CHECKED_AT'::timestamptz-in
 SOURCE_HEALTH=$(rpc "$REVIEWER" record_context_source_health "{\"p_connector_id\":\"$SOURCE\",\"p_state\":\"live\",\"p_checked_at\":\"$SOURCE_CHECKED_AT\",\"p_observed_at\":\"$SOURCE_OBSERVED_AT\",\"p_detail\":\"CI observed the approved external climate source within its governed freshness interval.\"}")
 ok "$SOURCE_HEALTH"
 VERIFY_EVIDENCE=$(rpc "$REVIEWER" verify_evidence_item "{\"p_evidence_id\":\"$EVIDENCE\",\"p_method\":\"Independent CI source and applicability review\",\"p_outcome\":\"verified\",\"p_note\":\"Source version, scenario horizon, asset applicability and ownership confirmed.\"}"); ok "$VERIFY_EVIDENCE"
-FEATURE_RESULT=$(rpc "$AUTHOR" record_geospatial_feature "{\"p_feature\":{\"feature_type\":\"hazard_zone\",\"feature_key\":\"u15-climate-source\",\"name\":\"Controlled U15 hazard source\",\"geometry_type\":\"Polygon\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[-113.6,53.4],[-113.3,53.4],[-113.3,53.7],[-113.6,53.4]]]},\"source_connector_id\":\"$SOURCE\",\"source_reference\":\"U15-SOURCE-1\",\"observed_at\":\"2026-09-15T08:00:00Z\",\"validity_kind\":\"temporary\",\"valid_until\":\"2027-09-15T08:00:00Z\",\"data_quality\":\"good\",\"evidence_item_ids\":[\"$EVIDENCE\"]}}"); ok "$FEATURE_RESULT"
+FEATURE_RESULT=$(rpc "$AUTHOR" record_geospatial_feature "{\"p_feature\":{$COORDINATE,\"feature_type\":\"hazard_zone\",\"feature_key\":\"u15-climate-source\",\"name\":\"Controlled U15 hazard source\",\"geometry_type\":\"Polygon\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[-113.6,53.4],[-113.3,53.4],[-113.3,53.7],[-113.6,53.4]]]},\"source_connector_id\":\"$SOURCE\",\"source_reference\":\"U15-SOURCE-1\",\"observed_at\":\"2026-09-15T08:00:00Z\",\"validity_kind\":\"temporary\",\"valid_until\":\"2027-09-15T08:00:00Z\",\"data_quality\":\"good\",\"evidence_item_ids\":[\"$EVIDENCE\"]}}"); ok "$FEATURE_RESULT"
 FEATURE=$(field "$FEATURE_RESULT" feature_id)
 VERIFY_FEATURE=$(rpc "$REVIEWER" verify_geospatial_feature "{\"p_feature_id\":\"$FEATURE\",\"p_note\":\"Independent review confirms the source, geometry version, validity window and evidence.\"}"); ok "$VERIFY_FEATURE"
 

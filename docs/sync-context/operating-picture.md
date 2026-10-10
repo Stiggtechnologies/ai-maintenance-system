@@ -1,6 +1,6 @@
 # SC-02 operating picture and industrial inspector
 
-## Current implementation checkpoint — October 9, 2026
+## Initial browser checkpoint — October 9, 2026
 
 This is an **in-progress implementation**, not a shipped map or a completed capability claim. The complete 18-requirement SC-02 assignment in `capability-ledger.json` remains in scope. No requirement or accepted baseline is promoted by this checkpoint. Issue #576 remains open.
 
@@ -11,6 +11,18 @@ The initial browser input boundary is implemented in:
 - `src/lib/sync-context/operating-picture.ts`: reuses `parseSyncContextSnapshot`, retaining canonical object/event identities and evidence references. It additionally checks scope syntax, bounded object/event arrays, query coverage, duplicate identities, layer/source binding, source and observation times, verified/current evidence, explicit validity and coordinate provenance. Invalid rows receive traceable issues; unavailable is not rewritten as a zero query count.
 
 No new endpoint, persistence migration, service call, customer route, map renderer, inspector or production deployment is included at this checkpoint. The merged zero-argument SC-01 snapshot and authoring workspace remain unchanged.
+
+## Server prerequisite checkpoint — October 10, 2026
+
+The follow-on migration `20270103150000_sync_context_operating_contract.sql` extends the canonical feature rows with explicitly declared EPSG:4326, longitude/latitude axis order, a 20–4000-character asserted coordinate basis, and supplied horizontal accuracy or unknown `null`. There is no inferred coordinate backfill or rewrite of historical verified rows. A `NOT VALID` CHECK keeps those rows stored without certifying new provenance, while refusing new/amended verified rows without a structurally valid coordinate contract. Superseding a legacy row remains possible.
+
+The same canonical human draft writer now requires this contract. The existing `/assets/ontology` authoring form supplies it explicitly, with no default CRS or invented accuracy; the canonical workspace projection and draft cards expose the metadata for independent review. The original author-versus-reviewer, verified canonical evidence, tenant/source rights, owner, validity and audit gates are preserved. No new approval or operational authority is granted. Accuracy must fit the positive finite browser-number wire range; this is a serialization bound, not an engineering accuracy threshold.
+
+The separate immutable source-health classifier does not change legal rights or connector ingestion/telemetry ownership. Disconnected, unavailable, malformed, unknown and contradictory simulation states cannot qualify for emission. A forward CHECK refuses new/amended real-source records claiming simulated health. Historical contradictions are not silently rewritten. **The health classifier is not yet connected to a new server operating projection**; authoring/RLS and the existing SC-01 snapshot remain available for governed repair. The existing health writer's clock-grace behavior is unchanged; strict read-time checks remain required in the operating RPC.
+
+The native SQL probes cover the health truth table, exact geometry nesting/closure/bounds, finite numbers, internal-helper privileges, cumulative budgets and coordinate CHECKs. Local execution used disposable PostgreSQL 16.13, canonical feature DDL and a minimal FK/composite fixture—not the full Supabase chain or real authentication. The browser/source cohort passes **200 tests across 11 files**, including coordinate form and reviewer-card tests. Existing geospatial, SC-01 and climate fixtures now explicitly declare synthetic coordinate encoding with unknown accuracy; none of their review or authority checks was skipped. Nine additional authenticated HTTP writer-refusal/no-write probes are wired into the existing full-chain smoke but have not yet executed for this follow-on commit. The ninth targets an existing active key with an invalid timestamp, exercising the exception rollback after the supersede update rather than only pre-mutation refusals.
+
+The original browser commit `ef3a9fdf4bc567e59da21a63b74c0d6c154b8308` completed core CI run `38029171203` successfully, including migration/auth smoke and golden-path E2E. That receipt does **not** qualify the follow-on migration, writer or UI. Their fresh full-chain/HTTP CI, independent re-review and eventual production proof remain required. No SC-02 requirement is promoted by this checkpoint.
 
 ### What the input contract does not prove
 
@@ -23,7 +35,7 @@ No new endpoint, persistence migration, service call, customer route, map render
 
 ## Required continuation before SC-02 can close
 
-1. **Server operating projection.** Extend canonical `geospatial_features` with explicit coordinate provenance; do not infer or backfill historical coordinates. Add a separate health-emission predicate without changing the legal rights classifier. Supply bounded tenant/site reads, source health, honest exclusion/truncation metadata and risk-filtered detail resolution. Preserve authenticated roles, RLS, source revocation, evidence verification and canonical link privacy. Qualify the real API, not only client filtering.
+1. **Server operating projection.** Qualify the new canonical coordinate/health prerequisites on the full chain. Supply bounded tenant/site reads, source health, strict read-time checks, honest exclusion/truncation metadata (including rights versus health exclusions) and risk-filtered detail resolution. Preserve authenticated roles, RLS, source revocation, evidence verification and canonical link privacy. Qualify the real API, not only client filtering.
 2. **Customer operating surface.** Add an authenticated, discoverable 2D map with verified objects, selectable layers, persistent view/selection state and desktop/tablet/mobile accessibility. Any basemap or new dependency requires provenance/license review. Unavailable tiles, missing geometry and partial coverage must remain visible. Do not claim an optional 3D globe has been delivered.
 3. **Industrial inspector.** Present canonical identity, operating state, criticality, work, Recovery/RTS, risks, repeat failures, model-qualified PoF/RUL, projects/gates/commissioning, stock/logistics, route context and evidence-backed dependencies when available. Missing domains and unknown values remain explicitly unavailable. Stock is not shipment movement; a cluster is not statistical significance; a road is not a safe route or travel-time calculation.
 4. **Nearby context and safe handoffs.** Provide range-sorted authorized objects with an explicit radius, units, supplied accuracy and coverage. Navigate only to actual canonical routes. Create a retained, audited, idempotent canonical Decision Case draft with object/event/source/evidence references through existing workflow authority; navigate using the returned case/workspace identity, never a guessed ID. Approval and execution stay outside the renderer.
@@ -31,7 +43,7 @@ No new endpoint, persistence migration, service call, customer route, map render
 
 The remainder of the 132-item Context register, including 3D, deterministic scenarios, provider adapters, media/replay, safety observations, voice, customer connectors and resilient production operation, remains separately required. Completing SC-02 will not close that full register.
 
-## Validation at this checkpoint
+## Validation of the initial browser checkpoint — October 9, 2026
 
 The focused Context suite currently passes **181 tests across 7 files**, including the unchanged SC-01 contract, adapter and ledger checks. The application TypeScript check and ESLint for the six new TypeScript files pass. Red-first regressions reproduced sparse-array, immutability, duplicate-layer, coverage-limit, source/layer consistency, empty/count contradictions and evidence/time/display defects before repair. Zoned calendar timestamps are checked at JavaScript millisecond precision; this does not qualify server clock integrity.
 
@@ -39,6 +51,6 @@ These checks are source/client evidence only. No native SQL, authenticated opera
 
 ## Rollback and coordination
 
-At this checkpoint there are no persistence, runtime route or existing consumer changes to roll back. Reverting the new contract modules and their tests removes only the unconnected SC-02 browser input boundary. Later migration and runtime commits require their own rollback and qualification evidence.
+The initial browser checkpoint changed no persistence or runtime consumer. The October 10 follow-on changes the existing draft-writer input: older callers without explicit coordinate metadata are refused instead of being silently trusted. The updated UI and migration must be deployed together after qualification; an app-only rollback to the older form would leave that form unable to record drafts. Prefer a reviewed forward compatibility repair preserving the coordinate gate. Retain the added metadata columns and recorded provenance; never delete or invent them to make an older client pass. The operating map, customer route and server read projection remain unimplemented.
 
 Before adding a forward migration, repeat the architecture-steward inventory of current main, the last successful deployment and every open PR's migration filenames. Do not rely on an earlier reservation or insert a timestamp behind an active branch. Keep this workstream isolated from risk qualification and other owners' public journey or implementation changes.
