@@ -463,6 +463,11 @@ jobs:
       - name: Smoke — independently reviewed model applicability envelopes
         run: bash scripts/ci-model-applicability-envelope-smoke.sh
 
+      - name: Smoke — governed service-level consequences
+        run: |
+          bash scripts/ci-asset-service-level-smoke.sh
+          node scripts/tests/asset-service-level-concurrency-postgres.mjs --ci-service-level-concurrency
+
       - name: Smoke — evidence-backed organizational maturity
         run: bash scripts/ci-organizational-maturity-smoke.sh
 
@@ -642,8 +647,17 @@ jobs:
             psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -f scripts/tests/time-assurance-browser-fixture.sql
 
+      - name: Service consequence browser fixtures (isolated disposable-local scaffolding)
+        run: |
+          set -euo pipefail
+          test "${GITHUB_ACTIONS:-}" = true
+          unset PGHOSTADDR PGSERVICE PGSERVICEFILE PGPASSFILE
+          PGOPTIONS='-c app.ci_u208_browser_fixture=disposable_local_only -c statement_timeout=15000' PGPASSWORD=postgres \
+            psql -X -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f scripts/tests/asset-service-level-browser-fixture.sql
+
       - name: Golden-path E2E (login → evidence → scenarios → approve → verify)
-        run: npx playwright test tests/e2e/golden-path.spec.ts tests/e2e/material-commercial-thread.spec.ts tests/e2e/project-fracas.spec.ts tests/e2e/time-synchronization-assurance.spec.ts
+        run: npx playwright test tests/e2e/golden-path.spec.ts tests/e2e/material-commercial-thread.spec.ts tests/e2e/project-fracas.spec.ts tests/e2e/time-synchronization-assurance.spec.ts tests/e2e/asset-service-level-governance.spec.ts
 
       - name: Upload Playwright artifacts
         if: always()
