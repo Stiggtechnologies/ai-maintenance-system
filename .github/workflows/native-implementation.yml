@@ -1,0 +1,45 @@
+name: Native implementation boundary
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/native-implementation.yml"
+      - "supabase/migrations/20270103140000_native_implementation_journey.sql"
+      - "scripts/tests/implementation-*"
+      - "src/services/implementation/**"
+      - "src/components/implementation/**"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postgres-boundary:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: implementation_fixture
+          POSTGRES_PASSWORD: disposable_fixture_only
+          POSTGRES_DB: implementation_fixture
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: implementation_fixture
+      PGPASSWORD: disposable_fixture_only
+      PGDATABASE: implementation_fixture
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Synthetic PostgreSQL command boundary (canonical services are fixture doubles)
+        run: >-
+          psql -v ON_ERROR_STOP=1
+          -f scripts/tests/implementation-fixture.sql
+          -f supabase/migrations/20270103140000_native_implementation_journey.sql
+          -f scripts/tests/implementation-journey-postgres.sql
+      - name: Concurrent duplicate starts in two PostgreSQL sessions
+        run: python3 scripts/tests/implementation-concurrency.py
