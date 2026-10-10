@@ -274,15 +274,108 @@ describe("risk preview and information runtime qualification through actual SDK"
       "draft",
     );
   });
-  it("refuses an unrepresentable calculation before recording", async () => {
-    await expect(
-      recordRiskValueOfInformation(riskId, {
+  it.each([NaN, Infinity, -Infinity])(
+    "refuses a nonfinite decision cost before recording %#",
+    async (decisionCost) => {
+      await expect(
+        recordRiskValueOfInformation(riskId, {
+          ...proposal,
+          decision_cost_if_wrong: decisionCost,
+        }),
+      ).rejects.toThrow(
+        "Valid information inputs and a described enquiry are required before recording",
+      );
+      expect(wire.requests).toHaveLength(0);
+    },
+  );
+
+  it.each([
+    [
+      "large fractional cents",
+      0,
+      100000000000000.03,
+      0.999,
+      1,
+      99900000000000.03,
+      99900000000000.03,
+      "GATHER_INFORMATION",
+    ],
+    [
+      "previous false-overflow witness",
+      10,
+      1e308,
+      0.5,
+      0.5,
+      2.5e307,
+      2.5e307,
+      "GATHER_INFORMATION",
+    ],
+    [
+      "maximum finite benefit",
+      0,
+      Number.MAX_VALUE,
+      1,
+      1,
+      Number.MAX_VALUE,
+      Number.MAX_VALUE,
+      "GATHER_INFORMATION",
+    ],
+    [
+      "maximum finite cost",
+      Number.MAX_VALUE,
+      0,
+      1,
+      1,
+      0,
+      -Number.MAX_VALUE,
+      "DECIDE_WITH_CURRENT_INFORMATION",
+    ],
+    [
+      "maximum finite equality",
+      Number.MAX_VALUE,
+      Number.MAX_VALUE,
+      1,
+      1,
+      Number.MAX_VALUE,
+      0,
+      "DECIDE_WITH_CURRENT_INFORMATION",
+    ],
+  ] as const)(
+    "qualifies %s without weakening authority or receipt binding",
+    async (
+      _label,
+      informationCost,
+      decisionCost,
+      reduction,
+      probability,
+      expected,
+      net,
+      recommendation,
+    ) => {
+      const input = {
         ...proposal,
-        decision_cost_if_wrong: 1e308,
-      }),
-    ).rejects.toThrow(/representable|finite/i);
-    expect(wire.requests).toHaveLength(0);
-  });
+        information_cost: informationCost,
+        decision_cost_if_wrong: decisionCost,
+        uncertainty_reduction: reduction,
+        probability_decision_changes: probability,
+      };
+      wire.body = {
+        ...ack,
+        ...input,
+        expected_value: expected,
+        net_value: net,
+        recommendation,
+      };
+      await expect(
+        recordRiskValueOfInformation(riskId, input),
+      ).resolves.toEqual(wire.body);
+      expect(wire.requests).toEqual([{ p_risk_id: riskId, p_analysis: input }]);
+      expect(wire.body).toMatchObject({
+        advisory_only: true,
+        human_decision_required: true,
+      });
+    },
+  );
 });
 
 describe("canonical server-numeric analysis preview and write qualification", () => {
