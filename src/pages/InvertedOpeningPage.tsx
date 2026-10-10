@@ -213,10 +213,7 @@ export function InvertedOpeningPage() {
       className="public-journey journey-evaluation"
       data-theme={journeyTheme.theme}
     >
-      <PublicJourneyHeader
-        theme={journeyTheme.theme}
-        onToggle={journeyTheme.toggleTheme}
-      />
+      <PublicJourneyHeader />
       <div className="journey-evaluation-body mx-auto flex w-full flex-col gap-6">
         <header className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-300">

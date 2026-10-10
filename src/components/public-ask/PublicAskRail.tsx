@@ -1,5 +1,4 @@
 import { ClipboardCheck, Home, Layers, LogIn, Plus } from "lucide-react";
-import type { ReactNode } from "react";
 import { BrandWordmark } from "../BrandWordmark";
 import { publicJourneyPath } from "../../lib/public-journey-context";
 
@@ -9,7 +8,6 @@ type PublicAskRailProps = {
   assessHref?: string;
   signInHref?: string;
   onSignIn?: () => void;
-  themeControl?: ReactNode;
   search?: string;
   /**
    * Bolt Spaces = existing cowork threads of any intent on /workspace.
@@ -36,7 +34,6 @@ export function PublicAskRail({
   signInHref = "/signin?returnTo=%2F",
   onSignIn,
   spaces,
-  themeControl,
   search = "",
 }: PublicAskRailProps) {
   return (
@@ -103,7 +100,6 @@ export function PublicAskRail({
           </a>
         )}
       </div>
-      {themeControl}
     </nav>
   );
 }

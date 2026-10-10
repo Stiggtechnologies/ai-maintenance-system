@@ -28,7 +28,6 @@ import {
 import { submitPilotIntake } from "../../services/pilotIntake";
 import { BrandWordmark } from "../BrandWordmark";
 import { bindModalFocus } from "../../lib/modal-focus";
-import { PublicJourneyThemeToggle } from "../PublicJourneyHeader";
 import { usePublicJourneyTheme } from "../../lib/use-public-journey-theme";
 import { publicJourneyPath } from "../../lib/public-journey-context";
 
@@ -46,7 +45,6 @@ type PublicAskEmptyProps = {
   attachmentState?: ReactNode;
   onSelectIntent: (intent: PublicAskIntent) => void;
   search?: string;
-  showThemeControl?: boolean;
 };
 
 export function PublicAskEmpty({
@@ -54,11 +52,10 @@ export function PublicAskEmpty({
   attachmentInputs,
   attachmentState,
   onSelectIntent,
-  showThemeControl = true,
   search = typeof window === "undefined" ? "" : window.location.search,
 }: PublicAskEmptyProps) {
   const [intakeOpen, setIntakeOpen] = useState(false);
-  const { theme, toggleTheme } = usePublicJourneyTheme();
+  const { theme } = usePublicJourneyTheme();
   const darkMode = theme === "dark";
 
   return (
@@ -67,9 +64,6 @@ export function PublicAskEmpty({
       data-testid="first-paint-empty"
       data-theme={darkMode ? "dark" : "light"}
     >
-      {showThemeControl && (
-        <PublicJourneyThemeToggle theme={theme} onToggle={toggleTheme} />
-      )}
       <section className="bolt-sales-hero" aria-labelledby="public-hero-title">
         <div className="bolt-sales-copy">
           <div className="bolt-brand">

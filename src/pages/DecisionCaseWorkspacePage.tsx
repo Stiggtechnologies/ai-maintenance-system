@@ -48,6 +48,8 @@ import {
   PublicAskBar,
 } from "../components/public-ask/PublicAskBar";
 import { BoltSpacesPanel } from "../components/public-ask/BoltSpacesPanel";
+import { bindModalFocus } from "../lib/modal-focus";
+import { DecisionComparison } from "../components/public-ask/DecisionComparison";
 import { PublicAskEmpty } from "../components/public-ask/PublicAskEmpty";
 import { PublicAskRail } from "../components/public-ask/PublicAskRail";
 import { canExposeBoltSpaces } from "../lib/public-ask-tie-in";
@@ -108,7 +110,6 @@ import {
 } from "../services/decisionCaseService";
 import "./DecisionCaseWorkspacePage.css";
 import "../components/public-ask/public-ask.css";
-import { PublicJourneyThemeToggle } from "../components/PublicJourneyHeader";
 import { usePublicJourneyTheme } from "../lib/use-public-journey-theme";
 import { publicJourneyPath } from "../lib/public-journey-context";
 
@@ -182,10 +183,14 @@ function readBootstrapStoredCases(
   publicMode: boolean,
   industry: DecisionIndustryId,
 ): DecisionCase[] {
-  return readStoredDecisionDrafts(
-    storageForMode(publicMode),
-    storageKeyForMode(publicMode, industry),
-  );
+  try {
+    return readStoredDecisionDrafts(
+      storageForMode(publicMode),
+      storageKeyForMode(publicMode, industry),
+    );
+  } catch {
+    return [];
+  }
 }
 
 function initialChatState(
@@ -230,6 +235,11 @@ function approvalLabel(status: ApprovalStatus) {
 function exportDecisionRecord(active: DecisionCase, publicMode: boolean) {
   const record = {
     exportStatus: publicMode ? "DEMO_NOT_APPROVED" : active.statusLabel,
+    provenance: isSeedDecisionCaseId(active.id)
+      ? "ILLUSTRATIVE_SAMPLE: example records, named authorities and financial values; no customer system connection or persisted audit evidence"
+      : publicMode
+        ? "BROWSER_DRAFT_NOT_GOVERNED"
+        : "CUSTOMER_DECISION_RECORD",
     exportedAt: new Date().toISOString(),
     packetVersion: active.version,
     decisionCase: active,
@@ -325,8 +335,15 @@ export function DecisionCaseWorkspacePage({
   const [usageOpen, setUsageOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [notice, setNotice] = useState("");
+  const [storageUnavailable, setStorageUnavailable] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
-  const explicitDemoBound = useRef(false);
+  const publicThreadRef = useRef<HTMLElement>(null);
+  const explicitDemoBound = useRef(
+    Boolean(
+      publicMode &&
+      (routedPublicIntent || (caseId && isSeedDecisionCaseId(caseId))),
+    ),
+  );
   const suppressRoutedIntent = useRef(false);
   const active =
     cases.find((item) => item.id === selectedId) ??
@@ -349,12 +366,15 @@ export function DecisionCaseWorkspacePage({
   };
 
   useEffect(() => {
-    const storage = publicMode ? window.sessionStorage : window.localStorage;
-    writeDecisionCases(
-      storage,
-      cases,
-      publicMode ? getPublicDecisionCaseStorageKey(industry) : undefined,
-    );
+    try {
+      writeDecisionCases(
+        storageForMode(publicMode),
+        cases,
+        publicMode ? getPublicDecisionCaseStorageKey(industry) : undefined,
+      );
+    } catch {
+      setStorageUnavailable(true);
+    }
   }, [cases, industry, publicMode]);
   useEffect(() => {
     if (!publicMode) return;
@@ -422,10 +442,14 @@ export function DecisionCaseWorkspacePage({
     return () => window.clearTimeout(timer);
   }, [active, publicMode]);
   useEffect(() => {
+    if (publicMode && publicIntent && active.messages.length <= 3) {
+      if (publicThreadRef.current) publicThreadRef.current.scrollTop = 0;
+      return;
+    }
     if (typeof endRef.current?.scrollIntoView === "function") {
       endRef.current.scrollIntoView({ block: "nearest" });
     }
-  }, [active.messages.length, replying]);
+  }, [active.messages.length, replying, publicMode, publicIntent]);
   useEffect(() => {
     if (!notice) return;
     const timer = window.setTimeout(() => setNotice(""), 3600);
@@ -472,6 +496,19 @@ export function DecisionCaseWorkspacePage({
   useEffect(() => {
     if (!routedPublicIntent) {
       suppressRoutedIntent.current = false;
+      if (!publicMode) return;
+      if (publicIntent?.id) setPublicIntent(null);
+      if (
+        caseId &&
+        caseId !== selectedId &&
+        cases.some((item) => item.id === caseId)
+      ) {
+        explicitDemoBound.current = isSeedDecisionCaseId(caseId);
+        setSelectedId(caseId);
+        setTab("decision");
+        setEvidence(null);
+        setRecordOpen(false);
+      }
       return;
     }
     if (
@@ -501,6 +538,9 @@ export function DecisionCaseWorkspacePage({
     setRecordOpen(true);
     setRailOpen(false);
   }, [
+    caseId,
+    cases,
+    selectedId,
     context,
     industry,
     publicIntent?.id,
@@ -509,8 +549,22 @@ export function DecisionCaseWorkspacePage({
     routedPublicIntent,
   ]);
 
+  const stageActiveHandoff = () => {
+    try {
+      stageDecisionCaseHandoff(window.sessionStorage, active);
+    } catch {
+      setStorageUnavailable(true);
+    }
+  };
+
   const chooseCase = (id: string) => {
-    if (isSeedDecisionCaseId(id)) explicitDemoBound.current = true;
+    explicitDemoBound.current = isSeedDecisionCaseId(id);
+    if (publicMode && capabilityId) {
+      navigate({
+        pathname: `/workspace/cases/${id}`,
+        search: location.search,
+      });
+    }
     setSelectedId(id);
     setTab("decision");
     setEvidence(null);
@@ -979,7 +1033,11 @@ export function DecisionCaseWorkspacePage({
 
         <main className="dw-main">
           <>
-            <section className="dw-thread" aria-label="Conversation">
+            <section
+              className="dw-thread"
+              ref={publicThreadRef}
+              aria-label="Conversation"
+            >
               {emptyConversation ? (
                 <div className="dw-empty" data-testid="first-paint-empty">
                   <RotatingSeedChip
@@ -1334,7 +1392,11 @@ export function DecisionCaseWorkspacePage({
       </div>
 
       {evidence && (
-        <EvidenceModal evidence={evidence} close={() => setEvidence(null)} />
+        <EvidenceModal
+          evidence={evidence}
+          sample={isSeedDecisionCaseId(active.id)}
+          close={() => setEvidence(null)}
+        />
       )}
       {usageOpen && (
         <UsageModal
@@ -1342,9 +1404,7 @@ export function DecisionCaseWorkspacePage({
           proofComplete={active.financeStatus === "verified"}
           close={() => setUsageOpen(false)}
           signInHref={signInHref}
-          onSecure={() =>
-            stageDecisionCaseHandoff(window.sessionStorage, active)
-          }
+          onSecure={() => stageActiveHandoff()}
           choose={(mode, allowance) => {
             updateCase((current) => ({
               ...current,
@@ -1390,17 +1450,11 @@ export function DecisionCaseWorkspacePage({
     >
       <PublicAskRail
         search={location.search}
-        themeControl={
-          <PublicJourneyThemeToggle
-            theme={journeyTheme.theme}
-            onToggle={journeyTheme.toggleTheme}
-          />
-        }
         homeActive={emptyConversation}
         onNewAsk={() => void createCase()}
         assessHref="/setup"
         signInHref={signInHref}
-        onSignIn={() => stageDecisionCaseHandoff(window.sessionStorage, active)}
+        onSignIn={stageActiveHandoff}
         spaces={
           exposeSpaces
             ? {
@@ -1411,6 +1465,12 @@ export function DecisionCaseWorkspacePage({
         }
       />
       <div className="bolt-stage">
+        {storageUnavailable && (
+          <p role="status" className="journey-storage-warning">
+            Browser storage is unavailable. Changes remain on this page only;
+            keep it open to retain your draft.
+          </p>
+        )}
         {!emptyConversation &&
         caseId === active.id &&
         new URLSearchParams(location.search).get("origin") === "evaluation" ? (
@@ -1436,7 +1496,6 @@ export function DecisionCaseWorkspacePage({
           <PublicAskEmpty
             askBar={publicAskBar}
             search={location.search}
-            showThemeControl={false}
             onSelectIntent={tryPublicIntent}
             attachmentInputs={
               <>
@@ -1506,6 +1565,50 @@ export function DecisionCaseWorkspacePage({
           />
         ) : (
           <>
+            {isSeedDecisionCaseId(active.id) && (
+              <section
+                className="journey-example-context"
+                aria-label="Example workspace"
+              >
+                <div>
+                  <p className="journey-eyebrow">
+                    Example workspace · sample data
+                  </p>
+                  <h1>
+                    {publicIntent?.label ?? "Decision"}:{" "}
+                    {publicIntent?.module ?? "engineering decision example"}
+                  </h1>
+                  <p>
+                    {publicIntent?.explanation ??
+                      "Inspect a bounded example of evidence, recommendation and human review."}
+                  </p>
+                  <small>
+                    Illustrative records, authorities and values. Human approval
+                    remains required.
+                  </small>
+                  {publicIntent && (
+                    <dl className="journey-example-flow">
+                      <div>
+                        <dt>Inputs</dt>
+                        <dd>{publicIntent.inputs}</dd>
+                      </div>
+                      <div>
+                        <dt>Outputs</dt>
+                        <dd>{publicIntent.outputs}</dd>
+                      </div>
+                    </dl>
+                  )}
+                </div>
+                <div className="journey-example-actions">
+                  <a href={publicJourneyPath("/get-started", location.search)}>
+                    Start your own decision ↗
+                  </a>
+                  <a href={publicJourneyPath("/workspace", location.search)}>
+                    Return to examples
+                  </a>
+                </div>
+              </section>
+            )}
             <header className="bolt-thread-bar">
               <div className="bolt-thread-bar-side">
                 <button
@@ -1543,7 +1646,7 @@ export function DecisionCaseWorkspacePage({
             </header>
             <nav
               className="bolt-capability-switcher"
-              aria-label="Live capabilities"
+              aria-label="Capability examples"
             >
               {PUBLIC_ASK_INTENTS.map((intent) => (
                 <button
@@ -1601,6 +1704,13 @@ export function DecisionCaseWorkspacePage({
                 ))}
               <main className="bolt-main">
                 <section className="dw-thread" aria-label="Conversation">
+                  {publicIntent?.id === "compare" &&
+                    active.id === "mining-crusher-2201" && (
+                      <DecisionComparison
+                        active={active}
+                        onEvidence={setEvidence}
+                      />
+                    )}
                   {active.messages.map((message) => (
                     <article
                       key={message.id}
@@ -1874,7 +1984,11 @@ export function DecisionCaseWorkspacePage({
         )}
       </div>
       {evidence && (
-        <EvidenceModal evidence={evidence} close={() => setEvidence(null)} />
+        <EvidenceModal
+          evidence={evidence}
+          sample={isSeedDecisionCaseId(active.id)}
+          close={() => setEvidence(null)}
+        />
       )}
       {usageOpen && (
         <UsageModal
@@ -1882,9 +1996,7 @@ export function DecisionCaseWorkspacePage({
           proofComplete={active.financeStatus === "verified"}
           close={() => setUsageOpen(false)}
           signInHref={signInHref}
-          onSecure={() =>
-            stageDecisionCaseHandoff(window.sessionStorage, active)
-          }
+          onSecure={() => stageActiveHandoff()}
           choose={(mode, allowance) => {
             updateCase((current) => ({
               ...current,
@@ -2294,15 +2406,26 @@ function ValuePanel({
 
 function EvidenceModal({
   evidence,
+  sample,
   close,
 }: {
   evidence: DecisionEvidence;
+  sample: boolean;
   close: () => void;
 }) {
+  const dialogRef = useRef<HTMLElement>(null);
+  const closeRef = useRef(close);
+  closeRef.current = close;
+  useEffect(() => {
+    if (!dialogRef.current) return;
+    return bindModalFocus(dialogRef.current, null, () => closeRef.current());
+  }, []);
   return (
     <div className="dw-backdrop" role="presentation" onMouseDown={close}>
       <section
         className="dw-modal"
+        ref={dialogRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-label={`${evidence.title} evidence details`}
@@ -2327,7 +2450,7 @@ function EvidenceModal({
         </header>
         <div className="dw-evidence-detail">
           <section>
-            <span>Governed record</span>
+            <span>{sample ? "Sample record" : "Governed record"}</span>
             <strong>{evidence.record}</strong>
           </section>
           <section>
@@ -2344,8 +2467,10 @@ function EvidenceModal({
           </section>
         </div>
         <footer>
-          <ShieldCheck size={15} /> Source, transformation, and use are retained
-          in the decision audit trail.
+          <ShieldCheck size={15} />
+          {sample
+            ? "Sample evidence · illustrative source names and record IDs. No customer system is connected by this example."
+            : "Source, transformation, and use are retained in the decision audit trail."}
         </footer>
       </section>
     </div>

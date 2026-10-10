@@ -20,13 +20,13 @@ const C22_REC_TITLE = "Reschedule PM on Conveyor C-22";
 const C22_REC_ACTION = "Advance PM from Day 14 to Day 3 — bearing replacement";
 const C22_VALUE_LABEL = "Risk mitigated — Reschedule PM on Conveyor C-22";
 
-test("public sample transcript, Markdown and open drawer remain readable in both themes", async ({ page }) => {
+test("public sample transcript, Markdown and open drawer remain readable in the dark customer theme", async ({ page }) => {
   await page.goto('/workspace?industry=mining');
   await page.getByRole('button', { name: 'Compare', exact: true }).click();
   await page.getByRole('button', { name: 'Conversations', exact: true }).click();
-  for (const theme of ['dark', 'light']) {
-    await page.getByRole('button', { name: `Use ${theme} mode`, exact: true }).click();
-    await expect(page.locator('.public-journey.bolt-public')).toHaveAttribute('data-theme', theme);
+  {
+    await expect(page.locator('.public-journey.bolt-public')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.getByRole('button', { name: /Use .* mode/ })).toHaveCount(0);
     const ratios = await page.locator('.dw-message-markdown p, .dw-rec-block h3, .dw-rec-block li, .dw-rec-block p').evaluateAll(elements => {
       const rgb = (value: string) => (value.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
       const lum = (value: string) => rgb(value).map(channel => channel / 255).map(channel => channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4).reduce((sum, channel, i) => sum + channel * [.2126, .7152, .0722][i], 0);

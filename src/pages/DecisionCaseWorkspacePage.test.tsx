@@ -131,7 +131,7 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     authState.user = null;
   });
 
-  it("Mode A is the Bolt empty: light canvas, wordmark, stadium ask, five pills", () => {
+  it("Mode A is the Bolt empty: dark canvas, wordmark, stadium ask, five pills", () => {
     renderWorkspace();
     expect(document.querySelector(".bolt-public.is-empty")).toBeTruthy();
     expect(document.querySelector('[data-layout="chat-first"]')).toBeTruthy();
@@ -183,7 +183,7 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(screen.queryByText("Chat")).toBeNull();
     expect(screen.queryByText("Work")).toBeNull();
     expect(screen.queryByText(/GPT|model picker|Claude/i)).toBeNull();
-    expect(screen.getByRole("button", { name: "Use dark mode" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Use .* mode/ })).toBeNull();
   });
 
   it("signed-in Mode A exposes Spaces as the existing cowork list, not a new page", () => {
@@ -312,12 +312,55 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     );
   });
 
+  it.each(PUBLIC_ASK_INTENTS)(
+    "keeps an explicit signed-in $id example bound",
+    async (intent) => {
+      authState.user = { id: "signed-in-reviewer" };
+      renderWorkspace(`/capabilities/${intent.id}`);
+      await waitFor(() =>
+        expect(
+          screen.getByRole("region", { name: "Example workspace" }),
+        ).toBeTruthy(),
+      );
+      expect(
+        screen.getByText(`${intent.label} · ${intent.module}`),
+      ).toBeTruthy();
+      expect(screen.queryByTestId("first-paint-empty")).toBeNull();
+      expect(screen.queryByRole("button", { name: /Use .* mode/ })).toBeNull();
+    },
+  );
+
+  it("exposes example comparison options and honest evidence details", async () => {
+    renderWorkspace("/capabilities/compare");
+    expect(screen.getByRole("table")).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Inspect bearing replacement/ }),
+    );
+    expect(
+      screen.getByRole("button", {
+        name: /Filter bypass and bearing inspection View sample/,
+      }),
+    ).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Filter bypass and bearing inspection View sample/,
+      }),
+    );
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("Sample record")).toBeTruthy();
+    expect(
+      within(dialog).getByText(/No customer system is connected/),
+    ).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
   it("keeps every showcase capability discoverable after a path is opened", () => {
     renderWorkspace();
     fireEvent.click(screen.getByRole("button", { name: "Compare" }));
 
     const switcher = screen.getByRole("navigation", {
-      name: "Live capabilities",
+      name: "Capability examples",
     });
     expect(switcher).toBeTruthy();
     for (const intent of PUBLIC_ASK_INTENTS) {
