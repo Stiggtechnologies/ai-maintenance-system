@@ -43,6 +43,13 @@ end $$;
 create function run_asset_onboarding(uuid) returns jsonb language plpgsql as $$
 begin
  if current_setting('test.fail_onboarding',true)='on' then raise exception 'injected failure'; end if;
+ if current_setting('test.delay_onboarding',true)='on' then
+  -- Disposable write-before-delay proves an outer request timeout rolls back
+  -- nested preparation writes, rather than manufacturing a failure receipt.
+  insert into asset_onboarding_items(organization_id,asset_id,requirement_key,value)
+   values(app_current_org(),$1,'timeout_fixture','{"synthetic":true}');
+  perform pg_sleep(1);
+ end if;
  return jsonb_build_object('asset_id',$1);
 end $$;
 grant usage on schema auth,public to authenticated,anon,service_role;

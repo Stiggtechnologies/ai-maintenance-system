@@ -1,5 +1,12 @@
 -- #75: extend canonical deployments; billing remains the sole commercial authority.
 -- No new queue, importer, approval store, evidence store or customer assets.
+-- PostgreSQL 17 is the repository/production contract. CLI 2.84.2 batches this
+-- file and its history insert in one transaction after RESET ALL. Manual/test
+-- execution must likewise use a single transaction (psql --single-transaction).
+-- LOCAL bounds expire with that transaction; never alter a role or pool default.
+set local lock_timeout = '2s';
+set local statement_timeout = '30s';
+set local transaction_timeout = '60s';
 alter table public.deployment_instances
   add column if not exists implementation_billing_id uuid references public.billing_subscriptions(id) on delete restrict,
   add column if not exists implementation jsonb;
@@ -162,7 +169,7 @@ declare
   v_org uuid := app_current_org(); b public.billing_subscriptions%rowtype;
   d public.deployment_instances%rowtype; v_receipt jsonb; v_request jsonb;
   v_state jsonb; v_manifest jsonb; v_before jsonb; v_evidence jsonb; x jsonb; v_twin uuid;
-  v_error text; v_id uuid; v_revision integer; v_other uuid;
+  v_error text; v_id uuid; v_revision integer; v_other uuid; v_lock_timeout text;
 begin
   if v_org is null or v_org='11111111-1111-1111-1111-111111111111'::uuid or auth.uid() is null
     or not exists(select 1 from public.user_profiles where id=auth.uid() and organization_id=v_org
@@ -236,7 +243,23 @@ begin
         if not p_dry_run then
           -- The legacy compiler upserts by asset/version. Serialize its writes while checking
           -- existing twins so a racing compile cannot be silently overwritten.
-          lock table public.asset_twin_instances in share row exclusive mode;
+          -- Bound only this global lock acquisition, retaining any stricter caller
+          -- budget. Do not set statement_timeout after the RPC statement begins:
+          -- its pre-existing outer request limit remains the execution deadline.
+          -- The exception subtransaction restores LOCAL settings on every error;
+          -- the success path restores them explicitly before continuing. A failed
+          -- acquisition propagates without a receipt or revision, so retrying the
+          -- same retained intent after contention clears is safe.
+          v_lock_timeout := current_setting('lock_timeout');
+          begin
+            if v_lock_timeout::interval=interval '0' or v_lock_timeout::interval>interval '2 seconds' then
+              perform set_config('lock_timeout','2s',true);
+            end if;
+            lock table public.asset_twin_instances in share row exclusive mode;
+            perform set_config('lock_timeout',v_lock_timeout,true);
+          exception when others then
+            raise;
+          end;
         end if;
         v_manifest := public.implementation_manifest(v_state->'scope');
         -- Validate conflicts during dry-run too. Live mode already holds the
