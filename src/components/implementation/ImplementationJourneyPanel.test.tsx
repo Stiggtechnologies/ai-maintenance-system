@@ -9,6 +9,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ImplementationJourneyPanel } from "./ImplementationJourneyPanel";
 const mocks = vi.hoisted(() => ({
+  user: vi.fn(),
   load: vi.fn(),
   resources: vi.fn(),
   send: vi.fn(),
@@ -17,7 +18,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../../lib/supabase", () => ({
   supabase: {
     auth: {
-      getUser: async () => ({ data: { user: { id: "actor" } }, error: null }),
+      getUser: mocks.user,
       onAuthStateChange: (callback: (event: string) => void) => {
         mocks.authCallback = callback;
         return { data: { subscription: { unsubscribe: vi.fn() } } };
@@ -90,6 +91,10 @@ const mount = () =>
 beforeEach(() => {
   sessionStorage.clear();
   vi.clearAllMocks();
+  mocks.user.mockResolvedValue({
+    data: { user: { id: "actor" } },
+    error: null,
+  });
   mocks.load.mockResolvedValue(structuredClone(w));
   mocks.resources.mockResolvedValue(r);
 });
@@ -268,6 +273,42 @@ describe("native implementation controls", () => {
       screen.queryByText("Find the real failure cause — prepared"),
     ).not.toBeInTheDocument();
     expect(screen.queryByLabelText("Customer asset")).not.toBeInTheDocument();
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
+  it.each(["rejection", "error", "null user"])(
+    "hides cached data after identity lookup %s without an auth event",
+    async (mode) => {
+      mount();
+      await screen.findByText("Find the real failure cause — prepared");
+      fireEvent.click(
+        screen.getByText("Find the real failure cause — prepared"),
+      );
+      if (mode === "rejection")
+        mocks.user.mockRejectedValue(new Error("Identity unavailable"));
+      else
+        mocks.user.mockResolvedValue({
+          data: { user: mode === "null user" ? null : { id: "actor" } },
+          error: mode === "error" ? new Error("Expired") : null,
+        });
+      fireEvent.click(screen.getByText("Reload retained status"));
+      await waitFor(() =>
+        expect(
+          screen.queryByText("Find the real failure cause — prepared"),
+        ).not.toBeInTheDocument(),
+      );
+      expect(screen.queryByLabelText("Customer asset")).not.toBeInTheDocument();
+      expect(mocks.send).not.toHaveBeenCalled();
+    },
+  );
+  it("keeps governed result approval disabled pending canonical provenance qualification", async () => {
+    mount();
+    await screen.findByText("Find the real failure cause — prepared");
+    fireEvent.click(screen.getByText("Find the real failure cause — prepared"));
+    expect(
+      screen.getByRole("button", {
+        name: "First-result approval awaits canonical evidence qualification",
+      }),
+    ).toBeDisabled();
     expect(mocks.send).not.toHaveBeenCalled();
   });
   it("never claims completed implementation from stale acceptance standing", async () => {

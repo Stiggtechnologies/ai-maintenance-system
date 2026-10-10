@@ -59,11 +59,15 @@ export function ImplementationJourneyPanel() {
 
   async function reload(epoch = generation.current) {
     const readId = ++readSequence.current;
-    const { data, error: sessionError } = await supabase.auth.getUser();
-    if (sessionError || !data.user)
-      throw new Error("Sign in as a named company administrator to continue.");
     let w: ImplementationWorkspace;
+    let actorId: string;
     try {
+      const { data, error: sessionError } = await supabase.auth.getUser();
+      if (sessionError || !data.user)
+        throw new Error(
+          "Sign in as a named company administrator to continue.",
+        );
+      actorId = data.user.id;
       w = await loadImplementationWorkspace();
     } catch (e) {
       if (epoch === generation.current && readId === readSequence.current) {
@@ -76,8 +80,8 @@ export function ImplementationJourneyPanel() {
       throw e;
     }
     if (epoch !== generation.current || readId !== readSequence.current) return;
-    const key = `syncai-implementation-intent:${data.user.id}:${w.organizationId}`;
-    const nextIdentity = `${data.user.id}:${w.organizationId}`;
+    const key = `syncai-implementation-intent:${actorId}:${w.organizationId}`;
+    const nextIdentity = `${actorId}:${w.organizationId}`;
     if (identity.current && identity.current !== nextIdentity) {
       setResources(EMPTY);
       setSelected("");
@@ -600,6 +604,13 @@ export function ImplementationJourneyPanel() {
               )}
               {journey.phase === "prepared" && (
                 <>
+                  <p role="status">
+                    Human-assisted review required. The existing evidence rail
+                    does not yet bind verification to immutable reviewed
+                    content. First-result approval and implementation acceptance
+                    are unavailable until that rail and authenticated asset
+                    approval are qualified.
+                  </p>
                   {evidenceSelect(
                     "Verified first-result evidence",
                     result,
@@ -625,12 +636,13 @@ export function ImplementationJourneyPanel() {
                   <button
                     type="button"
                     className="rounded border px-3 py-2"
-                    disabled={disabled || !result || !statement.trim()}
+                    disabled={true}
                     onClick={() =>
                       void submit("result", { evidenceId: result, statement })
                     }
                   >
-                    Review first result as named human
+                    First-result approval awaits canonical evidence
+                    qualification
                   </button>
                 </>
               )}
