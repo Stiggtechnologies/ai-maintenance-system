@@ -2,6 +2,40 @@
 
 **2026-10-06 — PARTIAL, CURRENT-MAIN DRAFT COMPOSITION; NOT RELEASE QUALIFICATION.**
 
+**2026-10-10 — local current-main harness-safety checkpoint; refreshed hosted qualification pending.**
+The existing U18 draft is composed with main `37af9fd7`, preserving its new
+dependency graph, CLI/CodeQL pins and public-journey/industry changes. The U18 production
+migration and service/UI implementation are unchanged from `16629af0`.
+Historical green runs do not qualify this composition or the controls below.
+
+HTTP credential discovery now refuses ambient container transport settings
+before any subprocess and pins the status child to the hosted Linux local Unix
+socket in a narrow environment. Ten actual-script containment regressions failed
+before repair; all **82** contained transport tests subsequently passed. These
+subprocesses are synthetic, not a new real GoTrue/PostgREST execution receipt.
+
+An owned Playwright wrapper validates the resolved canonical local demo API/key
+before server launch, preserving all existing browser suites. U18 runs in its own
+Chromium project with automatic traces, video and screenshots disabled. Its
+failure contexts and explicit panel screenshot attachments remain in the exact
+private output directory, outside the uploaded `test-results/` tree. A spec-local
+admission guard refuses default, wrong-browser, diagnostic-enabled and alternate
+output projects before fixtures or authentication. An independently reproduced
+nested-output defect produced two failing regressions before the exact-path
+repair. Configuration/guard tests pass, and real Playwright discovery lists
+**18 scenarios in five files**; discovery is not browser execution.
+
+The local **2,273-test, 36-file** risk/SDK/UI/tenancy and public-journey cohort and
+application TypeScript pass using the existing local runtime. No capability register is
+promoted, production migration applied or release authorized. Fresh full-chain
+SQL, genuine HTTP, actual races and browser execution remain required.
+Audited secondary-origin fixtures and historical cleared-link upgrade coverage
+remain pending: current canonical guards intentionally refuse clearing those
+links, so fabricated audit receipts or disabled guards cannot qualify that path.
+Full typed source-standing integration, shared authentication freshness,
+protected non-author merge and production verification retain their separate
+holds. Earlier dated receipts below are historical checkpoints only.
+
 **2026-10-09 — native policy/concurrency qualification passed; human-browser qualification failed; bounded heading repair requires fresh exact-head CI.**
 Published `95eae28833269fbcc3f4ee3cdc04f7c9398aa115`, core run
 `37924079866`, is terminal failure. Its unit job passed **8,897 tests in

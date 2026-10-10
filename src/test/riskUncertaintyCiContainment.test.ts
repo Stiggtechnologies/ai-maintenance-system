@@ -154,6 +154,61 @@ describe("U18 isolated CI transport qualification", () => {
     },
   );
 
+  it.each([
+    "DOCKER_HOST",
+    "DOCKER_CONTEXT",
+    "DOCKER_CONFIG",
+    "DOCKER_TLS_VERIFY",
+    "DOCKER_CERT_PATH",
+    "DOCKER_API_VERSION",
+    "DOCKER_CUSTOM_HEADERS",
+    "CONTAINER_HOST",
+    "CONTAINER_CONNECTION",
+  ])(
+    "refuses ambient %s before credential discovery, SQL or HTTP",
+    async (key) => {
+      for (const value of ["remote-override", ""]) {
+        const h = harness({ GITHUB_ACTIONS: "true", [key]: value });
+        await expect(h.run()).rejects.toThrow(
+          "U18.02 isolated CI qualification failed",
+        );
+        expect(h.spawn).not.toHaveBeenCalled();
+        expect(h.fetch).not.toHaveBeenCalled();
+      }
+    },
+  );
+
+  it("pins status discovery to the local Unix socket in a narrow child environment", async () => {
+    const h = harness({
+      GITHUB_ACTIONS: "true",
+      PATH: "/synthetic/bin",
+      HOME: "/synthetic/home",
+      GITHUB_TOKEN: "private",
+      HTTPS_PROXY: "https://remote.invalid",
+      HTTP_PROXY: "http://remote.invalid",
+      NODE_OPTIONS: "private",
+    });
+    await expect(h.run()).rejects.toThrow(
+      "U18.02 isolated CI qualification failed",
+    );
+    expect(h.spawn.mock.calls[0]).toEqual([
+      "supabase",
+      ["status", "-o", "env"],
+      {
+        encoding: "utf8",
+        timeout: 15_000,
+        maxBuffer: 1024 * 1024,
+        env: {
+          PATH: "/synthetic/bin",
+          HOME: "/synthetic/home",
+          LC_ALL: "C",
+          LANG: "C",
+          DOCKER_HOST: "unix:///var/run/docker.sock",
+        },
+      },
+    ]);
+  });
+
   it("uses a controlled SQL environment and bounded redirect-rejecting HTTP, suppressing diagnostics", async () => {
     const h = harness({
       GITHUB_ACTIONS: "true",

@@ -12,10 +12,26 @@ async function run() {
     false,
     "ambient PostgreSQL connection environment is prohibited",
   );
+  assert.equal(
+    Object.keys(process.env).some(
+      (name) => name.startsWith("DOCKER") || name.startsWith("CONTAINER_"),
+    ),
+    false,
+    "ambient container transport configuration is prohibited",
+  );
   const status = spawnSync("supabase", ["status", "-o", "env"], {
     encoding: "utf8",
     timeout: 15_000,
     maxBuffer: 1024 * 1024,
+    // Hosted Linux CI only: never discover credentials via an inherited remote
+    // Docker context, proxy, certificate configuration or child-process hook.
+    env: {
+      PATH: process.env.PATH,
+      HOME: process.env.HOME,
+      LC_ALL: "C",
+      LANG: "C",
+      DOCKER_HOST: "unix:///var/run/docker.sock",
+    },
   });
   assert.equal(status.status, 0, "local status failed");
   assert.equal(typeof status.stdout, "string");

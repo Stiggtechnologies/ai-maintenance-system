@@ -1,6 +1,21 @@
 import { test, expect, type Page, type Response } from "@playwright/test";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
+import { resolve } from "node:path";
+
+test.use({ trace: "off", video: "off", screenshot: "off" });
+test.beforeAll(async ({ browserName }, testInfo) => {
+  // An accidental default-config invocation must not provision fixtures, log
+  // in, or persist authentication diagnostics into the ordinary upload tree.
+  expect(testInfo.project.name).toBe("u18-chromium");
+  expect(browserName).toBe("chromium");
+  expect(resolve(testInfo.project.outputDir)).toBe(
+    resolve("test-results-private/u18"),
+  );
+  expect(testInfo.project.use.trace).toBe("off");
+  expect(testInfo.project.use.video).toBe("off");
+  expect(testInfo.project.use.screenshot).toBe("off");
+});
 
 // Actual disposable-browser witness. This test cannot operate on customer URLs.
 // The owner connection only provisions/read-witnesses synthetic CI fixtures and
