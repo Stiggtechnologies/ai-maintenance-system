@@ -186,12 +186,47 @@ for (const surface of [
             evidence_item_ids: [EVIDENCE],
           },
         });
-        if (target.reviewed)
-          await rpc(reviewer.api, "verify_geospatial_feature", {
-            p_feature_id: created.feature_id,
-            p_note:
-              "Independent synthetic browser fixture review; no real survey suitability or operational authority is asserted.",
+        if (!target.reviewed) {
+          // Canonical subject links require a verified parent. Preserve the
+          // unreviewed draft and prove the refusal rather than bypassing review
+          // to manufacture site membership for the negative browser fixture.
+          const refusedLink = await author.api.post(
+            "/rest/v1/rpc/link_geospatial_subject",
+            {
+              data: {
+                p_link: {
+                  feature_id: created.feature_id,
+                  relationship_type: "located_at",
+                  asset_id: target.asset,
+                  basis:
+                    "Synthetic negative witness: an unreviewed draft must not acquire a governed canonical subject link.",
+                },
+              },
+            },
+          );
+          expect(refusedLink.status()).toBe(200);
+          expect(await refusedLink.json()).toEqual({
+            error: "verified geospatial feature not found in this organization",
           });
+          const retainedDraft = await author.api.get(
+            `/rest/v1/geospatial_features?id=eq.${created.feature_id}&select=id,status`,
+          );
+          expect(retainedDraft.status()).toBe(200);
+          expect(await retainedDraft.json()).toEqual([
+            { id: created.feature_id, status: "draft" },
+          ]);
+          const absentLink = await author.api.get(
+            `/rest/v1/geospatial_subject_links?feature_id=eq.${created.feature_id}&select=id`,
+          );
+          expect(absentLink.status()).toBe(200);
+          expect(await absentLink.json()).toEqual([]);
+          continue;
+        }
+        await rpc(reviewer.api, "verify_geospatial_feature", {
+          p_feature_id: created.feature_id,
+          p_note:
+            "Independent synthetic browser fixture review; no real survey suitability or operational authority is asserted.",
+        });
         await rpc(author.api, "link_geospatial_subject", {
           p_link: {
             feature_id: created.feature_id,

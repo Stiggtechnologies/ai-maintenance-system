@@ -66,4 +66,28 @@ describe("Sync Context authenticated browser qualification wiring", () => {
     expect(spec).toContain("sync-context-tech@syncai.ca");
     expect(spec).not.toMatch(/route\.(?:fulfill|abort)|storageState\s*:/);
   });
+  it("keeps the unreviewed fixture draft and asserts canonical link refusal", () => {
+    const spec = readFileSync("tests/e2e/sync-context.spec.ts", "utf8");
+    expect(spec).toContain("if (!target.reviewed)");
+    expect(spec).toContain(
+      "verified geospatial feature not found in this organization",
+    );
+    expect(spec).toContain('status: "draft"');
+    expect(spec).toContain("expect(await absentLink.json()).toEqual([])");
+    expect(spec).toContain("continue;");
+    const branch = spec.indexOf("if (!target.reviewed)");
+    const continueAt = spec.indexOf("continue;", branch);
+    const verifyAt = spec.indexOf(
+      'await rpc(reviewer.api, "verify_geospatial_feature"',
+      branch,
+    );
+    const linkAt = spec.indexOf(
+      'await rpc(author.api, "link_geospatial_subject"',
+      branch,
+    );
+    expect(branch).toBeGreaterThan(0);
+    expect(continueAt).toBeGreaterThan(branch);
+    expect(verifyAt).toBeGreaterThan(continueAt);
+    expect(linkAt).toBeGreaterThan(verifyAt);
+  });
 });
