@@ -20,7 +20,6 @@ type PublicAskBarProps = {
   dictationListening: boolean;
   dictationTitle: string;
   onToggleDictation: () => void;
-  photoInputRef: RefObject<HTMLInputElement | null>;
   fileInputRef: RefObject<HTMLInputElement | null>;
 };
 
@@ -38,7 +37,6 @@ export function PublicAskBar({
   dictationListening,
   dictationTitle,
   onToggleDictation,
-  photoInputRef,
   fileInputRef,
 }: PublicAskBarProps) {
   const onKeyDown = (event: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -70,15 +68,12 @@ export function PublicAskBar({
       <button
         type="button"
         className="bolt-ask-tool"
-        title="Attach a photo"
-        aria-label="Attach a photo"
-        onClick={() => {
-          setOverflowOpen(false);
-          photoInputRef.current?.click();
-        }}
+        title="Image analysis is unavailable here. Describe the observation or attach a text export."
+        aria-label="Image analysis unavailable"
+        disabled
       >
         <ImageIcon size={16} />
-        <span className="bolt-ask-overflow-label">Image</span>
+        <span className="bolt-ask-overflow-label">Image unavailable</span>
       </button>
       <button
         type="button"

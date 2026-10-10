@@ -44,7 +44,7 @@ export async function createPersistedDecisionCase(
     createdFromIntake: seed.createdFromIntake || Boolean(context.intakeId),
     updatedAt: new Date().toISOString(),
   };
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("cowork_workspaces")
     .update({
       case_number: persisted.caseNumber,
@@ -53,8 +53,12 @@ export async function createPersistedDecisionCase(
       usage_tokens: persisted.tokensUsed,
       next_action: "Complete the technical authority review",
     })
-    .eq("id", result.workspaceId);
+    .eq("id", result.workspaceId)
+    .select("id,case_state")
+    .maybeSingle()
+    .returns<{ id: string; case_state: DecisionCase | null }>();
   if (error) throw new Error(`Could not initialize case: ${error.message}`);
+  requireCaseReceipt(data, persisted);
   return persisted;
 }
 
@@ -75,7 +79,9 @@ export async function loadPersistedDecisionCase(
 export async function savePersistedDecisionCase(
   decisionCase: DecisionCase,
 ): Promise<void> {
-  if (!isPersistedDecisionCase(decisionCase.id)) return;
+  if (!isPersistedDecisionCase(decisionCase.id)) {
+    throw new Error("A browser draft cannot be marked durably saved.");
+  }
   const progress: Record<DecisionCase["stage"], number> = {
     intent: 10,
     asset_truth: 20,
@@ -86,7 +92,7 @@ export async function savePersistedDecisionCase(
     outcomes: 90,
     learning: 100,
   };
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("cowork_workspaces")
     .update({
       case_state: decisionCase,
@@ -96,8 +102,27 @@ export async function savePersistedDecisionCase(
       next_action: decisionCase.statusLabel,
       updated_at: decisionCase.updatedAt,
     })
-    .eq("id", decisionCase.id);
+    .eq("id", decisionCase.id)
+    .select("id,case_state")
+    .maybeSingle()
+    .returns<{ id: string; case_state: DecisionCase | null }>();
   if (error) throw new Error(`Could not save case: ${error.message}`);
+  requireCaseReceipt(data, decisionCase);
+}
+
+function requireCaseReceipt(
+  receipt: { id: string; case_state: DecisionCase | null } | null,
+  expected: DecisionCase,
+): void {
+  if (
+    receipt?.id !== expected.id ||
+    receipt.case_state?.id !== expected.id ||
+    receipt.case_state.updatedAt !== expected.updatedAt
+  ) {
+    throw new Error(
+      "The workspace did not confirm this case revision was saved. Your browser draft remains available.",
+    );
+  }
 }
 
 export interface DecisionCaseReply {
@@ -222,6 +247,15 @@ async function respondToDecisionQuestion(
         questionScope,
       );
     }
+    // Public analysis is a terminal boundary, including provider failure.
+    // A persisted evaluation must never silently invoke the tenant pipeline.
+    return unavailableDecisionReply(
+      decisionCase,
+      prompt,
+      questionScope,
+      binding,
+      true,
+    );
   }
   if (binding.bound && isPersistedDecisionCase(decisionCase.id)) {
     await sendCoworkMessage(
@@ -249,6 +283,22 @@ async function respondToDecisionQuestion(
       };
     }
   }
+  return unavailableDecisionReply(
+    decisionCase,
+    prompt,
+    questionScope,
+    binding,
+    false,
+  );
+}
+
+function unavailableDecisionReply(
+  decisionCase: DecisionCase,
+  prompt: string,
+  questionScope: DecisionQuestionScope,
+  binding: { bound: boolean },
+  publicMode: boolean,
+): DecisionCaseReply {
   if (questionScope === "provisional_new_subject") {
     return buildDeterministicReply(
       prompt,
@@ -265,8 +315,9 @@ async function respondToDecisionQuestion(
     );
   }
   const response = deterministicReply(decisionCase, prompt);
-  if (options.publicMode) {
-    response.meta = "Deterministic fallback · live RAG unavailable";
+  if (publicMode) {
+    response.meta =
+      "Deterministic fallback · public analysis unavailable · no tenant analysis invoked";
   }
   return buildDeterministicReply(prompt, response, questionScope);
 }

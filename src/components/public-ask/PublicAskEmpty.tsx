@@ -14,10 +14,8 @@ import {
   GraduationCap,
   Heart,
   LogIn,
-  Moon,
   ShieldCheck,
   Sparkles,
-  Sun,
   Wrench,
   X,
 } from "lucide-react";
@@ -30,6 +28,9 @@ import {
 import { submitPilotIntake } from "../../services/pilotIntake";
 import { BrandWordmark } from "../BrandWordmark";
 import { bindModalFocus } from "../../lib/modal-focus";
+import { PublicJourneyThemeToggle } from "../PublicJourneyHeader";
+import { usePublicJourneyTheme } from "../../lib/use-public-journey-theme";
+import { publicJourneyPath } from "../../lib/public-journey-context";
 
 const PILL_ICONS: Record<PublicAskIntentId, ReactNode> = {
   compare: <BarChart3 size={15} />,
@@ -44,6 +45,8 @@ type PublicAskEmptyProps = {
   attachmentInputs?: ReactNode;
   attachmentState?: ReactNode;
   onSelectIntent: (intent: PublicAskIntent) => void;
+  search?: string;
+  showThemeControl?: boolean;
 };
 
 export function PublicAskEmpty({
@@ -51,47 +54,34 @@ export function PublicAskEmpty({
   attachmentInputs,
   attachmentState,
   onSelectIntent,
+  showThemeControl = true,
+  search = typeof window === "undefined" ? "" : window.location.search,
 }: PublicAskEmptyProps) {
   const [intakeOpen, setIntakeOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("syncai-public-theme") === "dark";
-  });
-
-  const toggleTheme = () => {
-    const next = !darkMode;
-    setDarkMode(next);
-    window.localStorage.setItem("syncai-public-theme", next ? "dark" : "light");
-  };
+  const { theme, toggleTheme } = usePublicJourneyTheme();
+  const darkMode = theme === "dark";
 
   return (
     <main
-      className={`bolt-empty${darkMode ? " is-dark" : ""}`}
+      className={`public-journey bolt-empty${darkMode ? " is-dark" : ""}`}
       data-testid="first-paint-empty"
       data-theme={darkMode ? "dark" : "light"}
     >
-      <button
-        type="button"
-        className="bolt-theme-toggle"
-        onClick={toggleTheme}
-        aria-label={darkMode ? "Use light mode" : "Use dark mode"}
-        title={darkMode ? "Use light mode" : "Use dark mode"}
-      >
-        {darkMode ? <Sun size={17} /> : <Moon size={17} />}
-      </button>
+      {showThemeControl && (
+        <PublicJourneyThemeToggle theme={theme} onToggle={toggleTheme} />
+      )}
       <section className="bolt-sales-hero" aria-labelledby="public-hero-title">
         <div className="bolt-sales-copy">
           <div className="bolt-brand">
-            <h1 className="bolt-wordmark">SyncAI</h1>
+            <span className="bolt-wordmark">SyncAI</span>
             <BrandWordmark className="bolt-brand-original" />
-            <span className="bolt-pro">pro</span>
           </div>
           <p className="bolt-eyebrow">
             <Sparkles size={14} /> Governed engineering intelligence
           </p>
-          <h2 id="public-hero-title">
+          <h1 id="public-hero-title">
             Turn evidence into defensible engineering decisions.
-          </h2>
+          </h1>
           <p className="bolt-hero-lede">
             Bring a real question, add the evidence, and review a bounded
             recommendation with your team. Keep approvals and operating
@@ -120,7 +110,10 @@ export function PublicAskEmpty({
             </ul>
           </div>
           <div className="bolt-hero-actions">
-            <a className="bolt-primary-cta" href="/get-started">
+            <a
+              className="bolt-primary-cta"
+              href={publicJourneyPath("/get-started", search)}
+            >
               Start your first decision <ArrowRight size={17} />
             </a>
             <a className="bolt-secondary-cta" href="#try-syncai">
@@ -140,38 +133,46 @@ export function PublicAskEmpty({
           </div>
         </div>
 
-        <aside className="bolt-offer-card" aria-label="Your first decision">
-          <div className="bolt-offer-topline">
-            <span>SyncAI platform</span>
-            <span>Guided evaluation</span>
+        <aside
+          className="bolt-demo"
+          id="try-syncai"
+          aria-labelledby="demo-title"
+        >
+          <div className="bolt-demo-heading">
+            <div>
+              <span>Ask the assistant</span>
+              <h2 id="demo-title">Ask SyncAI about a reliability decision</h2>
+            </div>
+            <p>
+              Use public or synthetic information only. Start with a question or
+              choose a path.
+            </p>
           </div>
-          <h3>Your question. Your evidence. Your decision.</h3>
-          <p>
-            Begin with a real task and continue into the assistant when you are
-            ready.
-          </p>
-          <ul>
-            <li>
-              <Check size={16} />
-              Your question and intent
-            </li>
-            <li>
-              <Check size={16} />
-              File, paste or manual evidence
-            </li>
-            <li>
-              <Check size={16} />
-              Visible assumptions and missing inputs
-            </li>
-            <li>
-              <Check size={16} />
-              Human review and a clear next step
-            </li>
+          {attachmentInputs}
+          {attachmentState}
+          {askBar}
+          <ul className="bolt-pills">
+            {PUBLIC_ASK_INTENTS.map((intent) => (
+              <li key={intent.id}>
+                <button
+                  type="button"
+                  className="bolt-pill"
+                  aria-label={intent.label}
+                  data-testid="ask-intent-pill"
+                  data-intent={intent.id}
+                  data-seed-index={String(intent.seedIndex)}
+                  title={`${intent.module}: ${intent.explanation}`}
+                  onClick={() => onSelectIntent(intent)}
+                >
+                  {PILL_ICONS[intent.id]}
+                  <span className="bolt-pill-copy">
+                    <strong>{intent.label}</strong>
+                    <small>{intent.module}</small>
+                  </span>
+                </button>
+              </li>
+            ))}
           </ul>
-          <p>
-            Illustrative guidance is labeled. Sign-in does not grant industrial
-            approval.
-          </p>
         </aside>
       </section>
 
@@ -197,7 +198,7 @@ export function PublicAskEmpty({
             <a
               key={intent.id}
               className="bolt-capability-card"
-              href={publicAskIntentPath(intent)}
+              href={publicJourneyPath(publicAskIntentPath(intent), search)}
               data-testid="capability-showcase-link"
             >
               <span className="bolt-capability-icon">
@@ -211,7 +212,10 @@ export function PublicAskEmpty({
               <ArrowRight size={17} />
             </a>
           ))}
-          <a className="bolt-capability-card is-action" href="/setup">
+          <a
+            className="bolt-capability-card is-action"
+            href={publicJourneyPath("/setup", search)}
+          >
             <span className="bolt-capability-icon">
               <ClipboardCheck size={15} />
             </span>
@@ -227,7 +231,7 @@ export function PublicAskEmpty({
           </a>
           <a
             className="bolt-capability-card is-action"
-            href="/signin?returnTo=%2Foverview"
+            href={`/signin?returnTo=${encodeURIComponent(publicJourneyPath("/", search))}`}
           >
             <span className="bolt-capability-icon">
               <LogIn size={15} />
@@ -243,48 +247,6 @@ export function PublicAskEmpty({
             <ArrowRight size={17} />
           </a>
         </div>
-      </section>
-
-      <section
-        className="bolt-demo"
-        id="try-syncai"
-        aria-labelledby="demo-title"
-      >
-        <div className="bolt-demo-heading">
-          <div>
-            <span>Ask the assistant</span>
-            <h2 id="demo-title">Ask SyncAI about a reliability decision</h2>
-          </div>
-          <p>
-            Use public or synthetic information only. Start with a question or
-            choose a path.
-          </p>
-        </div>
-        {attachmentInputs}
-        {attachmentState}
-        {askBar}
-        <ul className="bolt-pills">
-          {PUBLIC_ASK_INTENTS.map((intent) => (
-            <li key={intent.id}>
-              <button
-                type="button"
-                className="bolt-pill"
-                aria-label={intent.label}
-                data-testid="ask-intent-pill"
-                data-intent={intent.id}
-                data-seed-index={String(intent.seedIndex)}
-                title={`${intent.module}: ${intent.explanation}`}
-                onClick={() => onSelectIntent(intent)}
-              >
-                {PILL_ICONS[intent.id]}
-                <span className="bolt-pill-copy">
-                  <strong>{intent.label}</strong>
-                  <small>{intent.module}</small>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
       </section>
 
       <section

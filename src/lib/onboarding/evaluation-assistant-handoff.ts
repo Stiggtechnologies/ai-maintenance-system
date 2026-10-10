@@ -5,16 +5,10 @@ import {
   type DecisionCase,
 } from "../decision-case";
 import { readStoredDecisionDrafts } from "../decision-case-drafts";
+import { publicJourneyParameters } from "../public-journey-context";
 function parameters(decisionCase: DecisionCase, search: string) {
-  const source = new URLSearchParams(search);
-  const params = new URLSearchParams({
-    origin: "evaluation",
-    industry: normalizeDecisionIndustry(decisionCase.industry),
-  });
-  for (const name of ["entry", "source", "campaign", "variant"]) {
-    const value = source.get(name)?.trim().slice(0, 120);
-    if (value) params.set(name, value);
-  }
+  const params = publicJourneyParameters(search, decisionCase.industry);
+  params.set("origin", "evaluation");
   return params;
 }
 export function evaluationAssistantDestination(

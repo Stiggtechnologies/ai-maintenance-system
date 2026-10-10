@@ -33,6 +33,8 @@ import {
   rememberEvaluationDraft,
 } from "../lib/onboarding/evaluation-assistant-handoff";
 import { DecisionCaseSpine } from "./DecisionCaseSpine";
+import { PublicJourneyHeader } from "../components/PublicJourneyHeader";
+import { usePublicJourneyTheme } from "../lib/use-public-journey-theme";
 
 function rememberSavedCase(id: string) {
   if (!isPersistedDecisionCase(id)) return;
@@ -45,6 +47,7 @@ function rememberSavedCase(id: string) {
 
 export function InvertedOpeningPage() {
   const auth = useOptionalAuth();
+  const journeyTheme = usePublicJourneyTheme();
   const [restored] = useState(() =>
     readEvaluationDraftLocation(window.location.search, window.sessionStorage),
   );
@@ -207,9 +210,14 @@ export function InvertedOpeningPage() {
   return (
     <main
       data-testid="inverted-opening"
-      className="min-h-screen bg-[#0B0F14] px-4 py-10 text-[#E6EDF3]"
+      className="public-journey journey-evaluation"
+      data-theme={journeyTheme.theme}
     >
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+      <PublicJourneyHeader
+        theme={journeyTheme.theme}
+        onToggle={journeyTheme.toggleTheme}
+      />
+      <div className="journey-evaluation-body mx-auto flex w-full flex-col gap-6">
         <header className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-300">
             Sync · first decision

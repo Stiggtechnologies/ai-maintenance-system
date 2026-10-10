@@ -1,5 +1,5 @@
-/* Bolt Mode A / Mode B public workspace. Light canvas only — do not inherit
-   the dark Decision Workspace void. Authenticated / ops routes stay dark. */
+/* Public workspace layout primitives. Shared journey theme is scoped below;
+   authenticated industrial screens retain their existing contracts. */
 
 .bolt-public {
   --bolt-ink: #2b3036;
@@ -1918,4 +1918,521 @@
 }
 .bolt-empty.is-dark .bolt-optional-service {
   border-color: #27383e;
+}
+
+/* Graphite/brass public experience; intentional warm-paper and graphite themes. */
+.public-journey.bolt-public {
+  --bolt-ink: var(--journey-ink);
+  --bolt-muted: var(--journey-muted);
+  --bolt-line: var(--journey-line);
+  --bolt-soft: var(--journey-soft);
+  --bolt-teal: var(--journey-signal);
+  --bolt-send: var(--journey-brass);
+  --bolt-canvas: var(--journey-canvas);
+  flex-direction: column;
+  font-family: "Journey Plex", Inter, system-ui, sans-serif;
+}
+.public-journey.bolt-public[data-theme] .bolt-rail {
+  order: 0;
+  width: 100%;
+  flex: 0 0 auto;
+  min-height: 76px;
+  flex-direction: row;
+  gap: 18px;
+  align-items: center;
+  padding: 14px max(24px, calc((100vw - 1280px) / 2));
+  border-right: 0;
+  border-top: 0;
+  border-bottom: 1px solid var(--journey-line);
+  background: var(--journey-canvas);
+}
+.public-journey.bolt-public .bolt-rail-top,
+.public-journey.bolt-public .bolt-rail-main,
+.public-journey.bolt-public .bolt-rail-foot {
+  display: flex;
+  flex-direction: row;
+  width: auto;
+  margin: 0;
+  gap: 8px;
+  flex: none;
+}
+.public-journey.bolt-public .bolt-rail-top {
+  margin-left: auto;
+}
+.public-journey.bolt-public .bolt-rail-foot {
+  margin-left: auto;
+}
+.public-journey.bolt-public[data-theme] .bolt-rail-item {
+  flex: none;
+  flex-direction: row;
+  gap: 7px;
+  width: auto;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  color: var(--journey-muted);
+  font-size: 13px;
+}
+.public-journey.bolt-public[data-theme] .bolt-rail-item:is(:hover, .is-active) {
+  background: var(--journey-soft);
+  color: var(--journey-ink);
+}
+.public-journey.bolt-public .bolt-stage {
+  order: 1;
+  background: var(--journey-canvas);
+}
+.public-journey.bolt-public .bolt-empty {
+  min-height: 0;
+  background: var(--journey-canvas);
+  padding: clamp(28px, 4vw, 60px) max(24px, calc((100vw - 1280px) / 2)) 32px;
+}
+.public-journey .bolt-empty .bolt-sales-hero {
+  width: 100%;
+  max-width: 1280px;
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  align-items: start;
+  gap: clamp(32px, 5vw, 76px);
+  margin: 0 auto;
+}
+.public-journey .bolt-empty .bolt-brand {
+  display: none;
+}
+.public-journey .bolt-empty .bolt-eyebrow {
+  color: var(--journey-signal);
+  font-family: "Journey Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  margin: 0 0 20px;
+}
+.public-journey .bolt-empty #public-hero-title {
+  margin: 0;
+  max-width: 650px;
+  font-family: "Journey Archivo", Inter, sans-serif;
+  font-size: clamp(38px, 4.1vw, 62px);
+  font-weight: 650;
+  line-height: 1.06;
+  letter-spacing: -0.035em;
+  color: var(--journey-ink);
+}
+.public-journey .bolt-empty .bolt-hero-lede {
+  font-size: 17px;
+  line-height: 1.65;
+  color: var(--journey-muted);
+  max-width: 590px;
+  margin: 24px 0;
+}
+.public-journey .bolt-empty .bolt-hero-capabilities > span {
+  color: var(--journey-muted);
+  font-family: "Journey Mono", monospace;
+  font-size: 10px;
+}
+.public-journey .bolt-empty .bolt-hero-capabilities button {
+  background: transparent;
+  color: var(--journey-ink);
+  border: 1px solid var(--journey-line);
+  box-shadow: none;
+  border-radius: 4px;
+  min-height: 36px;
+}
+.public-journey .bolt-empty .bolt-hero-actions {
+  margin-top: 28px;
+}
+.public-journey .bolt-empty .bolt-primary-cta {
+  background: var(--journey-brass);
+  color: #111214;
+  border-color: var(--journey-brass);
+  border-radius: 4px;
+  box-shadow: none;
+}
+.public-journey .bolt-empty .bolt-secondary-cta {
+  color: var(--journey-ink);
+  border-color: var(--journey-line);
+  background: transparent;
+  border-radius: 4px;
+  box-shadow: none;
+}
+.public-journey .bolt-empty .bolt-trust-line {
+  color: var(--journey-muted);
+  border-top: 1px solid var(--journey-line);
+  padding-top: 18px;
+  gap: 14px;
+}
+.public-journey .bolt-empty .bolt-trust-line svg {
+  color: var(--journey-signal);
+}
+.public-journey .bolt-empty .bolt-demo {
+  margin: 0;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--journey-line);
+  border-top: 3px solid var(--journey-brass);
+  padding: 28px;
+  background: var(--journey-surface);
+  border-radius: 4px;
+}
+.public-journey .bolt-empty .bolt-demo-heading {
+  display: block;
+  margin-bottom: 20px;
+}
+.public-journey .bolt-empty .bolt-demo-heading span {
+  color: var(--journey-signal);
+  font-family: "Journey Mono", monospace;
+  font-size: 10px;
+}
+.public-journey .bolt-empty .bolt-demo-heading h2 {
+  color: var(--journey-ink);
+  font-family: "Journey Archivo", sans-serif;
+  font-size: 28px;
+  line-height: 1.2;
+  margin: 12px 0;
+  letter-spacing: -0.025em;
+}
+.public-journey .bolt-empty .bolt-demo-heading > p {
+  max-width: none;
+  color: var(--journey-muted);
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.public-journey .bolt-ask-bar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  border: 1px solid var(--journey-line);
+  border-radius: 4px;
+  padding: 12px;
+  background: var(--journey-canvas);
+  box-shadow: none;
+}
+.public-journey .bolt-empty .bolt-ask-bar {
+  background: var(--journey-canvas);
+  border-color: var(--journey-line);
+  border-radius: 4px;
+  box-shadow: none;
+  padding: 12px;
+}
+.public-journey .bolt-ask-bar textarea {
+  grid-column: 1 / -1;
+  min-height: 64px;
+  max-height: 180px;
+  width: 100%;
+  padding: 4px;
+  color: var(--journey-ink);
+  background: transparent;
+  font-family: "Journey Plex", Inter, sans-serif;
+  font-size: 16px;
+}
+.public-journey .bolt-empty .bolt-ask-bar textarea {
+  min-height: 112px;
+  color: var(--journey-ink);
+}
+.public-journey .bolt-empty .bolt-ask-bar textarea::placeholder,
+.public-journey .bolt-ask-bar textarea::placeholder {
+  color: var(--journey-muted);
+}
+.public-journey .bolt-ask-bar:focus-within {
+  border-color: var(--journey-signal);
+  box-shadow: none;
+}
+.public-journey .bolt-ask-tools,
+.public-journey .bolt-ask-overflow {
+  grid-row: 2;
+  grid-column: 1;
+  align-self: center;
+}
+.public-journey .bolt-ask-send {
+  grid-row: 2;
+  grid-column: 2;
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+  color: #111214;
+  background: var(--journey-brass);
+}
+.public-journey .bolt-ask-send:disabled {
+  background: var(--journey-soft);
+  color: var(--journey-muted);
+  opacity: 0.65;
+}
+.public-journey .bolt-ask-tool,
+.public-journey .bolt-ask-overflow-toggle {
+  color: var(--journey-muted);
+  border-radius: 4px;
+  width: 36px;
+  height: 36px;
+}
+.public-journey .bolt-ask-tool:disabled {
+  color: var(--journey-muted);
+  opacity: 0.55;
+}
+.public-journey .bolt-ask-overflow-menu {
+  border-color: var(--journey-line);
+  background: var(--journey-surface);
+  border-radius: 4px;
+}
+.public-journey .bolt-empty .bolt-pills {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 16px 0 0;
+}
+.public-journey .bolt-empty .bolt-pill {
+  width: 100%;
+  justify-content: flex-start;
+  min-height: 50px;
+  border-radius: 4px;
+  border-color: var(--journey-line);
+  color: var(--journey-ink);
+  background: transparent;
+}
+.public-journey .bolt-empty .bolt-pill:hover {
+  background: var(--journey-soft);
+  border-color: var(--journey-signal);
+}
+.public-journey .bolt-empty .bolt-pill svg {
+  color: var(--journey-signal);
+}
+.public-journey .bolt-empty .bolt-capability-gallery {
+  margin: 64px auto 0;
+  max-width: 1280px;
+  width: 100%;
+  padding-top: 32px;
+  border-top: 1px solid var(--journey-line);
+}
+.public-journey .bolt-empty .bolt-capability-gallery h2 {
+  color: var(--journey-ink);
+  font-size: clamp(26px, 3vw, 38px);
+}
+.public-journey .bolt-empty .bolt-capability-gallery-heading > p {
+  color: var(--journey-muted);
+  font-size: 14px;
+}
+.public-journey .bolt-empty .bolt-capability-gallery-heading span {
+  color: var(--journey-signal);
+  font-family: "Journey Mono", monospace;
+}
+.public-journey .bolt-empty .bolt-capability-card {
+  color: var(--journey-ink);
+  background: var(--journey-surface);
+  border-color: var(--journey-line);
+  border-radius: 4px;
+  box-shadow: none;
+  min-height: 112px;
+}
+.public-journey .bolt-empty .bolt-capability-card:hover {
+  border-color: var(--journey-signal);
+  background: var(--journey-soft);
+  box-shadow: none;
+}
+.public-journey .bolt-empty .bolt-capability-card strong {
+  color: var(--journey-ink);
+}
+.public-journey .bolt-empty .bolt-capability-card small {
+  color: var(--journey-signal);
+}
+.public-journey .bolt-empty .bolt-capability-card-copy > span,
+.public-journey .bolt-empty .bolt-pill small {
+  color: var(--journey-muted);
+}
+.public-journey .bolt-empty .bolt-capability-icon {
+  color: var(--journey-signal);
+  background: transparent;
+  border-radius: 4px;
+}
+.public-journey .bolt-empty .bolt-value-strip {
+  width: 100%;
+  max-width: 1280px;
+  margin-top: 48px;
+  border-color: var(--journey-line);
+}
+.public-journey .bolt-empty .bolt-value-strip article {
+  border-color: var(--journey-line);
+}
+.public-journey .bolt-empty .bolt-value-strip article > span {
+  color: var(--journey-signal);
+  font-family: "Journey Mono", monospace;
+}
+.public-journey .bolt-empty .bolt-value-strip h3 {
+  color: var(--journey-ink);
+}
+.public-journey .bolt-empty .bolt-value-strip p {
+  color: var(--journey-muted);
+}
+.public-journey .bolt-empty .bolt-offer-card {
+  background: var(--journey-surface);
+  border: 1px solid var(--journey-line);
+  border-radius: 4px;
+  box-shadow: none;
+}
+.public-journey .bolt-empty .bolt-offer-card::before {
+  display: none;
+}
+.public-journey .bolt-empty .bolt-offer-card h3,
+.public-journey .bolt-empty .bolt-offer-card li,
+.public-journey .bolt-empty .bolt-offer-footer strong {
+  color: var(--journey-ink);
+}
+.public-journey .bolt-empty .bolt-offer-card > p,
+.public-journey .bolt-empty .bolt-offer-topline,
+.public-journey .bolt-empty .bolt-offer-footer span,
+.public-journey .bolt-empty .bolt-service-copy > p {
+  color: var(--journey-muted);
+}
+.public-journey .bolt-empty .bolt-offer-card li svg {
+  color: var(--journey-signal);
+}
+.public-journey .bolt-empty .bolt-offer-card ul {
+  border-color: var(--journey-line);
+}
+.public-journey .bolt-empty .bolt-offer-footer button {
+  color: #111214;
+  background: var(--journey-brass);
+  border-radius: 4px;
+}
+.public-journey .bolt-empty .bolt-service-copy h2 {
+  color: var(--journey-ink);
+}
+.public-journey .bolt-empty .bolt-public-footer {
+  color: var(--journey-muted);
+  width: 100%;
+  max-width: 1280px;
+}
+.public-journey .bolt-intake {
+  color: var(--journey-ink);
+  background: var(--journey-surface);
+  border: 1px solid var(--journey-line);
+  border-radius: 4px;
+  box-shadow: 0 16px 60px #0005;
+}
+.public-journey .bolt-intake :is(h2, strong, label) {
+  color: var(--journey-ink);
+}
+.public-journey .bolt-intake :is(p, small) {
+  color: var(--journey-muted);
+}
+.public-journey .bolt-intake :is(input, textarea, select) {
+  background: var(--journey-canvas);
+  border-color: var(--journey-line);
+  color: var(--journey-ink);
+  border-radius: 4px;
+}
+.public-journey .bolt-intake form > button {
+  color: #111214;
+  background: var(--journey-brass);
+  border-radius: 4px;
+}
+.public-journey .bolt-intake-close {
+  color: var(--journey-muted);
+}
+.public-journey .bolt-intake-footnote {
+  color: var(--journey-muted);
+}
+.public-journey .bolt-thread-bar {
+  background: var(--journey-canvas);
+  border-color: var(--journey-line);
+}
+.public-journey .bolt-thread-meta,
+.public-journey .bolt-thread-bar-side.is-center > span {
+  color: var(--journey-muted);
+}
+.public-journey .bolt-layout,
+.public-journey .bolt-layout .dw-center,
+.public-journey .bolt-layout .dw-chat {
+  background: var(--journey-canvas);
+}
+.public-journey .bolt-layout .dw-message,
+.public-journey .bolt-icon,
+.public-journey .bolt-view-record {
+  color: var(--journey-ink);
+  background: var(--journey-surface);
+  border-color: var(--journey-line);
+  border-radius: 4px;
+}
+.public-journey .bolt-layout .dw-chat-author,
+.public-journey .bolt-layout .dw-message-meta {
+  color: var(--journey-muted);
+}
+.public-journey .bolt-ask-dock {
+  background: var(--journey-canvas);
+  border-color: var(--journey-line);
+  width: min(920px, 100%);
+}
+@media (max-width: 900px) {
+  .public-journey .bolt-empty .bolt-sales-hero {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  .public-journey .bolt-empty .bolt-sales-copy {
+    max-width: none;
+  }
+  .public-journey .bolt-empty .bolt-demo {
+    padding: 24px;
+  }
+  .public-journey .bolt-empty .bolt-capability-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .public-journey.bolt-public[data-theme] .bolt-rail {
+    min-height: 64px;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  .public-journey.bolt-public .bolt-rail-top {
+    display: none;
+  }
+  .public-journey.bolt-public .bolt-rail-main {
+    margin-left: auto;
+  }
+  .public-journey.bolt-public .bolt-rail-foot {
+    margin-left: 0;
+  }
+  .public-journey.bolt-public[data-theme] .bolt-rail-item {
+    padding: 6px;
+    min-height: 40px;
+    font-size: 11px;
+    gap: 4px;
+  }
+  .public-journey.bolt-public .bolt-rail-item svg {
+    width: 16px;
+    height: 16px;
+  }
+  .public-journey.bolt-public .journey-brand {
+    padding: 5px 7px;
+  }
+  .public-journey.bolt-public .journey-brand img {
+    height: 24px;
+  }
+  .public-journey.bolt-public .journey-theme-toggle {
+    width: 34px;
+    height: 36px;
+  }
+  .public-journey.bolt-public .bolt-empty {
+    padding: 28px 16px;
+  }
+  .public-journey .bolt-empty #public-hero-title {
+    font-size: 38px;
+  }
+  .public-journey .bolt-empty .bolt-hero-lede {
+    font-size: 16px;
+  }
+  .public-journey .bolt-empty .bolt-hero-actions {
+    display: grid;
+  }
+  .public-journey .bolt-empty .bolt-demo {
+    padding: 20px;
+  }
+  .public-journey .bolt-empty .bolt-demo-heading h2 {
+    font-size: 26px;
+  }
+  .public-journey .bolt-empty .bolt-capability-grid {
+    grid-template-columns: 1fr;
+  }
+  .public-journey .bolt-empty .bolt-capability-gallery {
+    margin-top: 40px;
+  }
+  .public-journey .bolt-empty .bolt-hero-capabilities button {
+    min-height: 40px;
+  }
 }

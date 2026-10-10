@@ -135,8 +135,10 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     renderWorkspace();
     expect(document.querySelector(".bolt-public.is-empty")).toBeTruthy();
     expect(document.querySelector('[data-layout="chat-first"]')).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "SyncAI" })).toBeTruthy();
-    expect(screen.getByText("pro")).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: /defensible engineering decisions/ }),
+    ).toBeTruthy();
+    expect(screen.queryByText("pro")).toBeNull();
     expect(screen.getByPlaceholderText(ASK_PLACEHOLDER)).toBeTruthy();
     expect(screen.getByTestId("first-paint-empty")).toBeTruthy();
     expect(
@@ -169,7 +171,7 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(screen.queryByText("Not proven")).toBeNull();
     expect(screen.queryByTestId("recommendation-turn")).toBeNull();
     expect(screen.queryByLabelText("Search")).toBeNull();
-    expect(screen.getByLabelText("Attach a photo")).toBeEnabled();
+    expect(screen.getByLabelText("Image analysis unavailable")).toBeDisabled();
     expect(screen.getByLabelText("Attach a data file")).toBeEnabled();
     expect(screen.queryByLabelText("Web search")).toBeNull();
     expect(screen.queryByLabelText("Conversations")).toBeNull();
@@ -251,7 +253,7 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(screen.getByText("Compare · Decision comparison")).toBeTruthy();
     expect(screen.getByText(PUBLIC_ASK_INTENTS[0].question)).toBeTruthy();
     expect(screen.queryByText(/P-101 process pump/)).toBeNull();
-    expect(screen.getByLabelText("Attach a photo")).toBeEnabled();
+    expect(screen.getByLabelText("Image analysis unavailable")).toBeDisabled();
     expect(screen.getByLabelText("Attach a data file")).toBeEnabled();
   });
 
@@ -270,7 +272,7 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(screen.queryByRole("button", { name: "View record" })).toBeNull();
     expect(screen.queryByText("Current decision packet")).toBeNull();
     expect(screen.queryByRole("tablist")).toBeNull();
-    expect(screen.getByLabelText("Attach a photo")).toBeEnabled();
+    expect(screen.getByLabelText("Image analysis unavailable")).toBeDisabled();
     expect(screen.getByLabelText("Attach a data file")).toBeEnabled();
     expect(screen.queryByRole("menuitem", { name: "Camera" })).toBeNull();
     loadSample();
@@ -334,10 +336,10 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
 
   it("keeps direct photo and governed data-file actions in the thread", () => {
     renderWorkspace();
-    expect(screen.getByLabelText("Attach a photo")).toBeEnabled();
+    expect(screen.getByLabelText("Image analysis unavailable")).toBeDisabled();
     expect(screen.getByLabelText("Attach a data file")).toBeEnabled();
     loadSample();
-    expect(screen.getByLabelText("Attach a photo")).toBeEnabled();
+    expect(screen.getByLabelText("Image analysis unavailable")).toBeDisabled();
     expect(screen.getByLabelText("Attach a data file")).toBeEnabled();
     expect(screen.queryByText("Plugins")).toBeNull();
     expect(screen.queryByText("Think harder")).toBeNull();
