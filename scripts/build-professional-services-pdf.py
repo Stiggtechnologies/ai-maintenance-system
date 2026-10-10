@@ -349,7 +349,7 @@ def build_story(manifest: dict):
             Paragraph("IMPLEMENTATION DELIVERY", EYEBROW),
             Paragraph("Forward-Deployed Engineering, productized", H1),
             Paragraph(
-                "FDE is a bounded implementation workstream inside SyncAI Implementation and Scale. Named SyncAI practitioners work virtually with customer owners to configure an accepted operating capability. FDE is not a separate adoption rung and is not open-ended staff augmentation.",
+                "SyncAI Forward-Deployed Engineering is the bounded Implementation offer. Named SyncAI practitioners work virtually with customer owners to configure an accepted operating capability. FDE is not a separate adoption rung and is not open-ended staff augmentation.",
                 BODY,
             ),
             Spacer(1, 10),
@@ -475,7 +475,7 @@ def build_story(manifest: dict):
             ),
             Spacer(1, 5),
             Paragraph(
-                "Controlled draft | Prepared 2026-10-03 | Professional-service publication, private-offer purchase, delivery acceptance, and business value are separate evidence gates.",
+                "Controlled draft | Prepared 2026-10-05 | Professional-service publication, private-offer purchase, delivery acceptance, and business value are separate evidence gates.",
                 SMALL,
             ),
         ]

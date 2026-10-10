@@ -18,9 +18,9 @@ support the SyncAI SaaS platform:
 2. **Industrial Decision Proof of Concept** — prove SyncAI on a bounded
    decision, fleet or site using agreed controls, acceptance criteria and stop
    criteria.
-3. **SyncAI Implementation and Scale** — deploy approved workflows,
-   integrations and operating practices with a bounded Forward-Deployed
-   Engineering workstream.
+3. **SyncAI Forward-Deployed Engineering** — deploy approved workflows,
+   integrations and operating practices through a bounded implementation
+   engagement.
 
 Each stage ends with a customer-owned choice: proceed, change the scope, hold,
 or stop. There is no automatic expansion.

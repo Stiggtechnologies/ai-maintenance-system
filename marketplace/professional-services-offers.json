@@ -1,7 +1,7 @@
 {
   "schemaVersion": "1.0",
   "artifact": "syncai-professional-services-private-offers",
-  "asOf": "2026-10-03",
+  "asOf": "2026-10-05",
   "overallStatus": "controlled_draft",
   "claims": {
     "published": false,
@@ -9,6 +9,36 @@
     "customerPurchaseProven": false,
     "privateOfferAccepted": false,
     "serviceDeliveryCompleted": false
+  },
+  "partnerCenterDraftWitness": {
+    "observedAt": "2026-10-05",
+    "offers": [
+      {
+        "offerAlias": "Reliability Intelligence Assessment",
+        "name": "Reliability Intelligence Assessment",
+        "offerId": "syncai-reliability-intelligence-assessment",
+        "offerType": "Professional service",
+        "status": "Draft"
+      },
+      {
+        "offerAlias": "Industrial Decision Proof of Concept",
+        "name": "Industrial Decision Proof of Concept",
+        "offerId": "syncai-industrial-decision-proof-of-concept",
+        "offerType": "Professional service",
+        "status": "Draft"
+      },
+      {
+        "offerAlias": "SyncAI Implementation and Scale",
+        "name": "SyncAI Forward-Deployed Engineering",
+        "offerId": "syncai-implementation-and-scale",
+        "offerType": "Professional service",
+        "status": "Draft",
+        "listingCopySaved": true,
+        "remainingListingValidationErrors": 8
+      }
+    ],
+    "submitted": false,
+    "published": false
   },
   "marketplaceContract": {
     "sellerId": "94486950",
@@ -219,14 +249,14 @@
       "key": "implementation_and_scale",
       "category": "Implementation",
       "proposedOfferId": "syncai-implementation-and-scale",
-      "name": "SyncAI Implementation and Scale",
-      "searchSummary": "Deploy governed SyncAI workflows, integrations and operating practices with a bounded Forward-Deployed Engineering team.",
+      "name": "SyncAI Forward-Deployed Engineering",
+      "searchSummary": "Operationalize governed industrial AI with a bounded SyncAI forward-deployed engineering team.",
       "keywords": [
-        "implementation",
         "forward deployed engineering",
-        "industrial AI"
+        "industrial AI implementation",
+        "asset reliability"
       ],
-      "description": "<p>SyncAI Implementation and Scale converts an accepted proof into a governed production operating capability. A bounded Forward-Deployed Engineering workstream embeds named SyncAI practitioners virtually with the customer’s product, reliability, maintenance, engineering, data and security owners.</p><p>The team configures the approved tenant and authority model, connects authorized data sources, operationalizes selected SyncAI workflows and specialist roles, establishes acceptance and verification measures, supports adoption, and transfers the runbook to named customer owners. FDE is outcome-scoped professional delivery, not open-ended staff augmentation.</p><p>Deliverables may include the approved solution boundary, integration and provenance map, configured workflows and roles, security and governance control evidence, migration or onboarding artifacts, acceptance scorecard, operational runbook, training and handover evidence, and a scale decision pack. Exact systems, sites, fleets, roles, deliverables and milestones are defined in the applicable order.</p><p>SyncAI and its FDE team do not become the customer’s engineer of record, investment approver, operating authority, maintenance authority, safety authority or risk acceptor. Production changes, work execution and consequential approvals remain with named customer authorities.</p>",
+      "description": "<p>SyncAI Forward-Deployed Engineering (FDE) takes an accepted industrial AI proof into governed production use. Named SyncAI specialists work virtually alongside the customer’s reliability, maintenance, engineering, operations, data, security and product owners to operationalize approved workflows, integrations and controls without displacing customer authority.</p><p>This implementation service is designed for industrial organizations moving from a bounded proof of concept to a production fleet, site, multi-site network or enterprise standard.</p><p><strong>Engagement agenda</strong></p><ol><li><strong>Mobilize and govern:</strong> confirm business outcomes, in-scope assets and sites, named owners, authority boundaries, acceptance criteria, prohibited actions, data handling, security controls and release gates.</li><li><strong>Connect and configure:</strong> map authorized sources with provenance, configure tenant roles, workflows and specialist capabilities, and document integration, rollback and continuity controls.</li><li><strong>Validate and accept:</strong> execute representative governed decision cases, test controls, record evidence gaps and verify agreed technical and value measures against the approved baseline.</li><li><strong>Enable and hand over:</strong> complete role-based training, operating runbooks, support and escalation routes, ownership transfer and unresolved-obligation tracking.</li><li><strong>Decide and scale:</strong> prepare the evidence pack for a named customer authority to record go, change, hold or stop for the next fleet, site, network or enterprise scope.</li></ol><p>Typical deliverables include an approved production solution and authority boundary, integration and provenance map, configured governed workflows and roles, security and governance evidence, acceptance scorecard, operational runbook, training and handover evidence, and a scale decision pack. Exact systems, sites, fleets, milestones and deliverables are defined in the applicable order and statement of work.</p><p>FDE is outcome-scoped professional delivery, not open-ended staff augmentation. SyncAI provides decision support and implementation services. The customer retains engineering, investment, operating, maintenance, safety, regulatory, production-change and risk-acceptance authority. SyncAI does not guarantee savings, uptime, failure avoidance, accuracy or return on investment.</p>",
       "timeline": "customer_specific_milestone_plan",
       "pricing": {
         "referenceAmountUsd": "customer_specific",
@@ -311,8 +341,8 @@
     "builder": "scripts/build-professional-services-pdf.py",
     "renderedPdf": "output/pdf/syncai-professional-services-and-fde.pdf",
     "pageCount": 4,
-    "visualQa": "passed_2026_10_03",
-    "textExtractionQa": "passed_2026_10_03",
+    "visualQa": "passed_2026_10_05",
+    "textExtractionQa": "passed_2026_10_05",
     "accessibilityTagReview": "blocked",
     "brandApproval": "blocked",
     "legalAndClaimsApproval": "blocked",
@@ -341,7 +371,7 @@
     {
       "id": "PS-004",
       "owner": "Marketplace operator",
-      "action": "Create and submit the Assessment, Proof of concept and Implementation offers in Partner Center as transactable professional services linked to the published SyncAI SaaS listing.",
+      "action": "Complete and submit the existing Assessment, Proof of concept and Implementation drafts in Partner Center as transactable professional services linked to the published SyncAI SaaS listing.",
       "dependsOn": ["PS-001", "PS-002", "PS-003"],
       "status": "blocked"
     },
