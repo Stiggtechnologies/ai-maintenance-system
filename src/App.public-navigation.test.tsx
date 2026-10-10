@@ -50,12 +50,12 @@ it("the actual app follows client evaluation → signup → canonical signin and
     "signup",
   );
   for (const name of ["Assistant", "First decision"]) {
-    const link = screen.getByRole("link", { name, exact: true });
+    const link = screen.getByRole("link", { name });
     expect(link.getAttribute("href")).toContain("industry=mining");
     expect(link.getAttribute("href")).toContain("utm_source=partner");
   }
   const returnTo = new URLSearchParams(window.location.search).get("returnTo");
-  fireEvent.click(screen.getByRole("button", { name: "Sign In", exact: true }));
+  fireEvent.click(screen.getByRole("button", { name: "Sign In" }));
   await screen.findByRole("textbox", { name: /work email/i });
   expect(window.location.pathname).toBe("/signin");
   expect(new URLSearchParams(window.location.search).get("returnTo")).toBe(
