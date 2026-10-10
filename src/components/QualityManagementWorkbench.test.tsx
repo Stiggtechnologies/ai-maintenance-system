@@ -6,6 +6,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { StrictMode } from "react";
 import { QualityManagementWorkbench } from "./QualityManagementWorkbench";
 import {
   executeQualityAction,
@@ -402,4 +403,81 @@ describe("QualityManagementWorkbench", () => {
     ).not.toBeInTheDocument();
     expect(executeQualityAction).toHaveBeenCalledTimes(2);
   });
+
+  it("ignores a second submission while authentication preflight is pending", async () => {
+    const pending = deferred<{ data: { user: { id: string } }; error: null }>();
+    render(<QualityManagementWorkbench />);
+    await screen.findByText("Quality management & assurance");
+    auth.getUser.mockReturnValueOnce(pending.promise);
+    const submit = screen.getByRole("button", { name: "Validate & record" });
+    fireEvent.click(submit);
+    fireEvent.click(submit);
+    expect(auth.getUser).toHaveBeenCalledTimes(2);
+    expect(executeQualityAction).not.toHaveBeenCalled();
+    await act(async () =>
+      pending.resolve({ data: { user: { id: "author-a" } }, error: null }),
+    );
+    await screen.findByText("Quality management & assurance");
+    expect(executeQualityAction).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores rejected old reads after the observed organization changes", async () => {
+    const pending = deferred<QualityCockpit>();
+    vi.mocked(getQualityCockpit).mockReturnValueOnce(pending.promise);
+    const view = render(<QualityManagementWorkbench />);
+    await waitFor(() => expect(getQualityCockpit).toHaveBeenCalledTimes(1));
+    auth.context.profile = {
+      ...auth.context.profile!,
+      organization_id: "org-b",
+    };
+    view.rerender(<QualityManagementWorkbench />);
+    await screen.findByText("Quality management & assurance");
+    await act(async () => pending.reject(new Error("Old organization failed")));
+    expect(
+      screen.queryByText("Old organization failed"),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByText("Quality management & assurance"),
+    ).toBeInTheDocument();
+  });
+
+  it("fences StrictMode lifecycle replay before the old preflight starts a read", async () => {
+    render(
+      <StrictMode>
+        <QualityManagementWorkbench />
+      </StrictMode>,
+    );
+    await screen.findByText("Quality management & assurance");
+    expect(auth.getUser).toHaveBeenCalledTimes(2);
+    expect(getQualityCockpit).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["null", "different", "error"])(
+    "clears cached data when refreshed authentication returns %s",
+    async (state) => {
+      render(<QualityManagementWorkbench />);
+      await screen.findByText("Quality management & assurance");
+      auth.getUser.mockResolvedValueOnce({
+        data: {
+          user:
+            state === "null"
+              ? null
+              : { id: state === "different" ? "other-user" : "author-a" },
+        },
+        error: state === "error" ? { message: "Auth no longer valid" } : null,
+      });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Refresh quality records" }),
+      );
+      await screen.findByText("Showing no data rather than stale values.");
+      expect(
+        screen.queryByText(/Debottleneck project/),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByLabelText("Governed quality payload"),
+      ).not.toBeInTheDocument();
+      expect(getQualityCockpit).toHaveBeenCalledTimes(1);
+      expect(executeQualityAction).not.toHaveBeenCalled();
+    },
+  );
 });
