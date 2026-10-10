@@ -1,8 +1,5 @@
 import { BrandWordmark } from "./BrandWordmark";
-import {
-  publicAuthJourneySearch,
-  publicJourneyPath,
-} from "../lib/public-journey-context";
+import { publicDecisionJourneyPaths } from "../lib/public-journey-context";
 import "./public-journey.css";
 
 export function PublicJourneyHeader({
@@ -10,21 +7,23 @@ export function PublicJourneyHeader({
 }: {
   search?: string;
 }) {
-  const journeySearch = publicAuthJourneySearch(search, window.location.origin);
+  const destinations = publicDecisionJourneyPaths(
+    search,
+    window.location.origin,
+    window.location.pathname,
+  );
   return (
     <header className="journey-header">
       <a
         className="journey-brand"
-        href={publicJourneyPath("/workspace", journeySearch)}
+        href={destinations.assistant}
         aria-label="SyncAI workspace"
       >
         <BrandWordmark className="h-7" />
       </a>
       <nav aria-label="Public navigation">
-        <a href={publicJourneyPath("/workspace", journeySearch)}>Assistant</a>
-        <a href={publicJourneyPath("/get-started", journeySearch)}>
-          First decision
-        </a>
+        <a href={destinations.assistant}>Assistant</a>
+        <a href={destinations.firstDecision}>First decision</a>
         <a href="https://syncai.ca/contact">Discuss purchasing</a>
       </nav>
     </header>
