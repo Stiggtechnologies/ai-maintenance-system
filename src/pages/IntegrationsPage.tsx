@@ -14,6 +14,7 @@ import { platformService } from "../services/platform";
 import { DataGovernance } from "../components/DataGovernance";
 import { RecoverySignalConnectorSetup } from "../components/RecoverySignalConnectorSetup";
 import { PlantHistorianConnectorSetup } from "../components/PlantHistorianConnectorSetup";
+import { AzureIotOperationsConnectorSetup } from "../components/AzureIotOperationsConnectorSetup";
 import { CmmsReadConnectorSetup } from "../components/CmmsReadConnectorSetup";
 
 interface Connector {
@@ -316,6 +317,7 @@ export function IntegrationsPage() {
       )}
 
       <PlantHistorianConnectorSetup onConfigured={loadData} />
+      <AzureIotOperationsConnectorSetup onConfigured={loadData} />
       <CmmsReadConnectorSetup onConfigured={loadData} />
       <RecoverySignalConnectorSetup onConfigured={loadData} />
       <ConnectorHealth />

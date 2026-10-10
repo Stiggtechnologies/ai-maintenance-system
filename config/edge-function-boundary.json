@@ -5,6 +5,7 @@
     "agent-loop-enrich",
     "ai-agent-processor",
     "autonomous-orchestrator",
+    "azure-iot-operations-ingest",
     "calculation-service",
     "cmms-read-pull",
     "domain-specialist-run",
@@ -38,6 +39,7 @@
   ],
   "allowedNoVerifyJwt": [
     "agent-loop-enrich",
+    "azure-iot-operations-ingest",
     "edge-evidence-ingest",
     "marketplace-fulfillment",
     "marketplace-webhook",
