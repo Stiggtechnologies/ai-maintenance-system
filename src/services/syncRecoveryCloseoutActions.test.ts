@@ -208,6 +208,27 @@ describe("recovery close-out actions still unexposed before this wiring", () => 
     expect(rpc).not.toHaveBeenCalled();
   });
 
+  it("binds multimodal field evidence to the selected event work and canonical attachment", async () => {
+    await recoveryActions.addFieldEvidence({
+      eventId: "event-1",
+      eventWorkId: "event-work-1",
+      kind: "video",
+      note: "Walkdown shows the coupling guard after reassembly.",
+      attachmentId: "attachment-1",
+      metadata: { duration_seconds: 18 },
+      clientCommandId: "capture-1",
+    });
+    expect(rpc).toHaveBeenCalledWith("add_recovery_field_evidence", {
+      p_event_id: "event-1",
+      p_event_work_id: "event-work-1",
+      p_kind: "video",
+      p_note: "Walkdown shows the coupling guard after reassembly.",
+      p_attachment_id: "attachment-1",
+      p_metadata: { duration_seconds: 18 },
+      p_client_command_id: "capture-1",
+    });
+  });
+
   it("proposes a listed donor as pending approval and refuses an unnamed donor", async () => {
     rpc.mockResolvedValue({
       data: { ok: true, approval_required: true, executed: false },
