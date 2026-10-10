@@ -107,6 +107,10 @@ import {
   savePersistedDecisionCase,
 } from "../services/decisionCaseService";
 import "./DecisionCaseWorkspacePage.css";
+import {
+  reconcileDecisionCaseSave,
+  reconcileLoadedDecisionConversation,
+} from "../lib/decision-case-save-receipt";
 import "../components/public-ask/public-ask.css";
 
 type PacketTab = "decision" | "evidence" | "authority" | "work" | "value";
@@ -322,6 +326,8 @@ export function DecisionCaseWorkspacePage({
   const [notice, setNotice] = useState("");
   const endRef = useRef<HTMLDivElement>(null);
   const persistedCaseSnapshot = useRef("");
+  const acknowledgedVersions = useRef(new Map<string, number>());
+  const caseSaveInFlight = useRef(new Set<string>());
   const explicitDemoBound = useRef(false);
   const suppressRoutedIntent = useRef(false);
   const active =
@@ -394,13 +400,29 @@ export function DecisionCaseWorkspacePage({
   }, [caseId, context, orgSession, publicMode, selectedId]);
   useEffect(() => {
     if (publicMode || !isPersistedDecisionCase(activeId)) return;
+    // Navigation cannot release a command whose response is still pending or
+    // uncertain. A fresh page load performs read-only canonical reconciliation.
+    if (caseSaveInFlight.current.has(activeId)) return;
     let cancelled = false;
     void loadPersistedDecisionCase(activeId)
       .then((saved) => {
-        if (!cancelled && saved) {
+        if (
+          !cancelled &&
+          saved &&
+          !caseSaveInFlight.current.has(activeId) &&
+          (saved.revision ?? 0) >=
+            (acknowledgedVersions.current.get(activeId) ?? 0)
+        ) {
           persistedCaseSnapshot.current = JSON.stringify(saved);
           setCases((current) =>
-            current.map((item) => (item.id === saved.id ? saved : item)),
+            current.map((item) =>
+              item.id === saved.id
+                ? reconcileLoadedDecisionConversation(item, saved)
+                : item,
+            ),
+          );
+          setNotice(
+            "Canonical case loaded. Unrecorded dialogue is retained; recovered token usage remains an estimate.",
           );
         }
       })
@@ -414,17 +436,28 @@ export function DecisionCaseWorkspacePage({
     const snapshot = JSON.stringify(active);
     if (snapshot === persistedCaseSnapshot.current) return;
     const timer = window.setTimeout(() => {
+      if (caseSaveInFlight.current.has(active.id)) return;
+      caseSaveInFlight.current.add(active.id);
       void savePersistedDecisionCase(active).then(
         (saved) => {
+          caseSaveInFlight.current.delete(active.id);
+          acknowledgedVersions.current.set(saved.id, saved.revision ?? 0);
           persistedCaseSnapshot.current = JSON.stringify(saved);
           setCases((current) =>
-            current.map((item) => (item.id === saved.id ? saved : item)),
+            current.map((item) =>
+              item.id === saved.id
+                ? reconcileDecisionCaseSave(item, active, saved)
+                : item,
+            ),
           );
         },
-        () =>
+        () => {
+          // A lost response can follow a committed command. Keep this case
+          // fenced until a fresh canonical load resolves its write outcome.
           setNotice(
-            "Cloud sync did not complete. Reload the canonical case before retrying.",
-          ),
+            "Cloud save outcome is uncertain. Reload the canonical case before retrying.",
+          );
+        },
       );
     }, 700);
     return () => window.clearTimeout(timer);
@@ -436,6 +469,7 @@ export function DecisionCaseWorkspacePage({
   }, [active.messages.length, replying]);
   useEffect(() => {
     if (!notice) return;
+    if (notice.startsWith("Cloud save outcome is uncertain.")) return;
     const timer = window.setTimeout(() => setNotice(""), 3600);
     return () => window.clearTimeout(timer);
   }, [notice]);
