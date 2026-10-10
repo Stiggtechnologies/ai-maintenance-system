@@ -1,0 +1,4 @@
+# Garak probes for the manual / CI scan. Skipped when NVIDIA_API_KEY is unset.
+# These are Garak's published probe names for prompt injection and jailbreaks.
+promptinject
+dan

@@ -1,0 +1,21 @@
+name: Garak
+
+# Not a required check. The script exits 0 when NVIDIA_API_KEY is unset, which
+# is the public-repo default. A repository secret turns the scan on; it does
+# not change the production assistant, which stays behind syncai_guard = false.
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  garak:
+    name: LLM vulnerability scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Run Garak when an NVIDIA key is configured
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: bash scripts/garak-scan.sh
