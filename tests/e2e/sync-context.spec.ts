@@ -26,6 +26,12 @@ const operatingResponse = (response: {
 }) =>
   response.url().endsWith("/rpc/get_sync_context_operating_picture") &&
   response.request().method() === "POST";
+const inventoryResponse = (response: {
+  url(): string;
+  request(): { method(): string };
+}) =>
+  response.url().endsWith("/rpc/get_sync_context_source_inventory") &&
+  response.request().method() === "POST";
 
 async function authenticatedApi(email: string, password: string) {
   const url = new URL(API_URL);
@@ -134,6 +140,25 @@ for (const surface of [
         p_basis:
           "Named CI administrator declares disposable synthetic fixture ownership for browser tests only, not survey certification or production rights.",
       });
+      const unusedFound = await reviewer.api.get(
+        `/rest/v1/connectors?select=id,name,context_source_class&connector_key=eq.${key}-unused`,
+      );
+      expect(unusedFound.status()).toBe(200);
+      const unusedRows = await unusedFound.json();
+      expect(unusedRows).toHaveLength(1);
+      expect(unusedRows[0].context_source_class).toBeNull();
+      const unusedSourceId = unusedRows[0].id as string;
+      await rpc(reviewer.api, "register_context_source", {
+        p_connector_id: unusedSourceId,
+        p_source_class: "customer_operational",
+        p_authority: "tenant_authorized",
+        p_purpose:
+          "Unused synthetic source to qualify disconnected organization registry visibility independently of spatial candidates.",
+        p_rights_state: "customer_authorized",
+        p_rights_reference: `SC02-UNUSED-${surface.name}-${testInfo.retry}`,
+        p_basis:
+          "Named CI administrator registers a synthetic disconnected source; no successful transport check, customer feed or feature is asserted.",
+      });
       const registeredHttp = await reviewer.api.get(
         `/rest/v1/connectors?select=context_checked_at&id=eq.${sourceId}`,
       );
@@ -240,12 +265,44 @@ for (const surface of [
       await login(page, "demo@syncai.ca", "Demo123!@#");
       await chooseSite(page, "A", surface.mobile);
       const firstRead = page.waitForResponse(operatingResponse);
+      const firstInventoryRead = page.waitForResponse(inventoryResponse);
       await page
         .getByRole("button", { name: "Sync Context", exact: true })
         .click();
       const firstResponse = await firstRead;
       expect(firstResponse.status()).toBe(200);
       const first = await firstResponse.json();
+      const inventoryHttp = await firstInventoryRead;
+      expect(inventoryHttp.status()).toBe(200);
+      const inventoryFirst = await inventoryHttp.json();
+      expect(inventoryFirst).toMatchObject({
+        organizationId: ORG,
+        scope: "organization",
+        complete: true,
+        operationalAuthority: false,
+      });
+      const unusedSource = inventoryFirst.sources.find(
+        (source: { id: string }) => source.id === unusedSourceId,
+      );
+      expect(unusedSource).toMatchObject({
+        reportedHealthState: "not_connected",
+        state: "not_connected",
+        observedAt: null,
+        observationAgeSeconds: null,
+        canEmit: false,
+        displayAsLive: false,
+        lastSuccessfulCheckAt: null,
+        lastSuccessfulCheckBasis: "unknown_no_transport_receipt",
+        coverage: {
+          state: "unknown",
+          basis: "no_governed_coverage_measurement",
+        },
+      });
+      expect(
+        first.sources.some(
+          (source: { id: string }) => source.id === unusedSourceId,
+        ),
+      ).toBe(false);
       expect(first.error).toBeUndefined();
       expect(first.organizationId).toBe(ORG);
       expect(first.scope.siteId).toBe(SITE_A);
@@ -278,6 +335,21 @@ for (const surface of [
       const workspace = page.getByRole("region", {
         name: "Sync Context workspace",
       });
+      const sourceInventory = workspace.getByRole("region", {
+        name: "Organization source inventory",
+      });
+      const unusedCard = sourceInventory.getByRole("article", {
+        name: unusedRows[0].name,
+        exact: true,
+      });
+      await expect(unusedCard).toBeVisible();
+      await expect(unusedCard).toContainText("not_connected / not_connected");
+      await expect(unusedCard).toContainText(
+        "Unknown — no transport-success receipt",
+      );
+      await expect(unusedCard).toContainText(
+        "Unknown — no governed coverage measurement",
+      );
       await expect(
         workspace.getByRole("heading", { name: "Sync Context", exact: true }),
       ).toBeVisible();
@@ -380,10 +452,32 @@ for (const surface of [
           "Named administrator revokes this disposable synthetic source to prove fresh browser reads immediately remove ineligible geometry.",
       });
       const revokedRead = page.waitForResponse(operatingResponse);
+      const revokedInventoryRead = page.waitForResponse(inventoryResponse);
       await workspace
         .getByRole("button", { name: "Refresh authorized data" })
         .click();
       const revoked = await (await revokedRead).json();
+      const revokedInventoryHttp = await revokedInventoryRead;
+      expect(revokedInventoryHttp.status()).toBe(200);
+      const revokedInventory = await revokedInventoryHttp.json();
+      expect(revokedInventory.error).toBeUndefined();
+      expect(
+        revokedInventory.sources.find(
+          (source: { id: string }) => source.id === sourceId,
+        ),
+      ).toMatchObject({
+        rightsState: "blocked",
+        rightsPermit: false,
+        canEmit: false,
+        displayAsLive: false,
+        lastSuccessfulCheckAt: null,
+      });
+      await expect(
+        sourceInventory.getByRole("article", {
+          name: firstSource.name,
+          exact: true,
+        }),
+      ).toContainText("blocked · Not permitted at snapshot");
       expect(revoked.error).toBeUndefined();
       expect(revoked.scope.siteId).toBe(SITE_B);
       expect(revoked.organizationId).toBe(ORG);
@@ -438,7 +532,7 @@ for (const surface of [
         .filter({ hasText: "Source health and governance" });
       await summary.click();
       const sourcePanel = workspace
-        .locator(".context-source-panel article")
+        .locator("details.context-source-panel article")
         .filter({
           has: page.getByRole("heading", {
             name: revokedSource.name,
@@ -476,6 +570,10 @@ for (const surface of [
             unknownAccuracy: true,
             operationalAuthority: false,
             rightsRevoked: true,
+            disconnectedSourceVisible: true,
+            blockedSourceRetainedInInventory: true,
+            inventoryCoverageUnknown: true,
+            transportSuccessUnknown: true,
             rightsBlocked: revoked.coverage.objects.rightsBlocked,
           }),
         ),
@@ -492,10 +590,22 @@ test("Context real foreign tenant never receives local subjects, and technician 
 }) => {
   await login(page, "sync-context-foreign@syncai.ca", "Foreign123!@#");
   const foreignRead = page.waitForResponse(operatingResponse);
+  const foreignInventoryRead = page.waitForResponse(inventoryResponse);
   await page.goto("/context");
   const foreignResponse = await foreignRead;
   expect(foreignResponse.status()).toBe(200);
   const foreign = await foreignResponse.json();
+  const foreignInventoryHttp = await foreignInventoryRead;
+  expect(foreignInventoryHttp.status()).toBe(200);
+  const foreignInventory = await foreignInventoryHttp.json();
+  expect(foreignInventory.error).toBeUndefined();
+  expect(foreignInventory.organizationId).toBe(FOREIGN_ORG);
+  expect(
+    foreignInventory.sources.every(
+      (source: { organizationId: string }) =>
+        source.organizationId === FOREIGN_ORG,
+    ),
+  ).toBe(true);
   expect(foreign.error).toBeUndefined();
   expect(foreign.organizationId).toBe(FOREIGN_ORG);
   expect(
@@ -517,7 +627,10 @@ test("Context real foreign tenant never receives local subjects, and technician 
   );
   const requests: string[] = [];
   page.on("request", (req) => {
-    if (req.url().endsWith("/rpc/get_sync_context_operating_picture"))
+    if (
+      req.url().endsWith("/rpc/get_sync_context_operating_picture") ||
+      req.url().endsWith("/rpc/get_sync_context_source_inventory")
+    )
       requests.push(req.url());
   });
   await page.goto("/context");

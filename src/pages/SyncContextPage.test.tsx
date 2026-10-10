@@ -9,17 +9,20 @@ import {
 } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { contextOperatingFixture } from "../test/support/syncContextOperatingFixture";
+import { contextInventoryFixture } from "../test/support/syncContextInventoryFixture";
 import {
   OperatingSiteScopeContext,
   type OperatingSiteScope,
 } from "../components/sync-context/OperatingSiteScope";
-const { auth, read } = vi.hoisted(() => ({
+const { auth, read, inventoryRead } = vi.hoisted(() => ({
   auth: { current: {} as Record<string, unknown> },
   read: vi.fn(),
+  inventoryRead: vi.fn(),
 }));
 vi.mock("../components/AuthProvider", () => ({ useAuth: () => auth.current }));
 vi.mock("../services/syncContextService", () => ({
   getSyncContextOperatingPicture: read,
+  getSyncContextSourceInventory: inventoryRead,
 }));
 import { SyncContextPage } from "./SyncContextPage";
 import { contextViewKey } from "../lib/sync-context/view-preferences";
@@ -49,8 +52,106 @@ beforeEach(() => {
     loading: false,
   };
   read.mockResolvedValue(contextOperatingFixture());
+  // Deliberately mocked UI envelope, not parser/server qualification.
+  inventoryRead.mockResolvedValue({
+    organizationId: "org-a",
+    generatedAt: "2026-10-10T05:01:00Z",
+    scope: "organization",
+    complete: true,
+    operationalAuthority: false,
+    sources: [],
+  });
 });
 describe("governed customer-reachable Context workspace", () => {
+  it("shows disconnected organization sources even when the spatial read is refused", async () => {
+    const raw = contextInventoryFixture();
+    inventoryRead.mockResolvedValue({
+      ...raw,
+      organizationId: "org-a",
+      sources: raw.sources.map((source) => ({
+        ...source,
+        organizationId: "org-a",
+      })),
+    });
+    read.mockRejectedValue(new Error("spatial read refused"));
+    render(tree());
+    expect(
+      await screen.findByRole("alert", {
+        name: "Operating picture unavailable",
+      }),
+    ).toBeInTheDocument();
+    const panel = screen.getByRole("region", {
+      name: "Organization source inventory",
+    });
+    expect(
+      await within(panel).findByText("Synthetic disconnected source"),
+    ).toBeVisible();
+    expect(panel).toHaveTextContent(
+      "Unknown — no governed coverage measurement",
+    );
+    expect(
+      screen.queryByRole("group", { name: "Authorized source geometry" }),
+    ).not.toBeInTheDocument();
+  });
+  it("keeps a valid operating picture visible when the separate inventory read fails", async () => {
+    inventoryRead.mockRejectedValue(new Error("inventory refused"));
+    render(tree());
+    expect(
+      await screen.findByRole("group", { name: "Authorized source geometry" }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByRole("alert", {
+        name: "Source inventory unavailable",
+      }),
+    ).toHaveTextContent("Unavailable is not an empty registry");
+    expect(
+      screen.queryByRole("alert", { name: "Operating picture unavailable" }),
+    ).not.toBeInTheDocument();
+  });
+  it("a pending inventory does not disable refresh of the independently ready operating picture", async () => {
+    inventoryRead.mockReturnValue(new Promise(() => {}));
+    render(tree());
+    await screen.findByRole("group", { name: "Authorized source geometry" });
+    const refresh = screen.getByRole("button", {
+      name: "Refresh authorized data",
+    });
+    expect(refresh).toBeEnabled();
+    fireEvent.click(refresh);
+    await waitFor(() => expect(read).toHaveBeenCalledTimes(2));
+    expect(inventoryRead).toHaveBeenCalledTimes(2);
+  });
+  it("refreshes both snapshots, but never uses inventory records as map candidates", async () => {
+    const raw = contextInventoryFixture();
+    inventoryRead.mockResolvedValue({
+      ...raw,
+      organizationId: "org-a",
+      sources: raw.sources.map((source) => ({
+        ...source,
+        organizationId: "org-a",
+      })),
+    });
+    render(tree());
+    await screen.findByRole("group", { name: "Authorized source geometry" });
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "Refresh authorized data" }),
+      ).toBeEnabled(),
+    );
+    inventoryRead.mockRejectedValueOnce(new Error("inventory revoked"));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Refresh authorized data" }),
+    );
+    expect(
+      screen.queryByRole("group", { name: "Authorized source geometry" }),
+    ).not.toBeInTheDocument();
+    await screen.findByRole("group", { name: "Authorized source geometry" });
+    await screen.findByRole("alert", { name: "Source inventory unavailable" });
+    expect(read).toHaveBeenCalledTimes(2);
+    expect(inventoryRead).toHaveBeenCalledTimes(2);
+    expect(
+      screen.getByRole("region", { name: "Query coverage" }),
+    ).toHaveTextContent("1 / 1");
+  });
   it("keeps both workspace appearances usable independently of the fixed-dark public journey", async () => {
     render(tree());
     const workspace = screen.getByRole("region", {
@@ -121,9 +222,11 @@ describe("governed customer-reachable Context workspace", () => {
     expect(
       screen.queryByRole("group", { name: "Authorized source geometry" }),
     ).not.toBeInTheDocument();
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Context is unavailable",
-    );
+    expect(
+      await screen.findByRole("alert", {
+        name: "Operating picture unavailable",
+      }),
+    ).toHaveTextContent("Context is unavailable");
     expect(screen.queryByText("Synthetic Pump A")).not.toBeInTheDocument();
   });
   it("rejects late site responses and never renders data for the previous site", async () => {
@@ -166,7 +269,11 @@ describe("governed customer-reachable Context workspace", () => {
     rendered.rerender(
       tree({ ...base, actorId: "actor-b", organizationId: "org-b" }),
     );
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(
+      await screen.findByRole("alert", {
+        name: "Operating picture unavailable",
+      }),
+    ).toBeInTheDocument();
   });
   it("restores only metadata after a fresh read, never a saved evidence snapshot", async () => {
     const rendered = render(tree());
@@ -198,9 +305,11 @@ describe("governed customer-reachable Context workspace", () => {
   it("refuses a response with the wrong echoed site even in the same tenant", async () => {
     read.mockResolvedValue(contextOperatingFixture("site-b"));
     render(tree());
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      "Context is unavailable",
-    );
+    expect(
+      await screen.findByRole("alert", {
+        name: "Operating picture unavailable",
+      }),
+    ).toHaveTextContent("Context is unavailable");
     expect(screen.queryByText("Synthetic Pump A")).not.toBeInTheDocument();
   });
   it("never constructs canonical links from merely 36-character hyphen/hex strings", async () => {

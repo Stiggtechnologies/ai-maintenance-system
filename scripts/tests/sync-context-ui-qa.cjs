@@ -42,6 +42,24 @@ const artifactDir = mkdtempSync(join(tmpdir(), "syncai-context-ui-qa-"));
       });
       await expect(canvas).toBeVisible();
       await expect(page.getByText(/2 drawn shapes/)).toBeVisible();
+      const inventory = page.getByRole("region", {
+        name: "Organization source inventory",
+      });
+      await expect(
+        inventory.getByRole("article", {
+          name: "Synthetic disconnected source",
+        }),
+      ).toBeVisible();
+      await expect(inventory).toContainText("not selected-site coverage");
+      await expect(inventory).toContainText(
+        "Unknown — no governed coverage measurement",
+      );
+      await expect(inventory).toContainText(
+        "Unknown — no transport-success receipt",
+      );
+      await page
+        .getByRole("button", { name: "Switch Context to light mode" })
+        .click();
       for (const label of await page.locator(".context-layer label").all()) {
         const box = await label.boundingBox();
         if (!box || box.height < 44)
@@ -147,6 +165,8 @@ const artifactDir = mkdtempSync(join(tmpdir(), "syncai-context-ui-qa-"));
         dragDoesNotSelect: true,
         inspectorCloseReturnsFocus: true,
         metadataReload: true,
+        disconnectedSourceVisible: true,
+        coverageAndTransportSuccessUnknown: true,
         themes: ["light", "dark"],
         externalRequests: external.length,
         pageErrors: errors.length,

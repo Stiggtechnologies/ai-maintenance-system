@@ -10,6 +10,18 @@ import {
   parseSyncContextOperatingPicture,
   type SyncContextOperatingPicture,
 } from "../lib/sync-context/operating-picture";
+import {
+  parseSyncContextSourceInventory,
+  type SyncContextSourceInventory,
+} from "../lib/sync-context/source-inventory";
+
+/** Organization metadata only. Never substitutes for a scoped operating read. */
+export async function getSyncContextSourceInventory(): Promise<SyncContextSourceInventory> {
+  const { data, error } = await supabase.rpc("get_sync_context_source_inventory");
+  if (error) throw new Error("Sync Context source inventory is temporarily unavailable.");
+  checked(data);
+  return parseSyncContextSourceInventory(data);
+}
 
 export interface SyncContextOperatingScope {
   siteId?: string | null;

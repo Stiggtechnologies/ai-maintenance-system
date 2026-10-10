@@ -90,4 +90,14 @@ describe("Sync Context authenticated browser qualification wiring", () => {
     expect(verifyAt).toBeGreaterThan(continueAt);
     expect(linkAt).toBeGreaterThan(verifyAt);
   });
+  it("qualifies unused organization sources and blocked-source retention through actual browser RPC responses", () => {
+    const spec = readFileSync("tests/e2e/sync-context.spec.ts", "utf8");
+    expect(spec).toContain("/rpc/get_sync_context_source_inventory");
+    expect(spec).toContain("unusedSourceId");
+    expect(spec).toContain("lastSuccessfulCheckAt: null");
+    expect(spec).toContain("no_governed_coverage_measurement");
+    expect(spec).toContain("Organization source inventory");
+    expect(spec).toContain("blockedSourceRetainedInInventory: true");
+    expect(spec).toContain('locator("details.context-source-panel article")');
+  });
 });

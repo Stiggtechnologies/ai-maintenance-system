@@ -12,6 +12,8 @@ import { useAuth } from "../components/AuthProvider";
 import { canOpenSyncContext } from "../lib/sync-context/access";
 import { getRoleHome } from "../lib/roleNavigation";
 import { useOperatingPicture } from "../components/sync-context/useOperatingPicture";
+import { useSourceInventory } from "../components/sync-context/useSourceInventory";
+import { ContextSourceInventory } from "../components/sync-context/ContextSourceInventory";
 import { ContextCoordinateCanvas } from "../components/sync-context/ContextCoordinateCanvas";
 import { ContextObjectInspector } from "../components/sync-context/ContextObjectInspector";
 import { ContextProvenanceBadges } from "../components/sync-context/ContextProvenanceBadges";
@@ -37,6 +39,11 @@ export function SyncContextPage() {
 }
 function OperatingWorkspace({ role }: { role: string }) {
   const { scope, status, picture, refresh } = useOperatingPicture();
+  const sourceInventory = useSourceInventory();
+  const refreshAll = () => {
+    refresh();
+    sourceInventory.refresh();
+  };
   // Authenticated workspace appearance is local UI state, not a public-journey
   // or administrator preference. Public journeys deliberately remain dark.
   const [theme, setTheme] = useState<"dark" | "light">("dark");
@@ -66,7 +73,7 @@ function OperatingWorkspace({ role }: { role: string }) {
           >
             {theme === "dark" ? <Sun size={18} /> : <Moon size={18} />}
           </button>
-          <button onClick={refresh} disabled={status === "loading"}>
+          <button onClick={refreshAll} disabled={status === "loading"}>
             <RefreshCw size={16} /> Refresh authorized data
           </button>
         </div>
@@ -93,7 +100,11 @@ function OperatingWorkspace({ role }: { role: string }) {
         </section>
       )}
       {status === "error" && (
-        <section className="context-state context-warning" role="alert">
+        <section
+          className="context-state context-warning"
+          role="alert"
+          aria-label="Operating picture unavailable"
+        >
           <h2>Context is unavailable</h2>
           <p>
             The authorized read failed or was refused. Previous geometry and
@@ -110,6 +121,7 @@ function OperatingWorkspace({ role }: { role: string }) {
           role={role}
         />
       )}
+      <ContextSourceInventory {...sourceInventory} />
     </section>
   );
 }
@@ -393,8 +405,9 @@ function ReturnedOperatingPicture({
         </summary>
         <p>
           Only sources required by this query are listed. Source health is not
-          inferred from object count, and this panel does not inventory
-          unconnected sources without scoped candidates.
+          inferred from object count. The separate organization source inventory
+          below also includes classified sources without scoped candidates; its
+          snapshot does not measure selected-site coverage.
         </p>
         {picture.sources.map((source) => (
           <article key={source.id}>

@@ -158,6 +158,9 @@ function timestamp(value: string): number {
   return Date.parse(value);
 }
 
+// Shared display validation only; server clocks remain authoritative.
+export { timestamp as parseContextUiTimestamp };
+
 /**
  * New operating-picture wire parser. Reuses the canonical SC-01 snapshot parser
  * and adds renderer eligibility, explicit coordinate provenance and bounded

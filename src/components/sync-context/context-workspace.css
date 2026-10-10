@@ -386,6 +386,42 @@
   padding: 12px 0;
   border-top: 1px solid var(--ctx-line);
 }
+.context-inventory header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+.context-inventory h2 {
+  margin: 6px 0;
+  font-size: 19px;
+}
+.context-inventory > p {
+  color: var(--ctx-muted);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.context-inventory-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 18px;
+}
+.context-inventory article {
+  min-width: 0;
+}
+.context-inventory h3 {
+  overflow-wrap: anywhere;
+  font-size: 15px;
+}
+.context-inventory article > p {
+  color: var(--ctx-muted);
+  font-size: 11px;
+  overflow-wrap: anywhere;
+}
+.context-inventory dd {
+  margin-left: 0;
+}
 .context-workspace[data-theme="light"] [aria-label^="Source provenance"] span {
   color: var(--ctx-muted);
   border-color: var(--ctx-line);

@@ -42,4 +42,15 @@ select '11111111-1111-1111-1111-111111111111',
   'Disposable synthetic CI source. No customer feed, survey certification, engineering approval or operational authority.'
 from (values('desktop'),('mobile')) as surfaces(surface)
 cross join generate_series(0,1) as attempts(attempt);
+insert into public.connectors(
+  organization_id,connector_key,name,connector_type,status,enabled,
+  expected_interval_minutes,direction,write_enabled,contract_note
+)
+select '11111111-1111-1111-1111-111111111111',
+  'sc02-browser-'||surface||'-'||attempt||'-unused',
+  'SC-02 disconnected browser '||surface||' attempt '||attempt,
+  'gis','active',true,15,'read_only',false,
+  'Disposable unclassified CI connector. Browser must register through the governed RPC; no transport success or geometry is asserted.'
+from (values('desktop'),('mobile')) as surfaces(surface)
+cross join generate_series(0,1) as attempts(attempt);
 commit;

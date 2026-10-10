@@ -79,7 +79,8 @@ describe("SC-02 canonical scoped read contract (source assertions, not runtime p
       "scripts/ci-sync-context-operating-picture-smoke.sh",
       "utf8",
     );
-    expect(script).toContain("grep -E '^(ANON_KEY|API_URL)='");
+    expect(script).toContain("sed -n 's/^API_URL=");
+    expect(script).not.toMatch(/\beval\b[^\n]*\$/);
     expect(script).not.toMatch(/\|\s*rg\s/);
   });
   it("adds an authenticated read-only RPC without redefining producer or legacy contracts", () => {
@@ -131,8 +132,10 @@ describe("SC-02 canonical scoped read contract (source assertions, not runtime p
     expect(api).toContain("verify_geospatial_feature");
     expect(api).toContain("transition_context_source_rights");
     expect(api).toContain(
-      "-f scripts/tests/sync-context-operating-picture-gates.sql",
+      "psqlfile scripts/tests/sync-context-operating-picture-gates.sql",
     );
+    expect(api).toContain('-v ON_ERROR_STOP=1 -f "$1"');
+    expect(api).toContain("psql -X -h 127.0.0.1 -p 54322");
     expect(api).toContain("READ_BEFORE");
     expect(api).toContain("READ_AFTER");
     const native = readFileSync(
