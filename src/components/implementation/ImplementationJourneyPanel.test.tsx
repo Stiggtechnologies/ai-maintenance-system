@@ -257,6 +257,19 @@ describe("native implementation controls", () => {
       sessionStorage.getItem("syncai-implementation-intent:actor:org"),
     ).not.toBeNull();
   });
+  it("hides cached company data when the next authoritative workspace read is denied", async () => {
+    mount();
+    await screen.findByText("Find the real failure cause — prepared");
+    fireEvent.click(screen.getByText("Find the real failure cause — prepared"));
+    mocks.load.mockRejectedValue(new Error("Membership denied"));
+    fireEvent.click(screen.getByText("Reload retained status"));
+    await screen.findByText("Membership denied");
+    expect(
+      screen.queryByText("Find the real failure cause — prepared"),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Customer asset")).not.toBeInTheDocument();
+    expect(mocks.send).not.toHaveBeenCalled();
+  });
   it("never claims completed implementation from stale acceptance standing", async () => {
     mocks.load.mockResolvedValue({
       ...w,
