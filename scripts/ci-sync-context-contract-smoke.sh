@@ -287,3 +287,4 @@ NOAUTH=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$API_URL/rest/v1/rpc/g
 test "$NOAUTH" = 401
 PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -f scripts/tests/sync-context-operating-gates.sql
 echo 'SC-01 canonical Context smoke passed: two_tenants=true source_identity_immutable=true monotonic_health=true rights_gated=true revocation_hides_prior_geometry=true simulated_not_live=true layer_health=true canonical_projection=true authority_unchanged=true'
+bash scripts/ci-sync-context-operating-picture-smoke.sh

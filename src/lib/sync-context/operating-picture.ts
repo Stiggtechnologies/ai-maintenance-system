@@ -3,6 +3,7 @@ import {
   type SpatialObject,
   type ContextEvent,
   type SyncContextSnapshot,
+  type SpatialLayer,
 } from "./contracts";
 import {
   parseContextGeometry,
@@ -37,10 +38,18 @@ export interface ContextQueryCoverage {
   truncated: boolean;
 }
 
+export interface OperatingSpatialLayer extends SpatialLayer {
+  /** Scoped, role-visible active population BEFORE eligibility gates. */
+  candidateCount: number;
+  /** Scoped post-gate population BEFORE object/event limits, not rendered count. */
+  eligibleCount: number;
+}
+
 export interface SyncContextOperatingPicture extends Omit<
   SyncContextSnapshot,
-  "objects" | "events"
+  "objects" | "events" | "layers"
 > {
+  layers: OperatingSpatialLayer[];
   objects: OperatingSpatialObject[];
   events: OperatingContextEvent[];
   scope: { siteId: string | null; objectLimit: number; eventLimit: number };
@@ -51,6 +60,12 @@ export interface SyncContextOperatingPicture extends Omit<
       unlinkedExcluded: number;
       coordinateContractMissing: number;
       healthBlocked: number;
+      rightsBlocked: number;
+      evidenceBlocked: number;
+      sourceMissing: number;
+      timeBlocked: number;
+      payloadBlocked: number;
+      scopeConflict: number;
     };
     events: ContextQueryCoverage;
   };
@@ -88,6 +103,7 @@ function queryCoverage(
   if (
     returned !== returnedRows ||
     returned > eligible ||
+    returned !== Math.min(eligible, limit) ||
     data.truncated !== eligible > returned
   ) {
     throw new Error(
@@ -156,8 +172,8 @@ export function parseSyncContextOperatingPicture(
   const raw = record(value, "operating picture");
   const rawObjects = inputRows(raw.objects, "object", 500);
   const rawEvents = inputRows(raw.events, "event", 500);
-  inputRows(raw.sources, "source");
-  inputRows(raw.layers, "layer");
+  inputRows(raw.sources, "source", 500);
+  inputRows(raw.layers, "layer", 100);
   const snapshot = parseSyncContextSnapshot(raw);
   const scope = record(raw.scope, "scope");
   const objectLimit = integer(scope.objectLimit, "object limit", 1, 500);
@@ -203,6 +219,27 @@ export function parseSyncContextOperatingPicture(
     healthBlocked: integer(
       objectCoverage.healthBlocked,
       "health exclusion count",
+    ),
+    rightsBlocked: integer(
+      objectCoverage.rightsBlocked,
+      "rights exclusion count",
+    ),
+    evidenceBlocked: integer(
+      objectCoverage.evidenceBlocked,
+      "evidence exclusion count",
+    ),
+    sourceMissing: integer(
+      objectCoverage.sourceMissing,
+      "source exclusion count",
+    ),
+    timeBlocked: integer(objectCoverage.timeBlocked, "time exclusion count"),
+    payloadBlocked: integer(
+      objectCoverage.payloadBlocked,
+      "payload exclusion count",
+    ),
+    scopeConflict: integer(
+      objectCoverage.scopeConflict,
+      "scope conflict count",
     ),
   };
   const generatedAt = timestamp(snapshot.generatedAt);
@@ -261,7 +298,77 @@ export function parseSyncContextOperatingPicture(
     inputs.set(input.id, { input, index });
   });
   const sourceMap = new Map(sources.map((source) => [source.id, source]));
-  const effectiveLayers = snapshot.layers.map((layer) => {
+  const layerPopulations = new Map<
+    string,
+    { candidateCount: number; eligibleCount: number }
+  >();
+  (raw.layers as unknown[]).forEach((input) => {
+    const data = record(input, "layer population");
+    const candidateCount = integer(
+      data.candidateCount,
+      "layer candidate count",
+    );
+    const eligibleCount = integer(data.eligibleCount, "layer eligible count");
+    if (
+      typeof data.id !== "string" ||
+      candidateCount !== data.recordCount ||
+      eligibleCount > candidateCount
+    )
+      throw new Error(
+        "Context layer populations do not agree with the query metadata.",
+      );
+    layerPopulations.set(data.id, { candidateCount, eligibleCount });
+  });
+  const objectLayers = snapshot.layers.filter(
+    (layer) => layer.renderMode !== "event",
+  );
+  const objectEligible = objectLayers.reduce(
+    (sum, layer) => sum + layerPopulations.get(layer.id)!.eligibleCount,
+    0,
+  );
+  const objectCandidates = objectLayers.reduce(
+    (sum, layer) => sum + layerPopulations.get(layer.id)!.candidateCount,
+    0,
+  );
+  const eventEligible =
+    objectEligible +
+    snapshot.layers
+      .filter((layer) => layer.renderMode === "event")
+      .reduce(
+        (sum, layer) => sum + layerPopulations.get(layer.id)!.eligibleCount,
+        0,
+      );
+  const classified =
+    objectQuery.eligible +
+    Object.values(exclusions).reduce((sum, count) => sum + count, 0);
+  if (
+    !Number.isSafeInteger(classified) ||
+    objectEligible !== objectQuery.eligible ||
+    objectCandidates !== classified ||
+    eventEligible !== eventQuery.eligible
+  )
+    throw new Error(
+      "Context layer populations do not reconcile with scoped coverage and exclusions.",
+    );
+  for (const rows of [rawObjects, rawEvents]) {
+    const perLayer = new Map<string, number>();
+    for (const input of rows) {
+      if (!input || typeof input !== "object" || Array.isArray(input)) continue;
+      const id = (input as Record<string, unknown>).layerId;
+      if (typeof id === "string") perLayer.set(id, (perLayer.get(id) ?? 0) + 1);
+    }
+    for (const [id, returned] of perLayer) {
+      if (
+        layerPopulations.has(id) &&
+        returned > layerPopulations.get(id)!.eligibleCount
+      )
+        throw new Error(
+          "Context returned layer rows exceed its eligible population.",
+        );
+    }
+  }
+  const effectiveLayers = snapshot.layers.map((parsedLayer) => {
+    const layer = { ...parsedLayer, ...layerPopulations.get(parsedLayer.id)! };
     if (!layer.authorized)
       return { ...layer, availability: "unauthorized" as const };
     if (layer.empty !== (layer.recordCount === 0))
@@ -345,6 +452,7 @@ export function parseSyncContextOperatingPicture(
         !layer?.authorized ||
         layer.empty ||
         layer.recordCount === 0 ||
+        layer.eligibleCount === 0 ||
         !["available", "degraded"].includes(layer.availability) ||
         layer.renderMode === "event" ||
         !layer.sourceDependencies.includes(source.id)
@@ -426,6 +534,7 @@ export function parseSyncContextOperatingPicture(
       layer?.authorized === true &&
       !layer.empty &&
       layer.recordCount > 0 &&
+      layer.eligibleCount > 0 &&
       ["available", "degraded"].includes(layer.availability) &&
       layer.sourceDependencies.includes(source.id) &&
       Number.isFinite(occurredAt) &&

@@ -21,19 +21,25 @@ function fixture() {
     organizationId: "tenant-a",
     generatedAt: "2026-10-10T05:01:00Z",
     operationalAuthority: false,
-    scope: { siteId: null, objectLimit: 250, eventLimit: 250 },
+    scope: { siteId: null, objectLimit: 250, eventLimit: 0 },
     coverage: {
       objects: {
         eligible: 1,
         returned: 1,
         truncated: false,
-        draftExcluded: 2,
-        expiredExcluded: 1,
+        draftExcluded: 0,
+        expiredExcluded: 0,
         unlinkedExcluded: 0,
-        coordinateContractMissing: 3,
+        coordinateContractMissing: 0,
         healthBlocked: 0,
+        rightsBlocked: 0,
+        evidenceBlocked: 0,
+        sourceMissing: 0,
+        timeBlocked: 0,
+        payloadBlocked: 0,
+        scopeConflict: 0,
       },
-      events: { eligible: 0, returned: 0, truncated: false },
+      events: { eligible: 1, returned: 0, truncated: true },
     },
     sources: [source],
     layers: [
@@ -46,6 +52,8 @@ function fixture() {
         healthStates: ["connected"],
         availability: "available",
         recordCount: 1,
+        candidateCount: 1,
+        eligibleCount: 1,
         empty: false,
         degraded: false,
         issues: [],
@@ -110,6 +118,92 @@ describe("SC-02 bounded operating-picture browser input", () => {
     expect(result.issues).toEqual([]);
     expect(result.operationalAuthority).toBe(false);
   });
+
+  it("keeps rights, health and evidence exclusions separate without guessing missing counts", () => {
+    const raw = fixture();
+    Object.assign(raw.coverage.objects, {
+      rightsBlocked: 4,
+      healthBlocked: 2,
+      evidenceBlocked: 3,
+      sourceMissing: 1,
+    });
+    Object.assign(raw.layers[0], { candidateCount: 11, recordCount: 11 });
+    expect(
+      parseSyncContextOperatingPicture(raw).coverage.objects,
+    ).toMatchObject(raw.coverage.objects);
+    for (const key of ["rightsBlocked", "evidenceBlocked", "sourceMissing"]) {
+      const missing = structuredClone(raw) as unknown as {
+        coverage: { objects: Record<string, unknown> };
+      };
+      delete missing.coverage.objects[key];
+      expect(() => parseSyncContextOperatingPicture(missing)).toThrow();
+    }
+  });
+
+  it("preserves a blocked candidate layer as unavailable, not an empty successful query", () => {
+    const raw = fixture();
+    raw.objects = [];
+    Object.assign(raw.coverage.objects, {
+      eligible: 0,
+      returned: 0,
+      healthBlocked: 1,
+    });
+    Object.assign(raw.layers[0], {
+      eligibleCount: 0,
+      availability: "unavailable",
+      degraded: true,
+    });
+    Object.assign(raw.coverage.events, { eligible: 0, truncated: false });
+    raw.sources[0].state = "unavailable";
+    expect(parseSyncContextOperatingPicture(raw).layers[0]).toMatchObject({
+      candidateCount: 1,
+      eligibleCount: 0,
+      empty: false,
+      availability: "unavailable",
+    });
+  });
+
+  it.each([
+    "object_eligible",
+    "object_candidates",
+    "event_eligible",
+    "returned_layer",
+    "underreturned",
+  ])("refuses unreconciled scoped population metadata (%s)", (defect) => {
+    const raw = fixture();
+    if (defect === "object_eligible") raw.layers[0].eligibleCount = 0;
+    if (defect === "object_candidates") raw.coverage.objects.draftExcluded = 1;
+    if (defect === "event_eligible") raw.coverage.events.eligible = 2;
+    if (defect === "returned_layer") {
+      raw.events = [{ layerId: "assets_sites" }, { layerId: "assets_sites" }];
+      raw.scope.eventLimit = 2;
+      Object.assign(raw.coverage.events, {
+        eligible: 2,
+        returned: 2,
+        truncated: false,
+      });
+    }
+    if (defect === "underreturned") {
+      raw.coverage.objects.eligible = 2;
+      raw.coverage.objects.truncated = true;
+    }
+    expect(() => parseSyncContextOperatingPicture(raw)).toThrow();
+  });
+
+  it.each([
+    { candidateCount: 2 },
+    { eligibleCount: 2 },
+    { eligibleCount: -1 },
+    { candidateCount: undefined },
+    { eligibleCount: undefined },
+  ])(
+    "refuses contradictory or missing layer population metadata (%j)",
+    (counts) => {
+      const raw = fixture();
+      Object.assign(raw.layers[0], counts);
+      expect(() => parseSyncContextOperatingPicture(raw)).toThrow();
+    },
+  );
 
   it.each(["not_connected", "unavailable", "malformed"])(
     "does not emit data from %s sources",
@@ -191,6 +285,13 @@ describe("SC-02 bounded operating-picture browser input", () => {
       returned: 1,
       truncated: true,
     });
+    raw.scope.objectLimit = 1;
+    Object.assign(raw.layers[0], {
+      candidateCount: 251,
+      recordCount: 251,
+      eligibleCount: 251,
+    });
+    raw.coverage.events.eligible = 251;
     expect(
       parseSyncContextOperatingPicture(raw).coverage.objects.truncated,
     ).toBe(true);
@@ -272,7 +373,12 @@ describe("SC-02 bounded operating-picture browser input", () => {
       evidenceIds: [],
       engineeringClaims: [],
     });
-    Object.assign(raw.coverage.events, { eligible: 1, returned: 1 });
+    raw.scope.eventLimit = 1;
+    Object.assign(raw.coverage.events, {
+      eligible: 1,
+      returned: 1,
+      truncated: false,
+    });
     const located = parseSyncContextOperatingPicture(raw);
     expect(located.events).toHaveLength(1);
     expect(located.events[0]).not.toHaveProperty("geometry");
@@ -303,7 +409,7 @@ describe("SC-02 bounded operating-picture browser input", () => {
   it("does not emit geometry on an event-only layer", () => {
     const raw = fixture();
     raw.layers[0].renderMode = "event";
-    expect(parseSyncContextOperatingPicture(raw).objects).toEqual([]);
+    expect(() => parseSyncContextOperatingPicture(raw)).toThrow(/reconcile/i);
   });
   it("requires canonical evidence references even when the supplied state says verified", () => {
     const raw = fixture();
@@ -317,6 +423,12 @@ describe("SC-02 bounded operating-picture browser input", () => {
       objects: [null, { ...raw.objects[0], coordinate: null }],
     };
     Object.assign(payload.coverage.objects, { eligible: 2, returned: 2 });
+    Object.assign(payload.layers[0], {
+      candidateCount: 2,
+      recordCount: 2,
+      eligibleCount: 2,
+    });
+    payload.coverage.events.eligible = 2;
     expect(parseSyncContextOperatingPicture(payload).issues).toContainEqual(
       expect.objectContaining({ scope: "object", id: "feature-1", index: 1 }),
     );
@@ -394,7 +506,13 @@ describe("SC-02 bounded operating-picture browser input", () => {
     (counts) => {
       const raw = fixture();
       Object.assign(raw.layers[0], counts);
-      expect(parseSyncContextOperatingPicture(raw).objects).toEqual([]);
+      raw.layers[0].candidateCount = counts.recordCount;
+      raw.layers[0].eligibleCount = counts.recordCount;
+      if (counts.recordCount === 0)
+        expect(() => parseSyncContextOperatingPicture(raw)).toThrow(
+          /reconcile/i,
+        );
+      else expect(parseSyncContextOperatingPicture(raw).objects).toEqual([]);
     },
   );
 });
