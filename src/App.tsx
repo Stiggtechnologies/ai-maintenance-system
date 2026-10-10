@@ -138,6 +138,7 @@ function AuthenticatedSignInTransition({
 
 function ApplicationRoutes() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [currentPage, setCurrentPage] = useState<Page>(() =>
     initialAuthPage(window.location.search),
   );
@@ -159,6 +160,17 @@ function ApplicationRoutes() {
     const selected = initialAuthPage(location.search);
     setCurrentPage((current) => (current === "app" ? current : selected));
   }, [location.pathname, location.search]);
+
+  const selectPublicPage = (page: Page) => {
+    const params = new URLSearchParams(location.search);
+    if (page === "signin") {
+      params.delete("view");
+      navigate({ pathname: "/signin", search: params.toString() });
+      return;
+    }
+    params.set("view", page);
+    navigate({ pathname: "/", search: params.toString() });
+  };
 
   useEffect(() => {
     supabase.auth
@@ -337,8 +349,11 @@ function ApplicationRoutes() {
               {currentPage === "signin" && (
                 <motion.div key="signin" {...pageTransition}>
                   <Login
-                    onSuccess={handleAuthSuccess}
-                    onTabChange={setCurrentPage}
+                    onSuccess={async () => {
+                      await handleAuthSuccess();
+                      await handleSignInSuccess();
+                    }}
+                    onTabChange={selectPublicPage}
                   />
                 </motion.div>
               )}
@@ -346,7 +361,7 @@ function ApplicationRoutes() {
                 <motion.div key="signup" {...pageTransition}>
                   <Signup
                     onSuccess={handleAuthSuccess}
-                    onTabChange={setCurrentPage}
+                    onTabChange={selectPublicPage}
                   />
                 </motion.div>
               )}
@@ -354,7 +369,7 @@ function ApplicationRoutes() {
                 <motion.div key="enterprise" {...pageTransition}>
                   <EnterpriseAccess
                     onSuccess={handleAuthSuccess}
-                    onTabChange={setCurrentPage}
+                    onTabChange={selectPublicPage}
                   />
                 </motion.div>
               )}
@@ -369,17 +384,17 @@ function ApplicationRoutes() {
               )}
               {currentPage === "security" && (
                 <motion.div key="security" {...pageTransition}>
-                  <Security onNavigate={setCurrentPage} />
+                  <Security onNavigate={selectPublicPage} />
                 </motion.div>
               )}
               {currentPage === "privacy" && (
                 <motion.div key="privacy" {...pageTransition}>
-                  <Privacy onNavigate={setCurrentPage} />
+                  <Privacy onNavigate={selectPublicPage} />
                 </motion.div>
               )}
               {currentPage === "terms" && (
                 <motion.div key="terms" {...pageTransition}>
-                  <Terms onNavigate={setCurrentPage} />
+                  <Terms onNavigate={selectPublicPage} />
                 </motion.div>
               )}
             </AnimatePresence>

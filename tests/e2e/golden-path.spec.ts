@@ -65,6 +65,12 @@ test("evaluation client navigation selects signup and retains safe handoff conte
     expect(target.searchParams.get('utm_source')).toBe('partner');
     expect(target.searchParams.has('returnTo')).toBe(false);
   }
+  await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+  await expect(page).toHaveURL(/\/signin\?returnTo=/);
+  expect(new URL(page.url()).searchParams.get('returnTo')).toBe(returnTo);
+  await page.reload();
+  await expect(page.getByRole('textbox', { name: /work email/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Create a private evaluation workspace' })).not.toBeVisible();
 });
 
 async function openLogin(page: Page) {
