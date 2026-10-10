@@ -2,6 +2,25 @@
 
 **2026-10-06 — PARTIAL, CURRENT-MAIN DRAFT COMPOSITION; NOT RELEASE QUALIFICATION.**
 
+**2026-10-10 — published harness checkpoint passed; follow-on ancestry fixture still requires exact-head execution.**
+Published `563432db88d394816d407e6823058e97d2023eae`, core run
+`38025762475`, completed successfully. Full-chain database job `114136152649`
+passed rollback-only native uncertainty SQL, real GoTrue/PostgREST and actual
+multi-session criteria/typed-visibility/replacement qualification; the combined
+uncertainty step completed at `05:10:10Z`. Unit, lint/typecheck/build, migration
+order, CodeQL, secret/IP checks, restore, Recovery and domain/quality workflows
+also passed on that head.
+
+Browser job `114136152648` reported **17 passes and one flaky existing golden
+login scenario**, which failed its sign-in email-field visibility check on its first
+attempt and passed on retry. The U18 scenario was not the flaky case. The
+retained artifact `11660770866` has fifteen entries and contains no private U18
+output, as intended. This is disposable-CI qualification of that exact harness
+checkpoint, not a stability claim for the retried login, a production receipt,
+full U18 source-standing qualification or execution of the follow-on fixture
+below. The original and retry evidence must remain visible; no retry is hidden
+and no register is promoted.
+
 **2026-10-10 — follow-on receipt-backed native privacy fixture; native execution pending.**
 The existing privacy matrix now obtains both secondary-risk ancestry edges
 through actual authenticated `create_risk_treatment(..., false)` calls. Its
