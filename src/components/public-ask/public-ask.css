@@ -1867,7 +1867,9 @@
 }
 
 /* Light workspace markdown must override dark-renderer utility colors. */
-.bolt-public .dw-message-markdown :is(p, ul, ol, li, blockquote, td, th, strong, em) {
+.bolt-public
+  .dw-message-markdown
+  :is(p, ul, ol, li, blockquote, td, th, strong, em) {
   color: #3a4048;
 }
 .bolt-public .dw-message-markdown a {
@@ -1893,5 +1895,27 @@
   line-height: 1.65;
 }
 @media (max-width: 760px) {
-  .bolt-optional-service { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .bolt-optional-service {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+}
+
+/* Keep product examples and optional support readable in the public dark theme. */
+.bolt-empty.is-dark .bolt-hero-capabilities button {
+  color: #e2e8ea;
+  background: #141d22;
+  border-color: #3a4a52;
+}
+.bolt-empty.is-dark .bolt-hero-capabilities svg {
+  color: #7dd8cb;
+}
+.bolt-empty.is-dark .bolt-optional-service h2 {
+  color: #f3f7f7;
+}
+.bolt-empty.is-dark .bolt-optional-service > div > p:not(.bolt-eyebrow) {
+  color: #b7c2c8;
+}
+.bolt-empty.is-dark .bolt-optional-service {
+  border-color: #27383e;
 }

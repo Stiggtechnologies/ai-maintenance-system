@@ -21,7 +21,7 @@ describe("public decision record contrast", () => {
       "utf8",
     );
     expect(css).toMatch(
-      /\.bolt-public \.dw-message-markdown :is\(p, ul, ol, li, blockquote, td, th, strong, em\)\s*\{\s*color: #3a4048;/,
+      /\.bolt-public \.dw-message-markdown :is\(\s*p,\s*ul,\s*ol,\s*li,\s*blockquote,\s*td,\s*th,\s*strong,\s*em\s*\)\s*\{\s*color: #3a4048;/,
     );
     expect(
       (luminance("ffffff") + 0.05) / (luminance("3a4048") + 0.05),
@@ -40,5 +40,17 @@ describe("public decision record contrast", () => {
     const light = luminance("dce5ec"),
       dark = luminance("0b1015");
     expect((light + 0.05) / (dark + 0.05)).toBeGreaterThanOrEqual(4.5);
+  });
+  it("keeps dark product example buttons readable", () => {
+    const css = readFileSync(
+      "src/components/public-ask/public-ask.css",
+      "utf8",
+    );
+    expect(css).toMatch(
+      /\.bolt-empty\.is-dark \.bolt-hero-capabilities button\s*\{\s*color: #e2e8ea;\s*background: #141d22;/,
+    );
+    expect(
+      (luminance("e2e8ea") + 0.05) / (luminance("141d22") + 0.05),
+    ).toBeGreaterThanOrEqual(4.5);
   });
 });
