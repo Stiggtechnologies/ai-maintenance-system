@@ -9,6 +9,42 @@ const service = readFileSync("src/services/decisionCaseService.ts", "utf8");
 const page = readFileSync("src/pages/DecisionCaseSpine.tsx", "utf8");
 
 describe("Decision Case command authority contract", () => {
+  it("revalidates and holds human authority after the workspace lock wait", () => {
+    const lock = migration.indexOf("workspace_kind<>'sync' for update");
+    const refreshed = migration.indexOf(
+      "where id=v_actor and organization_id=v_org for share",
+      lock,
+    );
+    const versionCheck = migration.indexOf(
+      "v_workspace.case_version<>p_expected_version",
+      lock,
+    );
+    expect(refreshed).toBeGreaterThan(lock);
+    expect(refreshed).toBeLessThan(versionCheck);
+    expect(migration).toContain(
+      "public.app_current_org() is distinct from v_org",
+    );
+    expect(migration).toContain("human authority changed while waiting");
+  });
+
+  it("refuses missing collection shape and null persistence instead of SQL UNKNOWN", () => {
+    for (const field of [
+      "messages",
+      "evidence",
+      "comments",
+      "approvals",
+      "valueMetrics",
+    ]) {
+      expect(migration).toContain(
+        `jsonb_typeof(v_payload->'${field.toLowerCase()}') is distinct from 'array'`,
+      );
+    }
+    expect(migration).not.toContain("e->>'persistence'='embedded'");
+    expect(migration).toContain("coalesce(e->>'persistence','')='embedded'");
+    expect(migration).toContain(
+      "coalesce(e->>'persistence','')='governed_reference'",
+    );
+  });
   it("locks the canonical tenant row and enforces optimistic concurrency", () => {
     expect(migration).toContain("security definer");
     expect(migration).toMatch(
