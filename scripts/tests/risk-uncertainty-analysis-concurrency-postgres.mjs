@@ -430,6 +430,9 @@ async function qualify() {
       "stakeholderViews",
       "scenarios",
       "profiles",
+      "contexts",
+      "objectives",
+      "recommendations",
     ];
     const copy = (value) => JSON.parse(JSON.stringify(value));
     const byId = (snapshot, collection, id) =>

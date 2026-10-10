@@ -2,6 +2,36 @@
 
 **2026-10-06 — PARTIAL, CURRENT-MAIN DRAFT COMPOSITION; NOT RELEASE QUALIFICATION.**
 
+**2026-10-10 — follow-on receipt-backed native privacy fixture; native execution pending.**
+The existing privacy matrix now obtains both secondary-risk ancestry edges
+through actual authenticated `create_risk_treatment(..., false)` calls. Its
+context, objective and uniquely named synthetic criteria are adopted through
+their canonical public writers; only the root risk and inspection/grant inputs
+remain explicitly synthetic owner setup. Test numbers are not customer policy
+or engineering calibration. The two returned children/scenarios and exactly
+bound origin/treatment audit receipts are checked, with only those exact rows
+removed when comparing all sixteen preservation collections. Contexts,
+objectives and recommendations join the original thirteen collections; the
+concurrency harness consumes the same expanded oracle without changing its
+reviewed seed or existing schedules.
+
+All existing visibility cases and their rollback marker remain. Public U18
+submission, review and foreign-workspace calls use the authenticated role,
+then restore the owner before complete two-tenant state comparisons. Separate
+composite-variable probes exercise the genuine receipt with one/both typed
+links missing and a contradictory parent, without any persisted-row edits.
+They are **projection-only**, not persisted cleared-link upgrade coverage.
+Writer-born children retain their canonical currency defaults; currency
+inheritance is not claimed. No audit receipt is fabricated or guard disabled.
+
+Four source regressions failed before implementation; the subsequent local
+cohort passes **2,278 tests in 37 files**, including five source contracts for
+this fixture. These are not native PostgreSQL execution receipts. Fresh
+full-chain execution of this revision remains required; receipt-backed
+concurrency fixtures, persisted historical upgrades, typed source-standing,
+shared authentication freshness, independent release and production checks
+remain open. No production implementation or capability register is changed.
+
 **2026-10-10 — local current-main harness-safety checkpoint; refreshed hosted qualification pending.**
 The existing U18 draft is composed with main `37af9fd7`, preserving its new
 dependency graph, CLI/CodeQL pins and public-journey/industry changes. The U18 production

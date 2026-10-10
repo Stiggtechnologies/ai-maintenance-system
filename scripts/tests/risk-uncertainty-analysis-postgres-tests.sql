@@ -77,7 +77,10 @@ create function pg_temp.u18_state() returns jsonb language sql as $$
    'work',(select jsonb_agg(to_jsonb(w) order by w.id) from work_orders w where organization_id in((select org from u18_fixture),(select foreign_org from u18_fixture))),
    'stakeholderViews',(select jsonb_agg(to_jsonb(sv) order by sv.id) from risk_stakeholder_views sv where organization_id in((select org from u18_fixture),(select foreign_org from u18_fixture))),
    'scenarios',(select jsonb_agg(to_jsonb(s) order by s.id) from scenarios s where organization_id in((select org from u18_fixture),(select foreign_org from u18_fixture))),
-   'profiles',(select jsonb_agg(to_jsonb(p) order by p.id) from user_profiles p where organization_id in((select org from u18_fixture),(select foreign_org from u18_fixture))))
+   'profiles',(select jsonb_agg(to_jsonb(p) order by p.id) from user_profiles p where organization_id in((select org from u18_fixture),(select foreign_org from u18_fixture))),
+   'contexts',(select jsonb_agg(to_jsonb(c) order by c.id) from risk_context_nodes c where organization_id in((select org from u18_fixture),(select foreign_org from u18_fixture))),
+   'objectives',(select jsonb_agg(to_jsonb(o) order by o.id) from risk_objectives o where organization_id in((select org from u18_fixture),(select foreign_org from u18_fixture))),
+   'recommendations',(select jsonb_agg(to_jsonb(r) order by r.id) from recommendations r where organization_id in((select org from u18_fixture),(select foreign_org from u18_fixture))))
 $$;
 set local role authenticated;
 select set_config('request.jwt.claim.sub',author::text,true) from u18_fixture;
@@ -1400,8 +1403,13 @@ end $$;
 -- claim. Owner diagnostics use the fixture JWT actor; actual public mutation
 -- RPCs retain their named-human gates. Everything below rolls back together.
 do $$ declare f record; baseline jsonb; snapshot jsonb; branch text; client text;
-  grandparent uuid:=gen_random_uuid(); parent uuid:=gen_random_uuid(); child uuid:=gen_random_uuid();
-  parent_scenario uuid:=gen_random_uuid(); child_scenario uuid:=gen_random_uuid();
+  grandparent uuid:=gen_random_uuid(); parent uuid; child uuid;
+  parent_scenario uuid; child_scenario uuid;
+  context_id uuid; objective_id uuid; criteria_id uuid; generation integer; projection integer;
+  origin_parent uuid; origin_child uuid; origin_scenario uuid; origin_owner uuid;
+  option jsonb; origin_before jsonb; origin_after jsonb; normalized_origin_state jsonb;
+  origin_receipt_ids text[]; origin_title text; origin_event text; origin_score numeric;
+  origin_row public.risks%rowtype; projected_origin public.risks%rowtype; expected_origin jsonb;
   grand_view uuid:=gen_random_uuid(); parent_view uuid:=gen_random_uuid();
   evidence uuid:=gen_random_uuid(); packet uuid; receipt jsonb; packet_digest text;
   qualified boolean:=false; refused boolean; detail text;
@@ -1425,21 +1433,152 @@ begin
       raise exception 'direct client visibility-fence execution was not exactly denied'; end if;
   end loop;
   begin
-    perform set_config('request.jwt.claim.sub','',true);
-    insert into public.risks(id,organization_id,criteria_profile_id,title,status,value_currency,created_by)
-    values(grandparent,f.org,f.criteria,'U18 synthetic privacy grandparent','draft','CAD',f.author);
-    insert into public.scenarios(id,organization_id,risk_id,key,label)
-    values(parent_scenario,f.org,grandparent,'u18_privacy_parent','Synthetic privacy parent origin');
-    insert into public.risks(id,organization_id,criteria_profile_id,title,status,value_currency,created_by,
-      secondary_to_risk_id,arising_from_scenario_id)
-    values(parent,f.org,f.criteria,'U18 synthetic privacy parent','draft','CAD',f.author,
-      grandparent,parent_scenario);
-    insert into public.scenarios(id,organization_id,risk_id,key,label)
-    values(child_scenario,f.org,parent,'u18_privacy_child','Synthetic privacy child origin');
-    insert into public.risks(id,organization_id,criteria_profile_id,title,status,value_currency,created_by,
-      risk_owner_id,secondary_to_risk_id,arising_from_scenario_id)
-    values(child,f.org,f.criteria,'U18 synthetic privacy child','draft','CAD',f.author,
-      f.reviewer,parent,child_scenario);
+    -- Actual named human writers establish adopted, explicitly synthetic
+    -- policy/context/objective; this is not customer engineering calibration.
+    perform set_config('request.jwt.claim.sub',f.author::text,true);
+    execute 'set local role authenticated';
+    if auth.uid() is distinct from f.author or public.app_current_org() is distinct from f.org then
+      raise exception 'audited-origin fixture actor/tenant mismatch'; end if;
+    receipt:=public.upsert_risk_context(jsonb_build_object(
+      'scope_kind','decision','name','U18 synthetic privacy context',
+      'mission_or_service','Rollback-only inherited-privacy qualification',
+      'objectives',jsonb_build_array('Preserve this synthetic secondary-risk lineage'),
+      'stakeholders',jsonb_build_array(jsonb_build_object('user_id',f.author,'role','Synthetic fixture owner')),
+      'decision_authority',jsonb_build_object('actor_id',f.author,'scope','Synthetic CI only; no operational authority')));
+    context_id:=public.sync_text_as_uuid(receipt->>'context_id');
+    if receipt ? 'error' or context_id is null or receipt->>'status' is distinct from 'draft' then
+      raise exception 'actual privacy context creation failed'; end if;
+    receipt:=public.adopt_risk_context(context_id,'Named human adopts this rollback-only synthetic privacy context; not customer policy.');
+    if receipt is distinct from jsonb_build_object('context_id',context_id,'status','adopted') then
+      raise exception 'actual privacy context adoption failed'; end if;
+    receipt:=public.upsert_risk_objective(jsonb_build_object(
+      'context_id',context_id,'owner_id',f.author,'objective_level','task',
+      'description','Preserve this synthetic secondary-risk lineage','target','Retain canonical provenance',
+      'measurement','Exact rows and immutable receipts','timeframe','Rollback-only CI transaction',
+      'tolerance','No source declassification or operational authority'));
+    objective_id:=public.sync_text_as_uuid(receipt->>'objective_id');
+    if receipt ? 'error' or objective_id is null or receipt->>'status' is distinct from 'draft' then
+      raise exception 'actual privacy objective creation failed'; end if;
+    receipt:=public.adopt_risk_objective(objective_id,'Named human adopts this rollback-only synthetic objective; no engineering target inferred.');
+    if receipt is distinct from jsonb_build_object('objective_id',objective_id,'status','adopted') then
+      raise exception 'actual privacy objective adoption failed'; end if;
+    -- A unique name prevents adoption from superseding any existing fixture.
+    receipt:=public.create_risk_criteria_version(f.criteria,'U18 audited privacy criteria '||grandparent::text);
+    criteria_id:=public.sync_text_as_uuid(receipt->>'criteria_id');
+    if receipt ? 'error' or criteria_id is null or receipt->>'status' is distinct from 'draft' then
+      raise exception 'actual privacy criteria clone failed'; end if;
+    receipt:=public.update_risk_criteria_draft(criteria_id,'{
+      "consequence_dimensions":[{"key":"synthetic_loss","name":"Synthetic loss","weight":1,
+        "scale":[{"score":1,"label":"Synthetic bounded consequence"}]}],
+      "likelihood_scale":[{"score":1,"label":"Synthetic low"},{"score":5,"label":"Synthetic high"}],
+      "thresholds":{"low":1,"medium":5,"high":16,"critical":24},
+      "decision_thresholds":{"accept":1,"monitor":5,"investigate":10,"treat":16,"escalate":24},
+      "scoring_weights":{"inherent":1,"exposure":0,"uncertainty":0,"connectivity":0,"velocity":0,"capacity":0},
+      "risk_capacity":{"capacity_limit":100,"current_committed_capacity":0},
+      "basis":"Explicit synthetic rollback-only CI inputs; not customer engineering calibration."
+    }'::jsonb);
+    if receipt is distinct from jsonb_build_object('criteria_id',criteria_id,'status','draft','adoption_required',true) then
+      raise exception 'actual privacy criteria configuration failed'; end if;
+    receipt:=public.adopt_risk_criteria(criteria_id,'Named synthetic CI administrator adopts these test-only inputs for rollback qualification.');
+    if receipt is distinct from jsonb_build_object('criteria_id',criteria_id,'status','adopted','version',1) then
+      raise exception 'actual privacy criteria adoption failed'; end if;
+    execute 'reset role';
+    -- Declared synthetic root setup only, with its real governing objective:
+    -- not assessment-writer qualification or a missing-objective bypass.
+    insert into public.risks(id,organization_id,context_id,objective_id,criteria_profile_id,
+      title,objective_at_risk,event_description,current_risk_score,current_risk_level,
+      status,value_currency,created_by,risk_owner_id,information_sensitivity,source_kind)
+    values(grandparent,f.org,context_id,objective_id,criteria_id,'U18 synthetic privacy grandparent',
+      'Preserve this synthetic secondary-risk lineage','Controlled synthetic parent event for rollback-only CI',
+      60,'High','draft','CAD',f.author,f.author,'internal','human');
+    for generation in 1..2 loop
+      origin_parent:=case when generation=1 then grandparent else parent end;
+      origin_owner:=case when generation=1 then f.author else f.reviewer end;
+      origin_title:=case when generation=1 then 'U18 synthetic privacy parent' else 'U18 synthetic privacy child' end;
+      origin_event:='Controlled CI secondary event only';
+      select current_risk_score into strict origin_score from public.risks where id=origin_parent and organization_id=f.org;
+      origin_before:=pg_temp.u18_state();
+      option:=jsonb_build_object('key','u18_privacy_'||generation::text,'strategy','change_likelihood',
+        'label','Synthetic privacy origin treatment','residual_risk',10,'introduced_risk',20,
+        'introduced_risks',jsonb_build_array('Synthetic secondary hazard'),
+        'required_resources','[]'::jsonb,'available_resources','[]'::jsonb,'required_competencies','[]'::jsonb,
+        'new_risk_created',jsonb_build_array(jsonb_build_object('title',origin_title,
+          'event_description',origin_event,'current_risk_score',20,'current_risk_level','Low',
+          'risk_owner_id',case when generation=1 then f.author else f.reviewer end)));
+      execute 'set local role authenticated';
+      receipt:=public.create_risk_treatment(origin_parent,option,false);
+      execute 'reset role';
+      origin_child:=public.sync_text_as_uuid(receipt->'secondary_risks'->0->>'risk_id');
+      origin_scenario:=public.sync_text_as_uuid(receipt->>'scenario_id');
+      if origin_child is null or origin_scenario is null or receipt is distinct from jsonb_build_object(
+        'risk_id',origin_parent,'scenario_id',origin_scenario,'selected',false,'executable',true,
+        'readiness_gaps','[]'::jsonb,'recommendation_id',null,'approval_id',null,
+        'net_risk_change',origin_score-10-20,'human_approval_required',false,
+        'secondary_risks',jsonb_build_array(jsonb_build_object('risk_id',origin_child,
+          'title',origin_title,'level','Low','score',20)),
+        'advisory_only',true,'human_decision_required',true) then
+        raise exception 'actual secondary treatment did not return its exact non-selecting receipt'; end if;
+      select * into strict origin_row from public.risks where id=origin_child and organization_id=f.org;
+      if origin_row.context_id is distinct from context_id or origin_row.objective_id is distinct from objective_id
+        or origin_row.criteria_profile_id is distinct from criteria_id or origin_row.risk_owner_id is distinct from origin_owner
+        or origin_row.created_by is distinct from f.author or origin_row.status is distinct from 'draft'
+        or origin_row.source_kind is distinct from 'human' or origin_row.information_sensitivity is distinct from 'internal'
+        or origin_row.secondary_to_risk_id is distinct from origin_parent
+        or origin_row.arising_from_scenario_id is distinct from origin_scenario
+        or origin_row.title is distinct from origin_title or origin_row.event_description is distinct from origin_event
+        or origin_row.current_risk_score is distinct from 20::numeric or origin_row.current_risk_level is distinct from 'Low'
+        or not exists(select 1 from public.scenarios s where s.id=origin_scenario and s.organization_id=f.org
+          and s.risk_id=origin_parent and s.key=option->>'key' and s.label=option->>'label'
+          and s.recommended=false and s.treatment_strategy='change_likelihood'
+          and s.expected_residual_risk=10 and s.expected_risk_reduction=origin_score-10-20
+          and s.introduced_risks=option->'introduced_risks' and s.required_resources='[]'::jsonb
+          and s.available_resources='[]'::jsonb and s.required_competencies='[]'::jsonb
+          and s.executable=true and s.readiness_gaps='[]'::jsonb) then
+        raise exception 'persisted canonical secondary/scenario does not match its exact fixture binding'; end if;
+      select array_agg(a.id::text order by a.id) into origin_receipt_ids from public.audit_events a
+      where a.organization_id=f.org and a.actor='admin' and (
+        (a.entity_type='risk_secondary_created' and to_jsonb(a)->'previous_state'='null'::jsonb
+          and a.event_data=jsonb_build_object('risk_id',origin_child,'parent_risk_id',origin_parent,
+            'scenario_id',origin_scenario,'treatment_strategy','change_likelihood','title',origin_title,'level','Low')
+          and to_jsonb(a)->'new_state'=jsonb_build_object('status','draft','secondary_to_risk_id',origin_parent,
+            'arising_from_scenario_id',origin_scenario,'current_risk_level','Low'))
+        or (a.entity_type='risk_treatment' and a.previous_state is null and a.new_state is null
+          and a.event_data=jsonb_build_object('risk_id',origin_parent,'scenario_id',origin_scenario,'selected',false,
+            'recommendation_id',null,'approval_id',null,'executable',true,'secondary_risks',receipt->'secondary_risks')));
+      if cardinality(origin_receipt_ids) is distinct from 2 then
+        raise exception 'actual treatment lacks its two exact canonical audit receipts'; end if;
+      origin_after:=pg_temp.u18_state();
+      normalized_origin_state:=jsonb_set(origin_after,'{risks}',coalesce((
+        select jsonb_agg(x order by x->>'id') from jsonb_array_elements(origin_after->'risks') x
+        where x->>'id'<>origin_child::text),'null'::jsonb));
+      normalized_origin_state:=jsonb_set(normalized_origin_state,'{scenarios}',coalesce((
+        select jsonb_agg(x order by x->>'id') from jsonb_array_elements(origin_after->'scenarios') x
+        where x->>'id'<>origin_scenario::text),'null'::jsonb));
+      normalized_origin_state:=jsonb_set(normalized_origin_state,'{audit}',coalesce((
+        select jsonb_agg(x order by x->>'id') from jsonb_array_elements(origin_after->'audit') x
+        where not (x->>'id'=any(origin_receipt_ids))),'null'::jsonb));
+      if normalized_origin_state is distinct from origin_before then
+        raise exception 'canonical-origin creation changed artifacts outside the exact child/scenario/two receipts'; end if;
+      expected_origin:=jsonb_build_object('valid',true,'derived',true,'parent_id',origin_parent,'scenario_id',origin_scenario);
+      if public.get_risk_secondary_origin_internal(origin_row) is distinct from expected_origin then
+        raise exception 'actual canonical secondary origin was not recovered'; end if;
+      -- projection-only; not persisted cleared-link qualification. The current
+      -- guards correctly forbid clearing either persisted origin edge.
+      for projection in 1..3 loop
+        projected_origin:=origin_row;
+        if projection in (1,3) then projected_origin.secondary_to_risk_id:=null; end if;
+        if projection in (2,3) then projected_origin.arising_from_scenario_id:=null; end if;
+        if public.get_risk_secondary_origin_internal(projected_origin) is distinct from expected_origin
+          or pg_temp.u18_state() is distinct from origin_after then
+          raise exception 'retained-receipt projection or full no-write witness failed'; end if;
+      end loop;
+      projected_origin:=origin_row; projected_origin.secondary_to_risk_id:=f.other_risk;
+      if public.get_risk_secondary_origin_internal(projected_origin) is distinct from '{"valid":false,"derived":true}'::jsonb
+        or pg_temp.u18_state() is distinct from origin_after then
+        raise exception 'contradictory typed-origin projection was accepted'; end if;
+      if generation=1 then parent:=origin_child; parent_scenario:=origin_scenario;
+      else child:=origin_child; child_scenario:=origin_scenario; end if;
+    end loop;
     insert into public.evidence_items(id,organization_id,risk_id,source_system,evidence_type,description,
       evidence_class,verification_status,verified_by,verified_at,verification_method,quality_grade,applicability_grade,revision)
     values(evidence,f.org,child,'CMMS','inspection','Synthetic privacy child inspection, not engineering evidence.',
@@ -1458,7 +1597,9 @@ begin
       or public.can_read_risk(child) is distinct from false
       or pg_temp.u18_state() is distinct from snapshot then
       raise exception 'child ownership declassified an unreadable ancestor'; end if;
+    execute 'set local role authenticated';
     receipt:=public.submit_risk_uncertainty_analysis(child,f.input,array[evidence]);
+    execute 'reset role';
     if receipt is distinct from jsonb_build_object('error','risk not found in this organization')
       or pg_temp.u18_state() is distinct from snapshot then
       raise exception 'unreadable ancestor submission did not refuse without artifacts'; end if;
@@ -1503,7 +1644,9 @@ begin
     if public.risk_uncertainty_lock_visibility_context(f.org,child) is distinct from true
       or pg_temp.u18_state() is distinct from snapshot then
       raise exception 'canonical administrator ancestor visibility control failed'; end if;
+    execute 'set local role authenticated';
     receipt:=public.submit_risk_uncertainty_analysis(child,f.input,array[evidence]);
+    execute 'reset role';
     if receipt ? 'error' or receipt->>'riskId' is distinct from child::text
       or receipt->>'analysisId' is null or receipt->>'analysisDigest' !~ '^[0-9a-f]{64}$'
       or receipt->>'analysisDigest' is null or receipt->>'version' is distinct from '1'
@@ -1514,14 +1657,18 @@ begin
     perform set_config('request.jwt.claim.sub',f.reviewer::text,true);
     update public.risk_stakeholder_views set stakeholder_user_id=null where id=parent_view;
     snapshot:=pg_temp.u18_state();
+    execute 'set local role authenticated';
     receipt:=public.review_risk_uncertainty_analysis(packet,'validated',
       'Synthetic reviewer must not approve copied context after an ancestor grant revocation.');
+    execute 'reset role';
     if receipt is distinct from jsonb_build_object('error','same-tenant uncertainty analysis is not awaiting review')
       or pg_temp.u18_state() is distinct from snapshot then
       raise exception 'revoked ancestor review did not refuse without artifacts'; end if;
     update public.risk_stakeholder_views set stakeholder_user_id=f.reviewer where id=parent_view;
+    execute 'set local role authenticated';
     receipt:=public.review_risk_uncertainty_analysis(packet,'validated',
       'Synthetic independent review of the exact readable inherited-context packet.');
+    execute 'reset role';
     if receipt ? 'error' or receipt->>'analysisId' is distinct from packet::text
       or receipt->>'riskId' is distinct from child::text
       or receipt->>'analysisDigest' is distinct from packet_digest
@@ -1538,8 +1685,11 @@ begin
       raise exception 'readable inherited-context review lost its actual human/approval/evidence binding'; end if;
     perform set_config('request.jwt.claim.sub',f.foreign_user::text,true);
     snapshot:=pg_temp.u18_state();
+    execute 'set local role authenticated';
+    receipt:=public.get_risk_uncertainty_workspace(child);
+    execute 'reset role';
     if public.risk_uncertainty_lock_visibility_context(f.org,child) is distinct from false
-      or public.get_risk_uncertainty_workspace(child) is distinct from jsonb_build_object('error','risk not found in this organization')
+      or receipt is distinct from jsonb_build_object('error','risk not found in this organization')
       or pg_temp.u18_state() is distinct from snapshot then
       raise exception 'foreign actor received inherited private context'; end if;
     qualified:=true;
