@@ -13,6 +13,56 @@ const component = readFileSync(
 const governance = readFileSync("src/components/DataGovernance.tsx", "utf8");
 
 describe("E12.07 governed time-synchronization assurance", () => {
+  it("mounts exactly one independent clock sibling outside governance loading/error returns", () => {
+    const wrapper =
+      governance
+        .split("export function DataGovernance() {")[1]
+        ?.split("function DataGovernanceReadout()")[0] ?? "";
+    expect(wrapper).toContain("<DataGovernanceReadout />");
+    expect(wrapper.match(/<TimeSynchronizationAssurance\s*\/>/g)).toHaveLength(
+      1,
+    );
+    expect(wrapper).not.toMatch(/if\s*\(\s*(?:loading|error)/);
+    const readout =
+      governance.split("function DataGovernanceReadout()")[1] ?? "";
+    expect(readout).toContain(
+      'if (loading) return <LoadingState label="Loading data governance" />',
+    );
+    expect(readout).toContain(
+      "if (error) return <ErrorState message={error} onRetry={refetch} />",
+    );
+    expect(readout).not.toContain("<TimeSynchronizationAssurance");
+  });
+
+  it("uses distinct fresh clock sources per browser attempt without resetting retained state", () => {
+    const fixture = readFileSync(
+      "scripts/tests/time-assurance-browser-fixture.sql",
+      "utf8",
+    );
+    const browser = readFileSync(
+      "tests/e2e/time-synchronization-assurance.spec.ts",
+      "utf8",
+    );
+    const config = readFileSync("playwright.config.ts", "utf8");
+    for (const enabled of ["enabled", "disabled"]) {
+      for (const attempt of [0, 1]) {
+        expect(fixture).toContain(
+          `e12-browser-${enabled}-synthetic-attempt-${attempt}`,
+        );
+      }
+    }
+    expect(fixture.toLowerCase()).not.toMatch(
+      /\b(?:update|delete|truncate)\b|on conflict/,
+    );
+    expect(browser).toContain("`${fixture.key}-attempt-${testInfo.retry}`");
+    expect(browser).toContain("expect(matches).toHaveLength(1)");
+    expect(browser).toContain("expect(initial.configurationRevision).toBe(0)");
+    expect(browser).toContain("expect(initial.configuredAt).toBeNull()");
+    expect(browser).not.toMatch(/page\.route\(|route\.fulfill\(/);
+    expect(config).toContain("retries: process.env.CI ? 1 : 0");
+    expect(config).toContain("timeout: 90_000");
+  });
+
   it("reconciles a configuration intent through its tenant-bound canonical receipt before changing the revision", () => {
     expect(migration).toContain("p_idempotency_key uuid default null");
     expect(migration).toContain(

@@ -30,13 +30,17 @@ for (const fixture of [
     );
     await page.goto("/integrations");
     const initialStatus = await (await initialResponse).json();
-    const initial = initialStatus.connectors.find(
-      (row: { connectorKey: string }) => row.connectorKey === fixture.key,
+    // Each attempt owns a fresh explicit synthetic source. A retry may not
+    // reset or reuse the first attempt's committed contract/receipt history.
+    expect(testInfo.retry).toBeLessThan(2);
+    const attemptKey = `${fixture.key}-attempt-${testInfo.retry}`;
+    const matches = initialStatus.connectors.filter(
+      (row: { connectorKey: string }) => row.connectorKey === attemptKey,
     );
-    expect(
-      initial,
-      "explicit CI-only source must exist; never select an arbitrary demo connector",
-    ).toBeTruthy();
+    expect(matches).toHaveLength(1);
+    const initial = matches[0];
+    expect(initial.configurationRevision).toBe(0);
+    expect(initial.configuredAt).toBeNull();
     expect(initial.enabled).toBe(fixture.enabled);
     expect(initial.configurationEvidenceVerified).toBe(false);
     expect(initial.eligibleForTimeSensitiveEvidence).toBe(false);
