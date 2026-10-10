@@ -39,16 +39,18 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - name: Synthetic PostgreSQL command boundary (canonical services are fixture doubles)
         run: >-
-          psql -v ON_ERROR_STOP=1
+          psql --single-transaction -v ON_ERROR_STOP=1
           -f scripts/tests/implementation-fixture.sql
           -f supabase/migrations/20270103140000_native_implementation_journey.sql
           -f scripts/tests/implementation-journey-postgres.sql
       - name: Concurrent duplicate starts in two PostgreSQL sessions
         run: python3 scripts/tests/implementation-concurrency.py
+      - name: Native migration lock, statement and transaction rollback budgets
+        run: python3 scripts/tests/implementation-timeout.py
       - name: Unchanged canonical engineering services (isolated original migrations)
         run: |
           createdb implementation_canonical
-          PGDATABASE=implementation_canonical psql -v ON_ERROR_STOP=1 -f scripts/tests/implementation-canonical-setup.sql -f scripts/tests/implementation-canonical-postgres.sql
+          PGDATABASE=implementation_canonical psql --single-transaction -v ON_ERROR_STOP=1 -f scripts/tests/implementation-canonical-setup.sql -f scripts/tests/implementation-canonical-postgres.sql
   signed-in-browser:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -61,7 +63,7 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359
         with:
-          version: latest
+          version: 2.84.2
       - name: Fresh local Supabase with full canonical migration chain
         run: supabase start
       - run: npx playwright install --with-deps chromium
