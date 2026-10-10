@@ -33,7 +33,7 @@ The remainder of the 132-item Context register, including 3D, deterministic scen
 
 ## Validation at this checkpoint
 
-The focused Context suite currently passes **178 tests across 7 files**, including the unchanged SC-01 contract, adapter and ledger checks. The application TypeScript check and ESLint for the six new TypeScript files pass. Red-first regressions reproduced sparse-array, immutability, duplicate-layer, coverage-limit, source/layer consistency and evidence/time/display defects before repair. Zoned calendar timestamps are checked at JavaScript millisecond precision; this does not qualify server clock integrity.
+The focused Context suite currently passes **181 tests across 7 files**, including the unchanged SC-01 contract, adapter and ledger checks. The application TypeScript check and ESLint for the six new TypeScript files pass. Red-first regressions reproduced sparse-array, immutability, duplicate-layer, coverage-limit, source/layer consistency, empty/count contradictions and evidence/time/display defects before repair. Zoned calendar timestamps are checked at JavaScript millisecond precision; this does not qualify server clock integrity.
 
 These checks are source/client evidence only. No native SQL, authenticated operating-picture HTTP, rendered map acceptance or production lighthouse proof exists for SC-02 yet. The ledger remains **132 requirements: 6 complete, 67 partial, 59 not started**.
 

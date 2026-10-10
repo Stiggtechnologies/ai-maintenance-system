@@ -384,4 +384,17 @@ describe("SC-02 bounded operating-picture browser input", () => {
       expect(parseSyncContextOperatingPicture(raw).objects).toEqual([]);
     },
   );
+
+  it.each([
+    { empty: true, recordCount: 0 },
+    { empty: true, recordCount: 1 },
+    { empty: false, recordCount: 0 },
+  ])(
+    "does not emit objects on an empty or internally inconsistent layer (%j)",
+    (counts) => {
+      const raw = fixture();
+      Object.assign(raw.layers[0], counts);
+      expect(parseSyncContextOperatingPicture(raw).objects).toEqual([]);
+    },
+  );
 });

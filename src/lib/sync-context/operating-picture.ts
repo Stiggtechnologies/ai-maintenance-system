@@ -264,6 +264,16 @@ export function parseSyncContextOperatingPicture(
   const effectiveLayers = snapshot.layers.map((layer) => {
     if (!layer.authorized)
       return { ...layer, availability: "unauthorized" as const };
+    if (layer.empty !== (layer.recordCount === 0))
+      return {
+        ...layer,
+        availability: "unavailable" as const,
+        degraded: true,
+        issues: [
+          ...layer.issues,
+          "Layer empty state and query count disagree; emission is refused without inventing coverage.",
+        ],
+      };
     if (layer.sourceDependencies.length === 0)
       return layer.recordCount === 0
         ? layer
@@ -333,6 +343,8 @@ export function parseSyncContextOperatingPicture(
       const layer = layers.get(object.layerId);
       if (
         !layer?.authorized ||
+        layer.empty ||
+        layer.recordCount === 0 ||
         !["available", "degraded"].includes(layer.availability) ||
         layer.renderMode === "event" ||
         !layer.sourceDependencies.includes(source.id)
@@ -412,6 +424,8 @@ export function parseSyncContextOperatingPicture(
       !invalidTimeSources.has(source.id) &&
       contextSourceEmission(source).canEmit &&
       layer?.authorized === true &&
+      !layer.empty &&
+      layer.recordCount > 0 &&
       ["available", "degraded"].includes(layer.availability) &&
       layer.sourceDependencies.includes(source.id) &&
       Number.isFinite(occurredAt) &&
