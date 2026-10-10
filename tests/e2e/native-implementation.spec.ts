@@ -125,7 +125,7 @@ test("real signed-in preparation rollback/retry, interruption and tenant isolati
     // Explicit disposable fixture input; the journey never creates customer assets.
     sql(`update user_profiles set organization_id='${org}' where id='${manager}';
       insert into assets(id,organization_id,tag,name,asset_class,area) values ('${asset}','${org}','BROWSER-FIX','Synthetic browser asset','Pump','Fixture area');
-      insert into asset_twin_templates(id,template_key,version,asset_family,asset_class,title,maturity,template) values ('${template}','synthetic-browser','1','Rotating','Pump','Synthetic browser template','approved','{"synthetic":true}');
+      insert into asset_twin_templates(id,template_key,version,asset_family,asset_class,title,maturity,template) values ('${template}','synthetic-browser-${template}','1','Rotating','Pump','Synthetic browser template','approved','{"synthetic":true}');
       insert into evidence_items(id,organization_id,asset_id,evidence_type,evidence_class,description) values ('${mapping}','${org}','${asset}','mapping','DOCUMENTED','Synthetic qualification mapping only');`);
     const anon = fixture("E2E_SUPABASE_ANON_KEY");
     const login = await page.request.post(
