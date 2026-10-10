@@ -436,7 +436,10 @@ export function DecisionCaseWorkspacePage({
   }, [active.id, active.messages, publicMode]);
   useEffect(() => {
     if (publicMode && capabilityId && !routedPublicIntent) {
-      navigate({ pathname: "/", search: location.search }, { replace: true });
+      navigate(
+        { pathname: "/workspace", search: location.search },
+        { replace: true },
+      );
     }
   }, [capabilityId, location.search, navigate, publicMode, routedPublicIntent]);
 
@@ -492,7 +495,14 @@ export function DecisionCaseWorkspacePage({
     setTab(routedPublicIntent.recordTab);
     setRecordOpen(true);
     setRailOpen(false);
-  }, [context, industry, publicIntent?.id, publicMode, role, routedPublicIntent]);
+  }, [
+    context,
+    industry,
+    publicIntent?.id,
+    publicMode,
+    role,
+    routedPublicIntent,
+  ]);
 
   const chooseCase = (id: string) => {
     if (isSeedDecisionCaseId(id)) explicitDemoBound.current = true;
@@ -572,7 +582,7 @@ export function DecisionCaseWorkspacePage({
         setRailOpen(false);
         setRecordOpen(false);
         setPublicIntent(null);
-        navigate({ pathname: "/", search: location.search });
+        navigate({ pathname: "/workspace", search: location.search });
       }
       return;
     }
@@ -587,7 +597,7 @@ export function DecisionCaseWorkspacePage({
       setRailOpen(false);
       setRecordOpen(false);
       setPublicIntent(null);
-      navigate({ pathname: "/", search: location.search });
+      navigate({ pathname: "/workspace", search: location.search });
     }
     if (!publicMode) {
       try {
@@ -1376,6 +1386,18 @@ export function DecisionCaseWorkspacePage({
         }
       />
       <div className="bolt-stage">
+        {publicMode &&
+        new URLSearchParams(location.search).get("origin") === "evaluation" ? (
+          <p
+            role="status"
+            className="mx-4 rounded-lg border border-amber-300/30 p-3 text-sm text-amber-100"
+          >
+            Your evaluation question and evidence are carried forward. Existing
+            recommendations are illustrative; ask the assistant to review your
+            evidence before relying on an answer. No industrial action has been
+            approved.
+          </p>
+        ) : null}
         {exposeSpaces && railOpen && emptyConversation ? (
           <BoltSpacesPanel
             cases={cases}
@@ -2059,6 +2081,7 @@ function AuthorityPanel({
         ))}
         <div className="dw-comment-entry">
           <input
+            aria-label="Authority comment"
             value={comment}
             onChange={(event) => setComment(event.target.value)}
             placeholder="Add rationale or a condition..."

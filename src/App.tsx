@@ -281,6 +281,24 @@ function App() {
           />
           <Route path="/auth/callback/azure" element={<AzureADCallback />} />
           <Route
+            path="/privacy"
+            element={
+              <Privacy onNavigate={() => window.location.assign("/signin")} />
+            }
+          />
+          <Route
+            path="/terms"
+            element={
+              <Terms onNavigate={() => window.location.assign("/signin")} />
+            }
+          />
+          <Route
+            path="/security"
+            element={
+              <Security onNavigate={() => window.location.assign("/signin")} />
+            }
+          />
+          <Route
             path="/signin"
             element={
               isAuthenticated && signInApproved && !isPasswordRecovery ? (
@@ -289,7 +307,11 @@ function App() {
                 <Login
                   onSuccess={handleSignInSuccess}
                   onTabChange={(page) =>
-                    window.location.assign(`/?view=${page}`)
+                    window.location.assign(
+                      ["privacy", "terms", "security"].includes(page)
+                        ? `/${page}`
+                        : `/?view=${page}`,
+                    )
                   }
                 />
               )

@@ -302,18 +302,34 @@ export function InvertedOpeningPage() {
         ) : null}
 
         {spineQuestion ? (
-          <DecisionCaseSpine
-            question={spineQuestion}
-            intent={intent}
-            initialCase={persistedCase}
-            initiallySaved={Boolean(persistedCase)}
-            blockWorkspacePersist={examplePreview}
-            openingNotice={persistError}
-          />
+          <section aria-label="Your Decision Case">
+            <button
+              type="button"
+              className="mb-4 text-sm text-teal-300"
+              onClick={() => {
+                setSpineQuestion("");
+                setPersistedCase(undefined);
+                setExamplePreview(false);
+                setPersistError(null);
+                setSavePrompt(false);
+              }}
+            >
+              Back to your question
+            </button>
+            <DecisionCaseSpine
+              key={persistedCase?.id ?? spineQuestion}
+              question={spineQuestion}
+              intent={intent}
+              initialCase={persistedCase}
+              initiallySaved={Boolean(persistedCase)}
+              blockWorkspacePersist={examplePreview}
+              openingNotice={persistError}
+            />
+          </section>
         ) : (
           <p className="text-center text-[11px] text-slate-600">
-            Decision Case spine opens after save. Not marketed as seamless
-            self-guided until the acceptance test passes.
+            Start with your own question, or preview a labeled example. Review
+            the evidence and next steps before saving a customer case.
           </p>
         )}
       </div>

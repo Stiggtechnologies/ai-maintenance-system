@@ -1,5 +1,11 @@
 import { readFileSync } from "node:fs";
-import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSeedDecisionCases } from "../lib/decision-case";
@@ -304,7 +310,9 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(switcher).toBeTruthy();
     for (const intent of PUBLIC_ASK_INTENTS) {
       expect(
-        within(switcher).getByRole("button", { name: new RegExp(intent.label) }),
+        within(switcher).getByRole("button", {
+          name: new RegExp(intent.label),
+        }),
       ).toBeTruthy();
     }
 
@@ -334,8 +342,10 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     ).toBeTruthy();
     expect(screen.getByTestId("disposition-record")).toBeTruthy();
     expect(screen.getByTestId("learn-unpersisted")).toBeTruthy();
-    expect(screen.getByText(/no verification obligation/i)).toBeTruthy();
-    expect(screen.getByText(/nothing was written/i)).toBeTruthy();
+    expect(screen.getByText(/Illustrative example only/i)).toBeTruthy();
+    expect(
+      screen.getByText(/No customer verification result has been saved/i),
+    ).toBeTruthy();
     expect(screen.getByRole("link", { name: "Learning Loop" })).toHaveAttribute(
       "href",
       "/learning-loop",
