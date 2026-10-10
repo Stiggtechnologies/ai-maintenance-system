@@ -109,4 +109,19 @@ describe("U18 actual receipt-backed privacy qualification fixture", () => {
       "receipt is distinct from jsonb_build_object('error','risk not found in this organization')",
     );
   });
+
+  it("records inspection verification through the named human writer and accounts for its exact audit/security deltas", () => {
+    expect(privacy).toContain("public.verify_evidence_item(evidence,");
+    expect(privacy).toContain("'INSPECTED','unverified','high','direct','R2'");
+    expect(privacy).not.toContain("'INSPECTED','verified',f.reviewer,now()");
+    expect(privacy).toContain("'verified_by',f.reviewer");
+    expect(privacy).toContain("'evidence_verification'");
+    expect(privacy).toContain("verification_security_ids");
+    expect(privacy).toContain(
+      "normalized_verification_state is distinct from verification_before",
+    );
+    expect(privacy).not.toContain(
+      "'app.evidence_verification_write','granted'",
+    );
+  });
 });

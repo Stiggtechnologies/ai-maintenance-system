@@ -15,6 +15,7 @@ const allowedPhases = new Set([
   "U18_WRITER_WINS_ANCESTOR",
   "U18_WRITER_WINS_VIEW",
   "U18_WRITER_WINS_SCENARIO",
+  "U18_WRITER_WINS_MAX_ANCESTRY",
   "U18_HELPER_WINS_ANCESTOR_WRITE",
   "U18_HELPER_WINS_VIEW_DELETE",
   "U18_HELPER_WINS_NEW_GRANT",
@@ -618,10 +619,7 @@ async function qualify() {
         },
       ]);
       assert.equal(persisted.threshold_profile_id, fixture.criteria);
-      assert.deepEqual(persisted.decision_thresholds, {
-        escalateAbove: 16,
-        stopAbove: 24,
-      });
+      assert.deepEqual(persisted.decision_thresholds, visibilityDecisionThresholds);
       assert.deepEqual(
         persisted.reassessment_triggers,
         f.input.reassessment_triggers,
@@ -943,65 +941,210 @@ async function qualify() {
       );
       assert.deepEqual(normalized, before);
     }
+    const visibilityDecisionThresholds = {
+      accept: 1,
+      monitor: 5,
+      investigate: 10,
+      treat: 16,
+      escalate: 24,
+      escalateAbove: 16,
+      stopAbove: 24,
+    };
     async function visibilityFixture(label, sibling = false, oldEvidenceId = null) {
-      // U18_VISIBILITY_FIXTURE: UUID ordering is intentional. The helper must
-      // release locks acquired on grandparent/parent before a max-UUID target
-      // refusal becomes visible to a third real session.
-      const ordered = [randomUUID(), randomUUID(), randomUUID()].sort();
+      // U18_VISIBILITY_FIXTURE: actual writer-generated IDs and immutable
+      // receipts, never manufactured ancestry or assumed UUID ordering.
+      // All numbers are synthetic CI inputs, not customer policy/calibration.
+      const grandparent = randomUUID();
+      if (oldEvidenceId !== null) assert.match(oldEvidenceId, uuid);
+      const callerContext = async () => json(await monitor.query(`select jsonb_build_object(
+        'role',current_user,
+        'sub',coalesce(current_setting('request.jwt.claim.sub',true),''),
+        'claims',coalesce(current_setting('request.jwt.claims',true),''))`));
+      const originalContext = await callerContext();
+      assert.equal(originalContext.role, "postgres");
+      await monitor.query("begin");
+      const humanRpc = async (call, user = f.author) => json(await monitor.query(`
+        set local role authenticated;
+        select set_config('request.jwt.claim.sub','${user}',true);
+        select set_config('request.jwt.claims','',true);
+        select ${call}; reset role`));
+      const objective = await humanRpc(`public.upsert_risk_objective(${literal(JSON.stringify({
+        owner_id: f.author, objective_level: "task",
+        description: "Preserve synthetic secondary-risk lineage",
+        target: "Retain canonical provenance", measurement: "Exact scoped rows and immutable receipts",
+        timeframe: "Disposable CI qualification", tolerance: "No source declassification or operational authority",
+      }))}::jsonb)`);
+      assert.match(objective.objective_id, uuid);
+      assert.deepEqual(objective, { objective_id: objective.objective_id, status: "draft" });
+      assert.deepEqual(await humanRpc(`public.adopt_risk_objective('${objective.objective_id}',
+        'Named synthetic CI human adopts this test-only objective; no engineering target inferred.')`),
+        { objective_id: objective.objective_id, status: "adopted" });
+      const criterion = await humanRpc(`public.create_risk_criteria_version('${f.criteria}',
+        ${literal(`${label} synthetic criteria ${grandparent}`)})`);
+      assert.match(criterion.criteria_id, uuid);
+      assert.deepEqual(criterion, {
+        criteria_id: criterion.criteria_id, version: 1, status: "draft", adoption_required: true,
+      });
+      assert.deepEqual(await humanRpc(`public.update_risk_criteria_draft('${criterion.criteria_id}',
+        ${literal(JSON.stringify({
+          consequence_dimensions: [{ key: "synthetic_loss", name: "Synthetic loss", weight: 1,
+            scale: [{ score: 1, label: "Synthetic bounded consequence" }] }],
+          likelihood_scale: [{ score: 1, label: "Synthetic low" }, { score: 5, label: "Synthetic high" }],
+          thresholds: { low: 1, medium: 5, high: 16, critical: 24 },
+          decision_thresholds: visibilityDecisionThresholds,
+          scoring_weights: { inherent: 1, exposure: 0, uncertainty: 0, connectivity: 0, velocity: 0, capacity: 0 },
+          risk_capacity: { capacity_limit: 100, current_committed_capacity: 0 },
+          basis: "Explicit synthetic disposable CI inputs; not customer engineering calibration.",
+        }))}::jsonb)`),
+        { criteria_id: criterion.criteria_id, status: "draft", adoption_required: true });
+      assert.deepEqual(await humanRpc(`public.adopt_risk_criteria('${criterion.criteria_id}',
+        'Named synthetic CI administrator adopts this test-only criterion for disposable qualification.')`),
+        { criteria_id: criterion.criteria_id, status: "adopted", version: 1 });
+      // Declared synthetic root only, with its actual governing objective.
+      // This does not qualify the assessment writer or a service bypass.
+      await monitor.query(`insert into public.risks(id,organization_id,objective_id,criteria_profile_id,
+        title,objective_at_risk,event_description,current_risk_score,current_risk_level,
+        status,value_currency,created_by,risk_owner_id,information_sensitivity,source_kind)
+        values('${grandparent}','${f.org}','${objective.objective_id}','${criterion.criteria_id}',
+          ${literal(`${label} grandparent`)},'Preserve synthetic secondary-risk lineage',
+          'Controlled synthetic parent event for disposable CI qualification',60,'High','draft','CAD',
+          '${f.author}','${f.author}','internal','human')`);
+      const assertOriginTreatmentTransition = (receipt, option, parent, before, after) => {
+        assert.match(receipt.scenario_id, uuid);
+        assert(Array.isArray(receipt.secondary_risks));
+        assert.equal(receipt.secondary_risks.length, option.new_risk_created.length);
+        const generated = option.new_risk_created.map((input) => {
+          const entries = receipt.secondary_risks.filter((item) => item.title === input.title);
+          assert.equal(entries.length, 1);
+          assert.match(entries[0].risk_id, uuid);
+          assert.deepEqual(entries[0], { risk_id: entries[0].risk_id, title: input.title,
+            level: input.current_risk_level, score: input.current_risk_score });
+          return entries[0].risk_id;
+        });
+        assert.equal(new Set(generated).size, generated.length);
+        for (const id of generated) assert.equal(byId(before, "risks", id), undefined);
+        assert.equal(byId(before, "scenarios", receipt.scenario_id), undefined);
+        const original = byId(before, "risks", parent);
+        assert(original);
+        assert.deepEqual(receipt, {
+          risk_id: parent, scenario_id: receipt.scenario_id, selected: false, executable: true,
+          readiness_gaps: [], recommendation_id: null, approval_id: null,
+          net_risk_change: Number(original.current_risk_score) - 10 - 20,
+          human_approval_required: false, secondary_risks: receipt.secondary_risks,
+          advisory_only: true, human_decision_required: true,
+        });
+        const scenario = byId(after, "scenarios", receipt.scenario_id);
+        assert(scenario);
+        assert.deepEqual({ organization_id: scenario.organization_id, risk_id: scenario.risk_id,
+          key: scenario.key, label: scenario.label, recommended: scenario.recommended,
+          treatment_strategy: scenario.treatment_strategy, expected_residual_risk: scenario.expected_residual_risk,
+          expected_risk_reduction: scenario.expected_risk_reduction, introduced_risks: scenario.introduced_risks,
+          required_resources: scenario.required_resources, available_resources: scenario.available_resources,
+          required_competencies: scenario.required_competencies, executable: scenario.executable,
+          readiness_gaps: scenario.readiness_gaps }, {
+          organization_id: f.org, risk_id: parent, key: option.key, label: option.label,
+          recommended: false, treatment_strategy: "change_likelihood", expected_residual_risk: 10,
+          expected_risk_reduction: receipt.net_risk_change, introduced_risks: option.introduced_risks,
+          required_resources: [], available_resources: [], required_competencies: [], executable: true,
+          readiness_gaps: [],
+        });
+        const beforeAuditIds = new Set((before.audit ?? []).map((row) => row.id));
+        const newAudit = (after.audit ?? []).filter((row) => !beforeAuditIds.has(row.id));
+        assert.equal(newAudit.length, generated.length + 1);
+        for (const [index, id] of generated.entries()) {
+          const input = option.new_risk_created[index];
+          const child = byId(after, "risks", id);
+          assert(child);
+          assert.deepEqual({ organization_id: child.organization_id, objective_id: child.objective_id,
+            context_id: child.context_id, criteria_profile_id: child.criteria_profile_id,
+            risk_owner_id: child.risk_owner_id, created_by: child.created_by,
+            status: child.status, source_kind: child.source_kind, title: child.title,
+            event_description: child.event_description, current_risk_score: child.current_risk_score,
+            current_risk_level: child.current_risk_level, information_sensitivity: child.information_sensitivity,
+            secondary_to_risk_id: child.secondary_to_risk_id, arising_from_scenario_id: child.arising_from_scenario_id }, {
+            organization_id: f.org, objective_id: objective.objective_id, context_id: null,
+            criteria_profile_id: criterion.criteria_id, risk_owner_id: f.author, created_by: f.author,
+            status: "draft", source_kind: "human", title: input.title, event_description: input.event_description,
+            current_risk_score: 20, current_risk_level: "Low", information_sensitivity: "internal",
+            secondary_to_risk_id: parent, arising_from_scenario_id: receipt.scenario_id,
+          });
+          const origins = newAudit.filter((row) => row.entity_type === "risk_secondary_created" && row.event_data.risk_id === id);
+          assert.equal(origins.length, 1);
+          const origin = origins[0];
+          assert.equal(origin.organization_id, f.org);
+          assert.equal(origin.actor, "admin");
+          assert.deepEqual(origin.event_data, { risk_id: id, parent_risk_id: parent,
+            scenario_id: receipt.scenario_id, treatment_strategy: "change_likelihood", title: input.title, level: "Low" });
+          assert.equal(origin.previous_state, null);
+          assert.deepEqual(origin.new_state, { status: "draft", secondary_to_risk_id: parent,
+            arising_from_scenario_id: receipt.scenario_id, current_risk_level: "Low" });
+        }
+        const treatments = newAudit.filter((row) => row.entity_type === "risk_treatment");
+        assert.equal(treatments.length, 1);
+        assert.equal(treatments[0].organization_id, f.org);
+        assert.equal(treatments[0].actor, "admin");
+        assert.equal(treatments[0].previous_state, null);
+        assert.equal(treatments[0].new_state, null);
+        assert.deepEqual(treatments[0].event_data, { risk_id: parent, scenario_id: receipt.scenario_id,
+          selected: false, recommendation_id: null, approval_id: null, executable: true,
+          secondary_risks: receipt.secondary_risks });
+        const normalized = copy(after);
+        normalized.risks = normalized.risks.filter((row) => !generated.includes(row.id));
+        normalized.scenarios = normalized.scenarios.filter((row) => row.id !== receipt.scenario_id);
+        if (normalized.scenarios.length === 0) normalized.scenarios = null;
+        const receiptIds = new Set(newAudit.map((row) => row.id));
+        normalized.audit = normalized.audit.filter((row) => !receiptIds.has(row.id));
+        if (normalized.audit.length === 0) normalized.audit = null;
+        assert.deepEqual(normalized, before);
+        return generated;
+      };
+      const treatment = async (parent, names, key) => {
+        const option = {
+          key, strategy: "change_likelihood", label: `${label} synthetic treatment`,
+          residual_risk: 10, introduced_risk: 20, introduced_risks: ["Synthetic secondary hazard"],
+          required_resources: [], available_resources: [], required_competencies: [],
+          new_risk_created: names.map((title) => ({ title, event_description: "Controlled CI secondary event only",
+            current_risk_score: 20, current_risk_level: "Low", risk_owner_id: f.author })),
+        };
+        const before = await state(monitor);
+        const receipt = await humanRpc(`public.create_risk_treatment('${parent}',${literal(JSON.stringify(option))}::jsonb,false)`);
+        const after = await state(monitor);
+        const generated = assertOriginTreatmentTransition(receipt, option, parent, before, after);
+        for (const id of generated) {
+          assert.deepEqual(json(await monitor.query(`select public.get_risk_secondary_origin_internal(r)
+            from public.risks r where id='${id}' and organization_id='${f.org}'`)), {
+            valid: true, derived: true, parent_id: parent, scenario_id: receipt.scenario_id,
+          });
+        }
+        assert.deepEqual(await state(monitor), after);
+        return { receipt, generated };
+      };
+      const ancestor = await treatment(grandparent, [`${label} parent`], `${label}-grand`);
+      const { receipt, generated } = await treatment(ancestor.generated[0],
+        sibling ? [`${label} child`, `${label} sibling`] : [`${label} child`], `${label}-parent`);
       const fixture = {
-        criteria: randomUUID(),
-        grandparent: ordered[0],
-        parent: ordered[1],
-        child: ordered[2],
-        sibling: sibling ? randomUUID() : null,
-        grandScenario: randomUUID(),
-        parentScenario: randomUUID(),
+        criteria: criterion.criteria_id,
+        grandparent,
+        parent: ancestor.generated[0],
+        child: generated[0],
+        sibling: sibling ? generated[1] : null,
+        grandScenario: ancestor.receipt.scenario_id,
+        parentScenario: receipt.scenario_id,
         evidence: oldEvidenceId ?? randomUUID(),
         siblingEvidence: sibling ? randomUUID() : null,
         parentView: randomUUID(),
         grandView: randomUUID(),
         wrongOrgView: randomUUID(),
       };
-      const siblingRisk = sibling
-        ? `insert into public.risks(id,organization_id,criteria_profile_id,title,status,value_currency,created_by,
-            risk_owner_id,information_sensitivity,secondary_to_risk_id,arising_from_scenario_id)
-          values('${fixture.sibling}','${f.org}','${fixture.criteria}',${literal(`${label} sibling`)},'draft','CAD','${f.author}',
-            '${f.author}','internal','${fixture.parent}','${fixture.parentScenario}');
-          insert into public.evidence_items(id,organization_id,risk_id,source_system,evidence_type,description,
-            evidence_class,verification_status,verified_by,verified_at,verification_method,quality_grade,applicability_grade,revision)
+      const siblingEvidence = sibling
+        ? `insert into public.evidence_items(id,organization_id,risk_id,source_system,evidence_type,description,
+            evidence_class,verification_status,quality_grade,applicability_grade,revision)
           values('${fixture.siblingEvidence}','${f.org}','${fixture.sibling}','CMMS','inspection',
-            'Synthetic verified sibling evidence for overlap qualification.','INSPECTED','verified','${f.reviewer}',now(),
-            'Synthetic independent inspection fixture','high','direct','R1');`
+            'Synthetic sibling evidence for overlap qualification.','INSPECTED','unverified','high','direct','R1');`
         : "";
-      await monitor.query(`begin;
-        insert into public.risk_criteria_profiles(id,organization_id,name,version,status,
-          consequence_dimensions,likelihood_scale,thresholds,scoring_weights,decision_thresholds,
-          risk_capacity,aggregate_rules,time_factors,tolerance_statements,basis,adopted_by,adopted_at)
-        select '${fixture.criteria}',organization_id,${literal(`${label} fresh adopted criteria`)},1,'adopted',
-          consequence_dimensions,likelihood_scale,thresholds,scoring_weights,
-          '{"escalateAbove":16,"stopAbove":24}'::jsonb,risk_capacity,aggregate_rules,time_factors,
-          tolerance_statements,'Disposable visibility concurrency fixture only, not customer policy.',
-          '${f.reviewer}',now()
-        from public.risk_criteria_profiles where id='${f.criteria}';
-        insert into public.risks(id,organization_id,criteria_profile_id,title,status,value_currency,created_by,
-          risk_owner_id,information_sensitivity)
-        values('${fixture.grandparent}','${f.org}','${fixture.criteria}',${literal(`${label} grandparent`)},'draft','CAD',
-          '${f.author}','${f.author}','restricted');
-        insert into public.scenarios(id,organization_id,risk_id,key,label)
-        values('${fixture.grandScenario}','${f.org}','${fixture.grandparent}',${literal(`${label}-grand`)},
-          ${literal(`${label} canonical grandparent treatment`)});
-        insert into public.risks(id,organization_id,criteria_profile_id,title,status,value_currency,created_by,
-          risk_owner_id,information_sensitivity,secondary_to_risk_id,arising_from_scenario_id)
-        values('${fixture.parent}','${f.org}','${fixture.criteria}',${literal(`${label} parent`)},'draft','CAD',
-          '${f.author}','${f.author}','restricted','${fixture.grandparent}','${fixture.grandScenario}');
-        insert into public.scenarios(id,organization_id,risk_id,key,label)
-        values('${fixture.parentScenario}','${f.org}','${fixture.parent}',${literal(`${label}-parent`)},
-          ${literal(`${label} canonical parent treatment`)});
-        insert into public.risks(id,organization_id,criteria_profile_id,title,status,value_currency,created_by,
-          risk_owner_id,information_sensitivity,secondary_to_risk_id,arising_from_scenario_id)
-        values('${fixture.child}','${f.org}','${fixture.criteria}',${literal(`${label} child`)},'draft','CAD',
-          '${f.author}','${f.author}','internal','${fixture.parent}','${fixture.parentScenario}');
-        ${siblingRisk}
+      await monitor.query(`update public.risks set information_sensitivity='restricted'
+        where id in ('${fixture.grandparent}','${fixture.parent}');
+        ${siblingEvidence}
         insert into public.risk_stakeholder_views(
           id,organization_id,stakeholder_user_id,risk_id,stakeholder_name,rationale)
         values('${fixture.parentView}','${f.org}','${f.reviewer}','${fixture.parent}',
@@ -1011,11 +1154,73 @@ async function qualify() {
           ('${fixture.wrongOrgView}','${f.foreign_org}','${f.foreign_user}','${fixture.parent}',
           'Synthetic foreign row','Deliberately wrong-org inverse reference; no content is exposed to RPC callers.');
         insert into public.evidence_items(id,organization_id,risk_id,source_system,evidence_type,description,
-          evidence_class,verification_status,verified_by,verified_at,verification_method,quality_grade,applicability_grade,revision)
+          evidence_class,verification_status,quality_grade,applicability_grade,revision)
         values('${fixture.evidence}','${f.org}','${fixture.child}','CMMS','inspection',
-          'Synthetic verified evidence for the exact visibility child.','INSPECTED','verified','${f.reviewer}',now(),
-          'Synthetic independent inspection fixture','high','direct','R1');
-        commit; select '${fixture.child}'`);
+          'Synthetic evidence for the exact visibility child.','INSPECTED','unverified','high','direct','R1');
+        select '${fixture.child}'`);
+      const verifyInspection = async (id) => {
+        const beforeVerification = await state(monitor);
+        const originalEvidence = byId(beforeVerification, "evidence", id);
+        assert(originalEvidence);
+        assert.deepEqual({ verification_status: originalEvidence.verification_status,
+          verified_by: originalEvidence.verified_by, verified_at: originalEvidence.verified_at,
+          verification_method: originalEvidence.verification_method, verification_note: originalEvidence.verification_note },
+          { verification_status: "unverified", verified_by: null, verified_at: null,
+            verification_method: null, verification_note: null });
+        const method = "Synthetic independent inspection fixture";
+        const note = "Disposable synthetic CI inspection only; not customer engineering evidence.";
+        const verificationContext = json(await monitor.query(`select jsonb_build_object(
+          'verifiedAt',transaction_timestamp(),'actorLabel',(select coalesce(p.full_name,u.email)
+            from auth.users u join public.user_profiles p on p.id=u.id where u.id='${f.reviewer}'))`));
+        assert.deepEqual(await humanRpc(`public.verify_evidence_item('${id}',${literal(method)},'verified',${literal(note)})`, f.reviewer),
+          { evidence_id: id, verification_status: "verified", verified_by: f.reviewer });
+        assert.equal((await monitor.query("select coalesce(current_setting('app.evidence_verification_write',true),'')")).at(-1), "");
+        const afterVerification = await state(monitor);
+        assert.deepEqual(byId(afterVerification, "evidence", id), { ...originalEvidence,
+          verification_status: "verified", verified_by: f.reviewer, verified_at: verificationContext.verifiedAt,
+          verification_method: method, verification_note: note });
+        const verificationAudit = (afterVerification.audit ?? []).filter((row) =>
+          !(beforeVerification.audit ?? []).some((old) => old.id === row.id));
+        assert.equal(verificationAudit.length, 1);
+        assert.deepEqual({ organization_id: verificationAudit[0].organization_id,
+          entity_type: verificationAudit[0].entity_type, actor: verificationAudit[0].actor,
+          event_time: verificationAudit[0].event_time, event_data: verificationAudit[0].event_data,
+          previous_state: verificationAudit[0].previous_state, new_state: verificationAudit[0].new_state },
+          { organization_id: f.org, entity_type: "evidence_verification", actor: "reliability_engineer",
+            event_time: verificationContext.verifiedAt,
+            event_data: { evidence_id: id, outcome: "verified", method, evidence_class: "INSPECTED",
+              case_id: null, risk_id: originalEvidence.risk_id }, previous_state: null, new_state: null });
+        const verificationSecurity = (afterVerification.securityEvents ?? []).filter((row) =>
+          !(beforeVerification.securityEvents ?? []).some((old) => old.id === row.id));
+        assert.equal(verificationSecurity.length, 1);
+        assert.deepEqual({ organization_id: verificationSecurity[0].organization_id,
+          actor_id: verificationSecurity[0].actor_id, actor_label: verificationSecurity[0].actor_label,
+          event_type: verificationSecurity[0].event_type, severity: verificationSecurity[0].severity,
+          detail: verificationSecurity[0].detail },
+          { organization_id: f.org, actor_id: f.reviewer, actor_label: verificationContext.actorLabel,
+            event_type: "admin_action", severity: "notice",
+            detail: `Evidence ${id} verified (INSPECTED) by role reliability_engineer, method: ${method}.` });
+        const normalized = copy(afterVerification);
+        restoreRow(normalized, beforeVerification, "evidence", id);
+        normalized.audit = normalized.audit.filter((row) => row.id !== verificationAudit[0].id);
+        if (normalized.audit.length === 0) normalized.audit = null;
+        normalized.securityEvents = normalized.securityEvents.filter((row) => row.id !== verificationSecurity[0].id);
+        if (normalized.securityEvents.length === 0) normalized.securityEvents = null;
+        assert.deepEqual(normalized, beforeVerification);
+      };
+      await verifyInspection(fixture.evidence);
+      if (fixture.siblingEvidence !== null) await verifyInspection(fixture.siblingEvidence);
+      const beforeRead = await state(monitor);
+      assert.deepEqual(json(await monitor.query(`set local role authenticated;
+        select set_config('request.jwt.claim.sub','${f.reviewer}',true);
+        select jsonb_build_object('actorId',auth.uid(),'org',public.app_current_org(),
+          'child',public.can_read_risk('${fixture.child}'),
+          'sibling',${fixture.sibling === null ? "null" : `public.can_read_risk('${fixture.sibling}')`}); reset role`)),
+        { actorId: f.reviewer, org: f.org, child: true, sibling: sibling ? true : null });
+      assert.deepEqual(await state(monitor), beforeRead);
+      await monitor.query("commit");
+      assert.deepEqual(await callerContext(), originalContext);
+      assert.deepEqual(await state(monitor), beforeRead);
       return fixture;
     }
     const noWriter = {
@@ -1304,6 +1509,12 @@ async function qualify() {
           `select id from public.scenarios where id='${x.parentScenario}' for update`,
         operation: "review",
       },
+      {
+        label: "U18_WRITER_WINS_MAX_ANCESTRY",
+        resource: (x) => `select id from public.risks
+          where id='${[x.grandparent, x.parent, x.child].sort().at(-1)}' for update`,
+        operation: "submit",
+      },
     ]) {
       markPhase(writerCase.label);
       const fixture = await visibilityFixture(writerCase.label);
@@ -1312,7 +1523,16 @@ async function qualify() {
           ? await submitReceipt(fixture.child, fixture.evidence)
           : null;
       const before = await state();
-      await barrier.query(`begin; ${writerCase.resource(fixture)}`);
+      const expectedHeldId =
+        writerCase.label === "U18_WRITER_WINS_MAX_ANCESTRY"
+          ? [fixture.grandparent, fixture.parent, fixture.child].sort().at(-1)
+          : writerCase.label === "U18_WRITER_WINS_TARGET" ? fixture.child
+            : writerCase.label === "U18_WRITER_WINS_ANCESTOR" ? fixture.parent
+              : writerCase.label === "U18_WRITER_WINS_VIEW" ? fixture.parentView
+                : fixture.parentScenario;
+      const heldRows = await barrier.query(`reset role;
+        begin; select current_user; ${writerCase.resource(fixture)}`);
+      assert.deepEqual(heldRows, ["postgres", expectedHeldId]);
       const writerWinsStarted = Date.now();
       const refused = json(
         await actor.query(
@@ -1336,14 +1556,25 @@ async function qualify() {
       assert.deepEqual(actorStateInsideRefusal, before);
       assert.deepEqual(await state(), before);
       // U18_PARTIAL_LOCK_RELEASE
-      assert.equal(
-        (
-          await changer.query(`begin;
-            select id from public.risks where id='${fixture.grandparent}' for update nowait;
-            commit; select 'released'`)
-        ).at(-1),
-        "released",
-      );
+      const orderedPath = [fixture.grandparent, fixture.parent, fixture.child].sort();
+      const partialProbe = orderedPath[0];
+      const contendedRisk = orderedPath.at(-1);
+      if (writerCase.label === "U18_WRITER_WINS_MAX_ANCESTRY") assert(partialProbe < contendedRisk);
+      // Original target/ancestor cases still prove refusal and whole-state
+      // preservation; only max ancestry and inverse view/scenario cases claim
+      // a definitely earlier-acquired path row was released.
+      if (writerCase.label === "U18_WRITER_WINS_MAX_ANCESTRY"
+        || writerCase.label === "U18_WRITER_WINS_VIEW"
+        || writerCase.label === "U18_WRITER_WINS_SCENARIO") {
+        // The disposable owner must return the exact locked row. Merely
+        // reaching COMMIT could conceal an authenticated RLS zero-row scan.
+        const releasedRows = await changer.query(`reset role;
+            begin;
+            select current_user;
+            select id from public.risks where id='${partialProbe}' for update nowait;
+            commit; select 'released'`);
+        assert.deepEqual(releasedRows, ["postgres", partialProbe, "released"]);
+      }
       await actor.query("rollback");
       await barrier.query("rollback");
       assert.deepEqual(await state(), before);
@@ -2117,7 +2348,7 @@ async function qualify() {
         assert(destination);
         assert.equal(destination.organization_id, f.org);
         assert.equal(destination.status, "adopted");
-        assert.deepEqual(destination.decision_thresholds, { escalateAbove: 16, stopAbove: 24 });
+        assert.deepEqual(destination.decision_thresholds, visibilityDecisionThresholds);
       }
       await barrier.query("begin; lock table public.audit_events in share mode");
       const replacing = actor.query(replaceSQL(fixture, info));
@@ -2465,7 +2696,7 @@ async function qualify() {
         lossCases: { best: f.input.best_case_loss, expected: f.input.expected_case_loss,
           worst: f.input.worst_case_loss, currency: f.input.currency },
         sensitivityInputs: f.input.sensitivity, sensitivityResults: successor.sensitivity_results,
-        thresholdProfileId: fixture.criteria, decisionThresholds: { escalateAbove: 16, stopAbove: 24 },
+        thresholdProfileId: fixture.criteria, decisionThresholds: visibilityDecisionThresholds,
         reassessmentTriggers: f.input.reassessment_triggers, reviewDueAt: successor.review_due_at,
         valueOfInformation: { action: f.input.voi_action, informationCost: 10000,
           decisionCostIfWrong: 250000, uncertaintyReduction: 0.5, probabilityDecisionChanges: 0.3,

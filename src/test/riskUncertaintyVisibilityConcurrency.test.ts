@@ -76,7 +76,12 @@ describe("U18 native visibility-context concurrency harness", () => {
     expect(writer).toContain(
       "assert.deepEqual(actorStateInsideRefusal, before)",
     );
-    expect(writer).toContain("await changer.query(`begin;");
+    expect(writer).toContain(
+      "const releasedRows = await changer.query(`reset role;",
+    );
+    expect(writer).toContain(
+      'assert.deepEqual(releasedRows, ["postgres", partialProbe, "released"])',
+    );
     expect(writer).toContain("for update nowait");
     expect(writer.indexOf("for update nowait")).toBeLessThan(
       writer.indexOf('await actor.query("rollback")'),

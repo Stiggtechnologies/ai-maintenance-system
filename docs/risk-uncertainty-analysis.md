@@ -2,6 +2,44 @@
 
 **2026-10-06 — PARTIAL, CURRENT-MAIN DRAFT COMPOSITION; NOT RELEASE QUALIFICATION.**
 
+**2026-10-10 — receipt-backed privacy checkpoint failed native preflight; canonical verification repair and concurrency ancestry require fresh execution.**
+Published `c9c8288d7573a2d4e7abd0c133cbcb40c9ed3aed`, core run
+`38026828177`, is terminal failure. Database job `114139335595` rejected the
+privacy fixture's direct verified-evidence insert through the existing
+`enforce_evidence_verification_provenance` guard. Later uncertainty native,
+HTTP and concurrency execution did not qualify this revision. All seven
+supporting workflows passed. Browser job `114139335730` passed with **17 passes
+and one flaky existing public-journey scenario**, not the U18 scenario; a retry
+pass does not establish stability. Earlier receipts below remain exact-head
+historical checkpoints only.
+
+The bounded follow-on repair inserts explicitly unverified synthetic inspection
+records, then invokes authenticated `verify_evidence_item` as the named human
+reviewer. The exact receipt, whole evidence-row update, restored verification
+marker, one verification audit and one security event are checked against the
+canonical writer. Only those bound changes may be normalized from the complete
+sixteen-collection two-tenant comparison. Neither a forged marker nor a blank-JWT
+service bypass is used, and the reviewed seed remains byte-identical.
+
+The existing multi-session visibility fixtures now obtain both ancestry edges
+from actual authenticated treatment writers and immutable receipts. Overlap
+siblings come from the same second treatment. IDs are writer-generated, not
+preassigned to force lock order. Existing target/ancestor/view/scenario races
+remain; an explicit maximum-path-ID contention case checks minimum-path-ID
+release while the refusing actor's outer transaction remains open. Owner-held
+and released locks must return the exact intended row, not an RLS zero-row
+scan. Setup checks exact post-commit role/JWT restoration and unchanged state.
+
+Two verification source regressions failed before repair, in addition to the
+seven concurrency source contracts. Local validation passes **2,292 tests in
+36 files**, application TypeScript, owned-file lint, source-test formatting,
+Node syntax and diff checks. This is source/client qualification, **not native
+PostgreSQL execution**. Fresh exact-head full-chain native/HTTP/concurrency and
+browser checks remain required. Persisted historical cleared-link upgrades,
+full source-standing integration, authentication freshness, independent release
+and production verification remain open. No production guard, migration,
+service/UI implementation or capability-register claim is changed.
+
 **2026-10-10 — published harness checkpoint passed; follow-on ancestry fixture still requires exact-head execution.**
 Published `563432db88d394816d407e6823058e97d2023eae`, core run
 `38025762475`, completed successfully. Full-chain database job `114136152649`

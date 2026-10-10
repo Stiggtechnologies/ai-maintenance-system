@@ -1410,6 +1410,11 @@ do $$ declare f record; baseline jsonb; snapshot jsonb; branch text; client text
   option jsonb; origin_before jsonb; origin_after jsonb; normalized_origin_state jsonb;
   origin_receipt_ids text[]; origin_title text; origin_event text; origin_score numeric;
   origin_row public.risks%rowtype; projected_origin public.risks%rowtype; expected_origin jsonb;
+  verification_before jsonb; verification_after jsonb; normalized_verification_state jsonb;
+  verification_evidence_before jsonb; verification_audit_ids text[]; verification_security_ids text[];
+  verification_method text:='Synthetic privacy inspection fixture';
+  verification_note text:='Disposable synthetic CI inspection only; not customer engineering evidence.';
+  verification_actor_label text;
   grand_view uuid:=gen_random_uuid(); parent_view uuid:=gen_random_uuid();
   evidence uuid:=gen_random_uuid(); packet uuid; receipt jsonb; packet_digest text;
   qualified boolean:=false; refused boolean; detail text;
@@ -1580,10 +1585,51 @@ begin
       else child:=origin_child; child_scenario:=origin_scenario; end if;
     end loop;
     insert into public.evidence_items(id,organization_id,risk_id,source_system,evidence_type,description,
-      evidence_class,verification_status,verified_by,verified_at,verification_method,quality_grade,applicability_grade,revision)
+      evidence_class,verification_status,quality_grade,applicability_grade,revision)
     values(evidence,f.org,child,'CMMS','inspection','Synthetic privacy child inspection, not engineering evidence.',
-      'INSPECTED','verified',f.reviewer,now(),'Synthetic privacy inspection fixture','high','direct','R2');
+      'INSPECTED','unverified','high','direct','R2');
+    verification_before:=pg_temp.u18_state();
+    select to_jsonb(e) into strict verification_evidence_before
+      from public.evidence_items e where e.id=evidence and e.organization_id=f.org;
+    select coalesce(p.full_name,u.email) into strict verification_actor_label
+      from auth.users u join public.user_profiles p on p.id=u.id where u.id=f.reviewer;
     perform set_config('request.jwt.claim.sub',f.reviewer::text,true);
+    execute 'set local role authenticated';
+    receipt:=public.verify_evidence_item(evidence,verification_method,'verified',verification_note);
+    execute 'reset role';
+    if receipt is distinct from jsonb_build_object('evidence_id',evidence,
+        'verification_status','verified','verified_by',f.reviewer)
+      or coalesce(current_setting('app.evidence_verification_write',true),'')<>''
+      or (select to_jsonb(e) from public.evidence_items e where e.id=evidence and e.organization_id=f.org)
+        is distinct from verification_evidence_before||jsonb_build_object(
+          'verification_status','verified','verified_by',f.reviewer,'verified_at',now(),
+          'verification_method',verification_method,'verification_note',verification_note) then
+      raise exception 'actual human evidence verification lost its exact receipt, row or marker restoration'; end if;
+    verification_after:=pg_temp.u18_state();
+    select array_agg(a.id::text order by a.id) into verification_audit_ids
+      from public.audit_events a where a.organization_id=f.org and a.entity_type='evidence_verification'
+        and a.actor='reliability_engineer' and a.previous_state is null and a.new_state is null
+        and a.event_time=now() and a.event_data=jsonb_build_object('evidence_id',evidence,
+          'outcome','verified','method',verification_method,'evidence_class','INSPECTED','case_id',null,'risk_id',child)
+        and not exists(select 1 from jsonb_array_elements(verification_before->'audit') x where x->>'id'=a.id::text);
+    select array_agg(s.id::text order by s.id) into verification_security_ids
+      from public.security_events s where s.organization_id=f.org and s.actor_id=f.reviewer
+        and s.actor_label=verification_actor_label and s.event_type='admin_action' and s.severity='notice'
+        and s.detail=format('Evidence %s verified (INSPECTED) by role reliability_engineer, method: %s.',evidence,verification_method)
+        and not exists(select 1 from jsonb_array_elements(verification_before->'securityEvents') x where x->>'id'=s.id::text);
+    if cardinality(verification_audit_ids) is distinct from 1 or cardinality(verification_security_ids) is distinct from 1 then
+      raise exception 'actual verification lacks its exact independent-human audit/security events'; end if;
+    normalized_verification_state:=jsonb_set(verification_after,'{evidence}',(
+      select jsonb_agg(case when x->>'id'=evidence::text then verification_evidence_before else x end order by x->>'id')
+        from jsonb_array_elements(verification_after->'evidence') x));
+    normalized_verification_state:=jsonb_set(normalized_verification_state,'{audit}',coalesce((
+      select jsonb_agg(x order by x->>'id') from jsonb_array_elements(verification_after->'audit') x
+        where not(x->>'id'=any(verification_audit_ids))),'null'::jsonb));
+    normalized_verification_state:=jsonb_set(normalized_verification_state,'{securityEvents}',coalesce((
+      select jsonb_agg(x order by x->>'id') from jsonb_array_elements(verification_after->'securityEvents') x
+        where not(x->>'id'=any(verification_security_ids))),'null'::jsonb));
+    if normalized_verification_state is distinct from verification_before then
+      raise exception 'actual verification changed artifacts outside its exact evidence/audit/security rows'; end if;
     foreach branch in array array['public','internal','confidential'] loop
       update public.risks set information_sensitivity=branch where id=grandparent;
       snapshot:=pg_temp.u18_state();
