@@ -34,3 +34,13 @@ The repository pins the same definitions in TypeScript and SQL. A zero denominat
 - Pure calculation tests validate all seven metrics, quantities, NCR age, multi-currency cost, and impossible-input refusal.
 - Service and component tests prove all 13 operations are wired to the live Risk workspace.
 - `scripts/ci-quality-management-smoke.sh` executes the complete database lifecycle on a clean Supabase stack, including self-approval refusals, hold release, NCR closure, rework cost, acceptance release, derived metrics, six-term COPQ, quality-versus-scope forecast attribution, and canonical approval records.
+
+## Quality workbench session-lifecycle prerequisite
+
+The workbench fails closed without a matching signed-in profile, organization and role. Observed actor, organization or role changes remount its local state. Reads clear prior cockpit data before reload; generation checks discard obsolete reads. A server-validated user check precedes reads and writes, with a lifetime check after that await to prevent an obsolete form from starting a request. Pending actions freeze the selected action and payload and prevent concurrent submission.
+
+An acknowledged action remains acknowledged if its subsequent read fails. Authentication denial clears protected response details and the draft; only a non-sensitive acknowledgement marker remains. Mutation failures are not automatically retried: a lost response may conceal a committed action and must be checked against canonical records before resubmission.
+
+These are UI lifecycle protections, not an atomic server actor/organization envelope, commit-time membership qualification or idempotent lost-acknowledgement recovery. Unobserved same-user membership changes remain a backend qualification requirement. Component/service tests use doubles and do not establish real-browser, HTTP/RLS or production qualification.
+
+U8.01 remains incomplete. Its full scope still requires automatic condition-to-quality candidate discovery with explicit asset/cohort/window coverage; product, service, customer, regulatory, rework/scrap, warranty and reputation facets; independent causal review; canonical identity-deduplicated, currency-separated COPQ; existing NCR correction/effectiveness and acceptance-release gates; and current standing plus permitted immutable history. The seven cockpit metrics are not substitutes for these seven impact facets.
