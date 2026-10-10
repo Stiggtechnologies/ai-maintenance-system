@@ -20,7 +20,9 @@ OPENAI_API_KEY=… XAI_API_KEY=… node scripts/eval-models.mjs
 
 ### Verified model IDs and rates (vendor pages, never a registry)
 
-Retrieved **2026-08-19**:
+OpenAI rates were reverified **2026-10-07**. The xAI benchmark rows retain
+their separately dated **2026-08-19** evidence and must not be treated as a
+current provider-price decision without revalidation.
 
 | Model           | Vendor price (USD/1M in/out)   | Source                                         |
 | --------------- | ------------------------------ | ---------------------------------------------- |
@@ -36,8 +38,11 @@ xAI's current text-model line-up on that date: `grok-4.6`, `grok-4.5`,
 `grok-4.6` (flagship). xAI's API is OpenAI-compatible at
 `https://api.x.ai/v1`.
 
-CAD conversion uses USD/CAD **1.3889** — Bank of Canada daily average for
-2026-08-18 (https://www.bankofcanada.ca/valet/observations/FXUSDCAD/json).
-The same rates are seeded in `private.llm_prices`
-(`supabase/migrations/20260916000000_llm_cost_guardrails.sql`); if you
-re-verify prices, update both places and the retrieval dates.
+Current OpenAI CAD conversion uses USD/CAD **1.4226** — the latest available
+Bank of Canada business-day observation at retrieval, for **2026-10-06**
+(https://www.bankofcanada.ca/valet/observations/FXUSDCAD/json). The xAI rows
+still use the historical 1.3889 observation from 2026-08-18. The matching
+current OpenAI rates are applied by
+`supabase/migrations/20270103040002_llm_price_refresh_20261007.sql`; if prices
+or FX are reverified, update the database snapshot, this harness, and the
+retrieval dates together.

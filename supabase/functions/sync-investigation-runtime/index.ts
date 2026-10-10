@@ -316,13 +316,19 @@ async function reserveQuota(
   organizationId: string,
   model: string,
   estimatedTokens: number,
+  costObject?: Pick<EntityContext, "type" | "id">,
 ): Promise<number> {
-  const { data, error } = await adminClient().rpc("check_llm_quota", {
-    p_organization_id: organizationId,
-    p_fn: "sync-investigation-runtime",
-    p_model: model,
-    p_estimated_tokens: Math.max(0, Math.ceil(estimatedTokens)),
-  });
+  const { data, error } = await adminClient().rpc(
+    "check_llm_commercial_quota",
+    {
+      p_organization_id: organizationId,
+      p_fn: "sync-investigation-runtime",
+      p_model: model,
+      p_estimated_tokens: Math.max(0, Math.ceil(estimatedTokens)),
+      p_cost_object_type: costObject?.type ?? null,
+      p_cost_object_id: costObject?.id ?? null,
+    },
+  );
   if (error) throw new Error("quota_check_unavailable");
   const verdict = (data ?? {}) as QuotaVerdict;
   if (verdict.allowed !== true) {
@@ -495,6 +501,7 @@ function sourceFromKpi(
 
 async function extractPdfOrImage(
   auth: AuthContext,
+  workspaceId: string,
   fileName: string,
   mimeType: string,
   blob: Blob,
@@ -506,7 +513,10 @@ async function extractPdfOrImage(
   }
   const dataUrl = `data:${mimeType};base64,${btoa(binary)}`;
   const model = MODEL_CHAT;
-  const reservationId = await reserveQuota(auth.organizationId, model, 5_000);
+  const reservationId = await reserveQuota(auth.organizationId, model, 5_000, {
+    type: "sync_conversation",
+    id: workspaceId,
+  });
   try {
     const content =
       mimeType === "application/pdf"
@@ -709,6 +719,7 @@ async function extractAttachment(
     } else if (mime === "application/pdf" || mime.startsWith("image/")) {
       const extracted = await extractPdfOrImage(
         auth,
+        workspaceId,
         row.file_name,
         mime,
         data,
@@ -1154,10 +1165,17 @@ async function runFocusedSpecialist(input: {
   question: string;
   contextText: string;
   kbPrompt: string;
+  costObject: Pick<EntityContext, "type" | "id">;
 }): Promise<{ text: string; model: string; durationMs: number }> {
-  const { auth, specialist, question, contextText, kbPrompt } = input;
+  const { auth, specialist, question, contextText, kbPrompt, costObject } =
+    input;
   const model = MODEL_CHAT;
-  const reservationId = await reserveQuota(auth.organizationId, model, 2_500);
+  const reservationId = await reserveQuota(
+    auth.organizationId,
+    model,
+    2_500,
+    costObject,
+  );
   const started = Date.now();
   try {
     const base = buildReliabilityEngineerPrompt({
@@ -1330,6 +1348,10 @@ Deno.serve(async (req: Request) => {
     let finalReservationId: number | null = null;
     try {
       workspaceId = await resolveWorkspace(auth, body);
+      const costObject: Pick<EntityContext, "type" | "id"> = body.context
+        ?.entity?.id
+        ? { type: body.context.entity.type, id: body.context.entity.id }
+        : { type: "sync_conversation", id: workspaceId };
       if (!send({ type: "turn.started", turnId, conversationId: workspaceId }))
         return;
       await persistMessage({
@@ -1397,6 +1419,7 @@ Deno.serve(async (req: Request) => {
             question,
             contextText,
             kbPrompt: kb.promptContext,
+            costObject,
           });
           specialistOutputs.push({ specialist, text: result.text });
           send({
@@ -1476,6 +1499,7 @@ Deno.serve(async (req: Request) => {
         auth.organizationId,
         model,
         responsePolicy.maxTokens + Math.ceil(userContent.length / 4) + 4_000,
+        costObject,
       );
       const modelStarted = Date.now();
       let sequence = 0;

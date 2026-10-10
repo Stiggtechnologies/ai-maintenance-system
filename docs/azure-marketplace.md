@@ -26,7 +26,7 @@ The controlled sequence is:
 
 | Gate | Deliverable                                                                                                 | Current evidence                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
 | ---- | ----------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A1   | Azure-hosted web foundation, managed identity, registry, Key Vault, logs, health proof                      | Implemented in `infra/azure`; deployment blocked until the Azure OIDC identity and environment secrets are configured                                                                                                                                                                                                                                                                                                                                                       |
+| A1   | Azure-hosted web foundation, managed identity, registry, Key Vault, logs, health proof                      | Implemented in `infra/azure`; the dedicated client-secret-free Entra deployment application has one immutable, protected-environment GitHub federation and six required values are stored in the protected GitHub environment. Deployment remains blocked because the Azure directory has no subscription, no resource group or scoped roles exist, and `AZURE_SUBSCRIPTION_ID` plus `ENRICH_SHARED_SECRET` remain absent                                                   |
 | A2   | Azure-hosted compute/data plane whose consumption grows with customer use                                   | Azure Intelligence plane implemented in code: Container Apps + Azure OpenAI with managed identity, Key Vault references, strict Azure-only inference and controlled canonical-cron cutover. It remains unproven until the protected production workflow deploys it and usage evidence shows Azure is the fastest-scaling resource; existing Supabase/Vercel production remains authoritative                                                                                |
 | A3   | Microsoft Entra SSO that establishes a verified application session                                         | Supported Supabase OAuth/PKCE path implemented: hosted Auth owns the provider exchange, the callback verifies the issued user against the Auth server and requires an Azure-backed identity, and identity cannot assign a tenant or activate commerce. Production remains unproven until the multi-tenant Entra app credentials are configured and a real buyer-tenant sign-in is witnessed. The legacy hand-decoded-token path remains blocked.                            |
 | A4   | Backend-only SaaS Fulfillment APIs v2 resolve and activation flow                                           | Governed v2 resolve, explicit activation and authoritative status refresh are deployed. Purchase tokens are scrubbed from the browser URL and never persisted; activation requires a server-verified Microsoft tenant plus an existing SyncAI organization administrator and writes the canonical billing/audit records. The legacy function remains blocked. Publisher credentials are not configured and no real purchase has been witnessed end to end.                  |
@@ -94,6 +94,76 @@ customer traffic.
 Create a GitHub environment named `azure-production`, apply the organization's
 deployment protection rules, and add these environment secrets:
 
+### Verified bootstrap state — 2026-10-06
+
+The `azure-production` environment exists and is restricted to protected
+branches. Administrators cannot bypass its protection rule. On 2026-10-06 a
+dedicated single-tenant Entra deployment application named `SyncAI GitHub Azure
+Production` was registered without a client secret. Its GitHub Actions
+federated credential named `github-azure-production` was saved and observed in
+the Azure portal. The application has exactly one federated credential, zero
+client secrets, and zero certificates. Its subject is scoped to the protected
+`azure-production` environment and the immutable GitHub organization/repository
+IDs:
+`repo:Stiggtechnologies@212053018/ai-maintenance-system@1025737263:environment:azure-production`.
+
+The GitHub environment now contains exactly six required names:
+`AZURE_CLIENT_ID`, `AZURE_TENANT_ID`,
+`AZURE_DEPLOYMENT_PRINCIPAL_OBJECT_ID`, `VITE_SUPABASE_URL`,
+`VITE_SUPABASE_PUBLISHABLE_KEY`, and `SUPABASE_SERVICE_ROLE_KEY`. Values are not
+exposed by the inventory. The public URL and publishable key were sourced from
+the production `app.syncai.ca` deployment, and the service-role value was
+transferred directly from the active Supabase project without printing or
+storing it in the repository. The remaining two required names are absent:
+`AZURE_SUBSCRIPTION_ID` and `ENRICH_SHARED_SECRET`.
+
+The active Supabase project contains an `ENRICH_SHARED_SECRET`, but its value is
+write-only through the available administration boundary and the database
+correctly refuses direct reads from `private.enrichment_config`. Do not create a
+placeholder. Either the existing value must be supplied through an authorized
+secure handoff, or a separately approved rotation must update the Supabase
+function secret, canonical private cron configuration, and protected GitHub
+environment together.
+
+The Azure portal subscription inventory for the publisher directory reports
+**zero subscriptions**. Therefore no production resource group or scoped Azure
+role assignment can be created, and the production workflow is not
+dispatch-ready. Creating or purchasing a subscription is a separate financial
+decision and is not implied by the identity bootstrap. Repository-level
+inventory still contains only `SUPABASE_ACCESS_TOKEN` and `XAI_API_KEY`; neither
+supplies the deployment, runtime, Entra SSO, or Marketplace publisher contract.
+The non-secret `ENTRA_SSO_TENANT=common` repository variable is present.
+
+### Cost-controlled subscription decision
+
+Do not default directly to a pay-as-you-go production subscription. Use this
+order:
+
+1. Inspect any Azure-credit entitlement already attached to the Microsoft AI
+   Cloud Partner Program account.
+2. Apply to Microsoft for Startups Founders Hub if Stigg Technologies is
+   eligible. Microsoft currently describes it as no-cost to join with staged
+   access to as much as US$150,000 in Azure credits; neither eligibility nor an
+   award is assumed.
+3. If an immediate paid partner route is required, compare the current Partner
+   Launch Benefits package (US$350/year with US$700 in bulk Azure credits) with
+   the forecast first-year Azure burn before purchase.
+4. Use pay-as-you-go only when the credit routes are unavailable or delay is
+   more expensive than the cash outlay, and obtain explicit financial approval
+   before creating the subscription.
+
+The currently signed-in Partner Center user cannot inspect or redeem Azure
+benefits because the account does not hold the `Microsoft AI Cloud Partner
+Program Partner Admin` role. Granting that role changes cloud-account
+permissions and requires separate action-time approval. No package,
+subscription, or benefit has been purchased or activated.
+
+This is a name-and-policy inventory only; it does not expose or prove any secret
+value. Do not dispatch the Azure production workflow until all eight environment
+secret names below are present, the federation is saved, a real subscription
+and resource group are selected, and the Azure identity/resource-scope witness
+is attached.
+
 - `AZURE_CLIENT_ID` — client ID of the Microsoft Entra application or
   user-assigned identity trusted through GitHub OIDC.
 - `AZURE_TENANT_ID` — SyncAI publisher directory ID.
@@ -113,6 +183,28 @@ deployment protection rules, and add these environment secrets:
 - `ENRICH_SHARED_SECRET` — existing governed caller secret. Store the same
   value in the Supabase project and the `azure-production` environment; the
   release places it in Key Vault and uses it to prove the Azure caller boundary.
+
+Bootstrap the protected environment in this order:
+
+1. Obtain action-time approval to create paid Azure production resources and to
+   change the canonical enrichment route after deployment proofs pass.
+2. Pre-create or explicitly approve the `rg-syncai-production` resource group
+   in `canadacentral`, so the deployment identity can be scoped to the resource
+   group rather than granted open-ended subscription authority.
+3. Create the dedicated GitHub OIDC Entra identity and federated credential for
+   the immutable subject
+   `repo:Stiggtechnologies@<organization-id>/ai-maintenance-system@<repository-id>:environment:azure-production`.
+4. Grant only the resource deployment and scoped role-assignment permissions
+   required by the templates, recording the client, tenant, subscription and
+   principal object IDs without placing credentials in source control.
+5. Populate the eight environment secrets through the GitHub protected-secret
+   interface. Never echo, paste into chat, log or commit the service-role key or
+   shared caller secret.
+6. Re-run a names-only inventory and confirm the workflow's fail-closed
+   prerequisite list exactly matches the environment.
+7. Merge the reviewed deployment machinery to protected `main`, then request a
+   separate action-time confirmation before dispatching the paid production
+   workflow.
 
 Grant the deployment principal the least roles needed at the target resource
 group: resource deployment permission and permission to create the scoped role
@@ -317,6 +409,9 @@ evidence until the incident review authorizes their removal.
 - [Microsoft Entra and transactable SaaS](https://learn.microsoft.com/en-us/partner-center/marketplace-offers/azure-ad-saas)
 - [Co-sell requirements](https://learn.microsoft.com/en-us/partner-center/referrals/co-sell-requirements)
 - [GitHub Actions OIDC to Azure](https://learn.microsoft.com/en-us/azure/developer/github/connect-from-azure-openid-connect)
+- [Microsoft partner benefit packages and current Azure-credit amounts](https://partner.microsoft.com/en-US/partnership/partner-benefits-packages-benefits)
+- [Use Azure credits in Partner Center](https://learn.microsoft.com/en-us/partner-center/benefits/mpn-benefits-azure-cloud)
+- [Microsoft partner-program comparison and Founders Hub](https://partner.microsoft.com/en-us/partnership/compare-programs/)
 
 These URLs describe current external rules; Partner Center validation remains
 the authority at submission time.

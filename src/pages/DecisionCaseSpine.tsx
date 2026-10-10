@@ -5,7 +5,7 @@
  * verification-owner attribution, a case class, and a local proof summary.
  * P3 shows short Help on every stage of this spine.
  */
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { ChevronDown, ChevronRight, Shield, TriangleAlert } from "lucide-react";
 import { useOptionalAuth } from "../components/AuthProvider";
@@ -65,6 +65,11 @@ import {
   savePersistedDecisionCase,
 } from "../services/decisionCaseService";
 
+import {
+  stageEvaluationAssistantHandoff,
+  evaluationAssistantDestination,
+} from "../lib/onboarding/evaluation-assistant-handoff";
+
 const emptyPeople = (): CasePeople => ({
   decisionOwner: "",
   recommendationAuthor: "SyncAI",
@@ -88,6 +93,7 @@ export function DecisionCaseSpine({
   initiallySaved = false,
   blockWorkspacePersist = false,
   openingNotice = null,
+  onCaseChange,
 }: {
   question: string;
   intent: InvertedIntentId;
@@ -95,12 +101,17 @@ export function DecisionCaseSpine({
   initiallySaved?: boolean;
   blockWorkspacePersist?: boolean;
   openingNotice?: string | null;
+  onCaseChange?: (decisionCase: DecisionCase, saved: boolean) => void;
 }) {
   const auth = useOptionalAuth();
   const [decisionCase, setDecisionCase] = useState(
     () => initialCase ?? buildSpineDecisionCase({ question, intent }),
   );
   const [saved, setSaved] = useState(initiallySaved);
+  const revision = useRef(0);
+  useEffect(() => {
+    onCaseChange?.(decisionCase, saved);
+  }, [decisionCase, saved, onCaseChange]);
   const [saveNotice, setSaveNotice] = useState(
     openingNotice
       ? openingNotice
@@ -201,19 +212,28 @@ export function DecisionCaseSpine({
   );
 
   const commit = (next: DecisionCase) => {
+    const currentRevision = ++revision.current;
     setDecisionCase(next);
+    setSaved(false);
     if (
       blockWorkspacePersist ||
       isExamplePrompt(next.objective) ||
       !isPersistedDecisionCase(next.id)
-    ) {
+    )
       return;
-    }
-    void savePersistedDecisionCase(next).catch(() => {
-      setSaveNotice(
-        "Updates stayed in this session. Workspace save did not complete.",
-      );
-    });
+    void savePersistedDecisionCase(next)
+      .then(() => {
+        if (revision.current !== currentRevision) return;
+        setSaved(true);
+        setSaveNotice("Current revision saved on the evaluation workspace.");
+      })
+      .catch(() => {
+        if (revision.current !== currentRevision) return;
+        setSaved(false);
+        setSaveNotice(
+          "Updates stayed in this session. Workspace save did not complete.",
+        );
+      });
   };
 
   const persistIfPossible = async () => {
@@ -224,19 +244,28 @@ export function DecisionCaseSpine({
       return;
     }
     if (!auth?.user) {
-      setSaved(true);
+      setSaved(false);
       setSaveNotice(
         "Assessment kept in this session. Sign in to create the evaluation workspace — not before Ask.",
       );
       return;
     }
+    const submittedRevision = revision.current;
     setSaving(true);
     try {
       const persisted = isPersistedDecisionCase(decisionCase.id)
         ? decisionCase
         : await createPersistedDecisionCase(decisionCase, {});
-      if (isPersistedDecisionCase(persisted.id)) {
-        await savePersistedDecisionCase(persisted);
+      if (!isPersistedDecisionCase(persisted.id))
+        throw new Error("Workspace save did not produce a persisted case");
+      await savePersistedDecisionCase(persisted);
+      if (revision.current !== submittedRevision) {
+        setDecisionCase((current) => ({ ...current, id: persisted.id }));
+        setSaved(false);
+        setSaveNotice(
+          "An earlier revision was saved. Your current edits still need saving.",
+        );
+        return;
       }
       setDecisionCase(persisted);
       setSaved(true);
@@ -244,7 +273,7 @@ export function DecisionCaseSpine({
         "Decision Case saved on your evaluation workspace. Reload the audit trail on this page.",
       );
     } catch {
-      setSaved(true);
+      setSaved(false);
       setSaveNotice(
         "Case is provisional in this browser. Workspace save did not complete — the loop stays available.",
       );
@@ -316,6 +345,36 @@ export function DecisionCaseSpine({
                 : "Keep provisional and continue"}
         </button>
       </div>
+      <p
+        className="text-xs text-slate-400"
+        data-testid="spine-evaluation-boundary"
+      >
+        Guided evaluation: the recommendations on this page are deterministic
+        examples, not a live AI engineering analysis. Saving an evaluation does
+        not create a governed decision or approval.
+      </p>
+      <button
+        type="button"
+        data-testid="spine-live-assistant"
+        className="text-sm text-teal-300"
+        onClick={() => {
+          try {
+            window.location.assign(
+              stageEvaluationAssistantHandoff(
+                decisionCase,
+                window.location.search,
+                window.sessionStorage,
+              ),
+            );
+          } catch {
+            setSaveNotice(
+              "The assistant handoff did not complete. Your evaluation remains here; export the proof summary or retry.",
+            );
+          }
+        }}
+      >
+        Continue this case with the live assistant
+      </button>
       <p className="text-xs text-slate-400" data-testid="spine-save-notice">
         {saveNotice}
       </p>
@@ -1174,8 +1233,8 @@ export function DecisionCaseSpine({
       <div className="flex items-start gap-2 text-[11px] text-slate-500">
         <Shield className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal-300" />
         <span>
-          {INVERTED_OPENING_AUTHORITY} This spine does not claim seamless
-          self-guided onboarding is live.
+          {INVERTED_OPENING_AUTHORITY} Review the evidence and approval
+          requirements before relying on this evaluation.
         </span>
       </div>
       {!auth?.user ? (
@@ -1184,7 +1243,7 @@ export function DecisionCaseSpine({
           Optional:{" "}
           <Link
             className="text-teal-400"
-            to={`/?view=signup&invertedAsk=${encodeURIComponent(question)}&intent=${intent}`}
+            to={`/?view=signup&returnTo=${encodeURIComponent(evaluationAssistantDestination(decisionCase, window.location.search))}`}
             onClick={() => {
               if (
                 blockWorkspacePersist ||

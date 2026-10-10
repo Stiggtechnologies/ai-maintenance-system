@@ -10,10 +10,26 @@ insert into public.organizations(id,name,industry) values
   ('81111111-1111-4111-8111-111111111111','Marketplace Smoke Tenant','technology'),
   ('82222222-2222-4222-8222-222222222222','Marketplace Foreign Tenant','technology');
 
+insert into auth.users (
+  instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,
+  created_at,updated_at,raw_app_meta_data,raw_user_meta_data,
+  confirmation_token,recovery_token,email_change,email_change_token_new,
+  email_change_token_current,phone_change,phone_change_token,reauthentication_token
+) values (
+  '00000000-0000-0000-0000-000000000000',
+  '83333333-3333-4333-8333-333333333333','authenticated','authenticated',
+  'market-admin@syncai.invalid',extensions.crypt('MarketplaceSmoke123!',extensions.gen_salt('bf')),
+  now(),now(),now(),'{"provider":"email","providers":["email"]}','{}',
+  '','','','','','','',''
+);
+
 insert into public.user_profiles(id,organization_id,email,full_name,role) values
   ('83333333-3333-4333-8333-333333333333','81111111-1111-4111-8111-111111111111','market-admin@syncai.invalid','Marketplace Admin','admin'),
   ('84444444-4444-4444-8444-444444444444','81111111-1111-4111-8111-111111111111','market-engineer@syncai.invalid','Marketplace Engineer','reliability_engineer'),
-  ('85555555-5555-4555-8555-555555555555','82222222-2222-4222-8222-222222222222','foreign-admin@syncai.invalid','Foreign Admin','admin');
+  ('85555555-5555-4555-8555-555555555555','82222222-2222-4222-8222-222222222222','foreign-admin@syncai.invalid','Foreign Admin','admin')
+on conflict(id) do update set
+  organization_id=excluded.organization_id,email=excluded.email,
+  full_name=excluded.full_name,role=excluded.role;
 
 set local role service_role;
 
@@ -25,6 +41,7 @@ declare
   v_result jsonb;
   v_resolution_id uuid;
   v_billing_id uuid;
+  v_reservation_id bigint;
 begin
   v_resolution := public.record_marketplace_fulfillment_resolution(
     '86666666-6666-4666-8666-666666666666',
@@ -76,11 +93,105 @@ begin
     raise exception 'cross-tenant rebinding was not refused: %',v_result;
   end if;
 
+  -- This is an isolated smoke fixture, not an approved production price. The
+  -- Marketplace activation must prove that an explicit, margin-safe AI policy
+  -- exists before the canonical subscription can become active.
+  v_result := public.configure_ai_commercial_plan_policy(
+    'azure_marketplace','syncai-enterprise','enterprise','per_user',
+    'hard_stop',10,1000,10,1000,5,1000,0,1.00,0.50,
+    array['gpt-4o-mini']::text[],null,null,null,
+    'CI-only Marketplace fulfillment fixture'
+  );
+  if v_result->>'status'<>'draft'
+     or coalesce((v_result->'evaluation'->>'allowed')::boolean,false) is not true then
+    raise exception 'commercial policy fixture failed margin evaluation: %',v_result;
+  end if;
+
+  v_result := public.approve_ai_commercial_plan_policy(
+    'azure_marketplace','syncai-enterprise','enterprise',
+    '83333333-3333-4333-8333-333333333333');
+  if coalesce((v_result->>'approved')::boolean,false) is not true then
+    raise exception 'commercial policy fixture was not approved: %',v_result;
+  end if;
+
+  -- A completed call on a non-default pricing tier must be retained with its
+  -- actual usage as an unknown-price breach, then freeze later paid spend.
+  insert into public.billing_subscriptions (
+    id,organization_id,plan,status,current_period_start,current_period_end,
+    billing_source,marketplace_subscription_id,marketplace_publisher_id,
+    marketplace_offer_id,marketplace_plan_id,marketplace_quantity,
+    marketplace_status,marketplace_activated_at
+  ) values (
+    '8aaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+    '82222222-2222-4222-8222-222222222222','enterprise','active',now(),
+    now()+interval '30 days','azure_marketplace',
+    '8bbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','syncai-publisher',
+    'syncai-enterprise','enterprise',1,'Subscribed',now()
+  );
+  v_result := public.check_llm_commercial_quota(
+    '82222222-2222-4222-8222-222222222222','marketplace-pricing-mode-smoke',
+    'gpt-4o-mini',100,'decision','smoke-nonstandard-tier'
+  );
+  if v_result->>'allowed'<>'true' then
+    raise exception 'pricing-mode reservation failed: %',v_result;
+  end if;
+  v_reservation_id := (v_result->>'reservation_id')::bigint;
+  perform public.record_llm_usage(
+    '82222222-2222-4222-8222-222222222222',
+    'marketplace-pricing-mode-smoke','gpt-4o-mini-2024-07-18',
+    60,20,v_reservation_id,'fast'
+  );
+  v_result := public.check_llm_commercial_quota(
+    '82222222-2222-4222-8222-222222222222','marketplace-pricing-mode-smoke',
+    'gpt-4o-mini',100,'decision','smoke-frozen-after-pricing-mode'
+  );
+  if v_result->>'limit'<>'commercial_pricing_mode_breached' then
+    raise exception 'pricing-mode mismatch did not freeze later spend: %',v_result;
+  end if;
+
   v_result := public.record_marketplace_fulfillment_status(
     v_resolution_id,'Subscribed','83333333-3333-4333-8333-333333333333',
     'request-smoke','correlation-smoke');
   if v_result ? 'error' or v_result->>'internalStatus'<>'active' then
     raise exception 'authoritative subscribed state failed: %',v_result;
+  end if;
+
+  -- The provider may return a dated concrete deployment ID. It must resolve
+  -- to the exact approved canonical model and retain both identifiers.
+  v_result := public.check_llm_commercial_quota(
+    '81111111-1111-4111-8111-111111111111','marketplace-smoke',
+    'gpt-4o-mini',1000,'decision','smoke-approved-model'
+  );
+  if v_result->>'allowed'<>'true' then
+    raise exception 'approved model reservation failed: %',v_result;
+  end if;
+  v_reservation_id := (v_result->>'reservation_id')::bigint;
+  perform public.record_llm_usage(
+    '81111111-1111-4111-8111-111111111111','marketplace-smoke',
+    'gpt-4o-mini-2024-07-18',500,200,v_reservation_id,'default'
+  );
+
+  -- A gateway route outside the reservation's approved-model snapshot has
+  -- already incurred cost, so settlement preserves its true cost and model.
+  -- Every later call in the period then fails closed for operator review.
+  v_result := public.check_llm_commercial_quota(
+    '81111111-1111-4111-8111-111111111111','marketplace-smoke',
+    'gpt-4o-mini',1000,'decision','smoke-unapproved-model'
+  );
+  if v_result->>'allowed'<>'true' then
+    raise exception 'pre-mismatch reservation failed: %',v_result;
+  end if;
+  v_reservation_id := (v_result->>'reservation_id')::bigint;
+  perform public.record_llm_usage(
+    '81111111-1111-4111-8111-111111111111','marketplace-smoke',
+    'gpt-5.6-terra',500,200,v_reservation_id,'default'
+  );
+  v_result := public.check_llm_commercial_quota(
+    '81111111-1111-4111-8111-111111111111','marketplace-smoke',
+    'gpt-4o-mini',1000,'decision','smoke-frozen-after-mismatch'
+  );
+  if v_result->>'limit'<>'commercial_model_policy_breached' then
+    raise exception 'actual-model mismatch did not freeze later spend: %',v_result;
   end if;
 
   v_resolution := public.record_marketplace_fulfillment_resolution(
@@ -112,6 +223,45 @@ $test$;
 
 reset role;
 
+-- The runtime above deliberately executes as service_role, which must not
+-- receive direct SELECT access to the private ledger. Verify the persisted
+-- settlement evidence only after returning to the privileged CI fixture role.
+do $usage_evidence$
+begin
+  if not exists (
+    select 1 from private.llm_usage
+    where organization_id='81111111-1111-4111-8111-111111111111'
+      and fn='marketplace-smoke' and requested_model='gpt-4o-mini'
+      and model='gpt-4o-mini-2024-07-18' and priced_model='gpt-4o-mini'
+      and model_policy_status='approved' and cost_status='priced'
+      and inference_cost_cad>0
+  ) then
+    raise exception 'dated provider model was not priced and approved canonically';
+  end if;
+  if not exists (
+    select 1 from private.llm_usage
+    where organization_id='81111111-1111-4111-8111-111111111111'
+      and fn='marketplace-smoke' and requested_model='gpt-4o-mini'
+      and model='gpt-5.6-terra' and priced_model='gpt-5.6-terra'
+      and model_policy_status='unapproved_model' and cost_status='priced'
+      and inference_cost_cad>0
+  ) then
+    raise exception 'unapproved actual model was not retained as a priced policy violation';
+  end if;
+  if not exists (
+    select 1 from private.llm_usage
+    where organization_id='82222222-2222-4222-8222-222222222222'
+      and fn='marketplace-pricing-mode-smoke'
+      and model='gpt-4o-mini-2024-07-18'
+      and prompt_tokens=60 and completion_tokens=20
+      and service_tier='fast' and pricing_mode_status='nonstandard_tier'
+      and cost_status='unknown_price' and inference_cost_cad is null
+  ) then
+    raise exception 'non-default tier was not retained as an unknown-price breach';
+  end if;
+end
+$usage_evidence$;
+
 do $privileges$
 begin
   if has_function_privilege(
@@ -139,6 +289,20 @@ begin
       and marketplace_status='Subscribed' and status='active'
   ) then
     raise exception 'canonical billing record did not become active';
+  end if;
+  if not exists (
+    select 1 from private.llm_org_quotas
+    where organization_id='81111111-1111-4111-8111-111111111111'
+      and commercial_billing_source='azure_marketplace'
+      and commercial_offer_id='syncai-enterprise'
+      and commercial_plan_id='enterprise'
+      and commercial_allowance_mode='hard_stop'
+      and commercial_quantity=25
+      and included_calls_per_period=250 and max_calls_per_period=250
+      and included_tokens_per_period=25000 and max_tokens_per_period=25000
+      and max_decisions_per_period=125
+  ) then
+    raise exception 'approved AI commercial allowance was not bound to the tenant';
   end if;
   if (select count(*) from public.billing_subscriptions
       where marketplace_subscription_id='86666666-6666-4666-8666-666666666666')<>1 then

@@ -1,23 +1,39 @@
 # Salesforce AppExchange
 
+**2026-10-06 — DESIGN SCAFFOLDING, NOT A PUBLISHED OR INSTALLABLE
+APPEXCHANGE PACKAGE.** The public marketing and setup routes respond, but this
+repository contains no Salesforce DX/package source or released package
+version. The live SyncAI Supabase project does not have the license receiver
+deployed or `SF_LMA_SHARED_SECRET` configured, and the referenced database
+migration is archived rather than active. No AppExchange listing, package,
+security review, LMA event, or purchase witness has been verified.
+
 How SyncAI is structured on Salesforce AppExchange and how license
 events from the License Management App (LMA) flow into our backend.
 
 ## Offer summary
 
-- **Type:** Managed Package (AppExchange)
-- **Pricing model:** Per-seat, monthly recurring
-- **Plans:** Starter · Professional · Enterprise. Per-seat prices are
-  under commercial review and are set in the AppExchange listing at
-  publication time; no price is committed in this document.
+- **Current feasible listing surface:** A gated consulting-service visibility
+  listing is the only evidenced near-term AppExchange experiment. It still
+  requires the correct Salesforce partner status and Manage Listings access,
+  and it is a lead surface rather than a software purchase or installation.
+- **Managed-package path:** Future engineering work only. No package, released
+  version, pricing, security-review submission, or LMA connection is evidenced.
+- **Pricing:** Under commercial review; no AppExchange price is approved. Do
+  not transpose Microsoft plan names or per-user observations into Salesforce.
 
-## Activation flow
+Portal-ready, non-submittable service-listing copy and the managed-package
+release gates are controlled in
+[`marketplace/salesforce-listing-draft.json`](../marketplace/salesforce-listing-draft.json).
+
+## Future managed-package activation flow
 
 Salesforce doesn't redirect with a token after install (unlike Microsoft
 and AWS). The flow is:
 
 ```
-1. Customer installs SyncAI managed package from AppExchange
+1. Customer installs a released, security-reviewed SyncAI managed package from
+   AppExchange. No such package is evidenced in this repository today.
 2. Post-install, customer hits:
        https://app.syncai.ca/marketplace/salesforce/signup
        ?organization_id=00D...
@@ -78,7 +94,9 @@ update.
 supabase secrets set SF_LMA_SHARED_SECRET=<long random string>
 ```
 
-## Managed package contents (high level)
+## Proposed managed package contents
+
+These items are a design target, not checked-in or released package evidence.
 
 - **Permission set: SyncAI Integration User** — read/write on Asset,
   WorkOrder, MaintenanceWorkRule
@@ -89,7 +107,11 @@ supabase secrets set SF_LMA_SHARED_SECRET=<long random string>
   recommendations on Account, Asset, WorkOrder pages
 - **Apex classes: SyncAIBridge** — bidirectional sync helpers
 
-## Tables (added by `20260513000000_aws_salesforce_marketplace_integration.sql`)
+## Proposed tables (archived migration only)
+
+The referenced migration lives under `supabase/_legacy_migrations/`; it is not
+part of the active migration chain and its columns/RPCs must not be assumed to
+exist in production.
 
 | Object                                       | Purpose                                                        |
 | -------------------------------------------- | -------------------------------------------------------------- |
@@ -112,10 +134,11 @@ supabase secrets set SF_LMA_SHARED_SECRET=<long random string>
 
 ## Related
 
-- Migration: [`supabase/migrations/20260513000000_aws_salesforce_marketplace_integration.sql`](../supabase/migrations/20260513000000_aws_salesforce_marketplace_integration.sql)
+- Archived migration: [`supabase/_legacy_migrations/20260513000000_aws_salesforce_marketplace_integration.sql`](../supabase/_legacy_migrations/20260513000000_aws_salesforce_marketplace_integration.sql)
 - Edge Function: [`supabase/functions/marketplace-salesforce-license/index.ts`](../supabase/functions/marketplace-salesforce-license/index.ts)
 - Activation UI: [`src/pages/SalesforceSignup.tsx`](../src/pages/SalesforceSignup.tsx)
 - Client lib: [`src/lib/salesforce-license.ts`](../src/lib/salesforce-license.ts)
-- Marketing landing: `StiggSyncAIwebsite2.0/app/salesforce/page.tsx` (already deployed at syncai.ca/salesforce)
+- Marketing landing: `https://syncai.ca/salesforce` responds, but is not an
+  AppExchange listing, package, or purchase surface.
 - Microsoft (companion): [`docs/azure-marketplace.md`](./azure-marketplace.md)
 - AWS (companion): [`docs/aws-marketplace.md`](./aws-marketplace.md)

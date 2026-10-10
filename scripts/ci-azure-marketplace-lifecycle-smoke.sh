@@ -10,8 +10,23 @@ begin;
 
 insert into public.organizations(id,name,industry) values
   ('91111111-1111-4111-8111-111111111111','Marketplace Lifecycle Tenant','technology');
+insert into auth.users (
+  instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,
+  created_at,updated_at,raw_app_meta_data,raw_user_meta_data,
+  confirmation_token,recovery_token,email_change,email_change_token_new,
+  email_change_token_current,phone_change,phone_change_token,reauthentication_token
+) values (
+  '00000000-0000-0000-0000-000000000000',
+  '92222222-2222-4222-8222-222222222222','authenticated','authenticated',
+  'lifecycle-admin@syncai.invalid',extensions.crypt('MarketplaceLifecycle123!',extensions.gen_salt('bf')),
+  now(),now(),now(),'{"provider":"email","providers":["email"]}','{}',
+  '','','','','','','',''
+);
 insert into public.user_profiles(id,organization_id,email,full_name,role) values
-  ('92222222-2222-4222-8222-222222222222','91111111-1111-4111-8111-111111111111','lifecycle-admin@syncai.invalid','Lifecycle Admin','admin');
+  ('92222222-2222-4222-8222-222222222222','91111111-1111-4111-8111-111111111111','lifecycle-admin@syncai.invalid','Lifecycle Admin','admin')
+on conflict(id) do update set
+  organization_id=excluded.organization_id,email=excluded.email,
+  full_name=excluded.full_name,role=excluded.role;
 
 set local role service_role;
 
@@ -35,6 +50,44 @@ begin
     '94444444-4444-4444-8444-444444444444'
   );
   if v_result ? 'error' then raise exception 'binding failed: %',v_result; end if;
+
+  -- CI-only commercial fixtures prove that initial activation and an
+  -- authoritative plan change both fail closed unless their exact plans have
+  -- an approved, margin-safe AI allowance. These are not production prices.
+  v_result := public.configure_ai_commercial_plan_policy(
+    'azure_marketplace','syncai-enterprise','enterprise','per_user',
+    'hard_stop',10,1000,10,1000,5,1000,0,1.00,0.50,
+    array['gpt-4o-mini']::text[],null,null,null,
+    'CI-only Marketplace lifecycle fixture'
+  );
+  if v_result->>'status'<>'draft'
+     or coalesce((v_result->'evaluation'->>'allowed')::boolean,false) is not true then
+    raise exception 'enterprise commercial fixture failed margin evaluation: %',v_result;
+  end if;
+  v_result := public.approve_ai_commercial_plan_policy(
+    'azure_marketplace','syncai-enterprise','enterprise',
+    '92222222-2222-4222-8222-222222222222');
+  if coalesce((v_result->>'approved')::boolean,false) is not true then
+    raise exception 'enterprise commercial fixture was not approved: %',v_result;
+  end if;
+
+  v_result := public.configure_ai_commercial_plan_policy(
+    'azure_marketplace','syncai-enterprise','enterprise-plus','per_user',
+    'hard_stop',20,2000,20,2000,10,2000,0,1.00,0.50,
+    array['gpt-4o-mini']::text[],null,null,null,
+    'CI-only Marketplace lifecycle upgrade fixture'
+  );
+  if v_result->>'status'<>'draft'
+     or coalesce((v_result->'evaluation'->>'allowed')::boolean,false) is not true then
+    raise exception 'enterprise-plus commercial fixture failed margin evaluation: %',v_result;
+  end if;
+  v_result := public.approve_ai_commercial_plan_policy(
+    'azure_marketplace','syncai-enterprise','enterprise-plus',
+    '92222222-2222-4222-8222-222222222222');
+  if coalesce((v_result->>'approved')::boolean,false) is not true then
+    raise exception 'enterprise-plus commercial fixture was not approved: %',v_result;
+  end if;
+
   v_result := public.record_marketplace_fulfillment_status(
     v_resolution_id,'Subscribed','92222222-2222-4222-8222-222222222222',
     'activation-request','activation-correlation'
@@ -94,7 +147,6 @@ begin
       where marketplace_subscription_id='93333333-3333-4333-8333-333333333333')<>'enterprise-plus' then
     raise exception 'authoritative completed plan did not reach canonical billing';
   end if;
-
   v_result := public.claim_marketplace_lifecycle_operation(
     '93333333-3333-4333-8333-333333333333',
     '97777777-7777-4777-8777-777777777777','Suspend','Succeeded',
@@ -155,10 +207,59 @@ begin
   if v_result->>'processingState'<>'completed' then
     raise exception 'reinstate did not complete: %',v_result;
   end if;
+
+  v_result := public.claim_marketplace_lifecycle_operation(
+    '93333333-3333-4333-8333-333333333333',
+    '98999999-9999-4999-8999-999999999999','ChangeQuantity','InProgress',
+    'syncai-publisher','syncai-enterprise','enterprise-plus',10,repeat('0',64),
+    'quantity-request','quantity-correlation'
+  );
+  if v_result->>'processingState'<>'received' then
+    raise exception 'quantity change was not claimed: %',v_result;
+  end if;
+  v_result := public.apply_marketplace_lifecycle_operation(
+    '93333333-3333-4333-8333-333333333333',
+    '98999999-9999-4999-8999-999999999999','Subscribed','enterprise-plus',25,
+    now(),now()+interval '1 month','quantity-apply','quantity-correlation'
+  );
+  if v_result->>'processingState'<>'applied_pending_ack' then
+    raise exception 'quantity change was not held for acknowledgement: %',v_result;
+  end if;
+  v_result := public.complete_marketplace_lifecycle_operation(
+    '93333333-3333-4333-8333-333333333333',
+    '98999999-9999-4999-8999-999999999999','Succeeded','Subscribed',
+    'enterprise-plus',10,now(),now()+interval '1 month',
+    'quantity-complete','quantity-correlation'
+  );
+  if v_result->>'processingState'<>'completed' then
+    raise exception 'quantity change did not complete: %',v_result;
+  end if;
 end
 $reinstate$;
 
 reset role;
+do $allowance$
+begin
+  -- Inspect the private commercial binding only as the PostgreSQL test owner,
+  -- after reinstate has made the upgraded plan active again. Suspension above
+  -- correctly clears this binding; service_role must still not read it.
+  if not exists (
+    select 1 from private.llm_org_quotas
+    where organization_id='91111111-1111-4111-8111-111111111111'
+      and commercial_billing_source='azure_marketplace'
+      and commercial_offer_id='syncai-enterprise'
+      and commercial_plan_id='enterprise-plus'
+      and commercial_allowance_mode='hard_stop'
+      and commercial_quantity=10
+      and included_calls_per_period=200 and max_calls_per_period=200
+      and included_tokens_per_period=20000 and max_tokens_per_period=20000
+      and max_decisions_per_period=100
+  ) then
+    raise exception 'authoritative plan, reinstate, and quantity change did not bind the scaled AI allowance';
+  end if;
+end
+$allowance$;
+
 select set_config('request.jwt.claim.sub','92222222-2222-4222-8222-222222222222',true);
 set local role authenticated;
 do $restored$
@@ -239,7 +340,7 @@ begin
       and status='cancelled' and marketplace_status='Unsubscribed'
   ) then raise exception 'canonical billing record did not preserve unsubscribe state'; end if;
   if (select count(*) from public.marketplace_fulfillment_operations
-      where marketplace_subscription_id='93333333-3333-4333-8333-333333333333')<>4 then
+      where marketplace_subscription_id='93333333-3333-4333-8333-333333333333')<>5 then
     raise exception 'idempotency inbox cardinality is wrong';
   end if;
   if not exists (
@@ -255,4 +356,4 @@ $privileges$;
 rollback;
 SQL
 
-echo 'Azure Marketplace lifecycle smoke passed: signed-boundary-contract=true authoritative-operation=true idempotent=true conflict-refusal=true suspend-lockout=true reinstate=true unsubscribe-lockout=true no-delete=true canonical-audit=true'
+echo 'Azure Marketplace lifecycle smoke passed: signed-boundary-contract=true authoritative-operation=true idempotent=true conflict-refusal=true suspend-lockout=true reinstate=true quantity-rebind=true unsubscribe-lockout=true no-delete=true canonical-audit=true'

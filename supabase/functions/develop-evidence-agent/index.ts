@@ -29,9 +29,12 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   buildProviderChain,
-  callWithResilience,
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
+import {
+  callWithCommercialBoundary,
+  estimateLlmCallTokens,
+} from "../_shared/llm-commercial-usage.ts";
 import {
   analyzeGap,
   buildAgentPrompts,
@@ -236,7 +239,10 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
     if (!gate || gate.framework_id !== caseRow.framework_id) {
       return json(
-        { error: "that requirement belongs to a gate outside this case's governing framework" },
+        {
+          error:
+            "that requirement belongs to a gate outside this case's governing framework",
+        },
         400,
       );
     }
@@ -308,24 +314,55 @@ Deno.serve(async (req: Request) => {
       analysis,
       kbCitations,
     });
-    const result = await callWithResilience(fetch, providers, {
+    const providerOptions = {
       systemPrompt: prompts.systemPrompt,
       userContent: prompts.userContent,
       maxTokens: 400,
       timeoutMs: 30_000,
-    });
-    if (result.events.length > 1 || !result.ok) {
-      console.error(
-        "develop-evidence-agent provider trail",
-        JSON.stringify(result.events),
-      );
-    }
-    if (result.ok) {
-      narrative = result.content;
-      model = result.model;
-    } else {
+    };
+    const commercial = await callWithCommercialBoundary(
+      (functionName, args) => admin.rpc(functionName, args),
+      fetch,
+      providers,
+      providerOptions,
+      {
+        organizationId: auth.organizationId,
+        functionName: "develop-evidence-agent",
+        requestedModel: MODEL,
+        estimatedTokens: estimateLlmCallTokens(providerOptions),
+        costObject: { type: "development_case", id: caseId },
+      },
+    );
+    if (commercial.status === "quota_refused") {
+      providerNote = `model narrative skipped by the commercial usage boundary (${commercial.limit}) — the deterministic gap analysis above stands on its own`;
+    } else if (commercial.status === "settlement_failed") {
+      console.error("develop-evidence-agent usage settlement failed", {
+        model: commercial.model,
+        error: commercial.error,
+      });
+      providerNote =
+        "the model answered but usage accounting failed, so its unaccounted output was discarded — the deterministic gap analysis above stands on its own";
+    } else if (commercial.status === "provider_failed") {
+      if (commercial.events.length > 1 || commercial.events.length > 0) {
+        console.error(
+          "develop-evidence-agent provider trail",
+          JSON.stringify(commercial.events),
+        );
+      }
       providerNote =
         "the model call failed — the deterministic gap analysis above stands on its own";
+    } else {
+      const result = commercial.result;
+      if (result.events.length > 1 || !result.ok) {
+        console.error(
+          "develop-evidence-agent provider trail",
+          JSON.stringify(result.events),
+        );
+      }
+      if (result.ok) {
+        narrative = result.content;
+        model = result.model;
+      }
     }
   }
 
@@ -335,9 +372,10 @@ Deno.serve(async (req: Request) => {
   let recordedEvidenceId: string | null = null;
   let recordNote: string | null = null;
   if (body.record === true) {
-    const description = `Evidence agent finding for "${criterion.criterion.slice(0, 120)}": ${
-      analysis.statement
-    }${narrative ? ` ${narrative.slice(0, 400)}` : ""}`.slice(0, 900);
+    const description =
+      `Evidence agent finding for "${criterion.criterion.slice(0, 120)}": ${
+        analysis.statement
+      }${narrative ? ` ${narrative.slice(0, 400)}` : ""}`.slice(0, 900);
     const { data: recorded, error: recordError } = await userClient(
       auth.token,
     ).rpc("record_case_evidence", {

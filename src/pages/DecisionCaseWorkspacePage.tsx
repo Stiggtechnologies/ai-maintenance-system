@@ -162,6 +162,17 @@ function getContext(params: URLSearchParams): DecisionJourneyContext {
   };
 }
 
+function getPublicEntryAttribution(
+  params: URLSearchParams,
+): Record<string, string> {
+  const attribution: Record<string, string> = {};
+  for (const key of ["entry", "source", "campaign", "variant"] as const) {
+    const value = params.get(key)?.trim().slice(0, 120);
+    if (value) attribution[key] = value;
+  }
+  return attribution;
+}
+
 function storageForMode(publicMode: boolean): Storage {
   return publicMode ? window.sessionStorage : window.localStorage;
 }
@@ -254,7 +265,12 @@ export function DecisionCaseWorkspacePage({
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const signInHref = `/signin?returnTo=${encodeURIComponent(`${location.pathname}${location.search}`)}`;
   const context = useMemo(() => getContext(params), [params]);
+  const publicEntryAttribution = useMemo(
+    () => getPublicEntryAttribution(params),
+    [params],
+  );
   const auth = useOptionalAuth();
   const orgSession = Boolean(auth?.user);
   const routedPublicIntent = capabilityId
@@ -323,6 +339,7 @@ export function DecisionCaseWorkspacePage({
   const endRef = useRef<HTMLDivElement>(null);
   const explicitDemoBound = useRef(false);
   const suppressRoutedIntent = useRef(false);
+  const trackedPublicEntry = useRef("");
   const active =
     cases.find((item) => item.id === selectedId) ??
     cases.find((item) => !isSeedDecisionCaseId(item.id)) ??
@@ -332,6 +349,21 @@ export function DecisionCaseWorkspacePage({
   const composerScope = askBinding.bound
     ? classifyDecisionQuestionScope(active, composer)
     : "provisional_new_subject";
+
+  useEffect(() => {
+    if (!publicMode) return;
+    const fingerprint = JSON.stringify({
+      intent: routedPublicIntent?.id ?? "open-ask",
+      ...publicEntryAttribution,
+    });
+    if (trackedPublicEntry.current === fingerprint) return;
+    trackedPublicEntry.current = fingerprint;
+    trackDecisionWorkspaceEvent("public_entry_viewed", {
+      intent: routedPublicIntent?.id ?? "open-ask",
+      industry,
+      ...publicEntryAttribution,
+    });
+  }, [industry, publicEntryAttribution, publicMode, routedPublicIntent?.id]);
 
   const updateCase = (change: (current: DecisionCase) => DecisionCase) => {
     setCases((current) =>
@@ -436,7 +468,10 @@ export function DecisionCaseWorkspacePage({
   }, [active.id, active.messages, publicMode]);
   useEffect(() => {
     if (publicMode && capabilityId && !routedPublicIntent) {
-      navigate({ pathname: "/", search: location.search }, { replace: true });
+      navigate(
+        { pathname: "/workspace", search: location.search },
+        { replace: true },
+      );
     }
   }, [capabilityId, location.search, navigate, publicMode, routedPublicIntent]);
 
@@ -492,7 +527,14 @@ export function DecisionCaseWorkspacePage({
     setTab(routedPublicIntent.recordTab);
     setRecordOpen(true);
     setRailOpen(false);
-  }, [context, industry, publicIntent?.id, publicMode, role, routedPublicIntent]);
+  }, [
+    context,
+    industry,
+    publicIntent?.id,
+    publicMode,
+    role,
+    routedPublicIntent,
+  ]);
 
   const chooseCase = (id: string) => {
     if (isSeedDecisionCaseId(id)) explicitDemoBound.current = true;
@@ -553,6 +595,7 @@ export function DecisionCaseWorkspacePage({
     trackDecisionWorkspaceEvent("public_capability_opened", {
       intent: intent.id,
       module: intent.module,
+      ...publicEntryAttribution,
     });
   };
 
@@ -572,7 +615,7 @@ export function DecisionCaseWorkspacePage({
         setRailOpen(false);
         setRecordOpen(false);
         setPublicIntent(null);
-        navigate({ pathname: "/", search: location.search });
+        navigate({ pathname: "/workspace", search: location.search });
       }
       return;
     }
@@ -587,7 +630,7 @@ export function DecisionCaseWorkspacePage({
       setRailOpen(false);
       setRecordOpen(false);
       setPublicIntent(null);
-      navigate({ pathname: "/", search: location.search });
+      navigate({ pathname: "/workspace", search: location.search });
     }
     if (!publicMode) {
       try {
@@ -672,6 +715,15 @@ export function DecisionCaseWorkspacePage({
       publicMode ? ASK_PLACEHOLDER : "Ask a reliability question…",
     );
     setReplying(true);
+    if (publicMode) {
+      trackDecisionWorkspaceEvent("public_question_submitted", {
+        intent: publicIntent?.id ?? routedPublicIntent?.id ?? "open-ask",
+        industry,
+        hasAttachment: Boolean(attachment),
+        hasPhoto: Boolean(photo),
+        ...publicEntryAttribution,
+      });
+    }
     try {
       const response = await askDecisionCase(requestCase, text, {
         publicMode,
@@ -785,6 +837,8 @@ export function DecisionCaseWorkspacePage({
       trackDecisionWorkspaceEvent("industry_value_proof_completed", {
         industry,
         caseNumber: active.caseNumber,
+        intent: publicIntent?.id ?? routedPublicIntent?.id ?? "open-ask",
+        ...publicEntryAttribution,
       });
     }
     updateCase((current) => ({
@@ -1315,6 +1369,7 @@ export function DecisionCaseWorkspacePage({
           publicMode={publicMode}
           proofComplete={active.financeStatus === "verified"}
           close={() => setUsageOpen(false)}
+          signInHref={signInHref}
           onSecure={() =>
             stageDecisionCaseHandoff(window.sessionStorage, active)
           }
@@ -1364,7 +1419,7 @@ export function DecisionCaseWorkspacePage({
         homeActive={emptyConversation}
         onNewAsk={() => void createCase()}
         assessHref="/setup"
-        signInHref="/signin?returnTo=%2F"
+        signInHref={signInHref}
         onSignIn={() => stageDecisionCaseHandoff(window.sessionStorage, active)}
         spaces={
           exposeSpaces
@@ -1376,6 +1431,18 @@ export function DecisionCaseWorkspacePage({
         }
       />
       <div className="bolt-stage">
+        {publicMode && !emptyConversation && caseId === active.id &&
+        new URLSearchParams(location.search).get("origin") === "evaluation" ? (
+          <p
+            role="status"
+            className="mx-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+          >
+            Your evaluation question and evidence are carried forward. Existing
+            recommendations are illustrative; ask the assistant to review your
+            evidence before relying on an answer. No industrial action has been
+            approved.
+          </p>
+        ) : null}
         {exposeSpaces && railOpen && emptyConversation ? (
           <BoltSpacesPanel
             cases={cases}
@@ -1830,6 +1897,7 @@ export function DecisionCaseWorkspacePage({
           publicMode={publicMode}
           proofComplete={active.financeStatus === "verified"}
           close={() => setUsageOpen(false)}
+          signInHref={signInHref}
           onSecure={() =>
             stageDecisionCaseHandoff(window.sessionStorage, active)
           }
@@ -2059,6 +2127,7 @@ function AuthorityPanel({
         ))}
         <div className="dw-comment-entry">
           <input
+            aria-label="Authority comment"
             value={comment}
             onChange={(event) => setComment(event.target.value)}
             placeholder="Add rationale or a condition..."
@@ -2407,12 +2476,14 @@ function UsageModal({
   proofComplete,
   close,
   onSecure,
+  signInHref,
   choose,
 }: {
   publicMode: boolean;
   proofComplete: boolean;
   close: () => void;
   onSecure: () => void;
+  signInHref: string;
   choose: (mode: DecisionCase["billingMode"], allowance?: number) => void;
 }) {
   if (publicMode) {
@@ -2463,7 +2534,7 @@ function UsageModal({
               <small>Apply this workflow to sanitized customer evidence.</small>
               <em>Recommended next step</em>
             </a>
-            <a href="/signin?returnTo=%2F" onClick={onSecure}>
+            <a href={signInHref} onClick={onSecure}>
               <LockKeyhole size={18} />
               <strong>Sign in and retain it</strong>
               <small>Move the case into a governed company workspace.</small>

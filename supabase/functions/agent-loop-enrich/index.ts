@@ -39,6 +39,13 @@ import {
 import { getAzureManagedIdentityAccessToken } from "../_shared/azure-managed-identity.ts";
 const LLM_MODEL =
   Deno.env.get("ENRICH_LLM_MODEL") ?? Deno.env.get("LLM_MODEL") ?? "stigg/fast";
+// Canonical priced model used at the commercial pre-spend gate. A gateway may
+// route the request elsewhere, but settlement will then record the actual
+// model and freeze later spend unless that route was in the approved policy.
+const COMMERCIAL_MODEL =
+  Deno.env.get("ENRICH_COST_MODEL") ??
+  Deno.env.get("OPENAI_FALLBACK_MODEL") ??
+  "gpt-5.6-terra";
 const ENRICH_SHARED_SECRET = Deno.env.get("ENRICH_SHARED_SECRET") ?? "";
 const AZURE_OPENAI_ENDPOINT = Deno.env.get("AZURE_OPENAI_ENDPOINT") ?? "";
 const AZURE_OPENAI_DEPLOYMENT = Deno.env.get("AZURE_OPENAI_DEPLOYMENT") ?? "";
@@ -172,7 +179,7 @@ Deno.serve(async (req) => {
       // gpt-4o-mini stays as the safety net beneath it: if this key lacks
       // 5.6 access the 404 is fatal and the chain drops instantly rather than
       // going dark, and llm_provider_events records which one answered.
-      openaiModel: Deno.env.get("OPENAI_FALLBACK_MODEL") ?? "gpt-5.6-terra",
+      openaiModel: COMMERCIAL_MODEL,
       openaiSafetyModel: "gpt-4o-mini",
     }),
   ];
@@ -236,8 +243,52 @@ Deno.serve(async (req) => {
   let enriched = 0;
   const failures: string[] = [];
 
+  const releaseReservation = async (reservationId: number | null) => {
+    if (reservationId === null) return;
+    const { error: releaseError } = await supabase.rpc(
+      "release_llm_reservation",
+      { p_reservation_id: reservationId },
+    );
+    if (releaseError) {
+      console.error("agent-loop-enrich reservation release failed", {
+        reservationId,
+        error: releaseError,
+      });
+    }
+  };
+
   for (const rec of recs) {
+    let reservationId: number | null = null;
+    let providerCompleted = false;
     try {
+      const { data: quota, error: quotaError } = await supabase.rpc(
+        "check_llm_commercial_quota",
+        {
+          p_organization_id: rec.organization_id,
+          p_fn: "agent-loop-enrich",
+          p_model: COMMERCIAL_MODEL,
+          p_estimated_tokens: 2500,
+          p_cost_object_type: "recommendation",
+          p_cost_object_id: rec.id,
+        },
+      );
+      const verdict = (quota ?? {}) as Record<string, unknown>;
+      reservationId = Number(verdict.reservation_id);
+      if (
+        quotaError ||
+        verdict.allowed !== true ||
+        !Number.isSafeInteger(reservationId)
+      ) {
+        console.error("agent-loop-enrich commercial quota refused", {
+          id: rec.id,
+          limit: verdict.limit ?? "quota_check_unavailable",
+          error: quotaError,
+        });
+        failures.push(`${rec.id}: commercial_quota_refused`);
+        reservationId = null;
+        continue;
+      }
+
       const result = await callWithResilience(providerFetch, providers, {
         systemPrompt:
           "You are a senior reliability engineer for asset-intensive industry. " +
@@ -267,24 +318,29 @@ Deno.serve(async (req) => {
       if (!result.ok) {
         console.error("agent-loop-enrich provider exhausted", { id: rec.id });
         failures.push(`${rec.id}: provider_error`);
+        await releaseReservation(reservationId);
+        reservationId = null;
         continue;
       }
+      providerCompleted = true;
 
-      // Cost telemetry (private.llm_usage) — FAIL-SOFT: enrichment must
-      // never be lost to a telemetry hiccup.
-      try {
-        const usage = result.usage ?? {};
-        const { error: usageError } = await supabase.rpc("record_llm_usage", {
-          p_organization_id: rec.organization_id,
-          p_fn: "agent-loop-enrich",
-          p_model: result.model ?? LLM_MODEL,
-          p_prompt_tokens: usage.prompt_tokens ?? 0,
-          p_completion_tokens: usage.completion_tokens ?? 0,
-        });
-        if (usageError)
-          console.error("agent-loop-enrich usage insert failed", usageError);
-      } catch (usageException) {
-        console.error("agent-loop-enrich usage insert failed", usageException);
+      // Settlement is part of the commercial boundary, not optional
+      // telemetry. If it fails, retain the conservative reservation and do
+      // not apply an unaccounted enrichment.
+      const usage = result.usage ?? {};
+      const { error: usageError } = await supabase.rpc("record_llm_usage", {
+        p_organization_id: rec.organization_id,
+        p_fn: "agent-loop-enrich",
+        p_model: result.model ?? LLM_MODEL,
+        p_prompt_tokens: usage.prompt_tokens ?? 0,
+        p_completion_tokens: usage.completion_tokens ?? 0,
+        p_reservation_id: reservationId,
+      });
+      reservationId = null;
+      if (usageError) {
+        console.error("agent-loop-enrich usage settlement failed", usageError);
+        failures.push(`${rec.id}: usage_settlement_failed`);
+        continue;
       }
 
       const content: string = result.content;
@@ -353,6 +409,7 @@ Deno.serve(async (req) => {
 
       enriched += 1;
     } catch (error) {
+      if (!providerCompleted) await releaseReservation(reservationId);
       console.error("agent-loop-enrich failed", { id: rec.id, error });
       failures.push(`${rec.id}: enrichment_failed`);
     }

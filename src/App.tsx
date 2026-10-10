@@ -20,6 +20,7 @@ import { LoadingScreen } from "./components/LoadingScreen";
 import { Security } from "./pages/Security";
 import { Privacy } from "./pages/Privacy";
 import { Terms } from "./pages/Terms";
+import { Support } from "./pages/Support";
 import { AppShell } from "./components/AppShell";
 import { RecoveryAwarePage } from "./components/RecoveryAwarePage";
 import { AssetDetailPage } from "./pages/AssetDetailPage";
@@ -86,6 +87,10 @@ import { getRoleHome } from "./lib/roleNavigation";
 import { hasWorkspaceMembership } from "./lib/auth";
 import { ReliabilityCopilotPage } from "./pages/ReliabilityCopilotPage";
 import { FirstCustomerPilotPage } from "./pages/FirstCustomerPilotPage";
+import {
+  ProductEntryGateway,
+  ProductEntryPathsPage,
+} from "./pages/ProductEntryPathsPage";
 import { DecisionCaseWorkspacePage } from "./pages/DecisionCaseWorkspacePage";
 import { GovernedDecisionWorkspacePage } from "./pages/GovernedDecisionWorkspacePage";
 import { DevelopCasesPage } from "./pages/DevelopCasesPage";
@@ -99,12 +104,9 @@ import { SyncFieldPage } from "./pages/SyncFieldPage";
 import { SyncTransitionPage } from "./pages/SyncTransitionPage";
 import { GateReviewPage } from "./pages/GateReviewPage";
 import { AssuranceCasePage } from "./pages/AssuranceCasePage";
-import {
-  clearDecisionCaseHandoff,
-  readDecisionCaseHandoff,
-  writeDecisionCases,
-} from "./lib/decision-case";
-import { readStoredDecisionDrafts } from "./lib/decision-case-drafts";
+import { readDecisionCaseHandoff } from "./lib/decision-case";
+import { safeAuthReturnTo } from "./lib/auth-return";
+import { completePublicDraftHandoff } from "./lib/public-draft-handoff";
 import {
   initialAuthPage,
   pageAfterWorkspaceAuthorization,
@@ -123,22 +125,6 @@ function DemoPathRedirect() {
   const { user, loading } = useAuth();
   if (loading) return <LoadingScreen />;
   return <Navigate to={user ? "/decision-cases" : "/workspace"} replace />;
-}
-
-function safeReturnTo(value: string | null): string {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
-  try {
-    const destination = new URL(value, window.location.origin);
-    if (
-      destination.origin !== window.location.origin ||
-      destination.pathname === "/signin"
-    ) {
-      return "/";
-    }
-    return `${destination.pathname}${destination.search}${destination.hash}`;
-  } catch {
-    return "/";
-  }
 }
 
 function AuthenticatedSignInTransition({
@@ -164,7 +150,10 @@ function App() {
   const [loading, setLoading] = useState(true);
   const signInTransition = useRef<Promise<void> | null>(null);
   const signInParams = new URLSearchParams(window.location.search);
-  const signInReturnTo = safeReturnTo(signInParams.get("returnTo"));
+  const signInReturnTo = safeAuthReturnTo(
+    signInParams.get("returnTo"),
+    window.location.origin,
+  );
   const isPasswordRecovery = signInParams.get("mode") === "recovery";
 
   useEffect(() => {
@@ -228,22 +217,17 @@ function App() {
       setCurrentPage("app");
       const handoff = readDecisionCaseHandoff(window.sessionStorage);
       if (handoff) {
-        // D13.07 (ruling 15): the governed record is decisions + scenarios,
-        // so a public demo case is NOT silently promoted into a parallel
-        // jsonb record. It lands as a VISIBLE local draft; the Decision
-        // Workspace banner offers the explicit import-into-a-case path (or
-        // an explicit discard) — never silent loss, never silent
-        // continuation.
+        // Preserve the complete browser draft and chosen return path. This is
+        // not promotion into decisions/scenarios or a granted approval.
+        // The staged handoff is cleared only after both full copies are verified.
         try {
-          const drafts = readStoredDecisionDrafts(window.localStorage);
-          if (!drafts.some((d) => d.id === handoff.decisionCase.id)) {
-            writeDecisionCases(window.localStorage, [
-              handoff.decisionCase,
-              ...drafts,
-            ]);
-          }
-          clearDecisionCaseHandoff(window.sessionStorage);
-          window.location.assign("/decision-cases");
+          const destination = completePublicDraftHandoff(
+            handoff.decisionCase,
+            signInReturnTo,
+            window.localStorage,
+            window.sessionStorage,
+          );
+          window.location.assign(destination);
           return;
         } catch {
           // Keep the staged case in this tab so a transient failure can be
@@ -281,6 +265,25 @@ function App() {
           />
           <Route path="/auth/callback/azure" element={<AzureADCallback />} />
           <Route
+            path="/privacy"
+            element={
+              <Privacy onNavigate={() => window.location.assign("/signin")} />
+            }
+          />
+          <Route
+            path="/terms"
+            element={
+              <Terms onNavigate={() => window.location.assign("/signin")} />
+            }
+          />
+          <Route
+            path="/security"
+            element={
+              <Security onNavigate={() => window.location.assign("/signin")} />
+            }
+          />
+          <Route path="/support" element={<Support />} />
+          <Route
             path="/signin"
             element={
               isAuthenticated && signInApproved && !isPasswordRecovery ? (
@@ -289,13 +292,19 @@ function App() {
                 <Login
                   onSuccess={handleSignInSuccess}
                   onTabChange={(page) =>
-                    window.location.assign(`/?view=${page}`)
+                    window.location.assign(
+                      ["privacy", "terms", "security"].includes(page)
+                        ? `/${page}`
+                        : `/?view=${page}`,
+                    )
                   }
                 />
               )
             }
           />
           <Route path="/get-started" element={<InvertedOpeningPage />} />
+          <Route path="/solutions" element={<ProductEntryPathsPage />} />
+          <Route path="/solutions/:entryId" element={<ProductEntryGateway />} />
           <Route path="/setup" element={<FirstCustomerPilotPage />} />
           <Route
             path="/pilot/reliability"

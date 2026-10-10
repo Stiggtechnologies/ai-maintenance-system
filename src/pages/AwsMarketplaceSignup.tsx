@@ -11,8 +11,9 @@ import {
  * AwsMarketplaceSignup
  * --------------------
  * Mirrors `MarketplaceSignup.tsx` (Azure) but for the AWS Marketplace
- * SaaS Listing flow. AWS redirects buyers to:
- *   https://app.syncai.ca/marketplace/aws/signup?x-amzn-marketplace-token=<token>
+ * SaaS Listing design flow. AWS sends the registration token to the seller
+ * registration URL as an HTTP POST. This SPA only supports a query-token path
+ * for controlled development testing and is not the production buyer handoff.
  *
  * The token is exchanged for a CustomerIdentifier via the
  * marketplace-aws-resolve Edge Function (which calls AWS ResolveCustomer).
@@ -39,8 +40,8 @@ export function AwsMarketplaceSignup() {
   const [token, setToken] = useState<string | null>(null);
 
   useEffect(() => {
-    // AWS canonical query param is "x-amzn-marketplace-token". Fall back to "token"
-    // for manual testing.
+    // Controlled test path only. A conforming production AWS registration
+    // endpoint must receive x-amzn-marketplace-token via HTTP POST.
     const marketplaceToken =
       searchParams.get("x-amzn-marketplace-token") ?? searchParams.get("token");
 
@@ -48,7 +49,7 @@ export function AwsMarketplaceSignup() {
       setError({
         type: "invalid-token",
         message:
-          "No AWS Marketplace token found in URL. This page must be accessed from AWS Marketplace.",
+          "AWS Marketplace activation is not available on this client route. The production seller registration endpoint must receive AWS's POSTed registration token.",
       });
       setStep("error");
       return;
@@ -181,8 +182,8 @@ export function AwsMarketplaceSignup() {
               </div>
               <div className="border-t border-industrial-border pt-4">
                 <p className="text-xs text-industrial-muted">
-                  AWS will send a SubscribeSuccess event within ~5 minutes;
-                  status will update to{" "}
+                  A production launch still requires a verified AWS lifecycle
+                  event before status can update to{" "}
                   <code className="bg-industrial-slate px-1 rounded-sm">
                     aws_subscribed
                   </code>{" "}

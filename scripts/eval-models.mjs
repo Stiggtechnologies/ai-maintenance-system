@@ -22,17 +22,21 @@
 //
 // OUTPUT: artifacts/model-eval/<ISO-date>/results.json and report.md.
 //
-// RATES — CAD per 1M tokens, duplicated from private.llm_prices
-// (20260916000000_llm_cost_guardrails.sql) so the script needs no database.
-// Verified from the vendors' own pages (house rule: vendor pages, never a
-// registry), retrieved 2026-08-19:
+// RATES — CAD per 1M tokens, duplicated from the current rows in
+// private.llm_prices so the script needs no database. Verified from vendors'
+// own pages (house rule: vendor pages, never a registry):
 //   OpenAI  https://developers.openai.com/api/docs/pricing
 //     gpt-5.6-terra USD 2.00 in / 12.00 out; gpt-5.6-luna USD 0.20 / 1.20;
-//     gpt-4o-mini USD 0.15 / 0.60
+//     gpt-4o-mini USD 0.15 / 0.60 (retrieved 2026-10-07)
 //   xAI     https://docs.x.ai/docs/models
 //     grok-4.6 USD 2.00 / 6.00 (<200k-token tier);
-//     grok-4.3 USD 1.25 / 2.50 (<200k-token tier)
-//   FX      USD/CAD 1.3889 — Bank of Canada daily average 2026-08-18,
+//     grok-4.3 USD 1.25 / 2.50 (<200k-token tier) (retrieved 2026-08-19)
+//   OpenAI FX: USD/CAD 1.4226 — Bank of Canada daily average 2026-10-06.
+//   The non-commercial xAI benchmark remains on its separately dated 1.3889
+//   observation from 2026-08-18; do not present mixed-date comparisons as a
+//   current provider-price decision.
+//
+// FX source:
 //     https://www.bankofcanada.ca/valet/observations/FXUSDCAD/json
 // A model missing from this table gets cost_cad: null — never a guess.
 // ============================================================================
@@ -42,9 +46,9 @@ import path from "node:path";
 import process from "node:process";
 
 const RATES_CAD_PER_MTOK = {
-  "gpt-5.6-terra": { input: 2.7778, output: 16.6668 },
-  "gpt-5.6-luna": { input: 0.27778, output: 1.66668 },
-  "gpt-4o-mini": { input: 0.208335, output: 0.83334 },
+  "gpt-5.6-terra": { input: 2.8452, output: 17.0712 },
+  "gpt-5.6-luna": { input: 0.28452, output: 1.70712 },
+  "gpt-4o-mini": { input: 0.21339, output: 0.85356 },
   "grok-4.6": { input: 2.7778, output: 8.3334 },
   "grok-4.3": { input: 1.736125, output: 3.47225 },
 };
@@ -222,9 +226,7 @@ async function callProvider(provider, key, prompt) {
     body: JSON.stringify({
       model: provider.model,
       max_completion_tokens: prompt.maxTokens,
-      ...(prompt.jsonMode
-        ? { response_format: { type: "json_object" } }
-        : {}),
+      ...(prompt.jsonMode ? { response_format: { type: "json_object" } } : {}),
       messages: [
         { role: "system", content: prompt.system },
         { role: "user", content: prompt.user },
@@ -240,7 +242,8 @@ async function callProvider(provider, key, prompt) {
   const usage = data.usage ?? {};
   const promptTokens = usage.prompt_tokens ?? 0;
   const completionTokens = usage.completion_tokens ?? 0;
-  const answeredBy = typeof data.model === "string" ? data.model : provider.model;
+  const answeredBy =
+    typeof data.model === "string" ? data.model : provider.model;
   return {
     ok: true,
     latencyMs,
@@ -276,7 +279,9 @@ function markdownReport(runs, date) {
       }
       lines.push(
         `| ${run.provider} | ${run.model} | ${run.promptTokens}/${run.completionTokens} | ${run.latencyMs} ms | ${
-          run.costCad == null ? "no verified rate" : `$${run.costCad.toFixed(4)}`
+          run.costCad == null
+            ? "no verified rate"
+            : `$${run.costCad.toFixed(4)}`
         } |`,
       );
     }
@@ -340,7 +345,11 @@ async function main() {
 
   fs.writeFileSync(
     path.join(outDir, "results.json"),
-    JSON.stringify({ date, providers: active.map((a) => a.provider), runs }, null, 2),
+    JSON.stringify(
+      { date, providers: active.map((a) => a.provider), runs },
+      null,
+      2,
+    ),
   );
   fs.writeFileSync(path.join(outDir, "report.md"), markdownReport(runs, date));
   console.log(`\nWrote ${outDir}/results.json and ${outDir}/report.md`);
