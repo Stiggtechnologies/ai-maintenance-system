@@ -79,6 +79,52 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     persist.savePersistedDecisionCase.mockResolvedValue(undefined);
   });
 
+  it.each(["oil-gas", "mining", "manufacturing"])(
+    "retains a new %s acquisition industry through evidence, Back, refresh and signup handoff",
+    (industry) => {
+      window.history.replaceState(
+        null,
+        "",
+        `/get-started?industry=${industry}&source=industry-acceptance`,
+      );
+      const mounted = renderOpening();
+      openSpine();
+      const caseId = new URLSearchParams(window.location.search).get("case");
+      expect(new URLSearchParams(window.location.search).get("industry")).toBe(
+        industry,
+      );
+      fireEvent.change(screen.getByTestId("spine-evidence-body"), {
+        target: { value: "Synthetic industry-context evidence" },
+      });
+      fireEvent.click(screen.getByTestId("spine-add-evidence"));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Back to your question" }),
+      );
+      fireEvent.click(screen.getByTestId("inverted-continue"));
+      fireEvent.click(screen.getByTestId("inverted-save-continue"));
+      expect(new URLSearchParams(window.location.search).get("case")).toBe(
+        caseId,
+      );
+      mounted.unmount();
+      renderOpening();
+      expect(screen.getByTestId("spine-proof-body")).toHaveTextContent(
+        "Synthetic industry-context evidence",
+      );
+      const signup = new URL(
+        screen
+          .getByRole("link", { name: "create an evaluation workspace" })
+          .getAttribute("href")!,
+        "https://app.test",
+      );
+      const destination = new URL(
+        signup.searchParams.get("returnTo")!,
+        "https://app.test",
+      );
+      expect(destination.searchParams.get("industry")).toBe(industry);
+      expect(persist.createPersistedDecisionCase).not.toHaveBeenCalled();
+    },
+  );
+
   it("keeps current evidence and identity across back, continue and refresh without another workspace", async () => {
     authHolder.user = { id: "user-1" };
     const mounted = renderOpening();
@@ -114,15 +160,25 @@ describe("P0.2 Decision Case spine on /get-started", () => {
       "Open",
     );
   });
-  it("retains anonymous evidence through Back and a repeated continuation without persistence",()=>{
-    renderOpening();openSpine();
-    fireEvent.change(screen.getByTestId("spine-evidence-body"),{target:{value:"Anonymous synthetic evidence stays in this draft"}});
+  it("retains anonymous evidence through Back and a repeated continuation without persistence", () => {
+    renderOpening();
+    openSpine();
+    fireEvent.change(screen.getByTestId("spine-evidence-body"), {
+      target: { value: "Anonymous synthetic evidence stays in this draft" },
+    });
     fireEvent.click(screen.getByTestId("spine-add-evidence"));
-    fireEvent.click(screen.getByRole("button",{name:"Back to your question"}));
-    fireEvent.click(screen.getByTestId("inverted-continue"));fireEvent.click(screen.getByTestId("inverted-save-continue"));
-    expect(screen.getByTestId("spine-proof-body")).toHaveTextContent("Anonymous synthetic evidence stays in this draft");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Back to your question" }),
+    );
+    fireEvent.click(screen.getByTestId("inverted-continue"));
+    fireEvent.click(screen.getByTestId("inverted-save-continue"));
+    expect(screen.getByTestId("spine-proof-body")).toHaveTextContent(
+      "Anonymous synthetic evidence stays in this draft",
+    );
     expect(persist.createPersistedDecisionCase).not.toHaveBeenCalled();
-    expect(screen.getByTestId("spine-gate-audit_trail")).toHaveTextContent("Open");
+    expect(screen.getByTestId("spine-gate-audit_trail")).toHaveTextContent(
+      "Open",
+    );
   });
   it("opens the audit gate when a saved case edit fails autosave", async () => {
     authHolder.user = { id: "user-1" };
