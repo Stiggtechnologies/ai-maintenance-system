@@ -17,6 +17,24 @@ import { defineConfig, devices } from "@playwright/test";
 const LOCAL_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0";
 
+const localSupabaseUrl =
+  process.env.E2E_SUPABASE_URL ?? "http://127.0.0.1:54321";
+const localEndpoint = new URL(localSupabaseUrl);
+if (
+  localEndpoint.protocol !== "http:" ||
+  !["127.0.0.1", "localhost"].includes(localEndpoint.hostname) ||
+  localEndpoint.port !== "54321" ||
+  localEndpoint.username ||
+  localEndpoint.password ||
+  localEndpoint.pathname !== "/" ||
+  localEndpoint.search ||
+  localEndpoint.hash
+) {
+  throw new Error(
+    "Browser acceptance requires the fixed disposable loopback Supabase endpoint",
+  );
+}
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: false, // golden-path tests are sequential and stateful
@@ -45,8 +63,12 @@ export default defineConfig({
     reuseExistingServer: false,
     timeout: 60_000,
     env: {
-      VITE_SUPABASE_URL: process.env.E2E_SUPABASE_URL ?? "http://127.0.0.1:54321",
-      VITE_SUPABASE_ANON_KEY: process.env.E2E_SUPABASE_ANON_KEY ?? LOCAL_ANON_KEY,
+      VITE_SUPABASE_URL: localSupabaseUrl,
+      VITE_SUPABASE_ANON_KEY:
+        process.env.E2E_SUPABASE_ANON_KEY ?? LOCAL_ANON_KEY,
+      // This takes precedence over ANON_KEY in supabase-config.ts. An inherited
+      // .env.local publishable key must not override the local E2E key.
+      VITE_SUPABASE_PUBLISHABLE_KEY: "",
       VITE_ENVIRONMENT: "e2e",
     },
   },
