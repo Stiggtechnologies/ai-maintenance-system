@@ -1,12 +1,24 @@
 import { test, expect } from "@playwright/test";
 import { execFileSync } from "node:child_process";
+import { randomUUID } from "node:crypto";
 
 // Existing seeded login only; no credentials, external purchases or customer data.
 // This spec changes fixture membership only in the fresh loopback Supabase stack.
-const org = "82222222-2222-4222-8222-222222222222";
-const other = "83333333-3333-4333-8333-333333333333";
+const org = randomUUID();
+const other = randomUUID();
 const user = "00000000-0000-0000-0000-000000000001";
-const billing = "81000000-0000-4000-8000-000000000001";
+const billing = randomUUID();
+const manager = "00000000-0000-0000-0000-000000000003";
+const asset = randomUUID();
+const template = randomUUID();
+const mapping = randomUUID();
+// Credentials are supplied only by the disposable-stack runner, never embedded.
+function fixture(name: string): string {
+  const value = process.env[name];
+  if (!value) throw new Error(`Disposable fixture unavailable: ${name}`);
+  return value;
+}
+test.use({ trace: "off" }); // Do not retain authenticated requests or password inputs.
 const outcome = "Synthetic browser interruption qualification";
 function sql(statement: string) {
   if (
@@ -33,11 +45,11 @@ function sql(statement: string) {
     ],
     {
       encoding: "utf8",
-      env: { ...process.env, PGPASSWORD: "postgres" },
+      env: { ...process.env, PGPASSWORD: fixture("E2E_FIXTURE_DB_PASSWORD") },
     },
   ).trim();
 }
-test("real signed-in interruption, duplicate start, tenant switch and non-admin denial", async ({
+test("real signed-in preparation rollback/retry, interruption and tenant isolation", async ({
   page,
 }) => {
   sql(`insert into organizations(id,name) values ('${org}','Synthetic browser fixture'),('${other}','Other browser fixture') on conflict(id) do nothing;
@@ -49,7 +61,9 @@ test("real signed-in interruption, duplicate start, tenant switch and non-admin 
     await page
       .getByRole("textbox", { name: /work email/i })
       .fill("demo@syncai.ca");
-    await page.locator('input[type="password"]').fill("Demo123!@#");
+    await page
+      .locator('input[type="password"]')
+      .fill(fixture("E2E_FIXTURE_ADMIN_PASSWORD"));
     await page.getByRole("button", { name: /access syncai/i }).click();
     await expect(
       page.getByRole("heading", { name: "Mission Control" }),
@@ -108,17 +122,139 @@ test("real signed-in interruption, duplicate start, tenant switch and non-admin 
     expect(
       sql(`select count(*) from assets where organization_id='${org}'`),
     ).toBe("0");
+    // Explicit disposable fixture input; the journey never creates customer assets.
+    sql(`update user_profiles set organization_id='${org}' where id='${manager}';
+      insert into assets(id,organization_id,tag,name,asset_class,area) values ('${asset}','${org}','BROWSER-FIX','Synthetic browser asset','Pump','Fixture area');
+      insert into asset_twin_templates(id,template_key,version,asset_family,asset_class,title,maturity,template) values ('${template}','synthetic-browser','1','Rotating','Pump','Synthetic browser template','approved','{"synthetic":true}');
+      insert into evidence_items(id,organization_id,asset_id,evidence_type,evidence_class,description) values ('${mapping}','${org}','${asset}','mapping','DOCUMENTED','Synthetic qualification mapping only');`);
+    const anon = fixture("E2E_SUPABASE_ANON_KEY");
+    const login = await page.request.post(
+      "http://127.0.0.1:54321/auth/v1/token?grant_type=password",
+      {
+        headers: { apikey: anon },
+        data: {
+          email: "manager@syncai.ca",
+          password: fixture("E2E_FIXTURE_REVIEWER_PASSWORD"),
+        },
+      },
+    );
+    expect(login.ok()).toBeTruthy();
+    const session = await login.json();
+    const verified = await page.request.post(
+      "http://127.0.0.1:54321/rest/v1/rpc/verify_evidence_item",
+      {
+        headers: {
+          apikey: anon,
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        data: {
+          p_evidence_id: mapping,
+          p_method: "Synthetic fixture review",
+          p_outcome: "verified",
+          p_note: "Qualification only; no customer claim",
+        },
+      },
+    );
+    expect(verified.ok()).toBeTruthy();
+    expect((await verified.json()).error).toBeUndefined();
+    await page.getByRole("button", { name: "Reload retained status" }).click();
+    await page.getByText(`${outcome} — planning`, { exact: true }).click();
+    await page
+      .getByLabel("Customer asset", { exact: true })
+      .selectOption(asset);
+    await page
+      .getByLabel("Approved twin template", { exact: true })
+      .selectOption(template);
+    await page
+      .getByLabel("Verified mapping evidence", { exact: true })
+      .selectOption(mapping);
+    await page.getByRole("button", { name: "Add mapped asset" }).click();
+    await page.getByRole("button", { name: "Retain reviewed scope" }).click();
+    await expect(
+      page.getByRole("button", { name: "Dry-run preparation", exact: true }),
+    ).toBeVisible();
+    const dryRun = page.waitForResponse((r) =>
+      r.url().endsWith("/rpc/command_implementation"),
+    );
+    await page
+      .getByRole("button", { name: "Dry-run preparation", exact: true })
+      .click();
+    expect((await dryRun).ok()).toBeTruthy();
+    expect(
+      sql(
+        `select count(*) from asset_twin_instances where asset_id='${asset}'`,
+      ),
+    ).toBe("0");
+    const runs = sql(
+      `select count(*) from asset_onboarding_runs where asset_id='${asset}'`,
+    );
+    sql(`create or replace function browser_fixture_fault() returns trigger language plpgsql as $$ begin if new.asset_id='${asset}'::uuid then raise exception 'Synthetic browser write failure'; end if; return new; end $$;
+      create trigger browser_fixture_fault before insert on asset_onboarding_runs for each row execute function browser_fixture_fault();`);
+    await page
+      .getByRole("button", { name: "Prepare drafts using existing services" })
+      .click();
+    await expect(
+      page.getByText(`${outcome} — failed`, { exact: true }),
+    ).toBeVisible();
+    expect(
+      sql(
+        `select count(*) from asset_twin_instances where asset_id='${asset}'`,
+      ),
+    ).toBe("0");
+    expect(
+      sql(
+        `select count(*) from asset_onboarding_runs where asset_id='${asset}'`,
+      ),
+    ).toBe(runs);
+    sql(
+      "drop trigger browser_fixture_fault on asset_onboarding_runs; drop function browser_fixture_fault()",
+    );
+    await page.reload();
+    await page.getByText(`${outcome} — failed`, { exact: true }).click();
+    await page.getByRole("button", { name: "Resume for fresh review" }).click();
+    await expect(
+      page.getByText(`${outcome} — planning`, { exact: true }),
+    ).toBeVisible();
+    await page
+      .getByRole("button", { name: "Prepare drafts using existing services" })
+      .click();
+    await expect(
+      page.getByText(`${outcome} — prepared`, { exact: true }),
+    ).toBeVisible();
+    expect(
+      sql(
+        `select count(*) from asset_twin_instances where asset_id='${asset}'`,
+      ),
+    ).toBe("1");
+    expect(
+      Number(
+        sql(
+          `select count(*) from asset_onboarding_runs where asset_id='${asset}'`,
+        ),
+      ),
+    ).toBeGreaterThan(Number(runs));
+    expect(
+      sql(`select count(*) from assets where organization_id='${org}'`),
+    ).toBe("1");
+    expect(
+      sql(`select count(*) from sensors where organization_id='${org}'`),
+    ).toBe("0");
+    await expect(
+      page.getByRole("button", {
+        name: "First-result approval awaits canonical evidence qualification",
+      }),
+    ).toBeDisabled();
     sql(
       `update user_profiles set organization_id='${other}' where id='${user}'`,
     );
     await page.getByRole("button", { name: "Reload retained status" }).click();
     await expect(
-      page.getByText(`${outcome} — planning`, { exact: true }),
+      page.getByText(`${outcome} — prepared`, { exact: true }),
     ).toHaveCount(0);
     sql(`update user_profiles set organization_id='${org}' where id='${user}'`);
     await page.getByRole("button", { name: "Reload retained status" }).click();
     await expect(
-      page.getByText(`${outcome} — planning`, { exact: true }),
+      page.getByText(`${outcome} — prepared`, { exact: true }),
     ).toBeVisible();
     expect(
       sql(
@@ -128,10 +264,16 @@ test("real signed-in interruption, duplicate start, tenant switch and non-admin 
     sql(`update user_profiles set role='planner' where id='${user}'`);
     await page.getByRole("button", { name: "Reload retained status" }).click();
     await expect(
-      page.getByText(`${outcome} — planning`, { exact: true }),
+      page.getByText(`${outcome} — prepared`, { exact: true }),
     ).toHaveCount(0);
     await expect(page.getByLabel("Subscription")).toHaveCount(0);
   } finally {
+    sql(
+      "drop trigger if exists browser_fixture_fault on asset_onboarding_runs; drop function if exists browser_fixture_fault()",
+    );
+    sql(
+      `update user_profiles set organization_id='11111111-1111-1111-1111-111111111111' where id='${manager}'`,
+    );
     sql(
       `update user_profiles set organization_id='11111111-1111-1111-1111-111111111111',role='reliability_engineer' where id='${user}'`,
     );
