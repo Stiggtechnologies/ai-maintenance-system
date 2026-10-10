@@ -295,6 +295,11 @@ export function ImplementationJourneyPanel() {
         </Link>
         . No live integration is claimed by this checklist.
       </p>
+      <p>
+        Preparation draft: mapping references are provisional. First-result
+        approval and customer acceptance remain unavailable until the existing
+        evidence and asset approval services provide qualified provenance.
+      </p>
       <div className="flex flex-wrap gap-4 text-sm">
         <Link className="underline" to="/assets">
           Customer asset register
@@ -427,10 +432,10 @@ export function ImplementationJourneyPanel() {
               <h4 className="font-semibold">Reviewed customer data mapping</h4>
               <p>
                 Select existing customer assets, approved class-compatible twins
-                and independently verified mapping evidence. Imports remain in
-                the existing integration workspace; only clean completed runs
-                can be attached. The first-result review must demonstrate this
-                scope supports the stated outcome.
+                and provisional mapping references with an independent verifier
+                stamp. Imports remain in the existing integration workspace;
+                only clean completed runs can be attached. The first-result
+                review must demonstrate this scope supports the stated outcome.
               </p>
               <label className="block">
                 Customer asset

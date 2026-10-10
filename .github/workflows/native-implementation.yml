@@ -7,6 +7,7 @@ on:
       - "scripts/tests/implementation-*"
       - "src/services/implementation/**"
       - "src/components/implementation/**"
+      - "tests/e2e/native-implementation.spec.ts"
   workflow_dispatch:
 permissions:
   contents: read
@@ -47,3 +48,24 @@ jobs:
         run: |
           createdb implementation_canonical
           PGDATABASE=implementation_canonical psql -v ON_ERROR_STOP=1 -f scripts/tests/implementation-canonical-setup.sql -f scripts/tests/implementation-canonical-postgres.sql
+  signed-in-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359
+        with:
+          version: latest
+      - name: Fresh local Supabase with full canonical migration chain
+        run: supabase start
+      - run: npx playwright install --with-deps chromium
+      - name: Signed-in native journey interruption and tenant isolation
+        run: npx playwright test tests/e2e/native-implementation.spec.ts
+      - name: Stop isolated Supabase
+        if: always()
+        run: supabase stop --no-backup
