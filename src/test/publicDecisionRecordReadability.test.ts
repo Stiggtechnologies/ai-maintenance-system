@@ -21,7 +21,7 @@ describe("public decision record contrast", () => {
       "utf8",
     );
     expect(css).toMatch(
-      /\.bolt-public \.dw-message-markdown :is\(\s*p,\s*ul,\s*ol,\s*li,\s*blockquote,\s*td,\s*th,\s*strong,\s*em\s*\)\s*\{\s*color: #3a4048;/,
+      /\.bolt-public\s+\.dw-message-markdown\s+:is\(\s*p,\s*ul,\s*ol,\s*li,\s*blockquote,\s*td,\s*th,\s*strong,\s*em\s*\)\s*\{\s*color: #3a4048;/,
     );
     expect(
       (luminance("ffffff") + 0.05) / (luminance("3a4048") + 0.05),
