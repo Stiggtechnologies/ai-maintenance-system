@@ -1,0 +1,31 @@
+# Native implementation journey — qualification draft
+
+Issue #75 is delivered as a bounded post-purchase vertical slice inside the existing SyncAI deployment workspace. Azure activation offers **Continue implementation**; administrators can also enter from Deployments. No changes are made to the shared auth return, walkthrough, trust routes, decision-case contracts, connector adapters, evidence verification or MFA workstreams.
+
+## Canonical contracts
+
+`billing_subscriptions` remains the commercial authority. A journey references one same-company active subscription; Azure also requires its existing activated fulfillment binding and Microsoft's `Subscribed` state. Webhooks never call the journey or manufacture deployment success. Existing activation's verified Entra tenant and existing-administrator checks remain unchanged. A new company must use reviewed support-assisted provisioning before activation; this feature cannot create an organization, credentials, permissions or infrastructure.
+
+`deployment_instances` holds additive implementation checkpoints, immutable company/purchase/outcome binding and revision. `audit_events` retains exact actor/command/payload receipts and before/after status. There is no new queue, job scheduler, import engine, evidence table or engineering approval model. The explicit customer acknowledgement references independently verified canonical evidence and grants no operational authority.
+
+Data mapping references existing assets, independently verified exact-asset evidence, approved class-compatible `asset_twin_templates` and optional clean completed `connector_runs`. Authorized uploads, CMMS/historian reads, validation, retained rejects and document intake continue through their existing workspaces. No connection is configured or claimed by attaching a receipt. Unsupported systems and installation are human-assisted. This slice coordinates existing records and compilation; it does not automatically execute connectors or import files.
+
+Preparation invokes `compile_asset_twin` and `run_asset_onboarding` with no billable AI pass. Existing matching twins are reused. Conflicting twins require engineering assistance, rather than being overwritten. A bounded transaction uses a coarse twin-table write lock because the existing compiler upserts and has no cooperating per-asset lock. This protects the check/compile race; throughput and contention require qualification before broad rollout. Template outputs stay drafts. The pilot `provision_deployment` starter factory is never called and cannot activate a customer journey. No synthetic assets or sensors are inserted.
+
+First-result review requires canonical current readiness, an existing named authorized same-company asset sign-off, compiled twins and independently verified exact-asset non-AI evidence. A percentage, subscription activation or a completed deterministic pass cannot substitute. Explicit customer acceptance requires distinct independently verified `customer_acceptance`, `training_completion` and `support_handoff` evidence, plus a named administrator's statement. Human reviewers must verify that those documents actually demonstrate the intended outcome and handoff; this feature cannot establish their semantic truth automatically.
+
+## Retry, interruption and correction
+
+Commands lock the subscription/journey, check current membership and revision, and return an immutable receipt on an exact replay. Conflicting actor/payload/revision reuse is refused. Canonical billing event replay and ordering remain owned by the existing fulfillment/lifecycle rail.
+
+The native panel retains an unresolved intent in session storage, scoped to actor and company. A transport failure is an unknown outcome; the panel reads canonical receipts before offering an explicit retry of that same intent. No automatic mutation retry runs. Signing out/context changes hides the old data and discards late responses. Browser session storage is not a cross-device durable draft; server checkpoints and audit receipts are durable, and another session can resume from the retained journey. Closed tabs may lose an unresolved browser intent; stale revisions and unique purchase binding still prevent a second committed journey.
+
+Dry-run mapping/preparation validates sources without writes. Preparation catches an execution failure inside a subtransaction: its compilation/autofill changes roll back while the journey keeps a failure checkpoint. Fix the owning service's prerequisite, resume and explicitly retry. Pause retains customer imports, evidence and twin history. It does not delete imported data or attempt to reverse external actions. Resuming requires fresh review. Source/evidence changes invalidate the displayed claim of current acceptance; historical receipts remain retained. Corrections use the owning governed service and a new review, not receipt deletion or data truncation.
+
+## Qualification and release boundaries
+
+Synthetic PostgreSQL boundary tests execute the new migration and command logic against explicit fixture doubles for the existing compiler/onboarding/readiness services. They prove the new command's denial/replay/rollback/acceptance controls, **not** the actual canonical service integration or production behavior. The repository's existing full migration-chain CI and billing regressions remain separate mandatory gates. No required gate is removed or weakened.
+
+Before release: architecture and security/tenancy review of additive fields/RPCs; actual full migration-chain qualification; real-browser signed-in interruption and tenant switching; canonical compiler/onboarding positive integration; supported connector operational evidence; customer-specific human approval/acceptance/training/support records; and separately authorized deployment. This PR is a draft and does not close #75's broader automated multi-source ingestion scope, certify live integrations or promote readiness registers.
+
+Rollback before deployment is a code revert. After a separately approved database release, disable the panel/command grants and use reviewed forward corrections while retaining implementation and audit history. Never delete receipts, silently seed assets or weaken purchase binding.

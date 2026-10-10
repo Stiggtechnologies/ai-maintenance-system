@@ -182,7 +182,7 @@ export function MarketplaceSignup() {
 
   const launch = () => {
     clearContext();
-    navigate("/overview");
+    navigate("/deployments/new/configure?implementation=1");
   };
 
   return (
@@ -308,7 +308,8 @@ export function MarketplaceSignup() {
               </h2>
               <p className="mt-2 text-industrial-muted">
                 Microsoft confirms the SyncAI subscription is active for your
-                governed workspace.
+                governed workspace. Asset readiness and completed implementation
+                still require evidence and customer acceptance.
               </p>
             </div>
             <SubscriptionCard context={context} />
@@ -317,7 +318,7 @@ export function MarketplaceSignup() {
               onClick={launch}
               className="w-full rounded-lg bg-[#3A8DFF] px-4 py-3 font-medium text-white transition-colors hover:bg-[#2E7AE6]"
             >
-              Launch SyncAI
+              Continue implementation
             </button>
           </div>
         )}

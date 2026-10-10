@@ -194,6 +194,13 @@ export function TemplateSelectorPage() {
 
   return (
     <div className="max-w-7xl mx-auto">
+      <button
+        type="button"
+        onClick={() => navigate("/deployments/new/configure?implementation=1")}
+        className="mb-6 rounded-lg border border-industrial-border px-4 py-3 text-industrial-text"
+      >
+        Implement an active subscription with customer data
+      </button>
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-industrial-text">
