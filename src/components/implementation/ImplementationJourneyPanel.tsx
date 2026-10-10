@@ -62,7 +62,19 @@ export function ImplementationJourneyPanel() {
     const { data, error: sessionError } = await supabase.auth.getUser();
     if (sessionError || !data.user)
       throw new Error("Sign in as a named company administrator to continue.");
-    const w = await loadImplementationWorkspace();
+    let w: ImplementationWorkspace;
+    try {
+      w = await loadImplementationWorkspace();
+    } catch (e) {
+      if (epoch === generation.current && readId === readSequence.current) {
+        // A denied or unavailable membership read cannot leave old company data visible.
+        setWorkspace(null);
+        setResources(EMPTY);
+        setSelected("");
+        setRecoveryChecked(false);
+      }
+      throw e;
+    }
     if (epoch !== generation.current || readId !== readSequence.current) return;
     const key = `syncai-implementation-intent:${data.user.id}:${w.organizationId}`;
     const nextIdentity = `${data.user.id}:${w.organizationId}`;
