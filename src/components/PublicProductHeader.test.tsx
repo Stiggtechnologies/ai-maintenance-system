@@ -38,10 +38,9 @@ describe("PublicProductHeader", () => {
       expect(link.getAttribute("href") ?? "").not.toMatch(/\/demo/);
     }
     expect(SRC).not.toMatch(/\/demo/);
-    expect(screen.getByLabelText("SyncAI Reliability Engineer")).toHaveAttribute(
-      "href",
-      "/workspace",
-    );
+    expect(
+      screen.getByLabelText("SyncAI Reliability Engineer"),
+    ).toHaveAttribute("href", "/workspace");
   });
 
   it("hides Sign in when showSignIn is false", () => {
@@ -51,6 +50,9 @@ describe("PublicProductHeader", () => {
 
   it("shows Sign in by default", () => {
     render(<PublicProductHeader active="copilot" />);
-    expect(screen.getByLabelText("Sign in")).toHaveAttribute("href", "/signin");
+    expect(screen.getByLabelText("Sign in")).toHaveAttribute(
+      "href",
+      "/signin?returnTo=%2F",
+    );
   });
 });
