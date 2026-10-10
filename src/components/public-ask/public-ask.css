@@ -1368,6 +1368,15 @@
   display: flex;
 }
 
+/* Keep the dark canonical decision record readable on the light public canvas. */
+.bolt-public .dw-packet {
+  color: #dce5ec;
+}
+
+.bolt-public .dw-packet strong {
+  color: #dce5ec;
+}
+
 .bolt-layout.is-rail-open .dw-rail {
   display: flex;
   border-right-color: var(--bolt-line);

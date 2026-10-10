@@ -313,7 +313,11 @@ function App() {
                 <Login
                   onSuccess={handleSignInSuccess}
                   onTabChange={(page) =>
-                    window.location.assign(`/?view=${page}`)
+                    window.location.assign(
+                      ["privacy", "terms", "security"].includes(page)
+                        ? `/${page}`
+                        : `/?view=${page}`,
+                    )
                   }
                 />
               )

@@ -88,19 +88,19 @@ export function ProductEntryPathsPage() {
           aria-labelledby="walkthrough-title"
         >
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-amber-200">
-            Customer-first walkthrough · research hypothesis
+            Your decision, from evidence to follow-through
           </p>
           <h2
             id="walkthrough-title"
             className="mt-2 text-2xl font-semibold text-white"
           >
-            One decision experience to test behind every pain-led message.
+            A clear path from your operating problem to a reviewed decision.
           </h2>
           <p className="mt-3 max-w-4xl text-sm leading-6 text-slate-300">
-            The product supports this sequence, but support is not market
-            validation. Keep the walkthrough consistent, attribute every
-            entrance, and let completed decision and verified-outcome evidence
-            determine which messages deserve more investment.
+            Bring the available asset and maintenance evidence. Review the
+            findings, identify gaps, and prepare the next decision with your
+            team. Accountable people approve consequential actions and verify
+            the outcome.
           </p>
           <ol className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {CUSTOMER_FIRST_WALKTHROUGH.map((stage, index) => (
@@ -135,11 +135,7 @@ export function ProductEntryPathsPage() {
             >
               <div className="flex items-center justify-between gap-4">
                 <span className="text-xs font-semibold uppercase tracking-[0.14em] text-teal-200">
-                  {entry.priority === "primary"
-                    ? "Test first"
-                    : entry.priority === "secondary"
-                      ? "Contrast test"
-                      : "Portfolio test"}
+                  Governed decision support
                 </span>
                 <ShieldCheck className="h-5 w-5 text-teal-300" aria-hidden />
               </div>

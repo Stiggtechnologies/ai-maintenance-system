@@ -2109,6 +2109,7 @@ function AuthorityPanel({
         ))}
         <div className="dw-comment-entry">
           <input
+            aria-label="Authority comment"
             value={comment}
             onChange={(event) => setComment(event.target.value)}
             placeholder="Add rationale or a condition..."

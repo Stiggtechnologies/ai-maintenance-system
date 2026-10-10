@@ -135,3 +135,27 @@ describe("PublicAskEmpty", () => {
     ).toBeTruthy();
   });
 });
+
+describe("assessment intake keyboard focus", () => {
+  it("contains reverse tab and returns focus after Escape across repeated openings", () => {
+    render(
+      <PublicAskEmpty askBar={<div>ask-slot</div>} onSelectIntent={vi.fn()} />,
+    );
+    const trigger = screen.getByRole("button", { name: "Request scope" });
+    for (let i = 0; i < 3; i++) {
+      trigger.focus();
+      fireEvent.click(trigger);
+      expect(screen.getByLabelText("Full name")).toHaveFocus();
+      const close = screen.getByRole("button", { name: "Close" });
+      close.focus();
+      fireEvent.keyDown(close, { key: "Tab", shiftKey: true });
+      expect(screen.getByRole("dialog").contains(document.activeElement)).toBe(
+        true,
+      );
+      expect(close).not.toHaveFocus();
+      fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(trigger).toHaveFocus();
+    }
+  });
+});

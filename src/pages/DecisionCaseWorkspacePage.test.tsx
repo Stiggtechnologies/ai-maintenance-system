@@ -342,8 +342,10 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     ).toBeTruthy();
     expect(screen.getByTestId("disposition-record")).toBeTruthy();
     expect(screen.getByTestId("learn-unpersisted")).toBeTruthy();
-    expect(screen.getByText(/no verification obligation/i)).toBeTruthy();
-    expect(screen.getByText(/nothing was written/i)).toBeTruthy();
+    expect(screen.getByText(/Illustrative example only/i)).toBeTruthy();
+    expect(
+      screen.getByText(/No customer verification result has been saved/i),
+    ).toBeTruthy();
     expect(screen.getByRole("link", { name: "Learning Loop" })).toHaveAttribute(
       "href",
       "/learning-loop",

@@ -29,6 +29,7 @@ import {
 } from "../../lib/public-ask-intents";
 import { submitPilotIntake } from "../../services/pilotIntake";
 import { BrandWordmark } from "../BrandWordmark";
+import { bindModalFocus } from "../../lib/modal-focus";
 
 const PILL_ICONS: Record<PublicAskIntentId, ReactNode> = {
   compare: <BarChart3 size={15} />,
@@ -348,14 +349,11 @@ function AssessmentIntake({ onClose }: { onClose: () => void }) {
   );
   const [error, setError] = useState("");
   const firstField = useRef<HTMLInputElement>(null);
+  const dialog = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    firstField.current?.focus();
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
+    if (!dialog.current) return;
+    return bindModalFocus(dialog.current, firstField.current, onClose);
   }, [onClose]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -400,6 +398,8 @@ function AssessmentIntake({ onClose }: { onClose: () => void }) {
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
     >
       <section
+        ref={dialog}
+        tabIndex={-1}
         className="bolt-intake"
         role="dialog"
         aria-modal="true"
