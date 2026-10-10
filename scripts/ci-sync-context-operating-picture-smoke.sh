@@ -3,7 +3,8 @@ set -euo pipefail
 trap 'echo "SC-02 operating-picture smoke FAILED at line $LINENO"' ERR
 # Isolated CI only; the SC-01 smoke seeds the foreign/technician/AI users.
 psqlc(){ PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "$1"; }
-eval "$(supabase status -o env | rg '^(ANON_KEY|API_URL)=')"
+# Use the runner's standard grep: ripgrep is not installed on hosted CI.
+eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL)=')"
 : "${API_URL:?}" "${ANON_KEY:?}"
 [[ "$API_URL" = http://127.0.0.1:* || "$API_URL" = http://localhost:* ]]
 token(){ curl -fsS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}" | python3 -c "import json,sys;print(json.load(sys.stdin).get('access_token',''))"; }
