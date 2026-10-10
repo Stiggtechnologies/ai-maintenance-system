@@ -152,6 +152,21 @@ function commandOf(statement: string): string {
   return (m ? m[1] : "all").toLowerCase();
 }
 
+// This additive family filter must neither become a permissive grant nor
+// silently stop checking current AND captured risk provenance in full history.
+const serviceAuditPredicate = `entity_type not in ('asset_service_level','asset_service_level_verification')
+  or (organization_id=public.app_current_org()
+    and public.asset_service_level_basis_visible(organization_id,
+      public.sync_text_as_uuid(new_state->>'evidence_item_id'),new_state->'evidence_snapshot')
+    and (previous_state is null or public.asset_service_level_basis_visible(organization_id,
+      public.sync_text_as_uuid(previous_state->>'evidence_item_id'),previous_state->'evidence_snapshot'))) `;
+const compactPredicate = (text: string) => text.replace(/\s+/g, "").toLowerCase();
+function exactServiceAuditFence(statement: string): boolean {
+  return grantsAuthenticated(statement) && isRestrictive(statement)
+    && commandOf(statement) === "select"
+    && compactPredicate(usingOf(statement) ?? "") === compactPredicate(serviceAuditPredicate);
+}
+
 // ---------------------------------------------------------------------------
 
 describe("the chain resolved", () => {
@@ -319,13 +334,15 @@ describe("the tightened tables are scoped, and scoped to app_current_org()", () 
     const policies = policiesOn("audit_events").filter((p) =>
       grantsAuthenticated(p.text),
     );
-    expect(policies).toHaveLength(2);
+    expect(policies).toHaveLength(3);
     const tenant = policies.filter((p) => !isRestrictive(p.text));
     expect(tenant).toHaveLength(1);
     expect(usingOf(tenant[0].text)).toMatch(
       /organization_id = app_current_org\(\)/,
     );
-    const sensitivity = policies.filter((p) => isRestrictive(p.text));
+    const restrictive = policies.filter((p) => isRestrictive(p.text));
+    expect(restrictive.map(p => p.policy).sort()).toEqual(["asset_service_level_audit_basis_read", "risk_decision_audit_sensitivity"]);
+    const sensitivity = restrictive.filter(p => p.policy === "risk_decision_audit_sensitivity");
     expect(sensitivity).toHaveLength(1);
     expect(sensitivity[0].policy).toBe("risk_decision_audit_sensitivity");
     expect(commandOf(sensitivity[0].text)).toBe("select");
@@ -345,6 +362,26 @@ describe("the tightened tables are scoped, and scoped to app_current_org()", () 
       "risk_secondary_created",
     ])
       expect(predicate).toContain(`'${family}'`);
+  });
+
+  it("the service-family audit filter is additive, restrictive and pins both complete historical basis gates", () => {
+    const servicePolicies = policiesOn("audit_events").filter(p => p.policy === "asset_service_level_audit_basis_read");
+    expect(servicePolicies).toHaveLength(1);
+    const statement = servicePolicies[0].text;
+    expect(exactServiceAuditFence(statement)).toBe(true);
+    for (const mutate of [
+      (sql: string) => sql.replace(/as restrictive/i, "as permissive"),
+      (sql: string) => sql.replace(/for select/i, "for all"),
+      (sql: string) => sql.replace("public.app_current_org()", "null"),
+      (sql: string) => sql.replace("new_state->'evidence_snapshot'", "null"),
+      (sql: string) => sql.replace("previous_state->'evidence_snapshot'", "null"),
+      (sql: string) => sql.replace("previous_state is null or", "true or"),
+      (sql: string) => sql.replace(/using\s*\(/i, "using (true or "),
+    ]) {
+      const weakened = mutate(statement);
+      expect(weakened).not.toBe(statement);
+      expect(exactServiceAuditFence(weakened)).toBe(false);
+    }
   });
 
   it("acknowledge/resolve and mark-read still have their UPDATE", () => {
