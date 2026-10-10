@@ -1388,7 +1388,7 @@ export function DecisionCaseWorkspacePage({
         }
       />
       <div className="bolt-stage">
-        {publicMode && !emptyConversation && caseId === active.id &&
+        {!emptyConversation && caseId === active.id &&
         new URLSearchParams(location.search).get("origin") === "evaluation" ? (
           <p
             role="status"
