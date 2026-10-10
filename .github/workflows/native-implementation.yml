@@ -1,0 +1,72 @@
+name: Native implementation boundary
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/native-implementation.yml"
+      - "supabase/migrations/20270103140000_native_implementation_journey.sql"
+      - "scripts/tests/implementation-*"
+      - "scripts/tests/run-native-browser.py"
+      - "src/services/implementation/**"
+      - "src/components/implementation/**"
+      - "tests/e2e/native-implementation.spec.ts"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  postgres-boundary:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: implementation_fixture
+          POSTGRES_PASSWORD: disposable_fixture_only
+          POSTGRES_DB: implementation_fixture
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGUSER: implementation_fixture
+      PGPASSWORD: disposable_fixture_only
+      PGDATABASE: implementation_fixture
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Synthetic PostgreSQL command boundary (canonical services are fixture doubles)
+        run: >-
+          psql -v ON_ERROR_STOP=1
+          -f scripts/tests/implementation-fixture.sql
+          -f supabase/migrations/20270103140000_native_implementation_journey.sql
+          -f scripts/tests/implementation-journey-postgres.sql
+      - name: Concurrent duplicate starts in two PostgreSQL sessions
+        run: python3 scripts/tests/implementation-concurrency.py
+      - name: Unchanged canonical engineering services (isolated original migrations)
+        run: |
+          createdb implementation_canonical
+          PGDATABASE=implementation_canonical psql -v ON_ERROR_STOP=1 -f scripts/tests/implementation-canonical-setup.sql -f scripts/tests/implementation-canonical-postgres.sql
+  signed-in-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359
+        with:
+          version: latest
+      - name: Fresh local Supabase with full canonical migration chain
+        run: supabase start
+      - run: npx playwright install --with-deps chromium
+      - name: Signed-in full-chain preparation, rollback, retry and tenant isolation
+        run: python3 scripts/tests/run-native-browser.py
+      - name: Stop isolated Supabase
+        if: always()
+        run: supabase stop --no-backup
