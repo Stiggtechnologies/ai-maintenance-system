@@ -336,5 +336,5 @@ export function productEntryDestination(
     const normalized = value?.trim();
     if (normalized) params.set(key, normalized);
   }
-  return `/capabilities/${entry.intentId}?${params.toString()}`;
+  return `/get-started?${params.toString()}`;
 }

@@ -26,6 +26,7 @@ import {
   loadPersistedDecisionCase,
 } from "../services/decisionCaseService";
 import { DecisionCaseSpine } from "./DecisionCaseSpine";
+import { productEntryById } from "../lib/product-entry-paths";
 
 function rememberSavedCase(id: string) {
   if (!isPersistedDecisionCase(id)) return;
@@ -38,6 +39,9 @@ function rememberSavedCase(id: string) {
 
 export function InvertedOpeningPage() {
   const auth = useOptionalAuth();
+  const entry = productEntryById(
+    new URLSearchParams(window.location.search).get("entry") ?? "",
+  );
   const [ask, setAsk] = useState("");
   const [intent, setIntent] = useState<InvertedIntentId>("solve");
   const [savePrompt, setSavePrompt] = useState(false);
@@ -162,6 +166,21 @@ export function InvertedOpeningPage() {
             <span>{INVERTED_OPENING_AUTHORITY}</span>
           </div>
         </header>
+
+        {entry ? (
+          <aside
+            data-testid="entry-context"
+            className="rounded-xl border border-teal-300/20 p-4 text-sm text-slate-300"
+          >
+            <h2 className="font-semibold text-white">{entry.name}</h2>
+            <p className="mt-2">Bring: {entry.input}</p>
+            <p className="mt-2">{entry.boundary}</p>
+            <p className="mt-2">
+              Describe your own question below. This entry does not load example
+              data or grant workspace permissions.
+            </p>
+          </aside>
+        ) : null}
 
         {!spineQuestion ? (
           <>
@@ -302,18 +321,34 @@ export function InvertedOpeningPage() {
         ) : null}
 
         {spineQuestion ? (
-          <DecisionCaseSpine
-            question={spineQuestion}
-            intent={intent}
-            initialCase={persistedCase}
-            initiallySaved={Boolean(persistedCase)}
-            blockWorkspacePersist={examplePreview}
-            openingNotice={persistError}
-          />
+          <section aria-label="Your Decision Case">
+            <button
+              type="button"
+              className="mb-4 text-sm text-teal-300"
+              onClick={() => {
+                setSpineQuestion("");
+                setPersistedCase(undefined);
+                setExamplePreview(false);
+                setPersistError(null);
+                setSavePrompt(false);
+              }}
+            >
+              Back to your question
+            </button>
+            <DecisionCaseSpine
+              key={persistedCase?.id ?? spineQuestion}
+              question={spineQuestion}
+              intent={intent}
+              initialCase={persistedCase}
+              initiallySaved={Boolean(persistedCase)}
+              blockWorkspacePersist={examplePreview}
+              openingNotice={persistError}
+            />
+          </section>
         ) : (
           <p className="text-center text-[11px] text-slate-600">
-            Decision Case spine opens after save. Not marketed as seamless
-            self-guided until the acceptance test passes.
+            Start with your own question, or preview a labeled example. Review
+            the evidence and next steps before saving a customer case.
           </p>
         )}
       </div>

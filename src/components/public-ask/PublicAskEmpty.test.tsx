@@ -17,6 +17,9 @@ describe("PublicAskEmpty", () => {
       />,
     );
     expect(screen.getByRole("heading", { name: "SyncAI" })).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: /Start your first decision/ }),
+    ).toHaveAttribute("href", "/get-started");
     expect(screen.getByText("pro")).toBeTruthy();
     expect(screen.getByText(/defensible engineering decisions/i)).toBeTruthy();
     expect(screen.getByText("US$35,000")).toBeTruthy();
@@ -60,13 +63,11 @@ describe("PublicAskEmpty", () => {
     );
   });
 
-  it("opens the governed assessment request form from the primary CTA", () => {
+  it("opens the governed assessment request form from Request scope", () => {
     render(
       <PublicAskEmpty askBar={<div>ask-slot</div>} onSelectIntent={vi.fn()} />,
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: /start an assessment/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Request scope" }));
     expect(screen.getByRole("dialog")).toBeTruthy();
     expect(
       screen.getByRole("heading", {
@@ -94,9 +95,7 @@ describe("PublicAskEmpty", () => {
     render(
       <PublicAskEmpty askBar={<div>ask-slot</div>} onSelectIntent={vi.fn()} />,
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: /start an assessment/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Request scope" }));
     fireEvent.change(screen.getByLabelText("Full name"), {
       target: { value: "Dana Singh" },
     });

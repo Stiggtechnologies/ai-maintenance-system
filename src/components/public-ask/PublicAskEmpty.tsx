@@ -120,13 +120,9 @@ export function PublicAskEmpty({
             </ul>
           </div>
           <div className="bolt-hero-actions">
-            <button
-              type="button"
-              className="bolt-primary-cta"
-              onClick={() => setIntakeOpen(true)}
-            >
-              Start an assessment <ArrowRight size={17} />
-            </button>
+            <a className="bolt-primary-cta" href="/get-started">
+              Start your first decision <ArrowRight size={17} />
+            </a>
             <a className="bolt-secondary-cta" href="#try-syncai">
               Try the Reliability Engineer
             </a>

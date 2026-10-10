@@ -79,14 +79,14 @@ describe("product entry paths", () => {
         variant: "evidence-led",
       }),
     ).toBe(
-      "/capabilities/learn?entry=maintenance-cost-reduction&source=microsoft-marketplace&campaign=october-test&variant=evidence-led",
+      "/get-started?entry=maintenance-cost-reduction&source=microsoft-marketplace&campaign=october-test&variant=evidence-led",
     );
   });
 
   it("drops empty attribution rather than inventing campaign evidence", () => {
     const entry = productEntryById("downtime-evidence-audit");
     expect(productEntryDestination(entry!, {})).toBe(
-      "/capabilities/fact-check?entry=downtime-evidence-audit",
+      "/get-started?entry=downtime-evidence-audit",
     );
     expect(productEntryById("unsupported")).toBeUndefined();
   });
@@ -98,7 +98,7 @@ describe("product entry paths", () => {
       agentProduct: "SyncAI Failure Investigation Agent",
     });
     expect(productEntryDestination(legacyEntry!)).toBe(
-      "/capabilities/troubleshoot?entry=failure-investigation",
+      "/get-started?entry=failure-investigation",
     );
   });
 });

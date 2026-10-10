@@ -65,6 +65,8 @@ import {
   savePersistedDecisionCase,
 } from "../services/decisionCaseService";
 
+import { stageEvaluationAssistantHandoff } from "../lib/onboarding/evaluation-assistant-handoff";
+
 const emptyPeople = (): CasePeople => ({
   decisionOwner: "",
   recommendationAuthor: "SyncAI",
@@ -224,7 +226,7 @@ export function DecisionCaseSpine({
       return;
     }
     if (!auth?.user) {
-      setSaved(true);
+      setSaved(false);
       setSaveNotice(
         "Assessment kept in this session. Sign in to create the evaluation workspace — not before Ask.",
       );
@@ -235,16 +237,16 @@ export function DecisionCaseSpine({
       const persisted = isPersistedDecisionCase(decisionCase.id)
         ? decisionCase
         : await createPersistedDecisionCase(decisionCase, {});
-      if (isPersistedDecisionCase(persisted.id)) {
-        await savePersistedDecisionCase(persisted);
-      }
+      if (!isPersistedDecisionCase(persisted.id))
+        throw new Error("Workspace save did not produce a persisted case");
+      await savePersistedDecisionCase(persisted);
       setDecisionCase(persisted);
       setSaved(true);
       setSaveNotice(
         "Decision Case saved on your evaluation workspace. Reload the audit trail on this page.",
       );
     } catch {
-      setSaved(true);
+      setSaved(false);
       setSaveNotice(
         "Case is provisional in this browser. Workspace save did not complete — the loop stays available.",
       );
@@ -316,6 +318,36 @@ export function DecisionCaseSpine({
                 : "Keep provisional and continue"}
         </button>
       </div>
+      <p
+        className="text-xs text-slate-400"
+        data-testid="spine-evaluation-boundary"
+      >
+        Guided evaluation: the recommendations on this page are deterministic
+        examples, not a live AI engineering analysis. Saving an evaluation does
+        not create a governed decision or approval.
+      </p>
+      <button
+        type="button"
+        data-testid="spine-live-assistant"
+        className="text-sm text-teal-300"
+        onClick={() => {
+          try {
+            window.location.assign(
+              stageEvaluationAssistantHandoff(
+                decisionCase,
+                window.location.search,
+                window.sessionStorage,
+              ),
+            );
+          } catch {
+            setSaveNotice(
+              "The assistant handoff did not complete. Your evaluation remains here; export the proof summary or retry.",
+            );
+          }
+        }}
+      >
+        Continue this case with the live assistant
+      </button>
       <p className="text-xs text-slate-400" data-testid="spine-save-notice">
         {saveNotice}
       </p>
