@@ -8,6 +8,29 @@ vi.mock("../../services/pilotIntake", () => ({
 }));
 
 describe("PublicAskEmpty", () => {
+  it("carries acquisition context to the first decision and examples without forwarding secrets", () => {
+    render(
+      <PublicAskEmpty
+        askBar={<div>ask-slot</div>}
+        onSelectIntent={vi.fn()}
+        search="?industry=mining&source=website&campaign=launch&utm_source=partner&token=secret&returnTo=https://unsafe.invalid"
+      />,
+    );
+    const first = screen.getByRole("link", {
+      name: /Start your first decision/,
+    });
+    const params = new URL(
+      first.getAttribute("href")!,
+      "https://syncai.invalid",
+    ).searchParams;
+    expect(params.get("industry")).toBe("mining");
+    expect(params.get("utm_source")).toBe("partner");
+    for (const link of screen.getAllByTestId("capability-showcase-link")) {
+      expect(link.getAttribute("href")).toContain("industry=mining");
+      expect(link.getAttribute("href")).toContain("utm_source=partner");
+      expect(link.getAttribute("href")).not.toMatch(/secret|returnTo/);
+    }
+  });
   it("renders a credible offer, live product entry, and five intent pills", () => {
     const onSelectIntent = vi.fn();
     render(
@@ -16,11 +39,13 @@ describe("PublicAskEmpty", () => {
         onSelectIntent={onSelectIntent}
       />,
     );
-    expect(screen.getByRole("heading", { name: "SyncAI" })).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: /defensible engineering decisions/ }),
+    ).toBeTruthy();
     expect(
       screen.getByRole("link", { name: /Start your first decision/ }),
     ).toHaveAttribute("href", "/get-started");
-    expect(screen.getByText("pro")).toBeTruthy();
+    expect(screen.queryByText("pro")).toBeNull();
     expect(screen.getByText(/defensible engineering decisions/i)).toBeTruthy();
     expect(screen.getByText("US$35,000")).toBeTruthy();
     expect(document.querySelector(".bolt-sales-hero")).not.toHaveTextContent(
@@ -52,7 +77,7 @@ describe("PublicAskEmpty", () => {
     ).toHaveAttribute("href", "/setup");
     expect(screen.getByRole("link", { name: /Sign in/ })).toHaveAttribute(
       "href",
-      "/signin?returnTo=%2Foverview",
+      "/signin?returnTo=%2F",
     );
     expect(
       screen
