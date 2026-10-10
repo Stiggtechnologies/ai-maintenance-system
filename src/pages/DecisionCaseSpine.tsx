@@ -10,7 +10,7 @@ import { Link } from "react-router-dom";
 import { ChevronDown, ChevronRight, Shield, TriangleAlert } from "lucide-react";
 import { useOptionalAuth } from "../components/AuthProvider";
 import { stageDecisionCaseHandoff } from "../lib/decision-case";
-import type { DecisionCase } from "../lib/decision-case";
+import type { DecisionCase, DecisionIndustryId } from "../lib/decision-case";
 import { isSeedDecisionCaseId } from "../lib/decision-case-honesty";
 import type { InvertedIntentId } from "../lib/onboarding/inverted-opening";
 import {
@@ -89,6 +89,7 @@ const emptyVerification = (): VerificationPlan => ({
 export function DecisionCaseSpine({
   question,
   intent,
+  industry,
   initialCase,
   initiallySaved = false,
   blockWorkspacePersist = false,
@@ -97,6 +98,7 @@ export function DecisionCaseSpine({
 }: {
   question: string;
   intent: InvertedIntentId;
+  industry?: DecisionIndustryId;
   initialCase?: DecisionCase;
   initiallySaved?: boolean;
   blockWorkspacePersist?: boolean;
@@ -105,7 +107,7 @@ export function DecisionCaseSpine({
 }) {
   const auth = useOptionalAuth();
   const [decisionCase, setDecisionCase] = useState(
-    () => initialCase ?? buildSpineDecisionCase({ question, intent }),
+    () => initialCase ?? buildSpineDecisionCase({ question, intent, industry }),
   );
   const [saved, setSaved] = useState(initiallySaved);
   const revision = useRef(0);

@@ -455,7 +455,7 @@ test("public first decision retains full evidence through auth and reports faile
   const evidence = "Synthetic inspection observation, without verified measurements or engineering limits";
   let workspaceCreates = 0;
   page.on("request",request=>{if(request.method()==="POST" && new URL(request.url()).pathname==="/rest/v1/cowork_workspaces")workspaceCreates++;});
-  await page.goto("/get-started?source=local-acceptance&campaign=auth-handoff");
+  await page.goto("/get-started?industry=mining&source=local-acceptance&campaign=auth-handoff");
   await page.getByTestId("inverted-ask").fill(question);
   await page.getByRole("button",{name:/Coordinate field work/}).click();
   await page.getByTestId("inverted-continue").click();
@@ -464,6 +464,7 @@ test("public first decision retains full evidence through auth and reports faile
   await page.getByTestId("spine-evidence-body").fill(evidence);
   await page.getByTestId("spine-add-evidence").click();
   await expect(page.getByTestId("spine-proof-body")).toContainText(evidence);
+  expect(new URL(page.url()).searchParams.get("industry")).toBe("mining");
   const draftId = new URL(page.url()).searchParams.get("case");
   expect(draftId).toBeTruthy();
   await page.getByRole("button",{name:"Back to your question"}).click();
@@ -481,9 +482,10 @@ test("public first decision retains full evidence through auth and reports faile
   await page.getByRole("button",{name:/access syncai/i}).click();
   await expect(page).toHaveURL(new RegExp(`/workspace/cases/${draftId}\\?`));
   expect(new URL(page.url()).searchParams.get("source")).toBe("local-acceptance");
+  expect(new URL(page.url()).searchParams.get("industry")).toBe("mining");
   await expect(page.getByText(question,{exact:true}).first()).toBeVisible();
   await expect(page.getByText(new RegExp(evidence)).first()).toBeVisible();
-  await page.goto(`/get-started?case=${draftId}&industry=oil-gas&view=evaluation`);
+  await page.goto(`/get-started?case=${draftId}&industry=mining&view=evaluation`);
   await expect(page.getByTestId("spine-proof-body")).toContainText("Intent is coordinate");
   await expect(page.getByTestId("spine-proof-body")).toContainText(evidence);
   await page.getByTestId("spine-save-workspace").click();

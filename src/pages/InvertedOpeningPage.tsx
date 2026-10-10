@@ -19,7 +19,10 @@ import {
   SPINE_SAVED_CASE_KEY,
   buildSpineDecisionCase,
 } from "../lib/onboarding/decision-case-spine";
-import type { DecisionCase } from "../lib/decision-case";
+import {
+  normalizeDecisionIndustry,
+  type DecisionCase,
+} from "../lib/decision-case";
 import {
   createPersistedDecisionCase,
   isPersistedDecisionCase,
@@ -59,6 +62,11 @@ export function InvertedOpeningPage() {
   const [examplePreview, setExamplePreview] = useState(false);
   const [persistedCase, setPersistedCase] = useState<DecisionCase | undefined>(
     restored?.decisionCase,
+  );
+  // A restored case owns its industry; a new case uses the acquisition link.
+  const industry = normalizeDecisionIndustry(
+    persistedCase?.industry ??
+      new URLSearchParams(window.location.search).get("industry"),
   );
   const [caseSaved, setCaseSaved] = useState(false);
   const [persistError, setPersistError] = useState<string | null>(null);
@@ -126,7 +134,7 @@ export function InvertedOpeningPage() {
     }
     let draft: DecisionCase;
     try {
-      draft = buildSpineDecisionCase({ question, intent });
+      draft = buildSpineDecisionCase({ question, intent, industry });
     } catch (caught) {
       setPersistError(
         caught instanceof Error
@@ -397,6 +405,7 @@ export function InvertedOpeningPage() {
               key={persistedCase?.id ?? spineQuestion}
               question={spineQuestion}
               intent={intent}
+              industry={industry}
               initialCase={persistedCase}
               initiallySaved={caseSaved}
               onCaseChange={rememberCurrentCase}
