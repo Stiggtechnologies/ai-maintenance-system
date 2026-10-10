@@ -852,8 +852,64 @@ test("bounded U2 real-browser governance, standing, recovery and observed-contex
     expect(fixture("snapshot")).toEqual(knownSnapshot);
     await renderedHistory(page, MANAGER, knownSnapshot);
 
-    // Same actor/org/role, different asset generation. Both held envelopes are
-    // actual A responses; B has no service/evidence/history in this fixture.
+    // Same actor/org/role, different asset generation. B has no fixture service
+    // or history, but canonical standing also permits same-tenant asset-null
+    // evidence from preceding smokes. Capture the real authenticated B baseline
+    // before holding A; do not invent an empty evidence projection.
+    const bSections = ["evidence", "history"] as const;
+    const bBaseline = await Promise.all(
+      bSections.map((section) =>
+        rpc(page, "get_asset_service_level_editor", {
+          p_observed_actor_id: MANAGER,
+          p_observed_organization_id: ORG,
+          p_section: section,
+          p_asset_id: SECOND_ASSET,
+        }),
+      ),
+    );
+    for (const [index, section] of bSections.entries()) {
+      expect(bBaseline[index]).toMatchObject({
+        actor_id: MANAGER,
+        organization_id: ORG,
+        section,
+      });
+      expect(Array.isArray(bBaseline[index].rows)).toBe(true);
+    }
+    expect(bBaseline[1].rows).toEqual([]);
+    const bEvidenceRows = bBaseline[0].rows as Json[];
+    for (const row of bEvidenceRows) {
+      expect([null, SECOND_ASSET]).toContain(row.asset_id);
+      expect([EVIDENCE, DOCUMENT]).not.toContain(row.id);
+    }
+    const bEvidenceOptions = [
+      { value: "", text: "Verified supporting evidence…" },
+      ...bEvidenceRows.map((row) => ({
+        value: row.id,
+        text: row.description,
+      })),
+    ];
+    const expectBEvidence = async () => {
+      await expect
+        .poll(() =>
+          panel(page)
+            .getByLabel("Verified evidence")
+            .locator("option")
+            .evaluateAll((options) =>
+              options.map((option) => ({
+                value: (option as HTMLOptionElement).value,
+                text: option.textContent,
+              })),
+            ),
+        )
+        .toEqual(bEvidenceOptions);
+      for (const id of [EVIDENCE, DOCUMENT])
+        await expect(
+          panel(page)
+            .getByLabel("Verified evidence")
+            .locator(`option[value="${id}"]`),
+        ).toHaveCount(0);
+    };
+    // Both held envelopes below are actual A responses.
     const evidenceHold = holdActualResponse(
       page,
       "get_asset_service_level_editor",
@@ -897,7 +953,7 @@ test("bounded U2 real-browser governance, standing, recovery and observed-contex
         ),
       ),
     );
-    const bResponses = ["evidence", "history"].map((section) =>
+    const bResponses = bSections.map((section) =>
       page.waitForResponse(
         (response) =>
           isRpc(response, "get_asset_service_level_editor") &&
@@ -906,13 +962,16 @@ test("bounded U2 real-browser governance, standing, recovery and observed-contex
       ),
     );
     await panel(page).getByLabel("Asset").selectOption(SECOND_ASSET);
-    for (const response of await Promise.all(bResponses)) {
-      expect(await response.json()).toMatchObject({
-        actor_id: MANAGER,
-        organization_id: ORG,
-        rows: [],
+    for (const [index, response] of (await Promise.all(bResponses)).entries()) {
+      expect(response.request().postDataJSON()).toEqual({
+        p_observed_actor_id: MANAGER,
+        p_observed_organization_id: ORG,
+        p_section: bSections[index],
+        p_asset_id: SECOND_ASSET,
       });
+      expect(await response.json()).toEqual(bBaseline[index]);
     }
+    await expectBEvidence();
     await expect(panel(page).getByLabel("Service name")).toHaveValue("");
     await panel(page)
       .getByLabel("Service name")
@@ -930,9 +989,9 @@ test("bounded U2 real-browser governance, standing, recovery and observed-contex
     await expect(panel(page).getByLabel("Service name")).toHaveValue(
       "Unsaved synthetic B-only editor marker",
     );
-    await expect(
-      panel(page).getByLabel("Verified evidence").locator("option"),
-    ).toHaveCount(1);
+    await expect(panel(page).getByLabel("Asset")).toHaveValue(SECOND_ASSET);
+    await expectBEvidence();
+    await expect(panel(page).getByText(SERVICE, { exact: true })).toHaveCount(0);
     await expect(
       panel(page)
         .getByRole("region", { name: "Canonical service consequence history" })
