@@ -1,12 +1,8 @@
 import { PresenceFace } from "./PresenceFace";
 import { derivePresencePhase } from "../lib/presence/state";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { useSyncRealtimeVoice } from "../hooks/useSyncRealtimeVoice";
-import {
-  hasSessionWelcome,
-  markSessionWelcome,
-  resolveWelcomeGivenName,
-} from "../lib/presence/welcome";
+import { resolveWelcomeGivenName } from "../lib/presence/welcome";
 
 interface Props {
   userId: string;
@@ -41,22 +37,8 @@ export function SyncAssistantWelcome({
   const givenName = resolveWelcomeGivenName({ fullName })?.slice(0, 60);
   const welcome = `${givenName ? `Welcome ${givenName}.` : "Welcome."} I'm Sync. I can help you think, plan, and work through questions. You can talk with me here, in chat, or in meetings. What would you like to work on?`;
   const start = voice.start;
-  useEffect(() => {
-    if (!enabled || muted || !userId || !organizationId) return;
-    // Deferred claim survives StrictMode's effect rehearsal without losing the
-    // first welcome or starting two paid sessions.
-    const timer = window.setTimeout(() => {
-      try {
-        if (hasSessionWelcome(sessionStorage, scope)) return;
-        markSessionWelcome(sessionStorage, scope);
-      } catch {
-        // Storage denial must not create a repeated automatic voice session.
-        return;
-      }
-      void start(welcome);
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [enabled, muted, userId, organizationId, scope, start, welcome]);
+  // Login and rerender never create a paid Realtime session. Voice starts
+  // only through the existing explicit Play / Start conversation controls.
 
   if (!userId || !organizationId) return null;
   const active =
@@ -91,7 +73,7 @@ export function SyncAssistantWelcome({
           <button
             type="button"
             onClick={() => {
-              voice.stop();
+              voice.stopWelcome();
               onOpen();
             }}
           >
@@ -100,7 +82,7 @@ export function SyncAssistantWelcome({
           <button
             type="button"
             onClick={() => {
-              voice.stop();
+              voice.stopWelcome();
               try {
                 localStorage.setItem(muteKey, muted ? "0" : "1");
               } catch {
@@ -117,7 +99,11 @@ export function SyncAssistantWelcome({
         {enabled
           ? voice.status
           : "Live voice is unavailable for this organization. You can still open chat."}{" "}
-        Welcome audio is processed by OpenAI; your microphone stays off.
+        {voice.welcomeOnly
+          ? "Welcome playback uses OpenAI without microphone access."
+          : active
+            ? "Live voice uses your microphone when unmuted. Use Mute or End in the voice panel."
+            : "Play welcome uses OpenAI without microphone access. Start conversation requests your microphone separately."}
       </p>
     </section>
   );

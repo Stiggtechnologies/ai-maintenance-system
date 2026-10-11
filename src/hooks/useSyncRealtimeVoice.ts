@@ -137,17 +137,21 @@ export function useSyncRealtimeVoice({
     return true;
   }, []);
 
-  const waitForRouteContext = useCallback(async (path: string) => {
-    const deadline = Date.now() + ROUTE_CONTEXT_TIMEOUT_MS;
-    while (Date.now() < deadline) {
-      if (contextRef.current.route === path) {
-        await new Promise<void>((resolve) => window.setTimeout(resolve, 60));
-        return true;
+  const waitForRouteContext = useCallback(
+    async (path: string, generation: number) => {
+      const deadline = Date.now() + ROUTE_CONTEXT_TIMEOUT_MS;
+      while (Date.now() < deadline) {
+        if (generationRef.current !== generation) return false;
+        if (contextRef.current.route === path) {
+          await new Promise<void>((resolve) => window.setTimeout(resolve, 60));
+          return generationRef.current === generation;
+        }
+        await new Promise<void>((resolve) => window.setTimeout(resolve, 50));
       }
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 50));
-    }
-    return false;
-  }, []);
+      return false;
+    },
+    [],
+  );
 
   const cleanup = useCallback(
     (next: SyncRealtimeVoiceState = "idle") => {
@@ -197,6 +201,17 @@ export function useSyncRealtimeVoice({
 
   const executeTool = useCallback(
     async (call: RealtimeFunctionCall) => {
+      const generation = generationRef.current;
+      const channel = channelRef.current;
+      const current = () =>
+        generationRef.current === generation && channelRef.current === channel;
+      const cancelled = {
+        ok: false,
+        error: "Voice session changed; command cancelled.",
+      };
+      const askSync = onAskSyncRef.current;
+      const navigate = onNavigateRef.current;
+      const inspectPage = onInspectPageRef.current;
       const args = parseRealtimeToolArguments(call);
       if (!args) return { ok: false, error: "Invalid command arguments." };
       if (call.name === "ask_sync") {
@@ -211,7 +226,8 @@ export function useSyncRealtimeVoice({
           };
         }
         setStatus("Sync is checking the governed operating context…");
-        const result = await onAskSyncRef.current(question);
+        const result = await askSync(question);
+        if (!current()) return cancelled;
         setStatus(
           result.ok
             ? result.pendingApproval
@@ -234,13 +250,19 @@ export function useSyncRealtimeVoice({
             ? args.label.trim().slice(0, 120)
             : path;
         setStatus(`Opening ${label}…`);
-        await onNavigateRef.current(path);
-        const screenContextUpdated = await waitForRouteContext(path);
+        await navigate(path);
+        if (!current()) return cancelled;
+        const screenContextUpdated = await waitForRouteContext(
+          path,
+          generation,
+        );
+        if (!current()) return cancelled;
         if (screenContextUpdated) sendLatestScreenContext();
 
-        if (screenContextUpdated && onInspectPageRef.current) {
+        if (screenContextUpdated && inspectPage) {
           setStatus(`${label} opened. Sync is reviewing the visible page…`);
-          const review = await onInspectPageRef.current(path, label);
+          const review = await inspectPage(path, label);
+          if (!current()) return cancelled;
           setStatus(
             review.ok
               ? `${label} opened and reviewed. Keep talking.`
@@ -507,7 +529,7 @@ export function useSyncRealtimeVoice({
             channel.send(
               JSON.stringify({
                 type: "response.create",
-                response: { tool_choice: "none" },
+                response: { tool_choice: "none", max_output_tokens: 1024 },
               }),
             );
           }

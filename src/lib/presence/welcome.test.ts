@@ -297,9 +297,17 @@ describe("presence boundary", () => {
         /openclaw|javis|jarvis|sir-runtime|autonomous-orchestrator/i,
       );
     }
-    expect(readFileSync("src/components/AppShell.tsx", "utf8")).toContain(
-      "<PresenceWelcome showMeetingBooth={false} />",
-    );
+    const shell = readFileSync("src/components/AppShell.tsx", "utf8");
+    const dock = readFileSync("src/components/CopilotDock.tsx", "utf8");
+    expect(shell).toContain('id="sync-assistant-welcome"');
+    expect(shell).toContain("welcomeHost={welcomeHost}");
+    expect(dock).toContain("<PresenceWelcome");
+    expect(dock).toContain("showMeetingBooth={false}");
+    expect(dock).toContain("canonical={{");
+    expect(dock).toContain("useSyncRealtimeVoice({");
+    expect(
+      readFileSync("src/components/SyncAssistantWelcome.tsx", "utf8"),
+    ).not.toContain("useSpeechOutput");
     expect(readFileSync("src/lib/presence/welcome.ts", "utf8")).toContain(
       "Recommend ≠ authorize",
     );

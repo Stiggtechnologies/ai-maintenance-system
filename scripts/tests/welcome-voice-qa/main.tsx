@@ -5,13 +5,17 @@ import { SyncAssistantWelcome } from "../../../src/components/SyncAssistantWelco
 import { SyncRealtimeVoicePanel } from "../../../src/components/SyncRealtimeVoicePanel";
 import type { useSyncRealtimeVoice } from "../../../src/hooks/useSyncRealtimeVoice";
 import "./styles.css";
+// Visual entrypoint intentionally has no production exports.
+// eslint-disable-next-line react-refresh/only-export-components
 function Fixture() {
   const [open, setOpen] = useState(false);
   const [state, setState] = useState("idle");
+  const [welcomeOnly, setWelcomeOnly] = useState(false);
   const [scope, setScope] = useState("a");
   const [mode, setMode] = useState("conversation");
   const voice = {
     state,
+    welcomeOnly,
     status:
       state === "live"
         ? "Fixture connected — no microphone or provider calls."
@@ -20,10 +24,17 @@ function Fixture() {
     muted: false,
     pushToTalk: false,
     lastEvent: "",
-    start: async () => {
+    start: async (welcome?: string) => {
+      setWelcomeOnly(Boolean(welcome));
       setState("live");
     },
     stop: () => setState("idle"),
+    stopWelcome: () => {
+      if (welcomeOnly) {
+        setState("idle");
+        setWelcomeOnly(false);
+      }
+    },
     end: () => setState("idle"),
     toggleMute: () => {},
     togglePushToTalk: () => {},

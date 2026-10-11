@@ -84,6 +84,14 @@ describe("shared welcome/chat/meeting voice lifecycle", () => {
     expect(
       JSON.parse(connection.channel.send.mock.calls[1][0]).response.tool_choice,
     ).toBe("none");
+    expect(
+      JSON.parse(connection.channel.send.mock.calls[1][0]).response
+        .max_output_tokens,
+    ).toBe(1024);
+    expect(
+      JSON.parse(connection.channel.send.mock.calls[1][0]).response
+        .instructions,
+    ).toBeUndefined();
     expect(connection.channel.send.mock.calls[0][0]).toContain("Orville");
     await act(() => result.current.start("duplicate"));
     expect(request).toHaveBeenCalledTimes(1);
@@ -255,5 +263,102 @@ describe("shared welcome/chat/meeting voice lifecycle", () => {
     expect(Connection.instances[0].close).toHaveBeenCalledOnce();
     expect(result.current.status).toContain("Select Play");
     expect(getUserMedia).not.toHaveBeenCalled();
+  });
+  it("preserves an authorized live session when welcome-specific stop is requested", async () => {
+    const { result } = renderHook(() => useSyncRealtimeVoice(opts));
+    await act(() => result.current.start());
+    act(() => result.current.stopWelcome());
+    expect(request).toHaveBeenCalledOnce();
+    expect(Connection.instances[0].close).not.toHaveBeenCalled();
+    expect(microphoneStop).not.toHaveBeenCalled();
+  });
+  it("cancels a navigation wait after End and cannot inspect in a replacement conversation", async () => {
+    vi.useFakeTimers();
+    try {
+      const oldInspect = vi.fn().mockResolvedValue({ ok: true });
+      const newInspect = vi.fn().mockResolvedValue({ ok: true });
+      const { result, rerender } = renderHook(
+        ({ route, inspect }) =>
+          useSyncRealtimeVoice({
+            ...opts,
+            context: { route },
+            onInspectPage: inspect,
+          }),
+        { initialProps: { route: "/assets", inspect: oldInspect } },
+      );
+      await act(() => result.current.start());
+      await act(async () => {
+        Connection.instances[0].channel.event({
+          type: "response.done",
+          response: {
+            output: [
+              {
+                type: "function_call",
+                call_id: "navigate-old",
+                name: "open_sync_page",
+                arguments: '{"path":"/work","label":"Work"}',
+              },
+            ],
+          },
+        });
+        await Promise.resolve();
+      });
+      act(() => result.current.end());
+      rerender({ route: "/work", inspect: newInspect });
+      await act(() => result.current.start());
+      const replacementStatus = result.current.status;
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(100);
+      });
+      expect(oldInspect).not.toHaveBeenCalled();
+      expect(newInspect).not.toHaveBeenCalled();
+      expect(Connection.instances[1].channel.send).not.toHaveBeenCalled();
+      expect(result.current.status).toBe(replacementStatus);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+  it("captures navigation callback context and stops after a delayed navigation is ended", async () => {
+    let finish!: () => void;
+    const navigate = vi.fn().mockReturnValue(
+      new Promise<void>((resolve) => {
+        finish = resolve;
+      }),
+    );
+    const inspect = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ route }) =>
+        useSyncRealtimeVoice({
+          ...opts,
+          context: { route },
+          onNavigate: navigate,
+          onInspectPage: inspect,
+        }),
+      { initialProps: { route: "/assets" } },
+    );
+    await act(() => result.current.start());
+    act(() =>
+      Connection.instances[0].channel.event({
+        type: "response.done",
+        response: {
+          output: [
+            {
+              type: "function_call",
+              call_id: "navigate-old",
+              name: "open_sync_page",
+              arguments: '{"path":"/work"}',
+            },
+          ],
+        },
+      }),
+    );
+    act(() => result.current.end());
+    rerender({ route: "/work" });
+    await act(async () => {
+      finish();
+      await Promise.resolve();
+    });
+    expect(inspect).not.toHaveBeenCalled();
+    expect(result.current.status).toContain("microphone released");
   });
 });

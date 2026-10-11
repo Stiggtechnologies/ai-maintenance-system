@@ -1,7 +1,7 @@
 import { profileOrganizationId } from "../lib/presence/vault";
 import { createPortal } from "react-dom";
 import { useSyncRealtimeVoice } from "../hooks/useSyncRealtimeVoice";
-import { SyncAssistantWelcome } from "./SyncAssistantWelcome";
+import { PresenceWelcome } from "./PresenceWelcome";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bot,
@@ -1010,13 +1010,16 @@ export function CopilotDock({
       <audio ref={voice.audioRef} autoPlay className="hidden" />
       {welcomeHost &&
         createPortal(
-          <SyncAssistantWelcome
-            userId={user?.id ?? ""}
-            organizationId={profileOrganizationId(profile) ?? ""}
-            fullName={profile?.full_name}
-            enabled={realtimeEnabled}
-            voice={voice}
-            onOpen={() => setOpen(true)}
+          <PresenceWelcome
+            showMeetingBooth={false}
+            canonical={{
+              userId: user?.id ?? "",
+              organizationId: profileOrganizationId(profile) ?? "",
+              fullName: profile?.full_name,
+              enabled: realtimeEnabled,
+              voice,
+              onOpen: () => setOpen(true),
+            }}
           />,
           welcomeHost,
         )}
