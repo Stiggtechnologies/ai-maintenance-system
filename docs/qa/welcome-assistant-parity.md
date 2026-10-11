@@ -1,0 +1,32 @@
+# Welcome / chat / meetings assistant parity
+
+## Reference and cause
+
+Investigated against main `c1b5e8ca2506fc6d634b469ba0b0e07e2d2595ee` on 2026-10-11. GitHub reports successful Vercel statuses for that SHA; the deployed public app loaded in Chrome signed out. These observations do not independently establish the authenticated production bundle or backend environment version.
+
+The intended reference is the user's preferred God’s Eye personality on Sync Context, not whichever branch has the newest timestamp. Merged #470 (`c16ae5b6`) introduced God’s Eye Realtime; #475 (`255723c8`) added current-page awareness. `sync-realtime-core.ts` explicitly instructs the same natural, general-purpose God’s Eye conversational personality, with Marin voice and the server-selected Realtime model. There is no diff between main and held `agent/sync-context-operating-picture` in that core, `useSyncRealtimeVoice.ts`, or `CopilotDock.tsx`. PR656's operating picture/inspector work is not required to reuse this assistant.
+
+Main previously mounted `PresenceWelcome` in AppShell. It independently rendered a hard-coded Reliability Engineer greeting, hydrated legacy presence memory/vault and read KPIs, and used `useSpeechOutput` (`sync-tts`, browser synthesis fallback). Its optional booth uses recognition, local fast paths, and `askBoothConversation` → `ai-agent-processor`. AppShell disabled that booth, but retained its separate greeting and voice path. The canonical copilot uses `sync-realtime-session` → authenticated server-selected OpenAI Realtime config; its `ask_sync` callback enters `sync-investigation-runtime` through the same `ask()` path as text chat. Meeting mode is a context/presentation mode on this same copilot, not a different provider.
+
+## Change and continuity
+
+AppShell supplies a welcome slot; its user/organization-keyed CopilotDock owns one Realtime hook and audio element. A personalized welcome is presentation data added as a transient user message under the existing session persona, with tools disabled for that greeting. No replacement response/system persona is introduced. Receive-only WebRTC requests no microphone. On audio playout completion, interruption, timeout or autoplay denial, resources are released. Play allows a deliberate retry. Talk with Sync opens the same copilot, with its existing explicit Start conversation/microphone permission controls. Welcome controls are scoped to both tenant and user and claimed once per tab; StrictMode does not double-create a session.
+
+Live chat and meeting modes share the controller; route/entity/mode changes update the existing Realtime context. Governed work answers use the existing authenticated conversation ID and canonical investigation stream/history. New/selected conversations end voice; text questions stop a welcome; dictation stops voice; closing the dock releases microphone. The greeting itself is transient and is not imported from or persisted into legacy presence history. Realtime general conversation is still transient; this PR does not add cross-device or all-surface general conversation persistence.
+
+Authenticated profile identity must match the signed-in user before names/tenant identity are used. User/tenant changes remount the entire copilot, clearing history, attachments, permissions and voice state. Pending mic grants are stopped, pending negotiation is aborted/discarded, and old tool results cannot be sent into replacement sessions. Legacy unscoped cached plant/case context is not used in the new welcome. Scoped facts, actions and approvals still go through the server's existing tenant authentication, feature flags, quota reservation, evidence and confirmation paths.
+
+## Validation
+
+- 41 tests across 7 focused suites passed: welcome, Realtime lifecycle, client, provider configuration, production contract, stream cancellation, AppShell mount contract.
+- New cases cover first login, returning login in the same/new tab, personalized user/tenant scope, mute isolation, duplicate welcome, StrictMode, welcome/chat/meeting transition, live route/mode updates, denied mic, late mic after unmount, stale negotiation, stale governed tool results, interruption, immediate End cleanup and autoplay denial.
+- App and node TypeScript checks passed (build-info redirected to `/tmp` to preserve shared dependencies); changed production/test TypeScript lint passed without warnings. Production Vite build passed, with the existing bundle-size warning.
+- Supported Mac Chrome QA: production public app loaded signed out; synthetic loopback visual fixture displayed personalized Orville welcome, Talk with Sync opened one canonical panel with Start conversation and privacy notice, synthetic tenant switch displayed Alex without Orville, and meeting mode kept the same panel. Fixture audio, network and identity are simulated. This is not live provider/acoustic, authenticated tenant or database-isolation verification.
+
+Reproduce visual fixture with `vite --config scripts/tests/welcome-voice-qa/vite.config.ts`, then open `http://127.0.0.1:5179/` through supported browser tooling.
+
+## Release gates and rollback
+
+Draft only. Architecture and privacy/tenancy review, PR CI, then authenticated staging browser/acoustic QA of receive-only SDP acceptance by the configured provider, autoplay replay, first/returning login, mic denial/interruption, live work-context handoff, logout and account/tenant changes remain required. Verify frontend/backend versions and existing tenant flags before release. The existing endpoint conservatively reserves 128,000 tokens per successful Realtime session, including a welcome; automatic greeting therefore consumes existing tenant quota. Review this rollout impact before enabling/releasing; this PR does not weaken the quota guard or alter billing configuration. Missing flags fail closed; enabling them or changing permissions, credentials, billing, privacy/network configuration or database policy requires the owner's approval. No such configuration or deployment change is included.
+
+Frozen journey branch `agent/client-journey-integration` at `0a59d23b`, held branding PR659 and Context PR656 were inspected/referenced only and not merged or edited. No migrations, shared security guards, capability register or policy changes. Larger gaps remain: persistent general Realtime conversation continuity, Context inspector operating-picture release, and a product-wide authenticated acoustic qualification. Roll back this PR to restore the old AppShell welcome; no database rollback is needed.
