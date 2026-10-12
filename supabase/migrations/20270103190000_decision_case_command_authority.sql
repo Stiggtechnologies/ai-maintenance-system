@@ -303,8 +303,17 @@ begin
       length(btrim(coalesce(e->>'id','')))=0 or length(e->>'id')>200 or octet_length(e::text)>65536) or
       exists(select 1 from jsonb_array_elements(v_payload->'evidence') e group by e->>'id' having count(*)>1) then
       raise exception using errcode='23514',message='Evidence identities must be unique, nonempty, and bounded'; end if;
+    -- A first-run unanswered prompt is not supplied evidence. It may disappear
+    -- only when this command adds substantive evidence for the same title.
+    -- Selected files, supplied observations and all other identities are kept.
     if exists(select 1 from jsonb_array_elements(coalesce(v_state->'evidence','[]'::jsonb)) o where not exists(
-      select 1 from jsonb_array_elements(v_payload->'evidence') n where n->>'id'=o->>'id')) then
+      select 1 from jsonb_array_elements(v_payload->'evidence') n where n->>'id'=o->>'id') and not (
+        coalesce(o->>'id','') like 'missing-%' and coalesce(o->>'quality','')='missing' and
+        coalesce(o->>'persistence','')='pending' and coalesce(o->>'state','')='Not supplied' and
+        coalesce(o->>'record','')='No customer record attached' and exists (
+          select 1 from jsonb_array_elements(v_payload->'evidence') n
+          where n->>'title'=o->>'title' and n->>'quality' in ('high','medium') and
+          not exists(select 1 from jsonb_array_elements(coalesce(v_state->'evidence','[]'::jsonb)) old where old->>'id'=n->>'id')))) then
       raise exception using errcode='42501',message='Evidence command may not remove existing evidence identities'; end if;
     if exists(select 1 from jsonb_array_elements(coalesce(v_state->'evidence','[]'::jsonb)) o
       where o->>'quality' in ('high','medium') and not exists(

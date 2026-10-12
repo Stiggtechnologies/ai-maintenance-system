@@ -566,7 +566,10 @@ test("public first decision retains full evidence through auth and reports faile
   await page.getByTestId("spine-reload-audit").click();
   await expect(page.getByTestId("spine-save-notice")).toContainText("Audit trail reloaded");
   await expect(page.getByTestId("spine-evidence-body")).toHaveValue(newerEvidence);
+  const retry = page.waitForResponse(response => new URL(response.url()).pathname === "/rest/v1/rpc/apply_decision_case_command" && response.request().method() === "POST");
   await page.getByTestId("spine-add-evidence").click();
+  const retryReceipt = await retry;
+  expect(retryReceipt.status(), await retryReceipt.text()).toBe(200);
   await expect(page.getByTestId("spine-save-notice")).toContainText("Current revision saved");
   await expect(page.getByTestId("spine-proof-body")).toContainText(newerEvidence);
   await page.getByRole("button",{name:"Back to your question"}).click();

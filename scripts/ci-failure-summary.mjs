@@ -5,7 +5,7 @@ const text = readFileSync(process.argv[2], 'utf8')
   .replace(/%0A/gi, '\n').replace(/%0D/gi, '\r');
 const useful = text.split(/\r?\n/).filter(line =>
   !line.includes('::error ') &&
-  /(?:\bERROR:|\bError:|FAILED at line|expected HTTP|^expected |^\s*(?:Expected|Received|Locator):|\btests\/.*\.spec\.ts:\d+)/.test(line)
+  /(?:\bERROR:|\bError:|FAILED at line|expected HTTP|^expected |^\s*(?:Expected|Received|Locator)(?: [a-z]+)?:|\btests\/.*\.spec\.ts:\d+)/.test(line)
 );
 const summary = [...new Set(useful.map(line => line.trim()))].slice(0, 6).join(' | ')
   .replace(/\b(?:authorization|password|api[_-]?key|service_role_key|jwt_secret|access_token|refresh_token)\b[^|]*/gi, '[redacted auth detail]')
