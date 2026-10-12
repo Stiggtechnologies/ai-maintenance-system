@@ -10,7 +10,7 @@ it("retains bounded failure evidence while redacting authentication and links", 
     const file = join(dir, "failure.log");
     writeFileSync(
       file,
-      "noise\nERROR: synthetic constraint refused\nDecision Case smoke FAILED at line 88\nError: authorization Bearer private-value\nError: https://example.invalid/?secret=value user@example.invalid\n",
+      "noise\n::error file=tests/e2e/example.spec.ts::annotation%0AError: browser assertion%0AExpected: canonical receipt\nERROR: synthetic constraint refused\nDecision Case smoke FAILED at line 88\nError: authorization Bearer private-value\nError: https://example.invalid/?secret=value user@example.invalid\n",
     );
     const result = execFileSync(
       process.execPath,
@@ -19,6 +19,8 @@ it("retains bounded failure evidence while redacting authentication and links", 
     );
     expect(result).toContain("synthetic constraint refused");
     expect(result).toContain("FAILED at line 88");
+    expect(result).toContain("Expected: canonical receipt");
+    expect(result).not.toContain("::error");
     expect(result).not.toMatch(/private-value|secret=value|user@example/);
     expect(result.trim().length).toBeLessThanOrEqual(400);
   } finally {

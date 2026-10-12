@@ -1,7 +1,10 @@
 // Bounded, redacted metadata for synthetic CI failures when full logs are too large.
 import { readFileSync } from 'node:fs';
-const text = readFileSync(process.argv[2], 'utf8').replace(/\u001b\[[0-9;]*[a-zA-Z]/g, '');
+const text = readFileSync(process.argv[2], 'utf8')
+  .replace(/\u001b\[[0-9;]*[a-zA-Z]/g, '')
+  .replace(/%0A/gi, '\n').replace(/%0D/gi, '\r');
 const useful = text.split(/\r?\n/).filter(line =>
+  !line.includes('::error ') &&
   /(?:\bERROR:|\bError:|FAILED at line|expected HTTP|^expected |^\s*(?:Expected|Received|Locator):|\btests\/.*\.spec\.ts:\d+)/.test(line)
 );
 const summary = [...new Set(useful.map(line => line.trim()))].slice(0, 6).join(' | ')
