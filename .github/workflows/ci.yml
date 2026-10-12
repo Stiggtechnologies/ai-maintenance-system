@@ -140,6 +140,63 @@ jobs:
         env:
           MIGRATION_ORDER_BASE_REF: ${{ github.event_name == 'push' && github.event.before || 'origin/main' }}
 
+  decision-case-acceptance:
+    # Give case authority failures their own bounded diagnostics without waiting
+    # for the broad domain-smoke chain. The full-chain invocation stays intact.
+    name: Decision Case isolated acceptance
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
+        with:
+          version: 2.84.2
+      - name: Start disposable synthetic stack
+        run: |
+          bash scripts/ci-start-supabase.sh /tmp/journey-start.log /tmp/journey-start-diagnostics.txt > /tmp/journey-console.log 2>&1 || {
+            tail -n 100 /tmp/journey-console.log
+            exit 1
+          }
+      - name: Decision Case invitation and command authority (synthetic local stack)
+        id: journey
+        run: |
+          for probe in invitation command-authority; do
+            log="/tmp/decision-case-${probe}.log"
+            if bash "scripts/ci-decision-case-${probe}-smoke.sh" > "$log" 2>&1; then
+              echo "Decision Case ${probe} passed."
+            else
+              diagnostic=$(node scripts/ci-failure-summary.mjs "$log")
+              printf 'diagnostic=%s\n' "$diagnostic" >> "$GITHUB_OUTPUT"
+              printf '%s\n' "$diagnostic"
+              exit 1
+            fi
+          done
+
+      - name: "Journey failure: ${{ steps.journey.outputs.diagnostic }}"
+        if: failure() && steps.journey.outcome == 'failure'
+        run: exit 1
+
+      - name: Retain synthetic journey failure diagnostics
+        if: failure() && steps.journey.outcome == 'failure'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: brad-isolated-journey-smoke-diagnostics
+          path: /tmp/decision-case-*.log
+          retention-days: 7
+
+      - name: Retain stack startup diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: brad-isolated-startup-diagnostics
+          path: /tmp/journey-*.log
+          retention-days: 7
+      - name: Stop Supabase
+        if: always()
+        run: supabase stop --no-backup || true
+
   migrations:
     name: Migration chain + seeded auth smoke
     runs-on: ubuntu-latest
