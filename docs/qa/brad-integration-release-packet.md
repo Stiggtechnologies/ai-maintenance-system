@@ -48,3 +48,21 @@ Rollback before release: revert application/Edge changes. After approved SQL dep
 The legacy assistant workspace could locally label a durable case's work released/completed or value verified without a governed command. Those controls are now limited to explicitly selected public simulations; durable-case controls remain unavailable. The SQL guard already refused these writes, but a local success claim was also unacceptable. Public sample behavior remains covered by regression tests.
 
 At a00eb627, hosted CI passed 8,205 tests / 539 files, lint/typecheck/build, migration ordering and the complete migration chain. All three Vercel previews passed. Golden-path browsers and the new invitation/command smoke step failed; remote retrieval of both large job logs returned Transport closed, and the Playwright export download returned HTTP 403. The coordinating owner was asked for the failed assertions. CI now retains full startup diagnostics in existing artifact files while bounding startup console output, to make subsequent failure logs retrievable; no test or release gate is weakened. Current-head CI must be requalified after these repairs.
+
+## Exact-head qualification and remaining release dependencies
+
+At `2301c1f570f4ee66a417d7338b8da2b9c95f5bc4`, hosted CI run `38227732550` passed 8,207 tests across 540 files, lint/typecheck/build, migration ordering, the complete migration chain and the invitation lifecycle smoke. The command smoke reached legacy normalization before a stale replay filename failed at line 133. The browser assertion at `golden-path.spec.ts:547` used an immediate URL read and still targeted direct writes replaced by atomic RPC persistence. `1b67d559ccecd16398bac7b2343462072e8984ca` repairs both tests: verify the RPC receipt and reconciled URL; prove refused evidence remains in the editor, absent from saved proof, until canonical reload and successful retry. Current-head CI must pass before review; exact run links are maintained in #661.
+
+Local native reproduction is unavailable: Docker image downloads and the Playwright Chromium download return Forbidden. Hosted CI runs against disposable synthetic services. This is an environment limitation, not evidence of a product outage, and no access expansion was attempted.
+
+Invitation compensation now refuses automatic Auth deletion even for a fresh unaccepted identity: provider timestamps do not prove request ownership or prevent concurrent acceptance. A tenant-registration failure requires administrator reconciliation. No identities were created or deleted by this task.
+
+The following are release prerequisites, not completed capabilities:
+
+- Canonical KB security status and durable evidence reference mapping must be supplied through an authorized repository change and jointly qualified. No private security handoff is requested or required to review accessible code.
+- Genuine invitation delivery/acceptance requires an approved test recipient and existing Auth provider configuration. Synthetic Auth timestamps do not prove delivery, onboarding or authority assignment.
+- Reminder delivery, controlled sharing, reconsideration, accountable-role binding, bounded pilot acceptance and expansion/handover remain open customer actions. Related owned work (#652/#581/#627/#633) must be coordinated, not silently absorbed or replaced with a second workflow.
+- Presenter-led and independent first-time acceptance require an authorized test environment, supplied evidence, named people, measurable pilot criteria, and the exact released SHA. Neither path is qualified for customers by fixture tests.
+- The offline `0a59d23b` checkpoint remains unavailable. Only an owner-pushed legitimate branch/patch may be compared; no reconstruction from a denied handoff.
+
+Keep #575 open. Architecture, security/tenancy, domain and release-owner approvals remain required for SQL/Edge rollout and the existing automatic main deployment workflow. This draft does not authorize any of those effects.

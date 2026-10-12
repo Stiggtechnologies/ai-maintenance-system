@@ -64,11 +64,11 @@ describe("Decision Case invitation core", () => {
     expect(providerFailureReceipt()).not.toMatch(/secret|trace/i);
   });
 
-  it("allows destructive rollback only for a fresh, unaccepted invite identity", () => {
+  it("refuses destructive rollback even for a fresh identity without atomic ownership proof", () => {
     const now = Date.parse("2026-10-03T12:00:00.000Z");
     expect(
       mayRollbackFreshInvite({ created_at: "2026-10-03T11:58:00.000Z" }, now),
-    ).toBe(true);
+    ).toBe(false);
     expect(
       mayRollbackFreshInvite(
         {

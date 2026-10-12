@@ -90,27 +90,18 @@ export function providerFailureReceipt(): string {
   return "The invitation provider refused the request. A tenant administrator must review the protected function log and Auth email configuration.";
 }
 
+// Retained API for the invitation compensation boundary. Auth's invitation
+// response supplies neither request ownership nor an atomic unaccepted-user
+// delete precondition. Fresh timestamps cannot authorize destructive cleanup;
+// acceptance or a concurrent invitation may race the registration failure.
 export function mayRollbackFreshInvite(
-  user: {
+  _user: {
     created_at?: string | null;
     email_confirmed_at?: string | null;
     confirmed_at?: string | null;
     last_sign_in_at?: string | null;
   } | null,
-  nowMs = Date.now(),
+  _nowMs = Date.now(),
 ): boolean {
-  if (
-    !user?.created_at ||
-    user.email_confirmed_at ||
-    user.confirmed_at ||
-    user.last_sign_in_at
-  ) {
-    return false;
-  }
-  const createdMs = Date.parse(user.created_at);
-  return (
-    Number.isFinite(createdMs) &&
-    createdMs <= nowMs + 60_000 &&
-    nowMs - createdMs <= 5 * 60_000
-  );
+  return false;
 }

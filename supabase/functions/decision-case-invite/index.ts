@@ -259,7 +259,7 @@ Deno.serve(async (request: Request) => {
       }
     } else {
       console.error(
-        "decision-case-invite refused destructive rollback for a non-fresh or accepted identity",
+        "decision-case-invite requires administrator reconciliation; identity ownership and current acceptance are not atomic",
       );
     }
     return response(
