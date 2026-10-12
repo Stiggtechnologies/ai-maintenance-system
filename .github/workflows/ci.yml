@@ -644,6 +644,9 @@ jobs:
           path: /tmp/decision-case-*.log
           retention-days: 7
 
+      - name: Unapplied KB proposal — full-chain rollback qualification
+        run: bash scripts/ci-brad-kb-proposal-smoke.sh
+
       - name: Stop Supabase
         if: always()
         run: supabase stop --no-backup || true

@@ -1,3 +1,4 @@
+import { KnowledgeCitation } from "../components/KnowledgeCitation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Activity,
@@ -99,26 +100,30 @@ export function ReliabilityEngineerPage({
   const initialScenario = getPublicReliabilityScenario(initialScenarioId);
   const initialQuestion = initialUsage?.question ?? initialScenario.question;
 
-  const [usage, setUsage] = useState<PublicReliabilityUsage | null>(initialUsage);
+  const [usage, setUsage] = useState<PublicReliabilityUsage | null>(
+    initialUsage,
+  );
   const [scenarioId, setScenarioId] =
     useState<PublicReliabilityScenarioId>(initialScenarioId);
   const [prompt, setPrompt] = useState(initialQuestion);
   const [submittedQuestion, setSubmittedQuestion] = useState<string | null>(
     initialUsage ? initialQuestion : null,
   );
-  const [result, setResult] = useState<PublicReliabilityResult | null>(
-    () =>
-      initialUsage
-        ? generatePublicReliabilityAnalysis(
-            initialUsage.scenarioId,
-            new Date(),
-            initialQuestion,
-          )
-        : null,
+  const [result, setResult] = useState<PublicReliabilityResult | null>(() =>
+    initialUsage
+      ? generatePublicReliabilityAnalysis(
+          initialUsage.scenarioId,
+          new Date(),
+          initialQuestion,
+        )
+      : null,
   );
   const [expertResult, setExpertResult] = useState<PublicExpertResult | null>(
     initialUsage
-      ? { status: "fallback", error: "Showing the saved deterministic analysis." }
+      ? {
+          status: "fallback",
+          error: "Showing the saved deterministic analysis.",
+        }
       : null,
   );
   const [agentState, setAgentState] = useState<AgentState>(
@@ -956,7 +961,8 @@ function ChatAnswer({
 }) {
   const { report, scenario } = result;
   const topActor = report.badActors[0];
-  const expert = expertResult?.status === "success" ? expertResult.analysis : null;
+  const expert =
+    expertResult?.status === "success" ? expertResult.analysis : null;
 
   return (
     <div className="flex gap-3 sm:gap-4">
@@ -982,7 +988,8 @@ function ChatAnswer({
         <div className="mt-3 text-sm leading-7 text-slate-300">
           <p>{expert?.executiveSummary ?? result.patternSummary}</p>
           <p className="mt-3">
-            {expert?.bottomLine ?? "The strongest next move is not another component replacement. Preserve evidence, validate the operating mechanism, and route any permanent strategy change through the qualified approval boundary."}
+            {expert?.bottomLine ??
+              "The strongest next move is not another component replacement. Preserve evidence, validate the operating mechanism, and route any permanent strategy change through the qualified approval boundary."}
           </p>
         </div>
 
@@ -1036,22 +1043,28 @@ function ChatAnswer({
             </span>
           </div>
           <div className="mt-3 space-y-3">
-            {(expert?.hypotheses ?? scenario.hypotheses).slice(0, 2).map((item, index) => (
-              <div
-                key={item.hypothesis}
-                className="flex gap-3 text-xs leading-5"
-              >
-                <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-teal-400/8 font-bold text-teal-300">
-                  {index + 1}
-                </span>
-                <div>
-                  <div className="font-semibold text-slate-300">
-                    {item.hypothesis}
+            {(expert?.hypotheses ?? scenario.hypotheses)
+              .slice(0, 2)
+              .map((item, index) => (
+                <div
+                  key={item.hypothesis}
+                  className="flex gap-3 text-xs leading-5"
+                >
+                  <span className="grid h-5 w-5 shrink-0 place-items-center rounded-md bg-teal-400/8 font-bold text-teal-300">
+                    {index + 1}
+                  </span>
+                  <div>
+                    <div className="font-semibold text-slate-300">
+                      {item.hypothesis}
+                    </div>
+                    <div className="mt-0.5 text-slate-600">
+                      {"verification" in item
+                        ? item.verification
+                        : item.validation}
+                    </div>
                   </div>
-                  <div className="mt-0.5 text-slate-600">{("verification" in item) ? item.verification : item.validation}</div>
                 </div>
-              </div>
-            ))}
+              ))}
           </div>
         </div>
 
@@ -1179,17 +1192,17 @@ function ChatComposer({
         ) : (
           <div className="rounded-2xl border border-white/10 bg-[#121922] p-2 shadow-[0_10px_35px_rgba(0,0,0,0.22)] focus-within:border-teal-400/30">
             {!emptyConversation && (
-            <div className="flex items-center gap-2 px-2 pb-1.5 pt-1">
-              <span className="inline-flex items-center gap-1.5 rounded-md bg-teal-400/7 px-2 py-1 text-[10px] font-semibold text-teal-200">
-                <Database size={11} />
-                {scenario.asset}
-              </span>
-              <span className="text-[10px] text-slate-600">
-                {scenario.hasReferenceData
-                  ? "Approved reference data"
-                  : "No files attached"}
-              </span>
-            </div>
+              <div className="flex items-center gap-2 px-2 pb-1.5 pt-1">
+                <span className="inline-flex items-center gap-1.5 rounded-md bg-teal-400/7 px-2 py-1 text-[10px] font-semibold text-teal-200">
+                  <Database size={11} />
+                  {scenario.asset}
+                </span>
+                <span className="text-[10px] text-slate-600">
+                  {scenario.hasReferenceData
+                    ? "Approved reference data"
+                    : "No files attached"}
+                </span>
+              </div>
             )}
             <textarea
               ref={textareaRef}
@@ -1209,54 +1222,54 @@ function ChatComposer({
               <div className="flex items-center gap-1">
                 {!emptyConversation && (
                   <>
-                <ComposerIconButton
-                  label="Attach files (requires workspace)"
-                  icon={Paperclip}
-                  onClick={() => onLockedAction("attachment")}
-                />
-                <ComposerIconButton
-                  label="Voice input (disabled in public mode)"
-                  icon={Mic}
-                  onClick={() => onLockedAction("voice")}
-                />
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setWorkflowOpen((open) => !open)}
-                    className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-[10px] font-semibold text-slate-400 hover:bg-white/5 hover:text-slate-200"
-                    aria-expanded={workflowOpen}
-                  >
-                    <BrainCircuit size={14} />
-                    RCA
-                    <ChevronDown size={12} />
-                  </button>
-                  {workflowOpen && (
-                    <div className="absolute bottom-10 left-0 z-20 w-44 rounded-xl border border-white/10 bg-[#151c25] p-1.5 shadow-2xl">
+                    <ComposerIconButton
+                      label="Attach files (requires workspace)"
+                      icon={Paperclip}
+                      onClick={() => onLockedAction("attachment")}
+                    />
+                    <ComposerIconButton
+                      label="Voice input (disabled in public mode)"
+                      icon={Mic}
+                      onClick={() => onLockedAction("voice")}
+                    />
+                    <div className="relative">
                       <button
                         type="button"
-                        onClick={() => setWorkflowOpen(false)}
-                        className="flex w-full items-center justify-between rounded-lg bg-white/[0.055] px-3 py-2 text-left text-xs font-semibold text-slate-200"
+                        onClick={() => setWorkflowOpen((open) => !open)}
+                        className="inline-flex h-8 items-center gap-1.5 rounded-lg px-2 text-[10px] font-semibold text-slate-400 hover:bg-white/5 hover:text-slate-200"
+                        aria-expanded={workflowOpen}
                       >
+                        <BrainCircuit size={14} />
                         RCA
-                        <Check size={13} className="text-teal-300" />
+                        <ChevronDown size={12} />
                       </button>
-                      {["FRACAS", "FMEA", "RCM", "RAM"].map((workflow) => (
-                        <button
-                          key={workflow}
-                          type="button"
-                          onClick={() => {
-                            setWorkflowOpen(false);
-                            onLockedAction("workflow");
-                          }}
-                          className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs text-slate-500 hover:bg-white/[0.035] hover:text-slate-300"
-                        >
-                          {workflow}
-                          <LockKeyhole size={11} />
-                        </button>
-                      ))}
+                      {workflowOpen && (
+                        <div className="absolute bottom-10 left-0 z-20 w-44 rounded-xl border border-white/10 bg-[#151c25] p-1.5 shadow-2xl">
+                          <button
+                            type="button"
+                            onClick={() => setWorkflowOpen(false)}
+                            className="flex w-full items-center justify-between rounded-lg bg-white/[0.055] px-3 py-2 text-left text-xs font-semibold text-slate-200"
+                          >
+                            RCA
+                            <Check size={13} className="text-teal-300" />
+                          </button>
+                          {["FRACAS", "FMEA", "RCM", "RAM"].map((workflow) => (
+                            <button
+                              key={workflow}
+                              type="button"
+                              onClick={() => {
+                                setWorkflowOpen(false);
+                                onLockedAction("workflow");
+                              }}
+                              className="flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-xs text-slate-500 hover:bg-white/[0.035] hover:text-slate-300"
+                            >
+                              {workflow}
+                              <LockKeyhole size={11} />
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
                   </>
                 )}
               </div>
@@ -1376,8 +1389,12 @@ function ArtifactPanel({
           <ArtifactLoading activeStage={activeStage} />
         ) : result ? (
           <>
-            {activeTab === "summary" && <ArtifactSummary result={result} expertResult={expertResult} />}
-            {activeTab === "evidence" && <ArtifactEvidence result={result} expertResult={expertResult} />}
+            {activeTab === "summary" && (
+              <ArtifactSummary result={result} expertResult={expertResult} />
+            )}
+            {activeTab === "evidence" && (
+              <ArtifactEvidence result={result} expertResult={expertResult} />
+            )}
             {activeTab === "governance" && (
               <ArtifactGovernance result={result} />
             )}
@@ -1471,10 +1488,17 @@ function ArtifactLoading({ activeStage }: { activeStage: number }) {
   );
 }
 
-function ArtifactSummary({ result, expertResult }: { result: PublicReliabilityResult; expertResult: PublicExpertResult | null }) {
+function ArtifactSummary({
+  result,
+  expertResult,
+}: {
+  result: PublicReliabilityResult;
+  expertResult: PublicExpertResult | null;
+}) {
   const { report, scenario } = result;
   const topActor = report.badActors[0];
-  const expert = expertResult?.status === "success" ? expertResult.analysis : null;
+  const expert =
+    expertResult?.status === "success" ? expertResult.analysis : null;
 
   return (
     <div className="space-y-4">
@@ -1514,7 +1538,8 @@ function ArtifactSummary({ result, expertResult }: { result: PublicReliabilityRe
                 {item.hypothesis}
               </div>
               <p className="mt-2 text-[10px] leading-4 text-slate-600">
-                Validate: {("verification" in item) ? item.verification : item.validation}
+                Validate:{" "}
+                {"verification" in item ? item.verification : item.validation}
               </p>
             </div>
           ))}
@@ -1529,16 +1554,25 @@ function ArtifactSummary({ result, expertResult }: { result: PublicReliabilityRe
 
       {expert && (
         <ArtifactSection title="Financial impact boundary" icon={BarChart3}>
-          <p className="text-xs leading-5 text-slate-400">{expert.financialImpact}</p>
+          <p className="text-xs leading-5 text-slate-400">
+            {expert.financialImpact}
+          </p>
         </ArtifactSection>
       )}
     </div>
   );
 }
 
-function ArtifactEvidence({ result, expertResult }: { result: PublicReliabilityResult; expertResult: PublicExpertResult | null }) {
+function ArtifactEvidence({
+  result,
+  expertResult,
+}: {
+  result: PublicReliabilityResult;
+  expertResult: PublicExpertResult | null;
+}) {
   const { report } = result;
-  const expert = expertResult?.status === "success" ? expertResult.analysis : null;
+  const expert =
+    expertResult?.status === "success" ? expertResult.analysis : null;
   return (
     <div className="space-y-4">
       <ArtifactSection title="Reference data summary" icon={Database}>
@@ -1566,8 +1600,16 @@ function ArtifactEvidence({ result, expertResult }: { result: PublicReliabilityR
         <div className="space-y-2">
           {expert?.citations.length ? (
             expert.citations.map((source, index) => (
-              <div key={`${source.title}-${index}`} className="rounded-lg border border-white/6 bg-black/15 p-3">
-                <div className="text-[10px] font-semibold text-slate-300">{source.title} · {source.pageRange}</div>
+              <div
+                key={`${source.title}-${index}`}
+                className="rounded-lg border border-white/6 bg-black/15 p-3"
+              >
+                <div className="text-[10px] font-semibold text-slate-300">
+                  <KnowledgeCitation
+                    title={source.title}
+                    pageRange={source.pageRange}
+                  />
+                </div>
               </div>
             ))
           ) : report.sources.length ? (
@@ -1607,11 +1649,7 @@ function ArtifactEvidence({ result, expertResult }: { result: PublicReliabilityR
   );
 }
 
-function ArtifactGovernance({
-  result,
-}: {
-  result: PublicReliabilityResult;
-}) {
+function ArtifactGovernance({ result }: { result: PublicReliabilityResult }) {
   const { report } = result;
   const recommendation = report.governedRecommendations[0];
   return (

@@ -1,3 +1,4 @@
+import { useDecisionCaseSourceStanding } from "../hooks/useDecisionCaseSourceStanding";
 import { DecisionCaseContinuation } from "./DecisionCaseContinuation";
 import { applyDecisionCaseContinuation } from "../services/decisionCaseService";
 import type { ContinuationCommand } from "../lib/decision-case-continuation";
@@ -198,6 +199,18 @@ export function DecisionCaseSpine({
   const [evidenceNotice, setEvidenceNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lineageOpen, setLineageOpen] = useState(true);
+  const sourceStanding = useDecisionCaseSourceStanding({
+    enabled: Boolean(
+      auth?.user &&
+      canonicalScope === activeScope &&
+      isPersistedDecisionCase(decisionCase.id) &&
+      decisionCase.evidence.some((item) => "intakeBinding" in item),
+    ),
+    caseId: decisionCase.id,
+    revision: decisionCase.revision,
+    scope: activeScope,
+    busy: mutationInFlight,
+  });
 
   const lineage = useMemo(
     () => lineageFromCase(decisionCase, verification),
@@ -729,6 +742,26 @@ export function DecisionCaseSpine({
           onClick={() => void reloadTrail()}
         >
           Reload case for current account
+        </button>
+        {error && <p role="alert">{error}</p>}
+      </section>
+    );
+  }
+
+  if (sourceStanding !== "current") {
+    return (
+      <section role="status">
+        <p>
+          {sourceStanding === "checking"
+            ? "Checking the current source and saved case revision…"
+            : "The source or saved case changed, or its current standing could not be verified. Reload the saved trail before continuing."}
+        </p>
+        <p>Local form edits have not been submitted or replaced.</p>
+        <button
+          disabled={saving || sourceStanding === "checking"}
+          onClick={() => void reloadTrail()}
+        >
+          Reload saved source standing
         </button>
         {error && <p role="alert">{error}</p>}
       </section>
