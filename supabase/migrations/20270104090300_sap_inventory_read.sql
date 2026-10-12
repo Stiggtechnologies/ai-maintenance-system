@@ -435,7 +435,9 @@ begin
        or length(btrim(v_row->>'material_code'))>255
        or length(btrim(v_row->>'unit_of_measure'))>40
        or coalesce(v_row->>'site_id','')<>v_connector.inventory_site_id::text
-       or jsonb_typeof(v_row->'qty_on_hand')<>'number' then
+       or coalesce(jsonb_typeof(v_row->'qty_on_hand') not in ('number','string'),true)
+       or coalesce((v_row->>'qty_on_hand') !~ '^[0-9]+(\.[0-9]+)?$',true)
+       or length(v_row->>'qty_on_hand')>64 then
       v_reason:='material code, UOM, non-negative quantity, exact site and external identity are required';
     else
       begin

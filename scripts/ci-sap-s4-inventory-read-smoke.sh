@@ -82,8 +82,8 @@ expect_error "$(rpc "$FOREIGN_JWT" get_sap_s4_inventory_source "{\"p_connector_k
 test "$(psqlc "select has_function_privilege('authenticated','public.begin_sap_s4_inventory_read_run(uuid,uuid,text,jsonb,jsonb,bigint)','execute');")" = 'f'
 test "$(psqlc "select has_function_privilege('service_role','public.begin_sap_s4_inventory_read_run(uuid,uuid,text,jsonb,jsonb,bigint)','execute');")" = 't'
 
-MANIFEST='[{"transport":"sap_s4_odata_v2","resource":"A_MatlStkInAcctMod","page":1,"plant":"1000","storage_location":"0001","row_count":2,"bytes":150,"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]'
-CURSOR_ONE="{\"contract_hash\":\"$CONTRACT_HASH\",\"fetched_at\":\"$FETCH_ONE\",\"raw_rows\":2,\"mapped_rows\":2,\"pages\":1}"
+MANIFEST='[{"transport":"sap_s4_odata_v2","resource":"A_MatlStkInAcctMod","page":1,"plant":"1000","storage_location":"0001","row_count":3,"bytes":150,"sha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]'
+CURSOR_ONE="{\"contract_hash\":\"$CONTRACT_HASH\",\"fetched_at\":\"$FETCH_ONE\",\"raw_rows\":3,\"mapped_rows\":2,\"pages\":1}"
 BAD_CONTRACT_CURSOR="${CURSOR_ONE/$CONTRACT_HASH/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff}"
 BAD_CONTRACT_BEGIN=$(service_rpc begin_sap_s4_inventory_read_run "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$MANAGER\",\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_manifest\":$MANIFEST,\"p_cursor_to\":$BAD_CONTRACT_CURSOR,\"p_source_bytes\":150}")
 expect_error "$BAD_CONTRACT_BEGIN" 'source contract changed'
@@ -100,10 +100,10 @@ test "$(field "$INGEST_ONE" accepted)" = '1'; test "$(field "$INGEST_ONE" reject
 expect_error "$(service_rpc finish_sap_s4_inventory_read_run "{\"p_organization_id\":\"$ORG\",\"p_run_id\":\"$RUN_ONE\",\"p_status\":\"success\",\"p_error\":null}")" 'rejected rows'
 FINISH_ONE=$(service_rpc finish_sap_s4_inventory_read_run "{\"p_organization_id\":\"$ORG\",\"p_run_id\":\"$RUN_ONE\",\"p_status\":\"partial\",\"p_error\":\"unknown material retained\"}"); noerr "$FINISH_ONE"
 test "$(field "$FINISH_ONE" watermark_advanced)" = 'false'
-test "$(psqlc "select qty_on_hand||'|'||qty_reserved||'|'||qty_on_order||'|'||expected_receipt_date from material_stock where organization_id='$ORG' and material_id='$MATERIAL_ONE' and site_id='$SITE';")" = '12|3|7|2026-12-01'
+test "$(psqlc "select qty_on_hand||'|'||qty_reserved||'|'||qty_on_order||'|'||expected_receipt_date from material_stock where organization_id='$ORG' and material_id='$MATERIAL_ONE' and site_id='$SITE';")" = '0.3|3|7|2026-12-01'
 
 psqlc "insert into materials(id,organization_id,material_code,description,unit_of_measure,is_template,source_system) values('$MATERIAL_TWO','$ORG','MAT-002','Bearing','EA',false,'customer_catalogue');" >/dev/null
-CURSOR_TWO="{\"contract_hash\":\"$CONTRACT_HASH\",\"fetched_at\":\"$FETCH_TWO\",\"raw_rows\":2,\"mapped_rows\":2,\"pages\":1}"
+CURSOR_TWO="{\"contract_hash\":\"$CONTRACT_HASH\",\"fetched_at\":\"$FETCH_TWO\",\"raw_rows\":3,\"mapped_rows\":2,\"pages\":1}"
 BEGIN_TWO=$(service_rpc begin_sap_s4_inventory_read_run "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$MANAGER\",\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_manifest\":$MANIFEST,\"p_cursor_to\":$CURSOR_TWO,\"p_source_bytes\":150}"); noerr "$BEGIN_TWO"; RUN_TWO=$(field "$BEGIN_TWO" run_id)
 ROWS_TWO="${ROWS_ONE//$FETCH_ONE/$FETCH_TWO}"
 INGEST_TWO=$(service_rpc ingest_sap_s4_inventory_read_batch "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$MANAGER\",\"p_run_id\":\"$RUN_TWO\",\"p_rows\":$ROWS_TWO}"); noerr "$INGEST_TWO"

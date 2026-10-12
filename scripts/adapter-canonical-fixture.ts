@@ -71,14 +71,18 @@ if (kind === "adls") {
   );
 } else if (kind === "inventory") {
   rows = mapSapMaterialStock(
-    ["MAT-001", "MAT-002"].map((Material, i) => ({
+    [
+      ["MAT-001", "0.1"],
+      ["MAT-001", "0.2"],
+      ["MAT-002", "4"],
+    ].map(([Material, balance]) => ({
       Material,
       Plant: "1000",
       StorageLocation: "0001",
       InventoryStockType: "01",
       InventorySpecialStockType: "",
       MaterialBaseUnit: "EA",
-      MatlWrhsStkQtyInMatlBaseUnit: i ? "4" : "12",
+      MatlWrhsStkQtyInMatlBaseUnit: balance,
     })),
     {
       plant: "1000",

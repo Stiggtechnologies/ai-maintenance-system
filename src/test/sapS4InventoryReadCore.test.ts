@@ -12,6 +12,52 @@ const root = new URL(
 );
 
 describe("SAP S/4HANA material stock mapper", () => {
+  const quantityScope = {
+    plant: "1000",
+    storageLocation: "0001",
+    siteId: "00000000-0000-4000-8000-000000000001",
+    observedAt: "2026-10-12T00:00:00Z",
+    maxRows: 100,
+  };
+  const stockRow = (quantity: unknown) => ({
+    Material: "MAT-1",
+    Plant: "1000",
+    StorageLocation: "0001",
+    InventoryStockType: "01",
+    InventorySpecialStockType: "",
+    MaterialBaseUnit: "EA",
+    MatlWrhsStkQtyInMatlBaseUnit: quantity,
+  });
+  it.each([
+    null,
+    undefined,
+    "",
+    " ",
+    true,
+    false,
+    [],
+    {},
+    0.1,
+    Number.MAX_SAFE_INTEGER + 1,
+    "NaN",
+    "-1",
+    "1e3",
+  ])("refuses missing or inexact stock quantity %j", (quantity) => {
+    expect(() =>
+      mapSapMaterialStock([stockRow(quantity)], quantityScope),
+    ).toThrow();
+  });
+  it("retains exact decimal totals and large source balances", () => {
+    expect(
+      mapSapMaterialStock([stockRow("0.1"), stockRow("0.2")], quantityScope)[0]
+        .qty_on_hand,
+    ).toBe("0.3");
+    expect(
+      mapSapMaterialStock([stockRow("9007199254740993.125")], quantityScope)[0]
+        .qty_on_hand,
+    ).toBe("9007199254740993.125");
+  });
+
   it("normalizes only a bounded object request with an explicit boolean mode", () => {
     expect(
       normalizeSapInventoryPullRequest({
@@ -86,7 +132,7 @@ describe("SAP S/4HANA material stock mapper", () => {
         external_id: "1000:0001:MAT-1",
         material_code: "MAT-1",
         unit_of_measure: "EA",
-        qty_on_hand: 5.5,
+        qty_on_hand: "5.5",
       }),
     ]);
   });

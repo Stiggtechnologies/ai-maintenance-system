@@ -1,3 +1,9 @@
+import {
+  signedAmount,
+  addDecimal,
+  decimalText,
+  type ExactDecimal,
+} from "./adapter-decimal.ts";
 export type JsonRecord = Record<string, unknown>;
 
 export interface SapInventoryScope {
@@ -44,11 +50,10 @@ function requiredText(value: unknown, label: string, max = 1000): string {
   return text;
 }
 
-function quantity(value: unknown, label: string): number {
-  const parsed = typeof value === "number" ? value : Number(value);
-  if (!Number.isFinite(parsed) || parsed < 0) {
-    throw new Error(`${label} must be a finite non-negative number.`);
-  }
+function quantity(value: unknown, label: string): ExactDecimal {
+  const parsed = signedAmount(value, label);
+  if (parsed.coefficient < 0n)
+    throw new Error(`${label} must be non-negative.`);
   return parsed;
 }
 
@@ -153,11 +158,7 @@ export function normalizeSapInventoryPullRequest(
     throw new Error("SAP inventory pull request must be a JSON object.");
   }
   const body = value as Record<string, unknown>;
-  const connectorKey = requiredText(
-    body.connector_key,
-    "connector_key",
-    160,
-  );
+  const connectorKey = requiredText(body.connector_key, "connector_key", 160);
   if (body.dry_run !== undefined && typeof body.dry_run !== "boolean") {
     throw new Error("dry_run must be true or false when supplied.");
   }
@@ -191,7 +192,7 @@ export function mapSapMaterialStock(
     throw new Error("SAP inventory response exceeds the approved row limit.");
   }
 
-  const aggregated = new Map<string, { uom: string; qty: number }>();
+  const aggregated = new Map<string, { uom: string; qty: ExactDecimal }>();
   for (const [index, value] of values.entries()) {
     const row = record(value, `SAP stock row ${index + 1}`);
     const material = requiredText(
@@ -239,12 +240,10 @@ export function mapSapMaterialStock(
         `SAP material ${material} returned conflicting base units.`,
       );
     }
-    const total = (existing?.qty ?? 0) + qty;
-    if (!Number.isFinite(total)) {
-      throw new Error(
-        `SAP material ${material} aggregate quantity overflowed.`,
-      );
-    }
+    const total = addDecimal(
+      existing?.qty ?? { coefficient: 0n, scale: 0 },
+      qty,
+    );
     aggregated.set(material, { uom, qty: total });
   }
 
@@ -254,7 +253,7 @@ export function mapSapMaterialStock(
       external_id: `${scope.plant}:${scope.storageLocation}:${material}`,
       material_code: material,
       unit_of_measure: value.uom,
-      qty_on_hand: value.qty,
+      qty_on_hand: decimalText(value.qty),
       site_id: scope.siteId,
       observed_at: scope.observedAt,
     }));

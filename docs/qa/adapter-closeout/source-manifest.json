@@ -156,7 +156,7 @@
     },
     {
       "path": "supabase/migrations/20270104090300_sap_inventory_read.sql",
-      "sha256": "95ba6a05663c9100aadb4cdf17e9bcb60010c4e2d0a6f87f0e733e898257016a"
+      "sha256": "aa9e3e043453be1a76d737b51bfea14eb2b5b91192c737cd758abe358f71c8bc"
     },
     {
       "path": "supabase/migrations/20270104090400_sap_financial_read.sql",
