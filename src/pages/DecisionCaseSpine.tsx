@@ -35,7 +35,6 @@ import {
   applyInvite,
   applyInvitationDelivery,
   applyVerificationPlan,
-  attachGovernedSpineEvidence,
   attachSpineEvidence,
   buildProofSummary,
   buildSpineDecisionCase,
@@ -82,6 +81,7 @@ import {
   getDecisionCaseInvitationStatus,
   sendDecisionCaseInvitation,
 } from "../services/decisionCaseInvitationService";
+import { attachCanonicalIntakeSource } from "../services/decisionCaseIntakeService";
 import { ingestKbDocument } from "../services/kbIntake";
 
 import {
@@ -315,7 +315,7 @@ export function DecisionCaseSpine({
   const canIngestGovernedEvidence = Boolean(
     governedIntakeAvailable &&
     auth?.user &&
-    ["admin", "ai_admin", "reliability_engineer"].includes(
+    ["admin", "reliability_engineer"].includes(
       String(auth.profile?.role ?? ""),
     ),
   );
@@ -598,6 +598,19 @@ export function DecisionCaseSpine({
       setError("Paste at least 20 characters or select a supported file.");
       return;
     }
+    if (mutationInFlight.current) return;
+    if (reconciliationRequired.current || approvalBasisLocked) {
+      setError(
+        "Reload uncertain saved work or explicitly reconsider the approved basis before intake.",
+      );
+      return;
+    }
+    const organizationId = auth?.profile?.organization_id;
+    if (!organizationId || decisionCase.revision === undefined) {
+      setError("Reload a current tenant-scoped case revision before intake.");
+      return;
+    }
+    mutationInFlight.current = true;
     setEvidenceBusy(true);
     setEvidenceNotice(null);
     setError(null);
@@ -647,32 +660,44 @@ export function DecisionCaseSpine({
           "Intake returned no verified security receipt. No evidence was attached.",
         );
       }
-      const next = attachGovernedSpineEvidence(
-        decisionCase,
-        kind,
-        evidenceFile
-          ? `${evidenceFile.name} uploaded through governed document intake.`
-          : evidenceBody,
-        {
-          sourceId: result.source_id,
-          ingestionStatus: result.status,
-          securityStatus,
-          chunksCreated: result.chunks_created,
-        },
-      );
-      if (!(await commit(next, "add_evidence"))) return;
+      if (result.source_id !== sourceId) {
+        throw new Error(
+          "Intake returned a different source identity. Reload before another attempt.",
+        );
+      }
+      if (securityStatus === "quarantined" || securityStatus === "rejected") {
+        setEvidenceNotice(
+          `Source ${sourceId} is retained but excluded from retrieval pending independent security review. No case evidence was attached.`,
+        );
+        return;
+      }
+      const canonical = await attachCanonicalIntakeSource({
+        organizationId,
+        caseId: decisionCase.id,
+        expectedCaseVersion: decisionCase.revision,
+        sourceId,
+      });
+      // The server already saved this revision atomically. Never send a second
+      // browser add_evidence command or treat the upload response as authority.
+      setDecisionCase(asWalkthroughDecisionCase(canonical));
+      setCanonicalScope(activeScope);
+      setSaved(true);
+      setSaveNotice("Governed source and case revision saved atomically.");
       setEvidenceNotice(
-        securityStatus === "quarantined" || securityStatus === "rejected"
-          ? `Source ${result.source_id} is retained but excluded from retrieval pending independent security review.`
-          : `Source ${result.source_id} is indexed with ${result.chunks_created} governed chunk(s). Engineering approval remains separate.`,
+        `Source ${sourceId} is attached with its independently checked canonical basis. Engineering approval remains separate.`,
       );
       setEvidenceBody("");
       setSelectedEvidenceFile(null);
     } catch (caught) {
+      reconciliationRequired.current = true;
+      setSaveNotice(
+        "Intake did not return a confirmed attachment. Reload saved work before another change; a source or atomic attachment may already exist.",
+      );
       setError(
         caught instanceof Error ? caught.message : "Evidence intake failed",
       );
     } finally {
+      mutationInFlight.current = false;
       setEvidenceBusy(false);
     }
   };

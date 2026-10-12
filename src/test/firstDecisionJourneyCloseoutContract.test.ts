@@ -25,7 +25,14 @@ describe("First Decision Journey closeout contract", () => {
     expect(migration).toMatch(/audit_events/);
     expect(migration).not.toMatch(/create\s+table/i);
     expect(page).toMatch(/ingestKbDocument/);
-    expect(page).toMatch(/attachGovernedSpineEvidence/);
+    expect(page).toMatch(/attachCanonicalIntakeSource/);
+    const intakeHandler = page.slice(
+      page.indexOf("const ingestEvidence"),
+      page.indexOf("const sendInvite"),
+    );
+    expect(intakeHandler).not.toMatch(/commit\(/);
+    expect(intakeHandler).toMatch(/reconciliationRequired.current = true/);
+    expect(page).toMatch(/const governedIntakeAvailable = false/);
     expect(spine).toMatch(/sourceReceipt/);
     expect(opening).toMatch(/listRecentPersistedDecisionCases/);
   });

@@ -678,7 +678,9 @@ describe("the gate runs inside a required status check (H3)", () => {
       },
     );
     expect(output).toContain("RE-2026.08 gate passed");
-  });
+    // This gate includes remote qualification provenance verification. Preserve
+    // every assertion while allowing bounded network latency on hosted CI.
+  }, 30_000);
 });
 
 describe("the judge may not be the candidate (H4)", () => {

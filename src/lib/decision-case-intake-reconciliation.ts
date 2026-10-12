@@ -6,8 +6,8 @@ import {
   type IntakeSourceBinding,
 } from "./decision-case-intake-contract";
 
-/** Proposed atomic server response boundary. Not connected until the server
- * transaction and independently authorized canonical read are implemented.
+/** Atomic server response boundary, paired with an independently authorized
+ * canonical read. The customer intake availability gate remains disabled.
  * The caller adopts the returned case; it must not issue a second add_evidence.
  */
 export function reconcileIntakeCaseReceipt(

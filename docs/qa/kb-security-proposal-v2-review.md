@@ -35,7 +35,7 @@ Source mutation/deletion withdraws current supporting evidence and clears curren
 - **23 isolated PostgreSQL/pgvector regressions pass** in PGlite 0.5.9 plus `@electric-sql/pglite-pgvector` 0.0.10. These include the production context builder and citation sanitizer, not a live model call. Model answer quality, calibration and real customer grounding remain unrun.
 - **Native PostgreSQL 17**: seven concurrent-session cases, three scale cases and three mapping/invalidation/deletion/dependency scenarios pass. [Machine-readable results](kb-security-proposal-native-results.json) retain measured durations and update counts. They are not a production SLA or full Supabase schema claim.
 - Focused frontend/service tests, type checking and lint pass. Broader exact-head hosted results are recorded in PR #661.
-- **Full-chain proposal check is pending CI execution.** The existing migration job will execute both proposal files and fixture assertions in one rolled-back transaction after the complete active chain. No proposal files are copied into migrations; no hosted database or deployment is touched.
+- **Full-chain proposal check passed at `98cb44a21c39a30112e69134f05f208ab94e83d0`** ([job 114813843995](https://github.com/Stiggtechnologies/ai-maintenance-system/actions/runs/38250094723/job/114813843995), step 114). The existing migration job executed both proposal files and fixture assertions in one rolled-back transaction after the complete active chain. No proposal files are copied into migrations; no hosted database or deployment is touched.
 
 ```sh
 npm install --prefix /tmp/brad-pg-regression --cache /tmp/brad-npm-cache --no-audit --no-fund @electric-sql/pglite@0.5.9 @electric-sql/pglite-pgvector@0.0.10
@@ -45,4 +45,4 @@ docker run --pull=never --name brad-kb-concurrency --rm -d -e POSTGRES_HOST_AUTH
 python3 scripts/test-brad-kb-proposal-native.py
 ```
 
-These identity fixtures simulate assurance; they do not prove hosted MFA or email behavior. Remaining gates: final independent review (including the global writer gate, new inspection/resolution privileges and helper bytes), full-chain result, staging load/compatibility qualification, genuine named-human SME sign-off, and approved live acceptance. Owner UI verification and backend facts are in [the owner packet](brad-owner-verification-packet.md).
+These identity fixtures simulate assurance; they do not prove hosted MFA or email behavior. Remaining gates: final independent review (including the global writer gate, new inspection/resolution privileges and helper bytes), staging load/compatibility qualification, genuine named-human SME sign-off, and approved live acceptance. Owner UI verification and backend facts are in [the owner packet](brad-owner-verification-packet.md).

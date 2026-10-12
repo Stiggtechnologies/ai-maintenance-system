@@ -1,3 +1,4 @@
+import { KnowledgeCitation } from "../components/KnowledgeCitation";
 import { useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
@@ -1927,7 +1928,10 @@ export function ReliabilityCopilotPage() {
                           <div className="font-semibold text-[#E6EDF3]">
                             {source.source}
                           </div>
-                          <div>{source.title}</div>
+                          <KnowledgeCitation
+                            title={source.title}
+                            pageRange={source.pageRange}
+                          />
                           <div className="text-slate-500">
                             Confidence: {source.confidence}
                           </div>
@@ -2191,7 +2195,10 @@ export function ReliabilityCopilotPage() {
                         {source.source}
                       </div>
                       <div className="mt-1 text-sm text-slate-400">
-                        {source.title}
+                        <KnowledgeCitation
+                          title={source.title}
+                          pageRange={source.pageRange}
+                        />
                       </div>
                       <div className="mt-2 text-xs text-slate-500">
                         Confidence: {source.confidence}
