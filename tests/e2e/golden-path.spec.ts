@@ -595,8 +595,9 @@ test("new viewer invitation preserves an existing approver binding without sendi
   await page.getByRole("textbox", { name: /work email/i }).fill("admin@syncai.ca");
   await page.locator('input[type="password"]').fill("Admin123!@#");
   await page.getByRole("button", { name: /access syncai/i }).click();
-  await expect(page.getByRole("button", { name: /access syncai/i })).not.toBeVisible({ timeout: 30_000 });
+  await expect(page).not.toHaveURL(/\/signin(?:[?#]|$)/, { timeout: 30_000 });
   await page.goto("/get-started");
+  await expect(page.getByRole("button", { name: "Review verification returns" })).toBeVisible({ timeout: 30_000 });
   await page.getByTestId("inverted-ask").fill("Synthetic invitation boundary: coordinate an inspection review");
   await page.getByTestId("inverted-continue").click();
   const initialSave = page.waitForResponse(response => new URL(response.url()).pathname === "/rest/v1/rpc/initialize_decision_case" && response.request().method() === "POST");
