@@ -117,6 +117,32 @@ describe("durable decision-case receipts", () => {
     );
   });
 
+  it("reconciles a repeated create to the same authoritative case and rejects foreign receipts", async () => {
+    const seed = savedCase();
+    const canonical = { ...seed, revision: 4 };
+    receipt.response.mockResolvedValue({
+      data: { caseState: canonical, version: 4 },
+      error: null,
+    });
+    await expect(createPersistedDecisionCase(seed, {})).resolves.toEqual(
+      canonical,
+    );
+    await expect(createPersistedDecisionCase(seed, {})).resolves.toEqual(
+      canonical,
+    );
+    expect(receipt.create).not.toHaveBeenCalled();
+    receipt.response.mockResolvedValue({
+      data: {
+        caseState: { ...canonical, objective: "Another customer's case" },
+        version: 4,
+      },
+      error: null,
+    });
+    await expect(createPersistedDecisionCase(seed, {})).rejects.toThrow(
+      "no valid canonical receipt",
+    );
+  });
+
   it("rejects treating a browser ID as a durable save", async () => {
     await expect(
       savePersistedDecisionCase({ ...savedCase(), id: "draft-local" }),
