@@ -332,6 +332,28 @@ describe("P0.2 Decision Case spine on /get-started", () => {
       "Open",
     );
   });
+  it("repeated save preserves the durable receipt without submitting an empty conversation append", async () => {
+    authHolder.user = { id: "user-1" };
+    renderOpening();
+    openSpine();
+    await waitFor(() =>
+      expect(screen.getByTestId("spine-gate-audit_trail")).toHaveTextContent(
+        "Met",
+      ),
+    );
+    persist.savePersistedDecisionCase.mockClear();
+    fireEvent.click(screen.getByTestId("spine-save-workspace"));
+    fireEvent.click(screen.getByTestId("spine-save-workspace"));
+    expect(persist.createPersistedDecisionCase).toHaveBeenCalledTimes(1);
+    expect(persist.savePersistedDecisionCase).not.toHaveBeenCalled();
+    expect(screen.getByTestId("spine-gate-audit_trail")).toHaveTextContent(
+      "Met",
+    );
+    expect(screen.getByTestId("spine-save-notice")).toHaveTextContent(
+      "already saved",
+    );
+  });
+
   it("opens the audit gate when a saved case edit fails autosave", async () => {
     authHolder.user = { id: "user-1" };
     renderOpening();

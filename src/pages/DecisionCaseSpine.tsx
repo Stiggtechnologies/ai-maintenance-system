@@ -409,6 +409,12 @@ export function DecisionCaseSpine({
 
   const persistIfPossible = async () => {
     if (mutationInFlight.current || reconciliationRequired.current) return;
+    if (saved && isPersistedDecisionCase(decisionCase.id)) {
+      setSaveNotice(
+        "This revision is already saved. Record form changes with their own action.",
+      );
+      return;
+    }
     mutationInFlight.current = true;
     if (blockWorkspacePersist || isExamplePrompt(decisionCase.objective)) {
       setSaveNotice(

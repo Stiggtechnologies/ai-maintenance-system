@@ -599,8 +599,13 @@ test("new viewer invitation preserves an existing approver binding without sendi
   await page.goto("/get-started");
   await page.getByTestId("inverted-ask").fill("Synthetic invitation boundary: coordinate an inspection review");
   await page.getByTestId("inverted-continue").click();
+  const initialSave = page.waitForResponse(response => new URL(response.url()).pathname === "/rest/v1/rpc/initialize_decision_case" && response.request().method() === "POST");
   await page.getByTestId("inverted-save-continue").click();
+  const initialReceipt = await initialSave;
+  expect(initialReceipt.status(), await initialReceipt.text()).toBe(200);
+  await expect(page.getByTestId("spine-gate-audit_trail")).toContainText("Met");
   await page.getByTestId("spine-save-workspace").click();
+  await expect(page.getByTestId("spine-save-notice")).toContainText("already saved");
   await expect(page.getByTestId("spine-gate-audit_trail")).toContainText("Met");
   for (const field of ["decisionOwner", "recommendationAuthor", "verificationOwner"]) await page.getByTestId(`spine-person-${field}`).fill(`Synthetic ${field}`);
   await page.getByTestId("spine-disp-need_more_evidence").click();
