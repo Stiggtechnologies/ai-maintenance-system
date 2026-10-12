@@ -189,6 +189,14 @@ export type ReplayRow = Verdict & {
   /** Qualified value only; never a diagnosis, readiness score, probability or RUL. */
   qualifiedValue: number | null;
 };
+function quarantine(row: ReplayRow, reason: string) {
+  row.reasons =
+    row.outcome === "quarantined"
+      ? [...new Set([...row.reasons, reason])]
+      : [reason];
+  row.outcome = "quarantined";
+  row.qualifiedValue = null;
+}
 /** Batch-local deterministic replay in supplied arrival order. No clock, IO, writes or retained state. */
 export function replay(input: ReplayInput, asOf: string) {
   const seen = new Map<
@@ -226,11 +234,7 @@ export function replay(input: ReplayInput, asOf: string) {
         Object.assign(row, verdict("duplicate", "same_content_id"));
       else
         for (const index of prior.indices) {
-          Object.assign(
-            rows[index],
-            verdict("quarantined", "conflicting_content_id"),
-            { qualifiedValue: null },
-          );
+          quarantine(rows[index], "conflicting_content_id");
         }
     } else
       seen.set(id, { content, indices: [rows.length - 1], conflict: false });
@@ -252,11 +256,7 @@ export function replay(input: ReplayInput, asOf: string) {
       other.conflict ||= other.value !== e.value;
       if (other.conflict) {
         for (const index of other.indices)
-          Object.assign(
-            rows[index],
-            verdict("quarantined", "contradictory_same_time"),
-            { qualifiedValue: null },
-          );
+          quarantine(rows[index], "contradictory_same_time");
         return;
       }
     } else
@@ -281,11 +281,7 @@ export function replay(input: ReplayInput, asOf: string) {
       )
     ) {
       for (const i of group.indices)
-        Object.assign(
-          rows[i],
-          verdict("quarantined", "contradictory_same_time"),
-          { qualifiedValue: null },
-        );
+        quarantine(rows[i], "contradictory_same_time");
     }
   }
   return {
