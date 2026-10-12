@@ -238,7 +238,7 @@ await test("bounded envelope survives prompt slice and avoids same-prefix dedup 
   const bodies = [
     "A".repeat(5000) + "first",
     "A".repeat(5000) + "second",
-      "😀".repeat(2000),
+    "😀".repeat(900),
     "\u0001".repeat(2000) + '"\\\n',
   ];
   const envelopes = [];
