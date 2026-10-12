@@ -9,6 +9,7 @@ on:
       - "supabase/functions/_shared/p6-schedule-read.ts"
       - "supabase/functions/_shared/sap-s4-*-read.ts"
       - "scripts/adapter-canonical-fixture.ts"
+      - "scripts/adapter-restore-witness.mjs"
       - "scripts/ci-adls-data-lake-smoke.sh"
       - "scripts/ci-p6-schedule-read-smoke.sh"
       - "scripts/ci-sap-s4-inventory-read-smoke.sh"
@@ -56,13 +57,7 @@ jobs:
         if: ${{ !cancelled() && steps.start.outcome == 'success' }}
         env:
           SYNC_DR_LOCAL_SOURCE: supabase_db_ai-maintenance-system
-        run: |
-          node --input-type=module -e '
-            import { runRestoreDrill } from "./scripts/database-restore-drill.mjs";
-            await runRestoreDrill({ onReport: (report) => {
-              console.log(JSON.stringify({verdict:report.verdict,failedPhase:report.failedPhase,failureCategory:report.failureCategory,inventoryMismatchSummary:report.inventoryMismatchSummary,targetRemoved:report.targetRemoved}));
-            }});
-          '
+        run: node scripts/adapter-restore-witness.mjs
       - name: Stop disposable Supabase
         if: always()
         run: supabase stop --no-backup

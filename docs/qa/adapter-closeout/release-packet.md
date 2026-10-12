@@ -139,6 +139,23 @@ Release flags: `ADLS_READ_ENABLED`, `P6_READ_ENABLED`,
 `SAP_S4_INVENTORY_READ_ENABLED`, `SAP_S4_FINANCIAL_READ_ENABLED`; corresponding
 commit flags insert `_COMMIT` before `_ENABLED`. All remain unset/default false.
 
+## Verified production boundary (parent inspection, 2026-10-12 12:00 UTC)
+
+The parent inspected the SyncAI production dashboard: project `pjvoswbwomesuwhygpby`
+is healthy in **Canada Central (`ca-central-1`)**, MICRO/t4g.micro. Canadian-region
+hosting exists. This does not qualify full-stack residency, self-hosting or offline
+operation. No SyncAI staging project or preview branch was identified, and the
+dashboard reported no connected repository.
+
+There were 425 visible migrations, highest filename `20270103040000`, and 34 deployed
+Edge functions. Future dates in migration filenames are ordering identifiers, not
+deployment timestamps. All five adapter migrations and all four adapter handlers
+in this draft were absent. This code has not closed production adapter availability.
+Release stays blocked pending a proper staging or separately approved qualification
+environment, independent reviews and the scoped source authority below. The journey
+owner retains the reported process-safety view advisor investigation; this draft
+makes no security-view or live SQL change.
+
 ## Exact source-access request for the parent
 
 No real endpoints, identities or accounts have been supplied. Obtain the following
