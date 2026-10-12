@@ -28,6 +28,8 @@ import {
   isPersistedDecisionCase,
   listRecentPersistedDecisionCases,
   loadPersistedDecisionCase,
+  loadDecisionCaseReplay,
+  listDecisionCaseVerificationReturns,
   type RecentDecisionCase,
 } from "../services/decisionCaseService";
 import {
@@ -49,9 +51,126 @@ function rememberSavedCase(id: string) {
 
 export function InvertedOpeningPage() {
   const auth = useOptionalAuth();
+  const [request] = useState(() => {
+    const query = new URLSearchParams(window.location.search);
+    return {
+      id: query.get("case") ?? "",
+      version: query.get("replayVersion"),
+      shareId: query.get("share") ?? undefined,
+    };
+  });
+  const principal = `${auth?.user?.id ?? ""}:${auth?.profile?.organization_id ?? ""}:${auth?.profile?.role ?? ""}`;
+  const [loaded, setLoaded] = useState<{
+    principal: string;
+    decisionCase: DecisionCase;
+  } | null>(null);
+  const [failure, setFailure] = useState("");
+  useEffect(() => {
+    if (
+      !isPersistedDecisionCase(request.id) ||
+      !auth?.user ||
+      !auth.profile?.organization_id ||
+      auth.profile.id !== auth.user.id
+    )
+      return;
+    let active = true;
+    const refresh = () => {
+      const read = request.version
+        ? loadDecisionCaseReplay(
+            request.id,
+            Number(request.version),
+            request.shareId,
+          )
+        : loadPersistedDecisionCase(request.id);
+      void read
+        .then((decisionCase) => {
+          if (!active) return;
+          if (!decisionCase) {
+            setLoaded(null);
+            setFailure("Saved case is unavailable for this account.");
+            return;
+          }
+          setLoaded({ principal, decisionCase });
+          setFailure("");
+        })
+        .catch(() => {
+          if (active) {
+            setLoaded(null);
+            setFailure(
+              "Saved case or reference is unavailable for this account. No cached content is shown.",
+            );
+          }
+        });
+    };
+    refresh();
+    const timer = window.setInterval(refresh, 60_000);
+    window.addEventListener("focus", refresh);
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refresh);
+    };
+  }, [
+    request,
+    principal,
+    auth?.user,
+    auth?.profile?.organization_id,
+    auth?.profile?.id,
+  ]);
+  if (!isPersistedDecisionCase(request.id)) return <InvertedOpeningDraft />;
+  if (!auth?.user || loaded?.principal !== principal)
+    return (
+      <main className="min-h-screen bg-slate-950 p-6 text-slate-100">
+        <PublicJourneyHeader />
+        <p role="status">
+          {auth?.user
+            ? failure || "Loading the current tenant case…"
+            : "Sign in to view this saved case. A reference never grants access."}
+        </p>
+        <a
+          href={`/signin?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`}
+        >
+          Sign in to saved case
+        </a>
+      </main>
+    );
+  if (request.version)
+    return (
+      <main className="min-h-screen bg-slate-950 p-6 text-slate-100">
+        <PublicJourneyHeader />
+        <h1>Read-only case replay · revision {loaded.decisionCase.revision}</h1>
+        <p>
+          This retained revision is historical; current approval and rollout
+          standing may differ.
+        </p>
+        <pre className="max-h-screen overflow-auto whitespace-pre-wrap">
+          {JSON.stringify(loaded.decisionCase, null, 2)}
+        </pre>
+        <a href={`/get-started?case=${request.id}&view=evaluation`}>
+          Return to current case
+        </a>
+      </main>
+    );
+  return (
+    <InvertedOpeningDraft
+      key={principal + request.id}
+      canonicalCase={loaded.decisionCase}
+    />
+  );
+}
+
+function InvertedOpeningDraft({
+  canonicalCase,
+}: { canonicalCase?: DecisionCase } = {}) {
+  const auth = useOptionalAuth();
   const journeyTheme = usePublicJourneyTheme();
   const [restored] = useState(() =>
-    readEvaluationDraftLocation(window.location.search, window.sessionStorage),
+    canonicalCase
+      ? { decisionCase: canonicalCase, view: "evaluation" as const }
+      : readEvaluationDraftLocation(
+          window.location.search,
+          window.sessionStorage,
+        ),
   );
   const [ask, setAsk] = useState(restored?.decisionCase.objective ?? "");
   const [intent, setIntent] = useState<InvertedIntentId>(() =>
@@ -73,7 +192,8 @@ export function InvertedOpeningPage() {
     persistedCase?.industry ??
       new URLSearchParams(window.location.search).get("industry"),
   );
-  const [caseSaved, setCaseSaved] = useState(false);
+  const [caseSaved, setCaseSaved] = useState(Boolean(canonicalCase));
+  const [returns, setReturns] = useState<RecentDecisionCase[]>([]);
   const [persistError, setPersistError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [resumeError, setResumeError] = useState<string | null>(null);
@@ -243,6 +363,30 @@ export function InvertedOpeningPage() {
       data-theme={journeyTheme.theme}
     >
       <PublicJourneyHeader />
+      {auth?.user && (
+        <section className="mx-auto max-w-3xl p-4 text-slate-200">
+          <button
+            onClick={() =>
+              void listDecisionCaseVerificationReturns(auth.user!.id)
+                .then(setReturns)
+                .catch(() =>
+                  setResumeError("Verification returns could not be loaded."),
+                )
+            }
+          >
+            Review verification returns
+          </button>
+          {returns.map((item) => (
+            <p key={item.id}>
+              <a href={`/get-started?case=${item.id}&view=evaluation`}>
+                {item.decisionCase.objective} ·{" "}
+                {item.decisionCase.verificationReturn?.status} · due{" "}
+                {item.decisionCase.verificationReturn?.dueAt}
+              </a>
+            </p>
+          ))}
+        </section>
+      )}
       <div className="journey-evaluation-body mx-auto flex w-full flex-col gap-6">
         <header className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-300">

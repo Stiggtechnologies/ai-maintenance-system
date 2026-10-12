@@ -151,7 +151,14 @@ vi.mock("../components/AuthProvider", async () => {
     ...actual,
     useOptionalAuth: () => ({
       user: authHolder.user,
-      profile: authHolder.profile,
+      profile: authHolder.user
+        ? {
+            id: authHolder.user.id,
+            organization_id: "test-tenant",
+            role: "reliability_engineer",
+            ...authHolder.profile,
+          }
+        : null,
       session: null,
       loading: false,
     }),
@@ -297,12 +304,12 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     expect(persist.createPersistedDecisionCase).toHaveBeenCalledTimes(1);
     mounted.unmount();
     renderOpening();
-    expect(screen.getByTestId("spine-proof-body")).toHaveTextContent(
+    expect(await screen.findByTestId("spine-proof-body")).toHaveTextContent(
       "Synthetic retained inspection evidence",
     );
     expect(persist.createPersistedDecisionCase).toHaveBeenCalledTimes(1);
     expect(screen.getByTestId("spine-gate-audit_trail")).toHaveTextContent(
-      "Open",
+      "Met",
     );
   });
   it("retains anonymous evidence through Back and a repeated continuation without persistence", () => {
@@ -647,7 +654,7 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     authHolder.user = { id: "user-1" };
     renderOpening();
     openSpine();
-    await screen.findByText(/Kai Manager · maintenance_manager/);
+    await screen.findAllByText(/Kai Manager · maintenance_manager/);
     const select = await screen.findByTestId("spine-required-person");
     expect(screen.queryByTestId("spine-invite-name")).toBeNull();
     fireEvent.change(select, {
@@ -687,13 +694,13 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     ).toMatch(/Met/);
   });
 
-  it("sends a secure workspace invitation only after binding a tenant authority", async () => {
+  it("invites a new viewer separately from the already-bound required approver", async () => {
     authHolder.user = { id: "user-1" };
     authHolder.profile = { role: "admin" };
     renderOpening();
     openSpine();
 
-    await screen.findByText(/Kai Manager · maintenance_manager/);
+    await screen.findAllByText(/Kai Manager · maintenance_manager/);
     const select = await screen.findByTestId("spine-required-person");
     expect(screen.getByTestId("spine-send-invite")).toBeDisabled();
     fireEvent.change(select, {
@@ -701,6 +708,13 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     });
     fireEvent.click(screen.getByTestId("spine-record-invite"));
 
+    expect(screen.getByTestId("spine-send-invite")).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("New member name"), {
+      target: { value: "New Viewer" },
+    });
+    fireEvent.change(screen.getByLabelText("New member work email"), {
+      target: { value: "new-viewer@example.com" },
+    });
     await waitFor(() =>
       expect(screen.getByTestId("spine-send-invite")).not.toBeDisabled(),
     );
@@ -709,8 +723,8 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     await waitFor(() =>
       expect(invitation.send).toHaveBeenCalledWith({
         decisionCaseId: "11111111-1111-4111-8111-111111111111",
-        name: "Kai Manager",
-        email: "kai@example.com",
+        name: "New Viewer",
+        email: "new-viewer@example.com",
       }),
     );
     expect(await screen.findByTestId("spine-invite-status")).toHaveTextContent(
@@ -848,6 +862,7 @@ describe("P0.2 Decision Case spine on /get-started", () => {
   });
 
   it("locks the approved basis and permits only one post-approval outcome", async () => {
+    authHolder.user = { id: "user-1" };
     const base = buildSpineDecisionCase({
       question: "May this bounded recommendation proceed?",
       intent: "coordinate",

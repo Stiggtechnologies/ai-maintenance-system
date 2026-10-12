@@ -56,6 +56,11 @@ test -n "$DEMO" && test -n "$ADMIN" && test -n "$APPROVER_TOKEN" && test -n "$SP
 ADMIN_ID=$(psqlc "select id from user_profiles where organization_id='$ORG' and email='admin@syncai.ca'")
 ADMIN_NAME=$(psqlc "select full_name from user_profiles where id='$ADMIN_ID' and organization_id='$ORG'")
 BASE="{\"id\":\"$WORKSPACE\",\"caseNumber\":\"DC-SMOKE\",\"objective\":\"Should the bounded inspection recommendation proceed?\",\"recommendation\":\"Hold the reviewed inspection basis\",\"recommendationDetail\":\"No plant execute is authorized.\",\"workPackage\":{\"status\":\"locked\"},\"evidence\":[],\"messages\":[{\"id\":\"ask-1\",\"role\":\"user\",\"author\":\"Customer\",\"text\":\"Review the inspection basis.\",\"createdAt\":\"2026-10-03T12:00:00Z\"}],\"comments\":[{\"id\":\"engineering-note\",\"author\":\"Engineering note\",\"text\":\"Existing bounded note must survive verification.\",\"createdAt\":\"2026-10-03T12:00:00Z\"}],\"approvals\":[],\"valueMetrics\":[{\"id\":\"downtime-hours\",\"label\":\"Downtime\",\"detail\":\"Customer supplied baseline\",\"baseline\":\"12 h\",\"target\":\"8 h\",\"verifiedActual\":\"Pending\"}],\"tokensUsed\":0,\"stage\":\"intent\",\"statusLabel\":\"Governed smoke\"}"
+# Forged completion/value claims must fail at the native command boundary.
+for field in finance stage actual verified; do
+  FORGED=$(BASE="$BASE" FIELD="$field" W="$FORGE_WORKSPACE" python3 -c 'import json,os;x=json.loads(os.environ["BASE"]);x["id"]=os.environ["W"];f=os.environ["FIELD"];x.update({"financeStatus":"verified"} if f=="finance" else {"stage":"learning"} if f=="stage" else {"valueMetrics":[{"id":"forged","actual":"7"} if f=="actual" else {"id":"forged","verifiedActual":"7"}]});print(json.dumps({"p_workspace_id":os.environ["W"],"p_expected_version":0,"p_command":"initialize","p_case_state":x}))')
+  FORGED_RESULT=$(rpc "$ADMIN" "$FORGED"); refused "$FORGED_RESULT" 'may not claim completion'
+done
 INIT=$(rpc "$DEMO" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":0,\"p_command\":\"initialize\",\"p_case_state\":$BASE}"); ok "$INIT"
 SPONSOR_RESULT=$(rpc "$SPONSOR_TOKEN" "{\"p_workspace_id\":\"$SPONSOR_WORKSPACE\",\"p_expected_version\":0,\"p_command\":\"initialize\",\"p_case_state\":{\"id\":\"$SPONSOR_WORKSPACE\",\"workPackage\":{\"status\":\"locked\"},\"evidence\":[]}}"); refused "$SPONSOR_RESULT" 'authorized internal human'
 AI_RESULT=$(rpc "$AI_TOKEN" "{\"p_workspace_id\":\"$AI_WORKSPACE\",\"p_expected_version\":0,\"p_command\":\"initialize\",\"p_case_state\":{\"id\":\"$AI_WORKSPACE\",\"workPackage\":{\"status\":\"locked\"},\"evidence\":[]}}"); refused "$AI_RESULT" 'authorized internal human'
@@ -68,6 +73,7 @@ DUPLICATE_EVIDENCE=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expect
 ADD_EVIDENCE=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"add_evidence\",\"p_case_state\":{\"evidence\":[{\"id\":\"inspection-note\",\"title\":\"Inspection note\",\"summary\":\"Customer-supplied observation\",\"quality\":\"medium\",\"state\":\"Supplied\",\"record\":\"note-1\",\"finding\":\"Observed condition remained inside the reviewed bounds.\",\"lineage\":\"manual\",\"sourceSystem\":\"customer\",\"persistence\":\"embedded\"}],\"evidenceScore\":60,\"stage\":\"evidence\",\"recommendation\":\"Hold the reviewed inspection basis\",\"recommendationDetail\":\"No plant execute is authorized.\",\"decisionMetrics\":[]}}"); ok "$ADD_EVIDENCE"
 VERSION=$(psqlc "select case_version from cowork_workspaces where id='$WORKSPACE'")
 REMOVE_SUPPLIED=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"add_evidence\",\"p_case_state\":{\"evidence\":[{\"id\":\"replacement-for-supplied\",\"title\":\"Inspection note\",\"quality\":\"medium\",\"persistence\":\"embedded\",\"finding\":\"A new observation cannot erase the previous supplied record.\"}]}}"); refused "$REMOVE_SUPPLIED" 'may not remove existing evidence'
+FORGED_STAGE=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"add_evidence\",\"p_case_state\":{\"stage\":\"learning\",\"evidence\":[]}}"); refused "$FORGED_STAGE" 'later authorized stage'
 DISPOSITION=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"record_disposition\",\"p_case_state\":{\"humanDecision\":{\"disposition\":\"accept\",\"rationale\":\"The supplied condition remains inside the reviewed basis.\",\"counterfactual\":\"A contradictory inspection finding.\"},\"people\":{\"decisionOwner\":\"Ada Owner\",\"recommendationAuthor\":\"Riley Author\",\"verificationOwner\":\"Vera Owner\"}}}"); ok "$DISPOSITION"
 VERSION=$(psqlc "select case_version from cowork_workspaces where id='$WORKSPACE'")
 CANONICAL_RETURN=$(psqlc "select (case_state->>'objective')||'|'||(case_state#>>'{evidence,0,id}')||'|'||(case_state#>>'{humanDecision,rationale}')||'|'||(select string_agg((c->>'author')||'='||(c->>'text'),',' order by ordinality) from jsonb_array_elements(case_state->'comments') with ordinality x(c,ordinality) where c->>'author' in ('Decision Owner','Recommendation Author','Verification Owner')) from cowork_workspaces where id='$WORKSPACE'")
@@ -90,6 +96,10 @@ VERIFY=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\"
 VERSION=$(psqlc "select case_version from cowork_workspaces where id='$WORKSPACE'"); VERIFY_STAMP=$(psqlc "select case_state#>>'{comments,-1,actorId}' from cowork_workspaces where id='$WORKSPACE'"); test "$VERIFY_STAMP" = "$ADMIN_ID"
 test "$(psqlc "select count(*) from cowork_workspaces w,jsonb_array_elements(w.case_state->'valueMetrics') m where w.id='$WORKSPACE' and m->>'id'='downtime-hours' and m->>'baseline'='12 h'")" = 1
 test "$(psqlc "select count(*) from cowork_workspaces w,jsonb_array_elements(w.case_state->'comments') c where w.id='$WORKSPACE' and c->>'id'='engineering-note'")" = 1
+UNAPPROVED_ACTUAL=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"define_verification\",\"p_case_state\":{\"verification\":{\"expected\":\"Inside range\",\"scheduledFor\":\"2026-10-10\",\"actual\":\"7 hours\",\"evidence\":\"Unapproved record\",\"effectiveness\":\"effective\"}}}"); refused "$UNAPPROVED_ACTUAL" 'Measured verification requires approval'
+RETURN_OTHER=$(rpc "$APPROVER_TOKEN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"verification_return\",\"p_case_state\":{\"action\":\"acknowledge\",\"reason\":\"I cannot acknowledge another owner obligation\"}}"); refused "$RETURN_OTHER" 'bound verification owner'
+RETURN_ACK=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"verification_return\",\"p_case_state\":{\"action\":\"acknowledge\",\"reason\":\"Returning to review the scheduled obligation\"}}"); ok "$RETURN_ACK"
+VERSION=$(psqlc "select case_version from cowork_workspaces where id='$WORKSPACE'")
 APPROVAL_BEFORE_SOURCE=$(rpc "$APPROVER_TOKEN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"record_approval\",\"p_case_state\":{\"decision\":\"approved\",\"reason\":\"Evidence basis reviewed and accepted.\"}}"); refused "$APPROVAL_BEFORE_SOURCE" 'source check'
 SOURCE=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"record_source_check\",\"p_case_state\":{\"sourceCheck\":{\"detail\":\"No governed integration is connected\"}}}"); ok "$SOURCE"
 VERSION=$(psqlc "select case_version from cowork_workspaces where id='$WORKSPACE'"); STAMP=$(psqlc "select case_state#>>'{messages,-1,actorId}' from cowork_workspaces where id='$WORKSPACE'"); test "$STAMP" = "$ADMIN_ID"
@@ -126,10 +136,70 @@ CONFLICT=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version
 AUDIT=$(psqlc "select count(*) from audit_events where entity_type='decision_case_command' and event_data->>'workspaceId'='$WORKSPACE' and previous_state is not null and new_state is not null"); test "$AUDIT" -ge 6
 APPROVAL_AUDIT=$(psqlc "select count(*) from audit_events where entity_type='decision_case_command' and event_data->>'workspaceId'='$WORKSPACE' and event_data->>'command'='record_approval' and event_data->>'reason'='Evidence basis reviewed and accepted.' and previous_state->'humanApproval' is null and new_state#>>'{humanApproval,decision}'='approved'"); test "$APPROVAL_AUDIT" = 1
 test "$(psqlc "select count(*) from audit_events where entity_type='decision_case_command' and event_data->>'workspaceId'='$WORKSPACE' and event_data->>'command'='define_verification' and event_data->>'postApprovalVerificationOutcome'='true' and new_state#>>'{learningRecord,status}'='candidate'")" = 1
+# Full journey continuation remains on the canonical case and audit ledger.
+current_command(){
+  local version payload
+  version=$(psqlc "select case_version from cowork_workspaces where id='$WORKSPACE'")
+  payload=$(W="$WORKSPACE" V="$version" C="$2" P="$3" python3 -c 'import json,os;print(json.dumps({"p_workspace_id":os.environ["W"],"p_expected_version":int(os.environ["V"]),"p_command":os.environ["C"],"p_case_state":json.loads(os.environ["P"])}))')
+  rpc "$1" "$payload"
+}
+FUTURE=$(python3 -c 'import datetime;print((datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(days=1)).isoformat())')
+SHARE_PAYLOAD=$(U="$APPROVER" D="$FUTURE" python3 -c 'import json,os;print(json.dumps({"recipientId":os.environ["U"],"expiresAt":os.environ["D"]}))')
+SHARED=$(current_command "$ADMIN" record_share "$SHARE_PAYLOAD"); ok "$SHARED"
+SHARE_ID=$(psqlc "select case_state#>>'{shares,0,id}' from cowork_workspaces where id='$WORKSPACE'")
+SHARE_VERSION=$(psqlc "select case_version from cowork_workspaces where id='$WORKSPACE'")
+replay(){ curl -sS -w '\n%{http_code}' -X POST "$API_URL/rest/v1/rpc/get_decision_case_replay" -H "apikey: $ANON_KEY" -H "authorization: Bearer $1" -H 'content-type: application/json' -d "{\"p_workspace_id\":\"$WORKSPACE\",\"p_version\":$SHARE_VERSION,\"p_share_id\":\"$SHARE_ID\"}"; }
+REPLAY=$(replay "$APPROVER_TOKEN"); ok "$REPLAY"
+FOREIGN_REPLAY=$(replay "$FOREIGN_TOKEN"); refused "$FOREIGN_REPLAY" 'unavailable'
+UNINVOLVED_REPLAY=$(replay "$DEMO"); refused "$UNINVOLVED_REPLAY" 'unavailable'
+REVOKE=$(current_command "$ADMIN" revoke_share "{\"shareId\":\"$SHARE_ID\"}"); ok "$REVOKE"
+REVOKED_REPLAY=$(replay "$APPROVER_TOKEN"); refused "$REVOKED_REPLAY" 'unavailable'
+FOREIGN_SHARE=$(current_command "$ADMIN" record_share "{\"recipientId\":\"$FOREIGN_USER\",\"expiresAt\":\"$FUTURE\"}"); refused "$FOREIGN_SHARE" 'existing same-tenant'
+EXPIRED_SHARE=$(current_command "$ADMIN" record_share "{\"recipientId\":\"$APPROVER\",\"expiresAt\":\"2020-01-01T00:00:00Z\"}"); refused "$EXPIRED_SHARE" 'expiry'
+
+SITE_A='99999999-9999-4999-8999-999999999961'; SITE_B='99999999-9999-4999-8999-999999999962'
+ASSET_A='99999999-9999-4999-8999-999999999963'; ASSET_B='99999999-9999-4999-8999-999999999964'
+psqlc "insert into sites(id,organization_id,name) values('$SITE_A','$ORG','Synthetic rollout A'),('$SITE_B','$ORG','Synthetic rollout B'); insert into assets(id,organization_id,site_id,name) values('$ASSET_A','$ORG','$SITE_A','Synthetic fleet A'),('$ASSET_B','$ORG','$SITE_A','Synthetic fleet B');" >/dev/null
+proposal(){
+  PHASE="$1" SA="$SITE_A" SB="$SITE_B" AA="$ASSET_A" AB="$ASSET_B" OWNER="$ADMIN_ID" python3 - <<'PY'
+import datetime,json,os
+phase=os.environ['PHASE']; sites=[os.environ['SA']]
+if phase in ('enterprise','handover'):sites.append(os.environ['SB'])
+print(json.dumps({'proposal':{'phase':phase,'siteIds':sites,'assetIds':[os.environ['AA'],os.environ['AB']] if phase in ('fleet','enterprise','handover') else [],
+'metric':'Synthetic downtime','unit':'hours','baseline':12,'target':8,'direction':'at_most','minimumObservations':2,
+'windowEnd':(datetime.datetime.now(datetime.timezone.utc)+datetime.timedelta(seconds=3)).isoformat(),
+'acceptanceEvidenceIds':['inspection-note'],'rollbackPlan':'Return to the previously approved bounded process.',
+'handoverPlan':'The receiving owner checks the retained evidence and residual controls.',
+'residualRiskBasis':'Unmeasured causal attribution remains explicitly unresolved.','receivingOwnerId':os.environ['OWNER']}}))
+PY
+}
+SKIP=$(current_command "$DEMO" propose_rollout "$(proposal enterprise)"); refused "$SKIP" 'cannot be skipped'
+BAD_SCOPE=$(PAYLOAD="$(proposal pilot)" SITE="$OTHER_ORG" python3 -c 'import json,os;x=json.loads(os.environ["PAYLOAD"]);x["proposal"]["siteIds"]=[os.environ["SITE"]];print(json.dumps(x))')
+OUTSIDE_SCOPE=$(current_command "$DEMO" propose_rollout "$BAD_SCOPE"); refused "$OUTSIDE_SCOPE" 'current tenant'
+for phase in pilot site fleet enterprise handover; do
+  PROPOSED=$(current_command "$DEMO" propose_rollout "$(proposal "$phase")"); ok "$PROPOSED"
+  SELF_DECISION=$(current_command "$DEMO" decide_rollout '{"decision":"accepted","reason":"Synthetic self-approval must be refused independently."}'); refused "$SELF_DECISION" 'Independent bound human authority'
+  if [ "$phase" = enterprise ] || [ "$phase" = handover ]; then DECIDER="$ADMIN"; else DECIDER="$APPROVER_TOKEN"; fi
+  NO_RESULT=$(current_command "$DECIDER" decide_rollout '{"decision":"accepted","reason":"Synthetic attempted acceptance without a measured result."}'); refused "$NO_RESULT" 'Measured acceptance'
+  WRONG_OWNER=$(current_command "$APPROVER_TOKEN" record_rollout_result '{"actual":7,"observations":2,"evidenceId":"inspection-note"}'); refused "$WRONG_OWNER" 'verification owner'
+  sleep 3
+  TOO_FEW=$(current_command "$ADMIN" record_rollout_result '{"actual":7,"observations":1,"evidenceId":"inspection-note"}'); refused "$TOO_FEW" 'sufficient observations'
+  RESULT=$(current_command "$ADMIN" record_rollout_result '{"actual":7,"observations":2,"evidenceId":"inspection-note"}'); ok "$RESULT"
+  ACCEPTED=$(current_command "$DECIDER" decide_rollout '{"decision":"accepted","reason":"Measured criteria, residual risks and handover scope independently reviewed."}'); ok "$ACCEPTED"
+  test "$(psqlc "select case_state#>>'{rollout,acceptedPhase}' from cowork_workspaces where id='$WORKSPACE'")" = "$phase"
+done
+DUPLICATE_STAGE=$(current_command "$ADMIN" decide_rollout '{"decision":"accepted","reason":"Duplicate stage acceptance must not create another decision."}'); refused "$DUPLICATE_STAGE" 'proposed stage'
+test "$(psqlc "select case_state#>>'{workPackage,status}' from cowork_workspaces where id='$WORKSPACE'")" = locked
+echo 'Continuation passed: existing-access-only replay, revoked/foreign reference refusal, sequential measured rollout and independent enterprise handover; ACTION remains locked.'
+
 psqlc "select set_config('syncai.decision_case_command','on',true); update cowork_workspaces set case_version=case_version+1,case_state=jsonb_set(jsonb_set(case_state,'{recommendation}',to_jsonb('Tampered after approval'::text),true),'{revision}',to_jsonb(case_version+1),true) where id='$WORKSPACE'"
 VERSION=$(psqlc "select case_version from cowork_workspaces where id='$WORKSPACE'")
 STALE_PAYLOAD=$(psqlc "select jsonb_build_object('messages',case_state->'messages','tokensUsed',coalesce((case_state->>'tokensUsed')::integer,0)) from cowork_workspaces where id='$WORKSPACE'")
 STALE=$(rpc "$ADMIN" "{\"p_workspace_id\":\"$WORKSPACE\",\"p_expected_version\":$VERSION,\"p_command\":\"record_conversation\",\"p_case_state\":$STALE_PAYLOAD}"); refused "$STALE" 'stale or unverifiable'
+UNAUTHORIZED_REOPEN=$(current_command "$ADMIN" reconsider '{"reason":"Changed evidence requires a fresh independently authorized review."}'); refused "$UNAUTHORIZED_REOPEN" 'bound human authority'
+REOPENED=$(current_command "$APPROVER_TOKEN" reconsider '{"reason":"Changed evidence requires a fresh independently authorized review."}'); ok "$REOPENED"
+test "$(psqlc "select (case_state ? 'humanApproval')::text||'|'||(case_state ? 'rollout')::text||'|'||status from cowork_workspaces where id='$WORKSPACE'")" = 'false|false|active'
+test "$(psqlc "select count(*) from audit_events where entity_type='decision_case_command' and event_data->>'workspaceId'='$WORKSPACE' and event_data->>'command'='record_approval'")" = 1
 psqlc "select set_config('syncai.decision_case_command','on',true); update cowork_workspaces set case_version=4,case_state=jsonb_build_object('id','$LEGACY_WORKSPACE','revision',4,'workPackage',jsonb_build_object('status','locked'),'evidence',jsonb_build_array(jsonb_build_object('id','legacy-file','quality','high','finding','File vibration.csv attached (text/csv, 123 bytes). Text was not extracted and the file was not uploaded.','persistence','embedded')),'messages','[]'::jsonb,'tokensUsed',0,'stage','evidence') where id='$LEGACY_WORKSPACE';"
 PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -q -v ON_ERROR_STOP=1 -f supabase/migrations/20270103190000_decision_case_command_authority.sql
 LEGACY=$(psqlc "select case_version||'|'||(case_state->>'revision')||'|'||(case_state#>>'{evidence,0,persistence}')||'|'||(case_state#>>'{evidence,0,quality}') from cowork_workspaces where id='$LEGACY_WORKSPACE'"); test "$LEGACY" = '5|5|pending|missing'

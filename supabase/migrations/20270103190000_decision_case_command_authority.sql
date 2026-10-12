@@ -153,6 +153,20 @@ end $$;
 revoke all on function public.get_decision_case_authority_directory() from public,anon;
 grant execute on function public.get_decision_case_authority_directory() to authenticated;
 
+-- Invalidate the current basis while preserving its immutable audit history.
+create or replace function public.decision_case_clear_disposition(p_state jsonb)
+returns jsonb language sql immutable set search_path=pg_catalog,public as $$
+  select (p_state-array['humanDecision','humanApproval','requiredPerson','learningRecord','rollout','verificationReturn']) ||
+    jsonb_build_object('approvals','[]'::jsonb,'financeStatus','pending',
+      'valueMetrics',coalesce((select jsonb_agg(m) from jsonb_array_elements(coalesce(p_state->'valueMetrics','[]'::jsonb)) m
+        where m->>'id' not in ('verify-expected','verify-evidence')),'[]'::jsonb),
+      'comments',coalesce((select jsonb_agg(c) from jsonb_array_elements(coalesce(p_state->'comments','[]'::jsonb)) c
+        where c->>'author' not in ('Verification Owner','Outcome attribution','Required Approver')),'[]'::jsonb),
+      'messages',coalesce((select jsonb_agg(m) from jsonb_array_elements(coalesce(p_state->'messages','[]'::jsonb)) m
+        where coalesce(m->>'meta','') not in ('Source connection check','Verification obligation')),'[]'::jsonb))
+$$;
+revoke all on function public.decision_case_clear_disposition(jsonb) from public;
+
 create or replace function public.apply_decision_case_command(
   p_workspace_id uuid,p_expected_version integer,p_command text,p_case_state jsonb
 )
@@ -165,7 +179,7 @@ declare
   v_required_user uuid; v_required_name text; v_required_email text; v_required_role text;
   v_decision text; v_reason text; v_plan jsonb; v_new_messages jsonb; v_key text; v_person_label text;
   v_approval jsonb; v_basis_digest text; v_existing_expected text; v_existing_scheduled text;
-  v_existing_question text; v_post_approval_outcome boolean:=false;
+  v_existing_question text; v_post_approval_outcome boolean:=false; v_due timestamptz; v_phase text;
 begin
   if v_org is null or v_actor is null then
     raise exception using errcode='42501',message='Authentication and tenant context are required'; end if;
@@ -196,7 +210,8 @@ begin
     raise exception using errcode='PT409',message=format(
       'Decision Case conflict: expected version %s but current version is %s',p_expected_version,v_workspace.case_version); end if;
   if p_command is null or p_command not in ('initialize','record_conversation','add_evidence','record_disposition',
-    'define_verification','record_required_person','record_source_check','record_approval') then
+    'define_verification','record_required_person','record_source_check','record_approval',
+    'reconsider','verification_return','record_share','revoke_share','propose_rollout','record_rollout_result','decide_rollout') then
     raise exception using errcode='22023',message='Unsupported Decision Case command'; end if;
   if jsonb_typeof(v_payload) is distinct from 'object' then
     raise exception using errcode='22023',message='Command payload must be an object'; end if;
@@ -206,6 +221,13 @@ begin
   if p_command='initialize' then
     if v_workspace.case_version<>0 or coalesce(v_workspace.case_state,'{}'::jsonb)<>'{}'::jsonb then
       raise exception using errcode='23505',message='Decision Case is already initialized'; end if;
+    if coalesce(v_payload->>'financeStatus','pending')<>'pending' or
+      coalesce(v_payload->>'stage','intent') not in ('intent','asset_truth','evidence','analysis') or exists (
+        select 1 from jsonb_array_elements(case when jsonb_typeof(v_payload->'valueMetrics')='array'
+          then v_payload->'valueMetrics' else '[]'::jsonb end) m
+        where length(btrim(coalesce(m->>'actual','')))>0 or
+          lower(coalesce(m->>'verifiedActual','pending')) not in ('pending','not verified','scheduled','')) then
+      raise exception using errcode='42501',message='Initialization may not claim completion, verified finance, or measured actuals'; end if;
     if jsonb_typeof(v_payload->'messages') is distinct from 'array' or jsonb_typeof(v_payload->'evidence') is distinct from 'array' or
       jsonb_typeof(v_payload->'comments') is distinct from 'array' or jsonb_typeof(v_payload->'approvals') is distinct from 'array' or
       jsonb_typeof(v_payload->'valueMetrics') is distinct from 'array' then
@@ -225,7 +247,7 @@ begin
       length(btrim(coalesce(e->>'id','')))=0 or length(e->>'id')>200 or octet_length(e::text)>65536) or
       exists(select 1 from jsonb_array_elements(v_payload->'evidence') e group by e->>'id' having count(*)>1) then
       raise exception using errcode='23514',message='Decision Case initialization contains invalid or duplicate evidence identities'; end if;
-    if v_payload ?| array['humanDecision','requiredPerson','humanApproval','learningRecord'] or
+    if v_payload ?| array['humanDecision','requiredPerson','humanApproval','learningRecord','rollout','shares','verificationReturn','reconsideration'] or
       coalesce(jsonb_array_length(case when jsonb_typeof(v_payload->'approvals')='array' then v_payload->'approvals' else '[]'::jsonb end),0)>0 or
       exists(select 1 from jsonb_array_elements(case when jsonb_typeof(v_payload->'messages')='array' then v_payload->'messages' else '[]'::jsonb end) m
         where m ?| array['actorId','actorRole'] or m->>'meta' in
@@ -235,7 +257,7 @@ begin
       exists(select 1 from jsonb_array_elements(case when jsonb_typeof(v_payload->'valueMetrics')='array' then v_payload->'valueMetrics' else '[]'::jsonb end) m
         where m->>'id' in ('verify-expected','verify-evidence')) then
       raise exception using errcode='42501',message='Initialization may not pre-seed governed Decision Case records'; end if;
-    v_state:=v_payload;
+    v_state:=v_payload||jsonb_build_object('stage','evidence','financeStatus','pending','statusLabel','Evidence gathering; no verified outcome');
   else
     if coalesce(v_workspace.case_state,'{}'::jsonb)='{}'::jsonb then
       raise exception using errcode='55000',message='Decision Case must be initialized first'; end if;
@@ -247,15 +269,22 @@ begin
       when 'define_verification' then array['verification']
       when 'record_required_person' then array['requiredPerson']
       when 'record_source_check' then array['sourceCheck']
-      when 'record_approval' then array['decision','reason'] else array[]::text[] end;
+      when 'record_approval' then array['decision','reason']
+      when 'reconsider' then array['reason']
+      when 'verification_return' then array['action','dueAt','reason']
+      when 'record_share' then array['recipientId','expiresAt']
+      when 'revoke_share' then array['shareId']
+      when 'propose_rollout' then array['proposal']
+      when 'record_rollout_result' then array['actual','observations','evidenceId']
+      when 'decide_rollout' then array['decision','reason'] else array[]::text[] end;
     if exists(select 1 from jsonb_object_keys(v_payload) k where not(k=any(v_allowed))) then
       raise exception using errcode='42501',message=format('%s payload contains unrelated Decision Case fields',p_command); end if;
     v_approval:=v_state->'humanApproval';
     if coalesce(v_approval,'null'::jsonb)<>'null'::jsonb then
       v_basis_digest:=public.decision_case_approval_basis_sha256(v_state);
-      if coalesce(v_approval->>'basisSha256','') !~ '^[0-9a-f]{64}$' or
+      if p_command<>'reconsider' and (coalesce(v_approval->>'basisSha256','') !~ '^[0-9a-f]{64}$' or
         v_approval->>'basisSha256' is distinct from v_basis_digest or
-        coalesce(v_approval->>'basisVersion','') !~ '^[0-9]+$' then
+        coalesce(v_approval->>'basisVersion','') !~ '^[0-9]+$') then
         raise exception using errcode='55000',message='Decision Case approval basis is stale or unverifiable'; end if;
       if p_command in ('add_evidence','record_disposition','record_required_person','record_source_check') then
         raise exception using errcode='42501',message='Decision Case approval basis is locked; a governed reopen path is required'; end if;
@@ -295,6 +324,8 @@ begin
     v_state:=jsonb_set(v_state,'{tokensUsed}',to_jsonb(greatest(coalesce((v_payload->>'tokensUsed')::integer,0),0)),true);
 
   elsif p_command='add_evidence' then
+    if v_payload ? 'stage' and coalesce(v_payload->>'stage','') not in ('evidence','analysis') then
+      raise exception using errcode='42501',message='Evidence submission may not claim a later authorized stage'; end if;
     if jsonb_typeof(v_payload->'evidence') is distinct from 'array' or jsonb_array_length(v_payload->'evidence')>200 or not exists(
       select 1 from jsonb_array_elements(v_payload->'evidence') n where not exists(
         select 1 from jsonb_array_elements(coalesce(v_state->'evidence','[]'::jsonb)) o where o->>'id'=n->>'id')) then
@@ -332,12 +363,15 @@ begin
     foreach v_key in array array['evidence','evidenceScore','stage','recommendation','recommendationDetail','decisionMetrics'] loop
       if v_payload ? v_key then v_state:=jsonb_set(v_state,array[v_key],v_payload->v_key,true); end if;
     end loop;
+    if v_state ? 'humanDecision' then v_state:=public.decision_case_clear_disposition(v_state); end if;
+    v_state:=v_state||jsonb_build_object('stage','evidence','statusLabel','Evidence changed; fresh human disposition required');
     v_state:=jsonb_set(v_state,'{messages}',coalesce(v_state->'messages','[]'::jsonb)||jsonb_build_array(jsonb_build_object(
       'id','evidence-'||(v_workspace.case_version+1)::text,'role','system','author',v_actor_name,'actorId',v_actor,'actorRole',v_actor_role,
       'text','Evidence was added through the governed Decision Case command. Supplied status depends on persisted content or canonical evidence identity.',
       'createdAt',v_now,'meta','Evidence recorded')),true);
 
   elsif p_command='record_disposition' then
+    if v_state ? 'humanDecision' then v_state:=public.decision_case_clear_disposition(v_state); end if;
     if not public.decision_case_authority_role_allowed(v_actor_role) then
       raise exception using errcode='42501',message='Your role may not record a Decision Case disposition'; end if;
     if jsonb_typeof(v_payload->'humanDecision') is distinct from 'object' or exists(
@@ -405,6 +439,9 @@ begin
       (v_plan->>'effectiveness' not in ('effective','partially_effective','ineffective','inconclusive') or
        length(btrim(coalesce(v_plan->>'actual','')))=0 or length(btrim(coalesce(v_plan->>'evidence','')))=0) then
       raise exception using errcode='23514',message='Recorded verification requires effectiveness, actual result, and evidence'; end if;
+    if length(btrim(coalesce(v_plan->>'actual','')))>0 and (v_approval->>'decision' is distinct from 'approved' or
+      v_state#>>'{verificationReturn,ownerId}' is distinct from v_actor::text) then
+      raise exception using errcode='42501',message='Measured verification requires approval and the bound verification owner'; end if;
     if coalesce(v_approval,'null'::jsonb)<>'null'::jsonb then
       select item->>'baseline' into v_existing_expected from jsonb_array_elements(v_state->'valueMetrics') item
         where item->>'id'='verify-expected' limit 1;
@@ -425,6 +462,9 @@ begin
         raise exception using errcode='23514',message='Post-approval verification requires a complete measured outcome'; end if;
       v_post_approval_outcome:=true;
     end if;
+    v_state:=jsonb_set(v_state,'{verificationReturn}',jsonb_build_object('ownerId',v_actor,
+      'dueAt',(v_plan->>'scheduledFor')::date,'status',case when v_post_approval_outcome then 'completed' else 'scheduled' end,
+      'updatedBy',v_actor,'updatedAt',v_now,'delivery','in_app_only'),true);
     v_state:=jsonb_set(v_state,'{stage}',to_jsonb(case when nullif(btrim(coalesce(v_plan->>'effectiveness','')),'') is null then 'outcomes' else 'learning' end),true);
     v_state:=jsonb_set(v_state,'{statusLabel}',to_jsonb(case when nullif(btrim(coalesce(v_plan->>'effectiveness','')),'') is null
       then 'Verification scheduled · '||(v_plan->>'scheduledFor') else 'Verification recorded · '||(v_plan->>'effectiveness') end),true);
@@ -541,6 +581,158 @@ begin
     v_state:=jsonb_set(v_state,'{approvals}',coalesce((select jsonb_agg(case when a->>'id'='required-approver'
       then jsonb_set(jsonb_set(a,'{status}',to_jsonb(v_decision),true),'{decidedAt}',to_jsonb(v_now),true) else a end order by ordinality)
       from jsonb_array_elements(coalesce(v_state->'approvals','[]'::jsonb)) with ordinality x(a,ordinality)),'[]'::jsonb),true);
+  elsif p_command='reconsider' then
+    if v_state#>>'{requiredPerson,userId}' is distinct from v_actor::text or
+      v_state#>>'{requiredPerson,authorityRole}' is distinct from v_actor_role or
+      not public.decision_case_authority_role_allowed(v_actor_role) then
+      raise exception using errcode='42501',message='Only the current bound human authority may reopen the decision'; end if;
+    if coalesce(v_state->'humanApproval','null'::jsonb)='null'::jsonb then
+      raise exception using errcode='55000',message='Reconsideration requires a recorded decision'; end if;
+    v_reason:=btrim(coalesce(v_payload->>'reason',''));
+    if length(v_reason) not between 20 and 4000 then
+      raise exception using errcode='23514',message='Reconsideration requires a substantive changed-basis reason'; end if;
+    v_state:=public.decision_case_clear_disposition(v_state)||jsonb_build_object(
+      'reconsideration',jsonb_build_object('reason',v_reason,'actor',jsonb_build_object('id',v_actor,'name',v_actor_name,'role',v_actor_role),
+        'recordedAt',v_now,'previousApprovalVersion',v_approval->'approvalVersion','previousBasisSha256',v_approval->'basisSha256'),
+      'stage','evidence','statusLabel','Reopened; fresh disposition and approval required','financeStatus','pending');
+    v_approval:=null;
+
+  elsif p_command='verification_return' then
+    if v_state#>>'{verificationReturn,ownerId}' is distinct from v_actor::text then
+      raise exception using errcode='42501',message='Only the bound verification owner may change the internal reminder'; end if;
+    if coalesce(v_state#>>'{verificationReturn,status}','') not in ('scheduled','snoozed','acknowledged') then
+      raise exception using errcode='55000',message='An open verification obligation is required'; end if;
+    v_reason:=btrim(coalesce(v_payload->>'reason',''));
+    if length(v_reason) not between 8 and 4000 or coalesce(v_payload->>'action','') not in ('snooze','acknowledge') then
+      raise exception using errcode='23514',message='An internal reminder action and reason are required'; end if;
+    if v_payload->>'action'='snooze' then
+      begin v_due:=(v_payload->>'dueAt')::timestamptz; exception when others then
+        raise exception using errcode='22023',message='Reminder date is invalid'; end;
+      if v_due is null or v_due<=v_now or v_due>v_now+interval '90 days' then
+        raise exception using errcode='23514',message='Snooze must be in the next 90 days'; end if;
+    elsif v_payload ? 'dueAt' then
+      raise exception using errcode='23514',message='Acknowledgment cannot change the due date';
+    else v_due:=(v_state#>>'{verificationReturn,dueAt}')::timestamptz;
+    end if;
+    v_state:=jsonb_set(v_state,'{verificationReturn}',(v_state->'verificationReturn')||jsonb_build_object(
+      'status',case when v_payload->>'action'='snooze' then 'snoozed' else 'acknowledged' end,
+      'dueAt',v_due,'reason',v_reason,'updatedBy',v_actor,'updatedAt',v_now),true);
+
+  elsif p_command='record_share' then
+    begin v_required_user:=(v_payload->>'recipientId')::uuid; v_due:=(v_payload->>'expiresAt')::timestamptz;
+      exception when others then raise exception using errcode='22023',message='Recipient and expiry are invalid'; end;
+    select role into v_required_role from public.user_profiles where id=v_required_user and organization_id=v_org for share;
+    if not found or not public.decision_case_contributor_role_allowed(v_required_role) or v_required_user=v_actor then
+      raise exception using errcode='42501',message='Sharing requires another existing same-tenant human contributor; no access is granted'; end if;
+    if v_due is null or v_due<=v_now or v_due>v_now+interval '30 days' then
+      raise exception using errcode='23514',message='Share expiry must be within 30 days'; end if;
+    if jsonb_array_length(coalesce(v_state->'shares','[]'::jsonb))>=50 then
+      raise exception using errcode='22023',message='Case share reference limit reached'; end if;
+    v_state:=jsonb_set(v_state,'{shares}',coalesce(v_state->'shares','[]'::jsonb)||jsonb_build_array(jsonb_build_object(
+      'id',gen_random_uuid(),'recipientId',v_required_user,'createdBy',v_actor,'createdAt',v_now,
+      'expiresAt',v_due,'version',v_workspace.case_version+1,'status','active')),true);
+
+  elsif p_command='revoke_share' then
+    if not exists(select 1 from jsonb_array_elements(coalesce(v_state->'shares','[]'::jsonb)) s
+      where s->>'id'=v_payload->>'shareId' and s->>'createdBy'=v_actor::text and s->>'status'='active') then
+      raise exception using errcode='42501',message='Only the creator may revoke an active share reference'; end if;
+    v_state:=jsonb_set(v_state,'{shares}',(select jsonb_agg(case when s->>'id'=v_payload->>'shareId'
+      then s||jsonb_build_object('status','revoked','revokedAt',v_now) else s end order by ordinality)
+      from jsonb_array_elements(v_state->'shares') with ordinality x(s,ordinality)),true);
+
+  elsif p_command='propose_rollout' then
+    if v_state#>>'{humanApproval,decision}' is distinct from 'approved' then
+      raise exception using errcode='55000',message='Rollout planning requires current unchanged-basis human approval'; end if;
+    if coalesce(v_state#>>'{rollout,status}','')='proposed' then
+      raise exception using errcode='55000',message='Decide the current proposal before proposing another stage'; end if;
+    v_plan:=v_payload->'proposal';
+    if jsonb_typeof(v_plan) is distinct from 'object' or exists(select 1 from jsonb_object_keys(v_plan) k where k not in
+      ('phase','siteIds','assetIds','metric','unit','baseline','target','direction','minimumObservations','windowEnd','acceptanceEvidenceIds','rollbackPlan','handoverPlan','residualRiskBasis','receivingOwnerId')) then
+      raise exception using errcode='23514',message='A bounded rollout proposal is required'; end if;
+    v_phase:=case coalesce(v_state#>>'{rollout,acceptedPhase}','') when '' then 'pilot' when 'pilot' then 'site'
+      when 'site' then 'fleet' when 'fleet' then 'enterprise' when 'enterprise' then 'handover' else 'closed' end;
+    if v_plan->>'phase' is distinct from v_phase then
+      raise exception using errcode='55000',message='Rollout stages cannot be skipped: pilot, site, fleet, enterprise, handover'; end if;
+    if jsonb_typeof(v_plan->'siteIds') is distinct from 'array' or jsonb_array_length(v_plan->'siteIds') not between 1 and 50 or
+      jsonb_typeof(v_plan->'assetIds') is distinct from 'array' or jsonb_array_length(v_plan->'assetIds')>200 or
+      jsonb_typeof(v_plan->'acceptanceEvidenceIds') is distinct from 'array' or jsonb_array_length(v_plan->'acceptanceEvidenceIds') not between 1 and 50 then
+      raise exception using errcode='23514',message='Canonical scope and acceptance evidence are required'; end if;
+    if exists(select 1 from jsonb_array_elements_text(v_plan->'siteIds') x(id) where not exists(
+      select 1 from public.sites s where s.id::text=x.id and s.organization_id=v_org)) or
+      exists(select 1 from jsonb_array_elements_text(v_plan->'assetIds') x(id) where not exists(
+        select 1 from public.assets a where a.id::text=x.id and a.organization_id=v_org and (v_plan->'siteIds') ? a.site_id::text)) or
+      exists(select 1 from jsonb_array_elements_text(v_plan->'acceptanceEvidenceIds') x(id) where not exists(
+        select 1 from jsonb_array_elements(v_state->'evidence') e where e->>'id'=x.id and e->>'quality' in ('high','medium') and e->>'persistence' in ('embedded','governed_reference'))) then
+      raise exception using errcode='42501',message='Rollout scope and evidence must resolve to the current tenant and case'; end if;
+    if (select count(distinct id) from jsonb_array_elements_text(v_plan->'siteIds') x(id))<>jsonb_array_length(v_plan->'siteIds') or
+      (select count(distinct id) from jsonb_array_elements_text(v_plan->'assetIds') x(id))<>jsonb_array_length(v_plan->'assetIds') or
+      (v_phase='pilot' and jsonb_array_length(v_plan->'siteIds')<>1) or
+      (v_phase='fleet' and jsonb_array_length(v_plan->'assetIds')<2) or
+      (v_phase in ('enterprise','handover') and jsonb_array_length(v_plan->'siteIds')<2) then
+      raise exception using errcode='23514',message='Pilot is one site, fleet needs distinct assets, and enterprise needs distinct sites'; end if;
+    if exists(select 1 from jsonb_array_elements_text(coalesce(v_state#>'{rollout,acceptedSiteIds}','[]'::jsonb)) x(id)
+      where not (v_plan->'siteIds') ? x.id) then
+      raise exception using errcode='23514',message='Expansion must retain the accepted site scope'; end if;
+    if exists(select 1 from jsonb_each(v_plan) x where x.key in ('metric','unit','rollbackPlan','handoverPlan','residualRiskBasis') and
+      (jsonb_typeof(x.value) is distinct from 'string' or length(btrim(x.value#>>'{}')) not between 2 and 4000)) or
+      length(btrim(coalesce(v_plan->>'metric','')))<2 or length(btrim(coalesce(v_plan->>'unit','')))<1 or
+      length(btrim(coalesce(v_plan->>'rollbackPlan','')))<20 or length(btrim(coalesce(v_plan->>'handoverPlan','')))<20 or
+      length(btrim(coalesce(v_plan->>'residualRiskBasis','')))<20 or
+      jsonb_typeof(v_plan->'baseline') is distinct from 'number' or jsonb_typeof(v_plan->'target') is distinct from 'number' or
+      coalesce(v_plan->>'direction','') not in ('at_most','at_least') or
+      coalesce(v_plan->>'minimumObservations','') !~ '^[1-9][0-9]{0,5}$' then
+      raise exception using errcode='23514',message='Measurable criteria, bounded observations, rollback, handover and residual-risk basis are required'; end if;
+    begin v_due:=(v_plan->>'windowEnd')::timestamptz; v_required_user:=(v_plan->>'receivingOwnerId')::uuid;
+      exception when others then raise exception using errcode='22023',message='Window end and receiving owner are invalid'; end;
+    if v_due is null or v_due>v_now+interval '366 days' or v_due<v_now then
+      raise exception using errcode='23514',message='Define the measurement window before it closes, within one year'; end if;
+    select role into v_required_role from public.user_profiles where id=v_required_user and organization_id=v_org for share;
+    if not found or not public.decision_case_authority_role_allowed(v_required_role) or v_required_user=v_actor or
+      (v_phase in ('enterprise','handover') and v_required_role not in ('admin','executive')) then
+      raise exception using errcode='42501',message='An independent current tenant receiving authority is required'; end if;
+    v_state:=jsonb_set(v_state,'{rollout}',jsonb_build_object('status','proposed','proposal',v_plan,
+      'proposedBy',v_actor,'proposedAt',v_now,'basisSha256',public.decision_case_approval_basis_sha256(v_state),
+      'acceptedPhase',v_state#>'{rollout,acceptedPhase}','acceptedSiteIds',coalesce(v_state#>'{rollout,acceptedSiteIds}','[]'::jsonb),
+      'history',coalesce(v_state#>'{rollout,history}','[]'::jsonb)),true);
+
+  elsif p_command='record_rollout_result' then
+    v_plan:=v_state#>'{rollout,proposal}';
+    if v_state#>>'{rollout,status}' is distinct from 'proposed' or v_state#>'{rollout,result}' is not null then
+      raise exception using errcode='55000',message='An unmeasured proposed stage is required'; end if;
+    if v_state#>>'{verificationReturn,ownerId}' is distinct from v_actor::text then
+      raise exception using errcode='42501',message='Only the canonical verification owner may record measured results'; end if;
+    if (v_plan->>'windowEnd')::timestamptz>v_now then
+      raise exception using errcode='55000',message='Measurement window has not closed'; end if;
+    if jsonb_typeof(v_payload->'actual') is distinct from 'number' or coalesce(v_payload->>'observations','') !~ '^[1-9][0-9]{0,5}$' or
+      (v_payload->>'observations')::integer<(v_plan->>'minimumObservations')::integer or
+      not exists(select 1 from jsonb_array_elements(v_state->'evidence') e where e->>'id'=v_payload->>'evidenceId'
+        and e->>'quality' in ('high','medium') and e->>'persistence' in ('embedded','governed_reference')) then
+      raise exception using errcode='23514',message='A measured actual, sufficient observations and case evidence are required'; end if;
+    v_state:=jsonb_set(v_state,'{rollout,result}',v_payload||jsonb_build_object('recordedBy',v_actor,'recordedAt',v_now,
+      'criteriaMet',case when v_plan->>'direction'='at_most' then (v_payload->>'actual')::numeric<=(v_plan->>'target')::numeric
+        else (v_payload->>'actual')::numeric>=(v_plan->>'target')::numeric end),true);
+
+  elsif p_command='decide_rollout' then
+    v_plan:=v_state#>'{rollout,proposal}'; v_reason:=btrim(coalesce(v_payload->>'reason',''));
+    if v_state#>>'{rollout,status}' is distinct from 'proposed' or coalesce(v_payload->>'decision','') not in ('accepted','rejected') or length(v_reason) not between 20 and 4000 then
+      raise exception using errcode='23514',message='A proposed stage and substantive human disposition are required'; end if;
+    if (v_plan->>'phase' not in ('enterprise','handover') and (v_state#>>'{requiredPerson,userId}' is distinct from v_actor::text or
+      v_state#>>'{requiredPerson,authorityRole}' is distinct from v_actor_role)) or
+      (v_plan->>'phase' in ('enterprise','handover') and v_plan->>'receivingOwnerId' is distinct from v_actor::text) or
+      not public.decision_case_authority_role_allowed(v_actor_role) or v_state#>>'{rollout,proposedBy}'=v_actor::text or
+      (v_plan->>'phase' in ('enterprise','handover') and v_actor_role not in ('admin','executive')) or
+      (v_plan->>'phase'='handover' and v_plan->>'receivingOwnerId' is distinct from v_actor::text) then
+      raise exception using errcode='42501',message='Independent bound human authority is required; enterprise and handover require the receiving admin or executive'; end if;
+    if v_payload->>'decision'='accepted' and (v_state#>>'{rollout,result,criteriaMet}' is distinct from 'true' or
+      v_state#>>'{humanApproval,decision}' is distinct from 'approved' or
+      v_state#>>'{rollout,basisSha256}' is distinct from public.decision_case_approval_basis_sha256(v_state)) then
+      raise exception using errcode='55000',message='Measured acceptance criteria and unchanged approval basis are required'; end if;
+    v_state:=jsonb_set(v_state,'{rollout}',(v_state->'rollout')||jsonb_build_object('status',v_payload->>'decision',
+      'decision',jsonb_build_object('actorId',v_actor,'role',v_actor_role,'reason',v_reason,'recordedAt',v_now),
+      'acceptedPhase',case when v_payload->>'decision'='accepted' then v_plan->>'phase' else v_state#>>'{rollout,acceptedPhase}' end,
+      'acceptedSiteIds',case when v_payload->>'decision'='accepted' then v_plan->'siteIds' else v_state#>'{rollout,acceptedSiteIds}' end,
+      'history',coalesce(v_state#>'{rollout,history}','[]'::jsonb)||jsonb_build_array((v_state->'rollout')-'history')) ,true);
+
   end if;
 
   if exists(select 1 from jsonb_array_elements(coalesce(v_state->'evidence','[]'::jsonb)) e
@@ -578,7 +770,8 @@ begin
     usage_tokens=greatest(coalesce((v_state->>'tokensUsed')::integer,0),0),
     progress=case coalesce(v_state->>'stage','intent') when 'intent' then 10 when 'asset_truth' then 20 when 'evidence' then 35
       when 'analysis' then 50 when 'authority' then 65 when 'execution' then 78 when 'outcomes' then 90 when 'learning' then 100 else 0 end,
-    status=case when v_state->>'stage'='learning' then 'complete' else 'active' end,
+    status=case when v_state->>'stage'='learning' and v_state#>>'{humanApproval,decision}'='approved' and
+      v_state#>>'{verificationReturn,status}'='completed' then 'complete' else 'active' end,
     next_action=v_state->>'statusLabel',updated_at=v_now where id=p_workspace_id and organization_id=v_org;
   perform set_config('syncai.decision_case_command','off',true);
   insert into public.audit_events(organization_id,entity_type,actor,event_data,previous_state,new_state)
@@ -643,3 +836,30 @@ begin
 end $$;
 revoke all on function public.initialize_decision_case(jsonb) from public,anon;
 grant execute on function public.initialize_decision_case(jsonb) to authenticated;
+
+-- Replay never elevates access: both case and immutable audit reads execute
+-- under the caller's existing RLS. A share is a scoped reference, not a grant.
+create or replace function public.get_decision_case_replay(p_workspace_id uuid,p_version integer,p_share_id uuid default null)
+returns jsonb language plpgsql stable security invoker set search_path=pg_catalog,public as $$
+declare v_org uuid:=public.app_current_org(); v_actor uuid:=auth.uid(); v_state jsonb; v_snapshot jsonb; v_share jsonb;
+begin
+  if v_org is null or v_actor is null then raise exception using errcode='42501',message='Saved replay is unavailable'; end if;
+  select case_state into v_state from public.cowork_workspaces where id=p_workspace_id and organization_id=v_org and workspace_kind<>'sync';
+  if not found or not exists(select 1 from public.user_profiles where id=v_actor and organization_id=v_org
+    and role in ('admin','executive','maintenance_manager','reliability_engineer','planner','operator','technician')) then
+    raise exception using errcode='42501',message='Saved replay is unavailable'; end if;
+  if p_share_id is not null then
+    select s into v_share from jsonb_array_elements(coalesce(v_state->'shares','[]'::jsonb)) s where s->>'id'=p_share_id::text;
+    if v_share is null or v_share->>'status'<>'active' or (v_share->>'expiresAt')::timestamptz<=now() or
+      v_share->>'recipientId' is distinct from v_actor::text and v_share->>'createdBy' is distinct from v_actor::text or
+      (v_share->>'version')::integer is distinct from p_version then
+      raise exception using errcode='42501',message='Saved replay is unavailable'; end if;
+  end if;
+  select new_state into v_snapshot from public.audit_events where organization_id=v_org and entity_type='decision_case_command'
+    and event_data->>'workspaceId'=p_workspace_id::text and event_data->>'version'=p_version::text order by created_at desc limit 1;
+  if v_snapshot is null or v_snapshot->>'id' is distinct from p_workspace_id::text then
+    raise exception using errcode='42501',message='Saved replay is unavailable'; end if;
+  return jsonb_build_object('caseState',v_snapshot,'version',p_version,'readOnly',true);
+end $$;
+revoke all on function public.get_decision_case_replay(uuid,integer,uuid) from public,anon;
+grant execute on function public.get_decision_case_replay(uuid,integer,uuid) to authenticated;

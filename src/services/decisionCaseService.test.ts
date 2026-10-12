@@ -6,6 +6,8 @@ import {
 import { createHonestEmptyDecisionCase } from "../lib/decision-case-honesty";
 import {
   askDecisionCase,
+  applyDecisionCaseContinuation,
+  loadDecisionCaseReplay,
   createPersistedDecisionCase,
   listDecisionCaseAuthorityDirectory,
   recordDecisionCaseApproval,
@@ -54,6 +56,50 @@ describe("decisionCaseService", () => {
     workspaceWrite.select.mockClear();
     workspaceWrite.maybeSingle.mockReset();
     workspaceWrite.rpc.mockReset();
+  });
+
+  it("rejects replay receipts that do not match the requested immutable revision", async () => {
+    const id = "11111111-1111-4111-8111-111111111111";
+    const snapshot = {
+      ...createHonestEmptyDecisionCase("Reliability Engineer"),
+      id,
+      revision: 3,
+    };
+    workspaceWrite.rpc.mockResolvedValue({
+      data: { caseState: snapshot, version: 3, readOnly: true },
+      error: null,
+    });
+    await expect(loadDecisionCaseReplay(id, 3)).resolves.toEqual(snapshot);
+    expect(workspaceWrite.rpc).toHaveBeenCalledWith(
+      "get_decision_case_replay",
+      { p_workspace_id: id, p_version: 3, p_share_id: null },
+    );
+    for (const bad of [
+      { caseState: snapshot, version: 4, readOnly: true },
+      { caseState: { ...snapshot, id: "other" }, version: 3, readOnly: true },
+      { caseState: snapshot, version: 3, readOnly: false },
+    ]) {
+      workspaceWrite.rpc.mockResolvedValue({ data: bad, error: null });
+      await expect(loadDecisionCaseReplay(id, 3)).rejects.toThrow(
+        "unavailable",
+      );
+    }
+    workspaceWrite.rpc.mockResolvedValue({
+      data: null,
+      error: { message: "not authorized" },
+    });
+    await expect(loadDecisionCaseReplay(id, 3)).rejects.toThrow("unavailable");
+  });
+
+  it("requires saved version identity before a continuation command", async () => {
+    await expect(
+      applyDecisionCaseContinuation(
+        createHonestEmptyDecisionCase("Reliability Engineer"),
+        "reconsider",
+        { reason: "Changed inspection evidence requires another review." },
+      ),
+    ).rejects.toThrow("Reload");
+    expect(workspaceWrite.rpc).not.toHaveBeenCalled();
   });
 
   it("creates atomically without the legacy fabricated Cowork analysis", async () => {

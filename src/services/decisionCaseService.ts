@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import type { ContinuationCommand } from "../lib/decision-case-continuation";
 import type {
   DecisionCase,
   DecisionJourneyContext,
@@ -30,6 +31,7 @@ export function isPersistedDecisionCase(id: string): boolean {
 }
 
 export type DecisionCaseCommand =
+  | ContinuationCommand
   | "record_conversation"
   | "add_evidence"
   | "record_disposition"
@@ -767,4 +769,95 @@ function buildGroundedCaseContext(
     "Conversation contract: respond naturally to greetings and ordinary conversation. If the user signals a topic change without supplying the new subject, ask one focused clarifying question and keep this case unchanged. Do not repeat the case recommendation unless it answers the user's explicit request.",
     "Analysis contract: use only this case context for case claims. Never substitute records, metrics, or failure modes from another asset. State when the context cannot answer the question. Distinguish known evidence, inference, and missing evidence. For substantive questions, show the decision, defensible calculations, burden of proof, evidence blockers, lowest-regret action, approval gates, and value verification as relevant.",
   ].join("\n");
+}
+
+/** New case transitions use the same versioned reducer and canonical receipt. */
+export async function applyDecisionCaseContinuation(
+  decisionCase: DecisionCase,
+  command: ContinuationCommand,
+  payload: Record<string, unknown>,
+): Promise<DecisionCase> {
+  if (
+    !isPersistedDecisionCase(decisionCase.id) ||
+    !Number.isInteger(decisionCase.revision) ||
+    decisionCase.revision! < 1
+  ) {
+    throw new Error("Reload the saved case before a governed transition.");
+  }
+  return applyDecisionCaseCommand(
+    decisionCase,
+    command,
+    decisionCase.revision!,
+    payload,
+  );
+}
+
+export async function loadDecisionCaseReplay(
+  caseId: string,
+  version: number,
+  shareId?: string,
+): Promise<DecisionCase> {
+  if (
+    !isPersistedDecisionCase(caseId) ||
+    !Number.isInteger(version) ||
+    version < 1 ||
+    (shareId && !isPersistedDecisionCase(shareId))
+  )
+    throw new Error("Saved replay is unavailable.");
+  const { data, error } = await supabase.rpc("get_decision_case_replay", {
+    p_workspace_id: caseId,
+    p_version: version,
+    p_share_id: shareId ?? null,
+  });
+  const receipt = data as {
+    caseState?: DecisionCase;
+    version?: number;
+    readOnly?: boolean;
+  } | null;
+  if (
+    error ||
+    receipt?.readOnly !== true ||
+    receipt.version !== version ||
+    receipt.caseState?.id !== caseId ||
+    receipt.caseState.revision !== version
+  )
+    throw new Error(
+      "Saved replay is unavailable for this signed-in account or reference.",
+    );
+  return receipt.caseState;
+}
+
+/** Existing RLS stays authoritative; this is not a delivery queue. */
+export async function listDecisionCaseVerificationReturns(
+  ownerId: string,
+): Promise<RecentDecisionCase[]> {
+  const { data, error } = await supabase
+    .from("cowork_workspaces")
+    .select("id, case_state, updated_at")
+    .eq("case_state->verificationReturn->>ownerId", ownerId)
+    .neq("case_state->verificationReturn->>status", "completed")
+    .order("updated_at", { ascending: false })
+    .limit(50);
+  if (error)
+    throw new Error("Internal verification returns could not be loaded.");
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    decisionCase: row.case_state as DecisionCase,
+    updatedAt: row.updated_at,
+  }));
+}
+
+export async function listDecisionCaseRolloutScope(): Promise<{
+  sites: Array<{ id: string; name: string }>;
+  assets: Array<{ id: string; name: string; site_id: string }>;
+}> {
+  const [sites, assets] = await Promise.all([
+    supabase.from("sites").select("id,name").order("name").limit(200),
+    supabase.from("assets").select("id,name,site_id").order("name").limit(500),
+  ]);
+  if (sites.error || assets.error)
+    throw new Error(
+      "Canonical rollout scope is unavailable; no scope was inferred.",
+    );
+  return { sites: sites.data ?? [], assets: assets.data ?? [] };
 }

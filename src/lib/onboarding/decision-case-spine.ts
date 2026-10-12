@@ -1099,14 +1099,8 @@ export function applyInvitationDelivery(
     ...decisionCase,
     invitation,
     updatedAt: invitation.lastCheckedAt,
-    approvals: decisionCase.approvals.map((item) =>
-      item.id === "required-approver"
-        ? {
-            ...item,
-            responsibility: `${item.role} · workspace invitation ${invitation.status.replaceAll("_", " ")} · authority still requires verification`,
-          }
-        : item,
-    ),
+    // A new viewer's lifecycle never changes the separately bound approver.
+    approvals: decisionCase.approvals,
     messages: changed
       ? [
           ...decisionCase.messages,

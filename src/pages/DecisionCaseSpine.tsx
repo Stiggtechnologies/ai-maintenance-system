@@ -1,3 +1,6 @@
+import { DecisionCaseContinuation } from "./DecisionCaseContinuation";
+import { applyDecisionCaseContinuation } from "../services/decisionCaseService";
+import type { ContinuationCommand } from "../lib/decision-case-continuation";
 /**
  * Decision Case spine. Rendered after the ask-first save gate.
  * Persistent loop: Q → Evidence → Rec → Decision → Action → Verify → Learn.
@@ -121,6 +124,10 @@ export function DecisionCaseSpine({
   onCaseChange?: (decisionCase: DecisionCase, saved: boolean) => void;
 }) {
   const auth = useOptionalAuth();
+  const activeScope = auth?.user
+    ? `${auth.user.id}:${auth.profile?.organization_id ?? "pending"}:${auth.profile?.role ?? "pending"}`
+    : "signed-out";
+  const [canonicalScope, setCanonicalScope] = useState(activeScope);
   const [decisionCase, setDecisionCase] = useState<WalkthroughDecisionCase>(
     () =>
       asWalkthroughDecisionCase(
@@ -182,6 +189,8 @@ export function DecisionCaseSpine({
   const [directoryError, setDirectoryError] = useState<string | null>(null);
   const [approvalReason, setApprovalReason] = useState("");
   const [inviteBusy, setInviteBusy] = useState(false);
+  const [inviteName, setInviteName] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
   const [selectedEvidenceFile, setSelectedEvidenceFile] = useState<File | null>(
     null,
   );
@@ -337,6 +346,7 @@ export function DecisionCaseSpine({
     try {
       const canonical = await savePersistedDecisionCase(next, command);
       setDecisionCase(canonical);
+      setCanonicalScope(activeScope);
       setSaved(true);
       setSaveNotice("Current revision saved on the evaluation workspace.");
       return true;
@@ -356,6 +366,44 @@ export function DecisionCaseSpine({
     } finally {
       setSaving(false);
       if (!lockHeld) mutationInFlight.current = false;
+    }
+  };
+
+  const continueCase = async (
+    command: ContinuationCommand,
+    payload: Record<string, unknown>,
+  ): Promise<boolean> => {
+    if (
+      mutationInFlight.current ||
+      reconciliationRequired.current ||
+      !isPersistedDecisionCase(decisionCase.id)
+    )
+      return false;
+    mutationInFlight.current = true;
+    setSaving(true);
+    setError(null);
+    setSaved(false);
+    try {
+      const canonical = await applyDecisionCaseContinuation(
+        decisionCase,
+        command,
+        payload,
+      );
+      setDecisionCase(canonical);
+      setCanonicalScope(activeScope);
+      setSaved(true);
+      setSaveNotice("Governed transition saved on the case.");
+      return true;
+    } catch (caught) {
+      reconciliationRequired.current = true;
+      setSaveNotice(
+        "Transition receipt is uncertain. Reload the saved trail before retrying.",
+      );
+      setError(caught instanceof Error ? caught.message : "Transition failed");
+      return false;
+    } finally {
+      setSaving(false);
+      mutationInFlight.current = false;
     }
   };
 
@@ -383,6 +431,7 @@ export function DecisionCaseSpine({
         ? await savePersistedDecisionCase(decisionCase, "record_conversation")
         : await createPersistedDecisionCase(decisionCase, {});
       setDecisionCase(persisted);
+      setCanonicalScope(activeScope);
       setSaved(true);
       setSaveNotice(
         "Decision Case saved on your evaluation workspace. Reload the audit trail on this page.",
@@ -453,6 +502,7 @@ export function DecisionCaseSpine({
         approvalReason.trim(),
       );
       setDecisionCase(canonical);
+      setCanonicalScope(activeScope);
       setSaved(true);
       setApprovalReason("");
       setSaveNotice("Required-person approval recorded on the canonical case.");
@@ -487,6 +537,7 @@ export function DecisionCaseSpine({
       }
       reconciliationRequired.current = false;
       setDecisionCase(loaded);
+      setCanonicalScope(activeScope);
       setCounterfactual(counterfactualFromCase(loaded));
       setExpiresOn(expiryFromCase(loaded));
       setPeople(peopleFromCase(loaded));
@@ -623,16 +674,12 @@ export function DecisionCaseSpine({
     setInviteBusy(true);
     setError(null);
     try {
-      const recipient = decisionCase.requiredPerson;
-      if (!recipient?.email) {
-        throw new Error(
-          "Record a tenant authority-directory person with a work email before sending.",
-        );
-      }
+      if (!inviteEmail.trim())
+        throw new Error("Enter the new member's work email.");
       const receipt = await sendDecisionCaseInvitation({
         decisionCaseId: decisionCase.id,
-        name: recipient.name,
-        email: recipient.email,
+        name: inviteName.trim(),
+        email: inviteEmail.trim(),
       });
       setDecisionCase(applyInvitationDelivery(decisionCase, receipt));
     } catch (caught) {
@@ -660,6 +707,27 @@ export function DecisionCaseSpine({
       setInviteBusy(false);
     }
   };
+
+  if (
+    isPersistedDecisionCase(decisionCase.id) &&
+    (!auth?.user || canonicalScope !== activeScope)
+  ) {
+    return (
+      <section role="status">
+        <p>
+          The account or tenant context changed. Reload this saved case with
+          current access before continuing.
+        </p>
+        <button
+          disabled={!auth?.user || saving}
+          onClick={() => void reloadTrail()}
+        >
+          Reload case for current account
+        </button>
+        {error && <p role="alert">{error}</p>}
+      </section>
+    );
+  }
 
   return (
     <div data-testid="decision-case-spine" className="space-y-4">
@@ -1521,13 +1589,39 @@ export function DecisionCaseSpine({
           This binds a real tenant profile to the case. It does not send or
           claim an email or workspace invitation.
         </p>
+        <fieldset className="mt-4 space-y-2">
+          <legend>Invite a new workspace viewer</legend>
+          <p className="text-xs">
+            Invite a colleague separately from binding the required approver.
+            Viewer membership grants no decision authority.
+          </p>
+          <label className="block">
+            New member name
+            <input
+              aria-label="New member name"
+              value={inviteName}
+              onChange={(event) => setInviteName(event.target.value)}
+              className="block w-full rounded border border-white/20 bg-slate-950 p-2"
+            />
+          </label>
+          <label className="block">
+            New member work email
+            <input
+              aria-label="New member work email"
+              type="email"
+              value={inviteEmail}
+              onChange={(event) => setInviteEmail(event.target.value)}
+              className="block w-full rounded border border-white/20 bg-slate-950 p-2"
+            />
+          </label>
+        </fieldset>
         <button
           type="button"
           data-testid="spine-send-invite"
           disabled={
             inviteBusy ||
             !canSendWorkspaceInvite ||
-            !decisionCase.requiredPerson?.email ||
+            !inviteEmail.trim() ||
             !isPersistedDecisionCase(decisionCase.id)
           }
           className="mt-3 rounded-lg bg-teal-400 px-3 py-2 text-xs font-bold text-slate-950 disabled:opacity-40"
@@ -1715,6 +1809,16 @@ export function DecisionCaseSpine({
           ) : null}
         </div>
       </section>
+
+      {auth?.user && isPersistedDecisionCase(decisionCase.id) && (
+        <DecisionCaseContinuation
+          decisionCase={decisionCase}
+          userId={auth.user.id}
+          directory={authorityDirectory}
+          busy={saving || connecting || inviteBusy}
+          command={continueCase}
+        />
+      )}
 
       <section
         data-testid="spine-unknowns"
