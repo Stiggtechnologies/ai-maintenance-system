@@ -75,17 +75,11 @@ The next integration revision adds case commands and customer controls for expli
 
 New-recipient invitation inputs are independent of the existing approver binding. Account/tenant/role changes hide cached durable cases until current-access reload. Reminder delivery is in-app only, and creating/copying a reference sends nothing. Native and browser evidence for this new revision is pending; the earlier green SHA is not evidence for it.
 
-Protected KB integration remains an exact approval dependency: `kb-security-integration-proposal.patch` is an **unapplied** proposal based on accessible PR #569 (`e8f22ab7f543db55a47aff2185611ae9432d0934`). It adds the two narrow assurance helpers and preserves the source security migration body under a serialized timestamp. Existing protected-function approval hashes cannot authorize different migration filenames/digests. No protected SQL or baseline authorization is changed by this proposal. Canonical KB-to-evidence mapping and provider deployment qualification remain required before enabling governed intake. No denied handoff was consulted.
+Protected KB integration remains an exact approval dependency. The original `kb-security-integration-proposal.patch` is **withdrawn from approval consideration** after independent review found quarantine, direct-read, prompt-boundary and stale-review defects. It remains as historical comparison only; no old digest or approval may be reused.
 
 ## Exact protected-SQL review dependency
 
-Repository rule: `docs/reliability-engineer-baseline.md:125` requires “a `governed-sql` approval record” for migrations touching the pinned knowledge objects. The existing PR #569 approval does not cover renamed migration files because their filenames participate in the digest. A named authorized reviewer must approve this exact reviewable proposal before its protected SQL/manifest record can be applied. No approval was invented or transferred.
-
-Unapplied proposal SHA-256: `4c9c3283d5603bfea706ffb4ed79921ed572fcfb13bc048e6249fa2c61745fa3`. Candidate object digests against this branch:
-
-- `retrieve_kb_context`: `ba5ed0e7afb0ab72a21f6c14a28c0c822fefdd49b6c08fe41347a773c02e4578`
-- `kb_document_classes`: `6f7409b3e991487de4086321c1793feccd5df6414af04a01e50a933c82695816`
-- `kb_claim_types`: `381db6e3bc1a58a0989882de17a1d6892523787a51062e7138961d5df19d1d5f`
+The revised [v2 patch](kb-security-integration-proposal-v2.patch) remains **unapplied**, with [explicit changes, regressions and remaining qualification gates](kb-security-proposal-v2-review.md). It proposes additional source-wide scanning, read restrictions, a separate human inspection RPC and exact revision-bound review. These permission/policy changes require explicit independent review and named human SME approval. No active protected SQL, manifest or approval sidecar has changed. Final object digests are deferred until the corrected proposal stabilizes.
 
 After approval, the remaining governed-ingest contract is explicit: return an authoritative SQL security receipt (never infer `cleared` in Edge); map the tenant/source/current-content revision into canonical `evidence_items.id`; attach only through the versioned case command; refuse quarantined, rejected, missing, replaced or cross-tenant source revisions; invalidate current approval when a mapped source changes. PR #569 alone does not provide that mapping. The Edge deployment allowlist and workflow must include `kb-document-intake` only with this jointly qualified contract. Existing viewer invitation provisioning remains separate from KB review authority (same-tenant admin/reliability engineer, distinct uploader, verified MFA plus AAL2, substantive review basis).
 

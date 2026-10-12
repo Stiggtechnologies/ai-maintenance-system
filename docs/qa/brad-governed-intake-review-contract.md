@@ -15,25 +15,17 @@ The mechanism is a new or updated JSON sidecar under `benchmarks/reliability-eng
 
 ## Exact unapplied artifact
 
-Review [kb-security-integration-proposal.patch](kb-security-integration-proposal.patch), committed at `0926d972487eaa8bd6a041cd8eca1acd569f9fc8`. SHA-256:
+**The original patch is withdrawn from approval consideration.** It remains in history for comparison only. Its `4c9c3283…` digest and earlier protected-object digests must not be approved or reused. Independent review confirmed source-wide quarantine, direct-read, citation/envelope and stale-review defects.
 
-`4c9c3283d5603bfea706ffb4ed79921ed572fcfb13bc048e6249fa2c61745fa3`
-
-It proposes narrow assurance helpers at `20270103200000` and the legitimately accessible PR #569 security SQL body at `20270103210000`. It has **not** been applied. Source PR #569 head is `e8f22ab7f543db55a47aff2185611ae9432d0934`; no denied private handoff or offline checkpoint was consulted. Candidate protected-object digests for these exact filenames/content and this main lineage are:
-
-| Object              | Candidate SHA-256                                                |
-| ------------------- | ---------------------------------------------------------------- |
-| retrieve_kb_context | ba5ed0e7afb0ab72a21f6c14a28c0c822fefdd49b6c08fe41347a773c02e4578 |
-| kb_document_classes | 6f7409b3e991487de4086321c1793feccd5df6414af04a01e50a933c82695816 |
-| kb_claim_types      | 381db6e3bc1a58a0989882de17a1d6892523787a51062e7138961d5df19d1d5f |
-
-Recompute after any migration, filename, or main-line change. Review must cover existing claim-type filters, tenant/session gates, quarantine visibility across all retrievers, assurance helper access, and distinct-uploader reviewer enforcement. Approval of this patch alone does not implement canonical evidence mapping or enable deployment.
+The replacement [v2 unapplied proposal](kb-security-integration-proposal-v2.patch) is detailed in [the revision review packet](kb-security-proposal-v2-review.md). It retains reserved timestamps `20270103200000` / `20270103210000` but changes the security migration body. No active migration, protected manifest, approval sidecar or deployment configuration has been changed. Final protected-object digests will be computed only after this corrected patch stabilizes under independent review. The source remains legitimately accessible PR #569; no denied private handoff or offline checkpoint was consulted.
 
 ## Receipt and changed-source contract
 
-`src/lib/decision-case-intake-contract.ts` is an executable proposed boundary with synthetic unit tests. It requires a tenant/case/version match, canonical evidence UUID, document/source identity, content digest, source revision and security revision, indexed chunks, and cleared/released standing. Legacy ingest `source_id` and a self-claimed cleared response are insufficient. Canonical state must be independently resolved by an authorized server transaction over existing KB/evidence/case records, never copied from the upload response. Revision fields are proposed contract requirements, not claims that these columns already exist.
+`src/lib/decision-case-intake-contract.ts` is an executable proposed boundary with synthetic unit tests. It requires a tenant/case/version match, canonical evidence UUID, document/source identity, content digest, source revision and security revision, indexed chunks, and cleared/released standing. Legacy ingest `source_id` and a self-claimed cleared response are insufficient. Canonical state must be independently resolved by an authorized server transaction over existing KB/evidence/case records, never copied from the upload response. Revision fields are proposed contract requirements, not claims that these columns already exist in the active database. The v2 unapplied patch proposes source/security revisions; it does not yet implement the case mapping transaction.
 
 Any source/content/security revision or evidence-mapping change, deletion, quarantine, rejection, or loss of indexed chunks invalidates the current binding. Historical evidence and disposition remain available for audit. Releasing identical bytes after quarantine must advance the security revision and require fresh human review; it cannot resurrect an old disposition. A current mapping grants no engineering approval or permission to act.
+
+`src/lib/decision-case-intake-reconciliation.ts` additionally requires the atomic server response to contain the new case version, one canonical mapped evidence row retaining the current source basis, and no carried-forward human disposition/approval. Adoption must not perform a second browser save. These are unconnected executable contracts, not server-authority evidence.
 
 Remaining implementation: authoritative server receipt, durable mapping into canonical evidence, atomic version/audit handling, and source-change invalidation in server decision commands and customer surfaces. Do not enable intake until these have native SQL, RLS, concurrency and browser acceptance coverage. In particular, remove PR #569's inferred-cleared fallback before reusing its Edge handler.
 
