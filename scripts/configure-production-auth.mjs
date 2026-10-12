@@ -42,6 +42,7 @@ if (!/^(common|organizations|consumers|[0-9a-f-]{36})$/i.test(entraTenant)) {
 
 const managementUrl = `https://api.supabase.com/v1/projects/${projectRef}/config/auth`;
 const recoveryUrl = `${appUrl}/signin?mode=recovery`;
+const invitationUrl = `${appUrl}/signin?returnTo=/start`;
 const azureCallbackUrl = `${appUrl}/auth/callback/azure`;
 
 const recoveryTemplate = `<!doctype html>
@@ -94,6 +95,7 @@ async function request(method, body) {
 const current = await request("GET");
 const allowList = new Set(parseAllowList(current.uri_allow_list));
 allowList.add(recoveryUrl);
+allowList.add(invitationUrl);
 allowList.add(azureCallbackUrl);
 
 const patch = {
@@ -138,6 +140,7 @@ const verifiedAllowList = new Set(parseAllowList(verified.uri_allow_list));
 const failures = [];
 if (verified.site_url !== appUrl) failures.push(`site_url=${verified.site_url}`);
 if (!verifiedAllowList.has(recoveryUrl)) failures.push("recovery redirect missing from allow-list");
+if (!verifiedAllowList.has(invitationUrl)) failures.push("invitation redirect missing from allow-list");
 if (verified.mailer_subjects_recovery !== "Reset your SyncAI password") {
   failures.push("recovery subject not applied");
 }

@@ -178,6 +178,7 @@ BAD_SCOPE=$(PAYLOAD="$(proposal pilot)" SITE="$OTHER_ORG" python3 -c 'import jso
 OUTSIDE_SCOPE=$(current_command "$DEMO" propose_rollout "$BAD_SCOPE"); refused "$OUTSIDE_SCOPE" 'current tenant'
 for phase in pilot site fleet enterprise handover; do
   PROPOSED=$(current_command "$DEMO" propose_rollout "$(proposal "$phase")"); ok "$PROPOSED"
+  test "$(psqlc "select status from cowork_workspaces where id='$WORKSPACE'")" = active
   SELF_DECISION=$(current_command "$DEMO" decide_rollout '{"decision":"accepted","reason":"Synthetic self-approval must be refused independently."}'); refused "$SELF_DECISION" 'Independent bound human authority'
   if [ "$phase" = enterprise ] || [ "$phase" = handover ]; then DECIDER="$ADMIN"; else DECIDER="$APPROVER_TOKEN"; fi
   NO_RESULT=$(current_command "$DECIDER" decide_rollout '{"decision":"accepted","reason":"Synthetic attempted acceptance without a measured result."}'); refused "$NO_RESULT" 'Measured acceptance'

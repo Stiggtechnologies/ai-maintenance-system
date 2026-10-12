@@ -580,3 +580,50 @@ test("public first decision retains full evidence through auth and reports faile
   await expect(page.getByTestId("spine-proof-body")).toContainText(newerEvidence);
   await expect(page.getByTestId("spine-gate-audit_trail")).toContainText("Met");
 });
+
+// Synthetic UI boundary only: intercept every invitation request before network
+// dispatch. This does not qualify provider delivery or acceptance.
+test("new viewer invitation preserves an existing approver binding without sending mail", async ({ page }) => {
+  const backend = new URL(process.env.E2E_SUPABASE_URL ?? "http://127.0.0.1:54321");
+  expect(["localhost", "127.0.0.1", "[::1]"]).toContain(backend.hostname);
+  const invitations: Record<string, unknown>[] = [];
+  await page.route("**/functions/v1/decision-case-invite", async route => {
+    invitations.push(route.request().postDataJSON());
+    await route.fulfill({ status: 503, contentType: "application/json", body: JSON.stringify({ error: "Synthetic provider unavailable; no invitation sent" }) });
+  });
+  await openLogin(page);
+  await page.getByRole("textbox", { name: /work email/i }).fill("admin@syncai.ca");
+  await page.locator('input[type="password"]').fill("Admin123!@#");
+  await page.getByRole("button", { name: /access syncai/i }).click();
+  await expect(page.getByRole("button", { name: /access syncai/i })).not.toBeVisible({ timeout: 30_000 });
+  await page.goto("/get-started");
+  await page.getByTestId("inverted-ask").fill("Synthetic invitation boundary: coordinate an inspection review");
+  await page.getByTestId("inverted-continue").click();
+  await page.getByTestId("inverted-save-continue").click();
+  await page.getByTestId("spine-save-workspace").click();
+  await expect(page.getByTestId("spine-gate-audit_trail")).toContainText("Met");
+  for (const field of ["decisionOwner", "recommendationAuthor", "verificationOwner"]) await page.getByTestId(`spine-person-${field}`).fill(`Synthetic ${field}`);
+  await page.getByTestId("spine-disp-need_more_evidence").click();
+  await page.getByTestId("spine-rationale").fill("Synthetic presenter requests further inspection evidence.");
+  const dispositionSaved = page.waitForResponse(response => new URL(response.url()).pathname === "/rest/v1/rpc/apply_decision_case_command" && response.request().method() === "POST");
+  await page.getByTestId("spine-record-disposition").click();
+  const dispositionReceipt = await dispositionSaved;
+  expect(dispositionReceipt.status(), await dispositionReceipt.text()).toBe(200);
+  const selector = page.getByTestId("spine-required-person");
+  await expect.poll(() => selector.locator("option").count()).toBeGreaterThan(1);
+  const person = await selector.locator("option").evaluateAll(options => options.map(o => ({ value: (o as HTMLOptionElement).value, text: o.textContent ?? "" })).find(o => o.value && /maintenance_manager|reliability_engineer/.test(o.text)));
+  expect(person).toBeTruthy();
+  await selector.selectOption(person!.value);
+  const bindingSaved = page.waitForResponse(response => new URL(response.url()).pathname === "/rest/v1/rpc/apply_decision_case_command" && response.request().method() === "POST");
+  await page.getByTestId("spine-record-invite").click();
+  const bindingReceipt = await bindingSaved;
+  expect(bindingReceipt.status(), await bindingReceipt.text()).toBe(200);
+  await expect(page.getByTestId("spine-save-notice")).toContainText("Current revision saved");
+  await page.getByLabel("New member name").fill("Synthetic New Viewer");
+  await page.getByLabel("New member work email").fill("new-viewer@example.invalid");
+  await page.getByTestId("spine-send-invite").click();
+  await expect.poll(() => invitations.length).toBe(1);
+  expect(invitations[0]).toMatchObject({ name: "Synthetic New Viewer", email: "new-viewer@example.invalid" });
+  await expect(selector).toHaveValue(person!.value);
+  await expect(page.getByTestId("spine-invite-status")).toHaveCount(0);
+});

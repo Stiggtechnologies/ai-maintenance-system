@@ -380,7 +380,7 @@ begin
       select 1 from jsonb_each(v_payload->'humanDecision') item
       where item.value<>'null'::jsonb and jsonb_typeof(item.value) is distinct from 'string') then
       raise exception using errcode='42501',message='Disposition actor and record metadata are server-owned'; end if;
-    if v_payload#>>'{humanDecision,disposition}' not in ('accept','reject','need_more_evidence','park','escalate') or
+    if coalesce(v_payload#>>'{humanDecision,disposition}','') not in ('accept','reject','need_more_evidence','park','escalate') or
       length(btrim(coalesce(v_payload#>>'{humanDecision,rationale}',''))) not between 1 and 4000 then
       raise exception using errcode='23514',message='Disposition and rationale are required'; end if;
     if v_payload#>>'{humanDecision,disposition}'='accept' and
@@ -436,7 +436,7 @@ begin
       raise exception using errcode='22023',message='Verification scheduled date is invalid'; end;
     if (length(btrim(coalesce(v_plan->>'effectiveness','')))>0 or length(btrim(coalesce(v_plan->>'actual','')))>0 or
       length(btrim(coalesce(v_plan->>'evidence','')))>0) and
-      (v_plan->>'effectiveness' not in ('effective','partially_effective','ineffective','inconclusive') or
+      (coalesce(v_plan->>'effectiveness','') not in ('effective','partially_effective','ineffective','inconclusive') or
        length(btrim(coalesce(v_plan->>'actual','')))=0 or length(btrim(coalesce(v_plan->>'evidence','')))=0) then
       raise exception using errcode='23514',message='Recorded verification requires effectiveness, actual result, and evidence'; end if;
     if length(btrim(coalesce(v_plan->>'actual','')))>0 and (v_approval->>'decision' is distinct from 'approved' or
@@ -504,7 +504,7 @@ begin
     if length(btrim(coalesce(v_state#>>'{humanDecision,actor,id}','')))=0 then
       raise exception using errcode='55000',message='Record a governed human disposition before assigning required authority'; end if;
     if coalesce(v_state->'humanApproval','null'::jsonb)<>'null'::jsonb then
-      raise exception using errcode='42501',message='A decided approval is immutable; no governed reopen path exists'; end if;
+      raise exception using errcode='42501',message='A decided approval is immutable; use governed reconsideration first'; end if;
     if length(btrim(coalesce(v_payload#>>'{requiredPerson,userId}','')))=0 then
       raise exception using errcode='23514',message='Required person must be bound to a tenant user id'; end if;
     if jsonb_typeof(v_payload->'requiredPerson') is distinct from 'object' or exists(
@@ -771,7 +771,9 @@ begin
     progress=case coalesce(v_state->>'stage','intent') when 'intent' then 10 when 'asset_truth' then 20 when 'evidence' then 35
       when 'analysis' then 50 when 'authority' then 65 when 'execution' then 78 when 'outcomes' then 90 when 'learning' then 100 else 0 end,
     status=case when v_state->>'stage'='learning' and v_state#>>'{humanApproval,decision}'='approved' and
-      v_state#>>'{verificationReturn,status}'='completed' then 'complete' else 'active' end,
+      v_state#>>'{verificationReturn,status}'='completed' and
+      (not (v_state ? 'rollout') or (v_state#>>'{rollout,status}'='accepted' and v_state#>>'{rollout,acceptedPhase}'='handover'))
+      then 'complete' else 'active' end,
     next_action=v_state->>'statusLabel',updated_at=v_now where id=p_workspace_id and organization_id=v_org;
   perform set_config('syncai.decision_case_command','off',true);
   insert into public.audit_events(organization_id,entity_type,actor,event_data,previous_state,new_state)
