@@ -26,6 +26,7 @@ jobs:
         with:
           version: 2.84.2
       - name: Fresh disposable Supabase chain
+        id: start
         run: bash scripts/ci-start-supabase.sh /tmp/adapter-start.log /tmp/adapter-diagnostics.txt
       - name: ADLS canonical provenance, replay and isolation
         run: bash scripts/ci-adls-data-lake-smoke.sh
@@ -35,6 +36,17 @@ jobs:
         run: bash scripts/ci-sap-s4-inventory-read-smoke.sh
       - name: SAP finance exact actuals and reconciliation
         run: bash scripts/ci-sap-s4-financial-read-smoke.sh
+      - name: Adapter full-chain restore diagnostic
+        if: ${{ !cancelled() && steps.start.outcome == 'success' }}
+        env:
+          SYNC_DR_LOCAL_SOURCE: supabase_db_ai-maintenance-system
+        run: |
+          node --input-type=module -e '
+            import { runRestoreDrill } from "./scripts/database-restore-drill.mjs";
+            await runRestoreDrill({ onReport: (report) => {
+              console.log(JSON.stringify({verdict:report.verdict,failedPhase:report.failedPhase,failureCategory:report.failureCategory,inventoryMismatchSummary:report.inventoryMismatchSummary,targetRemoved:report.targetRemoved}));
+            }});
+          '
       - name: Stop disposable Supabase
         if: always()
         run: supabase stop --no-backup
