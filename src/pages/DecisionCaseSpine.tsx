@@ -1812,6 +1812,7 @@ export function DecisionCaseSpine({
 
       {auth?.user && isPersistedDecisionCase(decisionCase.id) && (
         <DecisionCaseContinuation
+          key={`${decisionCase.id}:${auth.user.id}`}
           decisionCase={decisionCase}
           userId={auth.user.id}
           directory={authorityDirectory}

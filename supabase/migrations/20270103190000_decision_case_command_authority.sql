@@ -651,7 +651,7 @@ begin
       raise exception using errcode='23514',message='A bounded rollout proposal is required'; end if;
     v_phase:=case coalesce(v_state#>>'{rollout,acceptedPhase}','') when '' then 'pilot' when 'pilot' then 'site'
       when 'site' then 'fleet' when 'fleet' then 'enterprise' when 'enterprise' then 'handover' else 'closed' end;
-    if v_plan->>'phase' is distinct from v_phase then
+    if v_phase='closed' or v_plan->>'phase' is distinct from v_phase then
       raise exception using errcode='55000',message='Rollout stages cannot be skipped: pilot, site, fleet, enterprise, handover'; end if;
     if jsonb_typeof(v_plan->'siteIds') is distinct from 'array' or jsonb_array_length(v_plan->'siteIds') not between 1 and 50 or
       jsonb_typeof(v_plan->'assetIds') is distinct from 'array' or jsonb_array_length(v_plan->'assetIds')>200 or

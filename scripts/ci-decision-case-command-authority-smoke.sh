@@ -189,6 +189,7 @@ for phase in pilot site fleet enterprise handover; do
   ACCEPTED=$(current_command "$DECIDER" decide_rollout '{"decision":"accepted","reason":"Measured criteria, residual risks and handover scope independently reviewed."}'); ok "$ACCEPTED"
   test "$(psqlc "select case_state#>>'{rollout,acceptedPhase}' from cowork_workspaces where id='$WORKSPACE'")" = "$phase"
 done
+CLOSED_STAGE=$(current_command "$DEMO" propose_rollout "$(proposal closed)"); refused "$CLOSED_STAGE" 'cannot be skipped'
 DUPLICATE_STAGE=$(current_command "$ADMIN" decide_rollout '{"decision":"accepted","reason":"Duplicate stage acceptance must not create another decision."}'); refused "$DUPLICATE_STAGE" 'proposed stage'
 test "$(psqlc "select case_state#>>'{workPackage,status}' from cowork_workspaces where id='$WORKSPACE'")" = locked
 echo 'Continuation passed: existing-access-only replay, revoked/foreign reference refusal, sequential measured rollout and independent enterprise handover; ACTION remains locked.'
