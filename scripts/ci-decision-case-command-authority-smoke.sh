@@ -134,3 +134,18 @@ PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -q -v ON_
 LEGACY=$(psqlc "select case_version||'|'||(case_state->>'revision')||'|'||(case_state#>>'{evidence,0,persistence}')||'|'||(case_state#>>'{evidence,0,quality}') from cowork_workspaces where id='$LEGACY_WORKSPACE'"); test "$LEGACY" = '5|5|pending|missing'
 test "$(psqlc "select count(*) from audit_events where entity_type='decision_case_legacy_normalization' and event_data->>'workspaceId'='$LEGACY_WORKSPACE' and previous_state is not null and new_state is not null")" = 1
 echo 'Decision Case authority smoke passed: external_and_ai_refused=true admin_allowed=true directory_binding=true approvals_preserved=true self_binding_refused=true role_mismatch_refused=true side_loads_refused=true governed_init_refused=true forged_gate_message_refused=true bounded_tokens=true duplicate_evidence_refused=true evidence_fail_closed=true unsupported_delegation_refused=true canonical_reload=true legacy_versioned=true approval_prerequisites=true approval_basis_bound=true basis_locked=true conversation_append_only=true one_time_outcome=true metrics_and_comments_preserved=true learning_server_stamped=true stale_refused=true cross_tenant=true conflict=true replayable_audit=true'
+
+# Real RPC retry evidence on the disposable CI database, never a customer claim.
+CREATE_BASE=$(BASE="$BASE" python3 -c 'import json,os;x=json.loads(os.environ["BASE"]);x["caseNumber"]="DC-ATOMIC-CREATE";print(json.dumps({"p_case_state":x}))')
+initialize_case(){ curl -sS -w '\n%{http_code}' -X POST "$API_URL/rest/v1/rpc/initialize_decision_case" -H "apikey: $ANON_KEY" -H "authorization: Bearer $1" -H 'content-type: application/json' -d "$CREATE_BASE"; }
+CREATED=$(initialize_case "$ADMIN"); ok "$CREATED"
+RETRIED=$(initialize_case "$ADMIN"); ok "$RETRIED"
+CREATED_ID=$(BODY="$(body "$CREATED")" python3 -c 'import json,os;print(json.loads(os.environ["BODY"])["caseState"]["id"])')
+RETRIED_ID=$(BODY="$(body "$RETRIED")" python3 -c 'import json,os;print(json.loads(os.environ["BODY"])["caseState"]["id"])')
+test "$CREATED_ID" = "$RETRIED_ID"
+test "$(psqlc "select count(*) from cowork_workspaces where organization_id='$ORG' and case_number='DC-ATOMIC-CREATE'")" = 1
+test "$(psqlc "select count(*) from cowork_messages where workspace_id='$CREATED_ID'")" = 0
+test "$(psqlc "select count(*) from artifacts where workspace_id='$CREATED_ID'")" = 0
+SPONSOR_CREATE=$(initialize_case "$SPONSOR_TOKEN"); refused "$SPONSOR_CREATE" 'authorized internal human'
+OTHER_CREATOR=$(initialize_case "$APPROVER_TOKEN"); refused "$OTHER_CREATOR" 'another creation intent'
+echo 'Atomic Decision Case creation and retry passed without canned analysis artifacts.'

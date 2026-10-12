@@ -587,3 +587,50 @@ comment on function public.apply_decision_case_command(uuid,integer,text,jsonb) 
   'Tenant-scoped, actor-stamped, optimistic command reducer for canonical Decision Cases. Never executes work or sends invitations.';
 
 notify pgrst,'reload schema';
+
+-- Atomic first-case creation. The existing tenant/case-number unique index is
+-- the retry identity; reuse the command reducer and its audit receipt. Never
+-- seed Cowork agent claims, artifacts or operational recommendations here.
+create or replace function public.initialize_decision_case(p_case_state jsonb)
+returns jsonb language plpgsql security definer set search_path=pg_catalog,public as $$
+declare
+  v_org uuid:=public.app_current_org(); v_actor uuid:=auth.uid();
+  v_role text; v_number text:=btrim(p_case_state->>'caseNumber');
+  v_objective text:=btrim(p_case_state->>'objective');
+  v_workspace public.cowork_workspaces%rowtype; v_id uuid;
+begin
+  if v_org is null or v_actor is null then
+    raise exception using errcode='42501',message='Authentication and tenant context are required'; end if;
+  if jsonb_typeof(p_case_state) is distinct from 'object' or
+    coalesce(length(v_number),0) not between 4 and 120 or
+    coalesce(length(v_objective),0) not between 12 and 12000 or
+    octet_length(p_case_state::text)>2097152 then
+    raise exception using errcode='22023',message='A bounded case number and real objective are required'; end if;
+  -- Serialization precedes the held profile check, so a role or tenant change
+  -- while waiting cannot use stale authority. No session-level lock survives.
+  perform pg_advisory_xact_lock(hashtextextended(v_org::text||':'||v_number,0));
+  select role into v_role from public.user_profiles
+    where id=v_actor and organization_id=v_org for share;
+  if not found or not public.decision_case_contributor_role_allowed(v_role)
+    or public.app_current_org() is distinct from v_org then
+    raise exception using errcode='42501',message='An authorized internal human profile is required'; end if;
+  select * into v_workspace from public.cowork_workspaces
+    where organization_id=v_org and case_number=v_number for update;
+  if found then
+    if v_workspace.created_by is distinct from v_actor::text or
+      v_workspace.workspace_kind='sync' or v_workspace.objective is distinct from v_objective then
+      raise exception using errcode='PT409',message='Case identity is already bound to another creation intent'; end if;
+    if v_workspace.case_version<1 or coalesce(v_workspace.case_state,'{}'::jsonb)='{}'::jsonb then
+      raise exception using errcode='55000',message='Existing case requires canonical recovery before creation'; end if;
+    return jsonb_build_object('caseState',v_workspace.case_state,'version',v_workspace.case_version);
+  end if;
+  v_id:=gen_random_uuid();
+  insert into public.cowork_workspaces
+    (id,organization_id,title,objective,status,agents,progress,artifacts,next_action,created_by,case_number)
+  values(v_id,v_org,left(v_objective,90),v_objective,'active',array[]::text[],0,0,
+    'Gather evidence and review the decision basis',v_actor::text,v_number);
+  return public.apply_decision_case_command(v_id,0,'initialize',
+    jsonb_set(p_case_state,'{id}',to_jsonb(v_id),true));
+end $$;
+revoke all on function public.initialize_decision_case(jsonb) from public,anon;
+grant execute on function public.initialize_decision_case(jsonb) to authenticated;

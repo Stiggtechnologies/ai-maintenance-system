@@ -4,11 +4,7 @@ import type {
   DecisionJourneyContext,
   DecisionMessage,
 } from "../lib/decision-case";
-import {
-  createCoworkWorkspaceFromObjective,
-  getCoworkMessages,
-  sendCoworkMessage,
-} from "./operatingLoopService";
+import { getCoworkMessages, sendCoworkMessage } from "./operatingLoopService";
 import { runPublicDecisionCaseAgent } from "./publicReliabilityAgent";
 import {
   classifyDecisionQuestionScope,
@@ -178,32 +174,33 @@ export async function createPersistedDecisionCase(
   seed: DecisionCase,
   context: DecisionJourneyContext,
 ): Promise<DecisionCase> {
-  const result = await createCoworkWorkspaceFromObjective(seed.objective);
-  const persisted = {
-    ...seed,
-    id: result.workspaceId,
-    revision: 0,
-    createdFromIntake: seed.createdFromIntake || Boolean(context.intakeId),
-    updatedAt: new Date().toISOString(),
-  };
-  const { data, error } = await supabase
-    .from("cowork_workspaces")
-    .update({
-      case_number: persisted.caseNumber,
-      source_intake_id: context.intakeId || null,
-      usage_tokens: persisted.tokensUsed,
-      next_action: "Complete the technical authority review",
-    })
-    .eq("id", result.workspaceId)
-    .select("id, case_version")
-    .maybeSingle();
-  if (error) throw new Error(`Could not initialize case: ${error.message}`);
-  if (!data) {
+  if (context.intakeId) {
     throw new Error(
-      "Could not initialize case: no tenant-visible workspace row was updated.",
+      "Linking a public intake requires an authorized tenant-binding review before case creation.",
     );
   }
-  return applyDecisionCaseCommand(persisted, "initialize", 0);
+  const { data, error } = await supabase.rpc("initialize_decision_case", {
+    p_case_state: seed,
+  });
+  if (error)
+    throw new Error(
+      `Case creation was not confirmed: ${error.message}. Retry the same draft to reconcile its case identity.`,
+    );
+  const receipt = data as DecisionCaseCommandResult | null;
+  if (
+    !receipt?.caseState ||
+    !isPersistedDecisionCase(receipt.caseState.id) ||
+    !Number.isInteger(receipt.version) ||
+    receipt.version < 1 ||
+    receipt.caseState.revision !== receipt.version ||
+    receipt.caseState.caseNumber !== seed.caseNumber ||
+    receipt.caseState.objective !== seed.objective
+  ) {
+    throw new Error(
+      "Case creation returned no valid canonical receipt. Retry the same draft to reconcile its case identity.",
+    );
+  }
+  return receipt.caseState;
 }
 
 export async function loadPersistedDecisionCase(

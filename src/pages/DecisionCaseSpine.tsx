@@ -388,7 +388,7 @@ export function DecisionCaseSpine({
         "Decision Case saved on your evaluation workspace. Reload the audit trail on this page.",
       );
     } catch {
-      reconciliationRequired.current = true;
+      reconciliationRequired.current = isPersistedDecisionCase(decisionCase.id);
       setSaved(false);
       setSaveNotice(
         "Case is provisional in this browser. Workspace save did not complete — the loop stays available.",

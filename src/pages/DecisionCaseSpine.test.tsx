@@ -358,6 +358,43 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     );
   });
 
+  it("requires a canonical reload after uncertain delivery and blocks repeated commands", async () => {
+    authHolder.user = { id: "user-1" };
+    renderOpening();
+    openSpine();
+    await waitFor(() =>
+      expect(persist.createPersistedDecisionCase).toHaveBeenCalledTimes(1),
+    );
+    persist.savePersistedDecisionCase.mockRejectedValueOnce(
+      Error("connection lost after submit"),
+    );
+    fireEvent.change(screen.getByTestId("spine-evidence-body"), {
+      target: { value: "Synthetic evidence retained after uncertain delivery" },
+    });
+    fireEvent.click(screen.getByTestId("spine-add-evidence"));
+    await waitFor(() =>
+      expect(screen.getByTestId("spine-save-notice")).toHaveTextContent(
+        "outcome is uncertain",
+      ),
+    );
+    const writes = persist.savePersistedDecisionCase.mock.calls.length;
+    fireEvent.click(screen.getByTestId("spine-add-evidence"));
+    fireEvent.click(screen.getByTestId("spine-save-workspace"));
+    expect(persist.savePersistedDecisionCase).toHaveBeenCalledTimes(writes);
+    fireEvent.click(screen.getByTestId("spine-reload-audit"));
+    await waitFor(() =>
+      expect(screen.getByTestId("spine-save-notice")).toHaveTextContent(
+        "Audit trail reloaded",
+      ),
+    );
+    fireEvent.click(screen.getByTestId("spine-add-evidence"));
+    await waitFor(() =>
+      expect(persist.savePersistedDecisionCase).toHaveBeenCalledTimes(
+        writes + 1,
+      ),
+    );
+  });
+
   it("does not rewrite the P0.1 opening contract", () => {
     const page = readFileSync("src/pages/InvertedOpeningPage.tsx", "utf8");
     expect(page).toMatch(/Save this assessment and continue/);

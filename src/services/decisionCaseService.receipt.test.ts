@@ -113,7 +113,7 @@ describe("durable decision-case receipts", () => {
   it("rejects initialization when the new workspace update returns no row", async () => {
     receipt.response.mockResolvedValue({ data: null, error: null });
     await expect(createPersistedDecisionCase(savedCase(), {})).rejects.toThrow(
-      "no tenant-visible workspace row was updated",
+      "no valid canonical receipt",
     );
   });
 

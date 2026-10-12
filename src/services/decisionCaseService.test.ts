@@ -56,49 +56,26 @@ describe("decisionCaseService", () => {
     workspaceWrite.rpc.mockReset();
   });
 
-  it("requires a tenant-visible initialized row before reporting a case creation", async () => {
+  it("creates atomically without the legacy fabricated Cowork analysis", async () => {
     const seed = createHonestEmptyDecisionCase("Reliability Engineer");
-    const workspaceId = "11111111-1111-4111-8111-111111111111";
-    createWorkspaceMock.mockResolvedValue({
-      workspaceId,
-      artifactId: null,
-      recommendationId: null,
-    });
-    workspaceWrite.maybeSingle.mockResolvedValueOnce({
-      data: { id: workspaceId, case_version: 0 },
+    const id = "11111111-1111-4111-8111-111111111111";
+    workspaceWrite.rpc.mockResolvedValue({
+      data: { caseState: { ...seed, id, revision: 1 }, version: 1 },
       error: null,
     });
-    workspaceWrite.rpc.mockImplementationOnce(() => ({
-      data: {
-        caseState: { ...input.p_case_state, revision: 1 },
-        version: 1,
-      },
-      error: null,
-    }));
-
     await expect(createPersistedDecisionCase(seed, {})).resolves.toMatchObject({
-      id: workspaceId,
+      id,
       revision: 1,
     });
     expect(workspaceWrite.rpc).toHaveBeenCalledWith(
-      "apply_decision_case_command",
-      expect.objectContaining({
-        p_workspace_id: workspaceId,
-        p_expected_version: 0,
-        p_command: "initialize",
-      }),
+      "initialize_decision_case",
+      { p_case_state: seed },
     );
-    expect(workspaceWrite.update).toHaveBeenCalledWith(
-      expect.not.objectContaining({ case_state: expect.anything() }),
-    );
-
-    workspaceWrite.maybeSingle.mockResolvedValueOnce({
-      data: null,
-      error: null,
-    });
-    await expect(createPersistedDecisionCase(seed, {})).rejects.toThrow(
-      /no tenant-visible workspace row was updated/i,
-    );
+    expect(createWorkspaceMock).not.toHaveBeenCalled();
+    expect(workspaceWrite.from).not.toHaveBeenCalled();
+    await expect(
+      createPersistedDecisionCase(seed, { intakeId: id }),
+    ).rejects.toThrow("tenant-binding review");
   });
 
   it("uses the versioned command RPC and returns the newer canonical case", async () => {

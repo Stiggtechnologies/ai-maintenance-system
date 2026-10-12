@@ -88,7 +88,9 @@ describe("Edge deployment checker runtime compatibility", () => {
     expect(result.status, result.output).toBe(0);
     expect(result.output).toContain("Edge-function boundary verified");
     expect(boundary.supabaseCliVersion).toBe("2.84.2");
-    expect(boundary.activeFunctions).toHaveLength(33);
+    expect(boundary.activeFunctions).toHaveLength(34);
+    expect(boundary.activeFunctions).toContain("decision-case-invite");
+    expect(boundary.allowedNoVerifyJwt).not.toContain("decision-case-invite");
     expect(boundary.blockedLegacyFunctions).toHaveLength(14);
     expect(boundary.allowedNoVerifyJwt).toHaveLength(5);
   });
