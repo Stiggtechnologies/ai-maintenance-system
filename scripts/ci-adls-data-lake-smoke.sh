@@ -131,7 +131,8 @@ MISMATCHED_SOURCE=$(rpc "$PLANNER_JWT" ingest_data_lake_read_batch "{\"p_run_id\
 expect_error "$MISMATCHED_SOURCE" 'does not match the immutable run manifest'
 OTHER_ACTOR=$(rpc "$PLANNER_TWO_JWT" ingest_data_lake_read_batch "{\"p_run_id\":\"$RUN_ONE\",\"p_rows\":[{\"external_id\":\"SITE-1\",\"name\":\"ADLS Site One\",\"_sync_source\":$SOURCE_ONE}]}" )
 expect_error "$OTHER_ACTOR" 'not found'
-INGEST_ONE=$(rpc "$PLANNER_JWT" ingest_data_lake_read_batch "{\"p_run_id\":\"$RUN_ONE\",\"p_rows\":[{\"external_id\":\"SITE-1\",\"name\":\"ADLS Site One\",\"code\":\"S1\",\"_sync_source\":$SOURCE_ONE},{\"external_id\":\"SITE-BAD\",\"_sync_source\":$SOURCE_ONE}]}" )
+MAPPED_ONE=$(node --experimental-strip-types scripts/adapter-canonical-fixture.ts adls "$SOURCE_ONE")
+INGEST_ONE=$(rpc "$PLANNER_JWT" ingest_data_lake_read_batch "{\"p_run_id\":\"$RUN_ONE\",\"p_rows\":$MAPPED_ONE}")
 noerr "$INGEST_ONE"; test "$(field "$INGEST_ONE" accepted)" = '1'; test "$(field "$INGEST_ONE" rejected)" = '1'
 test "$(psqlc "select count(*) from ingest_staging where run_id='$RUN_ONE' and jsonb_typeof(payload->'_sync_source')='object' and payload->'_sync_source'->>'path'='recovery/sites/sites-1.csv' and payload->'_sync_source'->>'sha256'=repeat('a',64);")" = '2'
 GENERIC_FINISH=$(rpc "$PLANNER_JWT" finish_connector_run "{\"p_run_id\":\"$RUN_ONE\",\"p_status\":\"partial\",\"p_error\":null}")

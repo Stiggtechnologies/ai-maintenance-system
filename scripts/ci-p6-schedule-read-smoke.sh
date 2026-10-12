@@ -104,7 +104,7 @@ BAD_CONTRACT_BEGIN=$(service_rpc begin_p6_schedule_read_run "{\"p_organization_i
 expect_error "$BAD_CONTRACT_BEGIN" 'source contract changed'
 BEGIN_ONE=$(service_rpc begin_p6_schedule_read_run "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$PLANNER\",\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_manifest\":$MANIFEST_ONE,\"p_cursor_to\":$CURSOR_ONE,\"p_source_bytes\":150}")
 noerr "$BEGIN_ONE"; RUN_ONE=$(field "$BEGIN_ONE" run_id)
-ROWS_ONE="[{\"external_id\":\"A-100\",\"activity_id\":\"A-100\",\"development_case_id\":\"$CASE_ID\",\"schedule_name\":\"Turnaround 2027\",\"description\":\"Isolate train\",\"original_duration_hours\":8,\"planned_start\":\"2027-05-01T08:00:00Z\",\"planned_finish\":\"2027-05-01T16:00:00Z\",\"predecessors\":\"\",\"relationships\":[]},{\"external_id\":\"A-200\",\"activity_id\":\"A-200\",\"development_case_id\":\"$CASE_ID\",\"schedule_name\":\"Turnaround 2027\",\"description\":\"Open exchanger\",\"original_duration_hours\":16,\"planned_start\":\"2027-05-02T08:00:00Z\",\"planned_finish\":\"2027-05-03T00:00:00Z\",\"predecessors\":\"A-100\",\"relationships\":[{\"predecessor\":\"A-100\",\"link_type\":\"FS\",\"lag_hours\":2}]}]"
+ROWS_ONE=$(node --experimental-strip-types scripts/adapter-canonical-fixture.ts p6 "$CASE_ID")
 BAD_AAL=$(service_rpc ingest_p6_schedule_read_batch "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$PLANNER\",\"p_run_id\":\"$RUN_ONE\",\"p_actor_aal\":\"aal3\",\"p_rows\":$ROWS_ONE}")
 expect_error "$BAD_AAL" 'verified human session assurance level'
 MISMATCHED=$(service_rpc ingest_p6_schedule_read_batch "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$PLANNER\",\"p_run_id\":\"$RUN_ONE\",\"p_actor_aal\":\"aal1\",\"p_rows\":[]}")

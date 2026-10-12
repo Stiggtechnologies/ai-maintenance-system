@@ -88,7 +88,7 @@ BAD_CONTRACT_CURSOR="${CURSOR_ONE/$CONTRACT_HASH/fffffffffffffffffffffffffffffff
 BAD_CONTRACT_BEGIN=$(service_rpc begin_sap_s4_inventory_read_run "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$MANAGER\",\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_manifest\":$MANIFEST,\"p_cursor_to\":$BAD_CONTRACT_CURSOR,\"p_source_bytes\":150}")
 expect_error "$BAD_CONTRACT_BEGIN" 'source contract changed'
 BEGIN_ONE=$(service_rpc begin_sap_s4_inventory_read_run "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$MANAGER\",\"p_connector_key\":\"$CONNECTOR_KEY\",\"p_manifest\":$MANIFEST,\"p_cursor_to\":$CURSOR_ONE,\"p_source_bytes\":150}"); noerr "$BEGIN_ONE"; RUN_ONE=$(field "$BEGIN_ONE" run_id)
-ROWS_ONE="[{\"external_id\":\"1000:0001:MAT-001\",\"material_code\":\"MAT-001\",\"unit_of_measure\":\"EA\",\"qty_on_hand\":12,\"site_id\":\"$SITE\",\"observed_at\":\"$FETCH_ONE\"},{\"external_id\":\"1000:0001:MAT-002\",\"material_code\":\"MAT-002\",\"unit_of_measure\":\"EA\",\"qty_on_hand\":4,\"site_id\":\"$SITE\",\"observed_at\":\"$FETCH_ONE\"}]"
+ROWS_ONE=$(node --experimental-strip-types scripts/adapter-canonical-fixture.ts inventory "$SITE" "$FETCH_ONE")
 ORIGINAL_ENDPOINT=$(psqlc "select endpoint_hint from connectors where organization_id='$ORG' and connector_key='$CONNECTOR_KEY';")
 psqlc "update connectors set endpoint_hint=endpoint_hint||'/changed' where organization_id='$ORG' and connector_key='$CONNECTOR_KEY';"
 CHANGED_CONTRACT_INGEST=$(service_rpc ingest_sap_s4_inventory_read_batch "{\"p_organization_id\":\"$ORG\",\"p_triggered_by\":\"$MANAGER\",\"p_run_id\":\"$RUN_ONE\",\"p_rows\":$ROWS_ONE}")

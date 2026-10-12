@@ -5,6 +5,7 @@ on:
       - "supabase/migrations/20270104090*.sql"
       - "supabase/functions/*read-pull/**"
       - "supabase/functions/_shared/adapter-*.ts"
+      - "scripts/adapter-canonical-fixture.ts"
       - "scripts/ci-adls-data-lake-smoke.sh"
       - "scripts/ci-p6-schedule-read-smoke.sh"
       - "scripts/ci-sap-s4-inventory-read-smoke.sh"
@@ -22,6 +23,9 @@ jobs:
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+        with:
+          node-version: 22
       - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359
         with:
           version: 2.84.2
