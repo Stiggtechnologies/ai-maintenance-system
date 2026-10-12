@@ -186,6 +186,12 @@ describe("decisionCaseService", () => {
       ...createHonestEmptyDecisionCase("Reliability Engineer"),
       id: "11111111-1111-4111-8111-111111111111",
       revision: 4,
+      humanDecision: {
+        disposition: "park" as const,
+        rationale: "Await the supplied inspection evidence.",
+        recordedAt: "2026-10-03T12:00:00.000Z",
+        actor: { id: "client-actor", name: "Client label", role: "admin" },
+      },
       comments: [
         {
           id: "decision-owner",
@@ -254,6 +260,14 @@ describe("decisionCaseService", () => {
           verificationOwner: "Vera Owner",
         });
         expect(payload.people).not.toHaveProperty("requiredApprover");
+        expect(Object.keys(payload.humanDecision as object).sort()).toEqual([
+          "counterfactual",
+          "disposition",
+          "expiresOn",
+          "rationale",
+        ]);
+        expect(payload.humanDecision).not.toHaveProperty("recordedAt");
+        expect(payload.humanDecision).not.toHaveProperty("actor");
       }
     }
   });

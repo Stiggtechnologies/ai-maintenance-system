@@ -90,7 +90,12 @@ function commandPayload(
         .find((item) => item.author === author)
         ?.text.trim() ?? "";
     return {
-      humanDecision: decisionCase.humanDecision,
+      humanDecision: {
+        disposition: decisionCase.humanDecision?.disposition,
+        rationale: decisionCase.humanDecision?.rationale,
+        counterfactual: decisionCase.humanDecision?.counterfactual,
+        expiresOn: decisionCase.humanDecision?.expiresOn,
+      },
       people: {
         decisionOwner: person("Decision Owner"),
         recommendationAuthor: person("Recommendation Author"),
