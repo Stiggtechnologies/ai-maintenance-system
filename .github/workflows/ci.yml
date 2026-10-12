@@ -561,9 +561,31 @@ jobs:
         run: bash scripts/ci-architectural-north-star-smoke.sh
 
       - name: Decision Case invitation and command authority (synthetic local stack)
+        id: journey
         run: |
-          bash scripts/ci-decision-case-invitation-smoke.sh
-          bash scripts/ci-decision-case-command-authority-smoke.sh
+          for probe in invitation command-authority; do
+            log="/tmp/decision-case-${probe}.log"
+            if bash "scripts/ci-decision-case-${probe}-smoke.sh" > "$log" 2>&1; then
+              echo "Decision Case ${probe} passed."
+            else
+              diagnostic=$(node scripts/ci-failure-summary.mjs "$log")
+              printf 'diagnostic=%s\n' "$diagnostic" >> "$GITHUB_OUTPUT"
+              printf '%s\n' "$diagnostic"
+              exit 1
+            fi
+          done
+
+      - name: "Journey failure: ${{ steps.journey.outputs.diagnostic }}"
+        if: failure() && steps.journey.outcome == 'failure'
+        run: exit 1
+
+      - name: Retain synthetic journey failure diagnostics
+        if: failure() && steps.journey.outcome == 'failure'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: brad-journey-smoke-diagnostics
+          path: /tmp/decision-case-*.log
+          retention-days: 7
 
       - name: Stop Supabase
         if: always()
@@ -659,14 +681,29 @@ jobs:
             -f scripts/tests/time-assurance-browser-fixture.sql
 
       - name: Golden-path E2E (login → evidence → scenarios → approve → verify)
-        run: npx playwright test tests/e2e/golden-path.spec.ts tests/e2e/material-commercial-thread.spec.ts tests/e2e/project-fracas.spec.ts tests/e2e/time-synchronization-assurance.spec.ts
+        id: browsers
+        run: |
+          if npx playwright test tests/e2e/golden-path.spec.ts tests/e2e/material-commercial-thread.spec.ts tests/e2e/project-fracas.spec.ts tests/e2e/time-synchronization-assurance.spec.ts > /tmp/brad-browser-check.log 2>&1; then
+            tail -n 12 /tmp/brad-browser-check.log
+          else
+            diagnostic=$(node scripts/ci-failure-summary.mjs /tmp/brad-browser-check.log)
+            printf 'diagnostic=%s\n' "$diagnostic" >> "$GITHUB_OUTPUT"
+            printf '%s\n' "$diagnostic"
+            exit 1
+          fi
+
+      - name: "Browser failure: ${{ steps.browsers.outputs.diagnostic }}"
+        if: failure() && steps.browsers.outcome == 'failure'
+        run: exit 1
 
       - name: Upload Playwright artifacts
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: playwright-artifacts
-          path: test-results/
+          path: |
+            test-results/
+            /tmp/brad-browser-check.log
           retention-days: 7
 
       - name: Stop Supabase
