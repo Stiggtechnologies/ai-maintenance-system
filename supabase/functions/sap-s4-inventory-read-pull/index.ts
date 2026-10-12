@@ -150,7 +150,7 @@ async function rpc<T>(
     throw new Error("SAP inventory data operation failed.");
   }
   const payload = data as { error?: string } | null;
-  if (payload?.error) throw new Error(payload.error);
+  if (payload?.error) throw new Error("Adapter data operation was refused.");
   return data as T;
 }
 

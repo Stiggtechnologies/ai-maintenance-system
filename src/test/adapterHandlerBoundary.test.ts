@@ -262,6 +262,13 @@ describe.each(cases)("$name actual handler boundaries", (c) => {
     expect((await h.handler(h.request(body))).status).toBe(400);
     expect(h.fetch).not.toHaveBeenCalled();
   });
+  it("does not expose database refusal payloads", async () => {
+    const h = harness(c, {}, { error: token });
+    const response = await h.handler(h.request());
+    expect(response.ok).toBe(false);
+    expect((await response.text()) + h.logs.join()).not.toContain(token);
+    expect(h.fetch).not.toHaveBeenCalled();
+  });
   it("does not expose raw database errors", async () => {
     const h = harness(c, {}, {}, true);
     const response = await h.handler(h.request());

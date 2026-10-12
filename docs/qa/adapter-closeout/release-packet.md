@@ -21,15 +21,16 @@ in [source-manifest.json](source-manifest.json). Original PRs remain intact.
 
 The historical stack is #594 → #595 → #597 → #598 → #599 → #600 → #601 →
 #603 → #614. It contains unrelated journey/invitation work. This draft extracts
-only four shared cores, their handlers and mapper tests; it does not cherry-pick
-the stack, replace existing imports, copy UI or copy old migrations.
+the four shared cores, handlers and tests, then composes the necessary canonical
+SQL prerequisites into five new migrations. It does not cherry-pick the stack,
+replace existing imports or copy UI. Original migrations remain unmodified.
 Main already has `20261112090000_p6_schedule_import.sql`; the separate XER file
 import #574 is not a REST connector. No DRMIS-specific implementation was found.
 
 #661 owns customer journey/invitation/Auth integration. #662 owns the separate
 `src/lib/telemetry-qualification` work. Neither area is changed. The historical
 source PRs are preserved for their independent reviews. Integration ownership is
-limited to this extracted disabled transport candidate; it does not transfer
+limited to this disabled adapter integration candidate; it does not transfer
 ownership of the source PRs or shared SQL contracts.
 
 ## Concrete local repairs
@@ -62,15 +63,16 @@ ownership of the source PRs or shared SQL contracts.
 | Adapter       | Source → canonical draft payload                                                                                                                                                                                                                                   | Explicit limits and gaps                                                                                                                                                                                                                                                                                                                                                                  |
 | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | ADLS          | Administrator-approved field paths/vocabulary/constants → existing Recovery `site`, `asset`, `work_order` or another supported entity; `_sync_source` comes from actual object path/ETag/time/byte count/SHA-256, not source assertions                            | Storage is not a CMMS. CSV/JSONL/JSON only; no Parquet/Delta. Read mapping alone does not establish canonical evidence approval or business provenance. Object `{last_modified,path}` watermark needs append/update ordering and backfill agreement; late files behind the cursor need explicit replay/backfill.                                                                          |
-| P6            | `Id` → `external_id`/`activity_id`; `ObjectId` → `p6_object_id`; `Name` → description; approved case/name; `PlannedDuration` × approved multiplier → hours; dates → offset-bearing dates; `CalendarName`, WBS, float, constraints and dependency type/lag retained | Uses existing schedule graph and revision workflow when SQL is integrated. Two complete arrays, not a general paginated project crawler. No resource assignments, shift/holiday calendar definitions or resource-leveling engine. A calendar name is not a full calendar. No timezone or duration conversion is guessed; deployment completeness and units need an Oracle-domain witness. |
-| SAP inventory | `Material` + `MaterialBaseUnit` → approved existing material/UOM; exact Plant/StorageLocation → same-tenant site; unrestricted type `01`, no special stock; quantities aggregate to on-hand                                                                        | Intended canonical `material_stock` writer must preserve reservations/on-order/receipt dates. Empty does not mean zero. OData V2 same-resource pagination, fixed query scope, page/row/byte/time bounds. Catalogue and exact UOM resolution require SQL and a sanctioned catalogue.                                                                                                       |
-| SAP finance   | ledger/company/currency + WBS internal ID/G/L mapping → existing cost-line reference; signed decimal strings → exact cumulative `actual_to_date`; source digest in identity                                                                                        | Intended canonical `ingest_cost_actual_batch`/`record_cost_item`; no baseline/commitment/forecast change. No absent-row-to-zero. Date window is cumulative; this is not a CDC feed. Independent finance reconciliation and posting-date semantics remain required.                                                                                                                        |
+| P6            | `Id` → `external_id`/`activity_id`; `ObjectId` → `p6_object_id`; `Name` → description; approved case/name; `PlannedDuration` × approved multiplier → hours; dates → offset-bearing dates; `CalendarName`, WBS, float, constraints and dependency type/lag retained | Uses the existing schedule graph and the added governed revision workflow. Two complete arrays, not a general paginated project crawler. No resource assignments, shift/holiday calendar definitions or resource-leveling engine. A calendar name is not a full calendar. No timezone or duration conversion is guessed; deployment completeness and units need an Oracle-domain witness. |
+| SAP inventory | `Material` + `MaterialBaseUnit` → approved existing material/UOM; exact Plant/StorageLocation → same-tenant site; unrestricted type `01`, no special stock; quantities aggregate to on-hand                                                                        | Canonical `material_stock` writer preserves reservations/on-order/receipt dates. Empty does not mean zero. OData V2 same-resource pagination, fixed query scope, page/row/byte/time bounds. Exact UOM resolution requires an existing sanctioned catalogue.                                                                                                                               |
+| SAP finance   | ledger/company/currency + WBS internal ID/G/L mapping → existing cost-line reference; signed decimal strings → exact cumulative `actual_to_date`; source digest in identity                                                                                        | Canonical `ingest_cost_actual_batch`/`record_cost_item`; no baseline/commitment/forecast change. No absent-row-to-zero. Date window is cumulative; this is not a CDC feed. Independent finance reconciliation and posting-date semantics remain required.                                                                                                                                 |
 
 P6/SAP cursors describe reconciled snapshots, not an incremental vendor event
 stream. ADLS uses a deterministic modified-time/path cursor. All database
 idempotency, retained rejects, concurrent-run locks, exact actor/AAL binding,
 contract mutation detection and clean-only watermark advancement must be
-requalified after SQL integration. Mapper tests do not prove those RPC behaviors.
+qualified on the exact SQL candidate by the native witness. Mapper tests alone
+do not prove those RPC behaviors.
 Current transport failures abort; there is no automatic retry loop. After
 credential/429/5xx/timeout recovery, a named operator retries a bounded pull;
 commit retry remains disabled until canonical replay behavior is proven.
@@ -165,6 +167,10 @@ malformed input, raw database error confidentiality and successful write-free
 transport for all four adapters. Shared mapper suites cover schema drift,
 canonical field mapping, UOM/currency/scope checks, source hashes and bounded
 pagination. Streaming tests cover absent/dishonest Content-Length.
+The native smoke scripts invoke `scripts/adapter-canonical-fixture.ts` to feed
+actual CSV parsing/field mapping, P6 duration/relationship mapping, SAP stock
+mapping and exact-decimal G/L aggregation into the canonical RPCs. Adversarial
+fixtures separately exercise rejection, replay and authority boundaries.
 
 Run focused suites with:
 

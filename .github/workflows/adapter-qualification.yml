@@ -31,14 +31,23 @@ jobs:
           version: 2.84.2
       - name: Fresh disposable Supabase chain
         id: start
-        run: bash scripts/ci-start-supabase.sh /tmp/adapter-start.log /tmp/adapter-diagnostics.txt
+        run: |
+          if ! supabase start > /tmp/adapter-start.log 2>&1; then
+            echo "Disposable Supabase startup failed"
+            grep -E 'ERROR:|ERROR \(|failed to|Applying migration' /tmp/adapter-start.log | tail -20 || true
+            exit 1
+          fi
+          echo "Disposable full migration chain started"
       - name: ADLS canonical provenance, replay and isolation
         run: bash scripts/ci-adls-data-lake-smoke.sh
       - name: P6 canonical schedule, replay and governed revisions
+        if: ${{ !cancelled() && steps.start.outcome == 'success' }}
         run: bash scripts/ci-p6-schedule-read-smoke.sh
       - name: SAP inventory catalogue, UOM and replay
+        if: ${{ !cancelled() && steps.start.outcome == 'success' }}
         run: bash scripts/ci-sap-s4-inventory-read-smoke.sh
       - name: SAP finance exact actuals and reconciliation
+        if: ${{ !cancelled() && steps.start.outcome == 'success' }}
         run: bash scripts/ci-sap-s4-financial-read-smoke.sh
       - name: Adapter full-chain restore diagnostic
         if: ${{ !cancelled() && steps.start.outcome == 'success' }}
