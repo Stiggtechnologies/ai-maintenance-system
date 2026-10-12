@@ -239,13 +239,14 @@ export function replay(input: ReplayInput, asOf: string) {
     } else
       seen.set(id, { content, indices: [rows.length - 1], conflict: false });
     if (v.outcome !== "valid") return;
+    // Project declared keys: accepted extension metadata cannot split a series.
     const series = canonical([
-      e.identity,
+      keys.map((key) => e.identity[key]),
       e.sourceSystem,
       e.kind,
       e.unit,
       e.configurationVersion,
-      "model" in e ? e.model : null,
+      "model" in e ? [e.model.modelKey, e.model.version] : null,
       "targetAt" in e ? e.targetAt : null,
     ]);
     const captured = time(e.capturedAt);
