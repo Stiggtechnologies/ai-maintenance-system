@@ -1,0 +1,40 @@
+name: Adapter SQL qualification
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/20270104090*.sql"
+      - "supabase/functions/*read-pull/**"
+      - "supabase/functions/_shared/adapter-*.ts"
+      - "scripts/ci-adls-data-lake-smoke.sh"
+      - "scripts/ci-p6-schedule-read-smoke.sh"
+      - "scripts/ci-sap-s4-inventory-read-smoke.sh"
+      - "scripts/ci-sap-s4-financial-read-smoke.sh"
+      - ".github/workflows/adapter-qualification.yml"
+permissions:
+  contents: read
+concurrency:
+  group: adapter-sql-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  adapter-sql:
+    name: Synthetic adapter canonical and isolation witness
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359
+        with:
+          version: 2.84.2
+      - name: Fresh disposable Supabase chain
+        run: bash scripts/ci-start-supabase.sh /tmp/adapter-start.log /tmp/adapter-diagnostics.txt
+      - name: ADLS canonical provenance, replay and isolation
+        run: bash scripts/ci-adls-data-lake-smoke.sh
+      - name: P6 canonical schedule, replay and governed revisions
+        run: bash scripts/ci-p6-schedule-read-smoke.sh
+      - name: SAP inventory catalogue, UOM and replay
+        run: bash scripts/ci-sap-s4-inventory-read-smoke.sh
+      - name: SAP finance exact actuals and reconciliation
+        run: bash scripts/ci-sap-s4-financial-read-smoke.sh
+      - name: Stop disposable Supabase
+        if: always()
+        run: supabase stop --no-backup

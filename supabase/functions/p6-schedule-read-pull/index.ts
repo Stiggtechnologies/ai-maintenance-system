@@ -287,6 +287,9 @@ Deno.serve(async (request) => {
     ) {
       throw new Error("P6 source is not enabled and read-only.");
     }
+    if (!/^[0-9a-f]{64}$/.test(String(source.contract_hash ?? ""))) {
+      throw new Error("Adapter source contract hash is invalid.");
+    }
     const root = baseUrl(String(source.base_url ?? ""));
     const binding = String(source.credential_binding_ref ?? "");
     const projectObjectId = Number(source.project_object_id ?? 0);
@@ -385,6 +388,7 @@ Deno.serve(async (request) => {
       },
     ];
     const cursor = {
+      contract_hash: String(source.contract_hash ?? ""),
       fetched_at: fetchedAt,
       activity_sha256: activities.sha256,
       relationship_sha256: relationships.sha256,

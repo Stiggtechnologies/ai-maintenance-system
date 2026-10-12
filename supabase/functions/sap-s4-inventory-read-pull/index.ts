@@ -221,6 +221,9 @@ Deno.serve(async (request) => {
     ) {
       throw new Error("SAP inventory source is not enabled and read-only.");
     }
+    if (!/^[0-9a-f]{64}$/.test(String(source.contract_hash ?? ""))) {
+      throw new Error("Adapter source contract hash is invalid.");
+    }
     const root = serviceRoot(String(source.service_root ?? ""));
     const token = resolveAdapterBearer(
       CREDENTIALS_JSON,
@@ -352,6 +355,7 @@ Deno.serve(async (request) => {
       throw new Error("SAP inventory pull exceeded its time limit.");
     }
     const cursor = {
+      contract_hash: String(source.contract_hash ?? ""),
       fetched_at: fetchedAt,
       raw_rows: rows.length,
       mapped_rows: mapped.length,

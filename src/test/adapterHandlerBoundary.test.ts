@@ -16,6 +16,7 @@ const binding = "vault://synthetic/adapter";
 const token = "SYNTHETIC-ONLY-NOT-A-CREDENTIAL-".repeat(2);
 const shared = {
   organization_id: org,
+  contract_hash: "a".repeat(64),
   enabled: true,
   direction: "read_only",
   write_enabled: false,

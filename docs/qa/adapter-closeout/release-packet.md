@@ -3,7 +3,7 @@
 Base: `c1b5e8ca2506fc6d634b469ba0b0e07e2d2595ee`. This draft extracts real read
 transports and canonical row mappers from existing work, repairs local gaps,
 and tests them with synthetic sources. It is **not operational qualification**.
-No credentials, live customer calls, SQL changes, tenant changes, deployment
+No credentials, live customer calls, live SQL changes, tenant changes, deployment
 configuration, merge or deployment are included. No vendor certification or
 DRMIS authority is asserted. Capability registers are unchanged.
 
@@ -76,45 +76,63 @@ credential/429/5xx/timeout recovery, a named operator retries a bounded pull;
 commit retry remains disabled until canonical replay behavior is proven.
 Unsupported writeback stays absent.
 
-## Database and release prerequisites — blocking runtime
+## Repository SQL composition and remaining release gates
 
-The manifest identifies **16 required adapter RPCs absent from main**. Importing
-these handlers does not make those functions exist. The only referenced ADLS
-preview RPC already on main is `preview_recovery_activation_batch`.
+Repository-only SQL implementation and disposable synthetic database testing were
+explicitly authorized in the continued delegation. All 16 adapter RPCs missing
+from main are now implemented in the five candidate migrations listed with exact
+SHA-256 digests in the manifest. Runtime qualification remains pending until the
+new head completes native tests. No migration has been applied to a customer or
+production database.
 
-The five original adapter migrations total 152,096 bytes and precede main's
-latest `20270103040000` migration. Their SHA-256 digests identify source inputs,
-**not approvals or an apply-ready patch**. They must not be dropped into the
-migration directory or applied as-is. The prior ADLS/CMMS/historian contract
-changes must be reconciled against current `connectors`, `connector_runs`,
-`ingest_staging`, `ingest_watermarks`, Recovery, schedule and cost writers.
+The reserved range `20270104090000` through `20270104090400` follows #661's
+`20270103210000` reservation. A scan of every migration on all 303 fetched remote
+branches found no collision. Recheck before release. No invitation/command-authority
+migration or shared CI/deployment/boundary file was changed.
 
-Required next approval is a bounded architecture/security SQL integration scope:
+Composition includes additive connector transport columns, ADLS mapping/provenance
+and clean-watermark contracts, P6 read plus the original canonical schedule revision
+workflow, inventory read with exact catalogue/UOM resolution, and the original
+canonical cost-actual importer plus SAP finance read. The manual import route table
+and router remain unchanged. P6 and inventory now bind a SHA-256 source contract
+across discovery, attestation, ingestion and finish. Ingest/finish serialize on the
+run and source, recheck contract/actor/counts and refuse clean completion after drift.
 
-1. Architecture steward and #661 owner agree shared connector contracts and a
-   timestamp later than current deployed head **and every open PR's migrations**.
-   Re-fetch at that time. No timestamp is reserved by this packet.
-2. Prepare only the missing adapter contract migrations on current main; preserve
-   grants, RLS, actor/AAL, contract hashes, direct-write refusal and existing
-   canonical writers. Do not include the duplicate invitation migration or
-   unrelated source-stack work. Review changed migration digests anew.
-3. Run fresh-chain and incremental-from-main migration tests plus the original
-   four adapter SQL smokes adapted to current contracts. Include cross-tenant,
-   credential-binding, direct service/client write, concurrent run, stale hash,
-   replay, partial rejection and clean-watermark assertions. Green tests on old
-   #614 do not qualify this candidate.
-4. Only after those reviews, separately approve exact handler deployment
-   allowlist/JWT probes and the minimal existing `/integrations` configuration
-   surface. No deployment or UI wiring is included here.
-5. Independently approve a non-production read-only source witness. Enable only
-   the named adapter read flag for the named tenant. Keep commit false until the
-   write-free preview and mapping authority are witnessed. Enable canonical
-   promotion only after a separate exact tenant/mapping/actor release decision.
+The three protected RE-2026.08 SQL object digests remain unchanged. No governed-SQL
+human approval record was fabricated or required by a protected-object change in
+this candidate. Architecture, security/tenancy and domain reviews are still required
+before release.
+
+The separate `Adapter SQL qualification` workflow uses only disposable Supabase,
+synthetic tenants/actors/rows and the four source adapter native smoke suites. It
+exercises canonical writes, replay, rejects, tenant/role denial, transport evidence,
+source-contract mutation and clean-only watermarks. Existing full-chain CI remains
+unchanged. Source transport tests mock every source request. Neither layer is a live
+vendor/customer witness.
+
+Current main already exposes `/materials` → `MaterialCatalogue` →
+`create_catalogue_material` (`20261225170100_material_catalogue_write.sql`). The
+same-tenant human enters code, description, UOM and source basis; duplicate codes
+are refused and canonical audit is retained. It creates identity only, not stock,
+supplier qualification or engineering approval. Existing catalogue suites passed
+35 tests and the unchanged authenticated catalogue smoke passed at the prior head.
+SAP stock resolves existing non-template material codes with exact UOM; unknowns
+remain staged rejects. No automatic catalogue creation or second catalogue added.
+
+Remaining release sequence:
+
+1. Complete exact-head fresh-chain and native adapter acceptance; review the exact
+   migration digests and reconcile with #661's final head. Preserve source PRs.
+2. Separately approve minimal existing `/integrations` UI wiring, exact handler
+   allowlisting/JWT probes and deployment. No such configuration change is included.
+3. Obtain the exact sanctioned test accounts, scope, mappings and source data below.
+   Enable only the named adapter read flag for the named non-production tenant.
+4. Keep commit false until write-free preview and mapping authority are witnessed.
+   Canonical promotion requires a separate exact tenant/mapping/actor release decision.
 
 Release flags: `ADLS_READ_ENABLED`, `P6_READ_ENABLED`,
-`SAP_S4_INVENTORY_READ_ENABLED`, `SAP_S4_FINANCIAL_READ_ENABLED`; the corresponding
-commit flag inserts `_COMMIT` before `_ENABLED`. Default/unset is false for all.
-These are not instructions to set production values.
+`SAP_S4_INVENTORY_READ_ENABLED`, `SAP_S4_FINANCIAL_READ_ENABLED`; corresponding
+commit flags insert `_COMMIT` before `_ENABLED`. All remain unset/default false.
 
 ## Exact source-access request for the parent
 
@@ -159,13 +177,14 @@ node scripts/check-edge-function-boundary.mjs
 ```
 
 Record exact-head hosted CI externally in the draft PR; do not amend a commit
-merely to claim its own SHA. Hosted migration smoke currently qualifies unchanged
-main SQL only. No live adapter golden suite has run. Required independent reviews:
+merely to claim its own SHA. The adapter native job must pass on the SQL candidate as well as the unchanged
+main-domain smoke chain. No live adapter golden suite has run. Required independent reviews:
 architecture, security/tenancy, P6 scheduling, SAP inventory/finance, ADLS data
 ownership, and release owner.
 
-Rollback before activation is a revert of this additive draft; no database
-rollback or customer evidence deletion is necessary. If later approved for
+Before deployment, rollback is a revert of this additive draft. After any later
+approved migration deployment, use reviewed forward containment and preserve
+customer evidence; do not assume a code revert reverses SQL. If later approved for
 activation, turn off the relevant read/commit flags and connector first, preserve
 all run/staging/audit evidence, and follow an approved forward database containment
 plan. Never delete evidence to make a failed qualification look clean.
