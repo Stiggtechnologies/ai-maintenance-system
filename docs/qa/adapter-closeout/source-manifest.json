@@ -1,0 +1,144 @@
+{
+  "base_sha": "c1b5e8ca2506fc6d634b469ba0b0e07e2d2595ee",
+  "status": "draft-disabled-unqualified-for-runtime",
+  "adapters": [
+    {
+      "pr": 597,
+      "branch": "agent/adls-data-lake-read",
+      "source_sha": "54c5cdccf07bd1907b6d75f2a06e1af64744c4e8",
+      "handler": "data-lake-read-pull",
+      "migration_sources": [
+        {
+          "path": "supabase/migrations/20270102140000_adls_data_lake_read.sql",
+          "sha256": "b44f07363798bbd5bd9fa046214c7b0d32d32660a73f2f49ec7345ac8e0bdf27",
+          "bytes": 25879,
+          "applied_in_this_draft": false
+        },
+        {
+          "path": "supabase/migrations/20270102150000_adls_data_lake_provenance_reconciliation.sql",
+          "sha256": "3f9552aff94438391612196d4ebd796af2530dba7100bee4dcbee09ee2654f5d",
+          "bytes": 24969,
+          "applied_in_this_draft": false
+        }
+      ],
+      "rpcs": [
+        {
+          "name": "begin_data_lake_read_run",
+          "defined_on_main": false
+        },
+        {
+          "name": "finish_data_lake_read_run",
+          "defined_on_main": false
+        },
+        {
+          "name": "get_data_lake_read_source",
+          "defined_on_main": false
+        },
+        {
+          "name": "ingest_data_lake_read_batch",
+          "defined_on_main": false
+        },
+        {
+          "name": "preview_recovery_activation_batch",
+          "defined_on_main": true
+        }
+      ]
+    },
+    {
+      "pr": 600,
+      "branch": "agent/scheduling-tool-read",
+      "source_sha": "6f19a95f6661d0dddf604c5ec0dd05f7789b409e",
+      "handler": "p6-schedule-read-pull",
+      "migration_sources": [
+        {
+          "path": "supabase/migrations/20270102180000_primavera_p6_read_adapter.sql",
+          "sha256": "692c7ce1b16bed635d89bac54dcaf74e02d8020b223fef9ebdd2dee292f3d830",
+          "bytes": 37071,
+          "applied_in_this_draft": false
+        }
+      ],
+      "rpcs": [
+        {
+          "name": "begin_p6_schedule_read_run",
+          "defined_on_main": false
+        },
+        {
+          "name": "finish_p6_schedule_read_run",
+          "defined_on_main": false
+        },
+        {
+          "name": "get_p6_schedule_read_source",
+          "defined_on_main": false
+        },
+        {
+          "name": "ingest_p6_schedule_read_batch",
+          "defined_on_main": false
+        }
+      ]
+    },
+    {
+      "pr": 601,
+      "branch": "agent/inventory-system-read",
+      "source_sha": "ddb4a981b8b958ed32f63f93bc01f3b913138c8d",
+      "handler": "sap-s4-inventory-read-pull",
+      "migration_sources": [
+        {
+          "path": "supabase/migrations/20270102190000_sap_s4_inventory_read_adapter.sql",
+          "sha256": "3f6adc0c5e540ddbfb6d4cb9aa994b8c100d02ac36bc894431cb024af2daba25",
+          "bytes": 29625,
+          "applied_in_this_draft": false
+        }
+      ],
+      "rpcs": [
+        {
+          "name": "begin_sap_s4_inventory_read_run",
+          "defined_on_main": false
+        },
+        {
+          "name": "finish_sap_s4_inventory_read_run",
+          "defined_on_main": false
+        },
+        {
+          "name": "get_sap_s4_inventory_source",
+          "defined_on_main": false
+        },
+        {
+          "name": "ingest_sap_s4_inventory_read_batch",
+          "defined_on_main": false
+        }
+      ]
+    },
+    {
+      "pr": 614,
+      "branch": "agent/financial-system-read-repair",
+      "source_sha": "33d0199a7e90340e429cb623a4faa16c1fb8ddc6",
+      "handler": "sap-s4-financial-read-pull",
+      "migration_sources": [
+        {
+          "path": "supabase/migrations/20270102210000_sap_s4_financial_read_adapter.sql",
+          "sha256": "b47ab9e316e3e6dcd221b1f61587f3daa23f22109116b7e77493251f1789f553",
+          "bytes": 34552,
+          "applied_in_this_draft": false
+        }
+      ],
+      "rpcs": [
+        {
+          "name": "begin_sap_s4_financial_read_run",
+          "defined_on_main": false
+        },
+        {
+          "name": "finish_sap_s4_financial_read_run",
+          "defined_on_main": false
+        },
+        {
+          "name": "get_sap_s4_financial_source",
+          "defined_on_main": false
+        },
+        {
+          "name": "ingest_sap_s4_financial_read_batch",
+          "defined_on_main": false
+        }
+      ]
+    }
+  ]
+}
