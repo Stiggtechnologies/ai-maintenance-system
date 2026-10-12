@@ -67,6 +67,8 @@ receipt timestamp also counts as changed content in v1: transport acknowledgemen
 semantics are intentionally not solved here. Sorted object keys make comparison
 independent of property insertion order; array order remains significant. This
 comparison is neither a cryptographic digest nor a security replay mechanism.
+Series grouping projects only declared identity and model key/version fields;
+accepted extension metadata cannot split a canonical series or bypass contradictions.
 Conflicting IDs quarantine the conflicting group. Differing qualified values
 at the same capture instant in the same source/kind/model/configuration series
 quarantine that point and its duplicates. Older arrivals are quarantined and do

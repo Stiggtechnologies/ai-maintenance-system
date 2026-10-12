@@ -248,6 +248,52 @@ describe("deterministic synthetic replay", () => {
       expect(check({ ...observation(), [key]: [] }).outcome).toBe("invalid");
     },
   );
+  it("does not let extra identity metadata split a canonical sensor series", () => {
+    const first = observation();
+    const second = {
+      ...observation("second", 9),
+      identity: { ...first.identity, adapterNote: "extra" },
+    };
+    expect(check(second).outcome).toBe("valid");
+    const r = replay(
+      { label: "identity-extras", configuration, events: [first, second] },
+      AS_OF,
+    );
+    expect(
+      r.rows.every(
+        (row) =>
+          row.outcome === "quarantined" &&
+          row.reasons.includes("contradictory_same_time") &&
+          row.qualifiedValue === null,
+      ),
+    ).toBe(true);
+  });
+  it("does not let extra model metadata split an exact-version series", () => {
+    const first = inference("condition_estimate");
+    const second = {
+      ...inference("condition_estimate"),
+      sourceId: "second",
+      value: 0.8,
+      model: {
+        modelKey: "synthetic-feature",
+        version: "1",
+        adapterNote: "extra",
+      },
+    };
+    expect(check(second).outcome).toBe("valid");
+    const r = replay(
+      { label: "model-extras", configuration, events: [first, second] },
+      AS_OF,
+    );
+    expect(
+      r.rows.every(
+        (row) =>
+          row.outcome === "quarantined" &&
+          row.reasons.includes("contradictory_same_time") &&
+          row.qualifiedValue === null,
+      ),
+    ).toBe(true);
+  });
   it("compares semantic object content independent of property order", () => {
     const e = observation();
     const reordered = Object.fromEntries(
