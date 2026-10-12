@@ -54,7 +54,8 @@ ownership of the source PRs or shared SQL contracts.
   invented zeros. Calendar names and explicit timestamp offsets are preserved.
 - SAP stock and G/L reuse exact-decimal arithmetic. Missing, boolean or inexact
   numeric stock quantities are refused; decimal strings reach PostgreSQL without
-  floating-point aggregation or unsafe-integer rounding.
+  floating-point aggregation or unsafe-integer rounding. Missing/null/non-string
+  special-stock classifications are refused rather than treated as unrestricted.
 - ADLS list/object/token responses are bounded while streaming. SAP finance
   streams against the remaining combined budget and rejects repeated page URLs.
 - ADLS/finance request shape checks reject null/array/nonboolean dry-run inputs;

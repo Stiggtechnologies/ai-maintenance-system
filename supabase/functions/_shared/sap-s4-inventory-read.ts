@@ -211,10 +211,12 @@ export function mapSapMaterialStock(
       `SAP stock ${material} InventoryStockType`,
       20,
     );
-    const specialType =
-      typeof row.InventorySpecialStockType === "string"
-        ? row.InventorySpecialStockType.trim()
-        : "";
+    if (typeof row.InventorySpecialStockType !== "string") {
+      throw new Error(
+        "SAP stock requires an explicit special-stock classification.",
+      );
+    }
+    const specialType = row.InventorySpecialStockType.trim();
     if (plant !== scope.plant || storage !== scope.storageLocation) {
       throw new Error(
         "SAP stock row escaped the approved plant/storage filter.",

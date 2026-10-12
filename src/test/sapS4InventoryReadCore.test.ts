@@ -47,6 +47,17 @@ describe("SAP S/4HANA material stock mapper", () => {
       mapSapMaterialStock([stockRow(quantity)], quantityScope),
     ).toThrow();
   });
+  it.each([undefined, null, false, 0, {}])(
+    "refuses unknown special-stock classification %j",
+    (special) => {
+      expect(() =>
+        mapSapMaterialStock(
+          [{ ...stockRow("1"), InventorySpecialStockType: special }],
+          quantityScope,
+        ),
+      ).toThrow(/explicit special-stock classification/);
+    },
+  );
   it("retains exact decimal totals and large source balances", () => {
     expect(
       mapSapMaterialStock([stockRow("0.1"), stockRow("0.2")], quantityScope)[0]
