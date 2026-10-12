@@ -214,6 +214,18 @@ Deno.serve(async (request) => {
     const maxRows = Number(source.max_rows ?? 0);
     const pageSize = Number(source.page_size ?? 0);
     const maxPages = Number(source.max_pages ?? 0);
+    if (
+      !Number.isSafeInteger(maxRows) ||
+      maxRows < 1 ||
+      maxRows > 25000 ||
+      !Number.isSafeInteger(pageSize) ||
+      pageSize < 1 ||
+      pageSize > Math.min(maxRows, 5000) ||
+      !Number.isSafeInteger(maxPages) ||
+      maxPages < 2 ||
+      maxPages > 100
+    )
+      throw new Error("SAP financial source limits are invalid.");
     const contractHash = String(source.contract_hash ?? "");
     if (!/^[0-9a-f]{64}$/.test(contractHash)) {
       throw new Error("SAP financial source contract hash is invalid.");

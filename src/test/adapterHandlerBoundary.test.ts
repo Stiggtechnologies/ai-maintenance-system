@@ -388,3 +388,51 @@ it.each(cases)(
     expect(h.fetch).toHaveBeenCalled();
   },
 );
+
+it.each(cases.filter((c) => c.name !== "data-lake-read-pull"))(
+  "$name rejects expired bearer before network I/O",
+  async (c) => {
+    const h = harness(c, { expires_at: "2000-01-01T00:00:00Z" });
+    expect((await h.handler(h.request())).status).toBeGreaterThanOrEqual(400);
+    expect(h.fetch).not.toHaveBeenCalled();
+  },
+);
+it.each(cases)(
+  "$name aborts source throttling without writes or hidden retry",
+  async (c) => {
+    const h = harness(c);
+    h.fetch.mockResolvedValue(
+      new Response("synthetic throttling", { status: 429 }),
+    );
+    expect((await h.handler(h.request())).status).toBeGreaterThanOrEqual(400);
+    expect(h.fetch).toHaveBeenCalledTimes(1);
+    expect(h.rpc.mock.calls.every(([name]) => name.startsWith("get_"))).toBe(
+      true,
+    );
+  },
+);
+it("finance rejects repeated page URL before aggregating overlapping journal pages", async () => {
+  const h = harness(cases[2]);
+  let next = "";
+  h.fetch.mockImplementation(async (input) => {
+    if (!next) {
+      const url = new URL(input);
+      url.searchParams.set("$skiptoken", "synthetic");
+      next = url.href;
+    }
+    return jsonResponse({ d: { results: [], __next: next } });
+  });
+  expect((await h.handler(h.request())).status).toBeGreaterThanOrEqual(400);
+  expect(h.fetch).toHaveBeenCalledTimes(2);
+  expect(h.rpc.mock.calls.every(([name]) => name.startsWith("get_"))).toBe(
+    true,
+  );
+});
+it.each([0, null, "bad", 101])(
+  "finance refuses invalid configured page ceiling %j before source I/O",
+  async (max_pages) => {
+    const h = harness(cases[2], {}, { max_pages });
+    expect((await h.handler(h.request())).status).toBeGreaterThanOrEqual(400);
+    expect(h.fetch).not.toHaveBeenCalled();
+  },
+);
