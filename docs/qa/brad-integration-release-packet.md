@@ -32,7 +32,7 @@ All open PR titles and migration filenames were checked through the connected Gi
 
 ## Qualification evidence
 
-Automated evidence is synthetic and code-level only. Current focused results and exact final head are recorded in the integration PR. Local pinned Supabase CLI 2.84.2 installation failed resolving github.com (EAI_AGAIN); native database execution must pass hosted CI. CI runs the selected invitation and command smokes against its disposable stack. No production database or live customer data was accessed. Initial full local run: 8,199 passed, three failed; two integration failures were repaired (mock receipt and added protected Edge function count), while the independent provenance ratchet cannot reach GitHub and remains fail-closed.
+Automated evidence is synthetic and code-level only. Current focused results and exact final head are recorded in the integration PR. The npm CLI installer failed DNS resolution; the official pinned CLI 2.84.2 archive was subsequently retrieved with curl and checksum-verified. Local stack startup is blocked by Docker receiving Forbidden from public.ecr.aws. Native database execution must pass hosted CI. CI runs the selected invitation and command smokes against its disposable stack. No production database or live customer data was accessed. Initial full local run: 8,199 passed, three failed; two integration failures were repaired (mock receipt and added protected Edge function count), while the independent provenance ratchet cannot reach GitHub and remains fail-closed.
 
 ## Release approval packet
 
@@ -42,3 +42,9 @@ Required: architecture/canonical-model review; security/tenancy review of compos
 The existing deploy-migrations workflow is automatic on main and runs db push --include-all, Auth configuration, allowlisted Edge deployment and conditional secrets/metering/lead configuration. This draft adds invitation deployment/anonymous-refusal probing to that existing boundary; it does not execute it. Approval must cover full workflow effects, not just these SQL files. Parent coordinates publication after qualification.
 
 Rollback before release: revert application/Edge changes. After approved SQL deployment, preserve cases, Auth identities, evidence and audit receipts; contain entry/RPC access through an approved forward correction. A code revert does not undo SQL, Auth, secrets or previously committed migrations. Require a custodian-owned recovery plan and verified restore witness before release.
+
+## Qualification repairs after the first composition
+
+The legacy assistant workspace could locally label a durable case's work released/completed or value verified without a governed command. Those controls are now limited to explicitly selected public simulations; durable-case controls remain unavailable. The SQL guard already refused these writes, but a local success claim was also unacceptable. Public sample behavior remains covered by regression tests.
+
+At a00eb627, hosted CI passed 8,205 tests / 539 files, lint/typecheck/build, migration ordering and the complete migration chain. All three Vercel previews passed. Golden-path browsers and the new invitation/command smoke step failed; remote retrieval of both large job logs returned Transport closed, and the Playwright export download returned HTTP 403. The coordinating owner was asked for the failed assertions. CI now retains full startup diagnostics in existing artifact files while bounding startup console output, to make subsequent failure logs retrievable; no test or release gate is weakened. Current-head CI must be requalified after these repairs.

@@ -156,7 +156,12 @@ jobs:
           docker system df
 
       - name: Start local Supabase (applies full migration chain)
-        run: bash scripts/ci-start-supabase.sh /tmp/migrations-supabase-start.log /tmp/migrations-supabase-diagnostics.txt
+        run: |
+          # Keep full diagnostics in artifacts and bounded failure text in the job log.
+          bash scripts/ci-start-supabase.sh /tmp/migrations-supabase-start.log /tmp/migrations-supabase-diagnostics.txt > /tmp/migrations-supabase-console.log 2>&1 || {
+            tail -n 100 /tmp/migrations-supabase-console.log
+            exit 1
+          }
 
       # The demo stack schedules simulate_telemetry_tick() on a 1-minute pg_cron —
       # a RANDOM-WALK that drifts sensor last_value and recomputes status
@@ -587,7 +592,13 @@ jobs:
           docker system df
 
       - name: Start local Supabase (fresh migration chain + demo data)
-        run: bash scripts/ci-start-supabase.sh /tmp/e2e-supabase-start.log /tmp/e2e-supabase-diagnostics.txt
+        run: |
+          # Retain complete startup diagnostics in the existing artifact files;
+          # keep job logs small enough for remote failure inspection.
+          bash scripts/ci-start-supabase.sh /tmp/e2e-supabase-start.log /tmp/e2e-supabase-diagnostics.txt > /tmp/e2e-supabase-console.log 2>&1 || {
+            tail -n 100 /tmp/e2e-supabase-console.log
+            exit 1
+          }
 
       # The demo stack schedules simulate_telemetry_tick() on a 1-minute pg_cron —
       # a RANDOM-WALK that drifts sensor last_value and recomputes status

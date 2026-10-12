@@ -175,3 +175,27 @@ it("ignores an initial load that arrives after a newer save receipt", async () =
   }
   expect(screen.getByText("Fresh analysis survives.")).toBeTruthy();
 });
+
+it("keeps legacy completion and verification unavailable on a durable case", async () => {
+  seed.workPackage.status = "complete";
+  seed.financeStatus = "pending";
+  window.localStorage.setItem(
+    DECISION_CASE_STORAGE_KEY,
+    JSON.stringify([seed]),
+  );
+  mount();
+  await waitFor(() => expect(api.load).toHaveBeenCalledOnce());
+  fireEvent.click(screen.getByRole("button", { name: "View record" }));
+  fireEvent.click(screen.getByRole("button", { name: "Work" }));
+  expect(
+    screen.getByRole("button", {
+      name: "Work completion unavailable — ACTION locked",
+    }),
+  ).toBeDisabled();
+  fireEvent.click(screen.getByRole("button", { name: "Value" }));
+  expect(
+    screen.getByRole("button", {
+      name: "Use governed verification with evidence",
+    }),
+  ).toBeDisabled();
+});

@@ -68,7 +68,6 @@ import {
   conversationIsEmpty,
   establishedFromEvidence,
   frozenDisposition,
-  isNamedAuthority,
   isRecommendationTurn,
   notProvenFromEvidence,
   reviewingAuthority,
@@ -307,7 +306,6 @@ export function DecisionCaseWorkspacePage({
   });
   const [cases, setCases] = useState(chatBootstrap.cases);
   const [selectedId, setSelectedId] = useState(chatBootstrap.selectedId);
-  const viewerName = auth?.profile?.full_name ?? null;
   const [railOpen, setRailOpen] = useState(false);
   const [recordOpen, setRecordOpen] = useState(Boolean(routedPublicIntent));
   const [tab, setTab] = useState<PacketTab>(
@@ -357,6 +355,10 @@ export function DecisionCaseWorkspacePage({
     cases.find((item) => !isSeedDecisionCaseId(item.id)) ??
     cases[0];
   const activeId = active.id;
+  const simulationOnly =
+    publicMode &&
+    explicitDemoBound.current &&
+    !isPersistedDecisionCase(active.id);
   const askBinding = resolveDecisionAskBinding(active);
   const composerScope = askBinding.bound
     ? classifyDecisionQuestionScope(active, composer)
@@ -836,6 +838,12 @@ export function DecisionCaseWorkspacePage({
     status: ApprovalStatus,
     extra?: { delegateName?: string },
   ) => {
+    if (!simulationOnly) {
+      setNotice(
+        "Use the First Decision Journey for a governed human disposition. ACTION remains locked.",
+      );
+      return;
+    }
     const approved = status === "approved";
     const decidedAt = new Date().toISOString();
     const time = timestamp(decidedAt);
@@ -894,6 +902,10 @@ export function DecisionCaseWorkspacePage({
   };
 
   const completeWork = () => {
+    if (!simulationOnly) {
+      setNotice("Work completion is unavailable here. ACTION remains locked.");
+      return;
+    }
     updateCase((current) => ({
       ...current,
       stage: "outcomes",
@@ -912,6 +924,12 @@ export function DecisionCaseWorkspacePage({
   };
 
   const verifyValue = () => {
+    if (!simulationOnly) {
+      setNotice(
+        "A measured result requires the governed verification path and retained evidence.",
+      );
+      return;
+    }
     if (publicMode) {
       trackDecisionWorkspaceEvent("industry_value_proof_completed", {
         industry,
@@ -973,13 +991,7 @@ export function DecisionCaseWorkspacePage({
       ),
     );
   const frozen = frozenDisposition(active.approvals);
-  const canDispose = publicMode
-    ? !frozen
-    : Boolean(
-        namedAuthority &&
-        isNamedAuthority(viewerName, namedAuthority.name) &&
-        !frozen,
-      );
+  const canDispose = simulationOnly && !frozen;
   const emptyConversation = conversationIsEmpty(active.messages);
   const exposeSpaces = canExposeBoltSpaces({
     signedIn: Boolean(auth?.user),
@@ -1431,10 +1443,18 @@ export function DecisionCaseWorkspacePage({
                 />
               )}
               {tab === "work" && (
-                <WorkPanel active={active} completeWork={completeWork} />
+                <WorkPanel
+                  active={active}
+                  completeWork={completeWork}
+                  simulationOnly={simulationOnly}
+                />
               )}
               {tab === "value" && (
-                <ValuePanel active={active} verifyValue={verifyValue} />
+                <ValuePanel
+                  active={active}
+                  verifyValue={verifyValue}
+                  simulationOnly={simulationOnly}
+                />
               )}
             </div>
           </aside>
@@ -2025,10 +2045,18 @@ export function DecisionCaseWorkspacePage({
                       />
                     )}
                     {tab === "work" && (
-                      <WorkPanel active={active} completeWork={completeWork} />
+                      <WorkPanel
+                        active={active}
+                        completeWork={completeWork}
+                        simulationOnly={simulationOnly}
+                      />
                     )}
                     {tab === "value" && (
-                      <ValuePanel active={active} verifyValue={verifyValue} />
+                      <ValuePanel
+                        active={active}
+                        verifyValue={verifyValue}
+                        simulationOnly={simulationOnly}
+                      />
                     )}
                   </div>
                 </aside>
@@ -2294,9 +2322,11 @@ function AuthorityPanel({
 function WorkPanel({
   active,
   completeWork,
+  simulationOnly,
 }: {
   active: DecisionCase;
   completeWork: () => void;
+  simulationOnly: boolean;
 }) {
   return (
     <div className="dw-panel">
@@ -2353,16 +2383,19 @@ function WorkPanel({
         className="dw-primary"
         onClick={completeWork}
         disabled={
+          !simulationOnly ||
           active.workPackage.status === "locked" ||
           active.workPackage.status === "complete"
         }
       >
         <Play size={15} />
-        {active.workPackage.status === "locked"
-          ? "Authority approval required"
-          : active.workPackage.status === "complete"
-            ? "Work evidence complete"
-            : "Record work complete"}
+        {!simulationOnly
+          ? "Work completion unavailable — ACTION locked"
+          : active.workPackage.status === "locked"
+            ? "Authority approval required"
+            : active.workPackage.status === "complete"
+              ? "Work evidence complete"
+              : "Record work complete"}
       </button>
     </div>
   );
@@ -2371,9 +2404,11 @@ function WorkPanel({
 function ValuePanel({
   active,
   verifyValue,
+  simulationOnly,
 }: {
   active: DecisionCase;
   verifyValue: () => void;
+  simulationOnly: boolean;
 }) {
   return (
     <div className="dw-panel">
@@ -2445,14 +2480,17 @@ function ValuePanel({
         className="dw-primary"
         onClick={verifyValue}
         disabled={
+          !simulationOnly ||
           active.workPackage.status !== "complete" ||
           active.financeStatus === "verified"
         }
       >
         <CheckCircle2 size={15} />{" "}
-        {active.financeStatus === "verified"
-          ? "Value verified"
-          : "Verify measured value"}
+        {!simulationOnly
+          ? "Use governed verification with evidence"
+          : active.financeStatus === "verified"
+            ? "Value verified"
+            : "Verify measured value"}
       </button>
     </div>
   );
