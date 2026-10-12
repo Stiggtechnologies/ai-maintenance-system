@@ -398,7 +398,7 @@ describe("Reviewed setup-cli interface in every existing workflow", () => {
     expect(isSetupCliReference("supabase/setup-cli-fork@v3")).toBe(false);
     expect(isSetupCliReference(undefined)).toBe(false);
   });
-  it("uses the reviewed SHA and only CLI 2.84.2 in all ten invocations across nine workflows", () => {
+  it("uses the reviewed SHA and only CLI 2.84.2 in all eleven invocations across nine workflows", () => {
     const names = [
       "approval-authority",
       "approval-enforcement",
@@ -440,9 +440,9 @@ describe("Reviewed setup-cli interface in every existing workflow", () => {
           invocations++;
         }
       }
-      expect(workflowInvocations).toBe(name === "ci" ? 2 : 1);
+      expect(workflowInvocations).toBe(name === "ci" ? 3 : 1);
     }
-    expect(invocations).toBe(10);
+    expect(invocations).toBe(11);
   });
 
   it("keeps the main-only deployment gate and normal required unit-test discovery", () => {
