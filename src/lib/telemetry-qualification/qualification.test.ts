@@ -169,6 +169,8 @@ describe("deterministic synthetic replay", () => {
     ]);
     expect(results[1].rows.map((r) => r.qualifiedValue)).toEqual([2, 4, 6]);
     expect(results[4].rows[0].reasons).toEqual(["late_reading"]);
+    expect(results[7].rows[0].reasons).toContain("conflicting_content_id");
+    expect(results[7].rows[1].reasons).toContain("conflicting_content_id");
     expect(results[5].rows[1].reasons).toEqual(["out_of_order"]);
   });
   it("does not leak identity or time state across calls", () => {

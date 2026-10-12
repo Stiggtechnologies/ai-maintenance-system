@@ -184,14 +184,14 @@
     "rows": [
       {
         "outcome": "quarantined",
-        "reasons": ["contradictory_same_time"],
+        "reasons": ["conflicting_content_id", "contradictory_same_time"],
         "sourceId": "sample-1",
         "kind": "measured_observation",
         "qualifiedValue": null
       },
       {
         "outcome": "quarantined",
-        "reasons": ["contradictory_same_time"],
+        "reasons": ["conflicting_content_id", "contradictory_same_time"],
         "sourceId": "sample-1",
         "kind": "measured_observation",
         "qualifiedValue": null
