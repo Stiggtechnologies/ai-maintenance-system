@@ -86,13 +86,14 @@ Unsupported writeback stays absent.
 Repository-only SQL implementation and disposable synthetic database testing were
 explicitly authorized in the continued delegation. All 16 adapter RPCs missing
 from main are now implemented in the five candidate migrations listed with exact
-SHA-256 digests in the manifest. Runtime qualification remains pending until the
-new head completes native tests. No migration has been applied to a customer or
-production database.
+SHA-256 digests in the manifest. Qualify the exact release head with native and
+full-chain checks; current results are recorded externally in draft PR #663. No
+migration has been applied to a customer or production database.
 
 The reserved range `20270104090000` through `20270104090400` follows #661's
 `20270103210000` reservation. A scan of every migration on all 303 fetched remote
-branches found no collision. Recheck before release. No invitation/command-authority
+branches found no collision. #661 subsequently reserved `20270104090500`; that
+reservation is preserved. Recheck before release. No invitation/command-authority
 migration or shared CI/deployment/boundary file was changed.
 
 Composition includes additive connector transport columns, ADLS mapping/provenance
@@ -107,6 +108,14 @@ The new transport-manifest CHECK spells its 1–100 object bounds as sibling
 comparisons. A disposable PostgreSQL 17 dump/restore reproduced the prior leading
 BETWEEN expression being flattened inside CASE; explicit bounds preserve both the
 constraint and its catalog representation. The shared restore gate is unchanged.
+
+A narrow CI timing repair bounds the real `passes on the current tree` gate
+subprocess to 20 seconds and its enclosing test to 25 seconds. Two exact-head
+attempts passed 8,319 other tests but exceeded the default 5-second wrapper at
+7–8 seconds. The gate command, success assertion, protected files/database digests,
+thresholds, provenance verification and approval rules are unchanged. A timeout or
+nonzero gate exit still fails; no mock, skip or qualification waiver was added.
+Neither #661's shared workflow files nor #662's telemetry files are changed.
 
 The three protected RE-2026.08 SQL object digests remain unchanged. No governed-SQL
 human approval record was fabricated or required by a protected-object change in

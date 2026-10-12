@@ -675,10 +675,14 @@ describe("the gate runs inside a required status check (H3)", () => {
       {
         cwd: repositoryRoot,
         encoding: "utf8",
+        // This real gate verifies CI provenance over GitHub's API. Bound the
+        // subprocess itself; the default 5 s unit deadline is shorter than
+        // observed successful gate runs (7–8 s) and cannot stop a sync child.
+        timeout: 20_000,
       },
     );
     expect(output).toContain("RE-2026.08 gate passed");
-  });
+  }, 25_000);
 });
 
 describe("the judge may not be the candidate (H4)", () => {
