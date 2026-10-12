@@ -555,6 +555,11 @@ jobs:
       - name: Smoke — architectural north-star traversal
         run: bash scripts/ci-architectural-north-star-smoke.sh
 
+      - name: Decision Case invitation and command authority (synthetic local stack)
+        run: |
+          bash scripts/ci-decision-case-invitation-smoke.sh
+          bash scripts/ci-decision-case-command-authority-smoke.sh
+
       - name: Stop Supabase
         if: always()
         run: supabase stop --no-backup || true

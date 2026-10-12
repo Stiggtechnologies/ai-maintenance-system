@@ -1,0 +1,44 @@
+# Brad customer journey integration — HOLD
+
+2026-10-12. Refs #575. Integration owner: `agent/brad-complete-integration`.
+Base verified by fetch and remote ref: `c1b5e8ca2506fc6d634b469ba0b0e07e2d2595ee`.
+This is a reviewable integration checkpoint, not product acceptance or permission to merge.
+
+## Customer-action gap ledger
+
+| Customer action                                             | Repository evidence                                                             | Qualification / remaining gap                                                                                                                                                                                                                                                                                   |
+| ----------------------------------------------------------- | ------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Arrive, express desired outcome, ask for help               | main #651/#654/#655/#657; InvertedOpeningPage and DecisionCaseWorkspacePage     | Preserve public examples, industry, back, sign-in and session draft behavior. No real first-time acceptance recorded.                                                                                                                                                                                           |
+| Save and resume tenant case                                 | selected #603 command service / SQL; #658 reconciliation                        | Canonical cowork_workspaces.case_state, versioned commands; no parallel store. Initial create remains multi-request: unknown workspace creation cannot safely be retried without reconciliation.                                                                                                                |
+| Gather evidence progressively                               | DecisionCaseSpine and canonical evidence fields                                 | Manual pasted/reviewed extracted content supported. Governed intake DISABLED: main IngestResult has no security_status and sourceReceipt is not accepted as a canonical evidence_items reference. Requires coordinated canonical intake security plus durable source mapping, not a fabricated cleared receipt. |
+| Review grounded recommendation and uncertainty              | existing deterministic spine, live assistant handoff retained                   | Deterministic guidance explicitly labelled; not a live AI engineering conclusion. Real supplied-evidence analysis and unchanged-basis approval require integrated acceptance.                                                                                                                                   |
+| Human disposition and approval                              | selected #603; #658 authority lock recheck                                      | Named authenticated actors, required approver directory, basis digest and optimistic version. ACTION stays locked. Reopen/reconsideration and all accountable-role identity binding remain incomplete.                                                                                                          |
+| Invite and accept                                           | selected #599 Auth/profile/audit path                                           | Submitted, accepted, active and authority remain separate. Needs authorized invitation recipient, existing provider configuration and delivery/acceptance qualification. No mail sent by this task.                                                                                                             |
+| Recover, cancel, repeat                                     | main handoff plus #658 save reconciliation; integration uncertain-command fence | Save receipt identity/version checked; reload serializes with writes. Unknown initial create and cross-session reconciliation remain unqualified.                                                                                                                                                               |
+| Return to verification and share/replay                     | existing verification plan and proof download                                   | No connected reminder, controlled sharing or independently verified result. Export is a local summary, not permissioned sharing.                                                                                                                                                                                |
+| Bounded pilot, fleet/site expansion and enterprise handover | #652 stays separate and explicitly stops at preparation                         | Measurable customer pilot acceptance, explicit expansion approvals and handover are not implemented by this composition. No rollout readiness claimed.                                                                                                                                                          |
+| Presenter-led and independent first-time use                | issue #575 acceptance                                                           | Both require authorized real customer-supplied information and exact deployed SHA. Neither proved by synthetic tests. Issue stays open.                                                                                                                                                                         |
+
+## Absorbed / deferred source map
+
+- #599 `d847d0c964843c33fe0e91a6edc8fb8d1d7bb271`: selectively composed journey, invitation, tests, Edge boundary and invitation migration. Governed intake entry held unavailable; its successful-upload claim is not absorbed.
+- #603 `be607d39e9c8e552fec250ad4edb7a7804063a2f`: selectively composed command authority, service, spine, tests and smoke. Unrelated environmental, inventory, historian and asset changes excluded.
+- #658 `632124d2ab985c4bc281bce299130152337883bb`: save receipt reconciliation and locked authority corrections composed. Original stacked branch preserved.
+- #652 `d7e7428de1941bea81b4d847a92abcadbafcc181`: deferred; native post-purchase preparation is not implementation acceptance and must retain its own review/release gates.
+- #569 canonical knowledge-security area, #581/#627/#633 evidence/approval areas, #656 Context, #659 branding and #660 welcome remain separate. No private security handoff consulted.
+- Offline checkpoint `0a59d23b` was not recovered and is not part of this integration. A legitimate owner-pushed branch or reviewable patch would be needed to compare it; do not retrieve restricted material.
+
+All open PR titles and migration filenames were checked through the connected GitHub app. Highest reserved timestamp: #656 `20270103170000`; selected migrations renumbered to `20270103180000` and `20270103190000`. Recheck before release. No source PR is closed or represented as fully superseded.
+
+## Qualification evidence
+
+Automated evidence is synthetic and code-level only. Current focused results and exact final head are recorded in the integration PR. Local pinned Supabase CLI 2.84.2 installation failed resolving github.com (EAI_AGAIN); native database execution must pass hosted CI. CI runs the selected invitation and command smokes against its disposable stack. No production database or live customer data was accessed.
+
+## Release approval packet
+
+HOLD: no merge, production migration, configuration mutation, email or deployment authorized here.
+Required: architecture/canonical-model review; security/tenancy review of composed SQL/Edge behavior; domain review; exact-head hosted checks; approved real test accounts and invitation recipient; evidence for both customer journeys; acceptance of bounded pilot and expansion/handover gates.
+
+The existing deploy-migrations workflow is automatic on main and runs db push --include-all, Auth configuration, allowlisted Edge deployment and conditional secrets/metering/lead configuration. This draft adds invitation deployment/anonymous-refusal probing to that existing boundary; it does not execute it. Approval must cover full workflow effects, not just these SQL files. Parent coordinates publication after qualification.
+
+Rollback before release: revert application/Edge changes. After approved SQL deployment, preserve cases, Auth identities, evidence and audit receipts; contain entry/RPC access through an approved forward correction. A code revert does not undo SQL, Auth, secrets or previously committed migrations. Require a custodian-owned recovery plan and verified restore witness before release.
