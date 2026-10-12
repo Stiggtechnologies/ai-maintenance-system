@@ -55,7 +55,9 @@ quarantines a buffered event whose configuration is no longer current at evaluat
 Latency limits are explicit synthetic configuration, not engineering thresholds.
 
 Validation reports the first refusal in deterministic order: envelope/identity,
-kind/value/provenance/time, configuration, model, latency, quality, then dropout.
+kind/value/provenance/time, configuration, model, latency, quality, then missing value.
+An absent derived value does not bypass confidence, horizon or binding checks.
+Lineage arrays must be dense: empty slots are not source references.
 `good` is the only replay-eligible quality. Other canonical quality values are
 quarantined; this stricter offline policy does not change live-ingest behavior.
 

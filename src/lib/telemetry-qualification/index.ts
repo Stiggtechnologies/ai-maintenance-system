@@ -81,7 +81,7 @@ export function validateTelemetry(
     !object(e.provenance) ||
     !nonblank(e.provenance.method) ||
     !Array.isArray(e.provenance.sourceRefs) ||
-    !e.provenance.sourceRefs.every(
+    !Array.from(e.provenance.sourceRefs).every(
       (r) =>
         object(r) &&
         typeof r.table === "string" &&
@@ -107,7 +107,6 @@ export function validateTelemetry(
   } else {
     if (!versionValid(e.model) || e.provenance.sourceRefs.length === 0)
       return verdict("invalid", "missing_model_or_lineage");
-    if (e.value === null) return verdict("unknown", "missing_derived_value");
     if (e.kind === "condition_estimate" || e.kind === "forecast") {
       const c = e.confidence;
       if (
@@ -163,7 +162,13 @@ export function validateTelemetry(
   if (received - captured > config.maxReceiptDelayMs)
     return verdict("quarantined", "late_reading");
   if (e.quality !== "good") return verdict("quarantined", "unusable_quality");
-  if (e.value === null) return verdict("unknown", "sensor_dropout");
+  if (e.value === null)
+    return verdict(
+      "unknown",
+      e.kind === "measured_observation"
+        ? "sensor_dropout"
+        : "missing_derived_value",
+    );
   return verdict("valid", "contract_satisfied");
 }
 

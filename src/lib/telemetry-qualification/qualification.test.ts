@@ -124,6 +124,66 @@ describe("telemetry qualification v1", () => {
       ).toBe("invalid");
     },
   );
+  it("checks inference policy before reporting an absent derived value", () => {
+    const e = { ...inference("forecast"), value: null };
+    expect(check(e)).toEqual({
+      outcome: "unknown",
+      reasons: ["missing_derived_value"],
+    });
+    expect(
+      check({
+        ...e,
+        confidence: { meaning: "failure_probability", score: 0.9 },
+      }).reasons,
+    ).toEqual(["invalid_confidence_semantics"]);
+    expect(check({ ...e, targetAt: e.capturedAt }).reasons).toEqual([
+      "invalid_forecast_target",
+    ]);
+    expect(
+      check({
+        ...e,
+        identity: { ...e.identity, organizationId: "other-tenant" },
+      }).reasons,
+    ).toEqual(["identity_binding_mismatch"]);
+    expect(check(e, { ...configuration, validUntil: AS_OF }).reasons).toEqual([
+      "stale_configuration",
+    ]);
+    expect(
+      check({
+        ...e,
+        model: { modelKey: "synthetic-feature", version: "retired" },
+      }).reasons,
+    ).toEqual(["model_version_mismatch"]);
+    expect(check({ ...e, quality: "bad" }).reasons).toEqual([
+      "unusable_quality",
+    ]);
+  });
+  it.each(["derived_feature", "condition_estimate", "forecast"] as const)(
+    "refuses sparse lineage for %s",
+    (kind) => {
+      const sourceRefs = new Array(1);
+      expect(
+        check({
+          ...inference(kind),
+          provenance: { method: "synthetic-model", sourceRefs },
+        }).reasons,
+      ).toEqual(["invalid_provenance"]);
+      const partiallySparse = new Array(2);
+      partiallySparse[0] = {
+        table: "condition_readings",
+        id: "synthetic-reading",
+      };
+      expect(
+        check({
+          ...inference(kind),
+          provenance: {
+            method: "synthetic-model",
+            sourceRefs: partiallySparse,
+          },
+        }).reasons,
+      ).toEqual(["invalid_provenance"]);
+    },
+  );
   it("refuses arbitrary confidence or forecast horizon masquerading as observation", () => {
     expect(check({ ...observation(), confidence: 0.9 }).outcome).toBe(
       "invalid",
