@@ -47,7 +47,10 @@ assumptions. Replay outputs qualified values and explicit refusals only.
 `unknown`, or `quarantined`, with stable reason codes. It never reads the clock.
 The caller must provide the evaluation time. V1 requires canonical UTC
 millisecond timestamps (`YYYY-MM-DDTHH:mm:ss.sssZ`); unsupported representations
-are refused rather than silently normalized. Capture must precede receipt, and
+are refused rather than silently normalized. There are no clock source, offset,
+synchronization quality or timing-uncertainty fields in v1. Ordering assumes the
+supplied timestamps are exact; it is not uncertainty-qualified ordering.
+Capture must precede receipt, and
 receipt must not exceed `asOf`. Units match exactly; there is no conversion.
 Configuration validity is [validFrom, validUntil), covers capture, receipt and
 evaluation, and must match the supplied identity and exact version. V1 deliberately
@@ -64,7 +67,9 @@ quarantined; this stricter offline policy does not change live-ingest behavior.
 `replay` accepts typed envelopes in **supplied arrival order**. It creates only
 batch-local maps. Inputs are not changed, no state survives calls, and no IO,
 network, random generator, notification or operational action is invoked.
-A source-ID repeat with identical envelope content is `duplicate`. A different
+Determinism means the same supplied arrival order, not permutation invariance.
+A source-ID repeat with identical envelope content is `duplicate`, including
+repeated unknown or quarantined data; these duplicates never carry a qualified value. A different
 receipt timestamp also counts as changed content in v1: transport acknowledgement
 semantics are intentionally not solved here. Sorted object keys make comparison
 independent of property insertion order; array order remains significant. This

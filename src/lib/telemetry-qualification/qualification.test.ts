@@ -184,6 +184,79 @@ describe("telemetry qualification v1", () => {
       ).toEqual(["invalid_provenance"]);
     },
   );
+  it.each([NaN, Infinity, -Infinity, -0.01, 1.01])(
+    "refuses unbounded confidence %s",
+    (score) => {
+      const e = inference("condition_estimate");
+      expect(
+        check({
+          ...e,
+          confidence: {
+            meaning: "uncalibrated_model_score",
+            score,
+            applicability: "synthetic only",
+            basis: "fixture",
+          },
+        }).reasons,
+      ).toEqual(["invalid_confidence_semantics"]);
+    },
+  );
+  it.each(["basis", "applicability"])("requires confidence %s", (field) => {
+    expect(
+      check({
+        ...inference("forecast"),
+        confidence: {
+          meaning: "uncalibrated_model_score",
+          score: 0.5,
+          applicability: "synthetic only",
+          basis: "fixture",
+          [field]: "",
+        },
+      }).reasons,
+    ).toEqual(["invalid_confidence_semantics"]);
+  });
+  it("defines configuration validity endpoints without implicit clock tolerance", () => {
+    const e = observation();
+    expect(
+      check(e, { ...configuration, validFrom: e.capturedAt }).outcome,
+    ).toBe("valid");
+    expect(
+      check(e, { ...configuration, validFrom: "2026-01-01T00:01:00.001Z" })
+        .reasons,
+    ).toEqual(["stale_configuration"]);
+    expect(
+      check(e, { ...configuration, validUntil: "2026-01-01T00:10:00.001Z" })
+        .outcome,
+    ).toBe("valid");
+    expect(check(e, { ...configuration, validUntil: AS_OF }).reasons).toEqual([
+      "stale_configuration",
+    ]);
+    expect(
+      check(e, { ...configuration, validFrom: AS_OF, validUntil: AS_OF })
+        .reasons,
+    ).toEqual(["invalid_configuration"]);
+    expect(
+      check(e, { ...configuration, maxReceiptDelayMs: 1000 }).outcome,
+    ).toBe("valid");
+    expect(
+      check(e, { ...configuration, maxReceiptDelayMs: 999 }).reasons,
+    ).toEqual(["late_reading"]);
+  });
+  it("requires both model key and version in the supplied configuration", () => {
+    expect(
+      check({
+        ...inference("derived_feature"),
+        model: { modelKey: "other-model", version: "1" },
+      }).reasons,
+    ).toEqual(["model_version_mismatch"]);
+    expect(
+      check(inference("derived_feature"), { ...configuration, model: null })
+        .reasons,
+    ).toEqual(["model_version_mismatch"]);
+    expect(
+      check({ ...inference("derived_feature"), model: null }).reasons,
+    ).toEqual(["missing_model_or_lineage"]);
+  });
   it("refuses arbitrary confidence or forecast horizon masquerading as observation", () => {
     expect(check({ ...observation(), confidence: 0.9 }).outcome).toBe(
       "invalid",
@@ -353,6 +426,111 @@ describe("deterministic synthetic replay", () => {
           row.qualifiedValue === null,
       ),
     ).toBe(true);
+  });
+  it("treats the same source ID with changed receipt time as a content conflict", () => {
+    const e = observation();
+    const r = replay(
+      {
+        label: "receipt-change",
+        configuration,
+        events: [e, { ...e, receivedAt: "2026-01-01T00:01:02.000Z" }],
+      },
+      AS_OF,
+    );
+    expect(
+      r.rows.every(
+        (row) =>
+          row.outcome === "quarantined" &&
+          row.reasons.includes("conflicting_content_id") &&
+          row.qualifiedValue === null,
+      ),
+    ).toBe(true);
+  });
+  it.each(["unknown", "quarantined"] as const)(
+    "duplicates a repeated %s event without qualifying it",
+    (outcome) => {
+      const e =
+        outcome === "unknown"
+          ? observation("missing", null)
+          : { ...observation(), quality: "bad" as const };
+      const r = replay(
+        { label: "repeat-unusable", configuration, events: [e, e, e] },
+        AS_OF,
+      );
+      expect(r.rows.map((row) => row.outcome)).toEqual([
+        outcome,
+        "duplicate",
+        "duplicate",
+      ]);
+      expect(r.rows.every((row) => row.qualifiedValue === null)).toBe(true);
+    },
+  );
+  it("compares nested property order without splitting duplicate identity", () => {
+    const e = inference("condition_estimate");
+    const reordered = {
+      ...e,
+      identity: Object.fromEntries(Object.entries(e.identity).reverse()),
+      model: { version: "1", modelKey: "synthetic-feature" },
+      provenance: {
+        sourceRefs: [{ id: "synthetic-reading", table: "condition_readings" }],
+        method: "synthetic-model",
+      },
+    } as Telemetry;
+    expect(
+      replay(
+        { label: "nested-order", configuration, events: [e, reordered] },
+        AS_OF,
+      ).rows.map((row) => row.outcome),
+    ).toEqual(["valid", "duplicate"]);
+  });
+  it("separates source IDs by source system without cross-source fusion", () => {
+    const e = observation();
+    const r = replay(
+      {
+        label: "sources",
+        configuration,
+        events: [e, { ...e, sourceSystem: "other-source", value: 9 }],
+      },
+      AS_OF,
+    );
+    expect(r.rows.map((row) => row.outcome)).toEqual(["valid", "valid"]);
+  });
+  it("does not let an event from another tenant collide with a qualified event", () => {
+    const e = observation();
+    const r = replay(
+      {
+        label: "tenant-fields",
+        configuration,
+        events: [
+          e,
+          {
+            ...e,
+            identity: { ...e.identity, organizationId: "other-tenant" },
+            value: 9,
+          },
+        ],
+      },
+      AS_OF,
+    );
+    expect(r.rows.map((row) => row.outcome)).toEqual(["valid", "quarantined"]);
+    expect(r.rows[1].reasons).toEqual(["identity_binding_mismatch"]);
+    // This is field-validation coverage, not a test of authentication or RLS.
+  });
+  it("is deterministic for a supplied arrival order, not permutation invariant", () => {
+    const older = observation();
+    const newer = observation("newer", 4, 2);
+    expect(
+      replay(
+        { label: "ordered", configuration, events: [older, newer] },
+        AS_OF,
+      ).rows.map((row) => row.outcome),
+    ).toEqual(["valid", "valid"]);
+    expect(
+      replay(
+        { label: "reversed", configuration, events: [newer, older] },
+        AS_OF,
+      ).rows.map((row) => row.outcome),
+    ).toEqual(["valid", "quarantined"]);
   });
   it("compares semantic object content independent of property order", () => {
     const e = observation();
