@@ -61,7 +61,10 @@ alter table public.connector_runs
   add constraint connector_runs_transport_evidence_check check (
     transport_manifest is null
     or case when jsonb_typeof(transport_manifest)='array' then
-      jsonb_array_length(transport_manifest) between 1 and 100
+      -- Spell the bounds as sibling terms: PostgreSQL's dump/reparse flattens
+      -- a leading BETWEEN inside CASE, changing the catalog expression shape.
+      jsonb_array_length(transport_manifest) >= 1
+      and jsonb_array_length(transport_manifest) <= 100
       and coalesce(jsonb_typeof(transport_cursor_to)='object',false)
       and coalesce(source_object_count=jsonb_array_length(transport_manifest),false)
       and coalesce(source_bytes between 0 and 52428800,false)

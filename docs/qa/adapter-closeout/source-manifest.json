@@ -144,7 +144,7 @@
   "candidate_migrations": [
     {
       "path": "supabase/migrations/20270104090000_adls_read_contract.sql",
-      "sha256": "a5f678ace3df70ce28e48473acb8bcf4e4a74c1b144aa53aabf130ccb6fc31af"
+      "sha256": "5c70ce202d3a9090a5f36a2777045956f1eb340ee321447d0335ef33158671ca"
     },
     {
       "path": "supabase/migrations/20270104090100_adls_read_reconciliation.sql",

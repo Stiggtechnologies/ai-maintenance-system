@@ -103,6 +103,11 @@ and router remain unchanged. P6 and inventory now bind a SHA-256 source contract
 across discovery, attestation, ingestion and finish. Ingest/finish serialize on the
 run and source, recheck contract/actor/counts and refuse clean completion after drift.
 
+The new transport-manifest CHECK spells its 1–100 object bounds as sibling
+comparisons. A disposable PostgreSQL 17 dump/restore reproduced the prior leading
+BETWEEN expression being flattened inside CASE; explicit bounds preserve both the
+constraint and its catalog representation. The shared restore gate is unchanged.
+
 The three protected RE-2026.08 SQL object digests remain unchanged. No governed-SQL
 human approval record was fabricated or required by a protected-object change in
 this candidate. Architecture, security/tenancy and domain reviews are still required
