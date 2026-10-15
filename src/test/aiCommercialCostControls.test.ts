@@ -47,6 +47,7 @@ const marketplaceSmokes = [
   "scripts/ci-azure-marketplace-lifecycle-smoke.sh",
   "scripts/ci-azure-marketplace-metering-smoke.sh",
   "scripts/ci-azure-marketplace-preview-certification-smoke.sh",
+  "scripts/tests/sync-context-source-inventory-gates.sql",
 ].map((path) => readFileSync(path, "utf8").toLowerCase());
 
 describe("AI commercial cost controls", () => {
