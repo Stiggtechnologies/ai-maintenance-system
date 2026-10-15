@@ -1,10 +1,11 @@
 name: Garak
 
-# Not a required check. A missing NVIDIA_API_KEY or garak CLI skips the scan
-# job. That stays neutral: it is not a passing scan, and a fork without the
-# secret does not fail CI. The script itself exits 78 in that case so a
-# direct run is not a pass either. The production assistant stays behind
-# syncai_guard = false.
+# Not a required check. A missing NVIDIA_API_KEY skips the scan job. That
+# stays neutral: it is not a passing scan, and a fork without the secret does
+# not fail CI. The script itself exits 78 when the key or the garak CLI is
+# missing, so a direct run is not a pass either. When the key is present, the
+# scan job installs pinned garak on pinned Python and runs the probes. The
+# production assistant stays behind syncai_guard = false.
 
 on:
   workflow_dispatch:
@@ -27,12 +28,6 @@ jobs:
             echo "SKIPPED: NVIDIA_API_KEY is unset. Garak scan not run."
             echo "### Garak" >> "$GITHUB_STEP_SUMMARY"
             echo "SKIPPED: NVIDIA_API_KEY is unset. Garak scan not run." >> "$GITHUB_STEP_SUMMARY"
-          elif ! command -v garak >/dev/null 2>&1; then
-            echo "run=false" >> "$GITHUB_OUTPUT"
-            echo "result=skipped" >> "$GITHUB_OUTPUT"
-            echo "SKIPPED: garak CLI is not installed. Garak scan not run."
-            echo "### Garak" >> "$GITHUB_STEP_SUMMARY"
-            echo "SKIPPED: garak CLI is not installed. Garak scan not run." >> "$GITHUB_STEP_SUMMARY"
           else
             echo "run=true" >> "$GITHUB_OUTPUT"
             echo "result=ready" >> "$GITHUB_OUTPUT"
@@ -45,6 +40,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install Garak
+        run: python -m pip install garak==0.17.0
 
       - name: Run Garak
         env:
