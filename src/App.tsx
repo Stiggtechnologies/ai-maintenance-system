@@ -106,9 +106,17 @@ import { SyncFieldPage } from "./pages/SyncFieldPage";
 import { SyncTransitionPage } from "./pages/SyncTransitionPage";
 import { GateReviewPage } from "./pages/GateReviewPage";
 import { AssuranceCasePage } from "./pages/AssuranceCasePage";
-import { readDecisionCaseHandoff } from "./lib/decision-case";
 import { safeAuthReturnTo } from "./lib/auth-return";
 import { completePublicDraftHandoff } from "./lib/public-draft-handoff";
+import {
+  persistFirstDecisionHandoff,
+  readFirstDecisionDraft,
+} from "./lib/onboarding/first-decision-handoff";
+import {
+  createPersistedDecisionCase,
+  isPersistedDecisionCase,
+  savePersistedDecisionCase,
+} from "./services/decisionCaseService";
 import {
   initialAuthPage,
   pageAfterWorkspaceAuthorization,
@@ -238,15 +246,31 @@ function ApplicationRoutes() {
       setIsAuthenticated(true);
       setSignInApproved(true);
       setCurrentPage("app");
-      const handoff = readDecisionCaseHandoff(window.sessionStorage);
-      if (handoff) {
-        // Preserve the complete browser draft and chosen return path. This is
-        // not promotion into decisions/scenarios or a granted approval.
-        // The staged handoff is cleared only after both full copies are verified.
+      const staged = readFirstDecisionDraft(
+        window.sessionStorage,
+        signInReturnTo,
+      );
+      if (staged) {
+        // Persist a non-example browser draft onto the canonical Decision Case,
+        // then return to that saved case. A failed save keeps the staged draft.
+        // This is not an approval and does not execute plant work.
         try {
-          const destination = completePublicDraftHandoff(
-            handoff.decisionCase,
+          const search = signInReturnTo.includes("?")
+            ? signInReturnTo.slice(signInReturnTo.indexOf("?"))
+            : "";
+          const saved = await persistFirstDecisionHandoff(
+            staged,
+            search,
             signInReturnTo,
+            {
+              isPersisted: isPersistedDecisionCase,
+              create: (seed) => createPersistedDecisionCase(seed, {}),
+              save: savePersistedDecisionCase,
+            },
+          );
+          const destination = completePublicDraftHandoff(
+            saved.decisionCase,
+            saved.returnTo,
             window.localStorage,
             window.sessionStorage,
           );

@@ -67,7 +67,7 @@ import {
 
 import {
   stageEvaluationAssistantHandoff,
-  evaluationAssistantDestination,
+  evaluationRestoreDestination,
 } from "../lib/onboarding/evaluation-assistant-handoff";
 
 const emptyPeople = (): CasePeople => ({
@@ -1238,7 +1238,7 @@ export function DecisionCaseSpine({
         </p>
       ) : null}
 
-      <div className="flex items-start gap-2 text-[11px] text-slate-500">
+      <div className="flex items-start gap-2 text-sm leading-relaxed text-slate-200">
         <Shield className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal-300" />
         <span>
           {INVERTED_OPENING_AUTHORITY} Review the evidence and approval
@@ -1246,12 +1246,12 @@ export function DecisionCaseSpine({
         </span>
       </div>
       {!auth?.user ? (
-        <p className="text-center text-[11px] text-slate-600">
-          <TriangleAlert className="mr-1 inline h-3 w-3" />
+        <p className="text-center text-sm leading-relaxed text-slate-200">
+          <TriangleAlert className="mr-1 inline h-4 w-4" />
           Optional:{" "}
           <Link
-            className="text-teal-400"
-            to={`/?view=signup&returnTo=${encodeURIComponent(evaluationAssistantDestination(decisionCase, window.location.search))}`}
+            className="font-semibold text-teal-300"
+            to={`/?view=signup&returnTo=${encodeURIComponent(evaluationRestoreDestination(decisionCase, window.location.search))}`}
             onClick={() => {
               if (
                 blockWorkspacePersist ||

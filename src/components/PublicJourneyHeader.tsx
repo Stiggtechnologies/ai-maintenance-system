@@ -32,10 +32,13 @@ function useCanOfferWorkspace(): boolean {
 export function PublicJourneyHeader({
   search = window.location.search,
   offerWorkspace,
+  unsavedQuestionWarning,
 }: {
   search?: string;
   /** Pass false to hide the signup offer. Omit to hide it for an existing account. */
   offerWorkspace?: boolean;
+  /** Set when Assistant would leave a typed question that is not yet a draft. */
+  unsavedQuestionWarning?: string;
 }) {
   const detected = useCanOfferWorkspace();
   const showCreate = offerWorkspace === false ? false : detected;
@@ -44,17 +47,24 @@ export function PublicJourneyHeader({
     window.location.origin,
     window.location.pathname,
   );
+  const leaveAssistant = (event: { preventDefault: () => void }) => {
+    if (!unsavedQuestionWarning) return;
+    if (!window.confirm(unsavedQuestionWarning)) event.preventDefault();
+  };
   return (
     <header className="journey-header">
       <a
         className="journey-brand"
         href={destinations.assistant}
         aria-label="SyncAI workspace"
+        onClick={leaveAssistant}
       >
         <BrandWordmark className="h-7" />
       </a>
       <nav aria-label="Public navigation">
-        <a href={destinations.assistant}>Assistant</a>
+        <a href={destinations.assistant} onClick={leaveAssistant}>
+          Assistant
+        </a>
         <a href={destinations.firstDecision}>First decision</a>
         {showCreate ? (
           <a

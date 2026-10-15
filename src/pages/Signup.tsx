@@ -5,8 +5,8 @@ import { useOptionalAuth } from "../components/AuthProvider";
 import { SelfServeProgressChecklist } from "../components/onboarding/SelfServeProgressChecklist";
 import { PasswordField } from "../components/PasswordField";
 import { safeAuthReturnTo } from "../lib/auth-return";
-import { readDecisionCaseHandoff } from "../lib/decision-case";
 import { isExamplePrompt } from "../lib/onboarding/inverted-opening";
+import { readFirstDecisionDraft } from "../lib/onboarding/first-decision-handoff";
 import { selfServeProgress } from "../lib/onboarding/self-serve-progress";
 import { hasWorkspaceMembership, signUp } from "../lib/auth";
 import {
@@ -37,8 +37,8 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
   const [error, setError] = useState("");
   const [confirmationEmail, setConfirmationEmail] = useState("");
   const [hasWorkspace, setHasWorkspace] = useState(false);
-  const [handoff] = useState(() =>
-    readDecisionCaseHandoff(window.sessionStorage),
+  const [draft] = useState(() =>
+    readFirstDecisionDraft(window.sessionStorage, window.location.search),
   );
   useEffect(() => {
     const userId = auth?.user?.id ?? "";
@@ -54,8 +54,21 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
       cancelled = true;
     };
   }, [auth?.user?.id]);
-  const draft = handoff?.decisionCase;
   const example = draft ? isExamplePrompt(draft.objective) : false;
+  const retainedNotes = (draft?.evidence ?? []).filter(
+    (item) => item.quality === "high" || item.quality === "medium",
+  );
+  const journey =
+    draft && !example
+      ? {
+          caseNumber: draft.caseNumber,
+          asset: draft.asset,
+          organization: draft.organization,
+          site: draft.site,
+          statusLabel: draft.statusLabel,
+          version: draft.version,
+        }
+      : null;
   const accountExists = Boolean(auth?.user) || confirmationEmail.length > 0;
   const progress = selfServeProgress({
     signedIn: Boolean(auth?.user),
@@ -130,7 +143,7 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
 
   if (confirmationEmail || auth?.user) {
     return (
-      <AuthShell offerWorkspace={false}>
+      <AuthShell offerWorkspace={false} intent="signup" journey={journey}>
         <div className="mb-6">
           <SelfServeProgressChecklist
             progress={progress}
@@ -175,7 +188,7 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
   const inputClass =
     "w-full px-4 py-3 bg-industrial-black border border-industrial-border rounded-lg text-industrial-text focus:outline-hidden focus:border-[#3A8DFF] focus:ring-1 focus:ring-[#3A8DFF]";
   return (
-    <AuthShell>
+    <AuthShell intent="signup" journey={journey}>
       <div className="bg-industrial-slate rounded-xl p-8 border border-industrial-border backdrop-blur-xs">
         <div className="mb-6">
           <SelfServeProgressChecklist
@@ -188,11 +201,35 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
           <h1 className="text-2xl font-semibold text-industrial-text">
             Create a private evaluation workspace
           </h1>
-          <p className="mt-2 text-sm leading-6 text-industrial-muted">
+          <p className="mt-2 text-sm leading-6 text-industrial-text">
             Continue the Reliability Engineer work you started. Self-signups
             receive an isolated evaluation organization; production tenant
             membership remains invitation-controlled.
           </p>
+          {draft && !example ? (
+            <div
+              data-testid="signup-retained-draft"
+              className="mt-4 rounded-lg border border-industrial-border p-3 text-sm leading-6 text-industrial-text"
+            >
+              <p className="font-semibold">
+                Your question and evidence stay with this signup.
+              </p>
+              <p className="mt-2">{draft.objective}</p>
+              {retainedNotes.length > 0 ? (
+                <ul className="mt-2 list-disc pl-5">
+                  {retainedNotes.map((item) => (
+                    <li key={item.id}>{item.summary || item.finding}</li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="mt-2">No evidence note is on this draft yet.</p>
+              )}
+              <p className="mt-2">
+                After you sign in, this draft is saved as your first Decision
+                Case. It is not saved yet.
+              </p>
+            </div>
+          ) : null}
         </div>
         <form onSubmit={handleSignup} className="space-y-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -310,7 +347,7 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
               minLength={8}
               required
             />
-            <span className="mt-2 block text-xs text-industrial-muted">
+            <span className="mt-2 block text-sm text-industrial-text">
               Minimum 8 characters.
             </span>
           </div>
@@ -331,13 +368,13 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
           >
             {loading ? "Creating workspace…" : "Continue Reliability Engineer"}
           </motion.button>
-          <p className="text-center text-xs leading-5 text-industrial-muted">
+          <p className="text-center text-sm leading-6 text-industrial-text">
             Evaluation access is isolated from customer production tenants.
             Enterprise access is granted through an authorized organization
             invitation.
           </p>
         </form>
-        <div className="mt-7 flex justify-center gap-4 border-t border-industrial-border pt-5 text-xs text-industrial-muted">
+        <div className="mt-7 flex justify-center gap-4 border-t border-industrial-border pt-5 text-sm text-industrial-text">
           <button
             onClick={() => onTabChange("security")}
             className="hover:text-industrial-text"

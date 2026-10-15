@@ -2,6 +2,11 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SIGNUP_INDUSTRY_OPTIONS } from "../lib/industry-catalog";
+import {
+  attachSpineEvidence,
+  buildSpineDecisionCase,
+} from "../lib/onboarding/decision-case-spine";
+import { stageDecisionCaseHandoff } from "../lib/decision-case";
 import { Signup } from "./Signup";
 
 const authHolder = vi.hoisted(() => ({
@@ -61,6 +66,38 @@ describe("Signup industry selection", () => {
     authHolder.user = null;
     membership.hasWorkspace = false;
     signUpMock.mockReset();
+    sessionStorage.clear();
+  });
+
+  it("keeps the staged question on the sign-up panel", () => {
+    const decision = attachSpineEvidence(
+      buildSpineDecisionCase({
+        question:
+          "Should we hold the inspection interval on the reclaim pump until the next outage?",
+        intent: "solve",
+      }),
+      "inspection",
+      "paste_data",
+      "Synthetic inspection note kept for signup",
+    );
+    stageDecisionCaseHandoff(sessionStorage, decision);
+    render(<Signup onSuccess={vi.fn()} onTabChange={vi.fn()} />);
+    expect(
+      screen.getByRole("heading", {
+        name: "Create your evaluation workspace.",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", {
+        name: "Sign in to your governed workspace.",
+      }),
+    ).toBeNull();
+    expect(screen.getByTestId("signup-retained-draft")).toHaveTextContent(
+      decision.objective,
+    );
+    expect(screen.getByTestId("signup-retained-draft")).toHaveTextContent(
+      "Synthetic inspection note kept for signup",
+    );
   });
 
   it("uses the canonical catalog and captures a custom industry name", () => {

@@ -21,8 +21,28 @@ import type {
 } from "../decision-case";
 import type { InvertedIntentId } from "./inverted-opening";
 
-const BANNED_SEED =
-  /Fort McMurray|North Ridge Energy|P-101|dc-1048|Copper Ridge/i;
+/** Demo plant, company, and case identities. A bare equipment tag is not a seed name. */
+const BANNED_SEED_PHRASES = [
+  "P-101 process pump",
+  "Fort McMurray",
+  "North Ridge Energy",
+  "Copper Ridge",
+  "dc-1048",
+] as const;
+
+export function findBannedSeedSubject(text: string): string | null {
+  for (const phrase of BANNED_SEED_PHRASES) {
+    const match = text.match(
+      new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"),
+    );
+    if (match?.[0]) return match[0];
+  }
+  return null;
+}
+
+export function bannedSeedSubjectMessage(phrase: string): string {
+  return `"${phrase}" is a demo seed name, so it cannot be the subject of your first case. Rewrite the question with your own site or asset. An equipment tag such as P-101 is allowed on its own.`;
+}
 
 export const SPINE_STAGES = [
   "QUESTION",
@@ -50,7 +70,7 @@ export const STAGE_HELP: readonly StageHelp[] = [
     stage: "QUESTION",
     label: "QUESTION",
     doThis:
-      "Write the engineering question in your own words, then save the assessment to open this case.",
+      "Read the question on this open case and check that it is your own engineering decision. A browser draft is not done until it is saved on the workspace.",
     willNot:
       "Sync will not invent a plant, asset, demo case, or a question you did not ask.",
   },
@@ -362,10 +382,9 @@ export function buildSpineDecisionCase(input: {
   if (question.length < 12) {
     throw new Error("A Decision Case needs a real question.");
   }
-  if (BANNED_SEED.test(question)) {
-    throw new Error(
-      "Seed plant names are not accepted as a first-run subject.",
-    );
+  const banned = findBannedSeedSubject(question);
+  if (banned) {
+    throw new Error(bannedSeedSubjectMessage(banned));
   }
   const empty = createHonestEmptyDecisionCase(
     "Reliability Engineer",

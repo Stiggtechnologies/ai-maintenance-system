@@ -17,6 +17,18 @@ export function evaluationAssistantDestination(
 ): string {
   return `/workspace/cases/${encodeURIComponent(decisionCase.id)}?${parameters(decisionCase, search).toString()}`;
 }
+
+/** Restorable Get started URL. A browser draft id stays off `/workspace/cases`. */
+export function evaluationRestoreDestination(
+  decisionCase: DecisionCase,
+  search: string,
+  view: "ask" | "evaluation" = "evaluation",
+): string {
+  const params = parameters(decisionCase, search);
+  params.set("case", decisionCase.id);
+  params.set("view", view);
+  return `/get-started?${params.toString()}`;
+}
 export function rememberEvaluationDraft(
   decisionCase: DecisionCase,
   search: string,
@@ -36,10 +48,7 @@ export function rememberEvaluationDraft(
     ],
     key,
   );
-  const params = parameters(decisionCase, search);
-  params.set("case", decisionCase.id);
-  params.set("view", view);
-  return `/get-started?${params.toString()}`;
+  return evaluationRestoreDestination(decisionCase, search, view);
 }
 export function readEvaluationDraftLocation(
   search: string,
