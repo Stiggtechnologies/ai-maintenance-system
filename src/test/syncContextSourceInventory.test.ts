@@ -3,7 +3,7 @@ import { spawnSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 
 const path =
-  "supabase/migrations/20270103170000_sync_context_source_inventory.sql";
+  "supabase/migrations/20270104091300_sync_context_source_inventory.sql";
 
 describe("Context source inventory migration wiring (not runtime qualification)", () => {
   it("wires canonical missing-profile, commercial suspension, state and budget probes without disabling guards", () => {
@@ -117,7 +117,7 @@ describe("Context source inventory migration wiring (not runtime qualification)"
 
   it("retains every operating gate after the shared-classifier extraction", () => {
     const old = readFileSync(
-      "supabase/migrations/20270103160000_sync_context_operating_picture.sql",
+      "supabase/migrations/20270104091200_sync_context_operating_picture.sql",
       "utf8",
     );
     const next = readFileSync(path, "utf8");

@@ -2,12 +2,12 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(
-  "supabase/migrations/20270103150000_sync_context_operating_contract.sql",
+  "supabase/migrations/20270104091100_sync_context_operating_contract.sql",
   "utf8",
 ).toLowerCase();
 const smoke = readFileSync("scripts/ci-sync-context-contract-smoke.sh", "utf8");
 const operatingSql = readFileSync(
-  "supabase/migrations/20270103160000_sync_context_operating_picture.sql",
+  "supabase/migrations/20270104091200_sync_context_operating_picture.sql",
   "utf8",
 ).toLowerCase();
 
