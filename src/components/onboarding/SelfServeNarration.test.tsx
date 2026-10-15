@@ -77,9 +77,16 @@ describe("SelfServeNarration", () => {
       "false",
     );
     expect(screen.getByTestId("self-serve-narration-off").textContent).toMatch(
+      /unavailable for this workspace/i,
+    );
+    expect(screen.getByTestId("self-serve-narration-off").textContent).toMatch(
       /no speech request is made/i,
     );
+    const mute = screen.getByRole("button", { name: "Mute" });
+    expect(mute).toBeEnabled();
     fireEvent.click(toggle);
+    fireEvent.click(mute);
+    expect(readMutePreference(window.localStorage)).toBe(true);
     expect(probe).not.toHaveBeenCalled();
     expect(requestAudio).not.toHaveBeenCalled();
     expect(window.speechSynthesis.speak).not.toHaveBeenCalled();
@@ -114,7 +121,7 @@ describe("SelfServeNarration", () => {
       <SelfServeNarration script="Write the engineering decision in your own words." />,
     );
     const toggle = screen.getByRole("button", { name: "Talk me through it" });
-    const mute = screen.getByRole("button", { name: "Stop narration" });
+    const mute = screen.getByRole("button", { name: "Mute" });
     expect(toggle.getAttribute("aria-pressed")).toBe("false");
     expect(mute).toBeDisabled();
     await waitFor(() => expect(probe).toHaveBeenCalled());
@@ -144,7 +151,7 @@ describe("SelfServeNarration", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: "Talk me through it" }));
     await waitFor(() => expect(requestAudio).toHaveBeenCalled());
-    fireEvent.click(screen.getByRole("button", { name: "Stop narration" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mute" }));
 
     expect(window.localStorage.getItem(PRESENCE_MUTE_STORAGE_KEY)).toBe("1");
     expect(readMutePreference(window.localStorage)).toBe(true);
@@ -188,5 +195,38 @@ describe("SelfServeNarration", () => {
     );
     expect(src).toContain("stripForSpeech");
     expect(src).toContain("useState(false)");
+  });
+
+  it("turns narration back on when Unmute clears the saved preference", async () => {
+    flag.enabled = true;
+    window.localStorage.setItem(PRESENCE_MUTE_STORAGE_KEY, "1");
+    render(
+      <SelfServeNarration script="Write the engineering decision in your own words." />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Talk me through it" }),
+    ).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Unmute" }));
+    expect(readMutePreference(window.localStorage)).toBe(false);
+    expect(
+      screen.getByRole("button", { name: "Talk me through it" }),
+    ).toBeEnabled();
+    await waitFor(() => expect(probe).toHaveBeenCalled());
+    expect(requestAudio).not.toHaveBeenCalled();
+  });
+
+  it("keeps Talk me through it off after Unmute when the workspace has no voice", () => {
+    window.localStorage.setItem(PRESENCE_MUTE_STORAGE_KEY, "1");
+    render(<SelfServeNarration script="Write the engineering decision." />);
+    fireEvent.click(screen.getByRole("button", { name: "Unmute" }));
+    expect(readMutePreference(window.localStorage)).toBe(false);
+    expect(
+      screen.getByRole("button", { name: "Talk me through it" }),
+    ).toBeDisabled();
+    expect(screen.getByTestId("self-serve-narration-off").textContent).toMatch(
+      /unavailable for this workspace/i,
+    );
+    expect(probe).not.toHaveBeenCalled();
+    expect(requestAudio).not.toHaveBeenCalled();
   });
 });

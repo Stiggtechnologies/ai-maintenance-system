@@ -15,7 +15,7 @@ export const FIRST_DECISION_HELP = {
     "3. Continue, then save. A Decision Case in this browser is a draft. It is not done until that revision is saved on an evaluation workspace. Pricing and a sales conversation stay off this path.",
     "4. First value counts only after that save includes your evidence or a recommendation you can review. A note that is still only in this browser does not count. It is a deterministic evaluation of what you saved, not a live plant analysis, not an approval, and not permission to execute work.",
     "5. Record your own decision and how you will verify the outcome. Sync recommends. You authorize.",
-    "Talk me through it speaks the current step only when Voice output is enabled for this workspace and this browser is not muted. Otherwise the button stays off and no speech request is made.",
+    "Talk me through it and Mute stay next to the checklist. Speech runs only when Voice output is enabled for this workspace and this browser is not muted. If voice is unavailable, both controls stay visible and no speech request is made.",
     "Talk to us is available if you want a person. It is not required to reach a Decision Case or first value.",
   ].join("\n\n"),
 } as const;

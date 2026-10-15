@@ -9,6 +9,8 @@ interface AuthShellProps {
   children: ReactNode;
   /** False hides "Create a workspace" after this account already exists. */
   offerWorkspace?: boolean;
+  /** Matches the active auth tab. Signup must not reuse the sign-in heading. */
+  intent?: "signin" | "signup";
   journey?: {
     caseNumber: string;
     asset: string;
@@ -33,8 +35,10 @@ export function AuthShell({
   children,
   journey,
   offerWorkspace,
+  intent = "signin",
 }: AuthShellProps) {
   const { theme } = usePublicJourneyTheme();
+  const signup = intent === "signup";
   return (
     <div className="public-journey" data-theme={theme}>
       <PublicJourneyHeader offerWorkspace={offerWorkspace} />
@@ -42,14 +46,20 @@ export function AuthShell({
         <section className="journey-auth-story">
           <p className="journey-eyebrow">Governed engineering intelligence</p>
           <h1>
-            {journey
-              ? `Continue ${journey.caseNumber}.`
-              : "Sign in to your governed workspace."}
+            {signup
+              ? "Create your evaluation workspace."
+              : journey
+                ? `Continue ${journey.caseNumber}.`
+                : "Sign in to your governed workspace."}
           </h1>
           <p>
-            {journey
-              ? "Your question and evidence remain browser drafts. Sign in to continue reviewing them; authentication does not grant approval or verify an outcome."
-              : "Return to the decisions, evidence, approvals, controlled work, and measured outcomes your team is governing."}
+            {signup
+              ? journey
+                ? `This tab still has ${journey.caseNumber}, including the question and evidence you started. If you open the confirmation link elsewhere, return to this tab and sign in here, or the draft is lost. Creating the workspace does not approve a recommendation or run the plant.`
+                : "Sign up to keep a Decision Case on an evaluation workspace. You can ask a question first. The question stays in this browser tab until you sign in here. This does not grant production access."
+              : journey
+                ? "Your question and evidence remain browser drafts. Sign in to continue reviewing them; authentication does not grant approval or verify an outcome."
+                : "Return to the decisions, evidence, approvals, controlled work, and measured outcomes your team is governing."}
           </p>
           {journey && (
             <div className="journey-auth-case">

@@ -114,9 +114,11 @@
 .journey-header nav a:hover {
   color: var(--journey-ink);
 }
-.journey-header-quiet {
-  font-size: 12px;
-  opacity: 0.75;
+.journey-header nav a.journey-header-quiet {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--journey-ink);
+  opacity: 1;
 }
 .journey-theme-toggle {
   display: grid;

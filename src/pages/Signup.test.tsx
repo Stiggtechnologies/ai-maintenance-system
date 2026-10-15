@@ -2,6 +2,11 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SIGNUP_INDUSTRY_OPTIONS } from "../lib/industry-catalog";
+import {
+  attachSpineEvidence,
+  buildSpineDecisionCase,
+} from "../lib/onboarding/decision-case-spine";
+import { stageDecisionCaseHandoff } from "../lib/decision-case";
 import { Signup } from "./Signup";
 
 const authHolder = vi.hoisted(() => ({
@@ -61,6 +66,48 @@ describe("Signup industry selection", () => {
     authHolder.user = null;
     membership.hasWorkspace = false;
     signUpMock.mockReset();
+    sessionStorage.clear();
+  });
+
+  it("keeps the staged question on the sign-up panel", () => {
+    const decision = attachSpineEvidence(
+      buildSpineDecisionCase({
+        question:
+          "Should we hold the inspection interval on the reclaim pump until the next outage?",
+        intent: "solve",
+      }),
+      "inspection",
+      "paste_data",
+      "Synthetic inspection note kept for signup",
+    );
+    stageDecisionCaseHandoff(sessionStorage, decision);
+    render(<Signup onSuccess={vi.fn()} onTabChange={vi.fn()} />);
+    expect(
+      screen.getByRole("heading", {
+        name: "Create your evaluation workspace.",
+      }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", {
+        name: "Sign in to your governed workspace.",
+      }),
+    ).toBeNull();
+    expect(screen.getByTestId("signup-retained-draft")).toHaveTextContent(
+      decision.objective,
+    );
+    expect(screen.getByTestId("signup-retained-draft")).toHaveTextContent(
+      "Synthetic inspection note kept for signup",
+    );
+    expect(screen.getByTestId("signup-retained-draft")).toHaveTextContent(
+      "If you open the confirmation link elsewhere, return to this tab and sign in here, or the draft is lost.",
+    );
+    expect(screen.getByTestId("signup-retained-draft").textContent).not.toMatch(
+      /stay with this signup/i,
+    );
+    expect(document.body.textContent).not.toMatch(/Reliability Engineer case/i);
+    expect(document.body.textContent).toMatch(
+      /This tab still has .* including the question and evidence you started/,
+    );
   });
 
   it("uses the canonical catalog and captures a custom industry name", () => {
@@ -151,6 +198,10 @@ describe("Signup industry selection", () => {
     expect(
       screen.getAllByText(/will not create another workspace/i).length,
     ).toBeGreaterThan(0);
+    expect(document.body.textContent).toMatch(
+      /If you open the confirmation link elsewhere, return to this tab and sign in here, or the draft is lost\./,
+    );
+    expect(document.body.textContent).not.toMatch(/Reliability Engineer case/i);
   });
 
   it("sends eval signup through /start, not Mission Control", () => {
