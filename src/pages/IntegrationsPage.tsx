@@ -18,6 +18,7 @@ import { CmmsReadConnectorSetup } from "../components/CmmsReadConnectorSetup";
 import { P6ScheduleReadConnectorSetup } from "../components/P6ScheduleReadConnectorSetup";
 import { SapS4InventoryReadConnectorSetup } from "../components/SapS4InventoryReadConnectorSetup";
 import { SapS4FinancialReadConnectorSetup } from "../components/SapS4FinancialReadConnectorSetup";
+import { BentlySystem1ConnectorSetup } from "../components/BentlySystem1ConnectorSetup";
 import { P6ScheduleRevisionReview } from "../components/P6ScheduleRevisionReview";
 
 interface Connector {
@@ -351,6 +352,7 @@ export function IntegrationsPage() {
       <P6ScheduleReadConnectorSetup onConfigured={loadData} />
       <SapS4InventoryReadConnectorSetup onConfigured={loadData} />
       <SapS4FinancialReadConnectorSetup onConfigured={loadData} />
+      <BentlySystem1ConnectorSetup onConfigured={loadData} />
       <RecoverySignalConnectorSetup onConfigured={loadData} />
       <ConnectorHealth />
       <DataGovernance />

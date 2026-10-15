@@ -5,6 +5,7 @@
     "agent-loop-enrich",
     "ai-agent-processor",
     "autonomous-orchestrator",
+    "bently-system1-condition-read-pull",
     "calculation-service",
     "cmms-read-pull",
     "data-lake-read-pull",
