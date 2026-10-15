@@ -74,7 +74,7 @@ describe("self-serve progress", () => {
     });
     expect(draft.steps.map((step) => [step.id, step.status])).toEqual([
       ["signup", "open"],
-      ["question", "open"],
+      ["question", "now"],
       ["decision_case", "now"],
       ["first_value", "open"],
     ]);

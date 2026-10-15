@@ -18,19 +18,23 @@ import {
 } from "../lib/onboarding/inverted-opening";
 import {
   SPINE_SAVED_CASE_KEY,
+  bannedSeedSubjectMessage,
   buildSpineDecisionCase,
+  findBannedSeedSubject,
 } from "../lib/onboarding/decision-case-spine";
 import {
   normalizeDecisionIndustry,
+  stageDecisionCaseHandoff,
   type DecisionCase,
 } from "../lib/decision-case";
+import { isSeedDecisionCaseId } from "../lib/decision-case-honesty";
 import {
   createPersistedDecisionCase,
   isPersistedDecisionCase,
   loadPersistedDecisionCase,
 } from "../services/decisionCaseService";
 import {
-  evaluationAssistantDestination,
+  evaluationRestoreDestination,
   readEvaluationDraftLocation,
   rememberEvaluationDraft,
 } from "../lib/onboarding/evaluation-assistant-handoff";
@@ -109,15 +113,18 @@ export function InvertedOpeningPage() {
       setPersistedCase(next);
       setCaseSaved(currentRevisionSaved);
       try {
+        const search = window.location.search;
         window.history.replaceState(
           null,
           "",
-          rememberEvaluationDraft(
-            next,
-            window.location.search,
-            window.sessionStorage,
-          ),
+          rememberEvaluationDraft(next, search, window.sessionStorage),
         );
+        if (
+          !isExamplePrompt(next.objective) &&
+          !isSeedDecisionCaseId(next.id)
+        ) {
+          stageDecisionCaseHandoff(window.sessionStorage, next);
+        }
       } catch {
         setPersistError(
           "This browser could not retain the draft through refresh. Keep this page open and export the proof summary.",
@@ -127,7 +134,8 @@ export function InvertedOpeningPage() {
     [],
   );
 
-  const canSave = ask.trim().length >= 12;
+  const seedPhrase = findBannedSeedSubject(ask);
+  const canSave = ask.trim().length >= 12 && !seedPhrase;
   const exampleText = isExamplePrompt(ask);
   const savedRevision =
     caseSaved &&
@@ -149,9 +157,18 @@ export function InvertedOpeningPage() {
       isReviewableSavedRecommendation(persistedCase?.recommendation),
   });
   const signupReturn = persistedCase
-    ? evaluationAssistantDestination(persistedCase, window.location.search)
+    ? evaluationRestoreDestination(persistedCase, window.location.search)
     : `/get-started${window.location.search}`;
   const signupHref = `/?view=signup&returnTo=${encodeURIComponent(signupReturn)}`;
+  const carriedCaseId = new URLSearchParams(window.location.search).get("case");
+  const draftCarried =
+    Boolean(persistedCase) &&
+    carriedCaseId === persistedCase?.id &&
+    persistedCase.objective.trim() === ask.trim();
+  const unsavedQuestionWarning =
+    ask.trim().length >= 12 && !exampleText && !seedPhrase && !draftCarried
+      ? "This question is not saved. Leave this page?"
+      : undefined;
 
   const openSpine = (
     question: string,
@@ -258,13 +275,78 @@ export function InvertedOpeningPage() {
     }
   };
 
+  useEffect(() => {
+    const id = new URLSearchParams(window.location.search).get("case") ?? "";
+    if (!isPersistedDecisionCase(id)) return;
+    let cancelled = false;
+    void loadPersistedDecisionCase(id)
+      .then((loaded) => {
+        if (cancelled || !loaded || isExamplePrompt(loaded.objective)) return;
+        setAsk(loaded.objective);
+        setIntent(
+          loaded.intakeRole === "coordinate" || loaded.intakeRole === "connect"
+            ? loaded.intakeRole
+            : "solve",
+        );
+        setPersistedCase(loaded);
+        setCaseSaved(true);
+        setExamplePreview(false);
+        if (new URLSearchParams(window.location.search).get("view") !== "ask") {
+          setSpineQuestion(loaded.objective);
+        }
+      })
+      .catch(() => {
+        /* The session draft stays visible and is not claimed as saved. */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const signInToSave = () => {
+    const question = ask.trim();
+    if (!question || exampleText || findBannedSeedSubject(question)) return;
+    let draftCase = persistedCase;
+    if (
+      !draftCase ||
+      draftCase.objective !== question ||
+      draftCase.intakeRole !== intent
+    ) {
+      try {
+        draftCase = buildSpineDecisionCase({ question, intent, industry });
+      } catch (caught) {
+        setPersistError(
+          caught instanceof Error
+            ? caught.message
+            : "This question cannot start a case.",
+        );
+        return;
+      }
+    }
+    try {
+      const search = window.location.search;
+      rememberEvaluationDraft(draftCase, search, window.sessionStorage);
+      if (!isSeedDecisionCaseId(draftCase.id)) {
+        stageDecisionCaseHandoff(window.sessionStorage, draftCase);
+      }
+      const returnTo = evaluationRestoreDestination(draftCase, search);
+      window.location.assign(
+        `/?view=signup&returnTo=${encodeURIComponent(returnTo)}`,
+      );
+    } catch {
+      setPersistError(
+        "This browser could not retain the draft. Keep this page open.",
+      );
+    }
+  };
+
   return (
     <main
       data-testid="inverted-opening"
       className="public-journey journey-evaluation"
       data-theme={journeyTheme.theme}
     >
-      <PublicJourneyHeader />
+      <PublicJourneyHeader unsavedQuestionWarning={unsavedQuestionWarning} />
       <div className="journey-evaluation-body mx-auto flex w-full flex-col gap-6">
         <SelfServeProgressChecklist
           progress={progress}
@@ -315,6 +397,15 @@ export function InvertedOpeningPage() {
                 placeholder="What engineering decision do you need to make?"
                 className="w-full rounded-2xl border border-white/10 bg-[#0D1520] px-4 py-3 text-sm text-white outline-none ring-teal-400/40 placeholder:text-slate-500 focus:ring-2"
               />
+              {seedPhrase ? (
+                <p
+                  role="alert"
+                  data-testid="inverted-seed-warning"
+                  className="text-sm leading-relaxed text-amber-100"
+                >
+                  {bannedSeedSubjectMessage(seedPhrase)}
+                </p>
+              ) : null}
               <div className="flex flex-col gap-2">
                 {INVERTED_EXAMPLE_PROMPTS.map((ex) => (
                   <button
@@ -387,14 +478,18 @@ export function InvertedOpeningPage() {
                 className="space-y-3 rounded-2xl border border-teal-500/30 bg-[#0D1520] p-4"
               >
                 <p className="text-sm font-semibold text-white">
-                  Save this assessment and continue?
+                  {exampleText
+                    ? "Preview this example without saving?"
+                    : auth?.user
+                      ? "Save this assessment and continue?"
+                      : "Continue in this browser?"}
                 </p>
-                <p className="text-xs leading-relaxed text-slate-400">
+                <p className="text-sm leading-relaxed text-slate-200">
                   {exampleText
                     ? "This text is an Example prompt. It stays an affordance and is not saved into your workspace. Rewrite it as your question, or preview the loop without saving."
                     : auth?.user
                       ? "Saving creates the Decision Case on your evaluation workspace. Ask already happened — org setup is not repeated here. Pricing stays out of this path."
-                      : "The Decision Case continues now, before an organization form. A workspace is created only if you save after sign-in. Pricing stays out of this path."}
+                      : "The Decision Case continues in this browser. It is not saved until you sign in. Pricing stays out of this path."}
                 </p>
                 {persistError ? (
                   <p role="alert" className="text-xs text-red-300">
@@ -405,16 +500,28 @@ export function InvertedOpeningPage() {
                   <button
                     type="button"
                     data-testid="inverted-save-continue"
-                    disabled={busy}
-                    className="rounded-lg bg-teal-400 px-3 py-2 text-xs font-bold text-slate-950 disabled:opacity-40"
+                    disabled={busy || Boolean(seedPhrase)}
+                    className="rounded-lg bg-teal-400 px-3 py-2 text-sm font-bold text-slate-950 disabled:cursor-not-allowed disabled:bg-teal-900 disabled:text-slate-100"
                     onClick={() => void confirmSave()}
                   >
                     {busy
                       ? "Saving…"
                       : exampleText
                         ? "Preview without saving"
-                        : "Save and continue"}
+                        : auth?.user
+                          ? "Save and continue"
+                          : "Continue in this browser"}
                   </button>
+                  {!exampleText && !auth?.user ? (
+                    <button
+                      type="button"
+                      data-testid="inverted-signin-to-save"
+                      className="rounded-lg border border-white/30 px-3 py-2 text-sm font-semibold text-slate-100"
+                      onClick={signInToSave}
+                    >
+                      Sign in to save this Decision Case
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     className="rounded-lg border border-white/15 px-3 py-2 text-xs font-semibold text-slate-200"
@@ -491,7 +598,7 @@ export function InvertedOpeningPage() {
             />
           </section>
         ) : (
-          <p className="text-center text-[11px] text-slate-600">
+          <p className="text-center text-sm leading-relaxed text-slate-200">
             Start with your own question, or preview a labeled example. Review
             the evidence and next steps before saving a customer case.
           </p>

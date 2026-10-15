@@ -1,8 +1,8 @@
 /**
  * Optional step narration for the self-serve Get started path.
- * Off until the visitor turns it on, and only when tenant Voice output is
- * enabled and this browser is not muted. Otherwise the speech hook is not
- * mounted, so no cloud TTS request is made.
+ * Talk me through it and Mute stay visible. The speech hook mounts only when
+ * tenant Voice output is enabled and this browser is not muted, so no cloud
+ * TTS request is made while voice is unavailable or muted.
  */
 import { useEffect, useState } from "react";
 import { Volume2, VolumeX } from "lucide-react";
@@ -13,6 +13,9 @@ import {
   writeMutePreference,
 } from "../../lib/presence/welcome";
 import { stripForSpeech } from "../../../supabase/functions/_shared/sync-tts-core";
+
+const controlClass =
+  "inline-flex items-center gap-1.5 rounded-lg border border-white/30 bg-[#0D1520] px-3 py-2 text-base font-semibold text-slate-100 disabled:cursor-not-allowed disabled:text-slate-200";
 
 function browserVoiceMuted(): boolean {
   try {
@@ -56,16 +59,12 @@ function NarrationControls({
   };
 
   return (
-    <div
-      className="flex flex-wrap items-center gap-2"
-      data-testid="self-serve-narration"
-      data-voice-allowed="true"
-    >
+    <div className="flex flex-wrap items-center gap-2">
       <button
         type="button"
         data-testid="self-serve-narration-toggle"
         aria-pressed={enabled}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-slate-100"
+        className={controlClass}
         onClick={() => {
           if (enabled) {
             mute();
@@ -74,18 +73,18 @@ function NarrationControls({
           setEnabled(true);
         }}
       >
-        <Volume2 className="h-3.5 w-3.5" aria-hidden />
+        <Volume2 className="h-4 w-4" aria-hidden />
         Talk me through it
       </button>
       <button
         type="button"
         data-testid="self-serve-narration-stop"
-        aria-label="Stop narration"
+        aria-label="Mute"
         disabled={!enabled && !speaking}
-        className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-slate-100 disabled:opacity-40"
+        className={controlClass}
         onClick={mute}
       >
-        <VolumeX className="h-3.5 w-3.5" aria-hidden />
+        <VolumeX className="h-4 w-4" aria-hidden />
         Mute
       </button>
     </div>
@@ -95,41 +94,60 @@ function NarrationControls({
 export function SelfServeNarration({ script }: { script: string }) {
   const voice = useFeatureFlag("sync_voice_output");
   const [muted, setMuted] = useState(browserVoiceMuted);
-  const allowed = voice.enabled && !voice.loading && !muted;
-  const mute = () => {
-    persistBrowserMute(true);
-    setMuted(true);
+  const workspaceVoice = voice.enabled && !voice.loading;
+  const allowed = workspaceVoice && !muted;
+  const setMute = (next: boolean) => {
+    persistBrowserMute(next);
+    setMuted(next);
   };
+  const unavailable = voice.loading
+    ? "Checking whether this workspace can speak. No speech request is made until voice is available."
+    : !workspaceVoice
+      ? "Voice is unavailable for this workspace. Talk me through it stays off, and no speech request is made."
+      : "Narration is muted in this browser. Unmute to turn Talk me through it on when this workspace allows voice. No speech request is made while muted.";
 
-  if (!allowed) {
-    return (
-      <div
-        className="max-w-xs"
-        data-testid="self-serve-narration"
-        data-voice-allowed="false"
-      >
-        <button
-          type="button"
-          disabled
-          aria-pressed="false"
-          aria-describedby="self-serve-narration-off"
-          data-testid="self-serve-narration-toggle"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-slate-100 disabled:opacity-40"
-        >
-          <Volume2 className="h-3.5 w-3.5" aria-hidden />
-          Talk me through it
-        </button>
+  return (
+    <div
+      className="max-w-sm"
+      data-testid="self-serve-narration"
+      data-voice-allowed={allowed ? "true" : "false"}
+    >
+      {allowed ? (
+        <NarrationControls script={script} onMute={() => setMute(true)} />
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            disabled
+            aria-pressed="false"
+            aria-describedby="self-serve-narration-off"
+            data-testid="self-serve-narration-toggle"
+            className={controlClass}
+          >
+            <Volume2 className="h-4 w-4" aria-hidden />
+            Talk me through it
+          </button>
+          <button
+            type="button"
+            data-testid="self-serve-narration-stop"
+            aria-pressed={muted}
+            className={controlClass}
+            onClick={() => setMute(!muted)}
+          >
+            <VolumeX className="h-4 w-4" aria-hidden />
+            {muted ? "Unmute" : "Mute"}
+          </button>
+        </div>
+      )}
+      {allowed ? null : (
         <p
           id="self-serve-narration-off"
           data-testid="self-serve-narration-off"
-          className="mt-1 text-xs leading-relaxed text-slate-400"
+          className="mt-1 text-sm leading-relaxed text-slate-200"
         >
-          Spoken walkthrough is off. Voice output is disabled for this workspace
-          or muted in this browser, so no speech request is made.
+          {unavailable}
         </p>
-      </div>
-    );
-  }
-
-  return <NarrationControls script={script} onMute={mute} />;
+      )}
+    </div>
+  );
 }

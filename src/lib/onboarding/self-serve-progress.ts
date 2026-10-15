@@ -120,6 +120,11 @@ export function selfServeProgress(
     if (done) return "done";
     if (id === "signup") return signupNow ? "now" : "open";
     if (signupNow) return "open";
+    // An example and a written question that is not saved yet are both Now.
+    // Done waits until that question is on a saved Decision Case.
+    if (id === "question" && (example || questionWritten) && !questionDone) {
+      return "now";
+    }
     return productNow === id ? "now" : "open";
   };
 
@@ -186,8 +191,13 @@ export function selfServeProgress(
 
   const narration = signupNow
     ? SIGNUP_NARRATION
-    : (steps.find((step) => step.status === "now")?.narration ??
-      COMPLETE_NARRATION);
+    : productNow === "question"
+      ? QUESTION_NARRATION
+      : productNow === "decision_case"
+        ? DRAFT_CASE_NARRATION
+        : productNow === "first_value"
+          ? VALUE_NARRATION
+          : COMPLETE_NARRATION;
 
   return { steps, narration, offerWorkspace };
 }
