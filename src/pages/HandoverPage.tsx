@@ -10,6 +10,7 @@
 import { RecoveryContextPanel } from "../components/RecoveryContextPanel";
 import { OpsCoordination } from "../components/OpsCoordination";
 import { DailyCoordinationControl } from "../components/DailyCoordinationControl";
+import { ProductionLossReconciliation } from "../components/ProductionLossReconciliation";
 
 export function HandoverPage() {
   return (
@@ -27,6 +28,7 @@ export function HandoverPage() {
       <RecoveryContextPanel surface="handover" />
       <DailyCoordinationControl />
       <OpsCoordination />
+      <ProductionLossReconciliation />
     </div>
   );
 }
