@@ -609,18 +609,27 @@ test("public first decision retains full evidence through auth and reports faile
   await page.getByRole("textbox",{name:/work email/i}).fill(DEMO_EMAIL);
   await page.locator('input[type="password"]').fill(DEMO_PASSWORD);
   await page.getByRole("button",{name:/access syncai/i}).click();
-  await expect(page).toHaveURL(new RegExp(`/workspace/cases/${draftId}\\?`));
-  expect(new URL(page.url()).searchParams.get("source")).toBe("local-acceptance");
-  expect(new URL(page.url()).searchParams.get("industry")).toBe("mining");
+  // Sign-in persists the browser draft and returns to that saved case.
+  // The unsaved /workspace/cases/draft-… route is not the destination.
+  await expect(page).toHaveURL(/\/get-started\?/,{timeout:30_000});
+  const returned = new URL(page.url());
+  const persistedId = returned.searchParams.get("case");
+  expect(returned.pathname).toBe("/get-started");
+  expect(persistedId).toMatch(/^[0-9a-f-]{36}$/i);
+  expect(persistedId).not.toBe(draftId);
+  expect(returned.searchParams.get("source")).toBe("local-acceptance");
+  expect(returned.searchParams.get("industry")).toBe("mining");
+  expect(returned.searchParams.get("view")).toBe("evaluation");
+  expect(workspaceCreates).toBe(1);
   await expect(page.getByText(question,{exact:true}).first()).toBeVisible();
   await expect(page.getByText(new RegExp(evidence)).first()).toBeVisible();
-  await page.goto(`/get-started?case=${draftId}&industry=mining&view=evaluation`);
   await expect(page.getByTestId("spine-proof-body")).toContainText("Intent is coordinate");
   await expect(page.getByTestId("spine-proof-body")).toContainText(evidence);
+  await expect(page.getByTestId("spine-save-workspace")).toHaveText(/Save to workspace|Save updates/);
   await page.getByTestId("spine-save-workspace").click();
   await expect(page.getByTestId("spine-gate-audit_trail")).toContainText("Met");
-  const persistedId = new URL(page.url()).searchParams.get("case");
-  expect(persistedId).toMatch(/^[0-9a-f-]{36}$/i);
+  await expect(page.getByTestId("self-serve-step-decision_case")).toHaveAttribute("data-status","done");
+  expect(new URL(page.url()).searchParams.get("case")).toBe(persistedId);
   expect(workspaceCreates).toBe(1);
   await page.route("**/rest/v1/cowork_workspaces*",route=>route.request().method()==="PATCH" ? route.fulfill({status:503,contentType:"application/json",body:JSON.stringify({message:"Synthetic save outage"})}) : route.continue());
   await page.getByTestId("spine-evidence-body").fill("Synthetic newer observation whose save is refused");
