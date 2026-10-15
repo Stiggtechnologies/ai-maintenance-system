@@ -108,6 +108,32 @@ export async function getRecommendations(
   return data ?? [];
 }
 
+export interface RecommendationContractPostureRow {
+  register: string;
+  label: string;
+  blocking: boolean;
+  populated: number;
+  total: number;
+  share: number;
+  releasable_rows: number;
+  blocked_rows: number;
+}
+
+/**
+ * Tenant-scoped release readiness for the canonical recommendation contract.
+ * The server calls check_recommendation_contract for each row, so this reader
+ * cannot drift into a second client-side definition of what is releasable.
+ */
+export async function getRecommendationContractPosture(): Promise<
+  RecommendationContractPostureRow[]
+> {
+  const { data, error } = await supabase.rpc(
+    "get_recommendation_contract_posture",
+  );
+  if (error) fail("Could not load recommendation contract posture", error);
+  return (data as RecommendationContractPostureRow[]) ?? [];
+}
+
 export async function getRecommendation(
   id: string,
 ): Promise<RecommendationRow | null> {

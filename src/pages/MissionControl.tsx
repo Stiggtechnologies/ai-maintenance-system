@@ -36,6 +36,7 @@ import { useAuth } from "../components/AuthProvider";
 import { useOnboardingOperatingLoop } from "../hooks/useOnboardingOperatingLoop";
 import { EngineeringModelTracePanel } from "../components/EngineeringModelTracePanel";
 import { RecommendationEvidenceDrawer } from "../components/RecommendationEvidenceDrawer";
+import { RecommendationContractPosturePanel } from "../components/RecommendationContractPosturePanel";
 import { FirstRunNextStepStrip } from "../components/help/FirstRunNextStepStrip";
 import { Stage1OperatorRunbook } from "../components/help/Stage1OperatorRunbook";
 import {
@@ -760,6 +761,8 @@ export function MissionControl() {
               );
             })}
           </div>
+
+          <RecommendationContractPosturePanel />
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-6">

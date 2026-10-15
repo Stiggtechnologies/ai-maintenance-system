@@ -888,10 +888,10 @@
     "backticked": 1
   },
   "C8.21": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 4,
+    "backticked": 4
   },
   "C8.22": {
     "status": "✅",
