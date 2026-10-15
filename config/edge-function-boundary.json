@@ -30,6 +30,7 @@
     "marketplace-metering",
     "marketplace-webhook",
     "onboarding-enrich",
+    "p6-schedule-read-pull",
     "plant-historian-pull",
     "public-reliability-agent",
     "recovery-activation-pull",
