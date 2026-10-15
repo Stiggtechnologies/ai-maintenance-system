@@ -8,6 +8,7 @@ import {
   callWithResilience,
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
+import { withDataEgressGuard } from "../_shared/data-egress-guard.ts";
 import {
   buildContractStrategyPrompts,
   parseContractStrategyAdvice,
@@ -156,7 +157,12 @@ Deno.serve(async (req: Request) => {
       sourceReference: row.source_reference ?? null,
     })),
   });
-  const result = await callWithResilience(fetch, providers, {
+  const guardedFetch = withDataEgressGuard(fetch, caller, {
+    dataClass: "commercial",
+    purpose: "model_inference",
+    serviceLabel: "develop-contract-strategy-agent",
+  });
+  const result = await callWithResilience(guardedFetch, providers, {
     systemPrompt: prompts.systemPrompt,
     userContent: prompts.userContent,
     maxTokens: 1800,

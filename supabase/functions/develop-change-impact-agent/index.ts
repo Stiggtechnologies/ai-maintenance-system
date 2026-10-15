@@ -51,6 +51,7 @@ import {
   callWithResilience,
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
+import { withDataEgressGuard } from "../_shared/data-egress-guard.ts";
 import {
   buildChangeImpactPrompts,
   parseChangeConsequences,
@@ -66,7 +67,8 @@ const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "";
 const MODEL = Deno.env.get("DEVELOP_AGENT_MODEL") || undefined;
 const GATEWAY_MODEL = Deno.env.get("LLM_GATEWAY_MODEL") || undefined;
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
+const ALLOWED_ORIGIN =
+  Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
@@ -157,7 +159,9 @@ Deno.serve(async (req: Request) => {
   );
   if (impactError) return json({ error: impactError.message }, 400);
 
-  const raw = (impactData ?? {}) as Record<string, unknown> & { error?: string };
+  const raw = (impactData ?? {}) as Record<string, unknown> & {
+    error?: string;
+  };
   if (raw.error) return json({ error: raw.error }, 404);
 
   const affected = (raw.affected ?? []) as ChangeImpactAffected[];
@@ -209,7 +213,12 @@ Deno.serve(async (req: Request) => {
         objectKind: view.objectKind,
         affected,
       });
-      const result = await callWithResilience(fetch, providers, {
+      const guardedFetch = withDataEgressGuard(fetch, caller, {
+        dataClass: "safety_critical",
+        purpose: "model_inference",
+        serviceLabel: "develop-change-impact-agent",
+      });
+      const result = await callWithResilience(guardedFetch, providers, {
         systemPrompt: prompts.systemPrompt,
         userContent: prompts.userContent,
         maxTokens: 900,

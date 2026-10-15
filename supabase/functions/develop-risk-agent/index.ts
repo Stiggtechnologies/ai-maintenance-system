@@ -29,6 +29,7 @@ import {
   callWithResilience,
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
+import { withDataEgressGuard } from "../_shared/data-egress-guard.ts";
 import {
   buildRiskPrompts,
   locateWorkflowStep,
@@ -49,7 +50,8 @@ const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "";
 // rather than this file's opinion, and this file has no opinion to drift.
 const MODEL = Deno.env.get("DEVELOP_AGENT_MODEL") || undefined;
 const GATEWAY_MODEL = Deno.env.get("LLM_GATEWAY_MODEL") || undefined;
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
+const ALLOWED_ORIGIN =
+  Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
@@ -156,17 +158,16 @@ Deno.serve(async (req: Request) => {
       .select("id, status")
       .eq("risk_id", riskId)
       .not("treatment_strategy", "is", null),
-    caller
-      .from("risk_assumptions")
-      .select("id, status")
-      .eq("risk_id", riskId),
+    caller.from("risk_assumptions").select("id, status").eq("risk_id", riskId),
   ]);
 
   const controlRows = (controls.data ?? []) as {
     risk_controls: { effectiveness_rating: string | null } | null;
   }[];
   const treatmentRows = (treatments.data ?? []) as { status: string | null }[];
-  const assumptionRows = (assumptions.data ?? []) as { status: string | null }[];
+  const assumptionRows = (assumptions.data ?? []) as {
+    status: string | null;
+  }[];
 
   const risk: RiskView = {
     id: String(riskRow.id),
@@ -174,12 +175,14 @@ Deno.serve(async (req: Request) => {
     eventDescription: riskRow.event_description ?? null,
     currentRiskLevel: riskRow.current_risk_level ?? null,
     currentRiskScore:
-      riskRow.current_risk_score === null || riskRow.current_risk_score === undefined
+      riskRow.current_risk_score === null ||
+      riskRow.current_risk_score === undefined
         ? null
         : Number(riskRow.current_risk_score),
     residualRiskLevel: riskRow.residual_risk_level ?? null,
     targetRiskScore:
-      riskRow.target_risk_score === null || riskRow.target_risk_score === undefined
+      riskRow.target_risk_score === null ||
+      riskRow.target_risk_score === undefined
         ? null
         : Number(riskRow.target_risk_score),
     status: riskRow.status ?? null,
@@ -190,7 +193,8 @@ Deno.serve(async (req: Request) => {
       ),
     ).length,
     openTreatmentCount: treatmentRows.filter(
-      (t) => (t.status ?? "") !== "rejected" && (t.status ?? "") !== "dismissed",
+      (t) =>
+        (t.status ?? "") !== "rejected" && (t.status ?? "") !== "dismissed",
     ).length,
     hasObjectiveLink: riskRow.objective_id != null,
     assumptionCount: assumptionRows.length,
@@ -236,14 +240,22 @@ Deno.serve(async (req: Request) => {
   }
 
   const prompts = buildRiskPrompts({ risk, position, candidates });
-  const result = await callWithResilience(fetch, providers, {
+  const guardedFetch = withDataEgressGuard(fetch, caller, {
+    dataClass: "safety_critical",
+    purpose: "model_inference",
+    serviceLabel: "develop-risk-agent",
+  });
+  const result = await callWithResilience(guardedFetch, providers, {
     systemPrompt: prompts.systemPrompt,
     userContent: prompts.userContent,
     maxTokens: 800,
     timeoutMs: 40_000,
   });
   if (result.events.length > 1 || !result.ok) {
-    console.error("develop-risk-agent provider trail", JSON.stringify(result.events));
+    console.error(
+      "develop-risk-agent provider trail",
+      JSON.stringify(result.events),
+    );
   }
   if (!result.ok) {
     return json({

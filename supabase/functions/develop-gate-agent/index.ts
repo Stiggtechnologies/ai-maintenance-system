@@ -28,6 +28,7 @@ import {
   callWithResilience,
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
+import { withDataEgressGuard } from "../_shared/data-egress-guard.ts";
 import {
   buildGatePrompts,
   readGateReadiness,
@@ -46,7 +47,8 @@ const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "";
 // rather than this file's opinion, and this file has no opinion to drift.
 const MODEL = Deno.env.get("DEVELOP_AGENT_MODEL") || undefined;
 const GATEWAY_MODEL = Deno.env.get("LLM_GATEWAY_MODEL") || undefined;
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
+const ALLOWED_ORIGIN =
+  Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
@@ -156,7 +158,8 @@ Deno.serve(async (req: Request) => {
     mandatoryTotal: Number(readiness.mandatoryTotal ?? 0),
     mandatoryMet: Number(readiness.mandatoryMet ?? 0),
     blockers: (readiness.blockers ?? []) as GateReadinessView["blockers"],
-    projection: (readiness.projection ?? null) as GateReadinessView["projection"],
+    projection: (readiness.projection ??
+      null) as GateReadinessView["projection"],
   };
   const reading = readGateReadiness(view);
 
@@ -176,7 +179,12 @@ Deno.serve(async (req: Request) => {
       "no model provider is configured — the deterministic reading above stands on its own";
   } else {
     const prompts = buildGatePrompts(reading);
-    const result = await callWithResilience(fetch, providers, {
+    const guardedFetch = withDataEgressGuard(fetch, caller, {
+      dataClass: "safety_critical",
+      purpose: "model_inference",
+      serviceLabel: "develop-gate-agent",
+    });
+    const result = await callWithResilience(guardedFetch, providers, {
       systemPrompt: prompts.systemPrompt,
       userContent: prompts.userContent,
       maxTokens: 600,
@@ -205,7 +213,11 @@ Deno.serve(async (req: Request) => {
     const { data, error } = await caller.rpc("record_gate_agent_report", {
       p_case_id: caseId,
       p_gate_id: gateId,
-      p_narrative: [reading.headline, ...reading.blockerLines.map((l) => `- ${l}`), reading.projectionLine]
+      p_narrative: [
+        reading.headline,
+        ...reading.blockerLines.map((l) => `- ${l}`),
+        reading.projectionLine,
+      ]
         .concat(narrative ? ["", narrative] : [])
         .join("\n")
         .slice(0, 6000),

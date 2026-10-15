@@ -3,6 +3,7 @@
 // Service-only, fail-soft, and human-in-the-loop by design.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { withDataEgressGuard } from "../_shared/data-egress-guard.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -24,9 +25,10 @@ const DEADLINE_MS = 100_000;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "https://app.syncai.ca",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Vary": "Origin",
+  Vary: "Origin",
 };
 
 function json(body: unknown, status = 200): Response {
@@ -67,7 +69,8 @@ interface QueueEntry {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+  if (req.method === "OPTIONS")
+    return new Response(null, { status: 204, headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
@@ -77,8 +80,12 @@ Deno.serve(async (req) => {
 
   const auth = req.headers.get("Authorization") ?? "";
   const serviceToken = `Bearer ${SERVICE_ROLE_KEY}`;
-  const sharedToken = ENRICH_SHARED_SECRET ? `Bearer ${ENRICH_SHARED_SECRET}` : "";
-  const authorized = safeEqual(auth, serviceToken) || (sharedToken !== "" && safeEqual(auth, sharedToken));
+  const sharedToken = ENRICH_SHARED_SECRET
+    ? `Bearer ${ENRICH_SHARED_SECRET}`
+    : "";
+  const authorized =
+    safeEqual(auth, serviceToken) ||
+    (sharedToken !== "" && safeEqual(auth, sharedToken));
   if (!authorized) return json({ error: "unauthorized" }, 401);
 
   if (!LLM_API_KEY) return json({ deduced: 0, skipped: "llm_not_configured" });
@@ -131,10 +138,19 @@ Deno.serve(async (req) => {
 
       try {
         const askList = chunk
-          .map((item) => `- "${item.key}": ${item.label}${item.hint ? ` (${item.hint})` : ""}`)
+          .map(
+            (item) =>
+              `- "${item.key}": ${item.label}${item.hint ? ` (${item.hint})` : ""}`,
+          )
           .join("\n");
 
-        const resp = await fetch(providerUrl, {
+        const guardedFetch = withDataEgressGuard(fetch, supabase, {
+          organizationId: entry.organization_id,
+          dataClass: "operational",
+          purpose: "onboarding_enrichment",
+          serviceLabel: "onboarding-enrich",
+        });
+        const resp = await guardedFetch(providerUrl, {
           method: "POST",
           signal: AbortSignal.timeout(45_000),
           headers: {
@@ -168,7 +184,10 @@ Deno.serve(async (req) => {
         });
 
         if (!resp.ok) {
-          console.error("onboarding-enrich provider request failed", { assetId: entry.asset_id, status: resp.status });
+          console.error("onboarding-enrich provider request failed", {
+            assetId: entry.asset_id,
+            status: resp.status,
+          });
           failures.push(`${entry.asset_id}: provider_error`);
           continue;
         }
@@ -180,17 +199,13 @@ Deno.serve(async (req) => {
         try {
           const usage =
             data.usage && typeof data.usage === "object" ? data.usage : {};
-          const { error: usageError } = await supabase.rpc(
-            "record_llm_usage",
-            {
-              p_organization_id: entry.organization_id,
-              p_fn: "onboarding-enrich",
-              p_model:
-                typeof data.model === "string" ? data.model : LLM_MODEL,
-              p_prompt_tokens: usage.prompt_tokens ?? 0,
-              p_completion_tokens: usage.completion_tokens ?? 0,
-            },
-          );
+          const { error: usageError } = await supabase.rpc("record_llm_usage", {
+            p_organization_id: entry.organization_id,
+            p_fn: "onboarding-enrich",
+            p_model: typeof data.model === "string" ? data.model : LLM_MODEL,
+            p_prompt_tokens: usage.prompt_tokens ?? 0,
+            p_completion_tokens: usage.completion_tokens ?? 0,
+          });
           if (usageError)
             console.error("onboarding-enrich usage insert failed", usageError);
         } catch (usageException) {
@@ -206,20 +221,36 @@ Deno.serve(async (req) => {
 
         for (const item of chunk) {
           const answer = parsed[item.key];
-          if (!answer || typeof answer.summary !== "string" || answer.summary.trim().length === 0) continue;
-          const confidence = ["high", "medium", "low"].includes(answer.confidence)
+          if (
+            !answer ||
+            typeof answer.summary !== "string" ||
+            answer.summary.trim().length === 0
+          )
+            continue;
+          const confidence = ["high", "medium", "low"].includes(
+            answer.confidence,
+          )
             ? answer.confidence
             : "low";
 
-          const { error: applyError } = await supabase.rpc("apply_onboarding_ai_deduction", {
-            p_item_id: item.item_id,
-            p_value: { summary: answer.summary.trim() },
-            p_confidence: confidence,
-            p_rationale: typeof answer.rationale === "string" ? answer.rationale.slice(0, 500) : null,
-          });
+          const { error: applyError } = await supabase.rpc(
+            "apply_onboarding_ai_deduction",
+            {
+              p_item_id: item.item_id,
+              p_value: { summary: answer.summary.trim() },
+              p_confidence: confidence,
+              p_rationale:
+                typeof answer.rationale === "string"
+                  ? answer.rationale.slice(0, 500)
+                  : null,
+            },
+          );
 
           if (applyError) {
-            console.error("onboarding-enrich deduction apply failed", { itemId: item.item_id, error: applyError });
+            console.error("onboarding-enrich deduction apply failed", {
+              itemId: item.item_id,
+              error: applyError,
+            });
             failures.push(`${item.key}: apply_failed`);
           } else if (confidence === "low") {
             assetDemoted += 1;
@@ -228,7 +259,10 @@ Deno.serve(async (req) => {
           }
         }
       } catch (error) {
-        console.error("onboarding-enrich chunk failed", { assetId: entry.asset_id, error });
+        console.error("onboarding-enrich chunk failed", {
+          assetId: entry.asset_id,
+          error,
+        });
         failures.push(`${entry.asset_id}: deduction_failed`);
       }
     }
@@ -236,15 +270,21 @@ Deno.serve(async (req) => {
     deduced += assetDeduced;
     demotedToHuman += assetDemoted;
 
-    const { error: runError } = await supabase.from("asset_onboarding_runs").insert({
-      organization_id: entry.organization_id,
-      asset_id: entry.asset_id,
-      run_type: "ai_deduction",
-      items_deduced: assetDeduced,
-      items_human_required: assetDemoted,
-      detail: { model: LLM_MODEL, asked },
-    });
-    if (runError) console.error("onboarding-enrich run audit insert failed", { assetId: entry.asset_id, error: runError });
+    const { error: runError } = await supabase
+      .from("asset_onboarding_runs")
+      .insert({
+        organization_id: entry.organization_id,
+        asset_id: entry.asset_id,
+        run_type: "ai_deduction",
+        items_deduced: assetDeduced,
+        items_human_required: assetDemoted,
+        detail: { model: LLM_MODEL, asked },
+      });
+    if (runError)
+      console.error("onboarding-enrich run audit insert failed", {
+        assetId: entry.asset_id,
+        error: runError,
+      });
   }
 
   return json({

@@ -32,6 +32,7 @@ import {
   callWithResilience,
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
+import { withDataEgressGuard } from "../_shared/data-egress-guard.ts";
 import {
   analyzeGap,
   buildAgentPrompts,
@@ -236,7 +237,10 @@ Deno.serve(async (req: Request) => {
       .maybeSingle();
     if (!gate || gate.framework_id !== caseRow.framework_id) {
       return json(
-        { error: "that requirement belongs to a gate outside this case's governing framework" },
+        {
+          error:
+            "that requirement belongs to a gate outside this case's governing framework",
+        },
         400,
       );
     }
@@ -308,7 +312,12 @@ Deno.serve(async (req: Request) => {
       analysis,
       kbCitations,
     });
-    const result = await callWithResilience(fetch, providers, {
+    const guardedFetch = withDataEgressGuard(fetch, caller, {
+      dataClass: "safety_critical",
+      purpose: "model_inference",
+      serviceLabel: "develop-evidence-agent",
+    });
+    const result = await callWithResilience(guardedFetch, providers, {
       systemPrompt: prompts.systemPrompt,
       userContent: prompts.userContent,
       maxTokens: 400,
@@ -335,9 +344,10 @@ Deno.serve(async (req: Request) => {
   let recordedEvidenceId: string | null = null;
   let recordNote: string | null = null;
   if (body.record === true) {
-    const description = `Evidence agent finding for "${criterion.criterion.slice(0, 120)}": ${
-      analysis.statement
-    }${narrative ? ` ${narrative.slice(0, 400)}` : ""}`.slice(0, 900);
+    const description =
+      `Evidence agent finding for "${criterion.criterion.slice(0, 120)}": ${
+        analysis.statement
+      }${narrative ? ` ${narrative.slice(0, 400)}` : ""}`.slice(0, 900);
     const { data: recorded, error: recordError } = await userClient(
       auth.token,
     ).rpc("record_case_evidence", {
