@@ -1,8 +1,15 @@
 import { useState } from "react";
 import { AuthShell } from "../components/AuthShell";
 import { AuthTabs } from "../components/AuthTabs";
+import { SelfServeProgressChecklist } from "../components/onboarding/SelfServeProgressChecklist";
 import { PasswordField } from "../components/PasswordField";
 import { safeAuthReturnTo } from "../lib/auth-return";
+import { readDecisionCaseHandoff } from "../lib/decision-case";
+import { isExamplePrompt } from "../lib/onboarding/inverted-opening";
+import {
+  selfServeProgress,
+  suppliedEvidenceCount,
+} from "../lib/onboarding/self-serve-progress";
 import { signUp } from "../lib/auth";
 import {
   SIGNUP_INDUSTRY_OPTIONS,
@@ -30,6 +37,26 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [confirmationEmail, setConfirmationEmail] = useState("");
+  const [progress] = useState(() => {
+    const handoff = readDecisionCaseHandoff(window.sessionStorage);
+    const draft = handoff?.decisionCase;
+    const example = draft ? isExamplePrompt(draft.objective) : false;
+    return selfServeProgress({
+      signedIn: false,
+      question: draft?.objective ?? "",
+      caseOpen: Boolean(draft) && !example,
+      exampleOnly: example,
+      suppliedEvidence: suppliedEvidenceCount(draft?.evidence),
+      emphasizeSignup: true,
+    });
+  });
+  const signupHref = `/?view=signup&returnTo=${encodeURIComponent(
+    safeAuthReturnTo(
+      new URLSearchParams(window.location.search).get("returnTo"),
+      window.location.origin,
+      "/get-started",
+    ),
+  )}`;
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,6 +112,12 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
   if (confirmationEmail) {
     return (
       <AuthShell>
+        <div className="mb-6">
+          <SelfServeProgressChecklist
+            progress={progress}
+            signupHref={signupHref}
+          />
+        </div>
         <div className="bg-industrial-slate rounded-xl p-8 border border-industrial-border">
           <h1 className="text-2xl font-semibold text-industrial-text">
             Verify your work email
@@ -113,6 +146,12 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
   return (
     <AuthShell>
       <div className="bg-industrial-slate rounded-xl p-8 border border-industrial-border backdrop-blur-xs">
+        <div className="mb-6">
+          <SelfServeProgressChecklist
+            progress={progress}
+            signupHref={signupHref}
+          />
+        </div>
         <AuthTabs activeTab="signup" onTabChange={onTabChange} />
         <div className="mb-6">
           <h1 className="text-2xl font-semibold text-industrial-text">

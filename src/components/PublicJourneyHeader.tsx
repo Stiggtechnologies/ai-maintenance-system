@@ -24,7 +24,14 @@ export function PublicJourneyHeader({
       <nav aria-label="Public navigation">
         <a href={destinations.assistant}>Assistant</a>
         <a href={destinations.firstDecision}>First decision</a>
-        <a href="https://syncai.ca/contact">Discuss purchasing</a>
+        <a
+          href={`/?view=signup&returnTo=${encodeURIComponent(destinations.firstDecision)}`}
+        >
+          Create a workspace
+        </a>
+        <a className="journey-header-quiet" href="https://syncai.ca/contact">
+          Talk to us
+        </a>
       </nav>
     </header>
   );

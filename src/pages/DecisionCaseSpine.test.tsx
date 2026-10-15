@@ -33,6 +33,16 @@ vi.mock("../services/operatingLoopService", () => ({
   getIntegrations: vi.fn(async () => []),
 }));
 
+vi.mock("../hooks/useSpeechOutput", () => ({
+  useSpeechOutput: () => ({
+    speak: vi.fn(),
+    stop: vi.fn(),
+    speaking: false,
+    supported: true,
+    engine: "browser",
+  }),
+}));
+
 vi.mock("../components/AuthProvider", async () => {
   const actual = await vi.importActual<
     typeof import("../components/AuthProvider")
@@ -292,8 +302,11 @@ describe("P0.2 Decision Case spine on /get-started", () => {
       (await screen.findByTestId("spine-connect-fallbacks")).textContent,
     ).toMatch(/Upload a file/);
     expect(screen.getByTestId("spine-connect-fallbacks").textContent).toMatch(
-      /Ask an admin later/,
+      /Note it and continue/,
     );
+    expect(
+      screen.getByTestId("spine-connect-fallbacks").textContent,
+    ).not.toMatch(/Ask an admin later/);
     expect(screen.getByTestId("spine-connect-fallbacks").textContent).toMatch(
       /No source is connected/,
     );
@@ -484,5 +497,80 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     expect(
       screen.getByTestId("spine-help-action").getAttribute("data-active"),
     ).toBe("false");
+  });
+
+  it("shows the self-serve path, full examples, and first value only after evidence", async () => {
+    renderOpening();
+    expect(screen.getByTestId("self-serve-empty-signup").textContent).toMatch(
+      /No evaluation workspace yet/,
+    );
+    expect(screen.getByTestId("self-serve-empty-question").textContent).toMatch(
+      /No question yet/,
+    );
+    expect(
+      screen.getByTestId("self-serve-empty-decision_case").textContent,
+    ).toMatch(/No Decision Case is open yet/);
+    expect(
+      screen.getByTestId("self-serve-empty-first_value").textContent,
+    ).toMatch(/No first value yet/);
+    expect(
+      screen.getByTestId(
+        `inverted-example-text-${INVERTED_EXAMPLE_PROMPTS[0].id}`,
+      ).textContent,
+    ).toBe(INVERTED_EXAMPLE_PROMPTS[0].prompt);
+    expect(
+      screen.getByTestId(`inverted-example-${INVERTED_EXAMPLE_PROMPTS[0].id}`)
+        .textContent,
+    ).not.toMatch(/…/);
+    expect(screen.getByTestId("inverted-intent-connect").textContent).toMatch(
+      /Optional, and not the first step/,
+    );
+    expect(screen.getByTestId("first-decision-help").textContent).toMatch(
+      /first Decision Case/i,
+    );
+    expect(
+      screen.getByRole("button", { name: "Talk me through it" }),
+    ).toHaveAttribute("aria-pressed", "false");
+    expect(
+      screen.getByRole("button", { name: "Stop narration" }),
+    ).toBeDisabled();
+    expect(
+      screen.queryByRole("link", { name: "Discuss purchasing" }),
+    ).toBeNull();
+    expect(screen.getByRole("link", { name: "Talk to us" })).toHaveAttribute(
+      "href",
+      "https://syncai.ca/contact",
+    );
+
+    openSpine();
+    expect(screen.getByTestId("self-serve-step-decision_case")).toHaveAttribute(
+      "data-status",
+      "done",
+    );
+    expect(screen.getByTestId("self-serve-step-first_value")).toHaveAttribute(
+      "data-status",
+      "now",
+    );
+    expect(screen.getByTestId("spine-evaluation-boundary").textContent).toMatch(
+      /Self-serve evaluation/,
+    );
+    expect(
+      screen.getByTestId("spine-evaluation-boundary").textContent,
+    ).not.toMatch(/Guided/);
+
+    fireEvent.click(screen.getByRole("button", { name: "Inspection" }));
+    fireEvent.change(screen.getByTestId("spine-evidence-body"), {
+      target: { value: "Manual inspection note with no measurements." },
+    });
+    fireEvent.click(screen.getByTestId("spine-add-evidence"));
+    await waitFor(() =>
+      expect(screen.getByTestId("self-serve-step-first_value")).toHaveAttribute(
+        "data-status",
+        "done",
+      ),
+    );
+    expect(
+      screen.getByTestId("self-serve-done-first_value").textContent,
+    ).toMatch(/not an approval/);
   });
 });

@@ -114,6 +114,10 @@
 .journey-header nav a:hover {
   color: var(--journey-ink);
 }
+.journey-header-quiet {
+  font-size: 12px;
+  opacity: 0.75;
+}
 .journey-theme-toggle {
   display: grid;
   place-items: center;
@@ -285,10 +289,9 @@
   }
   .journey-header nav {
     gap: 14px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
     font-size: 12px;
-  }
-  .journey-header nav a:last-child {
-    display: none;
   }
   .journey-brand {
     padding: 5px 7px;

@@ -42,10 +42,12 @@ export function FirstRunNextStepStrip() {
             First-run next step
           </p>
           <p className="mt-1 text-xs leading-relaxed text-amber-100/80">
-            For Stage-1 proof: open Decision Workspace and ask on a live subject
-            (or honest empty). Field captures observations. Admin configures one
-            thin connector under Integrations. Recommend is not authorize —
-            no plant execute.
+            Reach a first Decision Case on Get started: write your question,
+            open the case, then add one evidence note. The recommendation you
+            can review is first value. It is not approval. For Stage-1 proof,
+            Decision Workspace asks on a live subject (or honest empty). Field
+            captures observations. One thin connector is optional under
+            Integrations. Recommend is not authorize — no plant execute.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button

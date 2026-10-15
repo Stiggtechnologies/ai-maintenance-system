@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { BadgeCheck, FileCheck2, ShieldCheck } from "lucide-react";
 import { PublicJourneyHeader } from "./PublicJourneyHeader";
+import { HelpCenterWidget } from "./HelpCenterWidget";
 import { usePublicJourneyTheme } from "../lib/use-public-journey-theme";
 import { BrandWordmark } from "./BrandWordmark";
 
@@ -82,6 +83,7 @@ export function AuthShell({ children, journey }: AuthShellProps) {
           {children}
         </section>
       </main>
+      <HelpCenterWidget />
     </div>
   );
 }

@@ -8,6 +8,16 @@ vi.mock("../components/visual/OperationsLattice", () => ({
   OperationsLattice: () => null,
 }));
 
+vi.mock("../hooks/useSpeechOutput", () => ({
+  useSpeechOutput: () => ({
+    speak: vi.fn(),
+    stop: vi.fn(),
+    speaking: false,
+    supported: true,
+    engine: "browser",
+  }),
+}));
+
 describe("Signup industry selection", () => {
   it("uses the canonical catalog and captures a custom industry name", () => {
     render(<Signup onSuccess={vi.fn()} onTabChange={vi.fn()} />);
