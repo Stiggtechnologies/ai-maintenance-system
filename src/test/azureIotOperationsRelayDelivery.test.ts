@@ -62,7 +62,9 @@ const delivery = (await import(deliveryModulePath)) as DeliveryModule;
 const env = {
   SYNCAI_INGRESS_URL: "https://ingress.example/azure-iot-operations-ingest",
   SYNCAI_INGRESS_KEY_ID: "mine-a-key",
-  SYNCAI_INGRESS_SECRET: "0123456789abcdef0123456789abcdef",
+  // Letters and hyphens only, and at least 32 characters. Delivery uses this
+  // as an HMAC key; a 32-character hex string matches gitleaks generic-api-key.
+  SYNCAI_INGRESS_SECRET: "syncai-ingress-test-fixture-placeholder",
 };
 
 const reading = {
