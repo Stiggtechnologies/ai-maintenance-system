@@ -20,6 +20,7 @@ import {
 } from "../lib/model-risk";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
 import { ModelRegistryGovernancePanel } from "./ModelRegistryGovernancePanel";
+import { DataEgressGovernancePanel } from "./DataEgressGovernancePanel";
 
 interface Posture {
   models_registered: number;
@@ -194,6 +195,8 @@ export function ModelRisk() {
 
       {/* The register. */}
       <ModelRegistryGovernancePanel models={models} onChanged={refetch} />
+
+      <DataEgressGovernancePanel />
 
       <div className="rounded-xl border border-white/6 p-4">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
