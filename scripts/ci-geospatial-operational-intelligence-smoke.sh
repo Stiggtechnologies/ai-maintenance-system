@@ -11,6 +11,8 @@ FOREIGN_ASSET='98100000-0000-0000-0000-000000000002'
 EVIDENCE='98100000-0000-0000-0000-000000000021'
 RECOMMENDATION='98100000-0000-0000-0000-000000000031'
 MATERIAL='98100000-0000-0000-0000-000000000041'
+# Explicit synthetic encoding declaration, never an inferred survey accuracy.
+COORDINATE='"coordinate":{"referenceSystem":"EPSG:4326","axisOrder":"longitude_latitude","basis":"Synthetic CI source explicitly declares WGS84 longitude/latitude encoding.","horizontalAccuracyM":null}'
 
 token(){ curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}" | python3 -c "import json,sys;print(json.load(sys.stdin).get('access_token',''))"; }
 rpc(){ curl -sS -w '\n%{http_code}' -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "authorization: Bearer $1" -H 'content-type: application/json' -d "$3"; }
@@ -54,12 +56,12 @@ NOAUTH=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$API_URL/rest/v1/rpc/g
 test "$NOAUTH" = 401
 NO_SOURCE=$(rpc "$AUTHOR" record_geospatial_feature '{"p_feature":{"feature_type":"access_route","feature_key":"u10-empty","name":"Unsupported line","geometry_type":"LineString","geometry":{"type":"LineString","coordinates":[[-113.5,53.5],[-113.4,53.6]]},"source_reference":"draft","observed_at":"2026-09-15T06:00:00Z","validity_kind":"permanent","data_quality":"good"}}'); err "$NO_SOURCE" 'classified Context source'
 
-ACCESS_RESULT=$(rpc "$AUTHOR" record_geospatial_feature "{\"p_feature\":{\"feature_type\":\"access_route\",\"feature_key\":\"u10-access-main\",\"name\":\"Surveyed north access\",\"geometry_type\":\"LineString\",\"geometry\":{\"type\":\"LineString\",\"coordinates\":[[-113.5,53.5],[-113.4,53.6]]},\"source_connector_id\":\"$SOURCE\",\"source_reference\":\"SURVEY-U10-1\",\"observed_at\":\"2026-09-15T06:00:00Z\",\"validity_kind\":\"temporary\",\"valid_until\":\"2027-09-15T06:00:00Z\",\"data_quality\":\"good\",\"evidence_item_ids\":[\"$EVIDENCE\"]}}")
+ACCESS_RESULT=$(rpc "$AUTHOR" record_geospatial_feature "{\"p_feature\":{$COORDINATE,\"feature_type\":\"access_route\",\"feature_key\":\"u10-access-main\",\"name\":\"Surveyed north access\",\"geometry_type\":\"LineString\",\"geometry\":{\"type\":\"LineString\",\"coordinates\":[[-113.5,53.5],[-113.4,53.6]]},\"source_connector_id\":\"$SOURCE\",\"source_reference\":\"SURVEY-U10-1\",\"observed_at\":\"2026-09-15T06:00:00Z\",\"validity_kind\":\"temporary\",\"valid_until\":\"2027-09-15T06:00:00Z\",\"data_quality\":\"good\",\"evidence_item_ids\":[\"$EVIDENCE\"]}}")
 ok "$ACCESS_RESULT"; ACCESS=$(field "$ACCESS_RESULT" feature_id)
 SELF_FEATURE=$(rpc "$AUTHOR" verify_geospatial_feature "{\"p_feature_id\":\"$ACCESS\",\"p_note\":\"The author cannot independently verify this feature.\"}"); err "$SELF_FEATURE" 'author cannot independently verify'
 VERIFY_ACCESS=$(rpc "$ADMIN" verify_geospatial_feature "{\"p_feature_id\":\"$ACCESS\",\"p_note\":\"Independent survey review confirms the source alignment and coordinate reference.\"}"); ok "$VERIFY_ACCESS"
 
-HAZARD_RESULT=$(rpc "$AUTHOR" record_geospatial_feature "{\"p_feature\":{\"feature_type\":\"hazard_zone\",\"feature_key\":\"u10-hazard-zone\",\"name\":\"Supplied flood exposure polygon\",\"geometry_type\":\"Polygon\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[-113.6,53.4],[-113.3,53.4],[-113.3,53.7],[-113.6,53.4]]]},\"source_connector_id\":\"$SOURCE\",\"source_reference\":\"HAZ-U10-1\",\"observed_at\":\"2026-09-15T06:00:00Z\",\"validity_kind\":\"temporary\",\"valid_until\":\"2027-09-15T06:00:00Z\",\"data_quality\":\"good\",\"evidence_item_ids\":[\"$EVIDENCE\"]}}")
+HAZARD_RESULT=$(rpc "$AUTHOR" record_geospatial_feature "{\"p_feature\":{$COORDINATE,\"feature_type\":\"hazard_zone\",\"feature_key\":\"u10-hazard-zone\",\"name\":\"Supplied flood exposure polygon\",\"geometry_type\":\"Polygon\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[-113.6,53.4],[-113.3,53.4],[-113.3,53.7],[-113.6,53.4]]]},\"source_connector_id\":\"$SOURCE\",\"source_reference\":\"HAZ-U10-1\",\"observed_at\":\"2026-09-15T06:00:00Z\",\"validity_kind\":\"temporary\",\"valid_until\":\"2027-09-15T06:00:00Z\",\"data_quality\":\"good\",\"evidence_item_ids\":[\"$EVIDENCE\"]}}")
 ok "$HAZARD_RESULT"; HAZARD=$(field "$HAZARD_RESULT" feature_id)
 VERIFY_HAZARD=$(rpc "$ADMIN" verify_geospatial_feature "{\"p_feature_id\":\"$HAZARD\",\"p_note\":\"Independent hazard-source review confirms the supplied polygon and publication version.\"}"); ok "$VERIFY_HAZARD"
 
