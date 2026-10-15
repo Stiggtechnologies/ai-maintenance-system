@@ -409,6 +409,9 @@ jobs:
       - name: Smoke — governed supplier and contractor evidence
         run: bash scripts/ci-supplier-commercial-governance-smoke.sh
 
+      - name: Smoke — governed design feedback and live standardization
+        run: bash scripts/ci-design-project-governance-smoke.sh
+
       - name: Smoke — Sync Develop Technical Debt (case origin, valuation, independent approval)
         run: bash scripts/ci-develop-technical-debt-smoke.sh
 
