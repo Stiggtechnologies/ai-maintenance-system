@@ -12,7 +12,7 @@ function functionBody(sql: string, name: string): string {
 
 const read = (path: string) => readFileSync(path, "utf8");
 const migration = read(
-  "supabase/migrations/20270105160000_azure_iot_operations_ingress.sql",
+  "supabase/migrations/20270105160101_azure_iot_operations_ingress.sql",
 );
 const edge = read("supabase/functions/azure-iot-operations-ingest/index.ts");
 const core = read("supabase/functions/_shared/azure-iot-operations-ingress.ts");

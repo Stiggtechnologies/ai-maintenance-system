@@ -1,9 +1,10 @@
 -- ============================================================================
 -- C2.13 — Azure IoT Operations / Event Hubs read-only ingress.
 --
--- 2026-10-15: file version moved from 20270101750000 to 20270105160000 so it
--- sorts after deployed head 20270105110600 and the latest open-PR migration
--- 20270105150600. The ingress RPC stays service-only. It no longer impersonates
+-- 2026-10-15: file version moved from 20270101750000 to 20270105160000, then to
+-- 20270105160101 after #675 deployed enterprise HSE events at 20270105160100.
+-- Open-PR migrations at this restamp top out below that head. The ingress RPC
+-- stays service-only. It no longer impersonates
 -- the authorizing user: canonical writers read app.service_organization_id
 -- when auth.role() is service_role, so an adopted MFA policy cannot null the
 -- tenant. Configuration and ingress authorization require role admin.
