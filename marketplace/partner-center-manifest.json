@@ -439,7 +439,7 @@
     "offers": [
       "Reliability Intelligence Assessment",
       "Industrial Decision Proof of Concept",
-      "SyncAI Implementation and Scale"
+      "SyncAI Forward-Deployed Engineering"
     ],
     "forwardDeployedEngineering": "bounded_implementation_workstream",
     "supportingCollateral": {
@@ -448,7 +448,7 @@
     },
     "supportingSoftwareMarketplaceUrl": "blocked",
     "published": false,
-    "status": "draft"
+    "status": "created_drafts_incomplete"
   },
   "blockingActions": [
     {
