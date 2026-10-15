@@ -80,7 +80,7 @@ describe("the caller never picks the validator", () => {
     const begin = rpc.mock.calls.find((c) => c[0] === "begin_manual_import");
     expect(begin?.[1]).toEqual({
       p_entity_type: "operating_state",
-      p_source_name: "Manual upload",
+      p_source_name: "Manual CSV · upload.csv",
     });
 
     const called = rpc.mock.calls.map((c) => c[0]);
