@@ -29,3 +29,23 @@ Third-party notices
 Dependencies and other third-party components remain subject to their own
 licenses. See `docs/investor-diligence/open-source-inventory.md` and the
 generated CycloneDX SBOM for the maintained dependency record.
+
+Azure P&ID digitization adapter
+-------------------------------
+
+SyncAI's Engineering Diagram Intelligence adapter interoperates with the API
+contract published by the following Microsoft sample and retains an immutable
+provider repository and commit reference with every extraction run:
+
+    Azure-Samples/digitization-of-piping-and-instrument-diagrams
+    https://github.com/Azure-Samples/digitization-of-piping-and-instrument-diagrams
+    Copyright (c) Microsoft Corporation
+    Licensed under the MIT License
+
+The maintained SyncAI fork used to pin and inspect the upstream service is:
+
+    https://github.com/Stiggtechnologies/digitization-of-piping-and-instrument-diagrams
+
+No upstream graph-persistence result is treated as SyncAI's operational asset
+graph. Provider results remain machine evidence until the independent human
+review steps in SyncAI's canonical dependency workflow are complete.

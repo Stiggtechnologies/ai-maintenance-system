@@ -23,6 +23,7 @@ on:
       - "src/lib/value/**"
       - "supabase/functions/domain-specialist-run/**"
       - "supabase/functions/edge-evidence-ingest/**"
+      - "supabase/functions/engineering-diagram-inference/**"
       - "src/lib/domain-specialists/**"
       - "supabase/functions/engineering-model-supply-chain/**"
       - "src/lib/engineering-models/**"
@@ -163,6 +164,7 @@ jobs:
           supabase functions deploy cmms-read-pull
           supabase functions deploy domain-specialist-run
           supabase functions deploy edge-evidence-ingest --no-verify-jwt
+          supabase functions deploy engineering-diagram-inference
           supabase functions deploy engineering-model-supply-chain
           supabase functions deploy develop-evidence-agent
           supabase functions deploy develop-gate-agent
@@ -429,6 +431,23 @@ jobs:
             exit 1
           fi
           echo "Plant historian adapter is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove Engineering Diagram Intelligence adapter is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/engineering-diagram-inference"
+          status=$(curl --silent --show-error --output /tmp/engineering-diagram-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"run_id":"00000000-0000-0000-0000-000000000000","action":"poll"}' \
+            "$endpoint")
+          cat /tmp/engineering-diagram-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=Engineering diagram boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Engineering Diagram Intelligence adapter is deployed and JWT-protected (HTTP 401 unauthenticated)."
 
       - name: Prove CMMS read adapter is deployed
         run: |
