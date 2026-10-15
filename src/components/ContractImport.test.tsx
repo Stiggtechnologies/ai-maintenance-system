@@ -225,14 +225,19 @@ describe("a cell the database cannot read is named before the file is sent", () 
 });
 
 describe("what the operator is told before uploading is per entity type", () => {
-  it("states the prerequisite for the two types nothing in the product can load first", async () => {
+  it("states each governed prerequisite before the file is uploaded", async () => {
     rpc.mockResolvedValue({ data: {}, error: null });
     render(<ContractImport initialEntity="condition_reading" />);
     expect(screen.getByText(/The sensors must already exist/)).toBeTruthy();
 
     fireEvent.click(screen.getByText("Spares on hand"));
     expect(
-      screen.getByText(/material catalogue must be loaded first/),
+      screen.getByText(
+        /Create or verify the governed material in \/materials first/,
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/absent from the active tenant catalogue are refused/),
     ).toBeTruthy();
   });
 

@@ -34,6 +34,7 @@
     "plant-historian-pull",
     "public-reliability-agent",
     "recovery-activation-pull",
+    "sap-s4-inventory-read-pull",
     "sync-investigation-runtime",
     "sync-realtime-session",
     "sync-runtime",
