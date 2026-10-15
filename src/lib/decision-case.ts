@@ -62,11 +62,6 @@ export interface DecisionCalculation {
 export interface DecisionCase {
   id: string;
   caseNumber: string;
-  /**
-   * Stable dedupe key for the first saved workspace. Distinct from `id`
-   * (`draft-xxxxx`) and from the `DRAFT-` display number in `caseNumber`.
-   */
-  importKey?: string;
   version: string;
   organization: string;
   site: string;
@@ -2403,7 +2398,6 @@ export function createDraftDecisionCase(
     ...seed,
     id: `draft-${suffix}`,
     caseNumber: `DRAFT-${suffix}`,
-    importKey: crypto.randomUUID(),
     version: "v0.1",
     title: "Define a new governed decision",
     objective:

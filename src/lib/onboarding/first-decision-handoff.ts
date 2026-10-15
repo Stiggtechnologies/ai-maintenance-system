@@ -15,6 +15,11 @@ import {
   readEvaluationDraftLocation,
 } from "./evaluation-assistant-handoff";
 import { isPersistedDecisionCase } from "../../services/decisionCaseService";
+import {
+  readDraftImportKey,
+  withDraftImportKey,
+  type DecisionCaseWithImportKey,
+} from "../decision-case-import-key";
 
 /**
  * Persisted workspace id for a browser draft, written before the handoff clears.
@@ -60,9 +65,10 @@ export function isDraftImportKey(value: string | undefined): value is string {
  * Keep an existing import UUID. A draft that has none gets a new one so two
  * drafts that share a `DRAFT-` suffix do not dedupe onto the same workspace.
  */
-export function ensureDraftImportKey(decisionCase: DecisionCase): DecisionCase {
-  if (isDraftImportKey(decisionCase.importKey)) return decisionCase;
-  return { ...decisionCase, importKey: crypto.randomUUID() };
+export function ensureDraftImportKey(
+  decisionCase: DecisionCase,
+): DecisionCaseWithImportKey {
+  return withDraftImportKey(decisionCase);
 }
 
 export function readFirstDecisionImportId(
@@ -159,7 +165,7 @@ export async function persistFirstDecisionHandoff(
     };
   }
   const draft = ensureDraftImportKey(decisionCase);
-  const importKey = draft.importKey ?? "";
+  const importKey = readDraftImportKey(draft) ?? "";
   if (draft !== decisionCase && deps.storage) {
     try {
       stageDecisionCaseHandoff(deps.storage, draft);
@@ -202,15 +208,15 @@ export async function persistFirstDecisionHandoff(
     if (deps.storage) {
       rememberFirstDecisionImportId(deps.storage, importKey, created.id);
     }
-    const saved: DecisionCase = {
+    const saved = {
       ...created,
       id: created.id,
-      importKey,
       objective: decisionCase.objective,
       evidence: decisionCase.evidence,
       messages: decisionCase.messages,
       updatedAt: created.updatedAt,
     };
+    Object.assign(saved, { importKey });
     try {
       await deps.save(saved);
     } catch {

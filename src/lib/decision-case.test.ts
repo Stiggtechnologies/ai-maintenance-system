@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   clearDecisionCaseHandoff,
-  createDraftDecisionCase,
   createSeedDecisionCases,
   getPublicDecisionCaseStorageKey,
   normalizeDecisionIndustry,
@@ -17,20 +16,6 @@ function memoryStorage() {
     removeItem: (key: string) => values.delete(key),
   };
 }
-
-describe("Decision Case draft import key", () => {
-  it("keeps a random import key separate from the DRAFT- display number", () => {
-    const first = createDraftDecisionCase("Reliability Engineer");
-    const second = createDraftDecisionCase("Reliability Engineer");
-    expect(first.caseNumber).toMatch(/^DRAFT-/);
-    expect(first.id).toMatch(/^draft-/);
-    expect(first.importKey).toMatch(
-      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
-    );
-    expect(first.importKey).not.toBe(first.caseNumber);
-    expect(first.importKey).not.toBe(second.importKey);
-  });
-});
 
 describe("Decision Case authentication handoff", () => {
   it("stages, reads, and clears the active public case", () => {

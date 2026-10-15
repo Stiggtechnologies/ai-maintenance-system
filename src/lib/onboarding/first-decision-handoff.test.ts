@@ -11,6 +11,7 @@ import {
 } from "./decision-case-spine";
 import { INVERTED_EXAMPLE_PROMPTS } from "./inverted-opening";
 import { stageDecisionCaseHandoff, type DecisionCase } from "../decision-case";
+import { readDraftImportKey } from "../decision-case-import-key";
 import { rememberEvaluationDraft } from "./evaluation-assistant-handoff";
 
 const QUESTION =
@@ -141,8 +142,9 @@ describe("first decision handoff", () => {
     expect(save).toHaveBeenCalledTimes(2);
     expect(first.decisionCase.id).toBe(createdId);
     expect(second.decisionCase.id).toBe(createdId);
-    expect(decision.importKey).toBeTruthy();
-    expect(readFirstDecisionImportId(sessionStorage, decision.importKey!)).toBe(
+    const importKey = readDraftImportKey(decision);
+    expect(importKey).toBeTruthy();
+    expect(readFirstDecisionImportId(sessionStorage, importKey ?? "")).toBe(
       createdId,
     );
     expect(readFirstDecisionImportId(sessionStorage, decision.id)).toBeNull();
@@ -155,14 +157,14 @@ describe("first decision handoff", () => {
     const firstWorkspace = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
     const secondWorkspace = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
     const base = draft();
-    const first: DecisionCase = {
+    const first = {
       ...base,
       id: `draft-${suffix}`,
       caseNumber: `DRAFT-${suffix}`,
       importKey: firstKey,
       objective: "Hold the reclaim pump inspection until the next outage?",
     };
-    const second: DecisionCase = {
+    const second = {
       ...base,
       id: `draft-${suffix}`,
       caseNumber: `DRAFT-${suffix}`,
@@ -175,7 +177,7 @@ describe("first decision handoff", () => {
     ]);
     const rows = new Map<string, DecisionCase>();
     const create = vi.fn(async (seed: DecisionCase) => {
-      const workspaceId = workspaceByImport.get(seed.importKey ?? "");
+      const workspaceId = workspaceByImport.get(readDraftImportKey(seed) ?? "");
       if (!workspaceId) throw new Error("missing import key");
       return {
         ...seed,
