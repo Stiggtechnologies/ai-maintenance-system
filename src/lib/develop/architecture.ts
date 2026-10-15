@@ -324,6 +324,7 @@ const GOVERNED_ACTION_RPC_PREFIXES = new Set([
   "clear",
   "close",
   "complete",
+  "configure",
   "create",
   "decide",
   "declare",
