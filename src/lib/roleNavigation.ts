@@ -61,10 +61,11 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   ai_admin: null,
   // operator is a strict reduction: a real server-side role that had no
   // entry here and therefore fell through to the FULL navigation. It gets
-  // handover because release_equipment/accept_equipment are gated TO it,
+  // handover because release_equipment/verify_and_accept_equipment are gated TO it,
   // and notifications because raise_maintenance_notification is ungated.
-  // Recovery is visible because the operator may open an event and is one of
-  // the two roles permitted to accept final return-to-service; Recovery's
+  // Recovery is visible because the operator may open an event and holds the
+  // frontline operations role permitted to accept final return-to-service;
+  // accountable executive/admin authority is separately accepted. Recovery's
   // server RPCs remain the authority for every button.
   operator: new Set([
     "mission-control",
@@ -77,9 +78,9 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
     "settings",
   ]),
   // technician gains notifications (raising one is the technician's job —
-  // the documented exception) and handover (return_equipment is ungated
-  // because returning equipment is the maintenance act in the three-party
-  // loop). Recovery gives the technician the controlled live-execution lane;
+  // the documented exception) and handover (return_equipment is the
+  // named-human maintenance act in the three-party loop). Recovery gives the
+  // technician the controlled live-execution lane;
   // planning/release/RTS controls remain server-denied.
   technician: new Set([
     "mission-control",
