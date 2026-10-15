@@ -7,6 +7,7 @@
     "autonomous-orchestrator",
     "calculation-service",
     "cmms-read-pull",
+    "data-lake-read-pull",
     "domain-specialist-run",
     "edge-evidence-ingest",
     "engineering-model-supply-chain",
