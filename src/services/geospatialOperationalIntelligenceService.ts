@@ -116,7 +116,13 @@ export async function getGeospatialReferences(): Promise<GeospatialReferences> {
         .select("id,title,asset_id")
         .order("created_at", { ascending: false })
         .limit(100),
-      supabase.from("crew_templates").select("id,title").order("title"),
+      supabase
+        .from("crew_templates")
+        .select("id,title")
+        .eq("active", true)
+        .not("recorded_by", "is", null)
+        .not("evidence_item_id", "is", null)
+        .order("title"),
       supabase
         .from("materials")
         .select("id,material_code,description")

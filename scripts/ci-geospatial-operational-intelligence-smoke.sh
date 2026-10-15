@@ -36,8 +36,6 @@ psqlc "insert into recommendations(id,organization_id,asset_id,title,issue,actio
 psqlc "insert into evidence_items(id,organization_id,asset_id,recommendation_id,source_system,evidence_type,description,evidence_class) values('$EVIDENCE','$ORG','$ASSET','$RECOMMENDATION','ci-gis','inspection','Surveyed access alignment and hazard-overlay source package.','DOCUMENTED') on conflict(id) do nothing"
 psqlc "insert into materials(id,organization_id,material_code,description,unit_of_measure,is_template,basis) values('$MATERIAL','$ORG','U10-REGIONAL-SPARE','U10 governed regional spare','each',false,'CI canonical material fixture.') on conflict(id) do nothing"
 psqlc "insert into material_stock(organization_id,material_id,site_id,qty_on_hand,qty_reserved,qty_on_order,last_counted_at,source_system) values('$ORG','$MATERIAL','$SITE',2,1,1,now(),'ci-inventory') on conflict(material_id,site_id) do update set qty_on_hand=excluded.qty_on_hand,last_counted_at=excluded.last_counted_at"
-CREW=$(psqlc "insert into crew_templates(organization_id,template_key,title,description) values('$ORG','u10-remote-crew','U10 remote response crew','CI crew identity only; availability is not inferred.') on conflict(organization_id,template_key) do update set title=excluded.title returning id")
-[[ "$CREW" =~ ^[0-9]+$ ]]
 SOURCE=$(psqlc "insert into connectors(organization_id,connector_key,name,connector_type,status,expected_interval_minutes) values('$ORG','ci-geospatial-context','CI governed geospatial source','gis','active',15) on conflict(organization_id,connector_key) where connector_key is not null do update set name=excluded.name,expected_interval_minutes=excluded.expected_interval_minutes returning id")
 test -n "$SOURCE"
 if [[ "$(psqlc "select context_source_class is null from connectors where id='$SOURCE'")" = t ]]; then
@@ -49,6 +47,9 @@ SOURCE_OBSERVED_AT=$(psqlc "select to_char(('$SOURCE_CHECKED_AT'::timestamptz-in
 SOURCE_HEALTH=$(rpc "$ADMIN" record_context_source_health "{\"p_connector_id\":\"$SOURCE\",\"p_state\":\"live\",\"p_checked_at\":\"$SOURCE_CHECKED_AT\",\"p_observed_at\":\"$SOURCE_OBSERVED_AT\",\"p_detail\":\"CI observed the customer-authorized surveyed source within its governed freshness interval.\"}")
 ok "$SOURCE_HEALTH"
 VERIFY_EVIDENCE=$(rpc "$ADMIN" verify_evidence_item "{\"p_evidence_id\":\"$EVIDENCE\",\"p_method\":\"Independent CI review against the surveyed source package\",\"p_outcome\":\"verified\",\"p_note\":\"Coordinate source, alignment reference and evidence ownership confirmed.\"}"); ok "$VERIFY_EVIDENCE"
+CREW_RESULT=$(rpc "$AUTHOR" record_crew_template "{\"p_payload\":{\"templateKey\":\"u10-remote-crew\",\"title\":\"U10 remote response crew\",\"description\":\"CI governed crew identity; dispatch and availability are not inferred.\",\"basis\":\"Verified access study defines the minimum remote response crew.\",\"evidenceItemId\":\"$EVIDENCE\",\"roles\":[{\"roleLabel\":\"Remote response lead\",\"headcount\":1,\"isMandatory\":true}]}}")
+ok "$CREW_RESULT"; CREW=$(field "$CREW_RESULT" crewTemplateId)
+[[ "$CREW" =~ ^[0-9]+$ ]]
 
 NOAUTH=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$API_URL/rest/v1/rpc/get_geospatial_operational_workspace" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d '{}')
 test "$NOAUTH" = 401
