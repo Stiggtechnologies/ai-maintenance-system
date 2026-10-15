@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(
-  "supabase/migrations/20270103000000_governed_installed_survival.sql",
+  "supabase/migrations/20270104091000_governed_installed_survival.sql",
   "utf8",
 ).toLowerCase();
 const smoke = readFileSync("scripts/ci-survival-covariate-smoke.sh", "utf8");

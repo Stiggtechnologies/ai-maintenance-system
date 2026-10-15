@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const sql = readFileSync(
-  "supabase/migrations/20270102390000_governed_survival_covariates.sql",
+  "supabase/migrations/20270104090900_governed_survival_covariates.sql",
   "utf8",
 ).toLowerCase();
 const edge = readFileSync(
