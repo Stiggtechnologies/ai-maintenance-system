@@ -364,6 +364,9 @@ jobs:
       - name: Smoke — contextual condition monitoring (historian + exact-time duty)
         run: bash scripts/ci-contextual-condition-monitoring-smoke.sh
 
+      - name: Smoke — bounded paginated historian condition-reading import
+        run: bash scripts/ci-historian-paginated-read-smoke.sh
+
       - name: Smoke — governed Condition Monitoring Analyst
         run: bash scripts/ci-condition-monitoring-agent-smoke.sh
 
