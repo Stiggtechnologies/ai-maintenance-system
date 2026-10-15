@@ -772,7 +772,7 @@ test("public first decision retains full evidence through auth and reports faile
   await expect(page.getByTestId("self-serve-step-decision_case")).toHaveAttribute("data-status","done");
   expect(new URL(page.url()).searchParams.get("case")).toBe(persistedId);
   expect(workspaceCreates).toBe(1);
-  await page.route("**/rest/v1/cowork_workspaces*",route=>route.request().method()==="PATCH" ? route.fulfill({status:503,contentType:"application/json",body:JSON.stringify({message:"Synthetic save outage"})}) : route.continue());
+  await page.route("**/rest/v1/rpc/apply_decision_case_command",route=>route.fulfill({status:503,contentType:"application/json",body:JSON.stringify({message:"Synthetic save outage"})}));
   await page.getByTestId("spine-evidence-body").fill("Synthetic newer observation whose save is refused");
   await page.getByTestId("spine-add-evidence").click();
   await expect(page.getByTestId("spine-save-notice")).toContainText("Workspace save did not complete");
