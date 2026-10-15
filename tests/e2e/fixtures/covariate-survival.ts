@@ -7,8 +7,8 @@ import {
 } from "@supabase/supabase-js";
 import type { BrowserContext } from "@playwright/test";
 import {
-  assuranceFixture,
   freshMeterTimestamp,
+  localAal2AccessToken,
   requireLocalEndpoint,
 } from "../../../src/test/support/survivalBrowserBoundary";
 
@@ -169,7 +169,27 @@ export async function createSurvivalBrowserFixture(
     });
     if (error || !data.session)
       throw new Error("Actual local GoTrue password session unavailable");
-    const session = assuranceFixture(data.session, config.signingKey);
+    // The password session proves the account. The AAL2 token is signed from
+    // the known user id and the session row, not from the password or the
+    // login result.
+    const sessionId = sql(
+      `select id::text from auth.sessions where user_id='${id}' order by created_at desc limit 1`,
+    );
+    if (!/^[0-9a-f-]{36}$/i.test(sessionId))
+      throw new Error("Actual local session row unavailable");
+    const issued = localAal2AccessToken({
+      signingKey: config.signingKey,
+      subject: id,
+      email: `survival-browser-${id}@invalid.syncai.ca`,
+      sessionId,
+      issuer: `${new URL(config.apiUrl).origin}/auth/v1`,
+    });
+    const session = {
+      ...data.session,
+      access_token: issued.accessToken,
+      expires_at: issued.expiresAt,
+      expires_in: 3600,
+    };
     const client = clientFor(
       config.apiUrl,
       config.anonKey,

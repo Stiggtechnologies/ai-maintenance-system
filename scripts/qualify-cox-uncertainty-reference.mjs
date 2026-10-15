@@ -66,8 +66,7 @@ try {
   };
   for (const [index, fixture] of input.cases.entries()) {
     const witness = reference.cases[index],
-      rows = fixture.rows,
-      p = fixture.covariateNames.length;
+      rows = fixture.rows;
     if (
       witness.name !== fixture.name ||
       witness.assetClusters.length !== rows.length

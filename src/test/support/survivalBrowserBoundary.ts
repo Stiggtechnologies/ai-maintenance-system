@@ -40,31 +40,81 @@ export function requireLocalEndpoint(value: string, port: string): URL {
   return url;
 }
 
-/** Synthetic local assurance only, retaining the actual GoTrue session identity. */
+/**
+ * Local HS256 assurance token. Every claim is an argument. Nothing here is
+ * read from a password or from a password-login result.
+ */
+export function localAal2AccessToken(input: {
+  signingKey: string;
+  subject: string;
+  email: string;
+  sessionId: string;
+  issuer: string;
+}): { accessToken: string; expiresAt: number } {
+  const now = Math.floor(Date.now() / 1000);
+  const expiresAt = now + 3600;
+  const header = Buffer.from(
+    JSON.stringify({ alg: "HS256", typ: "JWT" }),
+  ).toString("base64url");
+  const payload = {
+    aud: "authenticated",
+    exp: expiresAt,
+    iat: now,
+    iss: input.issuer,
+    sub: input.subject,
+    email: input.email,
+    role: "authenticated",
+    aal: "aal2",
+    amr: [{ method: "totp", timestamp: now }],
+    session_id: input.sessionId,
+    is_anonymous: false,
+  };
+  const unsigned = `${header}.${Buffer.from(JSON.stringify(payload)).toString("base64url")}`;
+  const signature = createHmac("sha256", input.signingKey)
+    .update(unsigned)
+    .digest("base64url");
+  return { accessToken: `${unsigned}.${signature}`, expiresAt };
+}
+
+/** Synthetic local assurance only, for a caller-built session. Not used with password-login results. */
 export function assuranceFixture(
   session: Session,
   signingKey: string,
 ): Session {
   const [, body] = session.access_token.split(".");
   const payload = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
-  // The local legacy secret signs HMAC, regardless of the original JWT's
-  // asymmetric algorithm/key ID. Never copy that header onto an HMAC signature.
+  const issued = localAal2AccessToken({
+    signingKey,
+    subject: String(payload.sub ?? ""),
+    email: String(payload.email ?? ""),
+    sessionId: String(payload.session_id ?? ""),
+    issuer: String(payload.iss ?? ""),
+  });
+  const issuedPayload = JSON.parse(
+    Buffer.from(issued.accessToken.split(".")[1], "base64url").toString("utf8"),
+  );
+  // Retain the supplied identity claims. Only assurance fields change.
+  const merged = {
+    ...payload,
+    aal: "aal2",
+    iat: issuedPayload.iat,
+    exp: issuedPayload.exp,
+    amr: [
+      ...(payload.amr ?? []),
+      { method: "totp", timestamp: issuedPayload.iat },
+    ],
+  };
   const header = Buffer.from(
     JSON.stringify({ alg: "HS256", typ: "JWT" }),
   ).toString("base64url");
-  const now = Math.floor(Date.now() / 1000);
-  payload.aal = "aal2";
-  payload.iat = now;
-  payload.exp = now + 3600;
-  payload.amr = [...(payload.amr ?? []), { method: "totp", timestamp: now }];
-  const unsigned = `${header}.${Buffer.from(JSON.stringify(payload)).toString("base64url")}`;
+  const unsigned = `${header}.${Buffer.from(JSON.stringify(merged)).toString("base64url")}`;
   const signature = createHmac("sha256", signingKey)
     .update(unsigned)
     .digest("base64url");
   return {
     ...session,
     access_token: `${unsigned}.${signature}`,
-    expires_at: payload.exp,
+    expires_at: merged.exp,
     expires_in: 3600,
   };
 }

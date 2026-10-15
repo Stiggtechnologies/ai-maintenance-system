@@ -134,6 +134,8 @@ describe("actual installed-life browser acceptance boundary", () => {
   });
   it("uses real auth/RPCs and two independent browser humans with advisory and stale-source assertions", () => {
     expect(fixture).toContain("auth.signInWithPassword");
+    expect(fixture).toContain("localAal2AccessToken");
+    expect(fixture).not.toContain("assuranceFixture(");
     expect(fixture).toContain("auth.getUser(session.access_token)");
     expect(fixture).toContain("not real MFA enrollment");
     expect(acceptance).toContain('test.use({ trace: "off" })');
