@@ -32,5 +32,10 @@ describe("InvertedOpeningPage", () => {
     const spine = readFileSync("src/pages/DecisionCaseSpine.tsx", "utf8");
     expect(spine).toMatch(/Self-serve evaluation/);
     expect(spine).not.toMatch(/Guided evaluation/);
+    const wizard = readFileSync("src/components/OnboardingWizard.tsx", "utf8");
+    expect(wizard).toContain('href="mailto:support@syncai.ca"');
+    expect(
+      wizard.match(/href="\/get-started#first-decision-help"/g) ?? [],
+    ).toHaveLength(1);
   });
 });

@@ -91,6 +91,13 @@ export function PublicJourneyHeader({
             href={selfServe.href}
             data-testid="self-serve-nav-step"
             data-leaves-product={selfServe.leavesProduct ? "true" : "false"}
+            onClick={(event) => {
+              if (selfServe.href !== "#spine-save-workspace") return;
+              const save = document.getElementById("spine-save-workspace");
+              if (!(save instanceof HTMLButtonElement) || save.disabled) return;
+              event.preventDefault();
+              save.click();
+            }}
           >
             {selfServe.label}
           </a>

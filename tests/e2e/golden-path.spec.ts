@@ -645,3 +645,72 @@ test("public first decision retains full evidence through auth and reports faile
   await expect(page.getByTestId("spine-proof-body")).toContainText("Synthetic newer observation whose save is refused");
   await expect(page.getByTestId("spine-gate-audit_trail")).toContainText("Open");
 });
+
+test("saved Decision Case reloads question, evidence, and case id from the workspace", async ({ page, browser }) => {
+  const backend = new URL(process.env.E2E_SUPABASE_URL ?? "http://127.0.0.1:54321");
+  expect(["localhost", "127.0.0.1", "[::1]"]).toContain(backend.hostname);
+  const question = "Synthetic acceptance: reload the saved pump question from the workspace";
+  const evidence = "Synthetic inspection observation stored on the workspace, without verified measurements";
+  await page.goto("/get-started?industry=mining&source=local-acceptance&campaign=persisted-reload");
+  await page.getByTestId("inverted-ask").fill(question);
+  await page.getByRole("button", { name: /Coordinate field work/ }).click();
+  await page.getByTestId("inverted-continue").click();
+  await page.getByTestId("inverted-save-continue").click();
+  await page.getByRole("button", { name: "Inspection", exact: true }).click();
+  await page.getByTestId("spine-evidence-body").fill(evidence);
+  await page.getByTestId("spine-add-evidence").click();
+  await expect(page.getByTestId("spine-proof-body")).toContainText(evidence);
+  await page.getByTestId("spine-live-assistant").click();
+  await expect(page.getByRole("button", { name: "View record", exact: true })).toBeVisible();
+  await page.getByLabel("Sign in", { exact: true }).click();
+  await page.getByRole("textbox", { name: /work email/i }).fill(DEMO_EMAIL);
+  await page.locator('input[type="password"]').fill(DEMO_PASSWORD);
+  await page.getByRole("button", { name: /access syncai/i }).click();
+  await expect(page).toHaveURL(/\/get-started\?/, { timeout: 30_000 });
+  const persistedId = new URL(page.url()).searchParams.get("case");
+  expect(persistedId).toMatch(/^[0-9a-f-]{36}$/i);
+  await expect(page.getByTestId("spine-save-workspace")).toHaveText(/Save to workspace|Save updates/);
+  await page.getByTestId("spine-save-workspace").click();
+  await expect(page.getByTestId("self-serve-step-decision_case")).toHaveAttribute("data-status", "done");
+
+  const fresh = await browser.newContext({
+    storageState: await page.context().storageState(),
+    baseURL: "http://localhost:5173",
+  });
+  const reopened = await fresh.newPage();
+  try {
+    const loadedFromDatabase = reopened.waitForResponse((response) => {
+      if (response.request().method() !== "GET" || !response.ok()) return false;
+      try {
+        const url = new URL(response.url());
+        return (
+          url.pathname.endsWith("/rest/v1/cowork_workspaces") &&
+          url.search.includes(persistedId!)
+        );
+      } catch {
+        return false;
+      }
+    });
+    await reopened.goto(`/get-started?case=${persistedId}`);
+    const payload = await (await loadedFromDatabase).json();
+    const row = Array.isArray(payload) ? payload[0] : payload;
+    const stored =
+      typeof row?.case_state === "string" ? JSON.parse(row.case_state) : row?.case_state;
+    expect(stored.id).toBe(persistedId);
+    expect(stored.objective).toBe(question);
+    expect(JSON.stringify(stored.evidence)).toContain(evidence);
+    await expect(reopened.getByText(question, { exact: true }).first()).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(reopened.getByTestId("spine-proof-body")).toContainText(evidence);
+    await expect(reopened.getByText(stored.caseNumber, { exact: false }).first()).toBeVisible();
+    expect(new URL(reopened.url()).searchParams.get("case")).toBe(persistedId);
+    await expect(reopened.getByTestId("self-serve-nav-step")).toHaveText("Talk to us");
+    await expect(reopened.getByRole("link", { name: "Talk to us" })).toHaveAttribute(
+      "href",
+      "https://syncai.ca/contact",
+    );
+  } finally {
+    await fresh.close();
+  }
+});
