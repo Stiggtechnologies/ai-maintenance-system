@@ -28,8 +28,8 @@ describe("FirstCustomerPilotPage", () => {
       ),
     ).toBeTruthy();
     expect(
-      screen.getByRole("link", { name: /View the assessment/i }),
-    ).toHaveAttribute("href", "https://syncai.ca/reliability-assessment");
+      screen.getByRole("link", { name: /Discuss an assessment/i }),
+    ).toHaveAttribute("href", "https://syncai.ca/contact");
     const tryEngineer = screen.getByRole("link", {
       name: /Try Reliability Engineer/i,
     });

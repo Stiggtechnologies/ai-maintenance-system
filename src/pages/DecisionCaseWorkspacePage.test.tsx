@@ -131,12 +131,14 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     authState.user = null;
   });
 
-  it("Mode A is the Bolt empty: light canvas, wordmark, stadium ask, five pills", () => {
+  it("Mode A is the Bolt empty: dark canvas, wordmark, stadium ask, five pills", () => {
     renderWorkspace();
     expect(document.querySelector(".bolt-public.is-empty")).toBeTruthy();
     expect(document.querySelector('[data-layout="chat-first"]')).toBeTruthy();
-    expect(screen.getByRole("heading", { name: "SyncAI" })).toBeTruthy();
-    expect(screen.getByText("pro")).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: /defensible engineering decisions/ }),
+    ).toBeTruthy();
+    expect(screen.queryByText("pro")).toBeNull();
     expect(screen.getByPlaceholderText(ASK_PLACEHOLDER)).toBeTruthy();
     expect(screen.getByTestId("first-paint-empty")).toBeTruthy();
     expect(
@@ -169,7 +171,7 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(screen.queryByText("Not proven")).toBeNull();
     expect(screen.queryByTestId("recommendation-turn")).toBeNull();
     expect(screen.queryByLabelText("Search")).toBeNull();
-    expect(screen.getByLabelText("Attach a photo")).toBeEnabled();
+    expect(screen.getByLabelText("Image analysis unavailable")).toBeDisabled();
     expect(screen.getByLabelText("Attach a data file")).toBeEnabled();
     expect(screen.queryByLabelText("Web search")).toBeNull();
     expect(screen.queryByLabelText("Conversations")).toBeNull();
@@ -181,7 +183,7 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(screen.queryByText("Chat")).toBeNull();
     expect(screen.queryByText("Work")).toBeNull();
     expect(screen.queryByText(/GPT|model picker|Claude/i)).toBeNull();
-    expect(screen.getByRole("button", { name: "Use dark mode" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Use .* mode/ })).toBeNull();
   });
 
   it("signed-in Mode A exposes Spaces as the existing cowork list, not a new page", () => {
@@ -251,7 +253,7 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(screen.getByText("Compare · Decision comparison")).toBeTruthy();
     expect(screen.getByText(PUBLIC_ASK_INTENTS[0].question)).toBeTruthy();
     expect(screen.queryByText(/P-101 process pump/)).toBeNull();
-    expect(screen.getByLabelText("Attach a photo")).toBeEnabled();
+    expect(screen.getByLabelText("Image analysis unavailable")).toBeDisabled();
     expect(screen.getByLabelText("Attach a data file")).toBeEnabled();
   });
 
@@ -270,7 +272,7 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     expect(screen.queryByRole("button", { name: "View record" })).toBeNull();
     expect(screen.queryByText("Current decision packet")).toBeNull();
     expect(screen.queryByRole("tablist")).toBeNull();
-    expect(screen.getByLabelText("Attach a photo")).toBeEnabled();
+    expect(screen.getByLabelText("Image analysis unavailable")).toBeDisabled();
     expect(screen.getByLabelText("Attach a data file")).toBeEnabled();
     expect(screen.queryByRole("menuitem", { name: "Camera" })).toBeNull();
     loadSample();
@@ -310,12 +312,55 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     );
   });
 
+  it.each(PUBLIC_ASK_INTENTS)(
+    "keeps an explicit signed-in $id example bound",
+    async (intent) => {
+      authState.user = { id: "signed-in-reviewer" };
+      renderWorkspace(`/capabilities/${intent.id}`);
+      await waitFor(() =>
+        expect(
+          screen.getByRole("region", { name: "Example workspace" }),
+        ).toBeTruthy(),
+      );
+      expect(
+        screen.getByText(`${intent.label} · ${intent.module}`),
+      ).toBeTruthy();
+      expect(screen.queryByTestId("first-paint-empty")).toBeNull();
+      expect(screen.queryByRole("button", { name: /Use .* mode/ })).toBeNull();
+    },
+  );
+
+  it("exposes example comparison options and honest evidence details", async () => {
+    renderWorkspace("/capabilities/compare");
+    expect(screen.getByRole("table")).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Inspect bearing replacement/ }),
+    );
+    expect(
+      screen.getByRole("button", {
+        name: /Filter bypass and bearing inspection View sample/,
+      }),
+    ).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /Filter bypass and bearing inspection View sample/,
+      }),
+    );
+    const dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByText("Sample record")).toBeTruthy();
+    expect(
+      within(dialog).getByText(/No customer system is connected/),
+    ).toBeTruthy();
+    fireEvent.keyDown(document, { key: "Escape" });
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  });
+
   it("keeps every showcase capability discoverable after a path is opened", () => {
     renderWorkspace();
     fireEvent.click(screen.getByRole("button", { name: "Compare" }));
 
     const switcher = screen.getByRole("navigation", {
-      name: "Live capabilities",
+      name: "Capability examples",
     });
     expect(switcher).toBeTruthy();
     for (const intent of PUBLIC_ASK_INTENTS) {
@@ -334,10 +379,10 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
 
   it("keeps direct photo and governed data-file actions in the thread", () => {
     renderWorkspace();
-    expect(screen.getByLabelText("Attach a photo")).toBeEnabled();
+    expect(screen.getByLabelText("Image analysis unavailable")).toBeDisabled();
     expect(screen.getByLabelText("Attach a data file")).toBeEnabled();
     loadSample();
-    expect(screen.getByLabelText("Attach a photo")).toBeEnabled();
+    expect(screen.getByLabelText("Image analysis unavailable")).toBeDisabled();
     expect(screen.getByLabelText("Attach a data file")).toBeEnabled();
     expect(screen.queryByText("Plugins")).toBeNull();
     expect(screen.queryByText("Think harder")).toBeNull();
