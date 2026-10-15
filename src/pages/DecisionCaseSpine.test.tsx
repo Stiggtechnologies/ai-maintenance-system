@@ -381,7 +381,7 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     expect(screen.getByTestId("spine-save-workspace")).toHaveTextContent(
       "Save to workspace",
     );
-    expect(screen.getByTestId("spine-proof-body")).toHaveTextContent(
+    expect(screen.getByTestId("spine-proof-body")).not.toHaveTextContent(
       "Synthetic edit that is not saved",
     );
   });

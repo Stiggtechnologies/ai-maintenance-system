@@ -62,9 +62,16 @@ revoke insert,update,delete,truncate on public.asset_lifecycle_state
 
 -- Keep the established transition contract, but place its owner-powered write
 -- behind the same guard and assurance wall. Its existing stage-gate logic is
--- unchanged inside the renamed internal implementation.
-alter function public.advance_lifecycle_stage(uuid,text,text)
-  rename to advance_lifecycle_stage_internal;
+-- unchanged inside the renamed internal implementation. Main's stage-gate
+-- migration already performed this rename; replaying it would fail because
+-- the internal function is already present.
+do $$
+begin
+  if to_regprocedure('public.advance_lifecycle_stage_internal(uuid,text,text)') is null then
+    alter function public.advance_lifecycle_stage(uuid,text,text)
+      rename to advance_lifecycle_stage_internal;
+  end if;
+end $$;
 revoke all on function public.advance_lifecycle_stage_internal(uuid,text,text)
   from public,anon,authenticated,service_role;
 

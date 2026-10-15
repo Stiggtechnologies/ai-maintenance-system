@@ -189,11 +189,12 @@ export async function createPersistedDecisionCase(
     .from("cowork_workspaces")
     .update({
       // The column is the import UUID when a draft is being adopted.
-      // Otherwise keep the governed case number.
+      // Otherwise keep the governed case number. case_state is written only
+      // by apply_decision_case_command, so a failed command cannot leave a
+      // client-authored state on the workspace row.
       ...(importKey
         ? { case_number: importKey }
         : { case_number: persisted.caseNumber }),
-      case_state: persisted,
       source_intake_id: context.intakeId || null,
       usage_tokens: persisted.tokensUsed,
       next_action: "Complete the technical authority review",

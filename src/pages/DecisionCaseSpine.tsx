@@ -327,14 +327,16 @@ export function DecisionCaseSpine({
       const canonical = await savePersistedDecisionCase(next, command);
       setDecisionCase(canonical);
       setSaved(true);
-      setSaveNotice("Updates saved on your evaluation workspace.");
+      setSaveNotice("Current revision saved on the evaluation workspace.");
       return true;
     } catch (caught) {
+      const conflict =
+        caught instanceof Error && caught.name === "DecisionCaseConflictError";
       setSaveNotice(
-        "Workspace update did not complete. The prior saved case remains authoritative; this change did not earn readiness.",
+        "Workspace save did not complete. The prior saved case remains authoritative; this change did not earn readiness.",
       );
       setError(
-        caught instanceof Error && caught.name === "DecisionCaseConflictError"
+        conflict
           ? "This Decision Case changed elsewhere. Reload the saved trail before retrying; no local change was applied."
           : caught instanceof Error
             ? caught.message
@@ -1500,8 +1502,8 @@ export function DecisionCaseSpine({
         </button>
         <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
           Sending requires a same-tenant administrator or executive using an
-          AAL2 session. Membership is viewer-only.
-          Workspace access never grants engineering or decision authority.
+          AAL2 session. Membership is viewer-only. Workspace access never grants
+          engineering or decision authority.
         </p>
         {decisionCase.invitation ? (
           <div
@@ -1515,8 +1517,8 @@ export function DecisionCaseSpine({
               {decisionCase.invitation.detail}
             </p>
             <p className="mt-1 text-[11px] text-amber-100/90">
-              Delivery, acceptance, sign-in, and decision authority are
-              separate states.
+              Delivery, acceptance, sign-in, and decision authority are separate
+              states.
             </p>
           </div>
         ) : null}
