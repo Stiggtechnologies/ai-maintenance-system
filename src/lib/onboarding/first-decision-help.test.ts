@@ -12,6 +12,10 @@ describe("first Decision Case help", () => {
     expect(FIRST_DECISION_HELP.content).toMatch(/First value/);
     expect(FIRST_DECISION_HELP.content).toMatch(/not an approval/);
     expect(FIRST_DECISION_HELP.content).toMatch(/Talk me through it/);
+    expect(FIRST_DECISION_HELP.content).toMatch(/stay hidden/);
+    expect(FIRST_DECISION_HELP.content).not.toMatch(
+      /both controls stay visible/,
+    );
     expect(FIRST_DECISION_HELP.content).toMatch(
       /Talk to us stays out of the navigation until a Decision Case is saved/,
     );
