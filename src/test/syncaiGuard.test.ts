@@ -391,7 +391,14 @@ describe("SyncAI Guard contracts on disk", () => {
     expect(workflow).toContain("bash scripts/garak-scan.sh");
     expect(workflow).toContain("secrets.NVIDIA_API_KEY");
     expect(workflow).toContain("needs.preflight.outputs.run == 'true'");
-    expect(workflow).toContain("SKIPPED:");
+    expect(workflow).toContain(
+      "SKIPPED: NVIDIA_API_KEY is unset. Garak scan not run.",
+    );
+    expect(workflow).toContain(
+      "actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97",
+    );
+    expect(workflow).toContain('python-version: "3.12"');
+    expect(workflow).toContain("python -m pip install garak==0.17.0");
     expect(
       readFileSync("config/syncai-guard/garak-probes.txt", "utf8"),
     ).toContain("promptinject");
