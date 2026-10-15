@@ -452,9 +452,7 @@ async function runCase(item: GoldenCase): Promise<ModelResult> {
     model,
     instructions,
     input: item.question,
-    // Match the governed production budget so the long onboarding and FMEA
-    // witnesses can complete every named section before optional depth.
-    maxTokens: deliverable(item.question) ? 8000 : 3200,
+    maxTokens: deliverable(item.question) ? 5600 : 2600,
   });
 }
 
