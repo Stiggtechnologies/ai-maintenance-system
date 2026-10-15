@@ -678,10 +678,10 @@
     "backticked": 3
   },
   "C6.26": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 6,
-    "backticked": 2
+    "citations": 8,
+    "backticked": 8
   },
   "C7.01": {
     "status": "✅",
