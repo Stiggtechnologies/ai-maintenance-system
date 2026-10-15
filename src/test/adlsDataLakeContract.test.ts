@@ -2,11 +2,11 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270105103700_adls_data_lake_read.sql",
+  "supabase/migrations/20270105143700_adls_data_lake_read.sql",
   "utf8",
 ).toLowerCase();
 const repair = readFileSync(
-  "supabase/migrations/20270105103800_adls_data_lake_provenance_reconciliation.sql",
+  "supabase/migrations/20270105143800_adls_data_lake_provenance_reconciliation.sql",
   "utf8",
 ).toLowerCase();
 const edge = readFileSync(
