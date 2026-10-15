@@ -1,5 +1,8 @@
 -- Speech abuse ceiling for sync-tts.
 --
+-- 2026-10-15: file version moved from 20270105120000 to 20270105160102
+-- after origin/main deployed 20270105160101.
+--
 -- sync-tts calls OpenAI Speech for any signed-in user and, before this
 -- migration, recorded nothing. Character spend is not token spend. Inserting
 -- it into private.llm_usage would count those rows toward the engineering

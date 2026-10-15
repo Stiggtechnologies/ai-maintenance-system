@@ -11,7 +11,7 @@ import {
 } from "../../supabase/functions/_shared/sync-tts-core";
 
 const migration = readFileSync(
-  "supabase/migrations/20270105120000_sync_tts_speech_quota.sql",
+  "supabase/migrations/20270105160102_sync_tts_speech_quota.sql",
   "utf8",
 );
 const executable = migration
