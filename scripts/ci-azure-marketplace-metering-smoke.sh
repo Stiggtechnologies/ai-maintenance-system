@@ -11,6 +11,67 @@ begin;
 insert into public.organizations(id,name,industry) values
   ('a1111111-1111-4111-8111-111111111111','Marketplace Metering Tenant','technology');
 
+insert into auth.users (
+  instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,
+  created_at,updated_at,raw_app_meta_data,raw_user_meta_data,
+  confirmation_token,recovery_token,email_change,email_change_token_new,
+  email_change_token_current,phone_change,phone_change_token,reauthentication_token
+) values (
+  '00000000-0000-0000-0000-000000000000',
+  'a7777777-7777-4777-8777-777777777777','authenticated','authenticated',
+  'metering-admin@syncai.invalid',extensions.crypt('MarketplaceMetering123!',extensions.gen_salt('bf')),
+  now(),now(),now(),'{"provider":"email","providers":["email"]}','{}',
+  '','','','','','','',''
+);
+insert into public.user_profiles(id,organization_id,email,full_name,role) values
+  ('a7777777-7777-4777-8777-777777777777','a1111111-1111-4111-8111-111111111111','metering-admin@syncai.invalid','Metering Admin','admin')
+on conflict(id) do update set
+  organization_id=excluded.organization_id,email=excluded.email,
+  full_name=excluded.full_name,role=excluded.role;
+
+-- CI-only commercial fixture: the metering smoke must enter through the same
+-- approved, margin-safe boundary as a real flat-rate Marketplace plan. The
+-- values below are test data, not production pricing or allowance decisions.
+set local role service_role;
+do $commercial$
+declare v_result jsonb;
+begin
+  v_result := public.configure_marketplace_meter_dimension(
+    'enterprise-metered','tokens_1k',1000,1,2,true
+  );
+  if v_result->>'active'<>'true' then
+    raise exception 'CI meter definition was not activated: %',v_result;
+  end if;
+  v_result := public.configure_ai_commercial_plan_policy(
+    'azure_marketplace','syncai-enterprise','enterprise-metered','flat_rate',
+    'metered_overage',10,1000,100,100000,50,1000,0,2.00,0.50,
+    array['gpt-4o-mini']::text[],'tokens_1k',1000,2,
+    'CI-only Marketplace metering fixture'
+  );
+  if v_result->>'status'<>'draft'
+     or coalesce((v_result->'evaluation'->>'allowed')::boolean,false) is not true then
+    raise exception 'CI metered policy failed margin evaluation: %',v_result;
+  end if;
+  if (v_result->'evaluation'->>'providerCostMultiplier')::numeric<>2
+     or (v_result->'evaluation'->>'modeledWorstCaseCadPerMillionTokens')::numeric
+       <>1.70712
+     or (v_result->'evaluation'->>'includedInferenceCostCad')::numeric
+       <>0.00170712
+     or (v_result->'evaluation'->>'overageUnitCostCad')::numeric
+       <>0.00170712 then
+    raise exception 'provider pricing multiplier was not applied to both base and overage cost: %',v_result;
+  end if;
+  v_result := public.approve_ai_commercial_plan_policy(
+    'azure_marketplace','syncai-enterprise','enterprise-metered',
+    'a7777777-7777-4777-8777-777777777777'
+  );
+  if coalesce((v_result->>'approved')::boolean,false) is not true then
+    raise exception 'CI metered policy was not approved: %',v_result;
+  end if;
+end
+$commercial$;
+reset role;
+
 insert into public.billing_subscriptions(
   id,organization_id,plan,status,current_period_start,current_period_end,
   billing_source,marketplace_subscription_id,marketplace_publisher_id,
@@ -24,6 +85,25 @@ insert into public.billing_subscriptions(
   'syncai-publisher','syncai-enterprise','enterprise-metered',10,
   'Subscribed','2026-09-29 12:00:00+00',now()
 );
+
+do $flat_rate_allowance$
+begin
+  if not exists (
+    select 1 from private.llm_org_quotas
+    where organization_id='a1111111-1111-4111-8111-111111111111'
+      and commercial_plan_id='enterprise-metered'
+      and commercial_allowance_mode='metered_overage'
+      and commercial_quantity=1
+      and included_calls_per_period=10
+      and included_tokens_per_period=1000
+      and max_calls_per_period=100
+      and max_tokens_per_period=100000
+      and max_decisions_per_period=50
+  ) then
+    raise exception 'flat-rate allowance incorrectly scaled by Marketplace quantity';
+  end if;
+end
+$flat_rate_allowance$;
 
 insert into public.marketplace_fulfillment_resolutions(
   id,marketplace_subscription_id,publisher_id,offer_id,plan_id,

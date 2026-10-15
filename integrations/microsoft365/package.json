@@ -1,0 +1,16 @@
+{
+  "dependencies": {
+    "@microsoft/agents-activity": "1.9.1",
+    "@microsoft/agents-hosting": "1.9.1",
+    "@microsoft/agents-hosting-express": "1.9.1",
+    "ajv": "8.20.0",
+    "ajv-draft-04": "1.0.0",
+    "ajv-formats": "3.0.1"
+  },
+  "name": "syncai-microsoft365-integration",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test *.test.mjs"
+  }
+}

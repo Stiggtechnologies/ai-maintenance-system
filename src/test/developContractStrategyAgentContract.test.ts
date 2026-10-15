@@ -1,13 +1,28 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const migration = readFileSync("supabase/migrations/20261220080000_develop_contract_strategy_agent.sql", "utf8");
-const edge = readFileSync("supabase/functions/develop-contract-strategy-agent/index.ts", "utf8");
+const migration = readFileSync(
+  "supabase/migrations/20261220080000_develop_contract_strategy_agent.sql",
+  "utf8",
+);
+const edge = readFileSync(
+  "supabase/functions/develop-contract-strategy-agent/index.ts",
+  "utf8",
+);
 const config = readFileSync("supabase/config.toml", "utf8");
 const boundary = readFileSync("config/edge-function-boundary.json", "utf8");
-const panel = readFileSync("src/components/develop/ContractStrategyAgentPanel.tsx", "utf8");
-const host = readFileSync("src/components/develop/ProcurementPanels.tsx", "utf8");
-const smoke = readFileSync("scripts/ci-develop-contract-strategy-agent-smoke.sh", "utf8");
+const panel = readFileSync(
+  "src/components/develop/ContractStrategyAgentPanel.tsx",
+  "utf8",
+);
+const host = readFileSync(
+  "src/components/develop/ProcurementPanels.tsx",
+  "utf8",
+);
+const smoke = readFileSync(
+  "scripts/ci-develop-contract-strategy-agent-smoke.sh",
+  "utf8",
+);
 
 describe("D12.02 contract-strategy agent contract", () => {
   it("uses the canonical recommendation ledger and preserves human award authority", () => {
@@ -15,14 +30,30 @@ describe("D12.02 contract-strategy agent contract", () => {
     expect(migration).toContain("'pending'");
     expect(migration).toContain("'draft_recommendation'");
     expect(migration).toContain("'recommend_contract_strategy'");
-    expect(migration).not.toMatch(/insert into public\.(contracts|contract_awards|purchase_orders)/i);
+    expect(migration).not.toMatch(
+      /insert into public\.(contracts|contract_awards|purchase_orders)/i,
+    );
     expect(migration).not.toMatch(/insert into public\.approvals/i);
     expect(smoke).toContain("no_award=true");
   });
 
   it("enforces caller identity, tenant/case evidence binding, and model provenance", () => {
     expect(edge).toContain('Deno.env.get("SUPABASE_ANON_KEY")');
-    expect(edge).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
+    // Domain reads and governed writes remain the caller's. The service
+    // client is limited to resolving that caller's organization and invoking
+    // the service-only commercial reservation/settlement boundary.
+    expect(edge).toContain('Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")');
+    expect(edge.match(/admin\s*\.from\(/g)).toHaveLength(1);
+    expect(edge).toContain('.from("user_profiles")');
+    expect(edge).toContain(
+      "(functionName, args) => admin.rpc(functionName, args)",
+    );
+    expect(edge).toContain(
+      "const { data: contextData, error: contextError } = await caller.rpc(",
+    );
+    expect(edge).toContain(
+      "const { data: evidenceRows, error: evidenceError } = await caller",
+    );
     expect(edge).toContain('"record_contract_strategy_recommendation"');
     expect(migration).toContain("e.organization_id = v_org");
     expect(migration).toContain("e.development_case_id = p_case_id");
@@ -62,7 +93,9 @@ describe("D12.02 contract-strategy agent contract", () => {
     expect(history).toContain(
       "adopted agent controls are immutable; supersede them with a new version",
     );
-    expect(history).toContain("if tg_op='UPDATE' and old.status='adopted' then");
+    expect(history).toContain(
+      "if tg_op='UPDATE' and old.status='adopted' then",
+    );
     expect(bindings).toContain(
       "if not exists (select 1 from organizations where id = old.organization_id)",
     );

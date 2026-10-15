@@ -25,9 +25,13 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   buildProviderChain,
-  callWithResilience,
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
+import {
+  callWithCommercialBoundary,
+  DEFAULT_COMMERCIALLY_PRICED_MODEL,
+  estimateLlmCallTokens,
+} from "../_shared/llm-commercial-usage.ts";
 import {
   buildGatePrompts,
   readGateReadiness,
@@ -45,8 +49,10 @@ const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "";
 // indirection — so an environment that names no model gets the chain's default
 // rather than this file's opinion, and this file has no opinion to drift.
 const MODEL = Deno.env.get("DEVELOP_AGENT_MODEL") || undefined;
+const COMMERCIAL_MODEL = MODEL ?? DEFAULT_COMMERCIALLY_PRICED_MODEL;
 const GATEWAY_MODEL = Deno.env.get("LLM_GATEWAY_MODEL") || undefined;
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
+const ALLOWED_ORIGIN =
+  Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
@@ -156,7 +162,8 @@ Deno.serve(async (req: Request) => {
     mandatoryTotal: Number(readiness.mandatoryTotal ?? 0),
     mandatoryMet: Number(readiness.mandatoryMet ?? 0),
     blockers: (readiness.blockers ?? []) as GateReadinessView["blockers"],
-    projection: (readiness.projection ?? null) as GateReadinessView["projection"],
+    projection: (readiness.projection ??
+      null) as GateReadinessView["projection"],
   };
   const reading = readGateReadiness(view);
 
@@ -176,24 +183,56 @@ Deno.serve(async (req: Request) => {
       "no model provider is configured — the deterministic reading above stands on its own";
   } else {
     const prompts = buildGatePrompts(reading);
-    const result = await callWithResilience(fetch, providers, {
+    const providerOptions = {
       systemPrompt: prompts.systemPrompt,
       userContent: prompts.userContent,
       maxTokens: 600,
       timeoutMs: 30_000,
-    });
-    if (result.events.length > 1 || !result.ok) {
-      console.error(
-        "develop-gate-agent provider trail",
-        JSON.stringify(result.events),
-      );
-    }
-    if (result.ok) {
-      narrative = result.content;
-      model = result.model;
-    } else {
+    };
+    const commercialAdmin = serviceClient();
+    const commercial = await callWithCommercialBoundary(
+      (functionName, args) => commercialAdmin.rpc(functionName, args),
+      fetch,
+      providers,
+      providerOptions,
+      {
+        organizationId: auth.organizationId,
+        functionName: "develop-gate-agent",
+        requestedModel: COMMERCIAL_MODEL,
+        estimatedTokens: estimateLlmCallTokens(providerOptions),
+        costObject: { type: "development_case", id: caseId },
+      },
+    );
+    if (commercial.status === "quota_refused") {
+      providerNote = `model narrative skipped by the commercial usage boundary (${commercial.limit}) — the deterministic reading above stands on its own`;
+    } else if (commercial.status === "settlement_failed") {
+      console.error("develop-gate-agent usage settlement failed", {
+        model: commercial.model,
+        error: commercial.error,
+      });
+      providerNote =
+        "the model answered but usage accounting failed, so its unaccounted output was discarded — the deterministic reading above stands on its own";
+    } else if (commercial.status === "provider_failed") {
+      if (commercial.events.length > 0) {
+        console.error(
+          "develop-gate-agent provider trail",
+          JSON.stringify(commercial.events),
+        );
+      }
       providerNote =
         "the model call failed — the deterministic reading above stands on its own";
+    } else {
+      const result = commercial.result;
+      if (result.events.length > 1 || !result.ok) {
+        console.error(
+          "develop-gate-agent provider trail",
+          JSON.stringify(result.events),
+        );
+      }
+      if (result.ok) {
+        narrative = result.content;
+        model = result.model;
+      }
     }
   }
 
@@ -205,7 +244,11 @@ Deno.serve(async (req: Request) => {
     const { data, error } = await caller.rpc("record_gate_agent_report", {
       p_case_id: caseId,
       p_gate_id: gateId,
-      p_narrative: [reading.headline, ...reading.blockerLines.map((l) => `- ${l}`), reading.projectionLine]
+      p_narrative: [
+        reading.headline,
+        ...reading.blockerLines.map((l) => `- ${l}`),
+        reading.projectionLine,
+      ]
         .concat(narrative ? ["", narrative] : [])
         .join("\n")
         .slice(0, 6000),
