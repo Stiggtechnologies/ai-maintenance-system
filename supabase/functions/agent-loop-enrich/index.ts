@@ -32,6 +32,10 @@ import {
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
 import {
+  callWithCommercialBoundary,
+  estimateLlmCallTokens,
+} from "../_shared/llm-commercial-usage.ts";
+import {
   adaptAzureOpenAiFetch,
   buildAzureOpenAiProvider,
   resolveAzureOpenAiEndpoint,
@@ -243,106 +247,80 @@ Deno.serve(async (req) => {
   let enriched = 0;
   const failures: string[] = [];
 
-  const releaseReservation = async (reservationId: number | null) => {
-    if (reservationId === null) return;
-    const { error: releaseError } = await supabase.rpc(
-      "release_llm_reservation",
-      { p_reservation_id: reservationId },
-    );
-    if (releaseError) {
-      console.error("agent-loop-enrich reservation release failed", {
-        reservationId,
-        error: releaseError,
-      });
-    }
-  };
-
   for (const rec of recs) {
-    let reservationId: number | null = null;
-    let providerCompleted = false;
     try {
-      const { data: quota, error: quotaError } = await supabase.rpc(
-        "check_llm_commercial_quota",
-        {
-          p_organization_id: rec.organization_id,
-          p_fn: "agent-loop-enrich",
-          p_model: COMMERCIAL_MODEL,
-          p_estimated_tokens: 2500,
-          p_cost_object_type: "recommendation",
-          p_cost_object_id: rec.id,
-        },
-      );
-      const verdict = (quota ?? {}) as Record<string, unknown>;
-      reservationId = Number(verdict.reservation_id);
-      if (
-        quotaError ||
-        verdict.allowed !== true ||
-        !Number.isSafeInteger(reservationId)
-      ) {
-        console.error("agent-loop-enrich commercial quota refused", {
-          id: rec.id,
-          limit: verdict.limit ?? "quota_check_unavailable",
-          error: quotaError,
-        });
-        failures.push(`${rec.id}: commercial_quota_refused`);
-        reservationId = null;
-        continue;
-      }
-
-      const result = await callWithResilience(providerFetch, providers, {
-        systemPrompt:
-          "You are a senior reliability engineer for asset-intensive industry. " +
-          "Given a condition-monitoring finding, return strict JSON: " +
-          '{"analysis": "2-3 sentence engineering assessment of likely failure mechanism and consequence", ' +
-          '"recommended_window_hours": <number>, "confidence": <0-100 integer>}. ' +
-          "Be specific and conservative; never advise bypassing approvals.",
-        userContent: `Finding: ${rec.title}\nSensor detail: ${rec.issue}\nCurrent proposed action: ${rec.action}\nUrgency: ${rec.urgency}`,
+      const systemPrompt =
+        "You are a senior reliability engineer for asset-intensive industry. " +
+        "Given a condition-monitoring finding, return strict JSON: " +
+        '{"analysis": "2-3 sentence engineering assessment of likely failure mechanism and consequence", ' +
+        '"recommended_window_hours": <number>, "confidence": <0-100 integer>}. ' +
+        "Be specific and conservative; never advise bypassing approvals.";
+      const userContent = `Finding: ${rec.title}\nSensor detail: ${rec.issue}\nCurrent proposed action: ${rec.action}\nUrgency: ${rec.urgency}`;
+      const providerOptions = {
+        systemPrompt,
+        userContent,
         maxTokens: 1500,
         timeoutMs: 45_000,
-      });
+      };
+      // Paid callers use the qualified commercial route and settlement
+      // contract. A missing direct route, a quota refusal, or missing
+      // terminal usage/model metadata does not apply an enrichment.
+      const commercial = await callWithCommercialBoundary(
+        (functionName, args) => supabase.rpc(functionName, args),
+        providerFetch,
+        providers,
+        providerOptions,
+        {
+          organizationId: rec.organization_id,
+          functionName: "agent-loop-enrich",
+          requestedModel: COMMERCIAL_MODEL,
+          estimatedTokens: Math.max(
+            2500,
+            estimateLlmCallTokens(providerOptions),
+          ),
+          costObject: { type: "recommendation", id: rec.id },
+        },
+      );
 
+      const events =
+        commercial.status === "ok"
+          ? commercial.result.events
+          : "events" in commercial
+            ? commercial.events
+            : [];
       // The month of silence happened because failures only went to
       // console.error. Health events are queryable; the console is not.
-      if (result.events.length > 1 || !result.ok) {
-        await supabase.from("llm_provider_events").insert(
-          result.events.map((e) => ({
-            function_name: "agent-loop-enrich",
-            provider: e.provider,
-            outcome: e.outcome,
-            status: e.status,
-            detail: e.detail,
-          })),
-        );
+      if (events.length > 1 || commercial.status !== "ok") {
+        if (events.length > 0) {
+          await supabase.from("llm_provider_events").insert(
+            events.map((e) => ({
+              function_name: "agent-loop-enrich",
+              provider: e.provider,
+              outcome: e.outcome,
+              status: e.status,
+              detail: e.detail,
+            })),
+          );
+        }
       }
 
-      if (!result.ok) {
-        console.error("agent-loop-enrich provider exhausted", { id: rec.id });
-        failures.push(`${rec.id}: provider_error`);
-        await releaseReservation(reservationId);
-        reservationId = null;
-        continue;
-      }
-      providerCompleted = true;
-
-      // Settlement is part of the commercial boundary, not optional
-      // telemetry. If it fails, retain the conservative reservation and do
-      // not apply an unaccounted enrichment.
-      const usage = result.usage ?? {};
-      const { error: usageError } = await supabase.rpc("record_llm_usage", {
-        p_organization_id: rec.organization_id,
-        p_fn: "agent-loop-enrich",
-        p_model: result.model ?? LLM_MODEL,
-        p_prompt_tokens: usage.prompt_tokens ?? 0,
-        p_completion_tokens: usage.completion_tokens ?? 0,
-        p_reservation_id: reservationId,
-      });
-      reservationId = null;
-      if (usageError) {
-        console.error("agent-loop-enrich usage settlement failed", usageError);
-        failures.push(`${rec.id}: usage_settlement_failed`);
+      if (commercial.status !== "ok") {
+        const reason =
+          commercial.status === "quota_refused"
+            ? "commercial_quota_refused"
+            : commercial.status === "settlement_failed"
+              ? "usage_settlement_failed"
+              : "provider_error";
+        console.error("agent-loop-enrich commercial route did not succeed", {
+          id: rec.id,
+          status: commercial.status,
+          reason,
+        });
+        failures.push(`${rec.id}: ${reason}`);
         continue;
       }
 
+      const result = commercial.result;
       const content: string = result.content;
       const match = content.match(/\{[\s\S]*\}/);
       const parsed = match ? JSON.parse(match[0]) : {};
@@ -369,7 +347,7 @@ Deno.serve(async (req) => {
         .from("recommendations")
         .update({
           rationale:
-            `AI analysis (${result.model ?? LLM_MODEL}): ${parsed.analysis.trim()} ` +
+            `AI analysis (${result.model ?? COMMERCIAL_MODEL}): ${parsed.analysis.trim()} ` +
             `Suggested action window: ${parsed.recommended_window_hours ?? "n/a"}h. ` +
             "Raised by the continuous condition-monitoring loop; human approval required before any action.",
           confidence,
@@ -377,7 +355,7 @@ Deno.serve(async (req) => {
           // The model that ACTUALLY answered, not the one requested. When the
           // chain fails over these differ, and storing the request would put a
           // false provenance claim into a record an engineer signs.
-          enrichment_model: result.model ?? LLM_MODEL,
+          enrichment_model: result.model ?? COMMERCIAL_MODEL,
           updated_at: new Date().toISOString(),
         })
         .eq("id", rec.id)
@@ -409,7 +387,6 @@ Deno.serve(async (req) => {
 
       enriched += 1;
     } catch (error) {
-      if (!providerCompleted) await releaseReservation(reservationId);
       console.error("agent-loop-enrich failed", { id: rec.id, error });
       failures.push(`${rec.id}: enrichment_failed`);
     }
