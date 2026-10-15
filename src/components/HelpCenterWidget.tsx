@@ -19,7 +19,7 @@ const helpArticles: HelpArticle[] = [
     category: "Product",
     summary: "Reach a first Decision Case yourself",
     content:
-      "Reach a first Decision Case on Get started without a walkthrough. Write your question, then save the case on a workspace. A browser draft is not done. First value is a saved recommendation or saved evidence you can review. It is not an approval and it does not run the plant. Talk to us is optional.",
+      "Reach a first Decision Case on Get started without a walkthrough. Write your question, then save the case on a workspace. A browser draft is not done. First value is a saved recommendation or saved evidence you can review. It is not an approval and it does not run the plant. Navigation keeps the next self-serve step until that case is saved.",
   },
   {
     id: "assessment",

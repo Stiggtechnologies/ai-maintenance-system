@@ -353,6 +353,12 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     );
     fireEvent.click(screen.getByTestId("spine-method-upload_file"));
     expect(screen.getByTestId("spine-evidence-file")).toBeTruthy();
+    await waitFor(() => {
+      expect(screen.getByRole("link", { name: "Talk to us" })).toHaveAttribute(
+        "href",
+        "https://syncai.ca/contact",
+      );
+    });
   });
 
   it("shows class, provenance, expiry, attribution, and a copyable proof summary", async () => {
@@ -541,7 +547,16 @@ describe("P0.2 Decision Case spine on /get-started", () => {
         .textContent,
     ).not.toMatch(/…/);
     expect(screen.getByTestId("inverted-intent-connect").textContent).toMatch(
-      /Optional, and not the first step/,
+      /Optional after first value/,
+    );
+    expect(screen.getByTestId("inverted-intent-connect")).toHaveAttribute(
+      "data-connect-ready",
+      "false",
+    );
+    fireEvent.click(screen.getByTestId("inverted-intent-connect"));
+    expect(screen.getByTestId("inverted-intent-solve")).toHaveAttribute(
+      "data-selected",
+      "true",
     );
     expect(screen.getByTestId("first-decision-help").textContent).toMatch(
       /first Decision Case/i,
@@ -555,12 +570,33 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     expect(
       screen.queryByRole("link", { name: "Discuss purchasing" }),
     ).toBeNull();
-    expect(screen.getByRole("link", { name: "Talk to us" })).toHaveAttribute(
+    expect(screen.queryByRole("link", { name: "Talk to us" })).toBeNull();
+    expect(screen.getByTestId("self-serve-nav-step")).toHaveAttribute(
       "href",
-      "https://syncai.ca/contact",
+      "#inverted-ask",
+    );
+    expect(screen.getByTestId("self-serve-nav-step")).toHaveTextContent(
+      "Ask your question",
     );
 
     openSpine();
+    expect(screen.getByTestId("self-serve-nav-step")).toHaveTextContent(
+      "Save this Decision Case",
+    );
+    expect(screen.queryByRole("link", { name: "Talk to us" })).toBeNull();
+    await waitFor(() => {
+      expect(screen.getByTestId("self-serve-narration")).toHaveAttribute(
+        "data-narration",
+        expect.stringMatching(/Add one evidence type/),
+      );
+    });
+    expect(screen.getByTestId("self-serve-narration")).toHaveAttribute(
+      "data-voice-allowed",
+      "false",
+    );
+    expect(
+      screen.getByRole("button", { name: "Talk me through it" }),
+    ).toBeDisabled();
     expect(screen.getByTestId("self-serve-step-decision_case")).toHaveAttribute(
       "data-status",
       "now",

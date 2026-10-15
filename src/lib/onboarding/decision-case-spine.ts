@@ -136,6 +136,12 @@ export function stageHelpFor(stage: SpineStage): StageHelp {
   return found;
 }
 
+/** Spoken form of the active stage. Same copy as the on-screen help. */
+export function stageNarrationScript(stage: SpineStage): string {
+  const help = stageHelpFor(stage);
+  return `${help.label}. ${help.doThis} ${help.willNot}`;
+}
+
 export type EvidenceKind =
   "work_history" | "condition" | "documents" | "inspection" | "schedule_cost";
 
@@ -180,7 +186,7 @@ export const EVIDENCE_METHODS: ReadonlyArray<{
 }> = [
   { id: "upload_file", title: "Upload a file" },
   { id: "paste_data", title: "Paste data" },
-  { id: "connect_source", title: "Connect a source" },
+  { id: "connect_source", title: "Check an existing source" },
   { id: "manual", title: "Continue with manual evidence" },
   { id: "ask_admin", title: "Note it and continue" },
 ];

@@ -110,6 +110,7 @@ export function SelfServeNarration({ script }: { script: string }) {
     <div
       className="max-w-sm"
       data-testid="self-serve-narration"
+      data-narration={script}
       data-voice-allowed={allowed ? "true" : "false"}
     >
       {allowed ? (

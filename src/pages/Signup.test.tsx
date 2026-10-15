@@ -108,6 +108,14 @@ describe("Signup industry selection", () => {
     expect(document.body.textContent).toMatch(
       /This tab still has .* including the question and evidence you started/,
     );
+    expect(screen.queryByRole("link", { name: "Talk to us" })).toBeNull();
+    expect(screen.getByTestId("self-serve-nav-step")).toHaveTextContent(
+      "Finish in this form",
+    );
+    expect(screen.getByTestId("self-serve-nav-step")).toHaveAttribute(
+      "href",
+      "#signup-workspace",
+    );
   });
 
   it("uses the canonical catalog and captures a custom industry name", () => {
