@@ -105,7 +105,10 @@ describe("E5.07 governed data-loss prevention", () => {
     const discovered: string[] = [];
 
     for (const name of deploymentBoundary.activeFunctions) {
-      const source = readFileSync(`supabase/functions/${name}/index.ts`, "utf8");
+      const source = readFileSync(
+        `supabase/functions/${name}/index.ts`,
+        "utf8",
+      );
       if (!providerCallMarkers.some((marker) => marker.test(source))) continue;
 
       // This is the anonymous, public-reference rail: it has no tenant corpus

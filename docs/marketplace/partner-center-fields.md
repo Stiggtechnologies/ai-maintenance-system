@@ -69,25 +69,25 @@ Length: 81 characters.
 
 ### Contacts and URLs
 
-| Partner Center field | Value | Status |
-| --- | --- | --- |
-| Support contact email | `support@syncai.ca` | Repository-backed; owner must confirm monitored response process |
-| Engineering contact email | `[OWNER DECISION: named monitored engineering contact]` | Blocked |
-| Privacy policy URL | `[OWNER ACTION: publish a directly addressable HTTPS privacy policy]` | Blocked; the SPA `/privacy` path does not select the policy page on a fresh load |
-| Terms URL / EULA | `[OWNER ACTION: select Microsoft Standard Contract or publish approved terms and amendments]` | Blocked; obtain legal approval |
-| Support URL, if requested | `[OWNER ACTION: publish support page, or confirm Partner Center accepts the support contact fields without one]` | Blocked |
-| Useful link — product | `https://syncai.ca` | Owner must verify current content is consistent with the claims register |
-| Useful link — documentation | `[OWNER ACTION: publish reviewed customer documentation]` | Blocked |
+| Partner Center field        | Value                                                                                                            | Status                                                                           |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Support contact email       | `support@syncai.ca`                                                                                              | Repository-backed; owner must confirm monitored response process                 |
+| Engineering contact email   | `[OWNER DECISION: named monitored engineering contact]`                                                          | Blocked                                                                          |
+| Privacy policy URL          | `[OWNER ACTION: publish a directly addressable HTTPS privacy policy]`                                            | Blocked; the SPA `/privacy` path does not select the policy page on a fresh load |
+| Terms URL / EULA            | `[OWNER ACTION: select Microsoft Standard Contract or publish approved terms and amendments]`                    | Blocked; obtain legal approval                                                   |
+| Support URL, if requested   | `[OWNER ACTION: publish support page, or confirm Partner Center accepts the support contact fields without one]` | Blocked                                                                          |
+| Useful link — product       | `https://syncai.ca`                                                                                              | Owner must verify current content is consistent with the claims register         |
+| Useful link — documentation | `[OWNER ACTION: publish reviewed customer documentation]`                                                        | Blocked                                                                          |
 
 ## Technical configuration
 
-| Field | Controlled value | Status and operator note |
-| --- | --- | --- |
-| Landing page URL | `https://app.syncai.ca/marketplace/activate` | Custom-domain HTTP 200 and signed-out activation UI observed; use no fragment; source-commit aliasing, first purchase, and returning manage flow remain unproven |
-| Connection webhook | `https://app.syncai.ca/api/marketplace/webhook` | **Blocked before entry by PC-000.** Custom-domain `GET` returns `405` with `Allow: POST` and unsigned JSON `POST` returns the proxy's expected `401`, but those paths do not resolve or confirm the upstream project |
-| Microsoft Entra tenant ID | `[OWNER VERIFY: exact publisher tenant GUID already configured]` | Must match server secret and webhook token validation |
-| Microsoft Entra application ID | `[OWNER VERIFY: exact Marketplace publisher application GUID already configured]` | Must match webhook audience and publisher credentials |
-| Auto activation | `No / Off` | Required by the current manual-activation contract |
+| Field                          | Controlled value                                                                  | Status and operator note                                                                                                                                                                                             |
+| ------------------------------ | --------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Landing page URL               | `https://app.syncai.ca/marketplace/activate`                                      | Custom-domain HTTP 200 and signed-out activation UI observed; use no fragment; source-commit aliasing, first purchase, and returning manage flow remain unproven                                                     |
+| Connection webhook             | `https://app.syncai.ca/api/marketplace/webhook`                                   | **Blocked before entry by PC-000.** Custom-domain `GET` returns `405` with `Allow: POST` and unsigned JSON `POST` returns the proxy's expected `401`, but those paths do not resolve or confirm the upstream project |
+| Microsoft Entra tenant ID      | `[OWNER VERIFY: exact publisher tenant GUID already configured]`                  | Must match server secret and webhook token validation                                                                                                                                                                |
+| Microsoft Entra application ID | `[OWNER VERIFY: exact Marketplace publisher application GUID already configured]` | Must match webhook audience and publisher credentials                                                                                                                                                                |
+| Auto activation                | `No / Off`                                                                        | Required by the current manual-activation contract                                                                                                                                                                   |
 
 Do not place secrets, SAS tokens, keys, or authorization material in either
 URL. The webhook authenticates the Microsoft bearer token sent in the
@@ -230,10 +230,10 @@ coverage have been reviewed.
 
 Keep two independent records:
 
-| Record | Controlled value | Meaning |
-| --- | --- | --- |
-| Publisher/user submission | `[OWNER EVIDENCE: form/profile submitted, by whom, when, and receipt if available]` | Records only that information was submitted |
-| Partner Center status | `[PARTNER CENTER EVIDENCE: exact displayed validation/assignment state, account, timestamp and screenshot/export]` | Records Microsoft's current processing/assignment result |
+| Record                    | Controlled value                                                                                                   | Meaning                                                  |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------- |
+| Publisher/user submission | `[OWNER EVIDENCE: form/profile submitted, by whom, when, and receipt if available]`                                | Records only that information was submitted              |
+| Partner Center status     | `[PARTNER CENTER EVIDENCE: exact displayed validation/assignment state, account, timestamp and screenshot/export]` | Records Microsoft's current processing/assignment result |
 
 Do not mark tax or payout setup complete from an email, verbal report, or a
 submitted form alone. The Marketplace release owner must verify that the
@@ -245,13 +245,13 @@ or payout profile is validated.
 
 ## Supporting documents and media inventory
 
-| Asset | Requirement/posture | Current state | Action |
-| --- | --- | --- | --- |
-| Marketing PDF | Microsoft requires 1–3 PDFs | Content source drafted | Design, legal/claims review, export accessible PDF, upload |
-| Large square logo | PNG, 216–350 px square | Not inventoried in this package | Brand owner supplies reviewed asset |
-| Screenshots | Up to five, recommended 1280×720 | Not inventoried | Capture production-like surfaces without customer/confidential data or unsupported claims |
-| Video | Optional | None | Do not block initial submission unless owner elects to add one |
-| Useful links | Optional | Product site only | Review site claims; publish customer documentation before linking it |
+| Asset             | Requirement/posture              | Current state                   | Action                                                                                    |
+| ----------------- | -------------------------------- | ------------------------------- | ----------------------------------------------------------------------------------------- |
+| Marketing PDF     | Microsoft requires 1–3 PDFs      | Content source drafted          | Design, legal/claims review, export accessible PDF, upload                                |
+| Large square logo | PNG, 216–350 px square           | Not inventoried in this package | Brand owner supplies reviewed asset                                                       |
+| Screenshots       | Up to five, recommended 1280×720 | Not inventoried                 | Capture production-like surfaces without customer/confidential data or unsupported claims |
+| Video             | Optional                         | None                            | Do not block initial submission unless owner elects to add one                            |
+| Useful links      | Optional                         | Product site only               | Review site claims; publish customer documentation before linking it                      |
 
 ## Official field constraints
 

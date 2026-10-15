@@ -91,6 +91,7 @@ import {
 import { GovernancePanel } from "../components/develop/GovernancePanel";
 import { EngineOverlayPanel } from "../components/develop/EngineOverlayPanel";
 import { StageDimensionSubstratePanel } from "../components/develop/StageDimensionSubstratePanel";
+import { DevelopCompositionNav } from "../components/develop/DevelopCompositionNav";
 import {
   BenefitsSection,
   BusinessCaseSection,
@@ -2660,7 +2661,10 @@ export function DevelopmentCaseWorkspacePage() {
       </div>
 
       {/* Case header */}
-      <div className="rounded-xl border border-white/6 bg-[#0D1520] p-5">
+      <div
+        id="engine-frame"
+        className="scroll-mt-6 rounded-xl border border-white/6 bg-[#0D1520] p-5"
+      >
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-xl font-bold text-white tracking-tight">
@@ -2745,7 +2749,10 @@ export function DevelopmentCaseWorkspacePage() {
         </div>
       )}
 
+      <DevelopCompositionNav caseId={workspace.id} />
+
       {/* Stage position + gates */}
+      <div id="engine-govern" className="scroll-mt-6" />
       {workspace.framework == null ? (
         <div className="rounded-xl border border-white/6 bg-[#0D1520] p-6 text-sm text-slate-400">
           No framework governs this case yet, so there is no stage position and
@@ -2848,6 +2855,7 @@ export function DevelopmentCaseWorkspacePage() {
       <EngineOverlayPanel caseId={workspace.id} />
       <StageDimensionSubstratePanel caseId={workspace.id} />
       <ObjectiveSection workspace={workspace} />
+      <div id="engine-value" className="scroll-mt-6" />
       <SuccessContractSection
         workspace={workspace}
         members={members}
@@ -2882,6 +2890,7 @@ export function DevelopmentCaseWorkspacePage() {
       {/* D7.09 / spec section 29: a read-only metric over canonical work-order
           transitions linked through the case's existing asset scope. */}
       <ProjectFlowEfficiencyPanel caseId={workspace.id} />
+      <div id="engine-ready" className="scroll-mt-6" />
       <TechnicalDebtPanel
         caseId={workspace.id}
         canPlan={canDesignPlan}
@@ -2898,7 +2907,9 @@ export function DevelopmentCaseWorkspacePage() {
         canPlan={canDesignPlan}
         canAcknowledge={canAcknowledgeOperationalDebt}
       />
-      <div id="realize" className="scroll-mt-6">
+      <div id="engine-realize" className="scroll-mt-6">
+        <div id="realize" className="scroll-mt-6" />
+        <div id="module-learn" className="scroll-mt-6" />
         <RealizeCluster
           caseId={workspace.id}
           canRealize={canRealize}
@@ -2917,11 +2928,13 @@ export function DevelopmentCaseWorkspacePage() {
         canReview={canReview}
         onChanged={() => void load()}
       />
-      <RisksSection
-        workspace={workspace}
-        canPlan={canPlan}
-        onChanged={() => void load()}
-      />
+      <div id="module-risk" className="scroll-mt-6">
+        <RisksSection
+          workspace={workspace}
+          canPlan={canPlan}
+          onChanged={() => void load()}
+        />
+      </div>
       <DecisionsSection
         workspace={workspace}
         canPlan={canPlan}
@@ -2933,6 +2946,7 @@ export function DevelopmentCaseWorkspacePage() {
         canPlan={canPlan}
         onChanged={() => void load()}
       />
+      <div id="engine-control" className="scroll-mt-6" />
       <BaselinesSection
         workspace={workspace}
         canPlan={canPlan}
@@ -3009,6 +3023,7 @@ export function DevelopmentCaseWorkspacePage() {
             label: `${b.baselineType} v${b.version} (${b.status})`,
           }))}
       />
+      <div id="engine-design" className="scroll-mt-6" />
       {/* II.13 OT cybersecurity begins at design. These ten checks classify
           the ONE requirement table and use its existing verification,
           evidence and acceptance-test thread. Applicable gaps enter the ONE
@@ -3102,6 +3117,7 @@ export function DevelopmentCaseWorkspacePage() {
         canPlan={canPlan}
         reloadKey={chainsKey}
       />
+      <div id="engine-deliver" className="scroll-mt-6" />
       {/* Procurement, the sealed-bid tender and the §24 contract (Slice 6A):
           the ProcurementPackage with all four §25 status dimensions, a
           mandatory long-lead package that cannot arrive when the project needs
