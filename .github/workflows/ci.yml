@@ -573,6 +573,9 @@ jobs:
       - name: Smoke — safety-critical equipment and regulatory obligations
         run: bash scripts/ci-safety-critical-regulatory-registers-smoke.sh
 
+      - name: Smoke — bounded paginated CMMS work-order import
+        run: bash scripts/ci-cmms-paginated-read-smoke.sh
+
       - name: Smoke — thirteen-dimension finance intelligence
         run: bash scripts/ci-develop-finance-intelligence-smoke.sh
 
