@@ -498,15 +498,19 @@ export async function createCaseDecision(input: {
   question: string;
   requiredDate?: string | null;
   approvalLevel?: string | null;
-}): Promise<{ decision_id: string }> {
-  const { data, error } = await supabase.rpc("create_case_decision", {
+  /** Stable browser-draft import identity. Omit for a new Case Workspace frame. */
+  idempotencyKey?: string | null;
+}): Promise<{ decision_id: string; replay?: boolean }> {
+  const args: Record<string, unknown> = {
     p_case_id: input.caseId,
     p_question: input.question,
     p_required_date: input.requiredDate ?? null,
     p_objective_id: null,
     p_owner_id: null,
     p_approval_level: input.approvalLevel ?? null,
-  });
+  };
+  if (input.idempotencyKey) args.p_idempotency_key = input.idempotencyKey;
+  const { data, error } = await supabase.rpc("create_case_decision", args);
   return unwrap(data, error);
 }
 

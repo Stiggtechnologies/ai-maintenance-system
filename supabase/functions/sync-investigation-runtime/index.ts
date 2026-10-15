@@ -161,6 +161,7 @@ interface QuotaVerdict {
   reservation_id?: number;
   limit?: string;
   resets_at?: string;
+  commercialPlanId?: string | null;
 }
 
 function adminClient() {
@@ -384,6 +385,20 @@ async function reserveQuota(
       `Your organization's daily AI allowance has been reached.${reset}`,
     );
   }
+  // This streaming runtime does not implement the qualified commercial route
+  // or its terminal-usage settlement contract. A paid plan is refused before
+  // any provider call, and the reservation is released so it is not spent.
+  if (
+    typeof verdict.commercialPlanId === "string" &&
+    verdict.commercialPlanId.trim().length > 0
+  ) {
+    if (typeof verdict.reservation_id === "number") {
+      await releaseQuota(verdict.reservation_id);
+    }
+    throw new Error(
+      "commercial_route_refused: paid Sync investigation must use the qualified commercial route and settlement contract, which this streaming runtime does not",
+    );
+  }
   if (typeof verdict.reservation_id !== "number") {
     throw new Error("quota_reservation_missing");
   }
@@ -396,12 +411,24 @@ async function settleQuota(
   usage: Record<string, number>,
   reservationId: number,
 ) {
+  const promptTokens =
+    typeof usage.prompt_tokens === "number"
+      ? usage.prompt_tokens
+      : typeof usage.input_tokens === "number"
+        ? usage.input_tokens
+        : null;
+  const completionTokens =
+    typeof usage.completion_tokens === "number"
+      ? usage.completion_tokens
+      : typeof usage.output_tokens === "number"
+        ? usage.output_tokens
+        : null;
   const { error } = await adminClient().rpc("record_llm_usage", {
     p_organization_id: organizationId,
     p_fn: "sync-investigation-runtime",
     p_model: model,
-    p_prompt_tokens: usage.prompt_tokens ?? usage.input_tokens ?? 0,
-    p_completion_tokens: usage.completion_tokens ?? usage.output_tokens ?? 0,
+    p_prompt_tokens: promptTokens,
+    p_completion_tokens: completionTokens,
     p_reservation_id: reservationId,
   });
   if (error) console.error("Sync quota settlement failed", error);

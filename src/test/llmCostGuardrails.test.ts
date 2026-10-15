@@ -390,18 +390,18 @@ describe("public rail — spend key is server-derived, browserId never sufficien
 });
 
 describe("enrichment loops settle commercially reserved usage", () => {
-  it("agent-loop-enrich settles one reserved llm_usage row per call", () => {
-    expect(loopEnrich).toContain('"check_llm_commercial_quota"');
-    expect(loopEnrich).toContain('"record_llm_usage"');
-    expect(loopEnrich).toContain("p_reservation_id: reservationId");
-    expect(loopEnrich).toContain('"release_llm_reservation"');
+  it("agent-loop-enrich uses the qualified commercial route per call", () => {
+    expect(loopEnrich).toContain("callWithCommercialBoundary(");
+    expect(loopEnrich).toContain('type: "recommendation"');
+    expect(loopEnrich).toContain('functionName: "agent-loop-enrich"');
+    expect(loopEnrich).not.toContain("prompt_tokens ?? 0");
   });
 
-  it("onboarding-enrich settles one reserved llm_usage row per chunk", () => {
-    expect(onboardingEnrich).toContain('"check_llm_commercial_quota"');
-    expect(onboardingEnrich).toContain('"record_llm_usage"');
-    expect(onboardingEnrich).toContain("p_reservation_id: reservationId");
-    expect(onboardingEnrich).toContain('"release_llm_reservation"');
+  it("onboarding-enrich uses the qualified commercial route per chunk", () => {
+    expect(onboardingEnrich).toContain("callWithCommercialBoundary(");
+    expect(onboardingEnrich).toContain('type: "asset_onboarding"');
+    expect(onboardingEnrich).toContain('functionName: "onboarding-enrich"');
+    expect(onboardingEnrich).not.toContain("prompt_tokens ?? 0");
   });
 });
 

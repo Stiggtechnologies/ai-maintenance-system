@@ -206,7 +206,7 @@ jobs:
             if [ -n "${!name:-}" ]; then present=$((present + 1)); fi
           done
           if [ "$present" -eq 0 ]; then
-            echo "::warning title=Azure Marketplace metering disabled::No protected metering configuration was supplied. Hourly dispatch remains unconfigured and no usage will be submitted."
+            echo "::warning title=Azure Marketplace metering configuration unchanged::No meter inputs were supplied by GitHub. Configuration unchanged by this run; existing runtime/database configuration and end-to-end outcomes were not verified."
             exit 0
           fi
           if [ "$present" -ne 5 ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
@@ -466,7 +466,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${RESEND_API_KEY:-}" ]; then
-            echo "::warning title=lead-notify has no mail transport::RESEND_API_KEY is not set as a repository secret, so lead-notify will mark every incoming lead 'failed' and neither the visitor nor the owner will be emailed. See docs/lead-response-sla.md."
+            echo "::warning title=lead-notify mail configuration unchanged::RESEND_API_KEY was not supplied by GitHub. Configuration unchanged by this run; existing runtime/database configuration and end-to-end outcomes were not verified."
             exit 0
           fi
           supabase secrets set RESEND_API_KEY="$RESEND_API_KEY"
@@ -477,7 +477,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${LEAD_NOTIFY_SERVICE_KEY:-}" ]; then
-            echo "::warning title=lead-notify is not wired::LEAD_NOTIFY_SERVICE_KEY is not set, so private.lead_notify_config stays empty and trg_pilot_intake_notify will no-op. See docs/lead-response-sla.md."
+            echo "::warning title=lead-notify wiring unchanged::LEAD_NOTIFY_SERVICE_KEY was not supplied by GitHub. Configuration unchanged by this run; existing runtime/database configuration and end-to-end outcomes were not verified."
             exit 0
           fi
           LEAD_FUNCTION_URL="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/lead-notify"

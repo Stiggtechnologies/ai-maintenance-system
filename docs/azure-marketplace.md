@@ -5,9 +5,11 @@ metering, and the preview-certification harness are implemented; commerce is
 not buyer-proven.** The
 Supabase/Vercel production boundary includes the governed A4 fulfillment and A5
 lifecycle rails, but publisher configuration and a real buyer witness remain
-absent. Hourly metering is implemented in code but remains disabled until the
-exact Partner Center plan/dimension contract and protected dispatcher are
-configured. No live usage event has been submitted to Microsoft. The
+absent. Hourly metering is implemented in code. A deployment run that is
+given the meter inputs below can write dispatcher configuration; a run that is
+not given those inputs leaves any already stored dispatcher configuration
+unchanged and does not prove that dispatch is disabled. No live usage event
+has been submitted to Microsoft. The
 repository also contains a repeatable Azure application stamp and
 variable-consumption AI plane that are not yet production-proven. No claim that
 SyncAI is primarily platformed on Microsoft Azure, Marketplace certified, transactable, MACC
@@ -31,7 +33,7 @@ The controlled sequence is:
 | A3   | Microsoft Entra SSO that establishes a verified application session                                         | Supported Supabase OAuth/PKCE path implemented: hosted Auth owns the provider exchange, the callback verifies the issued user against the Auth server and requires an Azure-backed identity, and identity cannot assign a tenant or activate commerce. Production remains unproven until the multi-tenant Entra app credentials are configured and a real buyer-tenant sign-in is witnessed. The legacy hand-decoded-token path remains blocked.                            |
 | A4   | Backend-only SaaS Fulfillment APIs v2 resolve and activation flow                                           | Governed v2 resolve, explicit activation and authoritative status refresh are deployed. Purchase tokens are scrubbed from the browser URL and never persisted; activation requires a server-verified Microsoft tenant plus an existing SyncAI organization administrator and writes the canonical billing/audit records. The legacy function remains blocked. Publisher credentials are not configured and no real purchase has been witnessed end to end.                  |
 | A5   | Authenticated, idempotent webhook lifecycle and canonical entitlement enforcement                           | Deployed behind independent Microsoft JWT validation. Microsoft signature and claims, Get Operation, and Get Subscription must agree before a service-only idempotency transition can alter canonical billing. Suspend/unsubscribe fail closed at the canonical tenant resolver without deleting customer evidence; reinstatement requires authoritative Microsoft success. This is not end-to-end commerce evidence until a preview offer exercises every lifecycle event. |
-| A6   | Hourly aggregated, idempotent Marketplace metering from canonical usage                                     | Deployed behind a service-only boundary. Settled canonical token usage is aggregated by subscription, configured dimension, term, and UTC hour; included units are subtracted cumulatively; claims are bounded to 25; accepted and exact-duplicate results preserve Microsoft's response. Dispatch remains disabled until protected plan-meter configuration exists, and no live Microsoft submission has been witnessed.                                                   |
+| A6   | Hourly aggregated, idempotent Marketplace metering from canonical usage                                     | Deployed behind a service-only boundary. Settled canonical token usage is aggregated by subscription, configured dimension, term, and UTC hour; included units are subtracted cumulatively; claims are bounded to 25; accepted and exact-duplicate results preserve Microsoft's response. A deployment run without meter inputs does not change dispatcher configuration and does not prove that dispatch is disabled. No live Microsoft submission has been witnessed.                                                   |
 | A7   | Preview-offer end-to-end certification suite                                                                | Protected, fail-closed live suite implemented in `.github/workflows/azure-marketplace-preview-certification.yml`; not run. It requires two real preview purchases, all lifecycle witnesses, a recent accepted usage event, exact Microsoft duplicate and safe rejection responses, included-quantity reconciliation, a hashed Partner Center usage-view artifact, and distinct observer/reviewer identities. A source-code or dry run cannot pass it.                       |
 | A8   | Live transactable offer, Partner Center business profile, regional sales contacts, one-pager and pitch deck | External Partner Center work remains                                                                                                                                                                                                                                                                                                                                                                                                                                        |
 | A9   | Azure IP co-sell and MACC eligibility                                                                       | Requires Microsoft's technical review and the then-current commercial threshold                                                                                                                                                                                                                                                                                                                                                                                             |
@@ -302,8 +304,12 @@ delta instead of being discarded or double-counted. Microsoft submissions use
 the batch API in groups of no more than 25 and preserve the exact accepted,
 duplicate, expired, rejected, or conflicting response and correlation IDs.
 
-Production dispatch remains a deliberate no-op until these repository settings
-are supplied together:
+A protected deployment run writes dispatcher configuration only when these
+repository settings are supplied together. When they are absent, that run
+skips its configuration update. It does not inspect or clear dispatcher
+configuration already stored for the project, and it is not evidence that
+hourly dispatch is a no-op or that no usage will be submitted. The inputs
+that a configuring run must receive together are:
 
 - Secret `SUPABASE_SERVICE_ROLE_KEY`, used only by the protected deployment and
   stored in the private dispatcher configuration.
@@ -315,8 +321,11 @@ are supplied together:
   `AZURE_MARKETPLACE_METER_QUANTITY_SCALE`, defining the reviewed conversion
   from canonical token counts to billable Marketplace units.
 
-The protected deployment refuses partial configuration. Even when configured,
-the code and production boundary probes are not commerce evidence: Gate A7
+The protected deployment refuses partial configuration. Completion still
+requires observed publisher authentication, subscription and meter
+configuration, and purchasing and metering acceptance. Even when a run writes
+configuration, the code and production boundary probes are not commerce
+evidence: Gate A7
 must witness an accepted preview-offer event, its exact duplicate behavior,
 the Partner Center usage view, included-quantity reconciliation, suspension,
 and a deliberately rejected event before A6 can be treated as buyer-proven.
