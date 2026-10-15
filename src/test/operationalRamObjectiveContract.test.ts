@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270102340000_operational_ram_objectives.sql",
+  "supabase/migrations/20270105105800_operational_ram_objectives.sql",
   "utf8",
 ).toLowerCase();
 const normalizedMigration = migration.replace(/\s+/g, " ");
