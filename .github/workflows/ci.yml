@@ -400,6 +400,9 @@ jobs:
       - name: Smoke — Sync Develop Site Change Load (capacity absorption)
         run: bash scripts/ci-develop-site-change-load-smoke.sh
 
+      - name: Smoke — workforce training lifecycle and governed labour rules
+        run: bash scripts/ci-workforce-governance-smoke.sh
+
       - name: Smoke — Sync Develop Technical Debt (case origin, valuation, independent approval)
         run: bash scripts/ci-develop-technical-debt-smoke.sh
 
