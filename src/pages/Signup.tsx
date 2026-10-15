@@ -169,9 +169,10 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
               <strong className="text-industrial-text">
                 {confirmationEmail}
               </strong>
-              . Keep this tab open while you verify so the Reliability Engineer
-              case you started remains staged for handoff. This screen will not
-              create another workspace.
+              . The question and evidence are only in this browser tab. If you
+              open the confirmation link elsewhere, return to this tab and sign
+              in here, or the draft is lost. This screen will not create another
+              workspace.
             </p>
           ) : null}
           <button
@@ -212,7 +213,7 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
               className="mt-4 rounded-lg border border-industrial-border p-3 text-sm leading-6 text-industrial-text"
             >
               <p className="font-semibold">
-                Your question and evidence stay with this signup.
+                Your question and evidence are only in this browser tab.
               </p>
               <p className="mt-2">{draft.objective}</p>
               {retainedNotes.length > 0 ? (
@@ -225,8 +226,10 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
                 <p className="mt-2">No evidence note is on this draft yet.</p>
               )}
               <p className="mt-2">
-                After you sign in, this draft is saved as your first Decision
-                Case. It is not saved yet.
+                After you sign in here, this draft is saved as your first
+                Decision Case. It is not saved yet. If you open the confirmation
+                link elsewhere, return to this tab and sign in here, or the
+                draft is lost.
               </p>
             </div>
           ) : null}

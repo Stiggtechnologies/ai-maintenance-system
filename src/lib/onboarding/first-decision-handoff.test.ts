@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   persistFirstDecisionHandoff,
   readFirstDecisionDraft,
+  readFirstDecisionImportId,
   returnToSavedDecisionCase,
 } from "./first-decision-handoff";
 import {
@@ -104,6 +105,45 @@ describe("first decision handoff", () => {
     expect(result.returnTo).toContain(`/get-started?`);
     expect(result.returnTo).toContain(`case=${createdId}`);
     expect(result.returnTo).not.toContain(withEvidence.id);
+  });
+
+  it("two saves of the same draft yield one case", async () => {
+    const decision = draft();
+    const createdId = "11111111-1111-4111-8111-111111111111";
+    const create = vi.fn(async (seed: DecisionCase) => ({
+      ...seed,
+      id: createdId,
+      updatedAt: "2026-10-15T00:00:00.000Z",
+    }));
+    const save = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("acknowledgement lost"))
+      .mockResolvedValueOnce(undefined);
+    const deps = {
+      isPersisted: (id: string) => id === createdId,
+      create,
+      save,
+      storage: sessionStorage,
+    };
+    const first = await persistFirstDecisionHandoff(
+      decision,
+      "?industry=mining",
+      `/workspace/cases/${decision.id}`,
+      deps,
+    );
+    const second = await persistFirstDecisionHandoff(
+      decision,
+      "?industry=mining",
+      `/workspace/cases/${decision.id}`,
+      deps,
+    );
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(first.decisionCase.id).toBe(createdId);
+    expect(second.decisionCase.id).toBe(createdId);
+    expect(readFirstDecisionImportId(sessionStorage, decision.id)).toBe(
+      createdId,
+    );
   });
 
   it("does not persist an example prompt", async () => {

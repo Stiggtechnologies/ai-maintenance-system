@@ -983,10 +983,37 @@ const COWORK_AGENTS = [
  * seed agent messages, generate a starter artifact, and create a recommended
  * action — all persisted to Supabase.
  */
+async function workspaceIdForCaseNumber(
+  caseNumber: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("cowork_workspaces")
+    .select("id")
+    .eq("case_number", caseNumber)
+    .maybeSingle()
+    .returns<{ id: string }>();
+  if (error) fail("Could not look up an existing Decision Case", error);
+  return data?.id ?? null;
+}
+
 export async function createCoworkWorkspaceFromObjective(
   objective: string,
+  options?: { caseNumber?: string },
 ): Promise<CoworkCreateResult> {
   const ctx = await getOrgContext();
+  const caseNumber = options?.caseNumber?.trim();
+  // The draft case number is the import key. cowork_workspaces already
+  // rejects a second row for the same organization and case number.
+  if (caseNumber) {
+    const existingId = await workspaceIdForCaseNumber(caseNumber);
+    if (existingId) {
+      return {
+        workspaceId: existingId,
+        artifactId: null,
+        recommendationId: null,
+      };
+    }
+  }
 
   // Try to bind the objective to a known asset (by tag mention).
   const assets = await getAssets();
@@ -1011,10 +1038,21 @@ export async function createCoworkWorkspaceFromObjective(
       artifacts: 1,
       next_action: "Review agent findings and approve recommended actions",
       created_by: ctx.userId,
+      ...(caseNumber ? { case_number: caseNumber } : {}),
     })
     .select("id")
     .maybeSingle()
     .returns<{ id: string }>();
+  if (wsErr?.code === "23505" && caseNumber) {
+    const existingId = await workspaceIdForCaseNumber(caseNumber);
+    if (existingId) {
+      return {
+        workspaceId: existingId,
+        artifactId: null,
+        recommendationId: null,
+      };
+    }
+  }
   if (wsErr || !workspace) fail("Could not create workspace", wsErr);
   const workspaceId = workspace!.id;
 

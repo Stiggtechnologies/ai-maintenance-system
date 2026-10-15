@@ -55,8 +55,8 @@ export function AuthShell({
           <p>
             {signup
               ? journey
-                ? `This workspace keeps ${journey.caseNumber}, including the question and evidence you started. Creating the workspace does not approve a recommendation or run the plant.`
-                : "Sign up to keep a Decision Case on an evaluation workspace. You can ask a question first. This does not grant production access."
+                ? `This tab still has ${journey.caseNumber}, including the question and evidence you started. If you open the confirmation link elsewhere, return to this tab and sign in here, or the draft is lost. Creating the workspace does not approve a recommendation or run the plant.`
+                : "Sign up to keep a Decision Case on an evaluation workspace. You can ask a question first. The question stays in this browser tab until you sign in here. This does not grant production access."
               : journey
                 ? "Your question and evidence remain browser drafts. Sign in to continue reviewing them; authentication does not grant approval or verify an outcome."
                 : "Return to the decisions, evidence, approvals, controlled work, and measured outcomes your team is governing."}

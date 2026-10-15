@@ -266,6 +266,7 @@ function ApplicationRoutes() {
               isPersisted: isPersistedDecisionCase,
               create: (seed) => createPersistedDecisionCase(seed, {}),
               save: savePersistedDecisionCase,
+              storage: window.sessionStorage,
             },
           );
           const destination = completePublicDraftHandoff(

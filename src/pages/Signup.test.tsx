@@ -98,6 +98,16 @@ describe("Signup industry selection", () => {
     expect(screen.getByTestId("signup-retained-draft")).toHaveTextContent(
       "Synthetic inspection note kept for signup",
     );
+    expect(screen.getByTestId("signup-retained-draft")).toHaveTextContent(
+      "If you open the confirmation link elsewhere, return to this tab and sign in here, or the draft is lost.",
+    );
+    expect(screen.getByTestId("signup-retained-draft").textContent).not.toMatch(
+      /stay with this signup/i,
+    );
+    expect(document.body.textContent).not.toMatch(/Reliability Engineer case/i);
+    expect(document.body.textContent).toMatch(
+      /This tab still has .* including the question and evidence you started/,
+    );
   });
 
   it("uses the canonical catalog and captures a custom industry name", () => {
@@ -188,6 +198,10 @@ describe("Signup industry selection", () => {
     expect(
       screen.getAllByText(/will not create another workspace/i).length,
     ).toBeGreaterThan(0);
+    expect(document.body.textContent).toMatch(
+      /If you open the confirmation link elsewhere, return to this tab and sign in here, or the draft is lost\./,
+    );
+    expect(document.body.textContent).not.toMatch(/Reliability Engineer case/i);
   });
 
   it("sends eval signup through /start, not Mission Control", () => {

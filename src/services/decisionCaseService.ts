@@ -37,7 +37,9 @@ export async function createPersistedDecisionCase(
   seed: DecisionCase,
   context: DecisionJourneyContext,
 ): Promise<DecisionCase> {
-  const result = await createCoworkWorkspaceFromObjective(seed.objective);
+  const result = await createCoworkWorkspaceFromObjective(seed.objective, {
+    caseNumber: seed.caseNumber,
+  });
   const persisted = {
     ...seed,
     id: result.workspaceId,

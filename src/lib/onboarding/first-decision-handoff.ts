@@ -12,11 +12,57 @@ import {
 } from "./evaluation-assistant-handoff";
 import { isPersistedDecisionCase } from "../../services/decisionCaseService";
 
+/** Persisted workspace id for a browser draft, written before the handoff clears. */
+export const FIRST_DECISION_IMPORT_KEY =
+  "syncai.firstDecisionWorkspaceImport.v1";
+
+type DraftImportStorage = Pick<Storage, "getItem" | "setItem">;
+
 export type FirstDecisionPersistDeps = {
   isPersisted: (id: string) => boolean;
   create: (seed: DecisionCase) => Promise<DecisionCase>;
   save: (decisionCase: DecisionCase) => Promise<void>;
+  /** Same-tab replay reads the workspace id written on the first successful create. */
+  storage?: DraftImportStorage;
 };
+
+function readImportMap(storage: DraftImportStorage): Record<string, string> {
+  try {
+    const parsed = JSON.parse(
+      storage.getItem(FIRST_DECISION_IMPORT_KEY) ?? "null",
+    );
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed))
+      return {};
+    return Object.fromEntries(
+      Object.entries(parsed).filter(
+        (entry): entry is [string, string] =>
+          typeof entry[0] === "string" && typeof entry[1] === "string",
+      ),
+    );
+  } catch {
+    return {};
+  }
+}
+
+export function readFirstDecisionImportId(
+  storage: DraftImportStorage,
+  draftId: string,
+): string | null {
+  const id = readImportMap(storage)[draftId];
+  return id && isPersistedDecisionCase(id) ? id : null;
+}
+
+/** Record the workspace id before any later step clears the staged draft. */
+export function rememberFirstDecisionImportId(
+  storage: DraftImportStorage,
+  draftId: string,
+  workspaceId: string,
+): void {
+  if (!isPersistedDecisionCase(workspaceId)) return;
+  const imports = readImportMap(storage);
+  imports[draftId] = workspaceId;
+  storage.setItem(FIRST_DECISION_IMPORT_KEY, JSON.stringify(imports));
+}
 
 function queryFrom(pathOrSearch: string): string {
   const queryAt = pathOrSearch.indexOf("?");
@@ -88,23 +134,29 @@ export async function persistFirstDecisionHandoff(
       persisted: false,
     };
   }
-  if (deps.isPersisted(decisionCase.id)) {
+  const importedId = deps.storage
+    ? readFirstDecisionImportId(deps.storage, decisionCase.id)
+    : null;
+  const alreadyPersisted = deps.isPersisted(decisionCase.id)
+    ? decisionCase.id
+    : importedId;
+  if (alreadyPersisted) {
+    const reused: DecisionCase = {
+      ...decisionCase,
+      id: alreadyPersisted,
+    };
     try {
-      await deps.save(decisionCase);
+      await deps.save(reused);
       return {
-        decisionCase,
-        returnTo: returnToSavedDecisionCase(
-          decisionCase,
-          requestedReturnTo,
-          search,
-        ),
+        decisionCase: reused,
+        returnTo: returnToSavedDecisionCase(reused, requestedReturnTo, search),
         persisted: true,
       };
     } catch {
       return {
-        decisionCase,
-        returnTo: evaluationRestoreDestination(decisionCase, search),
-        persisted: false,
+        decisionCase: reused,
+        returnTo: evaluationRestoreDestination(reused, search),
+        persisted: deps.isPersisted(reused.id),
       };
     }
   }
@@ -112,6 +164,9 @@ export async function persistFirstDecisionHandoff(
     const created = await deps.create(decisionCase);
     if (!deps.isPersisted(created.id)) {
       throw new Error("Workspace save did not return a persisted case.");
+    }
+    if (deps.storage) {
+      rememberFirstDecisionImportId(deps.storage, decisionCase.id, created.id);
     }
     const saved: DecisionCase = {
       ...created,
@@ -124,7 +179,7 @@ export async function persistFirstDecisionHandoff(
     try {
       await deps.save(saved);
     } catch {
-      // create already wrote this case. Keep that id instead of a second draft.
+      // The workspace id is already in this tab. A replay reuses it.
     }
     return {
       decisionCase: saved,
