@@ -25,6 +25,7 @@ import {
 } from "../lib/resilience";
 import type { DependencyGraph } from "../lib/interdependency";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
+import { ResilienceConfigurationPanel } from "./ResilienceConfigurationPanel";
 
 interface Posture {
   scenarios_total: number;
@@ -208,6 +209,7 @@ export function ResiliencePanel() {
           </ul>
         )}
       </div>
+      <ResilienceConfigurationPanel onChanged={refetch} />
     </section>
   );
 }

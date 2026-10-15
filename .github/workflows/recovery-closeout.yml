@@ -55,6 +55,11 @@ jobs:
           docker system df
 
       - name: Apply complete migration chain
+        env:
+          # Debug still lands in the start log uploaded on failure. Do not
+          # stream it to the step log; that trace cancelled this job before
+          # the acceptance scripts below could run.
+          CI_SUPABASE_START_DEBUG_STDOUT: "0"
         run: bash scripts/ci-start-supabase.sh /tmp/recovery-closeout-start.log /tmp/recovery-closeout-diagnostics.txt
 
       - name: Upload migration diagnostics

@@ -102,8 +102,19 @@ start_status=1
 while [ "$attempt" -le "$max_attempts" ]; do
   echo "=== supabase start attempt ${attempt}/${max_attempts} ===" | tee -a "$log_file"
   set +e
-  supabase start --debug 2>&1 | tee -a "$log_file"
-  start_status=${PIPESTATUS[0]}
+  if [ "${CI_SUPABASE_START_DEBUG_STDOUT:-1}" = "0" ]; then
+    # The full --debug trace of this migration chain is tens of megabytes.
+    # Streaming it into the Actions step log held Recovery close-out on
+    # "Apply complete migration chain" until the run was cancelled, so the
+    # lifecycle, activation, and closeout scripts never started. Keep the
+    # trace in the diagnostics file and print only migration progress.
+    supabase start --debug >>"$log_file" 2>&1
+    start_status=$?
+    grep -E 'Applying migration |Started supabase local|ERROR|FATAL' "$log_file" | tail -n 40 || true
+  else
+    supabase start --debug 2>&1 | tee -a "$log_file"
+    start_status=${PIPESTATUS[0]}
+  fi
   set -e
   if [ "$start_status" -eq 0 ]; then
     exit 0

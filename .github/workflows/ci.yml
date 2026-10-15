@@ -644,6 +644,9 @@ jobs:
       - name: Smoke — natural-hazard and climate exposure
         run: bash scripts/ci-climate-hazard-exposure-smoke.sh
 
+      - name: Smoke — governed enterprise resilience scenarios and mode policy
+        run: bash scripts/ci-resilience-scenario-governance-smoke.sh
+
       - name: Smoke — emergency and restoration command
         run: bash scripts/ci-emergency-restoration-command-smoke.sh
 
