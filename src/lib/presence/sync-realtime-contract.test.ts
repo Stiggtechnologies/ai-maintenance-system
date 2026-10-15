@@ -70,10 +70,10 @@ describe("Sync Realtime voice production contract", () => {
     expect(panel).toMatch(/Sync\s+answers needed for the conversation/);
     expect(panel).toMatch(/processed\s+by OpenAI/);
     expect(panel).toContain("visible human confirmation");
-    expect(shell).toContain(
-      "<CopilotDock currentPath={currentPath} onNavigate={onNavigate} />",
-    );
-    expect(shell).toContain("<PresenceWelcome showMeetingBooth={false} />");
+    expect(shell).toContain("<CopilotDock");
+    expect(shell).toContain("welcomeHost={welcomeHost}");
+    expect(shell).not.toContain("<PresenceWelcome");
+    expect(panel).toContain("voice: ReturnType<typeof useSyncRealtimeVoice>");
     expect(shell).not.toContain("HelpCenterWidget");
   });
 });

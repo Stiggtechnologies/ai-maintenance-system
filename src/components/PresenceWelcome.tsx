@@ -1,3 +1,5 @@
+import type { ComponentProps } from "react";
+import { SyncAssistantWelcome } from "./SyncAssistantWelcome";
 /**
  * Signed-in presence strip for the main AppShell.
  *
@@ -54,9 +56,24 @@ const SECONDARY_BUTTON_CLASS =
 
 interface PresenceWelcomeProps {
   showMeetingBooth?: boolean;
+  canonical?: ComponentProps<typeof SyncAssistantWelcome>;
 }
 
+/** The global shell supplies the canonical copilot. Legacy explicit callers
+ * retain their existing presentation; they are never mounted alongside it.
+ */
 export function PresenceWelcome({
+  canonical,
+  ...legacy
+}: PresenceWelcomeProps) {
+  return canonical ? (
+    <SyncAssistantWelcome {...canonical} />
+  ) : (
+    <LegacyPresenceWelcome {...legacy} />
+  );
+}
+
+function LegacyPresenceWelcome({
   showMeetingBooth = true,
 }: PresenceWelcomeProps) {
   const { user, profile, loading } = useAuth();
