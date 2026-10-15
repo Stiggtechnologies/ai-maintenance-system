@@ -4,6 +4,7 @@ import {
   estimateLlmCallTokens,
   paidStandardRateTokenUpperBound,
   paidCommercialProviders,
+  paidTerminalMetadata,
   PAID_STANDARD_RATE_MAX_OUTPUT_TOKENS,
   PAID_STANDARD_RATE_MAX_TOKEN_UPPER_BOUND,
   type CommercialRpc,
@@ -204,6 +205,80 @@ describe("commercial LLM usage boundary", () => {
       p_reservation_id: 46,
       p_service_tier: "fast",
     });
+  });
+
+  it("does not price-succeed a paid call that omits terminal usage or model metadata", async () => {
+    expect(
+      paidTerminalMetadata({
+        model: "gpt-4o-mini",
+        usage: {},
+      }).missing,
+    ).toBe(true);
+    expect(
+      paidTerminalMetadata({
+        model: null,
+        usage: { prompt_tokens: 20, completion_tokens: 5 },
+      }).missing,
+    ).toBe(true);
+    expect(
+      paidTerminalMetadata({
+        model: "gpt-4o-mini",
+        usage: { prompt_tokens: 0, completion_tokens: 0 },
+      }).missing,
+    ).toBe(true);
+
+    const rpc: CommercialRpc = vi.fn(async (name) => ({
+      data:
+        name === "check_llm_commercial_quota"
+          ? {
+              allowed: true,
+              reservation_id: 47,
+              commercialPlanId: "professional",
+            }
+          : null,
+      error: null,
+    }));
+    const fetchLike = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          model: "gpt-4o-mini-2024-07-18",
+          service_tier: "default",
+          choices: [{ message: { content: "unmetered answer" } }],
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ),
+    );
+    const result = await callWithCommercialBoundary(
+      rpc,
+      fetchLike,
+      [
+        {
+          ...provider,
+          name: "openai-direct",
+          baseUrl: "https://api.openai.com",
+        },
+      ],
+      options,
+      boundary,
+    );
+    expect(result).toMatchObject({
+      status: "settlement_failed",
+      error: "commercial_terminal_metadata_missing",
+    });
+    expect(result).not.toHaveProperty("result");
+    expect(rpc).toHaveBeenCalledWith("record_llm_usage", {
+      p_organization_id: boundary.organizationId,
+      p_fn: boundary.functionName,
+      p_model: "gpt-4o-mini-2024-07-18",
+      p_prompt_tokens: null,
+      p_completion_tokens: null,
+      p_reservation_id: 47,
+      p_service_tier: "default",
+    });
+    expect(rpc).not.toHaveBeenCalledWith(
+      "release_llm_reservation",
+      expect.anything(),
+    );
   });
 
   it("retains gateway-first resilience for an unbound engineering call", async () => {
