@@ -1,3 +1,4 @@
+import { ImplementationJourneyPanel } from "../components/implementation/ImplementationJourneyPanel";
 import { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import {
@@ -114,6 +115,13 @@ const TIMEZONES = [
 ];
 
 export function DeploymentConfiguratorPage() {
+  const [implementationParams] = useSearchParams();
+  if (implementationParams.get("implementation") === "1")
+    return <ImplementationJourneyPanel />;
+  return <PilotDeploymentConfiguratorPage />;
+}
+
+function PilotDeploymentConfiguratorPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const templateSlug = searchParams.get("template");
