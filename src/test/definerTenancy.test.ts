@@ -176,10 +176,10 @@ describe("the resolver sees a real chain", () => {
       "20260917001000_definer_tenancy_guards.sql",
     );
     expect(defs.get("retrieve_kb_context")?.file).toBe(
-      // Last definition moved with the governed-source overlay. The session
-      // gate and permitted_claims join must still hold on THIS file, not on
-      // the earlier tenancy-hardening copy.
-      "20261216090000_governed_engineering_knowledge.sql",
+      // Last definition moved with KB document security. The session gate and
+      // permitted_claims join must still hold on THIS file, not on the
+      // governed-source overlay or the earlier tenancy-hardening copy.
+      "20270104090700_kb_document_security.sql",
     );
   });
 });
