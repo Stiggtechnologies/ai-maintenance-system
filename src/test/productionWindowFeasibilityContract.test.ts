@@ -6,7 +6,7 @@ const root = process.cwd();
 const migration = fs.readFileSync(
   path.join(
     root,
-    "supabase/migrations/20270105110000_schedule_production_window_feasibility.sql",
+    "supabase/migrations/20270105150000_schedule_production_window_feasibility.sql",
   ),
   "utf8",
 );
