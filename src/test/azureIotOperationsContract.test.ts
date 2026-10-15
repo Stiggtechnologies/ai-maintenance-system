@@ -122,7 +122,10 @@ describe("Azure IoT Operations governed ingress contract", () => {
     expect(edge).toContain("AZURE_IOT_OPERATIONS_INGRESS_KEYS_JSON");
     expect(migration).toContain("source_delivery_id");
     expect(migration).toContain("source_body_sha256");
-    expect(migration).toContain("length(ingress_key_id) between 8 and 80");
+    expect(migration).toContain("length(ingress_key_id) >= 8");
+    expect(migration).toContain("length(ingress_key_id) <= 80");
+    expect(migration).toContain("length(btrim(source_delivery_id)) >= 8");
+    expect(migration).toContain("length(btrim(source_delivery_id)) <= 200");
     expect(migration).toContain(
       "translate(source_body_sha256, '0123456789abcdef', '') = ''",
     );

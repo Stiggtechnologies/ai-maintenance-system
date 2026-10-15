@@ -33,12 +33,16 @@ alter table public.connectors
   drop constraint if exists connectors_ingress_authority_complete;
 -- Same accepted set as ^[A-Za-z0-9][A-Za-z0-9._-]{7,79}$: 8-80 characters,
 -- an alphanumeric first character, and only letters, digits, ".", "_" or "-".
--- translate keeps the predicate dump/restore stable; a POSIX ~ class in this
--- CHECK did not round-trip through pg_get_constraintdef.
+-- translate keeps the character class stable; a POSIX ~ class in this CHECK
+-- did not round-trip through pg_get_constraintdef. Bounds are separate
+-- comparisons for the same reason: BETWEEN is stored as a nested AND, and
+-- pg_get_constraintdef wraps that pair in parentheses that a logical restore
+-- flattens, so the restore drill inventory comparison fails.
 alter table public.connectors
   add constraint connectors_ingress_authority_complete check (
     ingress_key_id is null or (
-      length(ingress_key_id) between 8 and 80
+      length(ingress_key_id) >= 8
+      and length(ingress_key_id) <= 80
       and translate(left(ingress_key_id, 1),
         'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789', '') = ''
       and translate(ingress_key_id,
@@ -75,10 +79,13 @@ create unique index if not exists uq_connector_runs_source_delivery
 alter table public.connector_runs
   drop constraint if exists connector_runs_source_receipt_complete;
 -- Same accepted digest as ^[0-9a-f]{64}$. Lowercase hex only; uppercase fails.
+-- Separate comparisons, not BETWEEN: a nested AND does not survive
+-- pg_get_constraintdef across dump/restore.
 alter table public.connector_runs
   add constraint connector_runs_source_receipt_complete check (
     source_delivery_id is null or (
-      length(btrim(source_delivery_id)) between 8 and 200
+      length(btrim(source_delivery_id)) >= 8
+      and length(btrim(source_delivery_id)) <= 200
       and length(source_body_sha256) = 64
       and translate(source_body_sha256, '0123456789abcdef', '') = ''
       and source_received_at is not null
