@@ -14,6 +14,7 @@ import {
 import type {
   DecisionApproval,
   DecisionCase,
+  DecisionIndustryId,
   DecisionCaseStage,
   DecisionEvidence,
   EvidenceQuality,
@@ -161,7 +162,7 @@ export const EVIDENCE_METHODS: ReadonlyArray<{
   { id: "paste_data", title: "Paste data" },
   { id: "connect_source", title: "Connect a source" },
   { id: "manual", title: "Continue with manual evidence" },
-  { id: "ask_admin", title: "Ask an admin later" },
+  { id: "ask_admin", title: "Note it and continue" },
 ];
 
 export const CONNECTION_FAILURE_FALLBACKS: readonly EvidenceMethod[] = [
@@ -355,6 +356,7 @@ function missingSlots(): DecisionEvidence[] {
 export function buildSpineDecisionCase(input: {
   question: string;
   intent: InvertedIntentId | "";
+  industry?: DecisionIndustryId;
 }): DecisionCase {
   const question = input.question.trim();
   if (question.length < 12) {
@@ -365,7 +367,10 @@ export function buildSpineDecisionCase(input: {
       "Seed plant names are not accepted as a first-run subject.",
     );
   }
-  const empty = createHonestEmptyDecisionCase("Reliability Engineer");
+  const empty = createHonestEmptyDecisionCase(
+    "Reliability Engineer",
+    input.industry,
+  );
   if (isSeedDecisionCaseId(empty.id)) {
     throw new Error("Spine refused a seed Decision Case id.");
   }
@@ -459,7 +464,7 @@ export function attachSpineEvidence(
           id: `admin-later-${Date.now()}`,
           role: "system",
           author: "Connection",
-          text: `${kindMeta?.title ?? kind} left for an admin. Case stays open — upload, paste, or manual evidence remain available.`,
+          text: `${kindMeta?.title ?? kind} noted for later. The case stays open — upload, paste, or a manual note still count, and you do not need another person to continue.`,
           createdAt: now,
           meta: "Connection fallback",
         },

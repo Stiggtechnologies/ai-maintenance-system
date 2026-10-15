@@ -10,6 +10,7 @@ const PUBLIC_SURFACES = [
   "src/pages/Security.tsx",
   "src/pages/Privacy.tsx",
   "src/pages/Terms.tsx",
+  "src/pages/Support.tsx",
   "src/pages/ReliabilityEngineerPage.tsx",
 ];
 
@@ -40,5 +41,21 @@ describe("public URLs do not advertise /demo", () => {
     expect(appShell).not.toContain('path: "/decision-cases/demo"');
     expect(palette).toContain('path: "/decision-cases"');
     expect(palette).not.toContain('path: "/decision-cases/demo"');
+  });
+
+  it("exposes direct trust and support routes for marketplace customers", () => {
+    const app = readFileSync("src/App.tsx", "utf8");
+    for (const path of ["/privacy", "/terms", "/security", "/support"]) {
+      expect(app, `${path} must be directly routable`).toContain(
+        `path="${path}"`,
+      );
+    }
+
+    const support = readFileSync("src/pages/Support.tsx", "utf8");
+    expect(support).toContain("support@syncai.ca");
+    expect(support).toContain("security@syncai.ca");
+    expect(support).toContain("privacy@syncai.ca");
+    expect(support).toContain("governed by the applicable order");
+    expect(support).not.toMatch(/24\/7|guaranteed response|99\.\d+%/i);
   });
 });

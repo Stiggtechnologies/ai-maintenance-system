@@ -112,13 +112,19 @@ async function enabledFlags(organizationId: string): Promise<Set<string>> {
 
 async function reserveQuota(
   organizationId: string,
+  costObject: { type: string; id: string },
 ): Promise<QuotaDecision | null> {
-  const { data, error } = await adminClient().rpc("check_llm_quota", {
-    p_organization_id: organizationId,
-    p_fn: "sync-realtime-session",
-    p_model: REALTIME_MODEL,
-    p_estimated_tokens: REALTIME_SESSION_TOKEN_BUDGET,
-  });
+  const { data, error } = await adminClient().rpc(
+    "check_llm_commercial_quota",
+    {
+      p_organization_id: organizationId,
+      p_fn: "sync-realtime-session",
+      p_model: REALTIME_MODEL,
+      p_estimated_tokens: REALTIME_SESSION_TOKEN_BUDGET,
+      p_cost_object_type: costObject.type,
+      p_cost_object_id: costObject.id,
+    },
+  );
   if (error || !data || typeof data !== "object") {
     console.error("sync-realtime-session quota check unavailable", error);
     return null;
@@ -198,7 +204,15 @@ Deno.serve(async (req: Request) => {
     return json({ error: "invalid_request" }, 400);
   }
 
-  const quota = await reserveQuota(auth.organizationId);
+  const quota = await reserveQuota(
+    auth.organizationId,
+    payload.context.entity?.id
+      ? {
+          type: payload.context.entity.type,
+          id: payload.context.entity.id,
+        }
+      : { type: "sync_voice_user", id: auth.userId },
+  );
   if (!quota) {
     return json({ error: "quota_check_unavailable" }, 503);
   }

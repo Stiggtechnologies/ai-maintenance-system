@@ -34,6 +34,7 @@ import {
   readStoredDecisionDrafts,
   removeStoredDecisionDraft,
 } from "../lib/decision-case-drafts";
+import { importBrowserDraft } from "../lib/decision-draft-import";
 import {
   createCaseDecision,
   getGovernedDecision,
@@ -117,6 +118,12 @@ function DraftBanner({
           </span>
         )}
       </div>
+      <p className="mt-2 text-xs text-amber-200/70">
+        Import copies the question and approval level. Evidence, calculations
+        and discussion remain in this browser draft until you explicitly discard
+        it. Importing the same draft again reopens its governed decision and
+        does not frame another one.
+      </p>
       <ul className="mt-2 space-y-2" aria-label="Browser drafts">
         {drafts.map((draft) => (
           <li
@@ -144,18 +151,28 @@ function DraftBanner({
                 onClick={() => {
                   setBusyId(draft.id);
                   setError(null);
-                  createCaseDecision({
+                  const question = `${draft.title}: ${draft.objective}`.slice(
+                    0,
+                    500,
+                  );
+                  // Keep the browser draft. Bind this question to one canonical
+                  // decision, including a retry after a lost acknowledgement.
+                  void importBrowserDraft({
+                    storage: window.localStorage,
+                    draftId: draft.id,
                     caseId: targetCase,
-                    question: `${draft.title}: ${draft.objective}`.slice(
-                      0,
-                      500,
-                    ),
+                    question,
                     approvalLevel: draft.authorityRole || null,
+                    createDecision: (request) =>
+                      createCaseDecision({
+                        caseId: request.caseId,
+                        question: request.question,
+                        approvalLevel: request.approvalLevel,
+                        idempotencyKey: request.idempotencyKey,
+                      }),
                   })
                     .then((result) => {
-                      removeStoredDecisionDraft(window.localStorage, draft.id);
-                      refresh();
-                      onImported(result.decision_id);
+                      onImported(result.decisionId);
                     })
                     .catch((e) =>
                       setError(
