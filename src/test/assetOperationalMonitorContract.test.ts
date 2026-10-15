@@ -6,7 +6,7 @@ const root = process.cwd();
 const migration = fs.readFileSync(
   path.join(
     root,
-    "supabase/migrations/20270102350000_asset_operational_monitor.sql",
+    "supabase/migrations/20270105105900_asset_operational_monitor.sql",
   ),
   "utf8",
 );
