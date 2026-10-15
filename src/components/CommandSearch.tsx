@@ -12,11 +12,13 @@ import {
   Clock,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { canOpenSyncContext } from "../lib/sync-context/access";
 
 interface CommandSearchProps {
   open: boolean;
   onClose: () => void;
   onNavigate: (path: string) => void;
+  role?: string | null;
 }
 
 interface SearchResult {
@@ -51,6 +53,13 @@ const allResults: SearchResult[] = [
     id: "rd",
     label: "Readiness",
     path: "/readiness",
+    category: "Mission",
+    icon: Target,
+  },
+  {
+    id: "sync-context",
+    label: "Sync Context",
+    path: "/context",
     category: "Mission",
     icon: Target,
   },
@@ -345,18 +354,22 @@ export function CommandSearch({
   open,
   onClose,
   onNavigate,
+  role,
 }: CommandSearchProps) {
   const [query, setQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  const visibleResults = allResults.filter(
+    (result) => result.id !== "sync-context" || canOpenSyncContext(role),
+  );
   const filtered = query.trim()
-    ? allResults.filter(
+    ? visibleResults.filter(
         (result) =>
           result.label.toLowerCase().includes(query.toLowerCase()) ||
           result.category.toLowerCase().includes(query.toLowerCase()),
       )
-    : allResults;
+    : visibleResults;
 
   useEffect(() => {
     if (open && inputRef.current)
