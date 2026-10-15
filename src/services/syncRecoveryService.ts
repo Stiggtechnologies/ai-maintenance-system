@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import type { RecoveryFieldEvidenceKind } from "./recoveryFieldEvidence";
 
 export type RecoveryEventStatus =
   | "open"
@@ -1033,7 +1034,7 @@ export const recoveryActions = {
   addFieldEvidence: (args: {
     eventId: string;
     eventWorkId: string;
-    kind: string;
+    kind: RecoveryFieldEvidenceKind;
     note: string;
     attachmentId?: string | null;
     metadata?: Record<string, unknown>;
