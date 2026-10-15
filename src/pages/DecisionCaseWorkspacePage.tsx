@@ -2695,7 +2695,7 @@ function UsageModal({
               <Sparkles size={18} />
               <strong>Start your first decision</strong>
               <small>
-                Use your own question and evidence in the guided evaluation.
+                Use your own question and evidence in the self-serve evaluation.
               </small>
               <em>Recommended next step</em>
             </a>

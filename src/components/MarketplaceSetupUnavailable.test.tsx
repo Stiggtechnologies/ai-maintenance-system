@@ -33,8 +33,18 @@ describe("unverified marketplace entry", () => {
         }),
       ).toHaveAttribute("href", "/signin?returnTo=%2F");
       expect(
-        screen.getByRole("link", { name: "Discuss marketplace setup" }),
-      ).toHaveAttribute("href", "https://syncai.ca/contact");
+        screen.getByRole("link", { name: "Start a Decision Case yourself" }),
+      ).toHaveAttribute("href", "/get-started");
+      expect(
+        screen
+          .getAllByRole("link", { name: "Talk to us" })
+          .some(
+            (link) => link.getAttribute("href") === "https://syncai.ca/contact",
+          ),
+      ).toBe(true);
+      expect(
+        screen.queryByRole("link", { name: "Discuss marketplace setup" }),
+      ).toBeNull();
       expect(providerCalls.resolve).not.toHaveBeenCalled();
       expect(providerCalls.link).not.toHaveBeenCalled();
       expect(
