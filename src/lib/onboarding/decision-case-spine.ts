@@ -21,8 +21,28 @@ import type {
 } from "../decision-case";
 import type { InvertedIntentId } from "./inverted-opening";
 
-const BANNED_SEED =
-  /Fort McMurray|North Ridge Energy|P-101|dc-1048|Copper Ridge/i;
+/** Demo plant, company, and case identities. A bare equipment tag is not a seed name. */
+const BANNED_SEED_PHRASES = [
+  "P-101 process pump",
+  "Fort McMurray",
+  "North Ridge Energy",
+  "Copper Ridge",
+  "dc-1048",
+] as const;
+
+export function findBannedSeedSubject(text: string): string | null {
+  for (const phrase of BANNED_SEED_PHRASES) {
+    const match = text.match(
+      new RegExp(phrase.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i"),
+    );
+    if (match?.[0]) return match[0];
+  }
+  return null;
+}
+
+export function bannedSeedSubjectMessage(phrase: string): string {
+  return `"${phrase}" is a demo seed name, so it cannot be the subject of your first case. Rewrite the question with your own site or asset. An equipment tag such as P-101 is allowed on its own.`;
+}
 
 export const SPINE_STAGES = [
   "QUESTION",
@@ -50,7 +70,7 @@ export const STAGE_HELP: readonly StageHelp[] = [
     stage: "QUESTION",
     label: "QUESTION",
     doThis:
-      "Write the engineering question in your own words, then save the assessment to open this case.",
+      "Read the question on this open case and check that it is your own engineering decision. A browser draft is not done until it is saved on the workspace.",
     willNot:
       "Sync will not invent a plant, asset, demo case, or a question you did not ask.",
   },
@@ -116,6 +136,12 @@ export function stageHelpFor(stage: SpineStage): StageHelp {
   return found;
 }
 
+/** Spoken form of the active stage. Same copy as the on-screen help. */
+export function stageNarrationScript(stage: SpineStage): string {
+  const help = stageHelpFor(stage);
+  return `${help.label}. ${help.doThis} ${help.willNot}`;
+}
+
 export type EvidenceKind =
   "work_history" | "condition" | "documents" | "inspection" | "schedule_cost";
 
@@ -160,9 +186,9 @@ export const EVIDENCE_METHODS: ReadonlyArray<{
 }> = [
   { id: "upload_file", title: "Upload a file" },
   { id: "paste_data", title: "Paste data" },
-  { id: "connect_source", title: "Connect a source" },
+  { id: "connect_source", title: "Check an existing source" },
   { id: "manual", title: "Continue with manual evidence" },
-  { id: "ask_admin", title: "Ask an admin later" },
+  { id: "ask_admin", title: "Note it and continue" },
 ];
 
 export const CONNECTION_FAILURE_FALLBACKS: readonly EvidenceMethod[] = [
@@ -362,10 +388,9 @@ export function buildSpineDecisionCase(input: {
   if (question.length < 12) {
     throw new Error("A Decision Case needs a real question.");
   }
-  if (BANNED_SEED.test(question)) {
-    throw new Error(
-      "Seed plant names are not accepted as a first-run subject.",
-    );
+  const banned = findBannedSeedSubject(question);
+  if (banned) {
+    throw new Error(bannedSeedSubjectMessage(banned));
   }
   const empty = createHonestEmptyDecisionCase(
     "Reliability Engineer",
@@ -464,7 +489,7 @@ export function attachSpineEvidence(
           id: `admin-later-${Date.now()}`,
           role: "system",
           author: "Connection",
-          text: `${kindMeta?.title ?? kind} left for an admin. Case stays open — upload, paste, or manual evidence remain available.`,
+          text: `${kindMeta?.title ?? kind} noted for later. The case stays open — upload, paste, or a manual note still count, and you do not need another person to continue.`,
           createdAt: now,
           meta: "Connection fallback",
         },

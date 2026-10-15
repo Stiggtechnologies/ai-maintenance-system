@@ -60,7 +60,7 @@ The TypeScript spec is `supabase/functions/_shared/syncai-guard-anomaly.ts`. The
 
 ## Garak
 
-`.github/workflows/garak.yml` runs `scripts/garak-scan.sh` on pull requests and on manual dispatch. When `NVIDIA_API_KEY` is unset or the `garak` CLI is not installed, the preflight job prints `SKIPPED` and sets `result=skipped`, and the scan job is skipped. That is neutral, not a pass. The script itself exits 78 in the same case so a direct run is not a pass, and it never prints the key. A missing secret on a fork does not fail CI. Probes are `promptinject` and `dan` (`config/syncai-guard/garak-probes.txt`). This workflow is not a required check and does not change the production flag.
+`.github/workflows/garak.yml` runs `scripts/garak-scan.sh` on pull requests and on manual dispatch. When `NVIDIA_API_KEY` is unset, the preflight job prints `SKIPPED` and sets `result=skipped`, and the scan job is skipped. That is neutral, not a pass. When the key is present, the scan job installs `garak==0.17.0` on Python 3.12 and runs the probes. The script itself exits 78 if the key or the `garak` CLI is missing, so a direct run is not a pass, and it never prints the key. A missing secret on a fork does not fail CI. Probes are `promptinject` and `dan` (`config/syncai-guard/garak-probes.txt`). This workflow is not a required check and does not change the production flag.
 
 ## How to turn it on
 
@@ -73,7 +73,7 @@ Production stays off until both of the following are true. This pull request doe
    - `NVIDIA_JAILBREAK_BASE_URL` (optional; defaults to the same base; jailbreak detect uses `/classify` on this host)
 3. An administrator opens **SyncAI Guard** (`/guard`) and turns the flag on, or calls `set_syncai_guard_enabled(true)` in that organization's session. `ai_admin` cannot change the flag or raise findings.
 4. For the assistant rails to be on the path users actually hit, `sync_global_shell` must also be enabled. That flag is a separate, existing rollout control and stays off until someone turns it on.
-5. Optional Garak: install the `garak` CLI on the runner, set the `NVIDIA_API_KEY` repository secret, and run the workflow or `bash scripts/garak-scan.sh`. Without either one the scan job is skipped.
+5. Optional Garak: set the `NVIDIA_API_KEY` repository secret. The workflow installs pinned `garak==0.17.0` on Python 3.12 and runs the scan. Without the secret the scan job is skipped. A direct `bash scripts/garak-scan.sh` still needs the `garak` CLI and the key; missing either one exits 78.
 
 With the flag on and no key, rails still run. They use the local mock.
 
@@ -87,7 +87,7 @@ With the flag on and no key, rails still run. They use the local mock.
 | Rail audit rows                                      | Real inserts into `audit_events` when the flag is on and a turn is evaluated.                                                                                                                                          |
 | Anomaly SQL and findings                             | Real writes into recommendations, evidence, and approvals. The stored wording is from tenant telemetry only when the cited readings match the enabled plant historian; otherwise it is from seeded/synthetic readings. |
 | Synthetic auth-burst                                 | Explicitly synthetic. Off by default. Refused outside the Fort McMurray demo organization.                                                                                                                             |
-| Garak                                                | Real script and workflow. Missing key or CLI is SKIPPED (neutral), not a pass.                                                                                                                                         |
+| Garak                                                | Real script and workflow. The workflow installs pinned `garak==0.17.0` when the key is present. A missing key, or a direct run without the CLI, is SKIPPED (neutral), not a pass.                                      |
 | Morpheus                                             | Not used.                                                                                                                                                                                                              |
 | `ai-agent-processor` / RE baseline path              | Not wrapped.                                                                                                                                                                                                           |
 | Plant or OT commands                                 | Not implemented. `plant_execution` on these records is `disabled`.                                                                                                                                                     |

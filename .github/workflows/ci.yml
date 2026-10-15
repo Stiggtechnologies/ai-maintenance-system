@@ -38,6 +38,10 @@ jobs:
       - name: TypeScript
         run: npx tsc --noEmit -p tsconfig.app.json
 
+      - name: Build Azure IoT Operations relay
+        working-directory: infra/azure/iot-operations-relay
+        run: npm ci --no-audit --no-fund && npm run build
+
       # Both capability registers: derived tally + per-row anti-downgrade
       # ratchet, for docs/enterprise-readiness and docs/sync-develop alike.
       #
@@ -263,6 +267,12 @@ jobs:
       - name: Smoke — governed covariate survival evidence and lineage
         run: bash scripts/ci-survival-covariate-smoke.sh
 
+      - name: Smoke — governed enterprise HSE events
+        run: bash scripts/ci-enterprise-hse-events-smoke.sh
+
+      - name: Smoke — governed lifecycle stage gates
+        run: bash scripts/ci-asset-lifecycle-stage-gates-smoke.sh
+
       - name: Smoke — governed RCA / FRACAS investigation
         run: bash scripts/ci-fracas-rca-agent-smoke.sh
 
@@ -380,6 +390,12 @@ jobs:
       - name: Smoke — governed Asset Strategy Specialist
         run: bash scripts/ci-asset-strategy-agent-smoke.sh
 
+      - name: Smoke — continuous strategy refresh from verified field experience
+        run: bash scripts/ci-strategy-field-learning-smoke.sh
+
+      - name: Smoke — corrective-action strategy update linkage
+        run: bash scripts/ci-ca-strategy-update-smoke.sh
+
       - name: Smoke — governed Data Steward Specialist
         run: bash scripts/ci-data-steward-agent-smoke.sh
 
@@ -463,6 +479,8 @@ jobs:
       - name: Smoke — explicit asset condition knowledge states
         run: bash scripts/ci-condition-state-smoke.sh
 
+      - name: Smoke — governed Azure IoT Operations/Event Hubs ingress
+        run: bash scripts/ci-azure-iot-operations-ingress-smoke.sh
       - name: Smoke — independently reviewed model applicability envelopes
         run: bash scripts/ci-model-applicability-envelope-smoke.sh
 

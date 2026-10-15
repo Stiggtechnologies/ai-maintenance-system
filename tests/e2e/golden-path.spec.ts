@@ -58,7 +58,9 @@ test("evaluation client navigation selects signup and retains safe handoff conte
   await expect(page.getByRole('heading', { name: 'Create a private evaluation workspace' })).toBeVisible();
   expect(await page.evaluate(() => performance.timeOrigin)).toBe(beforeNavigation);
   const returnTo = new URL(page.url()).searchParams.get('returnTo');
-  expect(returnTo).toContain(`/workspace/cases/${draftId}`);
+  expect(returnTo).toContain('/get-started');
+  expect(returnTo).toContain(`case=${draftId}`);
+  expect(returnTo).not.toContain(`/workspace/cases/${draftId}`);
   for (const name of ['Assistant', 'First decision']) {
     const target = new URL(await page.getByRole('link', { name, exact: true }).getAttribute('href') ?? '', page.url());
     expect(target.searchParams.get('industry')).toBe('mining');
@@ -71,6 +73,81 @@ test("evaluation client navigation selects signup and retains safe handoff conte
   await page.reload();
   await expect(page.getByRole('textbox', { name: /work email/i })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Create a private evaluation workspace' })).not.toBeVisible();
+});
+
+test("public get-started keeps an unsaved draft off the done checklist", async ({ page }) => {
+  await page.goto("/get-started?industry=mining");
+  const checklist = page.getByTestId("self-serve-progress");
+  await expect(checklist.getByTestId("self-serve-empty-signup")).toContainText(/No evaluation workspace yet/i);
+  await expect(checklist.getByTestId("self-serve-empty-question")).toContainText(/No question yet/i);
+  await expect(checklist.getByTestId("self-serve-empty-decision_case")).toContainText(/No Decision Case is open yet/i);
+  await expect(checklist.getByTestId("self-serve-empty-first_value")).toContainText(/No first value yet/i);
+  await expect(page.getByRole("link", { name: "Discuss purchasing" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Talk to us" })).toHaveCount(0);
+  await expect(page.getByTestId("self-serve-nav-step")).toHaveText("Ask your question");
+  await expect(page.getByRole("link", { name: "Create a workspace" })).toBeVisible();
+  const example = page.getByTestId("inverted-example-text-example-seal");
+  await expect(example).toHaveText("What should we check first if a critical pump is losing seal water and production is at risk?");
+  await expect(page.getByTestId("inverted-example-example-seal")).not.toContainText("…");
+  await expect(page.getByTestId("inverted-intent-connect")).toContainText(/Optional after first value/i);
+  await expect(page.getByTestId("first-decision-help")).toContainText(/first Decision Case/i);
+  await expect(page.getByRole("button", { name: "Talk me through it" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Mute" })).toBeVisible();
+  await expect(page.getByTestId("self-serve-narration-off")).toContainText(
+    /unavailable for this workspace|Checking whether this workspace can speak/i,
+  );
+  await expect(page.getByTestId("self-serve-narration-off")).toContainText(/no speech request is made/i);
+  await page.getByRole("button", { name: "Open help" }).click();
+  await expect(page.getByRole("button", { name: "Reach your first Decision Case" })).toBeVisible();
+  await page.getByRole("button", { name: "Close help" }).click();
+  await page.getByTestId("inverted-ask").fill("Synthetic acceptance: which inspection should we review before the next shift");
+  await page.getByTestId("inverted-continue").click();
+  await page.getByTestId("inverted-save-continue").click();
+  await expect(page.getByTestId("self-serve-step-decision_case")).toHaveAttribute("data-status", "now");
+  await expect(page.getByTestId("self-serve-empty-decision_case")).toContainText(/not saved, so it is not done/i);
+  await expect(page.getByTestId("spine-evaluation-boundary")).toContainText(/Self-serve evaluation/);
+  await expect(page.getByTestId("spine-evaluation-boundary")).not.toContainText(/Guided/);
+  await page.getByRole("button", { name: "Inspection", exact: true }).click();
+  await page.getByTestId("spine-evidence-body").fill("Synthetic inspection note with no measurements");
+  await page.getByTestId("spine-add-evidence").click();
+  await expect(page.getByTestId("self-serve-step-first_value")).not.toHaveAttribute("data-status", "done");
+  await expect(page.getByTestId("self-serve-empty-first_value")).toContainText(/does not count/i);
+  await expect(page.getByTestId("self-serve-step-question")).toHaveAttribute("data-status", "now");
+});
+
+test("signup keeps the question and evidence and does not return to an unsaved case id", async ({ page }) => {
+  const question = "Synthetic acceptance: which inspection should we review before the next shift";
+  const evidence = "Synthetic inspection note kept for signup";
+  await page.goto("/get-started?industry=mining&utm_source=partner");
+  await page.getByTestId("inverted-ask").fill(question);
+  await page.getByTestId("inverted-continue").click();
+  await page.getByTestId("inverted-save-continue").click();
+  const draftId = new URL(page.url()).searchParams.get("case");
+  expect(draftId).toBeTruthy();
+  await page.getByRole("button", { name: "Inspection", exact: true }).click();
+  await page.getByTestId("spine-evidence-body").fill(evidence);
+  await page.getByTestId("spine-add-evidence").click();
+  await expect(page.getByTestId("spine-proof-body")).toContainText(evidence);
+  await page.getByRole("link", { name: "create an evaluation workspace" }).click();
+  await expect(page.getByRole("heading", { name: "Create a private evaluation workspace" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Create your evaluation workspace." })).toBeVisible();
+  const returnTo = new URL(page.url()).searchParams.get("returnTo") ?? "";
+  expect(returnTo).toContain("/get-started");
+  expect(returnTo).toContain(`case=${draftId}`);
+  expect(returnTo).not.toContain("/workspace/cases/");
+  const retained = page.getByTestId("signup-retained-draft");
+  await expect(retained).toContainText(question);
+  await expect(retained).toContainText(evidence);
+  await expect(page.getByTestId("self-serve-empty-question")).not.toContainText(/No question yet/i);
+  await expect(page.getByTestId("self-serve-empty-question")).toContainText(/only in this browser/i);
+  await expect(page.getByTestId("self-serve-step-question")).not.toHaveAttribute("data-status", "done");
+  const handoff = await page.evaluate(() => sessionStorage.getItem("syncai.pendingDecisionCaseHandoff.v1"));
+  expect(handoff).toContain(question);
+  expect(handoff).toContain(evidence);
+  await page.reload();
+  await expect(page.getByTestId("signup-retained-draft")).toContainText(question);
+  await expect(page.getByTestId("signup-retained-draft")).toContainText(evidence);
+  await expect(page.getByTestId("self-serve-empty-question")).not.toContainText(/No question yet/i);
 });
 
 async function openLogin(page: Page) {
@@ -533,18 +610,27 @@ test("public first decision retains full evidence through auth and reports faile
   await page.getByRole("textbox",{name:/work email/i}).fill(DEMO_EMAIL);
   await page.locator('input[type="password"]').fill(DEMO_PASSWORD);
   await page.getByRole("button",{name:/access syncai/i}).click();
-  await expect(page).toHaveURL(new RegExp(`/workspace/cases/${draftId}\\?`));
-  expect(new URL(page.url()).searchParams.get("source")).toBe("local-acceptance");
-  expect(new URL(page.url()).searchParams.get("industry")).toBe("mining");
+  // Sign-in persists the browser draft and returns to that saved case.
+  // The unsaved /workspace/cases/draft-… route is not the destination.
+  await expect(page).toHaveURL(/\/get-started\?/,{timeout:30_000});
+  const returned = new URL(page.url());
+  const persistedId = returned.searchParams.get("case");
+  expect(returned.pathname).toBe("/get-started");
+  expect(persistedId).toMatch(/^[0-9a-f-]{36}$/i);
+  expect(persistedId).not.toBe(draftId);
+  expect(returned.searchParams.get("source")).toBe("local-acceptance");
+  expect(returned.searchParams.get("industry")).toBe("mining");
+  expect(returned.searchParams.get("view")).toBe("evaluation");
+  expect(workspaceCreates).toBe(1);
   await expect(page.getByText(question,{exact:true}).first()).toBeVisible();
   await expect(page.getByText(new RegExp(evidence)).first()).toBeVisible();
-  await page.goto(`/get-started?case=${draftId}&industry=mining&view=evaluation`);
   await expect(page.getByTestId("spine-proof-body")).toContainText("Intent is coordinate");
   await expect(page.getByTestId("spine-proof-body")).toContainText(evidence);
+  await expect(page.getByTestId("spine-save-workspace")).toHaveText(/Save to workspace|Save updates/);
   await page.getByTestId("spine-save-workspace").click();
   await expect(page.getByTestId("spine-gate-audit_trail")).toContainText("Met");
-  const persistedId = new URL(page.url()).searchParams.get("case");
-  expect(persistedId).toMatch(/^[0-9a-f-]{36}$/i);
+  await expect(page.getByTestId("self-serve-step-decision_case")).toHaveAttribute("data-status","done");
+  expect(new URL(page.url()).searchParams.get("case")).toBe(persistedId);
   expect(workspaceCreates).toBe(1);
   await page.route("**/rest/v1/cowork_workspaces*",route=>route.request().method()==="PATCH" ? route.fulfill({status:503,contentType:"application/json",body:JSON.stringify({message:"Synthetic save outage"})}) : route.continue());
   await page.getByTestId("spine-evidence-body").fill("Synthetic newer observation whose save is refused");
@@ -558,4 +644,73 @@ test("public first decision retains full evidence through auth and reports faile
   expect(workspaceCreates).toBe(1);
   await expect(page.getByTestId("spine-proof-body")).toContainText("Synthetic newer observation whose save is refused");
   await expect(page.getByTestId("spine-gate-audit_trail")).toContainText("Open");
+});
+
+test("saved Decision Case reloads question, evidence, and case id from the workspace", async ({ page, browser }) => {
+  const backend = new URL(process.env.E2E_SUPABASE_URL ?? "http://127.0.0.1:54321");
+  expect(["localhost", "127.0.0.1", "[::1]"]).toContain(backend.hostname);
+  const question = "Synthetic acceptance: reload the saved pump question from the workspace";
+  const evidence = "Synthetic inspection observation stored on the workspace, without verified measurements";
+  await page.goto("/get-started?industry=mining&source=local-acceptance&campaign=persisted-reload");
+  await page.getByTestId("inverted-ask").fill(question);
+  await page.getByRole("button", { name: /Coordinate field work/ }).click();
+  await page.getByTestId("inverted-continue").click();
+  await page.getByTestId("inverted-save-continue").click();
+  await page.getByRole("button", { name: "Inspection", exact: true }).click();
+  await page.getByTestId("spine-evidence-body").fill(evidence);
+  await page.getByTestId("spine-add-evidence").click();
+  await expect(page.getByTestId("spine-proof-body")).toContainText(evidence);
+  await page.getByTestId("spine-live-assistant").click();
+  await expect(page.getByRole("button", { name: "View record", exact: true })).toBeVisible();
+  await page.getByLabel("Sign in", { exact: true }).click();
+  await page.getByRole("textbox", { name: /work email/i }).fill(DEMO_EMAIL);
+  await page.locator('input[type="password"]').fill(DEMO_PASSWORD);
+  await page.getByRole("button", { name: /access syncai/i }).click();
+  await expect(page).toHaveURL(/\/get-started\?/, { timeout: 30_000 });
+  const persistedId = new URL(page.url()).searchParams.get("case");
+  expect(persistedId).toMatch(/^[0-9a-f-]{36}$/i);
+  await expect(page.getByTestId("spine-save-workspace")).toHaveText(/Save to workspace|Save updates/);
+  await page.getByTestId("spine-save-workspace").click();
+  await expect(page.getByTestId("self-serve-step-decision_case")).toHaveAttribute("data-status", "done");
+
+  const fresh = await browser.newContext({
+    storageState: await page.context().storageState(),
+    baseURL: "http://localhost:5173",
+  });
+  const reopened = await fresh.newPage();
+  try {
+    const loadedFromDatabase = reopened.waitForResponse((response) => {
+      if (response.request().method() !== "GET" || !response.ok()) return false;
+      try {
+        const url = new URL(response.url());
+        return (
+          url.pathname.endsWith("/rest/v1/cowork_workspaces") &&
+          url.search.includes(persistedId!)
+        );
+      } catch {
+        return false;
+      }
+    });
+    await reopened.goto(`/get-started?case=${persistedId}`);
+    const payload = await (await loadedFromDatabase).json();
+    const row = Array.isArray(payload) ? payload[0] : payload;
+    const stored =
+      typeof row?.case_state === "string" ? JSON.parse(row.case_state) : row?.case_state;
+    expect(stored.id).toBe(persistedId);
+    expect(stored.objective).toBe(question);
+    expect(JSON.stringify(stored.evidence)).toContain(evidence);
+    await expect(reopened.getByText(question, { exact: true }).first()).toBeVisible({
+      timeout: 20_000,
+    });
+    await expect(reopened.getByTestId("spine-proof-body")).toContainText(evidence);
+    await expect(reopened.getByText(stored.caseNumber, { exact: false }).first()).toBeVisible();
+    expect(new URL(reopened.url()).searchParams.get("case")).toBe(persistedId);
+    await expect(reopened.getByTestId("self-serve-nav-step")).toHaveText("Talk to us");
+    await expect(reopened.getByRole("link", { name: "Talk to us" })).toHaveAttribute(
+      "href",
+      "https://syncai.ca/contact",
+    );
+  } finally {
+    await fresh.close();
+  }
 });

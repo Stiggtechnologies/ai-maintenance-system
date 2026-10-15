@@ -49,6 +49,7 @@ import {
   readinessFromCase,
   spineStageIndex,
   stageHelpSlug,
+  stageNarrationScript,
   unknownsFromCase,
   verificationFromCase,
   type CasePeople,
@@ -67,7 +68,7 @@ import {
 
 import {
   stageEvaluationAssistantHandoff,
-  evaluationAssistantDestination,
+  evaluationRestoreDestination,
 } from "../lib/onboarding/evaluation-assistant-handoff";
 
 const emptyPeople = (): CasePeople => ({
@@ -95,6 +96,7 @@ export function DecisionCaseSpine({
   blockWorkspacePersist = false,
   openingNotice = null,
   onCaseChange,
+  onNarrationScript,
 }: {
   question: string;
   intent: InvertedIntentId;
@@ -104,6 +106,8 @@ export function DecisionCaseSpine({
   blockWorkspacePersist?: boolean;
   openingNotice?: string | null;
   onCaseChange?: (decisionCase: DecisionCase, saved: boolean) => void;
+  /** Active stage help, for the existing Talk me through it control. */
+  onNarrationScript?: (script: string) => void;
 }) {
   const auth = useOptionalAuth();
   const [decisionCase, setDecisionCase] = useState(
@@ -114,6 +118,12 @@ export function DecisionCaseSpine({
   useEffect(() => {
     onCaseChange?.(decisionCase, saved);
   }, [decisionCase, saved, onCaseChange]);
+  const narrationScript = stageNarrationScript(
+    activeSpineStage(decisionCase.stage),
+  );
+  useEffect(() => {
+    onNarrationScript?.(narrationScript);
+  }, [narrationScript, onNarrationScript]);
   const [saveNotice, setSaveNotice] = useState(
     openingNotice
       ? openingNotice
@@ -339,6 +349,7 @@ export function DecisionCaseSpine({
         </div>
         <button
           type="button"
+          id="spine-save-workspace"
           data-testid="spine-save-workspace"
           disabled={saving || blockWorkspacePersist}
           onClick={() => void persistIfPossible()}
@@ -357,9 +368,9 @@ export function DecisionCaseSpine({
         className="text-xs text-slate-400"
         data-testid="spine-evaluation-boundary"
       >
-        Guided evaluation: the recommendations on this page are deterministic
-        examples, not a live AI engineering analysis. Saving an evaluation does
-        not create a governed decision or approval.
+        Self-serve evaluation: the recommendations on this page are
+        deterministic examples, not a live AI engineering analysis. Saving an
+        evaluation does not create a governed decision or approval.
       </p>
       <button
         type="button"
@@ -628,9 +639,11 @@ export function DecisionCaseSpine({
             className="mt-3 space-y-2 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3"
           >
             <p className="text-xs text-amber-100/90">
-              Connection is optional and read-only. A failed or missing source
-              does not end the case. CSV upload, paste, manual notes, and ask an
-              admin stay available.
+              Optional after first value. This only checks whether this
+              workspace already has a source. It does not add a connector or
+              pull plant data. Upload a file, paste a note, or continue with a
+              manual observation. You do not need a connection or another person
+              to keep going.
             </p>
             <button
               type="button"
@@ -1238,7 +1251,7 @@ export function DecisionCaseSpine({
         </p>
       ) : null}
 
-      <div className="flex items-start gap-2 text-[11px] text-slate-500">
+      <div className="flex items-start gap-2 text-sm leading-relaxed text-slate-200">
         <Shield className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal-300" />
         <span>
           {INVERTED_OPENING_AUTHORITY} Review the evidence and approval
@@ -1246,12 +1259,12 @@ export function DecisionCaseSpine({
         </span>
       </div>
       {!auth?.user ? (
-        <p className="text-center text-[11px] text-slate-600">
-          <TriangleAlert className="mr-1 inline h-3 w-3" />
+        <p className="text-center text-sm leading-relaxed text-slate-200">
+          <TriangleAlert className="mr-1 inline h-4 w-4" />
           Optional:{" "}
           <Link
-            className="text-teal-400"
-            to={`/?view=signup&returnTo=${encodeURIComponent(evaluationAssistantDestination(decisionCase, window.location.search))}`}
+            className="font-semibold text-teal-300"
+            to={`/?view=signup&returnTo=${encodeURIComponent(evaluationRestoreDestination(decisionCase, window.location.search))}`}
             onClick={() => {
               if (
                 blockWorkspacePersist ||

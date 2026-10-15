@@ -17,6 +17,23 @@ vi.mock("../services/decisionCaseService", () => ({
   isPersistedDecisionCase: () => false,
   loadPersistedDecisionCase: vi.fn(),
 }));
+vi.mock("../hooks/useFeatureFlag", () => ({
+  useFeatureFlag: () => ({
+    enabled: false,
+    loading: false,
+    error: null,
+    refetch: () => undefined,
+  }),
+}));
+vi.mock("../hooks/useSpeechOutput", () => ({
+  useSpeechOutput: () => ({
+    speak: vi.fn(),
+    stop: vi.fn(),
+    speaking: false,
+    supported: true,
+    engine: "browser",
+  }),
+}));
 afterEach(() => {
   window.history.replaceState({}, "", "/");
   vi.clearAllMocks();

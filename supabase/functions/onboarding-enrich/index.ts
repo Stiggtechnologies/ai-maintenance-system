@@ -3,6 +3,10 @@
 // Service-only, fail-soft, and human-in-the-loop by design.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import {
+  callWithCommercialBoundary,
+  estimateLlmCallTokens,
+} from "../_shared/llm-commercial-usage.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -112,18 +116,15 @@ Deno.serve(async (req) => {
   const failures: string[] = [];
   const startedAt = Date.now();
 
-  const releaseReservation = async (reservationId: number | null) => {
-    if (reservationId === null) return;
-    const { error: releaseError } = await supabase.rpc(
-      "release_llm_reservation",
-      { p_reservation_id: reservationId },
-    );
-    if (releaseError) {
-      console.error("onboarding-enrich reservation release failed", {
-        reservationId,
-        error: releaseError,
-      });
-    }
+  const providerOrigin = providerUrl.origin.replace(/\/$/, "");
+  const onboardingProvider = {
+    name:
+      providerOrigin === "https://api.openai.com"
+        ? "openai-direct"
+        : "configured-onboarding-llm",
+    baseUrl: providerOrigin,
+    apiKey: LLM_API_KEY,
+    model: LLM_MODEL,
   };
 
   for (const entry of entries) {
@@ -142,119 +143,73 @@ Deno.serve(async (req) => {
 
       const chunk = pending.slice(i, i + CHUNK_SIZE);
       asked += chunk.length;
-      let reservationId: number | null = null;
-      let providerCompleted = false;
 
       try {
         const askList = chunk
           .map((item) => `- "${item.key}": ${item.label}${item.hint ? ` (${item.hint})` : ""}`)
           .join("\n");
+        const providerOptions = {
+          systemPrompt:
+            "You are a senior reliability engineer (RCM/FMEA/MIL-HDBK-338B practice) onboarding an asset " +
+            "into a reliability platform. Deduce ONLY what a competent engineer could infer from the asset's " +
+            "class, OEM, model and operating context. Return strict JSON keyed by requirement key: " +
+            '{"<key>": {"summary": "<concise engineering answer, 1-2 sentences>", ' +
+            '"confidence": "high"|"medium"|"low", "rationale": "<why / basis, one short phrase>"}}. ' +
+            'Use confidence "low" whenever site-specific data is required. Never invent serial numbers, dates, document links or stock levels.',
+          userContent:
+            `Asset: ${JSON.stringify(entry.asset).slice(0, 5000)}\n` +
+            `Already established during onboarding: ${JSON.stringify(entry.known).slice(0, 2500)}\n\n` +
+            `Deduce the following requirements:\n${askList}`,
+          temperature: 0.2,
+          maxTokens: 1200,
+          timeoutMs: 45_000,
+        };
         const estimatedTokens = Math.min(
           20_000,
-          1200 +
-            Math.ceil(
-              (JSON.stringify(entry.asset).length +
-                JSON.stringify(entry.known).length +
-                askList.length) /
-                4,
-            ),
+          Math.max(
+            estimateLlmCallTokens(providerOptions),
+            1200 +
+              Math.ceil(
+                (JSON.stringify(entry.asset).length +
+                  JSON.stringify(entry.known).length +
+                  askList.length) /
+                  4,
+              ),
+          ),
         );
-        const { data: quota, error: quotaError } = await supabase.rpc(
-          "check_llm_commercial_quota",
+        // Paid callers use or refuse the qualified commercial route. A gateway
+        // or non-direct host cannot be priced, and missing terminal metadata
+        // cannot apply a deduction.
+        const commercial = await callWithCommercialBoundary(
+          (functionName, args) => supabase.rpc(functionName, args),
+          fetch,
+          [onboardingProvider],
+          providerOptions,
           {
-            p_organization_id: entry.organization_id,
-            p_fn: "onboarding-enrich",
-            p_model: LLM_MODEL,
-            p_estimated_tokens: estimatedTokens,
-            p_cost_object_type: "asset_onboarding",
-            p_cost_object_id: entry.asset_id,
+            organizationId: entry.organization_id,
+            functionName: "onboarding-enrich",
+            requestedModel: LLM_MODEL,
+            estimatedTokens,
+            costObject: { type: "asset_onboarding", id: entry.asset_id },
           },
         );
-        const verdict = (quota ?? {}) as Record<string, unknown>;
-        reservationId = Number(verdict.reservation_id);
-        if (
-          quotaError ||
-          verdict.allowed !== true ||
-          !Number.isSafeInteger(reservationId)
-        ) {
-          console.error("onboarding-enrich commercial quota refused", {
+        if (commercial.status !== "ok") {
+          const reason =
+            commercial.status === "quota_refused"
+              ? "commercial_quota_refused"
+              : commercial.status === "settlement_failed"
+                ? "usage_settlement_failed"
+                : "provider_error";
+          console.error("onboarding-enrich commercial route did not succeed", {
             assetId: entry.asset_id,
-            limit: verdict.limit ?? "quota_check_unavailable",
-            error: quotaError,
+            status: commercial.status,
+            reason,
           });
-          failures.push(`${entry.asset_id}: commercial_quota_refused`);
-          reservationId = null;
+          failures.push(`${entry.asset_id}: ${reason}`);
           continue;
         }
 
-        const resp = await fetch(providerUrl, {
-          method: "POST",
-          signal: AbortSignal.timeout(45_000),
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${LLM_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: LLM_MODEL,
-            temperature: 0.2,
-            max_completion_tokens: 1200,
-            messages: [
-              {
-                role: "system",
-                content:
-                  "You are a senior reliability engineer (RCM/FMEA/MIL-HDBK-338B practice) onboarding an asset " +
-                  "into a reliability platform. Deduce ONLY what a competent engineer could infer from the asset's " +
-                  "class, OEM, model and operating context. Return strict JSON keyed by requirement key: " +
-                  '{"<key>": {"summary": "<concise engineering answer, 1-2 sentences>", ' +
-                  '"confidence": "high"|"medium"|"low", "rationale": "<why / basis, one short phrase>"}}. ' +
-                  'Use confidence "low" whenever site-specific data is required. Never invent serial numbers, dates, document links or stock levels.',
-              },
-              {
-                role: "user",
-                content:
-                  `Asset: ${JSON.stringify(entry.asset).slice(0, 5000)}\n` +
-                  `Already established during onboarding: ${JSON.stringify(entry.known).slice(0, 2500)}\n\n` +
-                  `Deduce the following requirements:\n${askList}`,
-              },
-            ],
-          }),
-        });
-
-        if (!resp.ok) {
-          console.error("onboarding-enrich provider request failed", { assetId: entry.asset_id, status: resp.status });
-          failures.push(`${entry.asset_id}: provider_error`);
-          await releaseReservation(reservationId);
-          reservationId = null;
-          continue;
-        }
-        providerCompleted = true;
-
-        const data = await resp.json();
-
-        // Settlement is a commercial control. Preserve the reservation and
-        // refuse to apply deductions when actual usage cannot be accounted.
-        const usage =
-          data.usage && typeof data.usage === "object" ? data.usage : {};
-        const { error: usageError } = await supabase.rpc(
-          "record_llm_usage",
-          {
-            p_organization_id: entry.organization_id,
-            p_fn: "onboarding-enrich",
-            p_model:
-              typeof data.model === "string" ? data.model : LLM_MODEL,
-            p_prompt_tokens: usage.prompt_tokens ?? 0,
-            p_completion_tokens: usage.completion_tokens ?? 0,
-            p_reservation_id: reservationId,
-          },
-        );
-        reservationId = null;
-        if (usageError) {
-          console.error("onboarding-enrich usage settlement failed", usageError);
-          failures.push(`${entry.asset_id}: usage_settlement_failed`);
-          continue;
-        }
-
-        const content: string = data.choices?.[0]?.message?.content ?? "";
+        const content: string = commercial.result.content ?? "";
         const match = content.match(/\{[\s\S]*\}/);
         const parsed = match ? JSON.parse(match[0]) : {};
 
@@ -282,7 +237,6 @@ Deno.serve(async (req) => {
           }
         }
       } catch (error) {
-        if (!providerCompleted) await releaseReservation(reservationId);
         console.error("onboarding-enrich chunk failed", { assetId: entry.asset_id, error });
         failures.push(`${entry.asset_id}: deduction_failed`);
       }
