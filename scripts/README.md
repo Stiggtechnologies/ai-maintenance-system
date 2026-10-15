@@ -43,6 +43,6 @@ Bank of Canada business-day observation at retrieval, for **2026-10-06**
 (https://www.bankofcanada.ca/valet/observations/FXUSDCAD/json). The xAI rows
 still use the historical 1.3889 observation from 2026-08-18. The matching
 current OpenAI rates are applied by
-`supabase/migrations/20270103040002_llm_price_refresh_20261007.sql`; if prices
+`supabase/migrations/20270105110400_llm_price_refresh_20261007.sql`; if prices
 or FX are reverified, update the database snapshot, this harness, and the
 retrieval dates together.

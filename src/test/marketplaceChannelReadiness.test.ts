@@ -110,10 +110,15 @@ describe("marketplace channel readiness", () => {
     expect(docs).toMatch(/no Salesforce DX\/package source/i);
 
     const page = readFileSync("src/pages/SalesforceSignup.tsx", "utf8");
+    const gate = readFileSync(
+      "src/components/MarketplaceSetupUnavailable.tsx",
+      "utf8",
+    );
     expect(page).not.toContain(
       "The SyncAI managed package is installed in your Salesforce org.",
     );
-    expect(page).toContain("This page does not prove");
+    expect(page).toContain("MarketplaceSetupUnavailable");
+    expect(gate).toContain("does not confirm installation");
   });
 
   it.each([

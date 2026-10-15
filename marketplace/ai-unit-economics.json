@@ -36,7 +36,7 @@
       "source": "private.llm_prices",
       "currency": "CAD",
       "unit": "per_million_tokens",
-      "latestRefreshMigration": "supabase/migrations/20270103040002_llm_price_refresh_20261007.sql",
+      "latestRefreshMigration": "supabase/migrations/20270105110400_llm_price_refresh_20261007.sql",
       "officialUsdRatesReverifiedAt": "2026-10-07",
       "fx": {
         "rate": 1.4226,
@@ -331,7 +331,7 @@
       "supabase/migrations/20260916000000_llm_cost_guardrails.sql",
       "supabase/migrations/20261229100000_azure_marketplace_metering.sql",
       "supabase/migrations/20261230110000_azure_marketplace_metering_clock_consistency.sql",
-      "supabase/migrations/20270103040001_ai_commercial_cost_controls.sql",
+      "supabase/migrations/20270105110300_ai_commercial_cost_controls.sql",
       "supabase/functions/_shared/llm-commercial-usage.ts",
       "src/test/llmCommercialUsage.test.ts",
       "src/test/llmCostGuardrails.test.ts",

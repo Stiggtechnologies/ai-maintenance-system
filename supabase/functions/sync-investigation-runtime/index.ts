@@ -8,6 +8,13 @@ import {
   resolveExternalGatewayUrl,
   type LlmProvider,
 } from "../_shared/llm-provider.ts";
+import {
+  createGuardProvider,
+  GUARD_AUDIT_ENTITY,
+  GUARD_FLAG_KEY,
+  guardRefusalMessage,
+  type GuardDecision,
+} from "../_shared/syncai-guard.ts";
 import { callWithResilienceStream } from "../_shared/llm-provider-stream.ts";
 import { retrieveReliabilityContext } from "../_shared/reliability-context.ts";
 import {
@@ -160,6 +167,44 @@ function adminClient() {
   return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+}
+
+async function persistGuardDecision(
+  auth: AuthContext,
+  decision: GuardDecision,
+): Promise<void> {
+  const { error } = await adminClient().from("audit_events").insert({
+    organization_id: auth.organizationId,
+    entity_type: GUARD_AUDIT_ENTITY,
+    actor: auth.userId,
+    event_data: {
+      stage: decision.stage,
+      action: decision.action,
+      rail: decision.rail,
+      reason: decision.reason,
+      provider: decision.provider,
+      model: decision.model,
+      excerpt: decision.excerpt,
+      plant_execution: "disabled",
+    },
+  });
+  if (error) console.error("syncai-guard rail log failed", error.message);
+}
+
+/** Runs only when syncai_guard is enabled. Flag-off callers must not reach this. */
+async function enforceGuard(
+  auth: AuthContext,
+  stage: GuardDecision["stage"],
+  text: string,
+): Promise<GuardDecision> {
+  const decision = await createGuardProvider({
+    apiKey: Deno.env.get("NVIDIA_API_KEY"),
+    baseUrl: Deno.env.get("NVIDIA_GUARDRAILS_BASE_URL"),
+    jailbreakBaseUrl: Deno.env.get("NVIDIA_JAILBREAK_BASE_URL"),
+    fetchImpl: fetch,
+  }).evaluate({ stage, text });
+  await persistGuardDecision(auth, decision);
+  return decision;
 }
 
 function userClient(auth: AuthContext) {
@@ -1166,17 +1211,42 @@ async function runFocusedSpecialist(input: {
   contextText: string;
   kbPrompt: string;
   costObject: Pick<EntityContext, "type" | "id">;
-}): Promise<{ text: string; model: string; durationMs: number }> {
-  const { auth, specialist, question, contextText, kbPrompt, costObject } =
-    input;
+  guard: boolean;
+}): Promise<{
+  text: string;
+  model: string;
+  durationMs: number;
+  blocked: boolean;
+}> {
+  const {
+    auth,
+    specialist,
+    question,
+    contextText,
+    kbPrompt,
+    costObject,
+    guard,
+  } = input;
   const model = MODEL_CHAT;
+  const started = Date.now();
+  const userContent = `${contextText}\n\nQUESTION: ${question}`;
+  if (guard) {
+    const inputDecision = await enforceGuard(auth, "input", userContent);
+    if (inputDecision.action === "block") {
+      return {
+        text: "",
+        model: "syncai-guard",
+        durationMs: Date.now() - started,
+        blocked: true,
+      };
+    }
+  }
   const reservationId = await reserveQuota(
     auth.organizationId,
     model,
     2_500,
     costObject,
   );
-  const started = Date.now();
   try {
     const base = buildReliabilityEngineerPrompt({
       accessMode: "authenticated",
@@ -1187,7 +1257,7 @@ async function runFocusedSpecialist(input: {
     );
     const result = await callWithResilience(fetch, providersFor(model), {
       systemPrompt,
-      userContent: `${contextText}\n\nQUESTION: ${question}`,
+      userContent,
       maxTokens: 900,
       timeoutMs: 60_000,
     });
@@ -1201,10 +1271,22 @@ async function runFocusedSpecialist(input: {
       result.usage,
       reservationId,
     );
+    if (guard) {
+      const outputDecision = await enforceGuard(auth, "output", result.content);
+      if (outputDecision.action === "block") {
+        return {
+          text: "",
+          model: result.model ?? model,
+          durationMs: Date.now() - started,
+          blocked: true,
+        };
+      }
+    }
     return {
       text: result.content,
       model: result.model ?? model,
       durationMs: Date.now() - started,
+      blocked: false,
     };
   } catch (error) {
     await releaseQuota(reservationId);
@@ -1367,6 +1449,28 @@ Deno.serve(async (req: Request) => {
         },
       });
 
+      const guardOn = flags.has(GUARD_FLAG_KEY);
+      if (guardOn) {
+        const inputDecision = await enforceGuard(auth, "input", question);
+        if (inputDecision.action === "block") {
+          const refusal = guardRefusalMessage(inputDecision);
+          send({
+            type: "assistant.block",
+            block: { kind: "warning", severity: "high", content: refusal },
+          });
+          await persistMessage({
+            auth,
+            workspaceId,
+            turnId,
+            role: "agent",
+            message: refusal,
+            metadata: { syncai_guard: "input_blocked", rail: inputDecision.rail },
+          });
+          send({ type: "turn.completed", turnId, telemetry });
+          return;
+        }
+      }
+
       const investigation = await runInvestigation({
         auth,
         workspaceId,
@@ -1420,13 +1524,16 @@ Deno.serve(async (req: Request) => {
             contextText,
             kbPrompt: kb.promptContext,
             costObject,
+            guard: flags.has(GUARD_FLAG_KEY),
           });
-          specialistOutputs.push({ specialist, text: result.text });
+          if (!result.blocked) {
+            specialistOutputs.push({ specialist, text: result.text });
+          }
           send({
             type: "agent.completed",
             agentId: specialist.id,
             label: specialist.label,
-            status: "completed",
+            status: result.blocked ? "blocked" : "completed",
             executionMode: "executed",
             durationMs: result.durationMs,
           });
@@ -1495,6 +1602,29 @@ Deno.serve(async (req: Request) => {
         responsePolicy.mode === "deliverable"
           ? MODEL_DELIVERABLE
           : MODEL_RELIABILITY;
+      if (guardOn) {
+        const assembledDecision = await enforceGuard(auth, "input", userContent);
+        if (assembledDecision.action === "block") {
+          const refusal = guardRefusalMessage(assembledDecision);
+          send({
+            type: "assistant.block",
+            block: { kind: "warning", severity: "high", content: refusal },
+          });
+          await persistMessage({
+            auth,
+            workspaceId,
+            turnId,
+            role: "agent",
+            message: refusal,
+            metadata: {
+              syncai_guard: "input_blocked",
+              rail: assembledDecision.rail,
+            },
+          });
+          send({ type: "turn.completed", turnId, telemetry });
+          return;
+        }
+      }
       finalReservationId = await reserveQuota(
         auth.organizationId,
         model,
@@ -1503,6 +1633,7 @@ Deno.serve(async (req: Request) => {
       );
       const modelStarted = Date.now();
       let sequence = 0;
+      const heldDeltas: string[] = [];
       const streamed = await callWithResilienceStream(
         fetch,
         providersFor(model),
@@ -1515,6 +1646,10 @@ Deno.serve(async (req: Request) => {
           onDelta: async (text) => {
             if (telemetry.firstTokenMs == null)
               telemetry.firstTokenMs = Date.now() - startedAt;
+            if (guardOn) {
+              heldDeltas.push(text);
+              return;
+            }
             sequence += 1;
             if (!send({ type: "assistant.delta", text, sequence }))
               abortController.abort();
@@ -1535,6 +1670,32 @@ Deno.serve(async (req: Request) => {
       finalReservationId = null;
       if (streamed.firstTokenAtMs != null && telemetry.firstTokenMs == null)
         telemetry.firstTokenMs = streamed.firstTokenAtMs;
+
+      let assistantText = streamed.content;
+      let guardOutcome = guardOn ? "output_allowed" : "off";
+      if (guardOn) {
+        const outputDecision = await enforceGuard(
+          auth,
+          "output",
+          streamed.content,
+        );
+        if (outputDecision.action === "block") {
+          guardOutcome = "output_blocked";
+          assistantText = guardRefusalMessage(outputDecision);
+          send({
+            type: "assistant.block",
+            block: { kind: "warning", severity: "high", content: assistantText },
+          });
+        } else {
+          for (const text of heldDeltas) {
+            sequence += 1;
+            if (!send({ type: "assistant.delta", text, sequence })) {
+              abortController.abort();
+              break;
+            }
+          }
+        }
+      }
 
       send({
         type: "agent.completed",
@@ -1589,8 +1750,9 @@ Deno.serve(async (req: Request) => {
         workspaceId,
         turnId,
         role: "agent",
-        message: streamed.content,
+        message: assistantText,
         metadata: {
+          syncai_guard: guardOutcome,
           response_mode: responsePolicy.mode,
           specialists: routed.map((specialist) => specialist.id),
           investigation_checks: investigation.checks,

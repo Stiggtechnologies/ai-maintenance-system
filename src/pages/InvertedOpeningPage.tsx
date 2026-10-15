@@ -19,7 +19,10 @@ import {
   SPINE_SAVED_CASE_KEY,
   buildSpineDecisionCase,
 } from "../lib/onboarding/decision-case-spine";
-import type { DecisionCase } from "../lib/decision-case";
+import {
+  normalizeDecisionIndustry,
+  type DecisionCase,
+} from "../lib/decision-case";
 import {
   createPersistedDecisionCase,
   isPersistedDecisionCase,
@@ -31,6 +34,8 @@ import {
 } from "../lib/onboarding/evaluation-assistant-handoff";
 import { DecisionCaseSpine } from "./DecisionCaseSpine";
 import { productEntryById } from "../lib/product-entry-paths";
+import { PublicJourneyHeader } from "../components/PublicJourneyHeader";
+import { usePublicJourneyTheme } from "../lib/use-public-journey-theme";
 
 function rememberSavedCase(id: string) {
   if (!isPersistedDecisionCase(id)) return;
@@ -46,6 +51,7 @@ export function InvertedOpeningPage() {
   const entry = productEntryById(
     new URLSearchParams(window.location.search).get("entry") ?? "",
   );
+  const journeyTheme = usePublicJourneyTheme();
   const [restored] = useState(() =>
     readEvaluationDraftLocation(window.location.search, window.sessionStorage),
   );
@@ -63,6 +69,11 @@ export function InvertedOpeningPage() {
   const [examplePreview, setExamplePreview] = useState(false);
   const [persistedCase, setPersistedCase] = useState<DecisionCase | undefined>(
     restored?.decisionCase,
+  );
+  // A restored case owns its industry; a new case uses the acquisition link.
+  const industry = normalizeDecisionIndustry(
+    persistedCase?.industry ??
+      new URLSearchParams(window.location.search).get("industry"),
   );
   const [caseSaved, setCaseSaved] = useState(false);
   const [persistError, setPersistError] = useState<string | null>(null);
@@ -130,7 +141,7 @@ export function InvertedOpeningPage() {
     }
     let draft: DecisionCase;
     try {
-      draft = buildSpineDecisionCase({ question, intent });
+      draft = buildSpineDecisionCase({ question, intent, industry });
     } catch (caught) {
       setPersistError(
         caught instanceof Error
@@ -203,9 +214,11 @@ export function InvertedOpeningPage() {
   return (
     <main
       data-testid="inverted-opening"
-      className="min-h-screen bg-[#0B0F14] px-4 py-10 text-[#E6EDF3]"
+      className="public-journey journey-evaluation"
+      data-theme={journeyTheme.theme}
     >
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+      <PublicJourneyHeader />
+      <div className="journey-evaluation-body mx-auto flex w-full flex-col gap-6">
         <header className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-300">
             Sync · first decision
@@ -416,6 +429,7 @@ export function InvertedOpeningPage() {
               key={persistedCase?.id ?? spineQuestion}
               question={spineQuestion}
               intent={intent}
+              industry={industry}
               initialCase={persistedCase}
               initiallySaved={caseSaved}
               onCaseChange={rememberCurrentCase}

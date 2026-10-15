@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270103040002_llm_price_refresh_20261007.sql",
+  "supabase/migrations/20270105110400_llm_price_refresh_20261007.sql",
   "utf8",
 ).toLowerCase();
 const evaluationHarness = readFileSync("scripts/eval-models.mjs", "utf8");
@@ -70,7 +70,7 @@ describe("current commercial OpenAI price snapshot", () => {
   it("publishes the same machine-readable commercial evidence", () => {
     const priceTable = unitEconomics.implemented.modelPriceTable;
     expect(priceTable.latestRefreshMigration).toBe(
-      "supabase/migrations/20270103040002_llm_price_refresh_20261007.sql",
+      "supabase/migrations/20270105110400_llm_price_refresh_20261007.sql",
     );
     expect(priceTable.fx).toEqual({
       rate: 1.4226,
