@@ -1230,10 +1230,10 @@
     "backticked": 0
   },
   "E5.05": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 6,
+    "backticked": 6
   },
   "E5.06": {
     "status": "🟡",

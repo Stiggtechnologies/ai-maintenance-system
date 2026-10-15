@@ -477,6 +477,9 @@ jobs:
       - name: Smoke — exact-version model performance, drift and cohort screening
         run: bash scripts/ci-model-performance-governance-smoke.sh
 
+      - name: Smoke — tenant MFA and privileged-access assurance
+        run: bash scripts/ci-privileged-access-mfa-smoke.sh
+
       - name: Smoke — hardware-neutral governed Edge Evidence Contract
         run: bash scripts/ci-edge-evidence-contract-smoke.sh
 
