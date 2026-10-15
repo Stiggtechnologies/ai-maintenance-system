@@ -239,6 +239,40 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     expect(screen.getByTestId("spine-proof-body")).toHaveTextContent(
       "Synthetic edit that is not saved",
     );
+    const retry = screen.getByTestId("self-serve-nav-step");
+    expect(retry).toHaveTextContent("Save this Decision Case");
+    expect(retry).toHaveAttribute("href", "#spine-save-workspace");
+    expect(retry.getAttribute("href")).not.toContain("signup");
+    fireEvent.click(retry);
+    await waitFor(() =>
+      expect(persist.savePersistedDecisionCase).toHaveBeenCalledTimes(2),
+    );
+    expect(persist.createPersistedDecisionCase).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries a failed first save from the nav instead of opening signup", async () => {
+    authHolder.user = { id: "user-1" };
+    persist.createPersistedDecisionCase.mockRejectedValueOnce(
+      new Error("save unavailable"),
+    );
+    renderOpening();
+    openSpine();
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toMatch(/save unavailable/),
+    );
+    const retry = screen.getByTestId("self-serve-nav-step");
+    expect(retry).toHaveTextContent("Save this Decision Case");
+    expect(retry).toHaveAttribute("href", "#spine-save-workspace");
+    fireEvent.click(retry);
+    await waitFor(() =>
+      expect(persist.createPersistedDecisionCase).toHaveBeenCalledTimes(2),
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("link", { name: "Talk to us" })).toHaveAttribute(
+        "href",
+        "https://syncai.ca/contact",
+      ),
+    );
   });
 
   it("does not rewrite the P0.1 opening contract", () => {
@@ -582,6 +616,10 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     openSpine();
     expect(screen.getByTestId("self-serve-nav-step")).toHaveTextContent(
       "Save this Decision Case",
+    );
+    expect(screen.getByTestId("self-serve-nav-step")).toHaveAttribute(
+      "href",
+      expect.stringContaining("/?view=signup"),
     );
     expect(screen.queryByRole("link", { name: "Talk to us" })).toBeNull();
     await waitFor(() => {

@@ -195,7 +195,7 @@ export function InvertedOpeningPage() {
         ? {
             decisionCaseSaved: false,
             draftOpen: true,
-            continueHref: signupHref,
+            continueHref: auth?.user ? "#spine-save-workspace" : signupHref,
             continueLabel: "Save this Decision Case",
             askHref: "#inverted-ask",
           }

@@ -349,6 +349,7 @@ export function DecisionCaseSpine({
         </div>
         <button
           type="button"
+          id="spine-save-workspace"
           data-testid="spine-save-workspace"
           disabled={saving || blockWorkspacePersist}
           onClick={() => void persistIfPossible()}
