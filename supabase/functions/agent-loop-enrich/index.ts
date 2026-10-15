@@ -33,6 +33,10 @@ import {
 } from "../_shared/llm-provider.ts";
 import { withDataEgressGuard } from "../_shared/data-egress-guard.ts";
 import {
+  callWithCommercialBoundary,
+  estimateLlmCallTokens,
+} from "../_shared/llm-commercial-usage.ts";
+import {
   adaptAzureOpenAiFetch,
   buildAzureOpenAiProvider,
   resolveAzureOpenAiEndpoint,
@@ -40,6 +44,13 @@ import {
 import { getAzureManagedIdentityAccessToken } from "../_shared/azure-managed-identity.ts";
 const LLM_MODEL =
   Deno.env.get("ENRICH_LLM_MODEL") ?? Deno.env.get("LLM_MODEL") ?? "stigg/fast";
+// Canonical priced model used at the commercial pre-spend gate. A gateway may
+// route the request elsewhere, but settlement will then record the actual
+// model and freeze later spend unless that route was in the approved policy.
+const COMMERCIAL_MODEL =
+  Deno.env.get("ENRICH_COST_MODEL") ??
+  Deno.env.get("OPENAI_FALLBACK_MODEL") ??
+  "gpt-5.6-terra";
 const ENRICH_SHARED_SECRET = Deno.env.get("ENRICH_SHARED_SECRET") ?? "";
 const AZURE_OPENAI_ENDPOINT = Deno.env.get("AZURE_OPENAI_ENDPOINT") ?? "";
 const AZURE_OPENAI_DEPLOYMENT = Deno.env.get("AZURE_OPENAI_DEPLOYMENT") ?? "";
@@ -173,7 +184,7 @@ Deno.serve(async (req) => {
       // gpt-4o-mini stays as the safety net beneath it: if this key lacks
       // 5.6 access the 404 is fatal and the chain drops instantly rather than
       // going dark, and llm_provider_events records which one answered.
-      openaiModel: Deno.env.get("OPENAI_FALLBACK_MODEL") ?? "gpt-5.6-terra",
+      openaiModel: COMMERCIAL_MODEL,
       openaiSafetyModel: "gpt-4o-mini",
     }),
   ];
@@ -247,55 +258,78 @@ Deno.serve(async (req) => {
         purpose: "agent_enrichment",
         serviceLabel: "agent-loop-enrich",
       });
-      const result = await callWithResilience(guardedFetch, providers, {
-        systemPrompt:
-          "You are a senior reliability engineer for asset-intensive industry. " +
-          "Given a condition-monitoring finding, return strict JSON: " +
-          '{"analysis": "2-3 sentence engineering assessment of likely failure mechanism and consequence", ' +
-          '"recommended_window_hours": <number>, "confidence": <0-100 integer>}. ' +
-          "Be specific and conservative; never advise bypassing approvals.",
-        userContent: `Finding: ${rec.title}\nSensor detail: ${rec.issue}\nCurrent proposed action: ${rec.action}\nUrgency: ${rec.urgency}`,
+      const systemPrompt =
+        "You are a senior reliability engineer for asset-intensive industry. " +
+        "Given a condition-monitoring finding, return strict JSON: " +
+        '{"analysis": "2-3 sentence engineering assessment of likely failure mechanism and consequence", ' +
+        '"recommended_window_hours": <number>, "confidence": <0-100 integer>}. ' +
+        "Be specific and conservative; never advise bypassing approvals.";
+      const userContent = `Finding: ${rec.title}\nSensor detail: ${rec.issue}\nCurrent proposed action: ${rec.action}\nUrgency: ${rec.urgency}`;
+      const providerOptions = {
+        systemPrompt,
+        userContent,
         maxTokens: 1500,
         timeoutMs: 45_000,
-      });
+      };
+      // Paid callers use the qualified commercial route and settlement
+      // contract. A missing direct route, a quota refusal, or missing
+      // terminal usage/model metadata does not apply an enrichment.
+      const commercial = await callWithCommercialBoundary(
+        (functionName, args) => supabase.rpc(functionName, args),
+        guardedFetch,
+        providers,
+        providerOptions,
+        {
+          organizationId: rec.organization_id,
+          functionName: "agent-loop-enrich",
+          requestedModel: COMMERCIAL_MODEL,
+          estimatedTokens: Math.max(
+            2500,
+            estimateLlmCallTokens(providerOptions),
+          ),
+          costObject: { type: "recommendation", id: rec.id },
+        },
+      );
 
+      const events =
+        commercial.status === "ok"
+          ? commercial.result.events
+          : "events" in commercial
+            ? commercial.events
+            : [];
       // The month of silence happened because failures only went to
       // console.error. Health events are queryable; the console is not.
-      if (result.events.length > 1 || !result.ok) {
-        await supabase.from("llm_provider_events").insert(
-          result.events.map((e) => ({
-            function_name: "agent-loop-enrich",
-            provider: e.provider,
-            outcome: e.outcome,
-            status: e.status,
-            detail: e.detail,
-          })),
-        );
+      if (events.length > 1 || commercial.status !== "ok") {
+        if (events.length > 0) {
+          await supabase.from("llm_provider_events").insert(
+            events.map((e) => ({
+              function_name: "agent-loop-enrich",
+              provider: e.provider,
+              outcome: e.outcome,
+              status: e.status,
+              detail: e.detail,
+            })),
+          );
+        }
       }
 
-      if (!result.ok) {
-        console.error("agent-loop-enrich provider exhausted", { id: rec.id });
-        failures.push(`${rec.id}: provider_error`);
+      if (commercial.status !== "ok") {
+        const reason =
+          commercial.status === "quota_refused"
+            ? "commercial_quota_refused"
+            : commercial.status === "settlement_failed"
+              ? "usage_settlement_failed"
+              : "provider_error";
+        console.error("agent-loop-enrich commercial route did not succeed", {
+          id: rec.id,
+          status: commercial.status,
+          reason,
+        });
+        failures.push(`${rec.id}: ${reason}`);
         continue;
       }
 
-      // Cost telemetry (private.llm_usage) — FAIL-SOFT: enrichment must
-      // never be lost to a telemetry hiccup.
-      try {
-        const usage = result.usage ?? {};
-        const { error: usageError } = await supabase.rpc("record_llm_usage", {
-          p_organization_id: rec.organization_id,
-          p_fn: "agent-loop-enrich",
-          p_model: result.model ?? LLM_MODEL,
-          p_prompt_tokens: usage.prompt_tokens ?? 0,
-          p_completion_tokens: usage.completion_tokens ?? 0,
-        });
-        if (usageError)
-          console.error("agent-loop-enrich usage insert failed", usageError);
-      } catch (usageException) {
-        console.error("agent-loop-enrich usage insert failed", usageException);
-      }
-
+      const result = commercial.result;
       const content: string = result.content;
       const match = content.match(/\{[\s\S]*\}/);
       const parsed = match ? JSON.parse(match[0]) : {};
@@ -322,7 +356,7 @@ Deno.serve(async (req) => {
         .from("recommendations")
         .update({
           rationale:
-            `AI analysis (${result.model ?? LLM_MODEL}): ${parsed.analysis.trim()} ` +
+            `AI analysis (${result.model ?? COMMERCIAL_MODEL}): ${parsed.analysis.trim()} ` +
             `Suggested action window: ${parsed.recommended_window_hours ?? "n/a"}h. ` +
             "Raised by the continuous condition-monitoring loop; human approval required before any action.",
           confidence,
@@ -330,7 +364,7 @@ Deno.serve(async (req) => {
           // The model that ACTUALLY answered, not the one requested. When the
           // chain fails over these differ, and storing the request would put a
           // false provenance claim into a record an engineer signs.
-          enrichment_model: result.model ?? LLM_MODEL,
+          enrichment_model: result.model ?? COMMERCIAL_MODEL,
           updated_at: new Date().toISOString(),
         })
         .eq("id", rec.id)

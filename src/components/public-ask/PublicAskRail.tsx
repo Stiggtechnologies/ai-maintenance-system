@@ -1,11 +1,14 @@
 import { ClipboardCheck, Home, Layers, LogIn, Plus } from "lucide-react";
+import { BrandWordmark } from "../BrandWordmark";
+import { publicJourneyPath } from "../../lib/public-journey-context";
 
 type PublicAskRailProps = {
   homeActive: boolean;
   onNewAsk: () => void;
   assessHref?: string;
   signInHref?: string;
-  onSignIn?: () => void;
+  onSignIn?: () => boolean;
+  search?: string;
   /**
    * Bolt Spaces = existing cowork threads of any intent on /workspace.
    * Omit on public anonymous. Not the Develop case list. Not DraftBanner.
@@ -31,9 +34,17 @@ export function PublicAskRail({
   signInHref = "/signin?returnTo=%2F",
   onSignIn,
   spaces,
+  search = "",
 }: PublicAskRailProps) {
   return (
     <nav className="bolt-rail" aria-label="Workspace">
+      <a
+        className="journey-brand"
+        href={publicJourneyPath("/workspace", search)}
+        aria-label="SyncAI workspace"
+      >
+        <BrandWordmark className="h-7" />
+      </a>
       <div className="bolt-rail-top">
         <button
           type="button"
@@ -46,7 +57,7 @@ export function PublicAskRail({
       </div>
       <div className="bolt-rail-main">
         <a
-          href="/"
+          href={publicJourneyPath("/", search)}
           className={`bolt-rail-item${homeActive ? " is-active" : ""}`}
           aria-label="Home"
           aria-current={homeActive ? "page" : undefined}
@@ -69,7 +80,11 @@ export function PublicAskRail({
         ) : null}
       </div>
       <div className="bolt-rail-foot">
-        <a className="bolt-rail-item" href={assessHref} aria-label="Assess">
+        <a
+          className="bolt-rail-item"
+          href={publicJourneyPath(assessHref, search)}
+          aria-label="Assess"
+        >
           <ClipboardCheck size={20} />
           Assess
         </a>
@@ -78,7 +93,9 @@ export function PublicAskRail({
             className="bolt-rail-item"
             href={signInHref}
             aria-label="Sign in"
-            onClick={onSignIn}
+            onClick={(event) => {
+              if (onSignIn && !onSignIn()) event.preventDefault();
+            }}
           >
             <LogIn size={20} />
             Sign in

@@ -9,6 +9,8 @@ on:
       - "src/lib/risk-operating-system/**"
       - "src/components/DomainSpecialistWorkbench.tsx"
       - "src/components/QualityManagementWorkbench.tsx"
+      - "src/components/QualityManagementWorkbench.test.tsx"
+      - "tests/e2e/quality-workbench-session.spec.ts"
       - "src/services/domainSpecialistService.ts"
       - "src/services/qualityManagementService.ts"
       - "src/pages/RiskOperatingSystemPage.tsx"
@@ -30,6 +32,8 @@ on:
       - "src/lib/risk-operating-system/**"
       - "src/components/DomainSpecialistWorkbench.tsx"
       - "src/components/QualityManagementWorkbench.tsx"
+      - "src/components/QualityManagementWorkbench.test.tsx"
+      - "tests/e2e/quality-workbench-session.spec.ts"
       - "src/services/domainSpecialistService.ts"
       - "src/services/qualityManagementService.ts"
       - "src/pages/RiskOperatingSystemPage.tsx"
@@ -64,10 +68,9 @@ jobs:
       - name: Static specialist contracts
         run: npx vitest run src/lib/domain-specialists/domain-specialists.test.ts src/components/DomainSpecialistWorkbench.test.tsx src/lib/industry-profiles/industry-profiles.test.ts src/test/domainSpecialistContract.test.ts src/lib/quality-management/quality-management.test.ts src/services/qualityManagementService.test.ts src/components/QualityManagementWorkbench.test.tsx src/test/qualityManagementContract.test.ts
 
-      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
         with:
           version: 2.84.2
-          github-token: ${{ github.token }}
 
       - name: Prepare clean local Supabase state
         run: |
@@ -100,6 +103,24 @@ jobs:
 
       - name: Governed quality lifecycle, metrics and COPQ
         run: bash scripts/ci-quality-management-smoke.sh
+
+      - name: Install quality browser runtime
+        run: npx playwright install --with-deps chromium
+
+      - name: Quality workbench authenticated browser read and session failure
+        env:
+          E2E_SUPABASE_URL: http://127.0.0.1:54321
+          PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/quality-workbench-report.json
+        run: npx playwright test tests/e2e/quality-workbench-session.spec.ts --reporter=github,json
+
+      - name: Upload quality browser qualification artifacts
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: quality-workbench-browser-artifacts
+          path: test-results/
+          if-no-files-found: error
+          retention-days: 7
 
       - name: Stop Supabase
         if: always()

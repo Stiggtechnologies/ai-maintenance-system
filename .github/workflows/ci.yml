@@ -38,6 +38,10 @@ jobs:
       - name: TypeScript
         run: npx tsc --noEmit -p tsconfig.app.json
 
+      - name: Build Azure IoT Operations relay
+        working-directory: infra/azure/iot-operations-relay
+        run: npm ci --no-audit --no-fund && npm run build
+
       # Both capability registers: derived tally + per-row anti-downgrade
       # ratchet, for docs/enterprise-readiness and docs/sync-develop alike.
       #
@@ -146,10 +150,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
         with:
           version: 2.84.2
-          github-token: ${{ github.token }}
 
       - name: Prepare clean local Supabase state
         run: |
@@ -223,6 +226,11 @@ jobs:
           test "$ROLE" = "reliability_engineer"
           echo "Smoke passed: login + RLS ($COUNT recs) + RPC ($ROLE)"
 
+      # Random fixtures and writes roll back; no seeded/customer mutation or
+      # HTTP shortcut. The full risk SQL+HTTP smoke below remains mandatory.
+      - name: Preflight — governed risk SQL and origin refusal witnesses
+        run: bash scripts/ci-risk-decision-preview-smoke.sh --sql-preflight
+
       - name: Smoke — Sync creator-private conversation RLS
         run: bash scripts/ci-sync-rls-smoke.sh
 
@@ -255,6 +263,9 @@ jobs:
 
       - name: Smoke — governed Reliability Engineer life data
         run: bash scripts/ci-reliability-life-data-agent-smoke.sh
+
+      - name: Smoke — governed covariate survival evidence and lineage
+        run: bash scripts/ci-survival-covariate-smoke.sh
 
       - name: Smoke — governed FMEA/FMECA and RCM decisions
         run: bash scripts/ci-governed-fmea-rcm-smoke.sh
@@ -510,9 +521,14 @@ jobs:
       - name: Smoke — multi-dimensional consequence model
         run: bash scripts/ci-consequence-model-smoke.sh
 
+      - name: Smoke — governed risk decision preview and sensitive audit boundaries
+        run: bash scripts/ci-risk-decision-preview-smoke.sh
+
       - name: Smoke — explicit asset condition knowledge states
         run: bash scripts/ci-condition-state-smoke.sh
 
+      - name: Smoke — governed Azure IoT Operations/Event Hubs ingress
+        run: bash scripts/ci-azure-iot-operations-ingress-smoke.sh
       - name: Smoke — independently reviewed model applicability envelopes
         run: bash scripts/ci-model-applicability-envelope-smoke.sh
 
@@ -596,6 +612,9 @@ jobs:
 
       - name: Smoke — Sync Context canonical contracts and two-tenant isolation
         run: bash scripts/ci-sync-context-contract-smoke.sh
+
+      - name: Smoke — governed connector time-synchronization assurance
+        run: bash scripts/ci-time-synchronization-assurance-smoke.sh
 
       - name: Smoke — governed enterprise portfolio optimization
         run: bash scripts/ci-enterprise-portfolio-optimization-smoke.sh
@@ -718,10 +737,9 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
 
-      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
         with:
           version: 2.84.2
-          github-token: ${{ github.token }}
 
       - name: Prepare clean local Supabase state
         run: |
@@ -781,8 +799,26 @@ jobs:
           bash scripts/ci-project-start-knowledge-smoke.sh
           bash scripts/ci-project-fracas-smoke.sh
 
+      - name: Clock browser fixtures (isolated synthetic enabled and disabled sources)
+        run: |
+          set -euo pipefail
+          test "${GITHUB_ACTIONS:-}" = true
+          PGOPTIONS='-c app.ci_time_browser_fixture=github_actions_only' PGPASSWORD=postgres \
+            psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f scripts/tests/time-assurance-browser-fixture.sql
+
+      - name: Context browser fixtures (real auth and canonical independent review)
+        run: |
+          set -euo pipefail
+          test "${GITHUB_ACTIONS:-}" = true
+          bash scripts/ci-geospatial-operational-intelligence-smoke.sh
+          bash scripts/ci-sync-context-contract-smoke.sh
+          PGOPTIONS='-c app.ci_context_browser_fixture=github_actions_only' PGPASSWORD=postgres \
+            psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f scripts/tests/sync-context-browser-fixture.sql
+
       - name: Golden-path E2E (login → evidence → scenarios → approve → verify)
-        run: npx playwright test tests/e2e/golden-path.spec.ts tests/e2e/material-commercial-thread.spec.ts tests/e2e/project-fracas.spec.ts
+        run: npx playwright test tests/e2e/golden-path.spec.ts tests/e2e/material-commercial-thread.spec.ts tests/e2e/project-fracas.spec.ts tests/e2e/time-synchronization-assurance.spec.ts tests/e2e/sync-context.spec.ts tests/e2e/covariate-survival.spec.ts
 
       - name: Upload Playwright artifacts
         if: always()

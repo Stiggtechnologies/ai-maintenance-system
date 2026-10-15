@@ -14,6 +14,7 @@ import { platformService } from "../services/platform";
 import { DataGovernance } from "../components/DataGovernance";
 import { RecoverySignalConnectorSetup } from "../components/RecoverySignalConnectorSetup";
 import { PlantHistorianConnectorSetup } from "../components/PlantHistorianConnectorSetup";
+import { AzureIotOperationsConnectorSetup } from "../components/AzureIotOperationsConnectorSetup";
 import { CmmsReadConnectorSetup } from "../components/CmmsReadConnectorSetup";
 import { P6ScheduleReadConnectorSetup } from "../components/P6ScheduleReadConnectorSetup";
 import { SapS4InventoryReadConnectorSetup } from "../components/SapS4InventoryReadConnectorSetup";
@@ -348,6 +349,7 @@ export function IntegrationsPage() {
       )}
 
       <PlantHistorianConnectorSetup onConfigured={loadData} />
+      <AzureIotOperationsConnectorSetup onConfigured={loadData} />
       <CmmsReadConnectorSetup onConfigured={loadData} />
       <P6ScheduleReadConnectorSetup onConfigured={loadData} />
       <SapS4InventoryReadConnectorSetup onConfigured={loadData} />

@@ -14,10 +14,8 @@ import {
   GraduationCap,
   Heart,
   LogIn,
-  Moon,
   ShieldCheck,
   Sparkles,
-  Sun,
   Wrench,
   X,
 } from "lucide-react";
@@ -29,6 +27,9 @@ import {
 } from "../../lib/public-ask-intents";
 import { submitPilotIntake } from "../../services/pilotIntake";
 import { BrandWordmark } from "../BrandWordmark";
+import { bindModalFocus } from "../../lib/modal-focus";
+import { usePublicJourneyTheme } from "../../lib/use-public-journey-theme";
+import { publicJourneyPath } from "../../lib/public-journey-context";
 
 const PILL_ICONS: Record<PublicAskIntentId, ReactNode> = {
   compare: <BarChart3 size={15} />,
@@ -43,6 +44,7 @@ type PublicAskEmptyProps = {
   attachmentInputs?: ReactNode;
   attachmentState?: ReactNode;
   onSelectIntent: (intent: PublicAskIntent) => void;
+  search?: string;
 };
 
 export function PublicAskEmpty({
@@ -50,57 +52,40 @@ export function PublicAskEmpty({
   attachmentInputs,
   attachmentState,
   onSelectIntent,
+  search = typeof window === "undefined" ? "" : window.location.search,
 }: PublicAskEmptyProps) {
   const [intakeOpen, setIntakeOpen] = useState(false);
-  const [darkMode, setDarkMode] = useState(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("syncai-public-theme") === "dark";
-  });
-
-  const toggleTheme = () => {
-    const next = !darkMode;
-    setDarkMode(next);
-    window.localStorage.setItem("syncai-public-theme", next ? "dark" : "light");
-  };
+  const { theme } = usePublicJourneyTheme();
+  const darkMode = theme === "dark";
 
   return (
     <main
-      className={`bolt-empty${darkMode ? " is-dark" : ""}`}
+      className={`public-journey bolt-empty${darkMode ? " is-dark" : ""}`}
       data-testid="first-paint-empty"
       data-theme={darkMode ? "dark" : "light"}
     >
-      <button
-        type="button"
-        className="bolt-theme-toggle"
-        onClick={toggleTheme}
-        aria-label={darkMode ? "Use light mode" : "Use dark mode"}
-        title={darkMode ? "Use light mode" : "Use dark mode"}
-      >
-        {darkMode ? <Sun size={17} /> : <Moon size={17} />}
-      </button>
       <section className="bolt-sales-hero" aria-labelledby="public-hero-title">
         <div className="bolt-sales-copy">
           <div className="bolt-brand">
-            <h1 className="bolt-wordmark">SyncAI</h1>
+            <span className="bolt-wordmark">SyncAI</span>
             <BrandWordmark className="bolt-brand-original" />
-            <span className="bolt-pro">pro</span>
           </div>
           <p className="bolt-eyebrow">
-            <Sparkles size={14} /> Industrial reliability intelligence
+            <Sparkles size={14} /> Governed engineering intelligence
           </p>
-          <h2 id="public-hero-title">
-            Turn maintenance data into defensible engineering decisions.
-          </h2>
+          <h1 id="public-hero-title">
+            Turn evidence into defensible engineering decisions.
+          </h1>
           <p className="bolt-hero-lede">
-            Find what is driving repeat failures, where the evidence is weak,
-            and what your team should do next—without surrendering engineering
-            authority to AI.
+            Bring a real question, add the evidence, and review a bounded
+            recommendation with your team. Keep approvals and operating
+            authority with people.
           </p>
           <div
             className="bolt-hero-capabilities"
-            aria-label="Live capability paths"
+            aria-label="Product example paths"
           >
-            <span>Explore live capabilities</span>
+            <span>Explore product examples</span>
             <ul>
               {PUBLIC_ASK_INTENTS.map((intent) => (
                 <li key={intent.id}>
@@ -119,23 +104,22 @@ export function PublicAskEmpty({
             </ul>
           </div>
           <div className="bolt-hero-actions">
-            <button
-              type="button"
+            <a
               className="bolt-primary-cta"
-              onClick={() => setIntakeOpen(true)}
+              href={publicJourneyPath("/get-started", search)}
             >
-              Start an assessment <ArrowRight size={17} />
-            </button>
+              Start your first decision <ArrowRight size={17} />
+            </a>
             <a className="bolt-secondary-cta" href="#try-syncai">
               Try the Reliability Engineer
             </a>
           </div>
           <div className="bolt-trust-line" aria-label="Product safeguards">
             <span>
-              <ShieldCheck size={15} /> Evidence graded
+              <ShieldCheck size={15} /> Evidence and gaps visible
             </span>
             <span>
-              <Check size={15} /> Human approved
+              <Check size={15} /> Human approval required
             </span>
             <span>
               <Check size={15} /> No production access required
@@ -144,11 +128,175 @@ export function PublicAskEmpty({
         </div>
 
         <aside
+          className="bolt-demo"
+          id="try-syncai"
+          aria-labelledby="demo-title"
+        >
+          <div className="bolt-demo-heading">
+            <div>
+              <span>Ask the assistant</span>
+              <h2 id="demo-title">Ask SyncAI about a reliability decision</h2>
+            </div>
+            <p>
+              Use public or synthetic information only. Start with a question or
+              choose a path.
+            </p>
+          </div>
+          {attachmentInputs}
+          {attachmentState}
+          {askBar}
+          <ul className="bolt-pills">
+            {PUBLIC_ASK_INTENTS.map((intent) => (
+              <li key={intent.id}>
+                <button
+                  type="button"
+                  className="bolt-pill"
+                  aria-label={intent.label}
+                  data-testid="ask-intent-pill"
+                  data-intent={intent.id}
+                  data-seed-index={String(intent.seedIndex)}
+                  title={`${intent.module}: ${intent.explanation}`}
+                  onClick={() => onSelectIntent(intent)}
+                >
+                  {PILL_ICONS[intent.id]}
+                  <span className="bolt-pill-copy">
+                    <strong>{intent.label}</strong>
+                    <small>{intent.module}</small>
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      </section>
+
+      <section
+        className="bolt-capability-gallery"
+        aria-labelledby="capability-gallery-title"
+      >
+        <div className="bolt-capability-gallery-heading">
+          <div>
+            <span>Illustrative product paths</span>
+            <h2 id="capability-gallery-title">
+              See SyncAI make the decision legible.
+            </h2>
+          </div>
+          <p>
+            Open a labeled example to inspect evidence and approval boundaries.
+            Start with your own question for a customer evaluation; examples are
+            not customer outcome proof.
+          </p>
+        </div>
+        <div className="bolt-capability-grid">
+          {PUBLIC_ASK_INTENTS.map((intent) => (
+            <a
+              key={intent.id}
+              className="bolt-capability-card"
+              href={publicJourneyPath(publicAskIntentPath(intent), search)}
+              data-testid="capability-showcase-link"
+            >
+              <span className="bolt-capability-icon">
+                {PILL_ICONS[intent.id]}
+              </span>
+              <span className="bolt-capability-card-copy">
+                <small>{intent.showcase}</small>
+                <strong>{intent.label}</strong>
+                <span>{intent.explanation}</span>
+              </span>
+              <ArrowRight size={17} />
+            </a>
+          ))}
+          <a
+            className="bolt-capability-card is-action"
+            href={publicJourneyPath("/setup", search)}
+          >
+            <span className="bolt-capability-icon">
+              <ClipboardCheck size={15} />
+            </span>
+            <span className="bolt-capability-card-copy">
+              <small>Optional expert service</small>
+              <strong>Optional assessment</strong>
+              <span>
+                Scope a Reliability Intelligence Assessment and a governed
+                90-day action plan.
+              </span>
+            </span>
+            <ArrowRight size={17} />
+          </a>
+          <a
+            className="bolt-capability-card is-action"
+            href={`/signin?returnTo=${encodeURIComponent(publicJourneyPath("/", search))}`}
+          >
+            <span className="bolt-capability-icon">
+              <LogIn size={15} />
+            </span>
+            <span className="bolt-capability-card-copy">
+              <small>Customer workspace</small>
+              <strong>Sign in</strong>
+              <span>
+                Continue in the tenant-scoped workspace with governed records,
+                approvals, and operating modules.
+              </span>
+            </span>
+            <ArrowRight size={17} />
+          </a>
+        </div>
+      </section>
+
+      <section
+        className="bolt-value-strip"
+        aria-label="How your first decision works"
+      >
+        <article>
+          <span>01</span>
+          <div>
+            <h3>Ask</h3>
+            <p>
+              State your question and intent. Add a file, pasted data or a
+              manual note.
+            </p>
+          </div>
+        </article>
+        <article>
+          <span>02</span>
+          <div>
+            <h3>Review</h3>
+            <p>
+              Inspect supplied evidence, assumptions and gaps. Guidance remains
+              bounded by those inputs.
+            </p>
+          </div>
+        </article>
+        <article>
+          <span>03</span>
+          <div>
+            <h3>Decide</h3>
+            <p>
+              Name the reviewer and record the next step. Verify actual results
+              before claiming value.
+            </p>
+          </div>
+        </article>
+      </section>
+
+      <section
+        className="bolt-optional-service"
+        aria-label="Optional expert support"
+      >
+        <div className="bolt-service-copy">
+          <p className="bolt-eyebrow">Optional expert support</p>
+          <h2>Choose support when your team needs it.</h2>
+          <p>
+            An assessment can help establish readiness, scope and evidence. It
+            is separate from your platform workspace and agent experiences.
+          </p>
+        </div>
+        <aside
           className="bolt-offer-card"
           aria-label="Reliability Intelligence Assessment"
         >
           <div className="bolt-offer-topline">
-            <span>Entry engagement</span>
+            <span>Optional expert service</span>
             <span>6–8 weeks</span>
           </div>
           <h3>Reliability Intelligence Assessment</h3>
@@ -179,153 +327,6 @@ export function PublicAskEmpty({
         </aside>
       </section>
 
-      <section
-        className="bolt-capability-gallery"
-        aria-labelledby="capability-gallery-title"
-      >
-        <div className="bolt-capability-gallery-heading">
-          <div>
-            <span>Finished and live</span>
-            <h2 id="capability-gallery-title">
-              See SyncAI make the decision legible.
-            </h2>
-          </div>
-          <p>
-            Open a governed example, inspect the evidence and authority
-            boundary, then share the exact capability with your team.
-          </p>
-        </div>
-        <div className="bolt-capability-grid">
-          {PUBLIC_ASK_INTENTS.map((intent) => (
-            <a
-              key={intent.id}
-              className="bolt-capability-card"
-              href={publicAskIntentPath(intent)}
-              data-testid="capability-showcase-link"
-            >
-              <span className="bolt-capability-icon">
-                {PILL_ICONS[intent.id]}
-              </span>
-              <span className="bolt-capability-card-copy">
-                <small>{intent.showcase}</small>
-                <strong>{intent.label}</strong>
-                <span>{intent.explanation}</span>
-              </span>
-              <ArrowRight size={17} />
-            </a>
-          ))}
-          <a className="bolt-capability-card is-action" href="/setup">
-            <span className="bolt-capability-icon">
-              <ClipboardCheck size={15} />
-            </span>
-            <span className="bolt-capability-card-copy">
-              <small>Entry engagement</small>
-              <strong>Assess</strong>
-              <span>
-                Scope a Reliability Intelligence Assessment and a governed
-                90-day action plan.
-              </span>
-            </span>
-            <ArrowRight size={17} />
-          </a>
-          <a
-            className="bolt-capability-card is-action"
-            href="/signin?returnTo=%2Foverview"
-          >
-            <span className="bolt-capability-icon">
-              <LogIn size={15} />
-            </span>
-            <span className="bolt-capability-card-copy">
-              <small>Customer workspace</small>
-              <strong>Sign in</strong>
-              <span>
-                Continue in the tenant-scoped workspace with governed records,
-                approvals, and operating modules.
-              </span>
-            </span>
-            <ArrowRight size={17} />
-          </a>
-        </div>
-      </section>
-
-      <section
-        className="bolt-demo"
-        id="try-syncai"
-        aria-labelledby="demo-title"
-      >
-        <div className="bolt-demo-heading">
-          <div>
-            <span>Live product</span>
-            <h2 id="demo-title">Ask SyncAI about a reliability decision</h2>
-          </div>
-          <p>
-            Use public or synthetic information only. Start with a question or
-            choose a path.
-          </p>
-        </div>
-        {attachmentInputs}
-        {attachmentState}
-        {askBar}
-        <ul className="bolt-pills">
-          {PUBLIC_ASK_INTENTS.map((intent) => (
-            <li key={intent.id}>
-              <button
-                type="button"
-                className="bolt-pill"
-                aria-label={intent.label}
-                data-testid="ask-intent-pill"
-                data-intent={intent.id}
-                data-seed-index={String(intent.seedIndex)}
-                title={`${intent.module}: ${intent.explanation}`}
-                onClick={() => onSelectIntent(intent)}
-              >
-                {PILL_ICONS[intent.id]}
-                <span className="bolt-pill-copy">
-                  <strong>{intent.label}</strong>
-                  <small>{intent.module}</small>
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <section
-        className="bolt-value-strip"
-        aria-label="How the assessment works"
-      >
-        <article>
-          <span>01</span>
-          <div>
-            <h3>Export</h3>
-            <p>
-              Share bounded maintenance and work-history exports through an
-              agreed transfer method.
-            </p>
-          </div>
-        </article>
-        <article>
-          <span>02</span>
-          <div>
-            <h3>Prove</h3>
-            <p>
-              SyncAI separates supported findings from hypotheses and missing
-              evidence.
-            </p>
-          </div>
-        </article>
-        <article>
-          <span>03</span>
-          <div>
-            <h3>Act</h3>
-            <p>
-              Your team receives a prioritized, approval-ready 90-day action
-              plan.
-            </p>
-          </div>
-        </article>
-      </section>
-
       <footer className="bolt-public-footer">
         <span>© {new Date().getFullYear()} SyncAI</span>
         <nav aria-label="Legal">
@@ -348,14 +349,11 @@ function AssessmentIntake({ onClose }: { onClose: () => void }) {
   );
   const [error, setError] = useState("");
   const firstField = useRef<HTMLInputElement>(null);
+  const dialog = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    firstField.current?.focus();
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", closeOnEscape);
-    return () => window.removeEventListener("keydown", closeOnEscape);
+    if (!dialog.current) return;
+    return bindModalFocus(dialog.current, firstField.current, onClose);
   }, [onClose]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -400,6 +398,8 @@ function AssessmentIntake({ onClose }: { onClose: () => void }) {
       onMouseDown={(event) => event.target === event.currentTarget && onClose()}
     >
       <section
+        ref={dialog}
+        tabIndex={-1}
         className="bolt-intake"
         role="dialog"
         aria-modal="true"

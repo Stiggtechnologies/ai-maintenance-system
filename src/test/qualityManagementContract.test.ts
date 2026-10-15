@@ -109,6 +109,23 @@ describe("Slice 7D production contract", () => {
     expect(workflow).toContain("quality-management-transaction-smoke.sql");
   });
 
+  it("retains quality browser qualification on successful runs and refuses an empty artifact upload", () => {
+    expect(workflow).toContain(
+      "PLAYWRIGHT_JSON_OUTPUT_FILE: test-results/quality-workbench-report.json",
+    );
+    expect(workflow).toContain(
+      "npx playwright test tests/e2e/quality-workbench-session.spec.ts --reporter=github,json",
+    );
+    const upload = workflow
+      .split("- name: Upload quality browser qualification artifacts")[1]
+      ?.split("- name: Stop Supabase")[0];
+    expect(upload).toBeDefined();
+    expect(upload).toContain("if: always()");
+    expect(upload).toContain("path: test-results/");
+    expect(upload).toContain("if-no-files-found: error");
+    expect(upload).toContain("retention-days: 7");
+  });
+
   it("flips the Slice 7D D-family rows only where the 7D chain is cited", () => {
     const row = (id: string) => {
       const line = developRegister

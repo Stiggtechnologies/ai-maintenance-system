@@ -35,6 +35,10 @@ export interface GeospatialFeature {
   observed_at: string;
   valid_until: string | null;
   validity_kind: "permanent" | "temporary" | null;
+  coordinate_reference_system?: string | null;
+  coordinate_axis_order?: string | null;
+  coordinate_basis?: string | null;
+  horizontal_accuracy_m?: number | null;
   data_quality: string;
   evidence_item_ids: string[];
   missing_evidence: string[];

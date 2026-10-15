@@ -563,6 +563,7 @@ export interface RiskCriteria {
     connectivity: number;
     velocity: number;
     capacity: number;
+    timePressure: number;
   };
   thresholds: {
     low: number;
@@ -630,6 +631,62 @@ function rounded(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
+interface DecimalFraction {
+  numerator: bigint;
+  denominator: bigint;
+}
+
+function decimalFraction(value: number): DecimalFraction {
+  const sign = value < 0 ? -1n : 1n;
+  const [mantissa, exponentText = "0"] = Math.abs(value)
+    .toString()
+    .toLowerCase()
+    .split("e");
+  const [whole, fraction = ""] = mantissa.split(".");
+  const digits = `${whole}${fraction}`.replace(/^0+(?=\d)/, "");
+  const scale = fraction.length - Number(exponentText);
+  if (scale <= 0) {
+    return {
+      numerator: sign * BigInt(digits || "0") * 10n ** BigInt(-scale),
+      denominator: 1n,
+    };
+  }
+  return {
+    numerator: sign * BigInt(digits || "0"),
+    denominator: 10n ** BigInt(scale),
+  };
+}
+
+function multiplyFractions(
+  left: DecimalFraction,
+  right: DecimalFraction,
+): DecimalFraction {
+  return {
+    numerator: left.numerator * right.numerator,
+    denominator: left.denominator * right.denominator,
+  };
+}
+
+function subtractFractions(
+  left: DecimalFraction,
+  right: DecimalFraction,
+): DecimalFraction {
+  return {
+    numerator:
+      left.numerator * right.denominator - right.numerator * left.denominator,
+    denominator: left.denominator * right.denominator,
+  };
+}
+
+function roundFractionToCents(value: DecimalFraction): number {
+  const negative = value.numerator < 0n;
+  const magnitude = negative ? -value.numerator : value.numerator;
+  const scaled = magnitude * 100n;
+  let cents = scaled / value.denominator;
+  if ((scaled % value.denominator) * 2n >= value.denominator) cents += 1n;
+  return Number(negative ? -cents : cents) / 100;
+}
+
 function peakConsequence(
   consequences: RiskAnalysisInput["consequences"],
 ): number {
@@ -655,11 +712,18 @@ function decisionFor(score: number, criteria: RiskCriteria): RiskDecision {
   return "ACCEPT";
 }
 
+/**
+ * Offline diagnostic estimate, not a PostgreSQL numeric parity contract.
+ * `authoritative` describes criteria adoption only; it grants no authority.
+ * Live risk decisions use the governed server preview and canonical writer.
+ */
 export function analyzeRisk(
   input: RiskAnalysisInput,
   criteria: RiskCriteria,
 ): RiskAnalysisResult {
-  const maximumLikelihood = Math.max(...criteria.likelihoodScale, 1);
+  const maximumLikelihood = Math.max(...criteria.likelihoodScale);
+  if (!Number.isFinite(maximumLikelihood) || maximumLikelihood <= 0)
+    throw new Error("A configured positive likelihood scale is required");
   const maximumConsequence = 5;
   const peak = peakConsequence(input.consequences);
   const inherent = clamp(
@@ -682,7 +746,7 @@ export function analyzeRisk(
     connectionPressure * criteria.weights.connectivity +
     clamp(input.velocity) * criteria.weights.velocity +
     clamp(input.capacityLoad) * criteria.weights.capacity +
-    timePressure * 0.1;
+    timePressure * criteria.weights.timePressure;
   const current = clamp(weighted);
   const opportunity =
     input.kind === "threat"
@@ -725,7 +789,7 @@ export function analyzeRisk(
       capacityLoad: clamp(input.capacityLoad),
       velocity: clamp(input.velocity),
     },
-    explanation: `${criteriaText} Risk is not a bare matrix product: the score preserves existing-control effectiveness, exposure, uncertainty, complexity/connectivity, velocity, time pressure and aggregate capacity.${kindText}`,
+    explanation: `Offline diagnostic estimate; classifications near thresholds require the governed PostgreSQL preview. ${criteriaText} Risk is not a bare matrix product: the score preserves existing-control effectiveness, exposure, uncertainty, complexity/connectivity, velocity, time pressure and aggregate capacity.${kindText}`,
   };
 }
 
@@ -831,21 +895,31 @@ export function evaluateValueOfInformation(input: ValueOfInformationInput): {
   recommendation: "GATHER_INFORMATION" | "DECIDE_WITH_CURRENT_INFORMATION";
   explanation: string;
 } {
-  const expectedValue =
-    Math.max(0, input.decisionCostIfWrong) *
-    clamp(input.uncertaintyReduction, 0, 1) *
-    clamp(input.probabilityDecisionChanges, 0, 1);
-  const netValue = expectedValue - Math.max(0, input.informationCost);
+  const informationCost = Math.max(0, input.informationCost);
+  const expectedFraction = multiplyFractions(
+    multiplyFractions(
+      decimalFraction(Math.max(0, input.decisionCostIfWrong)),
+      decimalFraction(clamp(input.uncertaintyReduction, 0, 1)),
+    ),
+    decimalFraction(clamp(input.probabilityDecisionChanges, 0, 1)),
+  );
+  const netFraction = subtractFractions(
+    expectedFraction,
+    decimalFraction(informationCost),
+  );
+  const expectedValue = roundFractionToCents(expectedFraction);
+  const netValue = roundFractionToCents(netFraction);
+  const gathersInformation = netFraction.numerator > 0n;
   return {
-    expectedValue: rounded(expectedValue),
-    informationCost: Math.max(0, input.informationCost),
-    netValue: rounded(netValue),
-    recommendation:
-      netValue > 0 ? "GATHER_INFORMATION" : "DECIDE_WITH_CURRENT_INFORMATION",
-    explanation:
-      netValue > 0
-        ? "The expected decision value of resolving uncertainty exceeds the cost of enquiry."
-        : "Further enquiry is not expected to change enough decision value to cover its cost; document the residual uncertainty.",
+    expectedValue,
+    informationCost,
+    netValue,
+    recommendation: gathersInformation
+      ? "GATHER_INFORMATION"
+      : "DECIDE_WITH_CURRENT_INFORMATION",
+    explanation: gathersInformation
+      ? "The expected decision value of resolving uncertainty exceeds the cost of enquiry."
+      : "Further enquiry is not expected to change enough decision value to cover its cost; document the residual uncertainty.",
   };
 }
 

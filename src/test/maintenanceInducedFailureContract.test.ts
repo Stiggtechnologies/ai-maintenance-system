@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270105145600_maintenance_induced_failure_identification.sql",
+  "supabase/migrations/20270105164900_maintenance_induced_failure_identification.sql",
   "utf8",
 );
 const service = readFileSync(

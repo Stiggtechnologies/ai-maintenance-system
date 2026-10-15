@@ -1,0 +1,55 @@
+name: Garak
+
+# Not a required check. A missing NVIDIA_API_KEY skips the scan job. That
+# stays neutral: it is not a passing scan, and a fork without the secret does
+# not fail CI. The script itself exits 78 when the key or the garak CLI is
+# missing, so a direct run is not a pass either. When the key is present, the
+# scan job installs pinned garak on pinned Python and runs the probes. The
+# production assistant stays behind syncai_guard = false.
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  preflight:
+    name: Garak prerequisites
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - id: check
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: |
+          if [ -z "${NVIDIA_API_KEY}" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "result=skipped" >> "$GITHUB_OUTPUT"
+            echo "SKIPPED: NVIDIA_API_KEY is unset. Garak scan not run."
+            echo "### Garak" >> "$GITHUB_STEP_SUMMARY"
+            echo "SKIPPED: NVIDIA_API_KEY is unset. Garak scan not run." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "result=ready" >> "$GITHUB_OUTPUT"
+          fi
+
+  garak:
+    name: LLM vulnerability scan
+    needs: preflight
+    if: needs.preflight.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+
+      - name: Install Garak
+        run: python -m pip install garak==0.17.0
+
+      - name: Run Garak
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: bash scripts/garak-scan.sh

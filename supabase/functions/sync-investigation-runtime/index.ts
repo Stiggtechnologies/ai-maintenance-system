@@ -8,6 +8,13 @@ import {
   resolveExternalGatewayUrl,
   type LlmProvider,
 } from "../_shared/llm-provider.ts";
+import {
+  createGuardProvider,
+  GUARD_AUDIT_ENTITY,
+  GUARD_FLAG_KEY,
+  guardRefusalMessage,
+  type GuardDecision,
+} from "../_shared/syncai-guard.ts";
 import { callWithResilienceStream } from "../_shared/llm-provider-stream.ts";
 import { withDataEgressGuard } from "../_shared/data-egress-guard.ts";
 import { retrieveReliabilityContext } from "../_shared/reliability-context.ts";
@@ -155,12 +162,51 @@ interface QuotaVerdict {
   reservation_id?: number;
   limit?: string;
   resets_at?: string;
+  commercialPlanId?: string | null;
 }
 
 function adminClient() {
   return createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+}
+
+async function persistGuardDecision(
+  auth: AuthContext,
+  decision: GuardDecision,
+): Promise<void> {
+  const { error } = await adminClient().from("audit_events").insert({
+    organization_id: auth.organizationId,
+    entity_type: GUARD_AUDIT_ENTITY,
+    actor: auth.userId,
+    event_data: {
+      stage: decision.stage,
+      action: decision.action,
+      rail: decision.rail,
+      reason: decision.reason,
+      provider: decision.provider,
+      model: decision.model,
+      excerpt: decision.excerpt,
+      plant_execution: "disabled",
+    },
+  });
+  if (error) console.error("syncai-guard rail log failed", error.message);
+}
+
+/** Runs only when syncai_guard is enabled. Flag-off callers must not reach this. */
+async function enforceGuard(
+  auth: AuthContext,
+  stage: GuardDecision["stage"],
+  text: string,
+): Promise<GuardDecision> {
+  const decision = await createGuardProvider({
+    apiKey: Deno.env.get("NVIDIA_API_KEY"),
+    baseUrl: Deno.env.get("NVIDIA_GUARDRAILS_BASE_URL"),
+    jailbreakBaseUrl: Deno.env.get("NVIDIA_JAILBREAK_BASE_URL"),
+    fetchImpl: fetch,
+  }).evaluate({ stage, text });
+  await persistGuardDecision(auth, decision);
+  return decision;
 }
 
 function userClient(auth: AuthContext) {
@@ -317,13 +363,19 @@ async function reserveQuota(
   organizationId: string,
   model: string,
   estimatedTokens: number,
+  costObject?: Pick<EntityContext, "type" | "id">,
 ): Promise<number> {
-  const { data, error } = await adminClient().rpc("check_llm_quota", {
-    p_organization_id: organizationId,
-    p_fn: "sync-investigation-runtime",
-    p_model: model,
-    p_estimated_tokens: Math.max(0, Math.ceil(estimatedTokens)),
-  });
+  const { data, error } = await adminClient().rpc(
+    "check_llm_commercial_quota",
+    {
+      p_organization_id: organizationId,
+      p_fn: "sync-investigation-runtime",
+      p_model: model,
+      p_estimated_tokens: Math.max(0, Math.ceil(estimatedTokens)),
+      p_cost_object_type: costObject?.type ?? null,
+      p_cost_object_id: costObject?.id ?? null,
+    },
+  );
   if (error) throw new Error("quota_check_unavailable");
   const verdict = (data ?? {}) as QuotaVerdict;
   if (verdict.allowed !== true) {
@@ -332,6 +384,20 @@ async function reserveQuota(
       : "";
     throw new Error(
       `Your organization's daily AI allowance has been reached.${reset}`,
+    );
+  }
+  // This streaming runtime does not implement the qualified commercial route
+  // or its terminal-usage settlement contract. A paid plan is refused before
+  // any provider call, and the reservation is released so it is not spent.
+  if (
+    typeof verdict.commercialPlanId === "string" &&
+    verdict.commercialPlanId.trim().length > 0
+  ) {
+    if (typeof verdict.reservation_id === "number") {
+      await releaseQuota(verdict.reservation_id);
+    }
+    throw new Error(
+      "commercial_route_refused: paid Sync investigation must use the qualified commercial route and settlement contract, which this streaming runtime does not",
     );
   }
   if (typeof verdict.reservation_id !== "number") {
@@ -346,12 +412,24 @@ async function settleQuota(
   usage: Record<string, number>,
   reservationId: number,
 ) {
+  const promptTokens =
+    typeof usage.prompt_tokens === "number"
+      ? usage.prompt_tokens
+      : typeof usage.input_tokens === "number"
+        ? usage.input_tokens
+        : null;
+  const completionTokens =
+    typeof usage.completion_tokens === "number"
+      ? usage.completion_tokens
+      : typeof usage.output_tokens === "number"
+        ? usage.output_tokens
+        : null;
   const { error } = await adminClient().rpc("record_llm_usage", {
     p_organization_id: organizationId,
     p_fn: "sync-investigation-runtime",
     p_model: model,
-    p_prompt_tokens: usage.prompt_tokens ?? usage.input_tokens ?? 0,
-    p_completion_tokens: usage.completion_tokens ?? usage.output_tokens ?? 0,
+    p_prompt_tokens: promptTokens,
+    p_completion_tokens: completionTokens,
     p_reservation_id: reservationId,
   });
   if (error) console.error("Sync quota settlement failed", error);
@@ -496,6 +574,7 @@ function sourceFromKpi(
 
 async function extractPdfOrImage(
   auth: AuthContext,
+  workspaceId: string,
   fileName: string,
   mimeType: string,
   blob: Blob,
@@ -507,7 +586,10 @@ async function extractPdfOrImage(
   }
   const dataUrl = `data:${mimeType};base64,${btoa(binary)}`;
   const model = MODEL_CHAT;
-  const reservationId = await reserveQuota(auth.organizationId, model, 5_000);
+  const reservationId = await reserveQuota(auth.organizationId, model, 5_000, {
+    type: "sync_conversation",
+    id: workspaceId,
+  });
   try {
     const content =
       mimeType === "application/pdf"
@@ -716,6 +798,7 @@ async function extractAttachment(
     } else if (mime === "application/pdf" || mime.startsWith("image/")) {
       const extracted = await extractPdfOrImage(
         auth,
+        workspaceId,
         row.file_name,
         mime,
         data,
@@ -1161,11 +1244,43 @@ async function runFocusedSpecialist(input: {
   question: string;
   contextText: string;
   kbPrompt: string;
-}): Promise<{ text: string; model: string; durationMs: number }> {
-  const { auth, specialist, question, contextText, kbPrompt } = input;
+  costObject: Pick<EntityContext, "type" | "id">;
+  guard: boolean;
+}): Promise<{
+  text: string;
+  model: string;
+  durationMs: number;
+  blocked: boolean;
+}> {
+  const {
+    auth,
+    specialist,
+    question,
+    contextText,
+    kbPrompt,
+    costObject,
+    guard,
+  } = input;
   const model = MODEL_CHAT;
-  const reservationId = await reserveQuota(auth.organizationId, model, 2_500);
   const started = Date.now();
+  const userContent = `${contextText}\n\nQUESTION: ${question}`;
+  if (guard) {
+    const inputDecision = await enforceGuard(auth, "input", userContent);
+    if (inputDecision.action === "block") {
+      return {
+        text: "",
+        model: "syncai-guard",
+        durationMs: Date.now() - started,
+        blocked: true,
+      };
+    }
+  }
+  const reservationId = await reserveQuota(
+    auth.organizationId,
+    model,
+    2_500,
+    costObject,
+  );
   try {
     const base = buildReliabilityEngineerPrompt({
       accessMode: "authenticated",
@@ -1182,7 +1297,7 @@ async function runFocusedSpecialist(input: {
     });
     const result = await callWithResilience(guardedFetch, providersFor(model), {
       systemPrompt,
-      userContent: `${contextText}\n\nQUESTION: ${question}`,
+      userContent,
       maxTokens: 900,
       timeoutMs: 60_000,
     });
@@ -1196,10 +1311,22 @@ async function runFocusedSpecialist(input: {
       result.usage,
       reservationId,
     );
+    if (guard) {
+      const outputDecision = await enforceGuard(auth, "output", result.content);
+      if (outputDecision.action === "block") {
+        return {
+          text: "",
+          model: result.model ?? model,
+          durationMs: Date.now() - started,
+          blocked: true,
+        };
+      }
+    }
     return {
       text: result.content,
       model: result.model ?? model,
       durationMs: Date.now() - started,
+      blocked: false,
     };
   } catch (error) {
     await releaseQuota(reservationId);
@@ -1343,6 +1470,10 @@ Deno.serve(async (req: Request) => {
     let finalReservationId: number | null = null;
     try {
       workspaceId = await resolveWorkspace(auth, body);
+      const costObject: Pick<EntityContext, "type" | "id"> = body.context
+        ?.entity?.id
+        ? { type: body.context.entity.type, id: body.context.entity.id }
+        : { type: "sync_conversation", id: workspaceId };
       if (!send({ type: "turn.started", turnId, conversationId: workspaceId }))
         return;
       await persistMessage({
@@ -1357,6 +1488,28 @@ Deno.serve(async (req: Request) => {
           attachment_ids: attachmentIds,
         },
       });
+
+      const guardOn = flags.has(GUARD_FLAG_KEY);
+      if (guardOn) {
+        const inputDecision = await enforceGuard(auth, "input", question);
+        if (inputDecision.action === "block") {
+          const refusal = guardRefusalMessage(inputDecision);
+          send({
+            type: "assistant.block",
+            block: { kind: "warning", severity: "high", content: refusal },
+          });
+          await persistMessage({
+            auth,
+            workspaceId,
+            turnId,
+            role: "agent",
+            message: refusal,
+            metadata: { syncai_guard: "input_blocked", rail: inputDecision.rail },
+          });
+          send({ type: "turn.completed", turnId, telemetry });
+          return;
+        }
+      }
 
       const investigation = await runInvestigation({
         auth,
@@ -1410,13 +1563,17 @@ Deno.serve(async (req: Request) => {
             question,
             contextText,
             kbPrompt: kb.promptContext,
+            costObject,
+            guard: flags.has(GUARD_FLAG_KEY),
           });
-          specialistOutputs.push({ specialist, text: result.text });
+          if (!result.blocked) {
+            specialistOutputs.push({ specialist, text: result.text });
+          }
           send({
             type: "agent.completed",
             agentId: specialist.id,
             label: specialist.label,
-            status: "completed",
+            status: result.blocked ? "blocked" : "completed",
             executionMode: "executed",
             durationMs: result.durationMs,
           });
@@ -1485,10 +1642,34 @@ Deno.serve(async (req: Request) => {
         responsePolicy.mode === "deliverable"
           ? MODEL_DELIVERABLE
           : MODEL_RELIABILITY;
+      if (guardOn) {
+        const assembledDecision = await enforceGuard(auth, "input", userContent);
+        if (assembledDecision.action === "block") {
+          const refusal = guardRefusalMessage(assembledDecision);
+          send({
+            type: "assistant.block",
+            block: { kind: "warning", severity: "high", content: refusal },
+          });
+          await persistMessage({
+            auth,
+            workspaceId,
+            turnId,
+            role: "agent",
+            message: refusal,
+            metadata: {
+              syncai_guard: "input_blocked",
+              rail: assembledDecision.rail,
+            },
+          });
+          send({ type: "turn.completed", turnId, telemetry });
+          return;
+        }
+      }
       finalReservationId = await reserveQuota(
         auth.organizationId,
         model,
         responsePolicy.maxTokens + Math.ceil(userContent.length / 4) + 4_000,
+        costObject,
       );
       const modelStarted = Date.now();
       let sequence = 0;
@@ -1498,6 +1679,7 @@ Deno.serve(async (req: Request) => {
         purpose: "model_inference",
         serviceLabel: "sync-investigation-runtime:coordinator",
       });
+      const heldDeltas: string[] = [];
       const streamed = await callWithResilienceStream(
         guardedFetch,
         providersFor(model),
@@ -1510,6 +1692,10 @@ Deno.serve(async (req: Request) => {
           onDelta: async (text) => {
             if (telemetry.firstTokenMs == null)
               telemetry.firstTokenMs = Date.now() - startedAt;
+            if (guardOn) {
+              heldDeltas.push(text);
+              return;
+            }
             sequence += 1;
             if (!send({ type: "assistant.delta", text, sequence }))
               abortController.abort();
@@ -1530,6 +1716,32 @@ Deno.serve(async (req: Request) => {
       finalReservationId = null;
       if (streamed.firstTokenAtMs != null && telemetry.firstTokenMs == null)
         telemetry.firstTokenMs = streamed.firstTokenAtMs;
+
+      let assistantText = streamed.content;
+      let guardOutcome = guardOn ? "output_allowed" : "off";
+      if (guardOn) {
+        const outputDecision = await enforceGuard(
+          auth,
+          "output",
+          streamed.content,
+        );
+        if (outputDecision.action === "block") {
+          guardOutcome = "output_blocked";
+          assistantText = guardRefusalMessage(outputDecision);
+          send({
+            type: "assistant.block",
+            block: { kind: "warning", severity: "high", content: assistantText },
+          });
+        } else {
+          for (const text of heldDeltas) {
+            sequence += 1;
+            if (!send({ type: "assistant.delta", text, sequence })) {
+              abortController.abort();
+              break;
+            }
+          }
+        }
+      }
 
       send({
         type: "agent.completed",
@@ -1584,8 +1796,9 @@ Deno.serve(async (req: Request) => {
         workspaceId,
         turnId,
         role: "agent",
-        message: streamed.content,
+        message: assistantText,
         metadata: {
+          syncai_guard: guardOutcome,
           response_mode: responsePolicy.mode,
           specialists: routed.map((specialist) => specialist.id),
           investigation_checks: investigation.checks,

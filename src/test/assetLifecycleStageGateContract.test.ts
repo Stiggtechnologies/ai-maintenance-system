@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const read = (path: string) => readFileSync(path, "utf8");
 const migration = read(
-  "supabase/migrations/20270105145300_asset_lifecycle_stage_gates.sql",
+  "supabase/migrations/20270105150800_asset_lifecycle_stage_gates.sql",
 ).toLowerCase();
 const service = read("src/services/assetLifecycleGateService.ts");
 const panel = read("src/components/AssetLifecycleGateWorkspace.tsx");
@@ -71,12 +71,17 @@ describe("U4.11/U4.12/U4.14 governed lifecycle stage gates", () => {
     expect(migration).toContain("decision='accepted'");
     expect(migration).toContain("evaluation asset and tenant");
     expect(migration).toContain("recommended");
-    expect(migration).toContain("p_to_stage in ('life_extension','replacement')");
+    expect(migration).toContain(
+      "p_to_stage in ('life_extension','replacement')",
+    );
   });
 
   it("keeps review, movement and disposal as governed human acts", () => {
     expect(migration).toContain("app.gate_review_write");
     expect(migration).toContain("advance_lifecycle_stage");
+    expect(migration).toContain("advance_lifecycle_stage_internal");
+    expect(migration).toContain("record_initial_asset_lifecycle_state");
+    expect(migration).toContain("asset lifecycle state is rpc-only");
     expect(migration).toContain("asset disposal records are rpc-only");
     expect(migration).toContain("app.asset_disposal_writer");
     expect(migration).toContain("expected version");
@@ -114,6 +119,8 @@ describe("U4.11/U4.12/U4.14 governed lifecycle stage gates", () => {
       "bash scripts/ci-asset-lifecycle-stage-gates-smoke.sh",
     );
     for (const id of ["U4.11", "U4.12", "U4.14"])
-      expect(register).toMatch(new RegExp(`\\| ${id.replace(".", "\\.")} \\|[^\\n]+\\| ✅`, "i"));
+      expect(register).toMatch(
+        new RegExp(`\\| ${id.replace(".", "\\.")} \\|[^\\n]+\\| ✅`, "i"),
+      );
   });
 });

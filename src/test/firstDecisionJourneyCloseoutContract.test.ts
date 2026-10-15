@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 const read = (path: string) => readFileSync(path, "utf8");
 
 const migration = read(
-  "supabase/migrations/20270105144000_decision_case_workspace_invitation.sql",
+  "supabase/migrations/20270105163700_decision_case_workspace_invitation.sql",
 );
 const edge = read("supabase/functions/decision-case-invite/index.ts");
 const edgeCore = read(

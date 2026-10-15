@@ -1,5 +1,5 @@
-/* Bolt Mode A / Mode B public workspace. Light canvas only — do not inherit
-   the dark Decision Workspace void. Authenticated / ops routes stay dark. */
+/* Public workspace layout primitives. Shared journey theme is scoped below;
+   authenticated industrial screens retain their existing contracts. */
 
 .bolt-public {
   --bolt-ink: #2b3036;
@@ -1368,6 +1368,15 @@
   display: flex;
 }
 
+/* Keep the dark canonical decision record readable on the light public canvas. */
+.bolt-public .dw-packet {
+  color: #dce5ec;
+}
+
+.bolt-public .dw-packet strong {
+  color: #dce5ec;
+}
+
 .bolt-layout.is-rail-open .dw-rail {
   display: flex;
   border-right-color: var(--bolt-line);
@@ -1855,4 +1864,903 @@
     align-items: stretch;
     flex-direction: column;
   }
+}
+
+/* Light workspace markdown must override dark-renderer utility colors. */
+.bolt-public
+  .dw-message-markdown
+  :is(p, ul, ol, li, blockquote, td, th, strong, em) {
+  color: #3a4048;
+}
+.bolt-public .dw-message-markdown a {
+  color: #075985;
+}
+
+.bolt-optional-service {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(280px, 480px);
+  align-items: center;
+  gap: 48px;
+  padding: 44px 0;
+  border-top: 1px solid #dce2e4;
+}
+.bolt-service-copy h2 {
+  margin: 12px 0;
+  font-size: clamp(24px, 3vw, 36px);
+  line-height: 1.15;
+  letter-spacing: -0.035em;
+}
+.bolt-service-copy > p:not(.bolt-eyebrow) {
+  max-width: 54ch;
+  line-height: 1.65;
+}
+@media (max-width: 760px) {
+  .bolt-optional-service {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+}
+
+/* Keep product examples and optional support readable in the public dark theme. */
+.bolt-empty.is-dark .bolt-hero-capabilities button {
+  color: #e2e8ea;
+  background: #141d22;
+  border-color: #3a4a52;
+}
+.bolt-empty.is-dark .bolt-hero-capabilities svg {
+  color: #7dd8cb;
+}
+.bolt-empty.is-dark .bolt-optional-service h2 {
+  color: #f3f7f7;
+}
+.bolt-empty.is-dark .bolt-optional-service > div > p:not(.bolt-eyebrow) {
+  color: #b7c2c8;
+}
+.bolt-empty.is-dark .bolt-optional-service {
+  border-color: #27383e;
+}
+
+/* Graphite/brass public experience; intentional warm-paper and graphite themes. */
+.public-journey.bolt-public {
+  --bolt-ink: var(--journey-ink);
+  --bolt-muted: var(--journey-muted);
+  --bolt-line: var(--journey-line);
+  --bolt-soft: var(--journey-soft);
+  --bolt-teal: var(--journey-signal);
+  --bolt-send: var(--journey-brass);
+  --bolt-canvas: var(--journey-canvas);
+  flex-direction: column;
+  font-family: "Journey Plex", Inter, system-ui, sans-serif;
+}
+.public-journey.bolt-public[data-theme] .bolt-rail {
+  order: 0;
+  width: 100%;
+  flex: 0 0 auto;
+  min-height: 76px;
+  flex-direction: row;
+  gap: 18px;
+  align-items: center;
+  padding: 14px max(24px, calc((100vw - 1280px) / 2));
+  border-right: 0;
+  border-top: 0;
+  border-bottom: 1px solid var(--journey-line);
+  background: var(--journey-canvas);
+}
+.public-journey.bolt-public .bolt-rail-top,
+.public-journey.bolt-public .bolt-rail-main,
+.public-journey.bolt-public .bolt-rail-foot {
+  display: flex;
+  flex-direction: row;
+  width: auto;
+  margin: 0;
+  gap: 8px;
+  flex: none;
+}
+.public-journey.bolt-public .bolt-rail-top {
+  margin-left: auto;
+}
+.public-journey.bolt-public .bolt-rail-foot {
+  margin-left: auto;
+}
+.public-journey.bolt-public[data-theme] .bolt-rail-item {
+  flex: none;
+  flex-direction: row;
+  gap: 7px;
+  width: auto;
+  min-height: 40px;
+  padding: 8px 12px;
+  border-radius: 4px;
+  color: var(--journey-muted);
+  font-size: 13px;
+}
+.public-journey.bolt-public[data-theme] .bolt-rail-item:is(:hover, .is-active) {
+  background: var(--journey-soft);
+  color: var(--journey-ink);
+}
+.public-journey.bolt-public .bolt-stage {
+  order: 1;
+  background: var(--journey-canvas);
+}
+.public-journey.bolt-public .bolt-empty {
+  min-height: 0;
+  background: var(--journey-canvas);
+  padding: clamp(28px, 4vw, 60px) max(24px, calc((100vw - 1280px) / 2)) 32px;
+}
+.public-journey .bolt-empty .bolt-sales-hero {
+  width: 100%;
+  max-width: 1280px;
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  align-items: start;
+  gap: clamp(32px, 5vw, 76px);
+  margin: 0 auto;
+}
+.public-journey .bolt-empty .bolt-brand {
+  display: none;
+}
+.public-journey .bolt-empty .bolt-eyebrow {
+  color: var(--journey-signal);
+  font-family: "Journey Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  margin: 0 0 20px;
+}
+.public-journey .bolt-empty #public-hero-title {
+  margin: 0;
+  max-width: 650px;
+  font-family: "Journey Archivo", Inter, sans-serif;
+  font-size: clamp(38px, 4.1vw, 62px);
+  font-weight: 650;
+  line-height: 1.06;
+  letter-spacing: -0.035em;
+  color: var(--journey-ink);
+}
+.public-journey .bolt-empty .bolt-hero-lede {
+  font-size: 17px;
+  line-height: 1.65;
+  color: var(--journey-muted);
+  max-width: 590px;
+  margin: 24px 0;
+}
+.public-journey .bolt-empty .bolt-hero-capabilities > span {
+  color: var(--journey-muted);
+  font-family: "Journey Mono", monospace;
+  font-size: 10px;
+}
+.public-journey .bolt-empty .bolt-hero-capabilities button {
+  background: transparent;
+  color: var(--journey-ink);
+  border: 1px solid var(--journey-line);
+  box-shadow: none;
+  border-radius: 4px;
+  min-height: 36px;
+}
+.public-journey .bolt-empty .bolt-hero-actions {
+  margin-top: 28px;
+}
+.public-journey .bolt-empty .bolt-primary-cta {
+  background: var(--journey-brass);
+  color: #111214;
+  border-color: var(--journey-brass);
+  border-radius: 4px;
+  box-shadow: none;
+}
+.public-journey .bolt-empty .bolt-secondary-cta {
+  color: var(--journey-ink);
+  border-color: var(--journey-line);
+  background: transparent;
+  border-radius: 4px;
+  box-shadow: none;
+}
+.public-journey .bolt-empty .bolt-trust-line {
+  color: var(--journey-muted);
+  border-top: 1px solid var(--journey-line);
+  padding-top: 18px;
+  gap: 14px;
+}
+.public-journey .bolt-empty .bolt-trust-line svg {
+  color: var(--journey-signal);
+}
+.public-journey .bolt-empty .bolt-demo {
+  margin: 0;
+  width: 100%;
+  min-width: 0;
+  border: 1px solid var(--journey-line);
+  border-top: 3px solid var(--journey-brass);
+  padding: 28px;
+  background: var(--journey-surface);
+  border-radius: 4px;
+}
+.public-journey .bolt-empty .bolt-demo-heading {
+  display: block;
+  margin-bottom: 20px;
+}
+.public-journey .bolt-empty .bolt-demo-heading span {
+  color: var(--journey-signal);
+  font-family: "Journey Mono", monospace;
+  font-size: 10px;
+}
+.public-journey .bolt-empty .bolt-demo-heading h2 {
+  color: var(--journey-ink);
+  font-family: "Journey Archivo", sans-serif;
+  font-size: 28px;
+  line-height: 1.2;
+  margin: 12px 0;
+  letter-spacing: -0.025em;
+}
+.public-journey .bolt-empty .bolt-demo-heading > p {
+  max-width: none;
+  color: var(--journey-muted);
+  text-align: left;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.public-journey .bolt-ask-bar {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  border: 1px solid var(--journey-line);
+  border-radius: 4px;
+  padding: 12px;
+  background: var(--journey-canvas);
+  box-shadow: none;
+}
+.public-journey .bolt-empty .bolt-ask-bar {
+  background: var(--journey-canvas);
+  border-color: var(--journey-line);
+  border-radius: 4px;
+  box-shadow: none;
+  padding: 12px;
+}
+.public-journey .bolt-ask-bar textarea {
+  grid-column: 1 / -1;
+  min-height: 64px;
+  max-height: 180px;
+  width: 100%;
+  padding: 4px;
+  color: var(--journey-ink);
+  background: transparent;
+  font-family: "Journey Plex", Inter, sans-serif;
+  font-size: 16px;
+}
+.public-journey .bolt-empty .bolt-ask-bar textarea {
+  min-height: 112px;
+  color: var(--journey-ink);
+}
+.public-journey .bolt-empty .bolt-ask-bar textarea::placeholder,
+.public-journey .bolt-ask-bar textarea::placeholder {
+  color: var(--journey-muted);
+}
+.public-journey .bolt-ask-bar:focus-within {
+  border-color: var(--journey-signal);
+  box-shadow: none;
+}
+.public-journey .bolt-ask-tools,
+.public-journey .bolt-ask-overflow {
+  grid-row: 2;
+  grid-column: 1;
+  align-self: center;
+}
+.public-journey .bolt-ask-send {
+  grid-row: 2;
+  grid-column: 2;
+  width: 44px;
+  height: 44px;
+  border-radius: 4px;
+  color: #111214;
+  background: var(--journey-brass);
+}
+.public-journey .bolt-ask-send:disabled {
+  background: var(--journey-soft);
+  color: var(--journey-muted);
+  opacity: 0.65;
+}
+.public-journey .bolt-ask-tool,
+.public-journey .bolt-ask-overflow-toggle {
+  color: var(--journey-muted);
+  border-radius: 4px;
+  width: 36px;
+  height: 36px;
+}
+.public-journey .bolt-ask-tool:disabled {
+  color: var(--journey-muted);
+  opacity: 0.55;
+}
+.public-journey .bolt-ask-overflow-menu {
+  border-color: var(--journey-line);
+  background: var(--journey-surface);
+  border-radius: 4px;
+}
+.public-journey .bolt-empty .bolt-pills {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin: 16px 0 0;
+}
+.public-journey .bolt-empty .bolt-pill {
+  width: 100%;
+  justify-content: flex-start;
+  min-height: 50px;
+  border-radius: 4px;
+  border-color: var(--journey-line);
+  color: var(--journey-ink);
+  background: transparent;
+}
+.public-journey .bolt-empty .bolt-pill:hover {
+  background: var(--journey-soft);
+  border-color: var(--journey-signal);
+}
+.public-journey .bolt-empty .bolt-pill svg {
+  color: var(--journey-signal);
+}
+.public-journey .bolt-empty .bolt-capability-gallery {
+  margin: 64px auto 0;
+  max-width: 1280px;
+  width: 100%;
+  padding-top: 32px;
+  border-top: 1px solid var(--journey-line);
+}
+.public-journey .bolt-empty .bolt-capability-gallery h2 {
+  color: var(--journey-ink);
+  font-size: clamp(26px, 3vw, 38px);
+}
+.public-journey .bolt-empty .bolt-capability-gallery-heading > p {
+  color: var(--journey-muted);
+  font-size: 14px;
+}
+.public-journey .bolt-empty .bolt-capability-gallery-heading span {
+  color: var(--journey-signal);
+  font-family: "Journey Mono", monospace;
+}
+.public-journey .bolt-empty .bolt-capability-card {
+  color: var(--journey-ink);
+  background: var(--journey-surface);
+  border-color: var(--journey-line);
+  border-radius: 4px;
+  box-shadow: none;
+  min-height: 112px;
+}
+.public-journey .bolt-empty .bolt-capability-card:hover {
+  border-color: var(--journey-signal);
+  background: var(--journey-soft);
+  box-shadow: none;
+}
+.public-journey .bolt-empty .bolt-capability-card strong {
+  color: var(--journey-ink);
+}
+.public-journey .bolt-empty .bolt-capability-card small {
+  color: var(--journey-signal);
+}
+.public-journey .bolt-empty .bolt-capability-card-copy > span,
+.public-journey .bolt-empty .bolt-pill small {
+  color: var(--journey-muted);
+}
+.public-journey .bolt-empty .bolt-capability-icon {
+  color: var(--journey-signal);
+  background: transparent;
+  border-radius: 4px;
+}
+.public-journey .bolt-empty .bolt-value-strip {
+  width: 100%;
+  max-width: 1280px;
+  margin-top: 48px;
+  border-color: var(--journey-line);
+}
+.public-journey .bolt-empty .bolt-value-strip article {
+  border-color: var(--journey-line);
+}
+.public-journey .bolt-empty .bolt-value-strip article > span {
+  color: var(--journey-signal);
+  font-family: "Journey Mono", monospace;
+}
+.public-journey .bolt-empty .bolt-value-strip h3 {
+  color: var(--journey-ink);
+}
+.public-journey .bolt-empty .bolt-value-strip p {
+  color: var(--journey-muted);
+}
+.public-journey .bolt-empty .bolt-offer-card {
+  background: var(--journey-surface);
+  border: 1px solid var(--journey-line);
+  border-radius: 4px;
+  box-shadow: none;
+}
+.public-journey .bolt-empty .bolt-offer-card::before {
+  display: none;
+}
+.public-journey .bolt-empty .bolt-offer-card h3,
+.public-journey .bolt-empty .bolt-offer-card li,
+.public-journey .bolt-empty .bolt-offer-footer strong {
+  color: var(--journey-ink);
+}
+.public-journey .bolt-empty .bolt-offer-card > p,
+.public-journey .bolt-empty .bolt-offer-topline,
+.public-journey .bolt-empty .bolt-offer-footer span,
+.public-journey .bolt-empty .bolt-service-copy > p {
+  color: var(--journey-muted);
+}
+.public-journey .bolt-empty .bolt-offer-card li svg {
+  color: var(--journey-signal);
+}
+.public-journey .bolt-empty .bolt-offer-card ul {
+  border-color: var(--journey-line);
+}
+.public-journey .bolt-empty .bolt-offer-footer button {
+  color: #111214;
+  background: var(--journey-brass);
+  border-radius: 4px;
+}
+.public-journey .bolt-empty .bolt-service-copy h2 {
+  color: var(--journey-ink);
+}
+.public-journey .bolt-empty .bolt-public-footer {
+  color: var(--journey-muted);
+  width: 100%;
+  max-width: 1280px;
+}
+.public-journey .bolt-intake {
+  color: var(--journey-ink);
+  background: var(--journey-surface);
+  border: 1px solid var(--journey-line);
+  border-radius: 4px;
+  box-shadow: 0 16px 60px #0005;
+}
+.public-journey .bolt-intake :is(h2, strong, label) {
+  color: var(--journey-ink);
+}
+.public-journey .bolt-intake :is(p, small) {
+  color: var(--journey-muted);
+}
+.public-journey .bolt-intake :is(input, textarea, select) {
+  background: var(--journey-canvas);
+  border-color: var(--journey-line);
+  color: var(--journey-ink);
+  border-radius: 4px;
+}
+.public-journey .bolt-intake form > button {
+  color: #111214;
+  background: var(--journey-brass);
+  border-radius: 4px;
+}
+.public-journey .bolt-intake-close {
+  color: var(--journey-muted);
+}
+.public-journey .bolt-intake-footnote {
+  color: var(--journey-muted);
+}
+.public-journey .bolt-thread-bar {
+  background: var(--journey-canvas);
+  border-color: var(--journey-line);
+}
+.public-journey .bolt-thread-meta,
+.public-journey .bolt-thread-bar-side.is-center > span {
+  color: var(--journey-muted);
+}
+.public-journey .bolt-layout,
+.public-journey .bolt-layout .dw-center,
+.public-journey .bolt-layout .dw-chat {
+  background: var(--journey-canvas);
+}
+.public-journey .bolt-layout .dw-message,
+.public-journey .bolt-icon,
+.public-journey .bolt-view-record {
+  color: var(--journey-ink);
+  background: var(--journey-surface);
+  border-color: var(--journey-line);
+  border-radius: 4px;
+}
+.public-journey .bolt-layout .dw-chat-author,
+.public-journey .bolt-layout .dw-message-meta {
+  color: var(--journey-muted);
+}
+.public-journey .bolt-ask-dock {
+  background: var(--journey-canvas);
+  border-color: var(--journey-line);
+  width: min(920px, 100%);
+}
+@media (max-width: 900px) {
+  .public-journey .bolt-empty .bolt-sales-hero {
+    grid-template-columns: 1fr;
+    gap: 32px;
+  }
+  .public-journey .bolt-empty .bolt-sales-copy {
+    max-width: none;
+  }
+  .public-journey .bolt-empty .bolt-demo {
+    padding: 24px;
+  }
+  .public-journey .bolt-empty .bolt-capability-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 640px) {
+  .public-journey.bolt-public[data-theme] .bolt-rail {
+    min-height: 64px;
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  .public-journey.bolt-public .bolt-rail-top {
+    display: none;
+  }
+  .public-journey.bolt-public .bolt-rail-main {
+    margin-left: auto;
+  }
+  .public-journey.bolt-public .bolt-rail-foot {
+    margin-left: 0;
+  }
+  .public-journey.bolt-public[data-theme] .bolt-rail-item {
+    padding: 6px;
+    min-height: 40px;
+    font-size: 11px;
+    gap: 4px;
+  }
+  .public-journey.bolt-public .bolt-rail-item svg {
+    width: 16px;
+    height: 16px;
+  }
+  .public-journey.bolt-public .journey-brand {
+    padding: 5px 7px;
+  }
+  .public-journey.bolt-public .journey-brand img {
+    height: 24px;
+  }
+  .public-journey.bolt-public .journey-theme-toggle {
+    width: 34px;
+    height: 36px;
+  }
+  .public-journey.bolt-public .bolt-empty {
+    padding: 28px 16px;
+  }
+  .public-journey .bolt-empty #public-hero-title {
+    font-size: 38px;
+  }
+  .public-journey .bolt-empty .bolt-hero-lede {
+    font-size: 16px;
+  }
+  .public-journey .bolt-empty .bolt-hero-actions {
+    display: grid;
+  }
+  .public-journey .bolt-empty .bolt-demo {
+    padding: 20px;
+  }
+  .public-journey .bolt-empty .bolt-demo-heading h2 {
+    font-size: 26px;
+  }
+  .public-journey .bolt-empty .bolt-capability-grid {
+    grid-template-columns: 1fr;
+  }
+  .public-journey .bolt-empty .bolt-capability-gallery {
+    margin-top: 40px;
+  }
+  .public-journey .bolt-empty .bolt-hero-capabilities button {
+    min-height: 40px;
+  }
+}
+
+/* Explicit transcript children and open navigation surfaces share both themes. */
+.public-journey.bolt-public .dw-message p,
+.public-journey.bolt-public .dw-message-markdown,
+.public-journey.bolt-public
+  .dw-message-markdown
+  :is(p, ul, ol, li, blockquote, td, th, strong, em, h1, h2, h3, code) {
+  color: var(--journey-ink);
+}
+.public-journey.bolt-public .dw-message-markdown a,
+.public-journey.bolt-public .dw-message footer {
+  color: var(--journey-signal);
+}
+.public-journey.bolt-public .dw-message > div,
+.public-journey.bolt-public .dw-avatar,
+.public-journey.bolt-public
+  .dw-message-markdown
+  :is(pre, code, blockquote, th) {
+  background: var(--journey-soft);
+  border-color: var(--journey-line);
+}
+.public-journey.bolt-public
+  .dw-message-markdown
+  :is(td, th, .markdown-table-wrap) {
+  border-color: var(--journey-line);
+}
+.public-journey.bolt-public .dw-message-markdown pre code {
+  background: transparent;
+}
+.public-journey.bolt-public .bolt-capability-switcher,
+.public-journey.bolt-public .bolt-layout.is-rail-open .dw-rail,
+.public-journey.bolt-public .bolt-spaces-panel {
+  background: var(--journey-surface);
+  border-color: var(--journey-line);
+}
+.public-journey.bolt-public .bolt-capability-switcher button {
+  color: var(--journey-muted);
+}
+.public-journey.bolt-public
+  .bolt-capability-switcher
+  button:is(:hover, :focus-visible, .is-active) {
+  color: var(--journey-ink);
+  background: var(--journey-soft);
+  border-color: var(--journey-signal);
+  box-shadow: none;
+}
+.public-journey.bolt-public .dw-new,
+.public-journey.bolt-public .bolt-spaces-live {
+  color: var(--journey-signal) !important;
+  background: var(--journey-soft);
+  border-color: var(--journey-line);
+}
+.public-journey.bolt-public .dw-rec-block {
+  color: var(--journey-ink);
+  background: var(--journey-surface);
+  border-color: var(--journey-line);
+}
+.public-journey.bolt-public .dw-rec-block :is(h3, ul, li, p) {
+  color: var(--journey-ink);
+}
+.public-journey.bolt-public .dw-rec-recommendation h3 {
+  color: var(--journey-signal);
+}
+.public-journey.bolt-public .dw-rec-authority {
+  color: var(--journey-muted) !important;
+}
+.public-journey.bolt-public .dw-rec-actions button {
+  color: var(--journey-ink);
+  background: var(--journey-soft);
+  border-color: var(--journey-line);
+}
+.public-journey.bolt-public .dw-rec-approve {
+  color: var(--journey-signal) !important;
+  background: var(--journey-soft) !important;
+  border-color: var(--journey-signal) !important;
+}
+.public-journey.bolt-public .bolt-capability-lens {
+  color: var(--journey-signal);
+}
+
+/* Capability examples share the approved customer palette and canonical case. */
+.public-journey .journey-example-context {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 18px 28px;
+  border-bottom: 1px solid var(--journey-line);
+  background: var(--journey-canvas);
+  color: var(--journey-ink);
+  flex-shrink: 0;
+}
+.public-journey .journey-example-context h1 {
+  margin: 4px 0 6px;
+  font-family: "Journey Archivo", Inter, system-ui, sans-serif;
+  font-size: 22px;
+  line-height: 1.2;
+}
+.public-journey .journey-example-context p {
+  margin: 0;
+  color: var(--journey-muted);
+  font-size: 13px;
+}
+.public-journey .journey-example-context .journey-eyebrow {
+  color: var(--journey-signal);
+  font-size: 10px;
+}
+.public-journey .journey-example-context small {
+  display: block;
+  margin-top: 7px;
+  color: var(--journey-muted);
+  font-size: 11px;
+}
+.public-journey .journey-example-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  flex-shrink: 0;
+}
+.public-journey .journey-example-actions a {
+  padding: 10px 14px;
+  border: 1px solid var(--journey-line);
+  border-radius: 6px;
+  color: var(--journey-ink);
+  font-size: 12px;
+  text-decoration: none;
+}
+.public-journey .journey-example-actions a:first-child {
+  background: var(--journey-signal);
+  color: #151619;
+}
+.public-journey .journey-comparison {
+  margin: 0 0 28px;
+  padding: 22px;
+  border: 1px solid var(--journey-line);
+  border-radius: 10px;
+  background: var(--journey-surface);
+  color: var(--journey-ink);
+}
+.public-journey .journey-comparison h2 {
+  margin: 6px 0 8px;
+  font-size: 26px;
+  line-height: 1.15;
+  font-family: "Journey Archivo", Inter, system-ui, sans-serif;
+}
+.public-journey .journey-comparison > p:not(.journey-eyebrow) {
+  color: var(--journey-muted);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.public-journey .journey-comparison-options {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 18px 0;
+}
+.public-journey .journey-comparison-options button {
+  padding: 12px;
+  text-align: left;
+  border: 1px solid var(--journey-line);
+  border-radius: 6px;
+  background: var(--journey-canvas);
+  color: var(--journey-ink);
+}
+.public-journey .journey-comparison-options button[aria-pressed="true"] {
+  border-color: var(--journey-signal);
+  background: #29251e;
+}
+.public-journey .journey-comparison-options span {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--journey-signal);
+  font-size: 10px;
+}
+.public-journey .journey-comparison-options strong {
+  font-size: 13px;
+  line-height: 1.4;
+}
+.public-journey .journey-comparison-table {
+  overflow-x: auto;
+  max-width: 100%;
+  border: 1px solid var(--journey-line);
+  border-radius: 6px;
+}
+.public-journey .journey-comparison table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 580px;
+  font-size: 12px;
+  line-height: 1.65;
+}
+.public-journey .journey-comparison caption {
+  text-align: left;
+  padding: 10px 12px;
+  color: var(--journey-muted);
+  font-size: 11px;
+}
+.public-journey .journey-comparison th,
+.public-journey .journey-comparison td {
+  padding: 12px;
+  text-align: left;
+  vertical-align: top;
+  border-top: 1px solid var(--journey-line);
+}
+.public-journey .journey-comparison thead {
+  color: var(--journey-signal);
+}
+.public-journey .journey-comparison tr[data-selected="true"] {
+  background: #29251e;
+}
+.public-journey .journey-comparison-detail {
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid var(--journey-line);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.public-journey .journey-comparison-detail p {
+  color: var(--journey-muted);
+}
+.public-journey .journey-comparison-detail button {
+  display: block;
+  padding: 10px 0;
+  background: transparent;
+  border: 0;
+  color: var(--journey-ink);
+  text-align: left;
+}
+.public-journey .journey-comparison-detail button span {
+  display: block;
+  color: var(--journey-signal);
+  font-size: 11px;
+}
+.public-journey .journey-comparison-detail small {
+  display: block;
+  margin-top: 9px;
+  color: var(--journey-muted);
+}
+.public-journey .journey-comparison :is(button, a, [tabindex]):focus-visible,
+.public-journey .journey-example-actions a:focus-visible {
+  outline: 2px solid var(--journey-signal);
+  outline-offset: 3px;
+}
+.public-journey .dw-modal {
+  background: var(--journey-surface);
+  color: var(--journey-ink);
+  border-color: var(--journey-line);
+  max-height: 85dvh;
+  overflow-y: auto;
+}
+@media (max-width: 700px) {
+  .public-journey .journey-example-context {
+    padding: 12px 16px;
+    gap: 10px;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .public-journey .journey-example-context h1 {
+    font-size: 18px;
+    margin: 3px 0;
+  }
+  .public-journey .journey-example-context small {
+    display: none;
+  }
+  .public-journey .journey-example-actions a {
+    padding: 8px 10px;
+    font-size: 11px;
+  }
+  .public-journey .journey-comparison {
+    padding: 14px;
+  }
+  .public-journey .journey-comparison h2 {
+    font-size: 23px;
+  }
+  .public-journey .journey-comparison-options {
+    grid-template-columns: 1fr;
+  }
+}
+
+.public-journey .journey-storage-warning {
+  margin: 0;
+  padding: 10px 16px;
+  color: var(--journey-warning);
+  background: var(--journey-surface);
+  border-bottom: 1px solid var(--journey-line);
+  font-size: 12px;
+  flex-shrink: 0;
+}
+
+.public-journey .journey-example-flow {
+  display: flex;
+  gap: 22px;
+  margin: 9px 0 0;
+  font-size: 11px;
+  line-height: 1.5;
+}
+.public-journey .journey-example-flow div {
+  display: flex;
+  gap: 7px;
+}
+.public-journey .journey-example-flow dt {
+  color: var(--journey-signal);
+}
+.public-journey .journey-example-flow dd {
+  margin: 0;
+  color: var(--journey-muted);
+}
+@media (max-width: 700px) {
+  .public-journey .journey-example-flow {
+    display: none;
+  }
+}
+/* Bound the conversation title to its lane so it never covers mobile controls. */
+.public-journey .bolt-thread-bar-side.is-center {
+  overflow: hidden;
+}
+.public-journey .bolt-thread-bar-side.is-center > span {
+  width: 100%;
+  overflow: hidden;
+}
+.public-journey .bolt-thread-title {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+}
+.public-journey .bolt-capability-lens {
+  max-width: 100%;
 }

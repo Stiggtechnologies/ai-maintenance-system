@@ -82,10 +82,15 @@ create table public.hse_events (
   verified_by uuid references auth.users(id),
   verified_at timestamptz,
   verification_note text,
+  -- Comparisons, not BETWEEN: PostgreSQL 17 deparses BETWEEN inside this AND
+  -- with a parenthesis pair that pg_dump/pg_restore does not round-trip.
   constraint hse_event_severity_basis check (
     (severity_label is null and severity_scale_reference is null)
-    or (length(btrim(severity_label)) between 1 and 120
-      and length(btrim(severity_scale_reference)) between 2 and 500)),
+    or (
+      length(btrim(severity_label)) >= 1
+      and length(btrim(severity_label)) <= 120
+      and length(btrim(severity_scale_reference)) >= 2
+      and length(btrim(severity_scale_reference)) <= 500)),
   constraint hse_event_description_length check (
     length(btrim(description)) between 20 and 4000),
   constraint hse_event_source_reference_length check (

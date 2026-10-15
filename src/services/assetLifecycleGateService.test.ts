@@ -82,7 +82,8 @@ describe("assetLifecycleGateService", () => {
       advanceAssetLifecycleStage({
         assetId: "asset-1",
         targetStageKey: "replacement",
-        reason: "This reason is long enough but the current gate is not passing.",
+        reason:
+          "This reason is long enough but the current gate is not passing.",
       }),
     ).rejects.toThrow(/fresh passing review/i);
   });

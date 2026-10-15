@@ -14,5 +14,6 @@ regexes = [
   '''^eyJ0b2tlbiI6Im1hcmtldHBsYWNlLXRva2VuLTEyMyJ9$''',
   '''^eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.\.\.$''',
   '''^sk_live_X+$''',
+  '''^0123456789abcdef0123456789abcdef$''',
   '''^eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9\.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9\.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0$''',
 ]

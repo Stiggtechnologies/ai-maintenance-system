@@ -69,7 +69,8 @@ export function AssetLifecycleGateWorkspace() {
     [assetId],
   );
 
-  const selectedAsset = data?.assets.find((asset) => asset.id === assetId) ?? null;
+  const selectedAsset =
+    data?.assets.find((asset) => asset.id === assetId) ?? null;
   const targetKeys = allowedTargets(selectedAsset?.stageKey ?? null);
   const targetStages =
     data?.stages.filter((stage) => targetKeys.includes(stage.stageKey)) ?? [];
@@ -114,10 +115,7 @@ export function AssetLifecycleGateWorkspace() {
     setMessage("");
   }
 
-  function updateFinding(
-    criterionId: number,
-    patch: Partial<FindingDraft>,
-  ) {
+  function updateFinding(criterionId: number, patch: Partial<FindingDraft>) {
     setFindings((current) => ({
       ...current,
       [criterionId]: {
@@ -340,7 +338,8 @@ export function AssetLifecycleGateWorkspace() {
                   </option>
                   {eligibleEvaluations.map((evaluation) => (
                     <option key={evaluation.id} value={evaluation.id}>
-                      {evaluation.recommended} · {evaluation.uncertainty} uncertainty
+                      {evaluation.recommended} · {evaluation.uncertainty}{" "}
+                      uncertainty
                     </option>
                   ))}
                 </select>
@@ -417,7 +416,9 @@ export function AssetLifecycleGateWorkspace() {
                         <option value="">Select evidence</option>
                         {data.evidence.map((evidence) => (
                           <option key={evidence.id} value={evidence.id}>
-                            {evidence.description ?? evidence.sourceSystem ?? evidence.id}
+                            {evidence.description ??
+                              evidence.sourceSystem ??
+                              evidence.id}
                           </option>
                         ))}
                       </select>
@@ -452,7 +453,10 @@ export function AssetLifecycleGateWorkspace() {
           >
             <div className="flex items-start gap-3">
               {latestMatchingPass ? (
-                <CheckCircle2 className="h-5 w-5 text-emerald-300" aria-hidden />
+                <CheckCircle2
+                  className="h-5 w-5 text-emerald-300"
+                  aria-hidden
+                />
               ) : (
                 <ShieldAlert className="h-5 w-5 text-amber-300" aria-hidden />
               )}
@@ -544,7 +548,9 @@ export function AssetLifecycleGateWorkspace() {
                 <option value="">Select evidence</option>
                 {data.evidence.map((evidence) => (
                   <option key={evidence.id} value={evidence.id}>
-                    {evidence.description ?? evidence.sourceSystem ?? evidence.id}
+                    {evidence.description ??
+                      evidence.sourceSystem ??
+                      evidence.id}
                   </option>
                 ))}
               </select>
@@ -576,7 +582,9 @@ export function AssetLifecycleGateWorkspace() {
               <input
                 maxLength={3}
                 value={currency}
-                onChange={(event) => setCurrency(event.target.value.toUpperCase())}
+                onChange={(event) =>
+                  setCurrency(event.target.value.toUpperCase())
+                }
                 className="rounded-lg border border-white/10 bg-slate-950 px-3 py-2 text-sm uppercase text-white"
               />
             </label>
@@ -586,7 +594,9 @@ export function AssetLifecycleGateWorkspace() {
               <input
                 type="checkbox"
                 checked={restorationRequired}
-                onChange={(event) => setRestorationRequired(event.target.checked)}
+                onChange={(event) =>
+                  setRestorationRequired(event.target.checked)
+                }
               />
               Site restoration required
             </label>
@@ -594,7 +604,9 @@ export function AssetLifecycleGateWorkspace() {
               <input
                 type="checkbox"
                 checked={restorationComplete}
-                onChange={(event) => setRestorationComplete(event.target.checked)}
+                onChange={(event) =>
+                  setRestorationComplete(event.target.checked)
+                }
               />
               Site restoration complete
             </label>
@@ -649,7 +661,10 @@ export function AssetLifecycleGateWorkspace() {
       )}
 
       {message && (
-        <p role="status" className="rounded-lg border border-white/8 p-3 text-sm text-slate-200">
+        <p
+          role="status"
+          className="rounded-lg border border-white/8 p-3 text-sm text-slate-200"
+        >
           {message}
         </p>
       )}

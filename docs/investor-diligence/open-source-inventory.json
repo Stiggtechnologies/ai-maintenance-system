@@ -1,15 +1,15 @@
 {
   "schemaVersion": 1,
   "source": "package-lock.json",
-  "lockfileSha256": "3d2c1acd87bfbedb7696ebf7e66b4d9cc8427176098728d5958bb18b6f334a3f",
-  "packageInstances": 405,
+  "lockfileSha256": "094c0411154bfb49f7f425bcf89a82cc79935015e6d87fedae65ee355554c201",
+  "packageInstances": 406,
   "directProductionDependencies": 14,
-  "directDevelopmentDependencies": 26,
+  "directDevelopmentDependencies": 27,
   "prohibitedCount": 0,
   "unknownCount": 0,
   "licenseCounts": {
     "0BSD": 1,
-    "Apache-2.0": 25,
+    "Apache-2.0": 26,
     "BlueOak-1.0.0": 2,
     "BSD-2-Clause": 10,
     "BSD-3-Clause": 4,
@@ -530,17 +530,24 @@
     },
     {
       "name": "@humanfs/core",
-      "version": "0.19.1",
+      "version": "0.19.2",
       "license": "Apache-2.0",
       "direct": "transitive",
       "packagePath": "node_modules/@humanfs/core"
     },
     {
       "name": "@humanfs/node",
-      "version": "0.16.7",
+      "version": "0.16.8",
       "license": "Apache-2.0",
       "direct": "transitive",
       "packagePath": "node_modules/@humanfs/node"
+    },
+    {
+      "name": "@humanfs/types",
+      "version": "0.15.0",
+      "license": "Apache-2.0",
+      "direct": "transitive",
+      "packagePath": "node_modules/@humanfs/types"
     },
     {
       "name": "@humanwhocodes/module-importer",
@@ -824,14 +831,14 @@
     },
     {
       "name": "@supabase/auth-js",
-      "version": "2.112.3",
+      "version": "2.117.2",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/auth-js"
     },
     {
       "name": "@supabase/functions-js",
-      "version": "2.112.3",
+      "version": "2.117.2",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/functions-js"
@@ -845,28 +852,28 @@
     },
     {
       "name": "@supabase/postgrest-js",
-      "version": "2.112.3",
+      "version": "2.117.2",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/postgrest-js"
     },
     {
       "name": "@supabase/realtime-js",
-      "version": "2.112.3",
+      "version": "2.117.2",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/realtime-js"
     },
     {
       "name": "@supabase/storage-js",
-      "version": "2.112.3",
+      "version": "2.117.2",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/storage-js"
     },
     {
       "name": "@supabase/supabase-js",
-      "version": "2.112.3",
+      "version": "2.117.2",
       "license": "MIT",
       "direct": "production",
       "packagePath": "node_modules/@supabase/supabase-js"
@@ -1069,14 +1076,14 @@
     },
     {
       "name": "@types/react-dom",
-      "version": "19.2.5",
+      "version": "19.3.0",
       "license": "MIT",
       "direct": "development",
       "packagePath": "node_modules/@types/react-dom"
     },
     {
       "name": "@types/react",
-      "version": "19.2.18",
+      "version": "19.3.0",
       "license": "MIT",
       "direct": "development",
       "packagePath": "node_modules/@types/react"
@@ -1160,49 +1167,49 @@
     },
     {
       "name": "@vitest/expect",
-      "version": "4.1.10",
+      "version": "4.1.11",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@vitest/expect"
     },
     {
       "name": "@vitest/mocker",
-      "version": "4.1.10",
+      "version": "4.1.11",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@vitest/mocker"
     },
     {
       "name": "@vitest/pretty-format",
-      "version": "4.1.10",
+      "version": "4.1.11",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@vitest/pretty-format"
     },
     {
       "name": "@vitest/runner",
-      "version": "4.1.10",
+      "version": "4.1.11",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@vitest/runner"
     },
     {
       "name": "@vitest/snapshot",
-      "version": "4.1.10",
+      "version": "4.1.11",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@vitest/snapshot"
     },
     {
       "name": "@vitest/spy",
-      "version": "4.1.10",
+      "version": "4.1.11",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@vitest/spy"
     },
     {
       "name": "@vitest/utils",
-      "version": "4.1.10",
+      "version": "4.1.11",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@vitest/utils"
@@ -1293,7 +1300,7 @@
     },
     {
       "name": "brace-expansion",
-      "version": "5.0.9",
+      "version": "5.0.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/brace-expansion"
@@ -2056,7 +2063,7 @@
     },
     {
       "name": "lucide-react",
-      "version": "1.33.0",
+      "version": "1.52.0",
       "license": "ISC",
       "direct": "production",
       "packagePath": "node_modules/lucide-react"
@@ -2315,7 +2322,7 @@
     },
     {
       "name": "react-dom",
-      "version": "19.2.8",
+      "version": "19.3.0",
       "license": "MIT",
       "direct": "production",
       "packagePath": "node_modules/react-dom"
@@ -2329,21 +2336,21 @@
     },
     {
       "name": "react-router-dom",
-      "version": "7.18.2",
+      "version": "7.18.4",
       "license": "MIT",
       "direct": "production",
       "packagePath": "node_modules/react-router-dom"
     },
     {
       "name": "react-router",
-      "version": "7.18.2",
+      "version": "7.18.4",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/react-router"
     },
     {
       "name": "react",
-      "version": "19.2.8",
+      "version": "19.3.0",
       "license": "MIT",
       "direct": "production",
       "packagePath": "node_modules/react"
@@ -2399,7 +2406,7 @@
     },
     {
       "name": "scheduler",
-      "version": "0.27.0",
+      "version": "0.28.0",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/scheduler"
@@ -2455,7 +2462,7 @@
     },
     {
       "name": "source-map-js",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "license": "BSD-3-Clause",
       "direct": "transitive",
       "packagePath": "node_modules/source-map-js"
@@ -2581,7 +2588,7 @@
     },
     {
       "name": "tinyrainbow",
-      "version": "3.1.0",
+      "version": "3.1.1",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/tinyrainbow"
@@ -2672,7 +2679,7 @@
     },
     {
       "name": "undici",
-      "version": "7.29.0",
+      "version": "7.30.0",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/undici"
@@ -2700,7 +2707,7 @@
     },
     {
       "name": "vitest",
-      "version": "4.1.10",
+      "version": "4.1.11",
       "license": "MIT",
       "direct": "development",
       "packagePath": "node_modules/vitest"
@@ -2821,7 +2828,7 @@
       "name": "yaml",
       "version": "2.9.0",
       "license": "ISC",
-      "direct": "transitive",
+      "direct": "development",
       "packagePath": "node_modules/yaml"
     },
     {

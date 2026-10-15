@@ -26,10 +26,14 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   buildProviderChain,
-  callWithResilience,
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
 import { withDataEgressGuard } from "../_shared/data-egress-guard.ts";
+import {
+  callWithCommercialBoundary,
+  DEFAULT_COMMERCIALLY_PRICED_MODEL,
+  estimateLlmCallTokens,
+} from "../_shared/llm-commercial-usage.ts";
 import {
   buildRiskPrompts,
   locateWorkflowStep,
@@ -49,6 +53,7 @@ const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "";
 // indirection — so an environment that names no model gets the chain's default
 // rather than this file's opinion, and this file has no opinion to drift.
 const MODEL = Deno.env.get("DEVELOP_AGENT_MODEL") || undefined;
+const COMMERCIAL_MODEL = MODEL ?? DEFAULT_COMMERCIALLY_PRICED_MODEL;
 const GATEWAY_MODEL = Deno.env.get("LLM_GATEWAY_MODEL") || undefined;
 const ALLOWED_ORIGIN =
   Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
@@ -245,27 +250,61 @@ Deno.serve(async (req: Request) => {
     purpose: "model_inference",
     serviceLabel: "develop-risk-agent",
   });
-  const result = await callWithResilience(guardedFetch, providers, {
+  const providerOptions = {
     systemPrompt: prompts.systemPrompt,
     userContent: prompts.userContent,
     maxTokens: 800,
     timeoutMs: 40_000,
-  });
+  };
+  const commercialAdmin = serviceClient();
+  const commercial = await callWithCommercialBoundary(
+    (functionName, args) => commercialAdmin.rpc(functionName, args),
+    guardedFetch,
+    providers,
+    providerOptions,
+    {
+      organizationId: auth.organizationId,
+      functionName: "develop-risk-agent",
+      requestedModel: COMMERCIAL_MODEL,
+      estimatedTokens: estimateLlmCallTokens(providerOptions),
+      costObject: { type: "risk", id: riskId },
+    },
+  );
+  if (commercial.status !== "ok") {
+    if (commercial.status === "settlement_failed") {
+      console.error("develop-risk-agent usage settlement failed", {
+        model: commercial.model,
+        error: commercial.error,
+      });
+    } else if (
+      commercial.status === "provider_failed" &&
+      commercial.events.length > 0
+    ) {
+      console.error(
+        "develop-risk-agent provider trail",
+        JSON.stringify(commercial.events),
+      );
+    }
+    const reason =
+      commercial.status === "quota_refused"
+        ? `the commercial usage boundary refused this call (${commercial.limit})`
+        : commercial.status === "settlement_failed"
+          ? "the model answered but usage accounting failed, so its unaccounted output was discarded"
+          : "the model call failed";
+    return json({
+      ...base,
+      advice: null,
+      refusal: `${reason}; no treatment was recommended.`,
+      recorded: null,
+    });
+  }
+  const result = commercial.result;
   if (result.events.length > 1 || !result.ok) {
     console.error(
       "develop-risk-agent provider trail",
       JSON.stringify(result.events),
     );
   }
-  if (!result.ok) {
-    return json({
-      ...base,
-      advice: null,
-      refusal: "the model call failed, so no treatment was recommended.",
-      recorded: null,
-    });
-  }
-
   const parsed = parseTreatmentAdvice(result.content, candidates);
   if (!parsed.ok) {
     return json({

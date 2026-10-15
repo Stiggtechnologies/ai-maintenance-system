@@ -176,10 +176,9 @@ describe("the resolver sees a real chain", () => {
       "20260917001000_definer_tenancy_guards.sql",
     );
     expect(defs.get("retrieve_kb_context")?.file).toBe(
-      // Last definition moved with malicious-document containment. The
-      // session, governed-source, claim-purpose and quarantine gates must all
-      // hold on THIS file, not on an earlier hardened copy.
-      "20270105140800_kb_document_security.sql",
+      // Last definition is the migration on main. Session, governed-source,
+      // claim-purpose and quarantine gates must hold on THIS file.
+      "20270104090700_kb_document_security.sql",
     );
 
     const latestKbBody = defs.get("retrieve_kb_context")?.body.toLowerCase();

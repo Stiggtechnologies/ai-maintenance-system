@@ -275,24 +275,24 @@ export function OnboardingWizard() {
           </p>
           <div className="flex space-x-3">
             <a
-              href="#"
+              href="/get-started"
               className="text-sm text-teal-600 hover:text-teal-700 font-medium"
             >
-              Watch Tutorial Video
+              Open Get started
             </a>
             <span className="text-gray-300">•</span>
             <a
-              href="#"
+              href="/get-started#first-decision-help"
               className="text-sm text-teal-600 hover:text-teal-700 font-medium"
             >
-              Browse Help Center
+              Reach a Decision Case
             </a>
             <span className="text-gray-300">•</span>
             <a
               href="mailto:support@syncai.ca"
               className="text-sm text-teal-600 hover:text-teal-700 font-medium"
             >
-              Contact Support
+              Talk to us
             </a>
           </div>
         </div>

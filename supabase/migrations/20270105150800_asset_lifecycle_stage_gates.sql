@@ -6,6 +6,148 @@
 -- evidence_items, and physical closeout remains in disposal_records.
 -- Exact canonical write/audit chain: public.asset_lifecycle_transitions is
 -- still populated by the established internal transition implementation.
+--
+-- Main's advance_lifecycle_stage is that implementation. The wrapper below
+-- calls it as advance_lifecycle_stage_internal and refuses movement until an
+-- evidence-backed initial state exists. Both the rename and that initial
+-- writer are required for this gate to run on main; they are not a second
+-- lifecycle register.
+
+alter table public.asset_lifecycle_state
+  add column if not exists basis_evidence_item_id uuid
+    references public.evidence_items(id) on delete restrict;
+
+create or replace function public.guard_asset_lifecycle_state_write()
+returns trigger
+language plpgsql
+security definer
+set search_path=public,pg_temp
+as $$
+begin
+  if tg_op='DELETE' and not exists(
+    select 1 from public.assets where id=old.asset_id
+  ) then return old; end if;
+  if coalesce(current_setting('app.asset_lifecycle_state_writer',true),'')<>'governed' then
+    raise exception 'asset lifecycle state is RPC-only';
+  end if;
+  if tg_op='UPDATE' and (new.asset_id<>old.asset_id
+      or new.organization_id<>old.organization_id) then
+    raise exception 'asset lifecycle identity and tenant are immutable';
+  end if;
+  return case when tg_op='DELETE' then old else new end;
+end $$;
+
+drop trigger if exists trg_guard_asset_lifecycle_state_write
+  on public.asset_lifecycle_state;
+create trigger trg_guard_asset_lifecycle_state_write
+  before insert or update or delete on public.asset_lifecycle_state
+  for each row execute function public.guard_asset_lifecycle_state_write();
+
+revoke all on function public.guard_asset_lifecycle_state_write()
+  from public,anon,authenticated,service_role;
+revoke insert,update,delete,truncate on public.asset_lifecycle_state
+  from anon,authenticated,service_role;
+
+do $$
+begin
+  if to_regprocedure('public.advance_lifecycle_stage_internal(uuid,text,text)') is null then
+    alter function public.advance_lifecycle_stage(uuid,text,text)
+      rename to advance_lifecycle_stage_internal;
+  end if;
+end $$;
+revoke all on function public.advance_lifecycle_stage_internal(uuid,text,text)
+  from public,anon,authenticated,service_role;
+
+create or replace function public.record_initial_asset_lifecycle_state(
+  p_asset_id uuid,
+  p_stage_key text,
+  p_evidence_item_id uuid,
+  p_basis text
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path=public,pg_temp
+as $$
+declare
+  v_org uuid:=public.app_current_org();
+  v_actor uuid:=auth.uid();
+  v_role text:=public.app_current_role();
+  v_verifier uuid;
+begin
+  if v_org is null or v_actor is null or v_role='ai_admin'
+     or v_role not in ('admin','executive','maintenance_manager','reliability_engineer') then
+    return jsonb_build_object('error',
+      'A named administrator, executive, maintenance manager or reliability engineer is required');
+  end if;
+  if not public.app_actor_has_verified_mfa(v_actor)
+     or public.app_current_aal()<>'aal2' then
+    return jsonb_build_object('error',
+      'Initial lifecycle state requires a verified factor and an AAL2 session');
+  end if;
+  if length(btrim(coalesce(p_basis,''))) not between 20 and 4000 then
+    return jsonb_build_object('error',
+      'State a bounded lifecycle basis of 20 to 4000 characters');
+  end if;
+  perform 1 from public.assets
+    where id=p_asset_id and organization_id=v_org for update;
+  if not found then
+    return jsonb_build_object('error','Asset scope is outside the active tenant');
+  end if;
+  if not exists(select 1 from public.lifecycle_stages where stage_key=p_stage_key) then
+    return jsonb_build_object('error','Unknown canonical lifecycle stage');
+  end if;
+  if exists(select 1 from public.asset_lifecycle_state
+    where asset_id=p_asset_id and organization_id=v_org) then
+    return jsonb_build_object('error',
+      'Lifecycle state already exists; use the governed stage-transition workflow');
+  end if;
+  select e.verified_by into v_verifier
+  from public.evidence_items e
+  join public.user_profiles verifier
+    on verifier.id=e.verified_by and verifier.organization_id=v_org
+      and verifier.role<>'ai_admin'
+  where e.id=p_evidence_item_id and e.organization_id=v_org
+    and e.asset_id=p_asset_id and e.verification_status='verified'
+    and e.verified_by is not null and e.verified_at is not null
+    and e.verified_by<>v_actor;
+  if v_verifier is null then
+    return jsonb_build_object('error',
+      'Initial lifecycle state requires same-tenant, asset-specific canonical evidence independently verified by another named human');
+  end if;
+
+  perform set_config('app.asset_lifecycle_state_writer','governed',true);
+  insert into public.asset_lifecycle_state(
+    asset_id,organization_id,stage_key,entered_at,inherited,note,
+    basis_evidence_item_id,updated_at
+  ) values(
+    p_asset_id,v_org,p_stage_key,now(),false,btrim(p_basis),
+    p_evidence_item_id,now()
+  );
+  perform set_config('app.asset_lifecycle_state_writer','',true);
+
+  insert into public.asset_lifecycle_transitions(
+    organization_id,asset_id,from_stage,to_stage,moved_by,reason
+  ) values(v_org,p_asset_id,null,p_stage_key,v_actor,btrim(p_basis));
+  insert into public.audit_events(organization_id,entity_type,actor,event_data)
+  values(v_org,'asset_lifecycle_state',v_role,jsonb_build_object(
+    'event','initial_lifecycle_state_recorded','asset_id',p_asset_id,
+    'stage_key',p_stage_key,'evidence_item_id',p_evidence_item_id,
+    'recorded_by',v_actor,'independent_verifier',v_verifier,
+    'aal','aal2','verified_factor',true,'operational_authority',false));
+
+  return jsonb_build_object('assetId',p_asset_id,'stageKey',p_stage_key,
+    'evidenceItemId',p_evidence_item_id,'recordedBy',v_actor,
+    'independentVerifier',v_verifier,'operationalAuthority',false);
+exception when others then
+  perform set_config('app.asset_lifecycle_state_writer','',true);
+  raise;
+end $$;
+
+revoke all on function public.record_initial_asset_lifecycle_state(uuid,text,uuid,text)
+  from public,anon,service_role;
+grant execute on function public.record_initial_asset_lifecycle_state(uuid,text,uuid,text)
+  to authenticated;
 
 alter table public.stage_gate_reviews
   add column if not exists target_stage_key text
