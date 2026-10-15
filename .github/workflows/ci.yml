@@ -263,6 +263,9 @@ jobs:
       - name: Smoke — governed covariate survival evidence and lineage
         run: bash scripts/ci-survival-covariate-smoke.sh
 
+      - name: Smoke — governed enterprise HSE events
+        run: bash scripts/ci-enterprise-hse-events-smoke.sh
+
       - name: Smoke — governed lifecycle stage gates
         run: bash scripts/ci-asset-lifecycle-stage-gates-smoke.sh
 
