@@ -44,7 +44,9 @@ describe("Microsoft Marketplace listing claims", () => {
     expect(normalizedOfferListing).not.toMatch(
       /lower maintenance costs by 25(?:[-–]30)?%/i,
     );
-    expect(normalizedOfferListing).not.toMatch(/within 24(?:[-–]48)? hours/i);
+    expect(normalizedOfferListing).not.toMatch(
+      /within 24(?:[-–]48)? hours/i,
+    );
     expect(normalizedOfferListing).not.toMatch(/MACC[- ]eligible/i);
   });
 

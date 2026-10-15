@@ -17,3 +17,12 @@ docs/investor-diligence/sbom.cdx.json
 # Nothing runs `prettier --check` in CI, and scripts/register-baseline.mjs trims
 # every captured cell, so the register's formatting is load-bearing for nobody.
 docs/enterprise-readiness/capability-register.md
+
+# Upstream files whose formatting is owned by the landing commit. A later
+# merge must not reflow them just because they were staged together.
+docs/marketplace/partner-center-fields.md
+docs/marketplace/supplemental-content.md
+integrations/microsoft365/MicrosoftTeams.v1.25.schema.json
+src/services/syncContextService.ts
+src/test/developContractStrategyAgentContract.test.ts
+src/test/marketplaceListingClaims.test.ts

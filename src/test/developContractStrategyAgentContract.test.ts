@@ -1,28 +1,13 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-const migration = readFileSync(
-  "supabase/migrations/20261220080000_develop_contract_strategy_agent.sql",
-  "utf8",
-);
-const edge = readFileSync(
-  "supabase/functions/develop-contract-strategy-agent/index.ts",
-  "utf8",
-);
+const migration = readFileSync("supabase/migrations/20261220080000_develop_contract_strategy_agent.sql", "utf8");
+const edge = readFileSync("supabase/functions/develop-contract-strategy-agent/index.ts", "utf8");
 const config = readFileSync("supabase/config.toml", "utf8");
 const boundary = readFileSync("config/edge-function-boundary.json", "utf8");
-const panel = readFileSync(
-  "src/components/develop/ContractStrategyAgentPanel.tsx",
-  "utf8",
-);
-const host = readFileSync(
-  "src/components/develop/ProcurementPanels.tsx",
-  "utf8",
-);
-const smoke = readFileSync(
-  "scripts/ci-develop-contract-strategy-agent-smoke.sh",
-  "utf8",
-);
+const panel = readFileSync("src/components/develop/ContractStrategyAgentPanel.tsx", "utf8");
+const host = readFileSync("src/components/develop/ProcurementPanels.tsx", "utf8");
+const smoke = readFileSync("scripts/ci-develop-contract-strategy-agent-smoke.sh", "utf8");
 
 describe("D12.02 contract-strategy agent contract", () => {
   it("uses the canonical recommendation ledger and preserves human award authority", () => {
@@ -30,9 +15,7 @@ describe("D12.02 contract-strategy agent contract", () => {
     expect(migration).toContain("'pending'");
     expect(migration).toContain("'draft_recommendation'");
     expect(migration).toContain("'recommend_contract_strategy'");
-    expect(migration).not.toMatch(
-      /insert into public\.(contracts|contract_awards|purchase_orders)/i,
-    );
+    expect(migration).not.toMatch(/insert into public\.(contracts|contract_awards|purchase_orders)/i);
     expect(migration).not.toMatch(/insert into public\.approvals/i);
     expect(smoke).toContain("no_award=true");
   });
@@ -93,9 +76,7 @@ describe("D12.02 contract-strategy agent contract", () => {
     expect(history).toContain(
       "adopted agent controls are immutable; supersede them with a new version",
     );
-    expect(history).toContain(
-      "if tg_op='UPDATE' and old.status='adopted' then",
-    );
+    expect(history).toContain("if tg_op='UPDATE' and old.status='adopted' then");
     expect(bindings).toContain(
       "if not exists (select 1 from organizations where id = old.organization_id)",
     );

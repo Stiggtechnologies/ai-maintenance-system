@@ -17,13 +17,8 @@ import {
 
 /** Organization metadata only. Never substitutes for a scoped operating read. */
 export async function getSyncContextSourceInventory(): Promise<SyncContextSourceInventory> {
-  const { data, error } = await supabase.rpc(
-    "get_sync_context_source_inventory",
-  );
-  if (error)
-    throw new Error(
-      "Sync Context source inventory is temporarily unavailable.",
-    );
+  const { data, error } = await supabase.rpc("get_sync_context_source_inventory");
+  if (error) throw new Error("Sync Context source inventory is temporarily unavailable.");
   checked(data);
   return parseSyncContextSourceInventory(data);
 }
