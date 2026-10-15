@@ -410,7 +410,7 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
       reupload: "skips",
       reuploadSentence: "A re-upload is counted as DUPLICATE and skipped.",
       prerequisite:
-        "The sensors must already exist. This product has no screen that creates one, so a tenant whose sensors have not been provisioned will see every row refused with “unknown sensor”. Check the sensor list before uploading.",
+        "The sensors must already exist. Register the measurement point in Reliability → Condition Monitoring → Sensor registry before uploading; unknown or decommissioned sensors are refused.",
       caution:
         "A reading dated more than an hour in the future is refused as a clock or timezone fault at the source. ONLY THE NEWEST READING A SENSOR HAS SPEAKS FOR THE PRESENT: loading history moves that sensor's current value, status and trend to the newest reading in your file, and a breach there raises an alert dated to that reading. Readings older than one the sensor already holds are stored as history and change neither.",
       outcome:
