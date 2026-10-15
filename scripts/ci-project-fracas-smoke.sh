@@ -8,9 +8,14 @@ case "$API_URL" in http://127.0.0.1:*|http://localhost:*) ;; *) echo 'Local test
 psqlc(){ PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "$1"; }
 token(){ curl --fail-with-body -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}" | python3 -c "import json,sys;x=json.load(sys.stdin);assert x.get('access_token');print(x['access_token'])"; }
 rpc(){ curl --fail-with-body -sS "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "authorization: Bearer $1" -H 'content-type: application/json' -d "$3"; }
+# Expected trigger refusals are HTTP 400 responses. Preserve their JSON bodies
+# so the smoke can prove the precise database gate rather than treating a
+# transport failure as an acceptable domain outcome.
+rpc_any(){ curl -sS "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "authorization: Bearer $1" -H 'content-type: application/json' -d "$3"; }
 field(){ printf '%s' "$1" | python3 -c 'import json,sys;x=json.load(sys.stdin);assert "error" not in x,x;print(x[sys.argv[1]])' "$2"; }
 ok(){ printf '%s' "$1" | python3 -c 'import json,sys;x=json.load(sys.stdin);assert "error" not in x,x'; }
 refused(){ printf '%s' "$1" | python3 -c 'import json,sys;x=json.load(sys.stdin);assert x.get("error"),x'; }
+refused_contains(){ printf '%s' "$1" | python3 -c 'import json,sys;x=json.load(sys.stdin);m=str(x.get("error") or x.get("message") or "");assert sys.argv[1].lower() in m.lower(),x' "$2"; }
 # Two authenticated attempts must serialize to one accepted write and one refusal.
 # HTTP/transport failures are test failures, not acceptable domain refusals.
 race_revision(){ API_URL="$API_URL" ANON_KEY="$ANON_KEY" RACE_TOKEN="$1" RACE_RPC="$2" RACE_BODY="$3" python3 - <<'PY'
@@ -34,8 +39,27 @@ PY
 }
 ADMIN=$(token 'admin@syncai.ca' 'Admin123!@#')
 PLANNER=$(token 'planner@syncai.ca' 'Planner123!@#')
+MANAGER=$(token 'manager@syncai.ca' 'Manager123!@#')
 ORG='11111111-1111-1111-1111-111111111111'
 EVIDENCE='98551000-0000-4000-8000-000000000001'
+# A separately identifiable AI operator is allowed to assist but can neither
+# request nor approve a safety-critical procedure alteration.
+psqlc "do \$\$ declare u uuid := '98559999-0000-4000-8000-000000000098'; begin
+ insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,
+   created_at,updated_at,raw_app_meta_data,raw_user_meta_data,confirmation_token,recovery_token,
+   email_change,email_change_token_new,email_change_token_current,phone_change,phone_change_token,reauthentication_token)
+ values('00000000-0000-0000-0000-000000000000',u,'authenticated','authenticated',
+   'fracas-aibot@syncai.ca',extensions.crypt('AiBot123!@#',extensions.gen_salt('bf')),
+   now(),now(),now(),'{\"provider\":\"email\",\"providers\":[\"email\"]}','{}','','','','','','','','')
+ on conflict(id) do nothing;
+ insert into auth.identities(id,user_id,provider_id,identity_data,provider,created_at,updated_at,last_sign_in_at)
+ select gen_random_uuid(),u,u,jsonb_build_object('sub',u::text,'email','fracas-aibot@syncai.ca'),
+   'email',now(),now(),now() where not exists(select 1 from auth.identities where user_id=u);
+ insert into user_profiles(id,organization_id,email,role)
+ values(u,'$ORG','fracas-aibot@syncai.ca','ai_admin')
+ on conflict(id) do update set organization_id=excluded.organization_id,role=excluded.role;
+end \$\$;"
+AIBOT=$(token 'fracas-aibot@syncai.ca' 'AiBot123!@#')
 # Dedicated foreign approver, created only in the explicitly local CI stack.
 psqlc "do \$\$ declare u uuid := '98559999-0000-4000-8000-000000000099'; begin
  insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_confirmed_at,
@@ -144,9 +168,17 @@ QUANT_BODY="${OBS_BODY/\"outcomeKind\":\"qualitative\"/\"outcomeKind\":\"quantit
 QUANT_ID=$(field "$(rpc "$PLANNER" record_standard_work_observation "$QUANT_BODY")" id)
 test "$(psqlc "select count(*) from learning_events where id='$QUANT_ID' and standard_outcome_kind='quantitative' and standard_outcome_value=4.75 and standard_outcome_unit='hours' and verified_value is null")" = 1
 LEARNING_BODY="{\"p_observation_id\":\"$OBS_ID\",\"p_content\":\"Retain witnessed flush acceptance record and clarify inspection sequence\",\"p_change_summary\":\"Clarify inspection sequence from observed execution\",\"p_basis\":\"Execution and outcome evidence reviewed; improvement not yet measured\"}"
-refused "$(rpc "$FOREIGN" request_learning_standard_revision "$LEARNING_BODY")"
-LEARNING_REV=$(field "$(race_revision "$PLANNER" request_learning_standard_revision "$LEARNING_BODY")" revisionId)
+# Safety request refusals: foreign tenant and AI identity.
+refused "$(rpc "$FOREIGN" request_safety_critical_learning_standard_revision "$LEARNING_BODY")"
+refused_contains "$(rpc "$AIBOT" request_safety_critical_learning_standard_revision "$LEARNING_BODY")" 'named same-tenant human'
+LEARNING_RECEIPT=$(race_revision "$PLANNER" request_safety_critical_learning_standard_revision "$LEARNING_BODY")
+LEARNING_REV=$(field "$LEARNING_RECEIPT" revisionId)
+test "$(field "$LEARNING_RECEIPT" safetyCritical)" = True
+test "$(field "$LEARNING_RECEIPT" requiredAuthority)" = admin
 LEARNING_APPROVAL=$(psqlc "select revision_approval_id from standard_work where id=$LEARNING_REV")
+test "$(psqlc "select count(*) from standard_work s join approvals a on a.id=s.revision_approval_id where s.id=$LEARNING_REV and s.safety_critical and s.engineering_change_class='safety_critical_procedure_change' and a.owner_role='admin'")" = 1
+test "$(psqlc "select count(*) from engineering_approval_rules where organization_id='$ORG' and change_class='safety_critical_procedure_change' and required_role='admin' and status='adopted' and register_ref='C5.14'")" = 1
+test "$(psqlc "select count(*) from decision_rights where right_key='alter_safety_procedures' and tier='approval' and enforcement='enforced' and required_authority='admin'")" = 1
 # Generic client writes must not replace the governed decision/capture paths.
 CODE=$(curl -sS -o /dev/null -w '%{http_code}' -X PATCH "$API_URL/rest/v1/approvals?id=eq.$LEARNING_APPROVAL" \
   -H "apikey: $ANON_KEY" -H "authorization: Bearer $ADMIN" -H 'content-type: application/json' \
@@ -158,19 +190,23 @@ CODE=$(curl -sS -o /dev/null -w '%{http_code}' -X PATCH "$API_URL/rest/v1/learni
   -d '{"standard_variation_kind":"varied"}')
 case "$CODE" in 400|403) ;; *) echo "Observation overwrite unexpectedly returned $CODE"; exit 1;; esac
 test "$(psqlc "select standard_variation_kind from learning_events where id='$OBS_ID'")" = conforming
-for OBS_RPC in record_standard_work_observation request_learning_standard_revision decide_learning_standard_revision; do
+for OBS_RPC in record_standard_work_observation request_safety_critical_learning_standard_revision decide_learning_standard_revision; do
   case "$OBS_RPC" in
     record_standard_work_observation) ANON_BODY="$OBS_BODY";;
-    request_learning_standard_revision) ANON_BODY="$LEARNING_BODY";;
+    request_safety_critical_learning_standard_revision) ANON_BODY="$LEARNING_BODY";;
     decide_learning_standard_revision) ANON_BODY="{\"p_revision_id\":$LEARNING_REV,\"p_outcome\":\"approved\",\"p_note\":\"Anonymous attempt\"}";;
   esac
   CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$API_URL/rest/v1/rpc/$OBS_RPC" \
     -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "$ANON_BODY")
   case "$CODE" in 401|403) ;; *) echo "Anonymous $OBS_RPC unexpectedly returned $CODE"; exit 1;; esac
 done
+# The requester cannot decide; a non-designated approver cannot substitute for
+# the adopted rule's authority, even when they hold ordinary approval rights.
 refused "$(rpc "$PLANNER" decide_learning_standard_revision "{\"p_revision_id\":$LEARNING_REV,\"p_outcome\":\"approved\",\"p_note\":\"Requester attempts own adoption\"}")"
 refused "$(rpc "$FOREIGN" decide_learning_standard_revision "{\"p_revision_id\":$LEARNING_REV,\"p_outcome\":\"approved\",\"p_note\":\"Foreign adoption attempt\"}")"
+refused_contains "$(rpc_any "$MANAGER" decide_learning_standard_revision "{\"p_revision_id\":$LEARNING_REV,\"p_outcome\":\"approved\",\"p_note\":\"Non-designated approver attempt\"}")" 'designated safety authority'
 ok "$(race_revision "$ADMIN" decide_learning_standard_revision "{\"p_revision_id\":$LEARNING_REV,\"p_outcome\":\"approved\",\"p_note\":\"Independent human reviewed exact content and source evidence\"}")"
+test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='safety_procedure_decision' and (event_data->>'revisionId')::bigint=$LEARNING_REV and new_state->>'status'='approved'")" = 1
 curl --fail-with-body -sS "$API_URL/rest/v1/learning_events?id=eq.$OBS_ID&select=id" \
   -H "apikey: $ANON_KEY" -H "authorization: Bearer $FOREIGN" \
   | python3 -c 'import json,sys;assert json.load(sys.stdin)==[]'
@@ -188,8 +224,30 @@ LATER_CA=$(field "$(rpc "$PLANNER" start_project_ca_verification "{\"p_lesson_id
 for stage in implementation causal; do
   ok "$(rpc "$PLANNER" attest_project_ca_stage "{\"p_verification_id\":\"$LATER_CA\",\"p_stage\":\"$stage\",\"p_note\":\"Witnessed retrieval check and causal evidence reviewed\",\"p_evidence_id\":\"$EVIDENCE\"}")"
 done
-LATER_REV=$(field "$(rpc "$PLANNER" request_project_standard_revision "{\"p_verification_id\":\"$LATER_CA\",\"p_previous_id\":$LEARNING_REV,\"p_language\":\"en\",\"p_content\":\"Retain witnessed flush acceptance record and verify retrieval during handover\",\"p_change_summary\":\"Add witnessed record retrieval check\",\"p_basis\":\"Separate later failure evidence and causal review\"}")" revisionId)
+LATER_BODY="{\"p_verification_id\":\"$LATER_CA\",\"p_previous_id\":$LEARNING_REV,\"p_language\":\"en\",\"p_content\":\"Retain witnessed flush acceptance record and verify retrieval during handover\",\"p_change_summary\":\"Add witnessed record retrieval check\",\"p_basis\":\"Separate later failure evidence and causal review\"}"
+# A generic door cannot revise a classified safety-critical procedure.
+refused_contains "$(rpc_any "$PLANNER" request_project_standard_revision "$LATER_BODY")" 'generic door cannot revise'
+# The safety door still refuses an AI identity and a foreign tenant.
+refused_contains "$(rpc "$AIBOT" request_safety_critical_project_standard_revision "$LATER_BODY")" 'named same-tenant human'
+refused "$(rpc "$FOREIGN" request_safety_critical_project_standard_revision "$LATER_BODY")"
+LATER_RECEIPT=$(rpc "$PLANNER" request_safety_critical_project_standard_revision "$LATER_BODY")
+LATER_REV=$(field "$LATER_RECEIPT" revisionId)
+test "$(field "$LATER_RECEIPT" safetyCritical)" = True
+test "$(field "$LATER_RECEIPT" requiredAuthority)" = admin
+test "$(psqlc "select count(*) from standard_work where id=$LATER_REV and safety_critical and engineering_change_class='safety_critical_procedure_change'")" = 1
+# Direct classification write and safety classification cannot be downgraded:
+# the monotonic database guard rejects an attempted client-style downgrade and
+# the classified row remains unchanged.
+if DOWNGRADE=$(psqlc "update standard_work set safety_critical=false,engineering_change_class=null where id=$LATER_REV" 2>&1); then
+  echo 'Safety classification downgrade unexpectedly succeeded'
+  exit 1
+fi
+printf '%s' "$DOWNGRADE" | grep -qi 'direct classification write refused'
+test "$(psqlc "select count(*) from standard_work where id=$LATER_REV and safety_critical and engineering_change_class='safety_critical_procedure_change'")" = 1
+# Non-designated approver is refused at the canonical approval trigger.
+refused_contains "$(rpc_any "$MANAGER" decide_project_standard_revision "{\"p_revision_id\":$LATER_REV,\"p_outcome\":\"approved\",\"p_note\":\"Manager attempts safety adoption\"}")" 'designated safety authority'
 ok "$(rpc "$ADMIN" decide_project_standard_revision "{\"p_revision_id\":$LATER_REV,\"p_outcome\":\"approved\",\"p_note\":\"Second human reviewed later failure and exact procedure change\"}")"
-test "$(psqlc "select count(*) from standard_work s join approvals a on a.id=s.revision_approval_id join procedure_translations p on p.standard_work_id=s.id where s.id=$LATER_REV and s.previous_standard_work_id=$LEARNING_REV and s.source_project_ca_id='$LATER_CA' and s.source_learning_observation_id is null and s.version=5 and a.status='approved' and p.translation_status='human_verified' and p.verified_by=a.approver_user_id and p.verified_at=a.decided_at")" = 1
+test "$(psqlc "select count(*) from standard_work s join approvals a on a.id=s.revision_approval_id join procedure_translations p on p.standard_work_id=s.id where s.id=$LATER_REV and s.previous_standard_work_id=$LEARNING_REV and s.source_project_ca_id='$LATER_CA' and s.source_learning_observation_id is null and s.version=5 and s.safety_critical and s.engineering_change_class='safety_critical_procedure_change' and a.status='approved' and a.owner_role='admin' and a.approval_scope->>'safetyCritical'='true' and p.translation_status='human_verified' and p.verified_by=a.approver_user_id and p.verified_at=a.decided_at")" = 1
+test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='safety_procedure_decision' and (event_data->>'revisionId')::bigint=$LATER_REV and new_state->>'status'='approved'")" = 1
 test "$(psqlc "select count(*) from learning_events where id='$OBS_ID' and event_type='standard_work_observation' and standard_variation_kind='conforming' and failure_mode_key is null")" = 1
-echo 'Authenticated CA-to-learning-to-CA lineage passed; original observation remains conforming.'
+echo 'Authenticated safety-critical CA-to-learning-to-CA lineage passed; original observation remains conforming.'

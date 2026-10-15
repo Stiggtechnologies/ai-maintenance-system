@@ -9115,18 +9115,20 @@ export interface ProjectStandardWorkOption {
   title: string;
   version: number;
   basis: string | null;
+  safety_critical: boolean;
+  engineering_change_class: string | null;
   source_project_ca_id: string | null;
   previous_standard_work_id: number | null;
   change_summary: string | null;
   revision_requested_by: string | null;
   revision_approval_id: string | null;
   procedures: { id: number; language_code: string; content: string; translation_status: string; verified_by: string | null; verified_at: string | null }[];
-  approval: { status: string; approver_user_id: string | null; decided_at: string | null } | null;
+  approval: { status: string; owner_role: string; approver_user_id: string | null; decided_at: string | null } | null;
 }
 
 export async function listProjectStandardWork(afterId?: number, exactId?: number, observationId?: string): Promise<ProjectStandardWorkOption[]> {
   let query = supabase.from("standard_work")
-    .select("id, work_key, title, version, basis, source_project_ca_id, previous_standard_work_id, change_summary, revision_requested_by, revision_approval_id, procedures:procedure_translations!procedure_translations_standard_work_id_fkey(id, language_code, content, translation_status, verified_by, verified_at), approval:approvals!standard_work_revision_approval_id_fkey(status, approver_user_id, decided_at)")
+    .select("id, work_key, title, version, basis, safety_critical, engineering_change_class, source_project_ca_id, previous_standard_work_id, change_summary, revision_requested_by, revision_approval_id, procedures:procedure_translations!procedure_translations_standard_work_id_fkey(id, language_code, content, translation_status, verified_by, verified_at), approval:approvals!standard_work_revision_approval_id_fkey(status, owner_role, approver_user_id, decided_at)")
     .order("id", { ascending: true }).limit(100);
   if (afterId !== undefined) query = query.gt("id", afterId);
   if (exactId !== undefined) query = query.eq("id", exactId);
@@ -9152,18 +9154,26 @@ export async function registerStandardWorkBaseline(input: {
 
 export async function requestProjectStandardRevision(input: {
   verificationId: string; previousId: number; language: string;
-  content: string; changeSummary: string; basis: string;
-}): Promise<{ revisionId: number; approvalId: string; status: "draft" }> {
-  const { data, error } = await supabase.rpc("request_project_standard_revision", {
+  content: string; changeSummary: string; basis: string; safetyCritical: boolean;
+}): Promise<{ revisionId: number; approvalId: string; status: "draft"; safetyCritical: boolean; requiredAuthority: string | null }> {
+  const rpcName = input.safetyCritical
+    ? "request_safety_critical_project_standard_revision"
+    : "request_project_standard_revision";
+  const { data, error } = await supabase.rpc(rpcName, {
     p_verification_id: input.verificationId, p_previous_id: input.previousId,
     p_language: input.language, p_content: input.content,
     p_change_summary: input.changeSummary, p_basis: input.basis,
   });
-  const result = unwrapRpc<{ revisionId?: number; approvalId?: string; status?: string }>(data, error, "Could not request standard revision");
-  if (!Number.isSafeInteger(result.revisionId) || !result.approvalId || result.status !== "draft") {
+  const result = unwrapRpc<{ revisionId?: number; approvalId?: string; status?: string; safetyCritical?: boolean; requiredAuthority?: string }>(data, error, "Could not request standard revision");
+  if (!Number.isSafeInteger(result.revisionId) || !result.approvalId || result.status !== "draft"
+      || (input.safetyCritical && (result.safetyCritical !== true || result.requiredAuthority !== "admin"))) {
     throw new Error("Standard revision did not return a draft approval receipt");
   }
-  return { revisionId: result.revisionId!, approvalId: result.approvalId, status: "draft" };
+  return {
+    revisionId: result.revisionId!, approvalId: result.approvalId, status: "draft",
+    safetyCritical: input.safetyCritical,
+    requiredAuthority: input.safetyCritical ? result.requiredAuthority! : null,
+  };
 }
 
 export async function decideProjectStandardRevision(
@@ -9734,29 +9744,48 @@ export async function listStandardWorkObservations(
   return (data ?? []) as StandardWorkObservation[];
 }
 
-export async function getObservedProcedure(procedureId: number): Promise<{ id: number; language_code: string; content: string }> {
+export async function getObservedProcedure(procedureId: number): Promise<{
+  id: number;
+  language_code: string;
+  content: string;
+  standard: { safety_critical: boolean; engineering_change_class: string | null };
+}> {
   const { data, error } = await supabase.from("procedure_translations")
-    .select("id,language_code,content").eq("id", procedureId).single();
+    .select("id,language_code,content,standard:standard_work!procedure_translations_standard_work_id_fkey(safety_critical,engineering_change_class)")
+    .eq("id", procedureId).single();
   if (error) throw error;
   if (!data) throw new Error("Observed procedure unavailable");
-  return data as { id: number; language_code: string; content: string };
+  return data as unknown as {
+    id: number;
+    language_code: string;
+    content: string;
+    standard: { safety_critical: boolean; engineering_change_class: string | null };
+  };
 }
 
 export async function requestLearningStandardRevision(input: {
-  observationId: string; content: string; changeSummary: string; basis: string;
-}): Promise<{ revisionId: number; approvalId: string; status: "draft" }> {
-  const { data, error } = await supabase.rpc("request_learning_standard_revision", {
+  observationId: string; content: string; changeSummary: string; basis: string; safetyCritical: boolean;
+}): Promise<{ revisionId: number; approvalId: string; status: "draft"; safetyCritical: boolean; requiredAuthority: string | null }> {
+  const rpcName = input.safetyCritical
+    ? "request_safety_critical_learning_standard_revision"
+    : "request_learning_standard_revision";
+  const { data, error } = await supabase.rpc(rpcName, {
     p_observation_id: input.observationId, p_content: input.content,
     p_change_summary: input.changeSummary, p_basis: input.basis,
   });
-  const result = unwrapRpc<{ revisionId?: number; approvalId?: string; status?: string }>(
+  const result = unwrapRpc<{ revisionId?: number; approvalId?: string; status?: string; safetyCritical?: boolean; requiredAuthority?: string }>(
     data, error, "Could not request learning revision",
   );
   if (!result || !Number.isSafeInteger(result.revisionId) || result.revisionId! <= 0
-    || typeof result.approvalId !== "string" || !result.approvalId.trim() || result.status !== "draft") {
+    || typeof result.approvalId !== "string" || !result.approvalId.trim() || result.status !== "draft"
+    || (input.safetyCritical && (result.safetyCritical !== true || result.requiredAuthority !== "admin"))) {
     throw new Error("Invalid learning revision receipt; reload before retrying");
   }
-  return { revisionId: result.revisionId!, approvalId: result.approvalId, status: "draft" };
+  return {
+    revisionId: result.revisionId!, approvalId: result.approvalId, status: "draft",
+    safetyCritical: input.safetyCritical,
+    requiredAuthority: input.safetyCritical ? result.requiredAuthority! : null,
+  };
 }
 
 export async function decideLearningStandardRevision(
