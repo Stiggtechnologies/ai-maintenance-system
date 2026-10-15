@@ -8,7 +8,10 @@ import { useEffect, useState } from "react";
 import { Volume2, VolumeX } from "lucide-react";
 import { useFeatureFlag } from "../../hooks/useFeatureFlag";
 import { useSpeechOutput } from "../../hooks/useSpeechOutput";
-import { readMutePreference } from "../../lib/presence/welcome";
+import {
+  readMutePreference,
+  writeMutePreference,
+} from "../../lib/presence/welcome";
 import { stripForSpeech } from "../../../supabase/functions/_shared/sync-tts-core";
 
 function browserVoiceMuted(): boolean {
@@ -19,7 +22,21 @@ function browserVoiceMuted(): boolean {
   }
 }
 
-function NarrationControls({ script }: { script: string }) {
+function persistBrowserMute(muted: boolean) {
+  try {
+    writeMutePreference(window.localStorage, muted);
+  } catch {
+    /* This view still honors the in-memory choice. */
+  }
+}
+
+function NarrationControls({
+  script,
+  onMute,
+}: {
+  script: string;
+  onMute: () => void;
+}) {
   const { speak, stop, speaking } = useSpeechOutput();
   const [enabled, setEnabled] = useState(false);
   const spoken = stripForSpeech(script);
@@ -35,6 +52,7 @@ function NarrationControls({ script }: { script: string }) {
   const mute = () => {
     stop();
     setEnabled(false);
+    onMute();
   };
 
   return (
@@ -76,8 +94,12 @@ function NarrationControls({ script }: { script: string }) {
 
 export function SelfServeNarration({ script }: { script: string }) {
   const voice = useFeatureFlag("sync_voice_output");
-  const [muted] = useState(browserVoiceMuted);
+  const [muted, setMuted] = useState(browserVoiceMuted);
   const allowed = voice.enabled && !voice.loading && !muted;
+  const mute = () => {
+    persistBrowserMute(true);
+    setMuted(true);
+  };
 
   if (!allowed) {
     return (
@@ -109,5 +131,5 @@ export function SelfServeNarration({ script }: { script: string }) {
     );
   }
 
-  return <NarrationControls script={script} />;
+  return <NarrationControls script={script} onMute={mute} />;
 }

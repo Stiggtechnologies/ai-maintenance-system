@@ -1,7 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { readFileSync } from "node:fs";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { PRESENCE_MUTE_STORAGE_KEY } from "../../lib/presence/welcome";
+import {
+  PRESENCE_MUTE_STORAGE_KEY,
+  readMutePreference,
+} from "../../lib/presence/welcome";
 
 const flag = vi.hoisted(() => ({
   enabled: false,
@@ -127,7 +130,48 @@ describe("SelfServeNarration", () => {
     );
 
     fireEvent.click(mute);
-    expect(toggle.getAttribute("aria-pressed")).toBe("false");
+    expect(readMutePreference(window.localStorage)).toBe(true);
+    expect(
+      screen.getByRole("button", { name: "Talk me through it" }),
+    ).toBeDisabled();
+    expect(requestAudio).toHaveBeenCalledTimes(1);
+  });
+
+  it("saves Mute through writeMutePreference and restores it on reload", async () => {
+    flag.enabled = true;
+    const view = render(
+      <SelfServeNarration script="Write the engineering decision in your own words." />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Talk me through it" }));
+    await waitFor(() => expect(requestAudio).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: "Stop narration" }));
+
+    expect(window.localStorage.getItem(PRESENCE_MUTE_STORAGE_KEY)).toBe("1");
+    expect(readMutePreference(window.localStorage)).toBe(true);
+    expect(
+      screen.getByRole("button", { name: "Talk me through it" }),
+    ).toBeDisabled();
+    expect(screen.getByTestId("self-serve-narration")).toHaveAttribute(
+      "data-voice-allowed",
+      "false",
+    );
+
+    view.unmount();
+    probe.mockClear();
+    requestAudio.mockClear();
+    vi.mocked(window.speechSynthesis.speak).mockClear();
+    render(
+      <SelfServeNarration script="Write the engineering decision in your own words." />,
+    );
+    expect(
+      screen.getByRole("button", { name: "Talk me through it" }),
+    ).toBeDisabled();
+    expect(screen.getByTestId("self-serve-narration-off").textContent).toMatch(
+      /muted in this browser/i,
+    );
+    expect(probe).not.toHaveBeenCalled();
+    expect(requestAudio).not.toHaveBeenCalled();
+    expect(window.speechSynthesis.speak).not.toHaveBeenCalled();
   });
 
   it("reuses useSpeechOutput, the voice flag, and sync-tts-core", () => {
@@ -138,6 +182,7 @@ describe("SelfServeNarration", () => {
     expect(src).toContain("useSpeechOutput");
     expect(src).toContain('useFeatureFlag("sync_voice_output")');
     expect(src).toContain("readMutePreference");
+    expect(src).toContain("writeMutePreference");
     expect(src).toContain(
       'from "../../../supabase/functions/_shared/sync-tts-core"',
     );
