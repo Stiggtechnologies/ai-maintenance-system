@@ -3,9 +3,10 @@
  * Arrive → Ask → Save (workspace) → evidence → recommend → decide → verify.
  * Example prompts fill the box only. They are never written to a workspace.
  */
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ArrowRight, Shield } from "lucide-react";
 import { useOptionalAuth } from "../components/AuthProvider";
+import { hasWorkspaceMembership } from "../lib/auth";
 import {
   INVERTED_EXAMPLE_PROMPTS,
   INVERTED_INTENT_CARDS,
@@ -29,12 +30,20 @@ import {
   loadPersistedDecisionCase,
 } from "../services/decisionCaseService";
 import {
+  evaluationAssistantDestination,
   readEvaluationDraftLocation,
   rememberEvaluationDraft,
 } from "../lib/onboarding/evaluation-assistant-handoff";
 import { DecisionCaseSpine } from "./DecisionCaseSpine";
 import { productEntryById } from "../lib/product-entry-paths";
 import { PublicJourneyHeader } from "../components/PublicJourneyHeader";
+import { HelpCenterWidget } from "../components/HelpCenterWidget";
+import { SelfServeProgressChecklist } from "../components/onboarding/SelfServeProgressChecklist";
+import {
+  isReviewableSavedRecommendation,
+  selfServeProgress,
+  suppliedEvidenceCount,
+} from "../lib/onboarding/self-serve-progress";
 import { usePublicJourneyTheme } from "../lib/use-public-journey-theme";
 
 function rememberSavedCase(id: string) {
@@ -51,6 +60,21 @@ export function InvertedOpeningPage() {
   const entry = productEntryById(
     new URLSearchParams(window.location.search).get("entry") ?? "",
   );
+  const [hasWorkspace, setHasWorkspace] = useState(false);
+  useEffect(() => {
+    const userId = auth?.user?.id ?? "";
+    if (!userId) {
+      setHasWorkspace(false);
+      return;
+    }
+    let cancelled = false;
+    void hasWorkspaceMembership(userId).then((value) => {
+      if (!cancelled) setHasWorkspace(value);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [auth?.user?.id]);
   const journeyTheme = usePublicJourneyTheme();
   const [restored] = useState(() =>
     readEvaluationDraftLocation(window.location.search, window.sessionStorage),
@@ -105,6 +129,29 @@ export function InvertedOpeningPage() {
 
   const canSave = ask.trim().length >= 12;
   const exampleText = isExamplePrompt(ask);
+  const savedRevision =
+    caseSaved &&
+    persistedCase != null &&
+    isPersistedDecisionCase(persistedCase.id);
+  const progress = selfServeProgress({
+    signedIn: Boolean(auth?.user),
+    hasWorkspace,
+    accountExists: Boolean(auth?.user),
+    question: spineQuestion || ask,
+    draftOpen: Boolean(spineQuestion) && !savedRevision,
+    caseSaved: savedRevision,
+    exampleOnly: examplePreview || (!spineQuestion && exampleText),
+    savedSuppliedEvidence: savedRevision
+      ? suppliedEvidenceCount(persistedCase?.evidence)
+      : 0,
+    savedRecommendation:
+      savedRevision &&
+      isReviewableSavedRecommendation(persistedCase?.recommendation),
+  });
+  const signupReturn = persistedCase
+    ? evaluationAssistantDestination(persistedCase, window.location.search)
+    : `/get-started${window.location.search}`;
+  const signupHref = `/?view=signup&returnTo=${encodeURIComponent(signupReturn)}`;
 
   const openSpine = (
     question: string,
@@ -219,6 +266,10 @@ export function InvertedOpeningPage() {
     >
       <PublicJourneyHeader />
       <div className="journey-evaluation-body mx-auto flex w-full flex-col gap-6">
+        <SelfServeProgressChecklist
+          progress={progress}
+          signupHref={signupHref}
+        />
         <header className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-300">
             Sync · first decision
@@ -264,19 +315,21 @@ export function InvertedOpeningPage() {
                 placeholder="What engineering decision do you need to make?"
                 className="w-full rounded-2xl border border-white/10 bg-[#0D1520] px-4 py-3 text-sm text-white outline-none ring-teal-400/40 placeholder:text-slate-500 focus:ring-2"
               />
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col gap-2">
                 {INVERTED_EXAMPLE_PROMPTS.map((ex) => (
                   <button
                     key={ex.id}
                     type="button"
                     data-testid={`inverted-example-${ex.id}`}
-                    className="rounded-full border border-white/15 px-3 py-1.5 text-xs text-slate-200 hover:border-teal-400/40"
+                    className="rounded-2xl border border-white/15 px-3 py-2 text-left text-xs leading-relaxed text-slate-200 hover:border-teal-400/40"
                     onClick={() => setAsk(ex.prompt)}
                   >
                     <span className="mr-1 font-semibold text-slate-500">
                       {ex.label}:
                     </span>
-                    {ex.prompt.slice(0, 42)}…
+                    <span data-testid={`inverted-example-text-${ex.id}`}>
+                      {ex.prompt}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -444,6 +497,7 @@ export function InvertedOpeningPage() {
           </p>
         )}
       </div>
+      <HelpCenterWidget />
     </main>
   );
 }
