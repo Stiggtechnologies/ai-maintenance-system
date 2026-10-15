@@ -27,8 +27,8 @@ export function SelfServeProgressChecklist({
             Your path to a first Decision Case
           </h2>
           <p className="mt-1 text-xs leading-relaxed text-slate-400">
-            Sign up, open the case, then attach one piece of evidence for a
-            recommendation you can review. You can do each step yourself.
+            A browser draft is not done. The Decision Case and first value count
+            only after they are saved on the workspace.
           </p>
         </div>
         <SelfServeNarration script={progress.narration} />
@@ -61,7 +61,7 @@ export function SelfServeProgressChecklist({
             >
               {step.status === "done" ? step.doneDetail : step.empty}
             </p>
-            {step.id === "signup" && step.status !== "done" ? (
+            {step.id === "signup" && progress.offerWorkspace ? (
               <a
                 className="mt-2 inline-flex text-xs font-semibold text-teal-300"
                 href={signupHref}

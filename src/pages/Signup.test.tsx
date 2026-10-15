@@ -1,8 +1,18 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { readFileSync } from "node:fs";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { SIGNUP_INDUSTRY_OPTIONS } from "../lib/industry-catalog";
 import { Signup } from "./Signup";
+
+const authHolder = vi.hoisted(() => ({
+  user: null as { id: string } | null,
+}));
+
+const membership = vi.hoisted(() => ({
+  hasWorkspace: false,
+}));
+
+const signUpMock = vi.hoisted(() => vi.fn());
 
 vi.mock("../components/visual/OperationsLattice", () => ({
   OperationsLattice: () => null,
@@ -18,7 +28,41 @@ vi.mock("../hooks/useSpeechOutput", () => ({
   }),
 }));
 
+vi.mock("../hooks/useFeatureFlag", () => ({
+  useFeatureFlag: () => ({
+    enabled: false,
+    loading: false,
+    error: null,
+    refetch: () => undefined,
+  }),
+}));
+
+vi.mock("../components/AuthProvider", () => ({
+  useOptionalAuth: () => ({
+    user: authHolder.user,
+    profile: null,
+    session: null,
+    loading: false,
+  }),
+}));
+
+vi.mock("../lib/auth", async () => {
+  const actual =
+    await vi.importActual<typeof import("../lib/auth")>("../lib/auth");
+  return {
+    ...actual,
+    signUp: (...args: unknown[]) => signUpMock(...args),
+    hasWorkspaceMembership: vi.fn(async () => membership.hasWorkspace),
+  };
+});
+
 describe("Signup industry selection", () => {
+  beforeEach(() => {
+    authHolder.user = null;
+    membership.hasWorkspace = false;
+    signUpMock.mockReset();
+  });
+
   it("uses the canonical catalog and captures a custom industry name", () => {
     render(<Signup onSuccess={vi.fn()} onTabChange={vi.fn()} />);
 
@@ -38,6 +82,75 @@ describe("Signup industry selection", () => {
 
     fireEvent.change(industry, { target: { value: "custom" } });
     expect(screen.getByLabelText("Industry name")).toBeRequired();
+    expect(
+      screen.getByRole("link", { name: "Create a workspace" }),
+    ).toBeInTheDocument();
+  });
+
+  it("does not offer Create a workspace to an account that already exists", async () => {
+    authHolder.user = { id: "user-1" };
+    membership.hasWorkspace = true;
+    render(<Signup onSuccess={vi.fn()} onTabChange={vi.fn()} />);
+
+    expect(
+      screen.queryByRole("link", { name: "Create a workspace" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("link", { name: "Create your evaluation workspace" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("heading", {
+        name: "Create a private evaluation workspace",
+      }),
+    ).toBeNull();
+    expect(
+      screen.getByRole("heading", { name: "You already have an account" }),
+    ).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Your workspace is already available/i),
+    ).toBeInTheDocument();
+  });
+
+  it("does not offer Create a workspace after signup confirmation", async () => {
+    signUpMock.mockResolvedValue({
+      success: true,
+      requiresConfirmation: true,
+    });
+    render(<Signup onSuccess={vi.fn()} onTabChange={vi.fn()} />);
+    fireEvent.change(screen.getByLabelText("Full Name"), {
+      target: { value: "Ada Lovelace" },
+    });
+    fireEvent.change(screen.getByLabelText("Company"), {
+      target: { value: "Analytical Engines" },
+    });
+    fireEvent.change(screen.getByLabelText("Role"), {
+      target: { value: "reliability" },
+    });
+    fireEvent.change(screen.getByLabelText("Industry"), {
+      target: { value: SIGNUP_INDUSTRY_OPTIONS[0].value },
+    });
+    fireEvent.change(screen.getByLabelText("Work Email"), {
+      target: { value: "ada@example.com" },
+    });
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "long-enough-password" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Continue Reliability Engineer" }),
+    );
+
+    expect(
+      await screen.findByRole("heading", { name: "Verify your work email" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("link", { name: "Create a workspace" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("link", { name: "Create your evaluation workspace" }),
+    ).toBeNull();
+    expect(
+      screen.getAllByText(/will not create another workspace/i).length,
+    ).toBeGreaterThan(0);
   });
 
   it("sends eval signup through /start, not Mission Control", () => {

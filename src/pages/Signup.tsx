@@ -1,16 +1,14 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { AuthShell } from "../components/AuthShell";
 import { AuthTabs } from "../components/AuthTabs";
+import { useOptionalAuth } from "../components/AuthProvider";
 import { SelfServeProgressChecklist } from "../components/onboarding/SelfServeProgressChecklist";
 import { PasswordField } from "../components/PasswordField";
 import { safeAuthReturnTo } from "../lib/auth-return";
 import { readDecisionCaseHandoff } from "../lib/decision-case";
 import { isExamplePrompt } from "../lib/onboarding/inverted-opening";
-import {
-  selfServeProgress,
-  suppliedEvidenceCount,
-} from "../lib/onboarding/self-serve-progress";
-import { signUp } from "../lib/auth";
+import { selfServeProgress } from "../lib/onboarding/self-serve-progress";
+import { hasWorkspaceMembership, signUp } from "../lib/auth";
 import {
   SIGNUP_INDUSTRY_OPTIONS,
   toStoredIndustryCode,
@@ -25,6 +23,7 @@ interface SignupProps {
 }
 
 export function Signup({ onSuccess, onTabChange }: SignupProps) {
+  const auth = useOptionalAuth();
   const [formData, setFormData] = useState({
     fullName: "",
     company: "",
@@ -37,18 +36,38 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [confirmationEmail, setConfirmationEmail] = useState("");
-  const [progress] = useState(() => {
-    const handoff = readDecisionCaseHandoff(window.sessionStorage);
-    const draft = handoff?.decisionCase;
-    const example = draft ? isExamplePrompt(draft.objective) : false;
-    return selfServeProgress({
-      signedIn: false,
-      question: draft?.objective ?? "",
-      caseOpen: Boolean(draft) && !example,
-      exampleOnly: example,
-      suppliedEvidence: suppliedEvidenceCount(draft?.evidence),
-      emphasizeSignup: true,
+  const [hasWorkspace, setHasWorkspace] = useState(false);
+  const [handoff] = useState(() =>
+    readDecisionCaseHandoff(window.sessionStorage),
+  );
+  useEffect(() => {
+    const userId = auth?.user?.id ?? "";
+    if (!userId) {
+      setHasWorkspace(false);
+      return;
+    }
+    let cancelled = false;
+    void hasWorkspaceMembership(userId).then((value) => {
+      if (!cancelled) setHasWorkspace(value);
     });
+    return () => {
+      cancelled = true;
+    };
+  }, [auth?.user?.id]);
+  const draft = handoff?.decisionCase;
+  const example = draft ? isExamplePrompt(draft.objective) : false;
+  const accountExists = Boolean(auth?.user) || confirmationEmail.length > 0;
+  const progress = selfServeProgress({
+    signedIn: Boolean(auth?.user),
+    hasWorkspace,
+    accountExists,
+    question: draft?.objective ?? "",
+    draftOpen: Boolean(draft) && !example,
+    caseSaved: false,
+    exampleOnly: example,
+    savedSuppliedEvidence: 0,
+    savedRecommendation: false,
+    emphasizeSignup: !accountExists,
   });
   const signupHref = `/?view=signup&returnTo=${encodeURIComponent(
     safeAuthReturnTo(
@@ -109,9 +128,9 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
     window.location.assign(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
   };
 
-  if (confirmationEmail) {
+  if (confirmationEmail || auth?.user) {
     return (
-      <AuthShell>
+      <AuthShell offerWorkspace={false}>
         <div className="mb-6">
           <SelfServeProgressChecklist
             progress={progress}
@@ -120,16 +139,28 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
         </div>
         <div className="bg-industrial-slate rounded-xl p-8 border border-industrial-border">
           <h1 className="text-2xl font-semibold text-industrial-text">
-            Verify your work email
+            {confirmationEmail
+              ? "Verify your work email"
+              : "You already have an account"}
           </h1>
-          <p className="mt-3 text-sm leading-6 text-industrial-muted">
-            We sent a confirmation link to{" "}
-            <strong className="text-industrial-text">
-              {confirmationEmail}
-            </strong>
-            . Keep this tab open while you verify so the Reliability Engineer
-            case you started remains staged for handoff.
-          </p>
+          {confirmationEmail ? null : (
+            <p className="mt-3 text-sm leading-6 text-industrial-muted">
+              {hasWorkspace
+                ? "Your workspace is already available. This screen will not create another one."
+                : "This account is already signed up. This screen will not create another workspace."}
+            </p>
+          )}
+          {confirmationEmail ? (
+            <p className="mt-3 text-sm leading-6 text-industrial-muted">
+              We sent a confirmation link to{" "}
+              <strong className="text-industrial-text">
+                {confirmationEmail}
+              </strong>
+              . Keep this tab open while you verify so the Reliability Engineer
+              case you started remains staged for handoff. This screen will not
+              create another workspace.
+            </p>
+          ) : null}
           <button
             onClick={() => onTabChange("signin")}
             className="mt-6 w-full rounded-lg bg-[#3A8DFF] px-4 py-3 font-medium text-white"

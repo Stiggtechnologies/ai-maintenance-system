@@ -1,6 +1,9 @@
 /**
  * Self-serve path from sign-up through a first Decision Case to first value.
  * Derived from the ask-first spine. It does not create a second case store.
+ *
+ * "Decision Case open" and "first value" are done only from a persisted
+ * server receipt. A browser draft is not done.
  */
 import { isExamplePrompt } from "./inverted-opening";
 
@@ -24,10 +27,20 @@ export type SelfServeStep = {
 
 export type SelfServeProgressInput = {
   signedIn: boolean;
+  /** Canonical workspace membership. The signup step is done only from this. */
+  hasWorkspace: boolean;
+  /** A session exists, or signup already created the account. */
+  accountExists: boolean;
   question: string;
-  caseOpen: boolean;
+  /** The spine is showing a case with no server receipt for this revision. */
+  draftOpen: boolean;
+  /** Server receipt for the current Decision Case revision. */
+  caseSaved: boolean;
   exampleOnly: boolean;
-  suppliedEvidence: number;
+  /** Supplied evidence on the saved revision only. */
+  savedSuppliedEvidence: number;
+  /** Reviewable recommendation text on the saved revision. */
+  savedRecommendation: boolean;
   /** Signup screen spotlights the workspace step without erasing later progress. */
   emphasizeSignup?: boolean;
 };
@@ -35,6 +48,8 @@ export type SelfServeProgressInput = {
 export type SelfServeProgress = {
   steps: readonly SelfServeStep[];
   narration: string;
+  /** False once an account or workspace already exists. */
+  offerWorkspace: boolean;
 };
 
 export function suppliedEvidenceCount(
@@ -45,19 +60,31 @@ export function suppliedEvidenceCount(
   ).length;
 }
 
+/** Placeholder spine copy is the case structure, not a saved recommendation. */
+const NOT_A_SAVED_RECOMMENDATION = /no asset-specific recommendation/i;
+
+export function isReviewableSavedRecommendation(
+  text: string | null | undefined,
+): boolean {
+  const value = text?.trim() ?? "";
+  if (value.length < SELF_SERVE_QUESTION_MIN) return false;
+  return !NOT_A_SAVED_RECOMMENDATION.test(value);
+}
+
 const SIGNUP_NARRATION =
   "Create an evaluation workspace when you want to keep the Decision Case. You can ask a question first. Sync recommends. You authorize. Nothing here runs the plant.";
 
 const QUESTION_NARRATION =
   "Write the engineering decision in your own words. Example buttons show the full question and only fill the box. An example is not saved as your case.";
 
-const CASE_NARRATION =
-  "Your Decision Case is open. Add one file, paste, or manual note. Sync will not invent readings or approve the change.";
+const DRAFT_CASE_NARRATION =
+  "This Decision Case is only in the browser. It is not saved, so it is not done. Save it on an evaluation workspace before it counts. Sync will not invent readings or approve the change.";
 
 const VALUE_NARRATION =
-  "You attached evidence. Read the recommendation against that evidence. It is not an approval. Record your own decision and how you will check the outcome.";
+  "First value counts only after a saved recommendation or saved evidence is on the Decision Case. A note still in this browser does not count. A recommendation is not an approval.";
 
-const COMPLETE_NARRATION = VALUE_NARRATION;
+const COMPLETE_NARRATION =
+  "A saved recommendation or saved evidence is on this Decision Case. Read it against that evidence. It is not an approval. Record your own decision and how you will check the outcome.";
 
 export function selfServeProgress(
   input: SelfServeProgressInput,
@@ -66,14 +93,19 @@ export function selfServeProgress(
   const example =
     input.exampleOnly ||
     (questionText.length > 0 && isExamplePrompt(questionText));
-  const questionDone =
+  const questionWritten =
     questionText.length >= SELF_SERVE_QUESTION_MIN && !example;
-  const caseDone = questionDone && input.caseOpen && !input.exampleOnly;
-  const valueDone = caseDone && input.suppliedEvidence > 0;
-  const signupDone = input.signedIn;
+  const caseSaved = input.caseSaved && questionWritten && !input.exampleOnly;
+  const questionDone = caseSaved;
+  const caseDone = caseSaved;
+  const valueDone =
+    caseDone && (input.savedSuppliedEvidence > 0 || input.savedRecommendation);
+  const signupDone = input.hasWorkspace;
   const signupNow = Boolean(input.emphasizeSignup) && !signupDone;
+  const offerWorkspace =
+    !input.signedIn && !input.hasWorkspace && !input.accountExists;
 
-  const productNow: SelfServeStepId | null = !questionDone
+  const productNow: SelfServeStepId | null = !questionWritten
     ? "question"
     : !caseDone
       ? "decision_case"
@@ -93,17 +125,35 @@ export function selfServeProgress(
 
   const questionEmpty = example
     ? "This is still only an example question. Nothing of yours is saved. Rewrite it in your own words to open a Decision Case."
-    : "No question yet. Write the engineering decision in the Ask box. Example buttons show the full question and only fill the box.";
+    : questionWritten
+      ? "This question is only in this browser. It is not a saved Decision Case."
+      : "No question yet. Write the engineering decision in the Ask box. Example buttons show the full question and only fill the box.";
+
+  const caseEmpty = input.draftOpen
+    ? "This Decision Case is only a browser draft. It is not saved, so it is not done."
+    : questionWritten && !caseSaved
+      ? "No Decision Case is saved yet. Continue with your question, then save it on a workspace. A browser draft is not done."
+      : "No Decision Case is open yet. Continue with your own question to open one. An example question is not your case and is not saved.";
+
+  const valueEmpty = input.draftOpen
+    ? "No saved first value yet. A note still only in this browser does not count. A recommendation is not an approval."
+    : caseSaved
+      ? "No saved first value yet. Save a recommendation or one piece of evidence on this Decision Case. A browser draft does not count, and a recommendation is not an approval."
+      : "No first value yet. Save the Decision Case, then save one file, paste, or manual note. A browser draft does not count. Sync will not invent readings, and a recommendation is not an approval.";
+
+  const signupEmpty =
+    input.accountExists || input.signedIn
+      ? "This account already exists. This screen will not create another workspace. A Decision Case counts only after it is saved on the workspace you have."
+      : "No evaluation workspace yet. You can ask first. Create a workspace when you want to keep the Decision Case. You do not need to talk to anyone to do this.";
 
   const steps: readonly SelfServeStep[] = [
     {
       id: "signup",
       title: "Create a workspace",
       status: statusFor("signup", signupDone),
-      empty:
-        "No evaluation workspace yet. You can ask first. Create a workspace when you want to keep the Decision Case. You do not need to talk to anyone to do this.",
+      empty: signupEmpty,
       doneDetail:
-        "You are signed in. This evaluation workspace can keep the Decision Case.",
+        "Your evaluation workspace is saved on this account. This screen will not create another one.",
       narration: SIGNUP_NARRATION,
     },
     {
@@ -111,28 +161,26 @@ export function selfServeProgress(
       title: "Ask your question",
       status: statusFor("question", questionDone),
       empty: questionEmpty,
-      doneDetail: "Your question is ready. It is not an example preview.",
+      doneDetail: "Your question is saved on the Decision Case.",
       narration: QUESTION_NARRATION,
     },
     {
       id: "decision_case",
       title: "Open your first Decision Case",
       status: statusFor("decision_case", caseDone),
-      empty:
-        "No Decision Case is open yet. Continue with your own question to open one. An example question is not your case and is not saved.",
+      empty: caseEmpty,
       doneDetail:
-        "Your Decision Case is open. Evidence, the recommendation, and your decision stay on this case.",
-      narration: CASE_NARRATION,
+        "This Decision Case is saved on the evaluation workspace. A browser draft does not count.",
+      narration: DRAFT_CASE_NARRATION,
     },
     {
       id: "first_value",
       title: "See first value",
       status: statusFor("first_value", valueDone),
-      empty:
-        "No first value yet. Add one file, paste, or manual note on the Decision Case. Until then the page only shows the case structure. Sync will not invent readings, and a recommendation is not an approval.",
+      empty: valueEmpty,
       doneDetail:
-        "You attached evidence. Review the recommendation against it. It is not an approval and it does not run the plant.",
-      narration: VALUE_NARRATION,
+        "A saved recommendation or saved evidence is on this Decision Case. Review it. It is not an approval and it does not run the plant.",
+      narration: valueDone ? COMPLETE_NARRATION : VALUE_NARRATION,
     },
   ];
 
@@ -141,5 +189,5 @@ export function selfServeProgress(
     : (steps.find((step) => step.status === "now")?.narration ??
       COMPLETE_NARRATION);
 
-  return { steps, narration };
+  return { steps, narration, offerWorkspace };
 }

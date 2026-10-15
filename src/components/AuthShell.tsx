@@ -7,6 +7,8 @@ import { BrandWordmark } from "./BrandWordmark";
 
 interface AuthShellProps {
   children: ReactNode;
+  /** False hides "Create a workspace" after this account already exists. */
+  offerWorkspace?: boolean;
   journey?: {
     caseNumber: string;
     asset: string;
@@ -27,11 +29,15 @@ const PROOF = [
   { icon: ShieldCheck, label: "Value proof", value: "verification required" },
 ];
 
-export function AuthShell({ children, journey }: AuthShellProps) {
+export function AuthShell({
+  children,
+  journey,
+  offerWorkspace,
+}: AuthShellProps) {
   const { theme } = usePublicJourneyTheme();
   return (
     <div className="public-journey" data-theme={theme}>
-      <PublicJourneyHeader />
+      <PublicJourneyHeader offerWorkspace={offerWorkspace} />
       <main className="journey-auth-layout">
         <section className="journey-auth-story">
           <p className="journey-eyebrow">Governed engineering intelligence</p>

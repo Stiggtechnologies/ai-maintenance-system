@@ -3,9 +3,10 @@
  * Arrive → Ask → Save (workspace) → evidence → recommend → decide → verify.
  * Example prompts fill the box only. They are never written to a workspace.
  */
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ArrowRight, Shield } from "lucide-react";
 import { useOptionalAuth } from "../components/AuthProvider";
+import { hasWorkspaceMembership } from "../lib/auth";
 import {
   INVERTED_EXAMPLE_PROMPTS,
   INVERTED_INTENT_CARDS,
@@ -29,6 +30,7 @@ import {
   loadPersistedDecisionCase,
 } from "../services/decisionCaseService";
 import {
+  evaluationAssistantDestination,
   readEvaluationDraftLocation,
   rememberEvaluationDraft,
 } from "../lib/onboarding/evaluation-assistant-handoff";
@@ -36,8 +38,8 @@ import { DecisionCaseSpine } from "./DecisionCaseSpine";
 import { PublicJourneyHeader } from "../components/PublicJourneyHeader";
 import { HelpCenterWidget } from "../components/HelpCenterWidget";
 import { SelfServeProgressChecklist } from "../components/onboarding/SelfServeProgressChecklist";
-import { evaluationAssistantDestination } from "../lib/onboarding/evaluation-assistant-handoff";
 import {
+  isReviewableSavedRecommendation,
   selfServeProgress,
   suppliedEvidenceCount,
 } from "../lib/onboarding/self-serve-progress";
@@ -54,6 +56,21 @@ function rememberSavedCase(id: string) {
 
 export function InvertedOpeningPage() {
   const auth = useOptionalAuth();
+  const [hasWorkspace, setHasWorkspace] = useState(false);
+  useEffect(() => {
+    const userId = auth?.user?.id ?? "";
+    if (!userId) {
+      setHasWorkspace(false);
+      return;
+    }
+    let cancelled = false;
+    void hasWorkspaceMembership(userId).then((value) => {
+      if (!cancelled) setHasWorkspace(value);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [auth?.user?.id]);
   const journeyTheme = usePublicJourneyTheme();
   const [restored] = useState(() =>
     readEvaluationDraftLocation(window.location.search, window.sessionStorage),
@@ -108,12 +125,24 @@ export function InvertedOpeningPage() {
 
   const canSave = ask.trim().length >= 12;
   const exampleText = isExamplePrompt(ask);
+  const savedRevision =
+    caseSaved &&
+    persistedCase != null &&
+    isPersistedDecisionCase(persistedCase.id);
   const progress = selfServeProgress({
     signedIn: Boolean(auth?.user),
+    hasWorkspace,
+    accountExists: Boolean(auth?.user),
     question: spineQuestion || ask,
-    caseOpen: Boolean(spineQuestion),
+    draftOpen: Boolean(spineQuestion) && !savedRevision,
+    caseSaved: savedRevision,
     exampleOnly: examplePreview || (!spineQuestion && exampleText),
-    suppliedEvidence: suppliedEvidenceCount(persistedCase?.evidence),
+    savedSuppliedEvidence: savedRevision
+      ? suppliedEvidenceCount(persistedCase?.evidence)
+      : 0,
+    savedRecommendation:
+      savedRevision &&
+      isReviewableSavedRecommendation(persistedCase?.recommendation),
   });
   const signupReturn = persistedCase
     ? evaluationAssistantDestination(persistedCase, window.location.search)

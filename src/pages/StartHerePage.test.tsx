@@ -25,6 +25,15 @@ vi.mock("../hooks/useSpeechOutput", () => ({
   }),
 }));
 
+vi.mock("../hooks/useFeatureFlag", () => ({
+  useFeatureFlag: () => ({
+    enabled: false,
+    loading: false,
+    error: null,
+    refetch: () => undefined,
+  }),
+}));
+
 function renderPage() {
   return render(
     <MemoryRouter>

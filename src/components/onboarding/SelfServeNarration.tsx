@@ -1,14 +1,25 @@
 /**
  * Optional step narration for the self-serve Get started path.
- * Off until the visitor turns it on. Mute stops cloud or browser speech.
- * Reuses useSpeechOutput (sync-tts when signed in) and stripForSpeech.
+ * Off until the visitor turns it on, and only when tenant Voice output is
+ * enabled and this browser is not muted. Otherwise the speech hook is not
+ * mounted, so no cloud TTS request is made.
  */
 import { useEffect, useState } from "react";
 import { Volume2, VolumeX } from "lucide-react";
+import { useFeatureFlag } from "../../hooks/useFeatureFlag";
 import { useSpeechOutput } from "../../hooks/useSpeechOutput";
+import { readMutePreference } from "../../lib/presence/welcome";
 import { stripForSpeech } from "../../../supabase/functions/_shared/sync-tts-core";
 
-export function SelfServeNarration({ script }: { script: string }) {
+function browserVoiceMuted(): boolean {
+  try {
+    return readMutePreference(window.localStorage);
+  } catch {
+    return true;
+  }
+}
+
+function NarrationControls({ script }: { script: string }) {
   const { speak, stop, speaking } = useSpeechOutput();
   const [enabled, setEnabled] = useState(false);
   const spoken = stripForSpeech(script);
@@ -30,6 +41,7 @@ export function SelfServeNarration({ script }: { script: string }) {
     <div
       className="flex flex-wrap items-center gap-2"
       data-testid="self-serve-narration"
+      data-voice-allowed="true"
     >
       <button
         type="button"
@@ -60,4 +72,42 @@ export function SelfServeNarration({ script }: { script: string }) {
       </button>
     </div>
   );
+}
+
+export function SelfServeNarration({ script }: { script: string }) {
+  const voice = useFeatureFlag("sync_voice_output");
+  const [muted] = useState(browserVoiceMuted);
+  const allowed = voice.enabled && !voice.loading && !muted;
+
+  if (!allowed) {
+    return (
+      <div
+        className="max-w-xs"
+        data-testid="self-serve-narration"
+        data-voice-allowed="false"
+      >
+        <button
+          type="button"
+          disabled
+          aria-pressed="false"
+          aria-describedby="self-serve-narration-off"
+          data-testid="self-serve-narration-toggle"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-slate-100 disabled:opacity-40"
+        >
+          <Volume2 className="h-3.5 w-3.5" aria-hidden />
+          Talk me through it
+        </button>
+        <p
+          id="self-serve-narration-off"
+          data-testid="self-serve-narration-off"
+          className="mt-1 text-xs leading-relaxed text-slate-400"
+        >
+          Spoken walkthrough is off. Voice output is disabled for this workspace
+          or muted in this browser, so no speech request is made.
+        </p>
+      </div>
+    );
+  }
+
+  return <NarrationControls script={script} />;
 }
