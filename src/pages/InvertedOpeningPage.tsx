@@ -3,7 +3,7 @@
  * Arrive → Ask → Save (workspace) → evidence → recommend → decide → verify.
  * Example prompts fill the box only. They are never written to a workspace.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowRight, Shield } from "lucide-react";
 import { useOptionalAuth } from "../components/AuthProvider";
 import {
@@ -23,7 +23,9 @@ import type { DecisionCase } from "../lib/decision-case";
 import {
   createPersistedDecisionCase,
   isPersistedDecisionCase,
+  listRecentPersistedDecisionCases,
   loadPersistedDecisionCase,
+  type RecentDecisionCase,
 } from "../services/decisionCaseService";
 import { DecisionCaseSpine } from "./DecisionCaseSpine";
 
@@ -49,6 +51,28 @@ export function InvertedOpeningPage() {
   const [persistError, setPersistError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [resumeError, setResumeError] = useState<string | null>(null);
+  const [resumeCandidate, setResumeCandidate] =
+    useState<RecentDecisionCase | null>(null);
+
+  useEffect(() => {
+    if (!auth?.user) {
+      setResumeCandidate(null);
+      return;
+    }
+    let active = true;
+    void listRecentPersistedDecisionCases(1)
+      .then((rows) => {
+        if (active) setResumeCandidate(rows[0] ?? null);
+      })
+      .catch(() => {
+        // Resume remains available through the browser pointer. Discovery is
+        // an enhancement and must not turn a transient list error into a dead
+        // end on the first-decision page.
+      });
+    return () => {
+      active = false;
+    };
+  }, [auth?.user]);
 
   const canSave = ask.trim().length >= 12;
   const exampleText = isExamplePrompt(ask);
@@ -90,6 +114,11 @@ export function InvertedOpeningPage() {
     try {
       const persisted = await createPersistedDecisionCase(draft, {});
       rememberSavedCase(persisted.id);
+      setResumeCandidate({
+        id: persisted.id,
+        decisionCase: persisted,
+        updatedAt: persisted.updatedAt,
+      });
       openSpine(question, false, persisted, null);
     } catch (caught) {
       openSpine(
@@ -112,17 +141,22 @@ export function InvertedOpeningPage() {
     } catch {
       id = "";
     }
-    if (!isPersistedDecisionCase(id)) {
-      setResumeError("No saved Decision Case is recorded in this browser.");
-      return;
-    }
     setBusy(true);
     try {
-      const loaded = await loadPersistedDecisionCase(id);
+      const loaded = isPersistedDecisionCase(id)
+        ? await loadPersistedDecisionCase(id)
+        : (resumeCandidate?.decisionCase ??
+          (await listRecentPersistedDecisionCases(1))[0]?.decisionCase ??
+          null);
       if (!loaded || isExamplePrompt(loaded.objective)) {
-        setResumeError("That saved case could not be loaded.");
+        setResumeError(
+          auth?.user
+            ? "No tenant-scoped Decision Case is available to resume."
+            : "No saved Decision Case is recorded in this browser.",
+        );
         return;
       }
+      rememberSavedCase(loaded.id);
       setIntent(
         loaded.intakeRole === "coordinate" || loaded.intakeRole === "connect"
           ? loaded.intakeRole
@@ -291,8 +325,24 @@ export function InvertedOpeningPage() {
               className="text-xs font-semibold text-teal-300"
               onClick={() => void resumeSaved()}
             >
-              Resume a saved Decision Case
+              {resumeCandidate
+                ? `Resume ${resumeCandidate.decisionCase.caseNumber}`
+                : "Resume a saved Decision Case"}
             </button>
+            {resumeCandidate ? (
+              <div
+                data-testid="inverted-resume-candidate"
+                className="rounded-xl border border-white/10 bg-[#0D1520] px-3 py-2 text-xs text-slate-400"
+              >
+                <p className="font-semibold text-slate-200">
+                  {resumeCandidate.decisionCase.title}
+                </p>
+                <p className="mt-1">
+                  Saved on this tenant workspace · updated{" "}
+                  {new Date(resumeCandidate.updatedAt).toLocaleString()}
+                </p>
+              </div>
+            ) : null}
             {resumeError ? (
               <p role="alert" className="text-xs text-red-300">
                 {resumeError}
