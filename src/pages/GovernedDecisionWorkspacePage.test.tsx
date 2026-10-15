@@ -56,9 +56,7 @@ describe("GovernedDecisionWorkspacePage drafts", () => {
     fireEvent.change(screen.getByLabelText("Import target development case"), {
       target: { value: "case-1" },
     });
-    fireEvent.click(
-      screen.getByRole("button", { name: "Import" }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Import" }));
     await waitFor(() => expect(createCaseDecision).toHaveBeenCalled());
     expect(removeStoredDecisionDraft).not.toHaveBeenCalled();
     expect(screen.getByTestId("browser-draft-banner")).toHaveTextContent(

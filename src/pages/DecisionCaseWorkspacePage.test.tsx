@@ -504,6 +504,47 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
     ).toBeNull();
   });
 
+  it("keeps marketplace attribution on the entry and question events", async () => {
+    renderWorkspace(
+      "/capabilities/troubleshoot?entry=downtime-reduction&source=microsoft-marketplace&campaign=downtime-test&variant=evidence-led",
+    );
+
+    const events = () =>
+      (window as Window & { dataLayer?: Array<Record<string, unknown>> })
+        .dataLayer ?? [];
+
+    await waitFor(() =>
+      expect(events()).toContainEqual(
+        expect.objectContaining({
+          event: "public_entry_viewed",
+          intent: "troubleshoot",
+          entry: "downtime-reduction",
+          source: "microsoft-marketplace",
+          campaign: "downtime-test",
+          variant: "evidence-led",
+        }),
+      ),
+    );
+
+    fireEvent.change(screen.getByPlaceholderText(ASK_PLACEHOLDER), {
+      target: { value: "Why does this asset keep stopping?" },
+    });
+    fireEvent.click(screen.getByTitle("Send message"));
+
+    await waitFor(() =>
+      expect(events()).toContainEqual(
+        expect.objectContaining({
+          event: "public_question_submitted",
+          intent: "troubleshoot",
+          entry: "downtime-reduction",
+          source: "microsoft-marketplace",
+          campaign: "downtime-test",
+          variant: "evidence-led",
+        }),
+      ),
+    );
+  });
+
   it("deep-links a mining conversation only after a pill", () => {
     renderWorkspace("/workspace?industry=mining");
     expect(screen.getByTestId("first-paint-empty")).toBeTruthy();

@@ -13,38 +13,42 @@ Owner check: confirm this is the existing public offer name before changing it.
 
 ### Search results summary (100 characters maximum)
 
-`Governed reliability and engineering decision support for industrial asset teams.`
+`Governed condition monitoring and reliability decision support for industrial asset teams.`
 
-Length: 81 characters.
+Length: 90 characters.
 
 ### Description
 
-> SyncAI helps industrial asset teams turn operational records and engineering
-> evidence into traceable reliability decisions. It connects asset and
-> component context, evidence-linked engineering knowledge, deterministic
-> calculations where the available inputs support them, and AI-assisted
-> analysis in one governed workspace.
+> SyncAI helps industrial asset teams turn condition readings, work history,
+> operating context, asset data, and engineering evidence into traceable
+> reliability decisions. It combines organization-scoped records,
+> evidence-linked engineering knowledge, governed AI-assisted analysis, and
+> deterministic engineering methods in one workspace.
 >
-> Teams can investigate equipment issues, structure reliability cases, review
-> recommendations, and preserve the evidence and rationale behind a decision.
-> Consequential recommendations remain subject to defined human review and
-> approval. SyncAI is decision support: it does not replace qualified
-> engineering judgment, operating authority, legal requirements, OEM limits,
-> or site procedures.
+> Current pilot capabilities include governed condition monitoring across
+> vibration, oil analysis, thermography, motor current, and process-condition
+> signals; evidence-graded FRACAS, root-cause, inspection, and failure-analysis
+> workflows; censored life-data analysis; selected deterministic reliability
+> and physics-of-failure calculations; asset onboarding; downtime-recovery
+> coordination; and auditable decision cases. Analyses expose data-quality,
+> context, applicability, and evidence gaps rather than inventing a diagnosis,
+> threshold, or source record.
 >
-> Current capabilities include organization-scoped operational records,
-> role-shaped workspaces, governed recommendation and approval workflows,
-> asset and reliability onboarding, evidence-graded analysis, selected
-> deterministic reliability and engineering calculations, inspection and
-> failure analysis workflows, and auditable lifecycle records. Availability of
-> a capability depends on the purchased scope, configured data, deployment,
-> and applicable agreement.
+> SyncAI can begin with customer-provided exports and supports integration
+> patterns using APIs, database views, file exchange, event streams, or a
+> customer-side gateway. Read-only CMMS connector patterns include generic
+> HTTPS JSON, SAP PM, IBM Maximo, and Oracle EAM for scoped validation.
+> Production connectors and historian links are configured and validated for
+> each customer environment.
 >
-> SyncAI is in advanced pilot development. Production identity, integrations,
-> deployment topology, retention, support, service levels, security
-> representations, and data-processing terms are confirmed for each purchased
-> scope. No savings, uptime, failure avoidance, accuracy, certification, or ROI
-> outcome is guaranteed.
+> Consequential recommendations remain subject to named human review and
+> approval. SyncAI does not autonomously change engineering limits,
+> maintenance intervals, work orders, schedules, asset state, or return
+> equipment to service. It does not replace qualified engineering judgment,
+> operating authority, legal requirements, OEM limits, or site procedures.
+> Availability depends on the purchased scope, authorized data, deployment,
+> and applicable agreement. No savings, uptime, failure-avoidance, accuracy,
+> certification, or ROI outcome is guaranteed.
 
 ### Getting started instructions
 
@@ -63,9 +67,9 @@ Length: 81 characters.
 
 ### Search keywords
 
-1. `asset reliability`
-2. `maintenance engineering`
-3. `industrial decision support`
+1. `condition monitoring`
+2. `asset reliability`
+3. `maintenance engineering`
 
 ### Contacts and URLs
 
@@ -83,8 +87,8 @@ Length: 81 characters.
 
 | Field | Controlled value | Status and operator note |
 | --- | --- | --- |
-| Landing page URL | `https://app.syncai.ca/marketplace/activate` | Custom-domain HTTP 200 and signed-out activation UI observed; use no fragment; source-commit aliasing, first purchase, and returning manage flow remain unproven |
-| Connection webhook | `https://app.syncai.ca/api/marketplace/webhook` | **Blocked before entry by PC-000.** Custom-domain `GET` returns `405` with `Allow: POST` and unsigned JSON `POST` returns the proxy's expected `401`, but those paths do not resolve or confirm the upstream project |
+| Landing page URL | `https://app.syncai.ca/marketplace/activate` | Saved in the Partner Center draft on 2026-10-06. Custom-domain HTTP 200 and signed-out activation UI observed; source-commit aliasing, first purchase, and returning manage flow remain unproven |
+| Connection webhook | `https://app.syncai.ca/api/marketplace/webhook` | Saved in the Partner Center draft on 2026-10-06. Custom-domain `GET` returns `405` with `Allow: POST` and unsigned JSON `POST` returns the proxy's expected `401`, but those paths do not resolve or confirm the upstream project |
 | Microsoft Entra tenant ID | `[OWNER VERIFY: exact publisher tenant GUID already configured]` | Must match server secret and webhook token validation |
 | Microsoft Entra application ID | `[OWNER VERIFY: exact Marketplace publisher application GUID already configured]` | Must match webhook audience and publisher credentials |
 | Auto activation | `No / Off` | Required by the current manual-activation contract |
@@ -103,17 +107,18 @@ Merged PR #602 implements these controlled same-origin values:
 Custom-domain route observations passed on 2026-10-03: the activation path
 visibly rendered the bounded Marketplace no-token state, webhook `GET` returned
 `405` with `Allow: POST`, and an unsigned JSON `POST` returned the proxy's `401`
-token refusal. Repository evidence records the full merge SHA and the immutable
-Vercel status URLs available for PR #602, but no authoritative evidence yet ties
-`app.syncai.ca` to a specific deployment or proves that the production proxy
-targets the intended Supabase project.
+token refusal. On 2026-10-06, Vercel project inventory and a redacted production
+environment witness verified that `app.syncai.ca` is the production URL of the
+`syncai-github` project and that the proxy targets the active Supabase project
+named `SyncAI`. The upstream project has active Marketplace fulfillment,
+webhook, and metering functions.
 
-The landing-page value may be prepared after offer-identity confirmation. Do
-not enter the webhook or complete PC-001 until a production deployment owner
-records authoritative upstream-project evidence and marks PC-000 verified. The
-direct Supabase URL previously probed is an unconfirmed historical candidate,
-not a permitted fallback. Even after PC-000, an authenticated purchase,
-lifecycle, metering, and certification witness remains separately blocked.
+Both URLs were saved to the correct Partner Center offer draft on 2026-10-06.
+That draft entry and the upstream witness are evidence of configuration, not of
+a working paid purchase. The live SyncAI Supabase project contains the verified
+client ID, tenant ID, publisher ID, and offer ID, but it does not contain
+`AZURE_MARKETPLACE_CLIENT_SECRET`. Authenticated resolution, activation,
+lifecycle, metering, and certification therefore remain blocked.
 
 ## Plans
 
@@ -212,19 +217,18 @@ dimension contract; plan copy cannot establish that capability.
 
 ## CSP reseller audience
 
-Select **No partners in the CSP program** for the initial publication.
+The Partner Center draft currently selects **Any partner in the CSP program**.
+That choice was saved on 2026-10-06 to support the owner's explicit broad-channel
+test strategy. It is a distribution experiment, not evidence that partner-led
+demand or delivery readiness has been validated.
 
-Reason: Microsoft makes the publisher responsible for break-fix support and
-recommends documentation, training, and service-health/outage communications
-for CSP partners. Those channel operations and reseller commercial terms are
-not evidenced in the repository. An unrestricted **Any partner** selection
-would create a support and representation channel that is not yet controlled.
-
-After the offer is live and the following evidence exists, the recommended
-next posture is **Specific partners in the CSP program I select**, beginning
-with one named pilot partner. Move to **Any partner** only after channel support
-capacity, training, commercial rules, escalation ownership, and regional
-coverage have been reviewed.
+Before publication, assign channel support ownership and publish a minimum CSP
+enablement pack covering positioning, qualification, implementation boundary,
+break-fix routing, service-health communications, pricing rules, and escalation.
+Microsoft keeps the publisher responsible for product support; unrestricted
+reach therefore creates real representation and support obligations. If those
+controls cannot be staffed before release, narrow the audience to **Specific
+partners** rather than silently removing the channel test.
 
 ## Tax and payout status
 
@@ -234,6 +238,17 @@ Keep two independent records:
 | --- | --- | --- |
 | Publisher/user submission | `[OWNER EVIDENCE: form/profile submitted, by whom, when, and receipt if available]` | Records only that information was submitted |
 | Partner Center status | `[PARTNER CENTER EVIDENCE: exact displayed validation/assignment state, account, timestamp and screenshot/export]` | Records Microsoft's current processing/assignment result |
+
+On 2026-10-06, every plan's Pricing and availability page displayed: **“This
+account is not publish eligible due to either an invalid payout, payout on hold,
+or invalid tax.”** The account owner then submitted the Azure Marketplace
+assignment using the existing completed Canadian tax profile and Canadian
+business-bank payment profile in CAD. Partner Center confirmed **“Your program
+profiles are updated.”** The authoritative assignment status now shows tax
+**Complete**, payment **Pending Microsoft validation**, and verification **Not
+started**. Treat Microsoft payment validation and any subsequent verification
+prompt as the current account release gate. Microsoft states that processing
+can take up to 48 hours.
 
 Do not mark tax or payout setup complete from an email, verbal report, or a
 submitted form alone. The Marketplace release owner must verify that the

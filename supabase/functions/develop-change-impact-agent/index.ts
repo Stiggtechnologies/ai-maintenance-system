@@ -48,9 +48,13 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   buildProviderChain,
-  callWithResilience,
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
+import {
+  callWithCommercialBoundary,
+  DEFAULT_COMMERCIALLY_PRICED_MODEL,
+  estimateLlmCallTokens,
+} from "../_shared/llm-commercial-usage.ts";
 import {
   buildChangeImpactPrompts,
   parseChangeConsequences,
@@ -65,8 +69,10 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "";
 const MODEL = Deno.env.get("DEVELOP_AGENT_MODEL") || undefined;
+const COMMERCIAL_MODEL = MODEL ?? DEFAULT_COMMERCIALLY_PRICED_MODEL;
 const GATEWAY_MODEL = Deno.env.get("LLM_GATEWAY_MODEL") || undefined;
-const ALLOWED_ORIGIN = Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
+const ALLOWED_ORIGIN =
+  Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": ALLOWED_ORIGIN,
@@ -157,7 +163,9 @@ Deno.serve(async (req: Request) => {
   );
   if (impactError) return json({ error: impactError.message }, 400);
 
-  const raw = (impactData ?? {}) as Record<string, unknown> & { error?: string };
+  const raw = (impactData ?? {}) as Record<string, unknown> & {
+    error?: string;
+  };
   if (raw.error) return json({ error: raw.error }, 404);
 
   const affected = (raw.affected ?? []) as ChangeImpactAffected[];
@@ -209,40 +217,72 @@ Deno.serve(async (req: Request) => {
         objectKind: view.objectKind,
         affected,
       });
-      const result = await callWithResilience(fetch, providers, {
+      const providerOptions = {
         systemPrompt: prompts.systemPrompt,
         userContent: prompts.userContent,
         maxTokens: 900,
         timeoutMs: 30_000,
-      });
-      if (result.events.length > 1 || !result.ok) {
-        console.error(
-          "develop-change-impact-agent provider trail",
-          JSON.stringify(result.events),
-        );
-      }
-      if (result.ok) {
-        narrative = result.content;
-        model = result.model;
-        const parsed = parseChangeConsequences(
-          result.content,
-          affected.map((a) => a.objectRef),
-        );
-        if (parsed.ok) {
-          consequences = parsed.consequences;
-          dropped = parsed.dropped;
-          if (consequences.length === 0) {
-            // ASKED AND FOUND NOTHING is not NEVER ASKED.
-            providerNote =
-              `${result.model} was asked what a change to ${view.objectRef} does to each affected object and named none. ` +
-              "That is a model's reading, not a finding that the change is consequence-free — the affected set above is the part that stands on a query.";
-          }
-        } else {
-          providerNote = parsed.refusal;
+      };
+      const commercialAdmin = serviceClient();
+      const commercial = await callWithCommercialBoundary(
+        (functionName, args) => commercialAdmin.rpc(functionName, args),
+        fetch,
+        providers,
+        providerOptions,
+        {
+          organizationId: auth.organizationId,
+          functionName: "develop-change-impact-agent",
+          requestedModel: COMMERCIAL_MODEL,
+          estimatedTokens: estimateLlmCallTokens(providerOptions),
+          costObject: { type: "development_case", id: caseId },
+        },
+      );
+      if (commercial.status === "quota_refused") {
+        providerNote = `engineering-consequence reading skipped by the commercial usage boundary (${commercial.limit}); the deterministic affected set above stands on its own`;
+      } else if (commercial.status === "settlement_failed") {
+        console.error("develop-change-impact-agent usage settlement failed", {
+          model: commercial.model,
+          error: commercial.error,
+        });
+        providerNote =
+          "the model answered but usage accounting failed, so its unaccounted output was discarded; the deterministic affected set above stands on its own";
+      } else if (commercial.status === "provider_failed") {
+        if (commercial.events.length > 0) {
+          console.error(
+            "develop-change-impact-agent provider trail",
+            JSON.stringify(commercial.events),
+          );
         }
-      } else {
         providerNote =
           "the model call failed — the deterministic affected set above stands on its own";
+      } else {
+        const result = commercial.result;
+        if (result.events.length > 1 || !result.ok) {
+          console.error(
+            "develop-change-impact-agent provider trail",
+            JSON.stringify(result.events),
+          );
+        }
+        if (result.ok) {
+          narrative = result.content;
+          model = result.model;
+          const parsed = parseChangeConsequences(
+            result.content,
+            affected.map((a) => a.objectRef),
+          );
+          if (parsed.ok) {
+            consequences = parsed.consequences;
+            dropped = parsed.dropped;
+            if (consequences.length === 0) {
+              // ASKED AND FOUND NOTHING is not NEVER ASKED.
+              providerNote =
+                `${result.model} was asked what a change to ${view.objectRef} does to each affected object and named none. ` +
+                "That is a model's reading, not a finding that the change is consequence-free — the affected set above is the part that stands on a query.";
+            }
+          } else {
+            providerNote = parsed.refusal;
+          }
+        }
       }
     }
   }
