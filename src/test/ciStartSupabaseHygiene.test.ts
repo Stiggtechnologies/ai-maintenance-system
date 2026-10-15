@@ -16,6 +16,10 @@ import { describe, expect, it } from "vitest";
 
 const start = readFileSync("scripts/ci-start-supabase.sh", "utf8");
 const ci = readFileSync(".github/workflows/ci.yml", "utf8");
+const domainSpecialists = readFileSync(
+  ".github/workflows/domain-specialists-closeout.yml",
+  "utf8",
+);
 
 describe("CI local Supabase start hygiene", () => {
   it("retries once after leftover container/port cleanup on bind collisions", () => {
@@ -36,6 +40,14 @@ describe("CI local Supabase start hygiene", () => {
     );
     expect(start).not.toMatch(/while true/);
     expect(start).not.toMatch(/max_attempts:-0*[3-9]/);
+  });
+
+  it("keeps domain specialist migration progress off the protocol trace", () => {
+    expect(start).toContain("CI_SUPABASE_START_QUIET:-");
+    expect(start).toContain('supabase start --debug >>"$log_file" 2>&1');
+    expect(start).toContain("Applying migration ");
+    expect(domainSpecialists).toContain('CI_SUPABASE_START_QUIET: "1"');
+    expect(start).toContain('supabase start --debug 2>&1 | tee -a "$log_file"');
   });
 
   it("keeps Golden-path E2E and migration smoke on the shared start script", () => {

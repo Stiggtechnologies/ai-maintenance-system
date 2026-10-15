@@ -102,8 +102,22 @@ start_status=1
 while [ "$attempt" -le "$max_attempts" ]; do
   echo "=== supabase start attempt ${attempt}/${max_attempts} ===" | tee -a "$log_file"
   set +e
-  supabase start --debug 2>&1 | tee -a "$log_file"
-  start_status=${PIPESTATUS[0]}
+  if [ "${CI_SUPABASE_START_QUIET:-}" = "1" ]; then
+    # --debug records every PG protocol frame. Streaming that trace to the
+    # Actions log stalled run 38743562032: the database clock moved seconds
+    # while the log collector took minutes, and the job was cancelled during
+    # "Apply complete migration chain" before the specialist smokes ran.
+    # Keep the trace in the diagnostics file. Do not background the CLI:
+    # kill -0 stays true on the unreaped child and the wait loop never ends.
+    echo "supabase start debug trace: ${log_file}"
+    supabase start --debug >>"$log_file" 2>&1
+    start_status=$?
+    echo "supabase start exited ${start_status}"
+    grep 'Applying migration ' "$log_file" | tail -n 1 || true
+  else
+    supabase start --debug 2>&1 | tee -a "$log_file"
+    start_status=${PIPESTATUS[0]}
+  fi
   set -e
   if [ "$start_status" -eq 0 ]; then
     exit 0

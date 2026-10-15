@@ -75,6 +75,10 @@ jobs:
           docker system df
 
       - name: Apply complete migration chain
+        env:
+          # Protocol traces stay in the start log for the failure artifact.
+          # Streaming them stalled this job until it was cancelled mid-migration.
+          CI_SUPABASE_START_QUIET: "1"
         run: bash scripts/ci-start-supabase.sh /tmp/domain-specialists-start.log /tmp/domain-specialists-diagnostics.txt
 
       - name: Upload migration diagnostics
