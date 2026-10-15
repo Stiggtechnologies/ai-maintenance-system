@@ -32,8 +32,11 @@ describe("Signup industry selection", () => {
 
   it("sends eval signup through /start, not Mission Control", () => {
     const src = readFileSync("src/pages/Signup.tsx", "utf8");
-    expect(src).toMatch(/returnTo=\/start/);
+    expect(src).toContain('"/start"');
+    expect(src).toContain("safeAuthReturnTo");
     expect(src).not.toMatch(/returnTo=\/mission-control/);
-    expect(src).toMatch(/window\.location\.assign\("\/signin\?returnTo=\/start"\)/);
+    expect(src).toContain(
+      "window.location.assign(`/signin?returnTo=${encodeURIComponent(returnTo)}`)",
+    );
   });
 });

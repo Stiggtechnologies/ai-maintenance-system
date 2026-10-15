@@ -1,0 +1,13 @@
+{
+  "baselineId": "RE-2026.08",
+  "kind": "governed-sql",
+  "reviewer": "Orville Davis",
+  "reviewerRole": "Founder / reliability engineering SME",
+  "reviewedAt": "2026-10-15T07:13:00Z",
+  "rationale": "20270104090700_kb_document_security.sql (carried unchanged from 20270101850000_kb_document_security.sql) redefines retrieve_kb_context, explain_kb_exclusions and match_reliability_kb. permitted_claims, redistributable and the session gate (auth.uid() then app_current_org(), else the service-role organization argument) are preserved. The added predicate returns only chunks whose security_status is cleared or released, and returned passage text is wrapped as untrusted evidence. Quarantine is containment, not an engineering approval. kb_document_classes and kb_claim_types are mentioned by this migration and are not redefined; their digests move only because the pin covers every migration that names them. This record covers carrying that migration onto main for governed covariate survival. It does not authorize operational work.",
+  "databaseObjects": {
+    "retrieve_kb_context": "235048782cc797f7231555c5f6203cca646e58b903f609b2c52634e05c91985c",
+    "kb_document_classes": "376447306dc0e84546f8769b2e4c8145b25eb7fbccca7545b0bfc68250c4cb05",
+    "kb_claim_types": "0741cdea55415e4397d00e49ea1caceb1473130035c79309622eeab5226a0d97"
+  }
+}

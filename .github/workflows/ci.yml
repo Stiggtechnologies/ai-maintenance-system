@@ -146,10 +146,9 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
-      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
         with:
           version: 2.84.2
-          github-token: ${{ github.token }}
 
       - name: Prepare clean local Supabase state
         run: |
@@ -260,6 +259,9 @@ jobs:
 
       - name: Smoke — governed Reliability Engineer life data
         run: bash scripts/ci-reliability-life-data-agent-smoke.sh
+
+      - name: Smoke — governed covariate survival evidence and lineage
+        run: bash scripts/ci-survival-covariate-smoke.sh
 
       - name: Smoke — governed RCA / FRACAS investigation
         run: bash scripts/ci-fracas-rca-agent-smoke.sh
@@ -573,10 +575,9 @@ jobs:
 
       - run: npm ci --no-audit --no-fund
 
-      - uses: supabase/setup-cli@3c2f5e2ae34c34e428e8e206e2c4d21fa2d20fbf # v2.1.1
+      - uses: supabase/setup-cli@45a513f8c64c0bc8e0e3dfe572b5c95be85f6359 # v3.0.1
         with:
           version: 2.84.2
-          github-token: ${{ github.token }}
 
       - name: Prepare clean local Supabase state
         run: |
@@ -645,7 +646,7 @@ jobs:
             -f scripts/tests/time-assurance-browser-fixture.sql
 
       - name: Golden-path E2E (login → evidence → scenarios → approve → verify)
-        run: npx playwright test tests/e2e/golden-path.spec.ts tests/e2e/material-commercial-thread.spec.ts tests/e2e/project-fracas.spec.ts tests/e2e/time-synchronization-assurance.spec.ts
+        run: npx playwright test tests/e2e/golden-path.spec.ts tests/e2e/material-commercial-thread.spec.ts tests/e2e/project-fracas.spec.ts tests/e2e/time-synchronization-assurance.spec.ts tests/e2e/covariate-survival.spec.ts
 
       - name: Upload Playwright artifacts
         if: always()

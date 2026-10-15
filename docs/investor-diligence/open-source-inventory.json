@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "source": "package-lock.json",
-  "lockfileSha256": "d595ff586180e9565d5ffe1776096b79887b3555f629c81c4e2deb7d80e0ea8d",
+  "lockfileSha256": "094c0411154bfb49f7f425bcf89a82cc79935015e6d87fedae65ee355554c201",
   "packageInstances": 406,
   "directProductionDependencies": 14,
   "directDevelopmentDependencies": 27,
@@ -831,14 +831,14 @@
     },
     {
       "name": "@supabase/auth-js",
-      "version": "2.112.3",
+      "version": "2.117.2",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/auth-js"
     },
     {
       "name": "@supabase/functions-js",
-      "version": "2.112.3",
+      "version": "2.117.2",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/functions-js"
@@ -852,28 +852,28 @@
     },
     {
       "name": "@supabase/postgrest-js",
-      "version": "2.112.3",
+      "version": "2.117.2",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/postgrest-js"
     },
     {
       "name": "@supabase/realtime-js",
-      "version": "2.112.3",
+      "version": "2.117.2",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/realtime-js"
     },
     {
       "name": "@supabase/storage-js",
-      "version": "2.112.3",
+      "version": "2.117.2",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/storage-js"
     },
     {
       "name": "@supabase/supabase-js",
-      "version": "2.112.3",
+      "version": "2.117.2",
       "license": "MIT",
       "direct": "production",
       "packagePath": "node_modules/@supabase/supabase-js"
@@ -1076,14 +1076,14 @@
     },
     {
       "name": "@types/react-dom",
-      "version": "19.2.5",
+      "version": "19.3.0",
       "license": "MIT",
       "direct": "development",
       "packagePath": "node_modules/@types/react-dom"
     },
     {
       "name": "@types/react",
-      "version": "19.2.18",
+      "version": "19.3.0",
       "license": "MIT",
       "direct": "development",
       "packagePath": "node_modules/@types/react"
@@ -2063,7 +2063,7 @@
     },
     {
       "name": "lucide-react",
-      "version": "1.33.0",
+      "version": "1.52.0",
       "license": "ISC",
       "direct": "production",
       "packagePath": "node_modules/lucide-react"
@@ -2322,7 +2322,7 @@
     },
     {
       "name": "react-dom",
-      "version": "19.2.8",
+      "version": "19.3.0",
       "license": "MIT",
       "direct": "production",
       "packagePath": "node_modules/react-dom"
@@ -2336,21 +2336,21 @@
     },
     {
       "name": "react-router-dom",
-      "version": "7.18.2",
+      "version": "7.18.4",
       "license": "MIT",
       "direct": "production",
       "packagePath": "node_modules/react-router-dom"
     },
     {
       "name": "react-router",
-      "version": "7.18.2",
+      "version": "7.18.4",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/react-router"
     },
     {
       "name": "react",
-      "version": "19.2.8",
+      "version": "19.3.0",
       "license": "MIT",
       "direct": "production",
       "packagePath": "node_modules/react"
@@ -2406,7 +2406,7 @@
     },
     {
       "name": "scheduler",
-      "version": "0.27.0",
+      "version": "0.28.0",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/scheduler"

@@ -3,7 +3,7 @@
  * Arrive → Ask → Save (workspace) → evidence → recommend → decide → verify.
  * Example prompts fill the box only. They are never written to a workspace.
  */
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { ArrowRight, Shield } from "lucide-react";
 import { useOptionalAuth } from "../components/AuthProvider";
 import {
@@ -19,13 +19,22 @@ import {
   SPINE_SAVED_CASE_KEY,
   buildSpineDecisionCase,
 } from "../lib/onboarding/decision-case-spine";
-import type { DecisionCase } from "../lib/decision-case";
+import {
+  normalizeDecisionIndustry,
+  type DecisionCase,
+} from "../lib/decision-case";
 import {
   createPersistedDecisionCase,
   isPersistedDecisionCase,
   loadPersistedDecisionCase,
 } from "../services/decisionCaseService";
+import {
+  readEvaluationDraftLocation,
+  rememberEvaluationDraft,
+} from "../lib/onboarding/evaluation-assistant-handoff";
 import { DecisionCaseSpine } from "./DecisionCaseSpine";
+import { PublicJourneyHeader } from "../components/PublicJourneyHeader";
+import { usePublicJourneyTheme } from "../lib/use-public-journey-theme";
 
 function rememberSavedCase(id: string) {
   if (!isPersistedDecisionCase(id)) return;
@@ -38,17 +47,57 @@ function rememberSavedCase(id: string) {
 
 export function InvertedOpeningPage() {
   const auth = useOptionalAuth();
-  const [ask, setAsk] = useState("");
-  const [intent, setIntent] = useState<InvertedIntentId>("solve");
+  const journeyTheme = usePublicJourneyTheme();
+  const [restored] = useState(() =>
+    readEvaluationDraftLocation(window.location.search, window.sessionStorage),
+  );
+  const [ask, setAsk] = useState(restored?.decisionCase.objective ?? "");
+  const [intent, setIntent] = useState<InvertedIntentId>(() =>
+    restored?.decisionCase.intakeRole === "coordinate" ||
+    restored?.decisionCase.intakeRole === "connect"
+      ? restored.decisionCase.intakeRole
+      : "solve",
+  );
   const [savePrompt, setSavePrompt] = useState(false);
-  const [spineQuestion, setSpineQuestion] = useState("");
+  const [spineQuestion, setSpineQuestion] = useState(
+    restored && restored.view !== "ask" ? restored.decisionCase.objective : "",
+  );
   const [examplePreview, setExamplePreview] = useState(false);
-  const [persistedCase, setPersistedCase] = useState<
-    DecisionCase | undefined
-  >();
+  const [persistedCase, setPersistedCase] = useState<DecisionCase | undefined>(
+    restored?.decisionCase,
+  );
+  // A restored case owns its industry; a new case uses the acquisition link.
+  const industry = normalizeDecisionIndustry(
+    persistedCase?.industry ??
+      new URLSearchParams(window.location.search).get("industry"),
+  );
+  const [caseSaved, setCaseSaved] = useState(false);
   const [persistError, setPersistError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [resumeError, setResumeError] = useState<string | null>(null);
+
+  const rememberCurrentCase = useCallback(
+    (next: DecisionCase, currentRevisionSaved: boolean) => {
+      setPersistedCase(next);
+      setCaseSaved(currentRevisionSaved);
+      try {
+        window.history.replaceState(
+          null,
+          "",
+          rememberEvaluationDraft(
+            next,
+            window.location.search,
+            window.sessionStorage,
+          ),
+        );
+      } catch {
+        setPersistError(
+          "This browser could not retain the draft through refresh. Keep this page open and export the proof summary.",
+        );
+      }
+    },
+    [],
+  );
 
   const canSave = ask.trim().length >= 12;
   const exampleText = isExamplePrompt(ask);
@@ -58,22 +107,37 @@ export function InvertedOpeningPage() {
     preview: boolean,
     saved?: DecisionCase,
     error?: string | null,
+    currentRevisionSaved = false,
   ) => {
     setExamplePreview(preview);
     setPersistedCase(saved);
+    setCaseSaved(currentRevisionSaved);
     setPersistError(error ?? null);
     setSpineQuestion(question);
   };
 
   const confirmSave = async () => {
     const question = ask.trim();
+    if (
+      persistedCase?.objective === question &&
+      persistedCase.intakeRole === intent
+    ) {
+      openSpine(
+        question,
+        isExamplePrompt(question),
+        persistedCase,
+        null,
+        caseSaved,
+      );
+      return;
+    }
     if (isExamplePrompt(question)) {
       openSpine(question, true);
       return;
     }
     let draft: DecisionCase;
     try {
-      draft = buildSpineDecisionCase({ question, intent });
+      draft = buildSpineDecisionCase({ question, intent, industry });
     } catch (caught) {
       setPersistError(
         caught instanceof Error
@@ -83,19 +147,21 @@ export function InvertedOpeningPage() {
       return;
     }
     if (!auth?.user) {
-      openSpine(question, false);
+      openSpine(question, false, draft);
       return;
     }
     setBusy(true);
     try {
       const persisted = await createPersistedDecisionCase(draft, {});
+      if (!isPersistedDecisionCase(persisted.id))
+        throw new Error("Workspace save did not return a persisted case.");
       rememberSavedCase(persisted.id);
-      openSpine(question, false, persisted, null);
+      openSpine(question, false, persisted, null, true);
     } catch (caught) {
       openSpine(
         question,
         false,
-        undefined,
+        draft,
         caught instanceof Error
           ? caught.message
           : "Workspace save did not complete. The assessment stays in this session.",
@@ -129,7 +195,7 @@ export function InvertedOpeningPage() {
           : "solve",
       );
       setAsk(loaded.objective);
-      openSpine(loaded.objective, false, loaded, null);
+      openSpine(loaded.objective, false, loaded, null, true);
     } catch (caught) {
       setResumeError(
         caught instanceof Error
@@ -144,9 +210,11 @@ export function InvertedOpeningPage() {
   return (
     <main
       data-testid="inverted-opening"
-      className="min-h-screen bg-[#0B0F14] px-4 py-10 text-[#E6EDF3]"
+      className="public-journey journey-evaluation"
+      data-theme={journeyTheme.theme}
     >
-      <div className="mx-auto flex w-full max-w-2xl flex-col gap-6">
+      <PublicJourneyHeader />
+      <div className="journey-evaluation-body mx-auto flex w-full flex-col gap-6">
         <header className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-300">
             Sync · first decision
@@ -302,18 +370,58 @@ export function InvertedOpeningPage() {
         ) : null}
 
         {spineQuestion ? (
-          <DecisionCaseSpine
-            question={spineQuestion}
-            intent={intent}
-            initialCase={persistedCase}
-            initiallySaved={Boolean(persistedCase)}
-            blockWorkspacePersist={examplePreview}
-            openingNotice={persistError}
-          />
+          <section aria-label="Your Decision Case">
+            <button
+              type="button"
+              className="mb-4 text-sm text-teal-300"
+              onClick={() => {
+                setPersistError(null);
+                setSpineQuestion("");
+                if (persistedCase) {
+                  try {
+                    window.history.replaceState(
+                      null,
+                      "",
+                      rememberEvaluationDraft(
+                        persistedCase,
+                        window.location.search,
+                        window.sessionStorage,
+                        "ask",
+                      ),
+                    );
+                  } catch {
+                    setPersistError(
+                      "The draft remains in memory; browser retention did not complete.",
+                    );
+                  }
+                }
+                setExamplePreview(false);
+                setSavePrompt(false);
+              }}
+            >
+              Back to your question
+            </button>
+            {persistError ? (
+              <p role="alert" className="mb-3 text-sm text-amber-200">
+                {persistError}
+              </p>
+            ) : null}
+            <DecisionCaseSpine
+              key={persistedCase?.id ?? spineQuestion}
+              question={spineQuestion}
+              intent={intent}
+              industry={industry}
+              initialCase={persistedCase}
+              initiallySaved={caseSaved}
+              onCaseChange={rememberCurrentCase}
+              blockWorkspacePersist={examplePreview}
+              openingNotice={persistError}
+            />
+          </section>
         ) : (
           <p className="text-center text-[11px] text-slate-600">
-            Decision Case spine opens after save. Not marketed as seamless
-            self-guided until the acceptance test passes.
+            Start with your own question, or preview a labeled example. Review
+            the evidence and next steps before saving a customer case.
           </p>
         )}
       </div>
