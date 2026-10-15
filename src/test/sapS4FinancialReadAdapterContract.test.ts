@@ -6,7 +6,7 @@ import { parseSapGlCostMappings } from "../services/sapS4FinancialRead";
 const root = process.cwd();
 const read = (file: string) => fs.readFileSync(path.join(root, file), "utf8");
 const migration = read(
-  "supabase/migrations/20270105104400_sap_s4_financial_read_adapter.sql",
+  "supabase/migrations/20270105144400_sap_s4_financial_read_adapter.sql",
 );
 const edge = read("supabase/functions/sap-s4-financial-read-pull/index.ts");
 const shared = read("supabase/functions/_shared/sap-s4-financial-read.ts");
