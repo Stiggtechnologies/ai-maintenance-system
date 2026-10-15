@@ -357,9 +357,9 @@ export function DecisionCaseSpine({
         className="text-xs text-slate-400"
         data-testid="spine-evaluation-boundary"
       >
-        Guided evaluation: the recommendations on this page are deterministic
-        examples, not a live AI engineering analysis. Saving an evaluation does
-        not create a governed decision or approval.
+        Self-serve evaluation: the recommendations on this page are
+        deterministic examples, not a live AI engineering analysis. Saving an
+        evaluation does not create a governed decision or approval.
       </p>
       <button
         type="button"
@@ -628,9 +628,9 @@ export function DecisionCaseSpine({
             className="mt-3 space-y-2 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3"
           >
             <p className="text-xs text-amber-100/90">
-              Connection is optional and read-only. A failed or missing source
-              does not end the case. CSV upload, paste, manual notes, and ask an
-              admin stay available.
+              Connection is optional. If nothing is connected, upload a file,
+              paste a note, or continue with a manual observation. You do not
+              need another person to keep going. A note for later is optional.
             </p>
             <button
               type="button"

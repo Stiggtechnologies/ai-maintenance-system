@@ -73,6 +73,40 @@ test("evaluation client navigation selects signup and retains safe handoff conte
   await expect(page.getByRole('heading', { name: 'Create a private evaluation workspace' })).not.toBeVisible();
 });
 
+test("public get-started keeps an unsaved draft off the done checklist", async ({ page }) => {
+  await page.goto("/get-started?industry=mining");
+  const checklist = page.getByTestId("self-serve-progress");
+  await expect(checklist.getByTestId("self-serve-empty-signup")).toContainText(/No evaluation workspace yet/i);
+  await expect(checklist.getByTestId("self-serve-empty-question")).toContainText(/No question yet/i);
+  await expect(checklist.getByTestId("self-serve-empty-decision_case")).toContainText(/No Decision Case is open yet/i);
+  await expect(checklist.getByTestId("self-serve-empty-first_value")).toContainText(/No first value yet/i);
+  await expect(page.getByRole("link", { name: "Discuss purchasing" })).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Talk to us" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Create a workspace" })).toBeVisible();
+  const example = page.getByTestId("inverted-example-text-example-seal");
+  await expect(example).toHaveText("What should we check first if a critical pump is losing seal water and production is at risk?");
+  await expect(page.getByTestId("inverted-example-example-seal")).not.toContainText("…");
+  await expect(page.getByTestId("inverted-intent-connect")).toContainText(/Optional, and not the first step/i);
+  await expect(page.getByTestId("first-decision-help")).toContainText(/first Decision Case/i);
+  await expect(page.getByRole("button", { name: "Talk me through it" })).toBeDisabled();
+  await expect(page.getByTestId("self-serve-narration-off")).toContainText(/no speech request is made/i);
+  await page.getByRole("button", { name: "Open help" }).click();
+  await expect(page.getByRole("button", { name: "Reach your first Decision Case" })).toBeVisible();
+  await page.getByRole("button", { name: "Close help" }).click();
+  await page.getByTestId("inverted-ask").fill("Synthetic acceptance: which inspection should we review before the next shift");
+  await page.getByTestId("inverted-continue").click();
+  await page.getByTestId("inverted-save-continue").click();
+  await expect(page.getByTestId("self-serve-step-decision_case")).toHaveAttribute("data-status", "now");
+  await expect(page.getByTestId("self-serve-empty-decision_case")).toContainText(/not saved, so it is not done/i);
+  await expect(page.getByTestId("spine-evaluation-boundary")).toContainText(/Self-serve evaluation/);
+  await expect(page.getByTestId("spine-evaluation-boundary")).not.toContainText(/Guided/);
+  await page.getByRole("button", { name: "Inspection", exact: true }).click();
+  await page.getByTestId("spine-evidence-body").fill("Synthetic inspection note with no measurements");
+  await page.getByTestId("spine-add-evidence").click();
+  await expect(page.getByTestId("self-serve-step-first_value")).not.toHaveAttribute("data-status", "done");
+  await expect(page.getByTestId("self-serve-empty-first_value")).toContainText(/does not count/i);
+});
+
 async function openLogin(page: Page) {
   await page.goto("/signin");
 }
