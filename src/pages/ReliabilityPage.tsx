@@ -20,16 +20,12 @@ import { FailureModeReliability } from "../components/FailureModeReliability";
 import { RestorationTimeComponents } from "../components/RestorationTimeComponents";
 import { RepeatFailureMetrics } from "../components/RepeatFailureMetrics";
 import { ReliabilityImprovementCasePanel } from "../components/ReliabilityImprovementCasePanel";
+import { GovernedRcmWorkbench } from "../components/GovernedRcmWorkbench";
 import { ConditionMonitoring } from "../components/ConditionMonitoring";
 import { MonitoringCoverageGaps } from "../components/MonitoringCoverageGaps";
 import { FailureCoding } from "../components/FailureCoding";
 import { useNavigate } from "react-router-dom";
-import {
-  TriangleAlert as AlertTriangle,
-  Activity,
-  ChartBar as BarChart2,
-  Layers,
-} from "lucide-react";
+import { TriangleAlert as AlertTriangle, Activity, Layers } from "lucide-react";
 import { useOnboardingOperatingLoop } from "../hooks/useOnboardingOperatingLoop";
 
 export function Reliability() {
@@ -158,6 +154,7 @@ export function Reliability() {
 
       {tab === "fmea" && (
         <div className="space-y-4">
+          <GovernedRcmWorkbench />
           {reliability.map((item) => (
             <div
               key={`fmea-${item.sessionId}`}
@@ -244,28 +241,6 @@ export function Reliability() {
               )}
             </div>
           ))}
-          {reliability.length === 0 && (
-            <div className="bg-[#0D1520] border border-white/6 rounded-xl p-6 text-center">
-              <BarChart2 className="w-10 h-10 mx-auto mb-3 text-slate-400" />
-              <div className="text-slate-400 text-sm font-medium">
-                FMEA / RCM Module
-              </div>
-              <p className="text-xs text-slate-400 mt-2 max-w-sm mx-auto">
-                AI-assisted Failure Mode & Effects Analysis and Reliability
-                Centered Maintenance. SyncAI generates and maintains FMEA tables
-                from asset failure history and maintenance data.
-              </p>
-              {/* Same fix as the RCA tab, plus honesty: there is no FMEA
-                  wizard — FMEA tables are derived from completed onboarding
-                  sessions, so the button says where it actually goes. */}
-              <button
-                onClick={() => navigate("/onboarding")}
-                className="mt-4 px-4 py-2 bg-teal-500/10 border border-teal-500/20 text-teal-400 text-xs rounded-lg hover:bg-teal-500/20 transition-colors"
-              >
-                Start Asset Onboarding
-              </button>
-            </div>
-          )}
         </div>
       )}
 
