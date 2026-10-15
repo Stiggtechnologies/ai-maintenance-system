@@ -49,14 +49,18 @@ alter table public.connector_runs
 
 alter table public.connector_runs
   drop constraint if exists connector_runs_transport_evidence_check;
+-- Comparisons, not BETWEEN. PostgreSQL 17 deparses the first BETWEEN in this
+-- AND chain as a parenthesized pair, and a logical restore flattens that pair,
+-- so pg_get_constraintdef does not match across the restore drill.
 alter table public.connector_runs
   add constraint connector_runs_transport_evidence_check check (
     transport_manifest is null
     or case when jsonb_typeof(transport_manifest)='array' then
-      jsonb_array_length(transport_manifest) between 1 and 100
+      jsonb_array_length(transport_manifest) >= 1
+      and jsonb_array_length(transport_manifest) <= 100
       and coalesce(jsonb_typeof(transport_cursor_to)='object',false)
       and coalesce(source_object_count=jsonb_array_length(transport_manifest),false)
-      and coalesce(source_bytes between 0 and 52428800,false)
+      and coalesce(source_bytes >= 0 and source_bytes <= 52428800, false)
     else false end
   );
 
