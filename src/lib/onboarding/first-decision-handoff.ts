@@ -3,7 +3,11 @@
  * it on the canonical cowork workspace. Does not approve a recommendation
  * or create a second case store.
  */
-import { readDecisionCaseHandoff, type DecisionCase } from "../decision-case";
+import {
+  readDecisionCaseHandoff,
+  stageDecisionCaseHandoff,
+  type DecisionCase,
+} from "../decision-case";
 import { isSeedDecisionCaseId } from "../decision-case-honesty";
 import { isExamplePrompt } from "./inverted-opening";
 import {
@@ -12,7 +16,10 @@ import {
 } from "./evaluation-assistant-handoff";
 import { isPersistedDecisionCase } from "../../services/decisionCaseService";
 
-/** Persisted workspace id for a browser draft, written before the handoff clears. */
+/**
+ * Persisted workspace id for a browser draft, written before the handoff clears.
+ * Keyed by the draft's import UUID, not by `draft-xxxxx` or `DRAFT-xxxxx`.
+ */
 export const FIRST_DECISION_IMPORT_KEY =
   "syncai.firstDecisionWorkspaceImport.v1";
 
@@ -44,23 +51,40 @@ function readImportMap(storage: DraftImportStorage): Record<string, string> {
   }
 }
 
+/** A random import key. The display number `DRAFT-xxxxx` is not one. */
+export function isDraftImportKey(value: string | undefined): value is string {
+  return Boolean(value && isPersistedDecisionCase(value));
+}
+
+/**
+ * Keep an existing import UUID. A draft that has none gets a new one so two
+ * drafts that share a `DRAFT-` suffix do not dedupe onto the same workspace.
+ */
+export function ensureDraftImportKey(decisionCase: DecisionCase): DecisionCase {
+  if (isDraftImportKey(decisionCase.importKey)) return decisionCase;
+  return { ...decisionCase, importKey: crypto.randomUUID() };
+}
+
 export function readFirstDecisionImportId(
   storage: DraftImportStorage,
-  draftId: string,
+  importKey: string,
 ): string | null {
-  const id = readImportMap(storage)[draftId];
+  if (!isDraftImportKey(importKey)) return null;
+  const id = readImportMap(storage)[importKey];
   return id && isPersistedDecisionCase(id) ? id : null;
 }
 
 /** Record the workspace id before any later step clears the staged draft. */
 export function rememberFirstDecisionImportId(
   storage: DraftImportStorage,
-  draftId: string,
+  importKey: string,
   workspaceId: string,
 ): void {
-  if (!isPersistedDecisionCase(workspaceId)) return;
+  if (!isDraftImportKey(importKey) || !isPersistedDecisionCase(workspaceId)) {
+    return;
+  }
   const imports = readImportMap(storage);
-  imports[draftId] = workspaceId;
+  imports[importKey] = workspaceId;
   storage.setItem(FIRST_DECISION_IMPORT_KEY, JSON.stringify(imports));
 }
 
@@ -134,15 +158,25 @@ export async function persistFirstDecisionHandoff(
       persisted: false,
     };
   }
+  const draft = ensureDraftImportKey(decisionCase);
+  const importKey = draft.importKey ?? "";
+  if (draft !== decisionCase && deps.storage) {
+    try {
+      stageDecisionCaseHandoff(deps.storage, draft);
+    } catch {
+      // The in-memory key still dedupes this attempt. A later read of the
+      // staged handoff is what keeps the same key across a reload.
+    }
+  }
   const importedId = deps.storage
-    ? readFirstDecisionImportId(deps.storage, decisionCase.id)
+    ? readFirstDecisionImportId(deps.storage, importKey)
     : null;
   const alreadyPersisted = deps.isPersisted(decisionCase.id)
     ? decisionCase.id
     : importedId;
   if (alreadyPersisted) {
     const reused: DecisionCase = {
-      ...decisionCase,
+      ...draft,
       id: alreadyPersisted,
     };
     try {
@@ -161,16 +195,17 @@ export async function persistFirstDecisionHandoff(
     }
   }
   try {
-    const created = await deps.create(decisionCase);
+    const created = await deps.create(draft);
     if (!deps.isPersisted(created.id)) {
       throw new Error("Workspace save did not return a persisted case.");
     }
     if (deps.storage) {
-      rememberFirstDecisionImportId(deps.storage, decisionCase.id, created.id);
+      rememberFirstDecisionImportId(deps.storage, importKey, created.id);
     }
     const saved: DecisionCase = {
       ...created,
       id: created.id,
+      importKey,
       objective: decisionCase.objective,
       evidence: decisionCase.evidence,
       messages: decisionCase.messages,
@@ -188,8 +223,8 @@ export async function persistFirstDecisionHandoff(
     };
   } catch {
     return {
-      decisionCase,
-      returnTo: evaluationRestoreDestination(decisionCase, search),
+      decisionCase: draft,
+      returnTo: evaluationRestoreDestination(draft, search),
       persisted: false,
     };
   }

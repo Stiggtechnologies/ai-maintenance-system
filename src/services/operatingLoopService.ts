@@ -983,13 +983,16 @@ const COWORK_AGENTS = [
  * seed agent messages, generate a starter artifact, and create a recommended
  * action — all persisted to Supabase.
  */
-async function workspaceIdForCaseNumber(
-  caseNumber: string,
+const IMPORT_KEY_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+async function workspaceIdForImportKey(
+  importKey: string,
 ): Promise<string | null> {
   const { data, error } = await supabase
     .from("cowork_workspaces")
     .select("id")
-    .eq("case_number", caseNumber)
+    .eq("case_number", importKey)
     .maybeSingle()
     .returns<{ id: string }>();
   if (error) fail("Could not look up an existing Decision Case", error);
@@ -998,14 +1001,18 @@ async function workspaceIdForCaseNumber(
 
 export async function createCoworkWorkspaceFromObjective(
   objective: string,
-  options?: { caseNumber?: string },
+  options?: { importKey?: string },
 ): Promise<CoworkCreateResult> {
   const ctx = await getOrgContext();
-  const caseNumber = options?.caseNumber?.trim();
-  // The draft case number is the import key. cowork_workspaces already
-  // rejects a second row for the same organization and case number.
-  if (caseNumber) {
-    const existingId = await workspaceIdForCaseNumber(caseNumber);
+  const importKey = options?.importKey?.trim();
+  // cowork_workspaces.case_number stores this draft's import UUID. The
+  // DRAFT- display number stays on the case. The unique index on
+  // (organization_id, case_number) then replays one draft without treating
+  // two drafts that share a display number as the same workspace.
+  const dedupeKey =
+    importKey && IMPORT_KEY_PATTERN.test(importKey) ? importKey : undefined;
+  if (dedupeKey) {
+    const existingId = await workspaceIdForImportKey(dedupeKey);
     if (existingId) {
       return {
         workspaceId: existingId,
@@ -1038,13 +1045,13 @@ export async function createCoworkWorkspaceFromObjective(
       artifacts: 1,
       next_action: "Review agent findings and approve recommended actions",
       created_by: ctx.userId,
-      ...(caseNumber ? { case_number: caseNumber } : {}),
+      ...(dedupeKey ? { case_number: dedupeKey } : {}),
     })
     .select("id")
     .maybeSingle()
     .returns<{ id: string }>();
-  if (wsErr?.code === "23505" && caseNumber) {
-    const existingId = await workspaceIdForCaseNumber(caseNumber);
+  if (wsErr?.code === "23505" && dedupeKey) {
+    const existingId = await workspaceIdForImportKey(dedupeKey);
     if (existingId) {
       return {
         workspaceId: existingId,

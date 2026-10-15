@@ -141,8 +141,80 @@ describe("first decision handoff", () => {
     expect(save).toHaveBeenCalledTimes(2);
     expect(first.decisionCase.id).toBe(createdId);
     expect(second.decisionCase.id).toBe(createdId);
-    expect(readFirstDecisionImportId(sessionStorage, decision.id)).toBe(
+    expect(decision.importKey).toBeTruthy();
+    expect(readFirstDecisionImportId(sessionStorage, decision.importKey!)).toBe(
       createdId,
+    );
+    expect(readFirstDecisionImportId(sessionStorage, decision.id)).toBeNull();
+  });
+
+  it("two drafts with the same DRAFT- suffix produce two cases, and a replay stays one", async () => {
+    const suffix = "12345";
+    const firstKey = "11111111-1111-4111-8111-111111111111";
+    const secondKey = "22222222-2222-4222-8222-222222222222";
+    const firstWorkspace = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const secondWorkspace = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+    const base = draft();
+    const first: DecisionCase = {
+      ...base,
+      id: `draft-${suffix}`,
+      caseNumber: `DRAFT-${suffix}`,
+      importKey: firstKey,
+      objective: "Hold the reclaim pump inspection until the next outage?",
+    };
+    const second: DecisionCase = {
+      ...base,
+      id: `draft-${suffix}`,
+      caseNumber: `DRAFT-${suffix}`,
+      importKey: secondKey,
+      objective: "Replace the seal on the transfer pump before winter?",
+    };
+    const workspaceByImport = new Map<string, string>([
+      [firstKey, firstWorkspace],
+      [secondKey, secondWorkspace],
+    ]);
+    const rows = new Map<string, DecisionCase>();
+    const create = vi.fn(async (seed: DecisionCase) => {
+      const workspaceId = workspaceByImport.get(seed.importKey ?? "");
+      if (!workspaceId) throw new Error("missing import key");
+      return {
+        ...seed,
+        id: workspaceId,
+        updatedAt: "2026-10-15T00:00:00.000Z",
+      };
+    });
+    const save = vi.fn(async (saved: DecisionCase) => {
+      rows.set(saved.id, saved);
+    });
+    const deps = {
+      isPersisted: (id: string) =>
+        id === firstWorkspace || id === secondWorkspace,
+      create,
+      save,
+      storage: sessionStorage,
+    };
+    const savedFirst = await persistFirstDecisionHandoff(first, "", "/", deps);
+    const savedSecond = await persistFirstDecisionHandoff(
+      second,
+      "",
+      "/",
+      deps,
+    );
+    const replay = await persistFirstDecisionHandoff(first, "", "/", deps);
+    expect(savedFirst.decisionCase.id).toBe(firstWorkspace);
+    expect(savedSecond.decisionCase.id).toBe(secondWorkspace);
+    expect(savedFirst.decisionCase.id).not.toBe(savedSecond.decisionCase.id);
+    expect(replay.decisionCase.id).toBe(firstWorkspace);
+    expect(create).toHaveBeenCalledTimes(2);
+    expect(rows.get(firstWorkspace)?.objective).toBe(first.objective);
+    expect(rows.get(secondWorkspace)?.objective).toBe(second.objective);
+    expect(savedFirst.decisionCase.caseNumber).toBe("DRAFT-12345");
+    expect(savedSecond.decisionCase.caseNumber).toBe("DRAFT-12345");
+    expect(readFirstDecisionImportId(sessionStorage, firstKey)).toBe(
+      firstWorkspace,
+    );
+    expect(readFirstDecisionImportId(sessionStorage, secondKey)).toBe(
+      secondWorkspace,
     );
   });
 

@@ -37,19 +37,24 @@ export async function createPersistedDecisionCase(
   seed: DecisionCase,
   context: DecisionJourneyContext,
 ): Promise<DecisionCase> {
+  const importKey = isPersistedDecisionCase(seed.importKey ?? "")
+    ? seed.importKey
+    : undefined;
   const result = await createCoworkWorkspaceFromObjective(seed.objective, {
-    caseNumber: seed.caseNumber,
+    importKey,
   });
   const persisted = {
     ...seed,
     id: result.workspaceId,
+    importKey,
     createdFromIntake: seed.createdFromIntake || Boolean(context.intakeId),
     updatedAt: new Date().toISOString(),
   };
   const { data, error } = await supabase
     .from("cowork_workspaces")
     .update({
-      case_number: persisted.caseNumber,
+      // The column is the import UUID. `DRAFT-` stays on case_state.caseNumber.
+      ...(importKey ? { case_number: importKey } : {}),
       case_state: persisted,
       source_intake_id: context.intakeId || null,
       usage_tokens: persisted.tokensUsed,
