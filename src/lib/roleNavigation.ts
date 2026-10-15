@@ -14,6 +14,7 @@
  * THIS IS MENU VISIBILITY, NOT ENTITLEMENT. What a role may DO is decided by
  * the RPC gates and RLS the matrix cites — and by nothing in this file.
  */
+import { canOpenSyncContext } from "./sync-context/access";
 
 export type AppRoleKey =
   | "admin"
@@ -122,6 +123,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   // concurrency, deterministic plan generation, submission and approved-plan
   // release. Approval itself remains independent in the canonical queue.
   planner: new Set([
+    "sync-context",
     "mission-control",
     "develop",
     "cowork",
@@ -150,6 +152,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   // generation and independent plan approval; field execution/RTS remain
   // server-gated to operating roles.
   reliability_engineer: new Set([
+    "sync-context",
     "mission-control",
     "develop",
     "command-centers",
@@ -188,6 +191,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   // participate in final RTS acceptance, while independent approval remains
   // enforced by the canonical authority contract and generator!=approver rule.
   maintenance_manager: new Set([
+    "sync-context",
     "mission-control",
     "develop",
     "cowork",
@@ -225,6 +229,7 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   // view. The page may render controls, but every mutation is denied by the
   // Recovery RPC role gates; menu visibility never grants authority.
   executive: new Set([
+    "sync-context",
     "mission-control",
     "develop",
     "command-centers",
@@ -281,6 +286,7 @@ export function isNavItemVisible(
   role: AppRoleKey | null | undefined,
   itemId: string,
 ): boolean {
+  if (itemId === "sync-context") return canOpenSyncContext(role);
   if (itemId === "security-log" || itemId === "pilot-leads")
     return role === "admin" || role === "ai_admin";
   const allow = role ? NAV_ALLOW[role] : undefined;
