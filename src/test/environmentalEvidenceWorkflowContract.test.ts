@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270105143900_environmental_evidence_workflow.sql",
+  "supabase/migrations/20270105173700_environmental_evidence_workflow.sql",
   "utf8",
 );
 const service = readFileSync(
@@ -89,10 +89,16 @@ describe("E10 governed environmental evidence workflow", () => {
   });
 
   it("refuses non-finite values, serializes normalized baselines and enforces site ownership", () => {
-    expect(migration.match(/sync_is_finite_numeric/g)?.length).toBeGreaterThanOrEqual(6);
+    expect(
+      migration.match(/sync_is_finite_numeric/g)?.length,
+    ).toBeGreaterThanOrEqual(6);
     expect(migration).toContain("pg_advisory_xact_lock");
-    expect(migration).toContain("Multiple legacy baselines share this normalized metric");
-    expect(migration).toContain("asset does not belong to the selected same-tenant site");
+    expect(migration).toContain(
+      "Multiple legacy baselines share this normalized metric",
+    );
+    expect(migration).toContain(
+      "asset does not belong to the selected same-tenant site",
+    );
   });
 
   it("requires the controls claimed for hazardous materials", () => {

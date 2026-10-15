@@ -54,7 +54,7 @@ insert into user_profiles(id,organization_id,email,full_name,role) values
   ('$AI_ADMIN','$ORG','$AI_EMAIL','Walkthrough AI administrator','ai_admin'),
   ('$FOREIGN','$FOREIGN_ORG','$FOREIGN_EMAIL','Foreign member','viewer');
 insert into cowork_workspaces(id,organization_id,title,objective,case_number,case_state)
-values('$CASE_ID','$ORG','First customer decision','Test the first-decision loop','DC-WALKTHROUGH-1','{"objective":"Test the first-decision loop"}'::jsonb);
+values('$CASE_ID','$ORG','First customer decision','Test the first-decision loop','DC-WALKTHROUGH-1','{}'::jsonb);
 PSQL
 
 ADMIN_JWT=$(jwt "$ADMIN" "$ADMIN_EMAIL")

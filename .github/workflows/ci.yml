@@ -546,6 +546,9 @@ jobs:
       - name: Smoke — governed geospatial operational intelligence
         run: bash scripts/ci-geospatial-operational-intelligence-smoke.sh
 
+      - name: Smoke — Decision Case command authority
+        run: bash scripts/ci-decision-case-command-authority-smoke.sh
+
       - name: Smoke — Sync Context canonical contracts and two-tenant isolation
         run: bash scripts/ci-sync-context-contract-smoke.sh
 
@@ -587,6 +590,9 @@ jobs:
 
       - name: Smoke — governed SAP S/4HANA material stock read
         run: bash scripts/ci-sap-s4-inventory-read-smoke.sh
+
+      - name: Smoke — governed SAP S/4HANA financial actuals read
+        run: bash scripts/ci-sap-s4-financial-read-smoke.sh
 
       - name: Smoke — governed environmental evidence workflow
         run: bash scripts/ci-environmental-evidence-workflow-smoke.sh

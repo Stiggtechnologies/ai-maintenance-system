@@ -79,8 +79,7 @@ export function AssetEconomicsAdministration({
       (workspace?.economics ?? []).find((snapshot) =>
         scope === "asset"
           ? snapshot.assetId === assetId
-          : snapshot.assetId == null &&
-            snapshot.assetClass === assetClass,
+          : snapshot.assetId == null && snapshot.assetClass === assetClass,
       ) ?? null,
     [assetClass, assetId, scope, workspace],
   );
@@ -432,8 +431,7 @@ export function AssetEconomicsAdministration({
                     key={`${plan.planYear}:${plan.currency ?? "unspecified"}`}
                   >
                     {plan.planYear} · {plan.currency ?? "currency unspecified"}:{" "}
-                    {plan.itemCount} item(s),{" "}
-                    {plan.mandatoryCount} mandatory,{" "}
+                    {plan.itemCount} item(s), {plan.mandatoryCount} mandatory,{" "}
                     {plan.governedCandidateCount} evidence-backed development
                     candidate(s),{" "}
                     {plan.currency

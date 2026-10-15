@@ -194,11 +194,11 @@ describe("PlantHistorianConnectorSetup", () => {
     expect(configureSource.mock.calls[1]?.[0]).toEqual(
       expect.objectContaining({ enabled: true }),
     );
-    expect(
-      configureSource.mock.invocationCallOrder[0],
-    ).toBeLessThan(saveMapping.mock.invocationCallOrder[0]);
-    expect(
+    expect(configureSource.mock.invocationCallOrder[0]).toBeLessThan(
       saveMapping.mock.invocationCallOrder[0],
-    ).toBeLessThan(configureSource.mock.invocationCallOrder[1]);
+    );
+    expect(saveMapping.mock.invocationCallOrder[0]).toBeLessThan(
+      configureSource.mock.invocationCallOrder[1],
+    );
   });
 });

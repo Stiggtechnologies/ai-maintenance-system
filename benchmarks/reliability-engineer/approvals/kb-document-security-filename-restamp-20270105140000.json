@@ -3,11 +3,11 @@
   "kind": "governed-sql",
   "reviewer": "Migration-order restamp",
   "reviewerRole": "Filename-only digest update; SQL body unchanged",
-  "reviewedAt": "2026-10-15T13:30:00Z",
-  "rationale": "supabase/migrations/20270105100800_kb_document_security.sql was renamed to supabase/migrations/20270105140800_kb_document_security.sql so the stack sorts after main's deployed head and after in-flight migrations through 20270105130000. The file body is byte-identical (sha256 c6d0302a3d5ff0a20fbcadfabf634166b1290633be1a3f63a9fc38e8952b2915). retrieve_kb_context, kb_document_classes and kb_claim_types are unchanged. Their governed-object digests moved only because computeDatabaseObjectDigests includes the migration filename. This record does not approve a change to retrieval behavior, claim-type standing, or tenancy. The 2026-10-01 SME approval remains the review of that SQL body.",
+  "reviewedAt": "2026-10-15T18:15:00Z",
+  "rationale": "supabase/migrations/20270105140800_kb_document_security.sql was renamed to supabase/migrations/20270105170700_kb_document_security.sql so the stack sorts after main's deployed head 20270105160101. The file body is byte-identical (sha256 c6d0302a3d5ff0a20fbcadfabf634166b1290633be1a3f63a9fc38e8952b2915). retrieve_kb_context, kb_document_classes and kb_claim_types are unchanged. Their governed-object digests moved only because computeDatabaseObjectDigests includes the migration filename. This record does not approve a change to retrieval behavior, claim-type standing, or tenancy. The 2026-10-01 SME approval remains the review of that SQL body.",
   "databaseObjects": {
-    "retrieve_kb_context": "314694b37c10e6c19d35947bc90145f00b66ca4fb36734a9e3fe8c5e37a3d054",
-    "kb_document_classes": "d9f962423b4c085704d86820f3ab53cb8ce9a2096adbfea2cb394c78fc8d6ef6",
-    "kb_claim_types": "b8a2e0d14a9861a265204406c94f0db7c5d37e535931a10dd624860d19fe7a8c"
+    "retrieve_kb_context": "326bcaa6c7a90db9dba312ba261521f67d15f155bade958368e4ae77251dc26e",
+    "kb_document_classes": "e771eaa60aee05a0919bb23c45b001137db588be96aaea721b4c248d4ac27bbc",
+    "kb_claim_types": "0cf546db56a951859165534dabdcb3484d6bcca5caa685182e132cae0a43d533"
   }
 }

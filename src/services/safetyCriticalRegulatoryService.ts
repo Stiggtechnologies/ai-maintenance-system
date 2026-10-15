@@ -195,7 +195,9 @@ export async function linkSafetyCriticalRegulatoryObligation(
     !Number.isInteger(input.expectedLayerVersion) ||
     input.expectedLayerVersion <= 0
   )
-    throw new Error("Element and jurisdiction-layer versions must be positive.");
+    throw new Error(
+      "Element and jurisdiction-layer versions must be positive.",
+    );
   if (!input.capabilityPackLayerId.trim() || !input.requirementKey.trim())
     throw new Error("Choose an exact adopted regulatory requirement.");
   if (!input.evidenceItemId.trim())

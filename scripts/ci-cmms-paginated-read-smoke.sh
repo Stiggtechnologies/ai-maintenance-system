@@ -151,7 +151,7 @@ expect_error "$AI_INGEST_DENIED" 'named human'
 ADMIN_INGEST_DENIED=$(rpc "$ADMIN_JWT" ingest_cmms_read_batch "{\"p_run_id\":\"$RUN\",\"p_rows\":[]}")
 expect_error "$ADMIN_INGEST_DENIED" 'not found'
 ADMIN_FINISH_DENIED=$(rpc "$ADMIN_JWT" finish_connector_run "{\"p_run_id\":\"$RUN\",\"p_status\":\"success\",\"p_error\":null}")
-expect_error "$ADMIN_FINISH_DENIED" 'triggered this CMMS pull'
+expect_error "$ADMIN_FINISH_DENIED" 'triggered this governed pull'
 
 INGESTED=$(rpc "$PLANNER_JWT" ingest_cmms_read_batch "{\"p_run_id\":\"$RUN\",\"p_rows\":$ROWS}")
 noerr "$INGESTED"
@@ -181,7 +181,9 @@ case "$DIRECT" in 200|204|401|403) ;; *) cat /tmp/c212-direct.txt; false ;; esac
 test "$(psqlc "select pagination_max_pages from connectors where organization_id='$ORG' and connector_key='$CONNECTOR_KEY';")" = '20'
 OUT=$(sql_must_fail "update connectors set pagination_mode='next_url',pagination_next_path=null,pagination_max_pages=20 where organization_id='$ORG' and connector_key='$CONNECTOR_KEY';")
 grep -qi 'connectors_pagination_profile_check' <<<"$OUT"
-test "$(psqlc "select count(*) from decisions where organization_id='$ORG' and decision_type='cmms_read_source';")" = '1'
+test "$(psqlc "select count(*) from decisions where organization_id='$ORG' and decision_type='cmms_read_source';")" = '2'
+test "$(psqlc "select count(*) from decisions where organization_id='$ORG' and decision_type='cmms_read_source' and action_taken like 'Configured/disabled read-only CMMS source %' and approval_status='approved' and autonomy_mode='manual' and human_actor='$ADMIN' and outcome_status='executed';")" = '1'
+test "$(psqlc "select count(*) from decisions where organization_id='$ORG' and decision_type='cmms_read_source' and action_taken like 'Activated read-only CMMS source %' and approval_status='approved' and autonomy_mode='manual' and human_actor='$ADMIN' and outcome_status='executed';")" = '1'
 test "$(psqlc "select count(*) from connectors where organization_id='$ORG' and connector_key='$CONNECTOR_KEY' and system_kind='cmms' and connector_profile='generic_cmms' and direction='read_only' and not write_enabled and pagination_mode='next_url' and pagination_next_path='links.next' and pagination_max_pages=20;")" = '1'
 
 echo 'C2.12 CMMS paginated read smoke passed: canonical_connector=true canonical_system_kind=true source_profile=true canonical_work_orders=true tenant_wall=true named_human_activation=true ai_approval_refused=true ai_dry_run_only=true preview_commit_parity=true trigger_actor_bound=true single_running_pull=true contract_version_bound=true bounded_pagination=true same_contract_mapping=true external_asset_binding=true retained_rejects=true idempotent_replay=true clean_run_watermark=true direct_write_locked=true source_write_back=false unattended=false'

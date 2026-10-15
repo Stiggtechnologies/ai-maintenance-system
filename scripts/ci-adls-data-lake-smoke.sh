@@ -60,7 +60,7 @@ FOREIGN_JWT=$(jwt "$FOREIGN" "c214-foreign-$FOREIGN@invalid.syncai.ca")
 BASE="{\"p_key\":\"$CONNECTOR_KEY\",\"p_name\":\"C2.14 governed ADLS\",\"p_filesystem_url\":\"https://syncaic2adls.dfs.core.windows.net/landing\",\"p_object_prefix\":\"recovery/sites/\",\"p_object_format\":\"csv\",\"p_max_files\":20,\"p_max_bytes\":26214400,\"p_expected_interval_minutes\":60,\"p_credential_binding_ref\":\"vault://tenant/adls\",\"p_enabled\":false,\"p_basis\":\"Named administrator approved the read-only ADLS activation dataset.\"}"
 
 ROLE_DENIED=$(rpc "$PLANNER_JWT" configure_data_lake_read_source "$BASE")
-expect_error "$ROLE_DENIED" 'requires an administrator'
+expect_error "$ROLE_DENIED" 'requires a named human administrator'
 AI_CONFIG_DENIED=$(rpc "$AI_ADMIN_JWT" configure_data_lake_read_source "$BASE")
 expect_error "$AI_CONFIG_DENIED" 'named human administrator'
 BAD_ENDPOINT="${BASE/https:\/\/syncaic2adls.dfs.core.windows.net\/landing/https:\/\/storage.example.com\/landing}"
