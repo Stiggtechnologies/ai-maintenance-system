@@ -19,6 +19,7 @@ import { FailureModeElimination } from "../components/FailureModeElimination";
 import { FailureModeReliability } from "../components/FailureModeReliability";
 import { RestorationTimeComponents } from "../components/RestorationTimeComponents";
 import { RepeatFailureMetrics } from "../components/RepeatFailureMetrics";
+import { ReliabilityImprovementCasePanel } from "../components/ReliabilityImprovementCasePanel";
 import { ConditionMonitoring } from "../components/ConditionMonitoring";
 import { MonitoringCoverageGaps } from "../components/MonitoringCoverageGaps";
 import { FailureCoding } from "../components/FailureCoding";
@@ -70,6 +71,8 @@ export function Reliability() {
       <RestorationTimeComponents />
 
       <RepeatFailureMetrics />
+
+      <ReliabilityImprovementCasePanel />
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-white/6">

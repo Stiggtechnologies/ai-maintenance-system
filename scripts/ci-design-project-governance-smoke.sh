@@ -58,7 +58,7 @@ PSQL
 FOREIGN=$(token 'design-foreign@syncai.ca' 'ForeignDesign123!@#')
 test -n "$FOREIGN"
 
-CASE=$(psqlc "select dc.id from development_cases dc join development_case_assets ca on ca.development_case_id=dc.id and ca.organization_id=dc.organization_id where dc.organization_id='$ORG' order by dc.created_at,dc.id limit 1")
+CASE=$(psqlc "select dc.id from development_cases dc join development_case_assets ca on ca.development_case_id=dc.id and ca.organization_id=dc.organization_id join capital_projects cp on cp.id=dc.capital_project_id and cp.organization_id=dc.organization_id where dc.organization_id='$ORG' order by dc.created_at,dc.id limit 1")
 ASSET=$(psqlc "select asset_id from development_case_assets where organization_id='$ORG' and development_case_id='$CASE' order by asset_id limit 1")
 PROJECT=$(psqlc "select capital_project_id from development_cases where id='$CASE'")
 test -n "$CASE"; test -n "$ASSET"; test -n "$PROJECT"

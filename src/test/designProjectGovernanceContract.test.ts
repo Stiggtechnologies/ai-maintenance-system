@@ -17,6 +17,10 @@ const studies = readFileSync(
   "utf8",
 );
 const workflow = readFileSync(".github/workflows/ci.yml", "utf8");
+const smoke = readFileSync(
+  "scripts/ci-design-project-governance-smoke.sh",
+  "utf8",
+);
 const register = readFileSync(
   "docs/enterprise-readiness/capability-register.md",
   "utf8",
@@ -83,6 +87,9 @@ describe("E8 reliability-by-design activation", () => {
     expect(transition).toContain("<EarlyLifeFeedbackControls");
     expect(workflow).toContain(
       "bash scripts/ci-design-project-governance-smoke.sh",
+    );
+    expect(smoke).toContain(
+      "join capital_projects cp on cp.id=dc.capital_project_id and cp.organization_id=dc.organization_id",
     );
   });
 

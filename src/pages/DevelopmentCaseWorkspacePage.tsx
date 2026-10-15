@@ -3112,11 +3112,13 @@ export function DevelopmentCaseWorkspacePage() {
         canPlan={canPlan}
         reloadKey={chainsKey}
       />
-      <CaseRamPanel
-        caseId={workspace.id}
-        canPlan={canPlan}
-        reloadKey={chainsKey}
-      />
+      <div id="case-ram" className="scroll-mt-6">
+        <CaseRamPanel
+          caseId={workspace.id}
+          canPlan={canPlan}
+          reloadKey={chainsKey}
+        />
+      </div>
       <div id="engine-deliver" className="scroll-mt-6" />
       {/* Procurement, the sealed-bid tender and the §24 contract (Slice 6A):
           the ProcurementPackage with all four §25 status dimensions, a

@@ -259,6 +259,9 @@ jobs:
       - name: Smoke — governed RCA / FRACAS investigation
         run: bash scripts/ci-fracas-rca-agent-smoke.sh
 
+      - name: Smoke — Reliability Engineer composite improvement case
+        run: bash scripts/ci-reliability-improvement-case-smoke.sh
+
       # The Sync Develop transcripts run in CI against the same booted chain,
       # so the gate/sanction discipline and the value-spine refusals cannot
       # rot silently behind green checks. Both scripts are idempotent and
