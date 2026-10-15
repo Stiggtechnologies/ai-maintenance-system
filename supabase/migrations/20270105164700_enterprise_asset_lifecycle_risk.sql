@@ -60,21 +60,26 @@ revoke all on function public.guard_asset_lifecycle_state_write()
 revoke insert,update,delete,truncate on public.asset_lifecycle_state
   from anon,authenticated,service_role;
 
--- Keep the established transition contract, but place its owner-powered write
--- behind the same guard and assurance wall. Its existing stage-gate logic is
--- unchanged inside the renamed internal implementation. Main's stage-gate
--- migration already performed this rename; replaying it would fail because
--- the internal function is already present.
-do $$
+-- U4.11 already renamed advance_lifecycle_stage and installed the stage-gate
+-- wrapper. Replaying the rename fails the chain. Replacing that wrapper would
+-- drop target-specific gate proof and leave asset_lifecycle_transitions
+-- without gate_review_id. Install the earlier admission wrapper only when
+-- this migration is the one that creates the internal function.
+do $rename_lifecycle_internal$
 begin
   if to_regprocedure('public.advance_lifecycle_stage_internal(uuid,text,text)') is null then
     alter function public.advance_lifecycle_stage(uuid,text,text)
       rename to advance_lifecycle_stage_internal;
   end if;
-end $$;
+end
+$rename_lifecycle_internal$;
 revoke all on function public.advance_lifecycle_stage_internal(uuid,text,text)
   from public,anon,authenticated,service_role;
 
+do $install_pre_gate_wrapper$
+begin
+  if to_regprocedure('public.advance_lifecycle_stage(uuid,text,text)') is null then
+    execute $create_pre_gate_wrapper$
 create or replace function public.advance_lifecycle_stage(
   p_asset_id uuid,
   p_to_stage text,
@@ -122,6 +127,12 @@ exception when others then
   perform set_config('app.asset_lifecycle_state_writer','',true);
   raise;
 end $$;
+$create_pre_gate_wrapper$;
+  else
+    raise notice 'C6.05 keeps the existing advance_lifecycle_stage wrapper';
+  end if;
+end
+$install_pre_gate_wrapper$;
 
 revoke all on function public.advance_lifecycle_stage(uuid,text,text)
   from public,anon,service_role;
