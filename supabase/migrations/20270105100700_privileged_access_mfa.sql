@@ -64,6 +64,13 @@ alter table public.organization_mfa_policies enable row level security;
 -- RPCs below so an AAL1 session cannot enumerate a tenant's security posture.
 revoke all on table public.organization_mfa_policies
   from public, anon, authenticated, service_role;
+-- REVOKE ALL back to the owner stores a NULL relacl (hard-wired owner
+-- default). pg_dump emits no ACL statements for that, and a logical restore
+-- reapplies Supabase's default table grants to anon, authenticated and
+-- service_role. One explicit grant to the platform superuser keeps the ACL
+-- non-null so the dump contains the revokes above. It does not admit a
+-- client role or service_role.
+grant select on table public.organization_mfa_policies to supabase_admin;
 
 create or replace function public.guard_organization_mfa_policy_write()
 returns trigger
