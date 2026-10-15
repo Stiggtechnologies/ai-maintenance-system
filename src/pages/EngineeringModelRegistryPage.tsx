@@ -22,6 +22,7 @@ import {
   reviewEngineeringModelApplicability,
   type EngineeringModelRegistryRow,
 } from "../services/engineeringModelService";
+import { ModelPerformanceMonitoringPanel } from "../components/ModelPerformanceMonitoringPanel";
 
 interface EvidenceOption {
   id: string;
@@ -785,6 +786,8 @@ export function EngineeringModelRegistryPage() {
         <RefreshCw className="mt-0.5 h-4 w-4 shrink-0 text-cyan-300" />
         <p>{data.posture.basis}</p>
       </div>
+
+      <ModelPerformanceMonitoringPanel />
     </div>
   );
 }
