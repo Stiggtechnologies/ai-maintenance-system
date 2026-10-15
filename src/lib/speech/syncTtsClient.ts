@@ -59,11 +59,15 @@ export async function requestSyncTtsAudio(
     signal: combined,
   });
 
-  if (response.status === 401) throw new SyncTtsError("unauthorized", 401);
-  if (response.status === 503) {
-    throw new SyncTtsError("cloud_tts_unconfigured", 503);
-  }
   if (!response.ok) {
+    const code = await readErrorCode(response);
+    if (response.status === 401) {
+      throw new SyncTtsError(code ?? "unauthorized", 401);
+    }
+    if (code) throw new SyncTtsError(code, response.status);
+    if (response.status === 503) {
+      throw new SyncTtsError("cloud_tts_unconfigured", 503);
+    }
     throw new SyncTtsError("cloud_tts_failed", response.status);
   }
   const contentType = response.headers.get("Content-Type") ?? "";
@@ -73,6 +77,17 @@ export async function requestSyncTtsAudio(
   const blob = await response.blob();
   if (blob.size === 0) throw new SyncTtsError("empty_audio", 502);
   return blob;
+}
+
+async function readErrorCode(response: Response): Promise<string | null> {
+  try {
+    const body = (await response.json()) as { error?: unknown };
+    return typeof body?.error === "string" && body.error.trim() !== ""
+      ? body.error
+      : null;
+  } catch {
+    return null;
+  }
 }
 
 async function readAccessToken(): Promise<string | null> {
