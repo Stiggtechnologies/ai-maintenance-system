@@ -332,6 +332,10 @@ export function DecisionCaseSpine({
     } catch (caught) {
       const conflict =
         caught instanceof Error && caught.name === "DecisionCaseConflictError";
+      // A conflict means another writer owns the canonical case, so the local
+      // edit is not applied. Any other refusal stays in this browser so the
+      // note is not lost, and saved stays false so it does not earn readiness.
+      if (!conflict) setDecisionCase(next);
       setSaveNotice(
         "Workspace save did not complete. The prior saved case remains authoritative; this change did not earn readiness.",
       );

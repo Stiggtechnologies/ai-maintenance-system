@@ -381,7 +381,7 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     expect(screen.getByTestId("spine-save-workspace")).toHaveTextContent(
       "Save to workspace",
     );
-    expect(screen.getByTestId("spine-proof-body")).not.toHaveTextContent(
+    expect(screen.getByTestId("spine-proof-body")).toHaveTextContent(
       "Synthetic edit that is not saved",
     );
   });
@@ -535,11 +535,14 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent(
       /workspace write refused/i,
     );
+    expect(screen.getByTestId("spine-proof-body")).toHaveTextContent(
+      "Customer-supplied inspection note.",
+    );
     expect(screen.getByTestId("spine-gate-audit_trail")).toHaveTextContent(
       /Open/i,
     );
     expect(screen.getByTestId("spine-gate-evidence_path")).toHaveTextContent(
-      /Open/i,
+      /Met/i,
     );
 
     fireEvent.click(screen.getByTestId("spine-reload-audit"));
