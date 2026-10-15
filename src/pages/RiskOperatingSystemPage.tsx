@@ -120,6 +120,8 @@ import {
   RiskDecisionOperationsPanel,
 } from "../components/risk/RiskEnterprisePanels";
 import { ServiceContractRiskPanel } from "../components/risk/ServiceContractRiskPanel";
+import { RiskUncertaintyPanel } from "../components/risk/RiskUncertaintyPanel";
+import { useOptionalAuth } from "../components/AuthProvider";
 
 type Tab =
   | "cockpit"
@@ -524,9 +526,17 @@ function SecondaryRiskPanel({ riskId }: { riskId: string }) {
 function RiskDetail({
   risk,
   onAction,
+  currentUserId,
+  currentUserRole,
+  currentOrganizationId,
+  onChanged,
 }: {
   risk: RiskRecord;
   onAction: (action: ActionKind, targetId?: string) => void;
+  currentUserId: string | null;
+  currentUserRole: string | null;
+  currentOrganizationId: string | null;
+  onChanged: () => void;
 }) {
   const views = risk.stakeholder_views
     .filter((view) => view.likelihood != null && view.consequence != null)
@@ -693,6 +703,14 @@ function RiskDetail({
           ))}
         </div>
       </section>
+
+      <RiskUncertaintyPanel
+        riskId={risk.id}
+        currentUserId={currentUserId}
+        currentUserRole={currentUserRole}
+        currentOrganizationId={currentOrganizationId}
+        onChanged={onChanged}
+      />
 
       <div className="grid gap-4 xl:grid-cols-2">
         <section className="rounded-2xl border border-white/7 bg-[#0D1520] p-4">
@@ -4574,6 +4592,20 @@ function CriteriaModal({
 }
 
 export function RiskOperatingSystemPage() {
+  const auth = useOptionalAuth();
+  const profile = auth?.profile ?? null;
+  const user = auth?.user ?? null;
+  // Reuse the actual canonical profile-row scope, as TimeSynchronizationAssurance
+  // does. Metadata/JWT tenant guesses and alternate cached resolvers are not used.
+  const profileBound = Boolean(user && profile?.id === user.id);
+  const currentOrganizationId =
+    profileBound &&
+    profile &&
+    "organization_id" in profile &&
+    typeof profile.organization_id === "string" &&
+    profile.organization_id.trim()
+      ? profile.organization_id
+      : null;
   const [tab, setTab] = useState<Tab>("cockpit");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [setupOpen, setSetupOpen] = useState(false);
@@ -5128,6 +5160,12 @@ export function RiskOperatingSystemPage() {
                 <RiskDetail
                   risk={selected}
                   onAction={(kind, targetId) => setAction({ kind, targetId })}
+                  currentUserId={profileBound ? (user?.id ?? null) : null}
+                  currentUserRole={
+                    profileBound ? (profile?.role ?? null) : null
+                  }
+                  currentOrganizationId={currentOrganizationId}
+                  onChanged={refetch}
                 />
               ) : (
                 <div className="rounded-2xl border border-dashed border-white/10 p-10 text-center text-sm text-slate-500">
