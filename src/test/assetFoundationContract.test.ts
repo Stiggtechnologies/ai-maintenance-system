@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270102330000_verified_asset_foundation.sql",
+  "supabase/migrations/20270105105700_verified_asset_foundation.sql",
   "utf8",
 ).toLowerCase();
 const smoke = readFileSync(
