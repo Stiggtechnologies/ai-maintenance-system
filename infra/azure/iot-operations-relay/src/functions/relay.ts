@@ -5,7 +5,10 @@ export async function relay(
   messages: unknown[],
   context: InvocationContext,
 ): Promise<void> {
-  await deliverEventHubBatch(messages, context);
+  const retryCount =
+    (context as InvocationContext & { retryContext?: { retryCount?: number } })
+      .retryContext?.retryCount ?? 0;
+  await deliverEventHubBatch(messages, context, { attempt: retryCount });
 }
 
 app.eventHub("syncaiAzureIotOperationsRelay", {

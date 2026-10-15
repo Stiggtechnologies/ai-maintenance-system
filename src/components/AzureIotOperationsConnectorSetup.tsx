@@ -16,7 +16,7 @@ export function AzureIotOperationsConnectorSetup({
 }) {
   const { profile } = useAuth();
   const role = String(profile?.role ?? "").toLowerCase();
-  const isAdmin = role === "admin" || role === "ai_admin";
+  const isAdmin = role === "admin";
   const [status, setStatus] = useState<AzureIotOperationsStatus | null>(null);
   const [key, setKey] = useState("");
   const [name, setName] = useState("");

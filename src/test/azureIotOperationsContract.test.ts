@@ -1,6 +1,15 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
+function functionBody(sql: string, name: string): string {
+  const match = new RegExp(
+    `create or replace function public\\.${name}\\s*\\([\\s\\S]*?\\)\\s*returns[\\s\\S]*?\\$\\$([\\s\\S]*?)\\$\\$;`,
+    "i",
+  ).exec(sql);
+  if (!match?.[1]) throw new Error(`missing ${name}`);
+  return match[1];
+}
+
 const read = (path: string) => readFileSync(path, "utf8");
 const migration = read(
   "supabase/migrations/20270105160000_azure_iot_operations_ingress.sql",
@@ -34,7 +43,11 @@ describe("Azure IoT Operations governed ingress contract", () => {
     expect(migration).toContain("ingress_key_id=btrim(p_ingress_key_id)");
     expect(migration).toContain("ingress_authorized_by");
     expect(migration).toContain("u.organization_id=p_organization_id");
-    expect(migration).toContain("u.role in ('admin','ai_admin')");
+    expect(migration).toContain("u.role = 'admin'");
+    expect(migration).not.toContain("ai_admin");
+    expect(migration).not.toContain("request.jwt");
+    expect(migration).toContain("app.service_organization_id");
+    expect(migration).toContain("refuse_azure_iot_operations_delivery");
     expect(migration).toContain(
       ") from public,anon,authenticated;\ngrant execute on function public.ingest_azure_iot_operations_batch(",
     );
@@ -84,6 +97,9 @@ describe("Azure IoT Operations governed ingress contract", () => {
     expect(core).toContain("HMAC");
     expect(core).toContain("maxSkewSeconds");
     expect(edge).toContain("x-syncai-signature");
+    expect(edge).toContain("azureIotIngressStatus");
+    expect(edge).toContain('error: "ingress_unavailable" }, 503');
+    expect(edge).toContain("dead_lettered");
     expect(edge).toContain("AZURE_IOT_OPERATIONS_INGRESS_KEYS_JSON");
     expect(migration).toContain("source_delivery_id");
     expect(migration).toContain("source_body_sha256");
@@ -129,5 +145,31 @@ describe("Azure IoT Operations governed ingress contract", () => {
     );
     expect(ci).toContain("Build Azure IoT Operations relay");
     expect(ci).toContain("infra/azure/iot-operations-relay");
+  });
+
+  it("changes the canonical writers only to resolve a service-role tenant", () => {
+    const previousReadings = read(
+      "supabase/migrations/20261004090100_condition_reading_written_once.sql",
+    );
+    const previousFinish = read(
+      "supabase/migrations/20261004090000_route_the_import_door.sql",
+    );
+    const normalize = (value: string) => value.replace(/\s+/g, " ").trim();
+    const serviceOrg =
+      /v_org uuid := case\s+when coalesce\(auth\.role\(\),''\) = 'service_role'[\s\S]*?end;/;
+    for (const [name, previous] of [
+      ["record_condition_reading", previousReadings],
+      ["ingest_batch", previousReadings],
+      ["finish_connector_run", previousFinish],
+    ] as const) {
+      const current = functionBody(migration, name);
+      expect(current).toMatch(serviceOrg);
+      expect(current).toContain("public.app_current_org()");
+      expect(
+        normalize(
+          current.replace(serviceOrg, "v_org uuid := app_current_org();"),
+        ),
+      ).toBe(normalize(functionBody(previous, name)));
+    }
   });
 });

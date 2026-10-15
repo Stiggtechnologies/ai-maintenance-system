@@ -3,7 +3,10 @@
 --
 -- 2026-10-15: file version moved from 20270101750000 to 20270105160000 so it
 -- sorts after deployed head 20270105110600 and the latest open-PR migration
--- 20270105150400. Column, RPC and grant contracts are unchanged.
+-- 20270105150600. The ingress RPC stays service-only. It no longer impersonates
+-- the authorizing user: canonical writers read app.service_organization_id
+-- when auth.role() is service_role, so an adopted MFA policy cannot null the
+-- tenant. Configuration and ingress authorization require role admin.
 --
 -- Azure IoT Operations remains the OT-edge owner: OPC UA -> MQTT -> data flow
 -- -> Event Hubs.  A small Azure Function relay signs a normalized batch and
@@ -102,7 +105,7 @@ declare
   v_mapping_count integer;
 begin
   select role into v_role from public.user_profiles where id=auth.uid();
-  if v_org is null or coalesce(v_role,'') not in ('admin','ai_admin') then
+  if v_org is null or coalesce(v_role,'') <> 'admin' then
     return jsonb_build_object('error','configuring Azure IoT Operations requires a named administrator');
   end if;
   if coalesce(length(btrim(p_key)),0)<3 or coalesce(length(btrim(p_name)),0)<3 then
@@ -316,10 +319,624 @@ $$;
 revoke all on function public.get_azure_iot_operations_status() from public,anon;
 grant execute on function public.get_azure_iot_operations_status() to authenticated;
 
--- Service-only signed ingress.  It temporarily supplies the explicitly
--- authorizing administrator solely so the canonical app_current_org()-based
--- ingest contract can be reused.  The run itself remains an unattended system
--- run (triggered_by NULL), and the connector preserves who authorized it.
+-- Service ingress resolves the tenant from app.service_organization_id while
+-- auth.role() is service_role. Authenticated callers still use
+-- app_current_org(), including an adopted MFA policy. The bodies below are the
+-- canonical writers with that organization assignment as the only change, so
+-- limit evaluation, rejects, and clean-run watermarks stay one implementation.
+
+create or replace function public.record_condition_reading(
+  p_sensor_id uuid,
+  p_value numeric,
+  p_taken_at timestamptz default now(),
+  p_quality text default 'good',
+  p_source_system text default null,
+  p_external_id text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_org uuid := case
+    when coalesce(auth.role(),'') = 'service_role'
+      then nullif(current_setting('app.service_organization_id', true), '')::uuid
+    else public.app_current_org()
+  end;
+  s sensors%rowtype;
+  v_sev text;
+  v_limit numeric;
+  v_open condition_alerts%rowtype;
+  v_alert uuid;
+  v_prev numeric;
+  v_prev_at timestamptz;
+  v_trend text;
+begin
+  select * into s from sensors where id = p_sensor_id and organization_id = v_org;
+  if not found then
+    return jsonb_build_object('error', 'sensor not found');
+  end if;
+
+  select value, taken_at into v_prev, v_prev_at from condition_readings
+  where sensor_id = p_sensor_id order by taken_at desc limit 1;
+
+  insert into condition_readings (organization_id, sensor_id, asset_id, value,
+    quality, taken_at, source_system, external_id)
+  values (v_org, p_sensor_id, s.asset_id, p_value, p_quality, p_taken_at,
+    p_source_system, p_external_id);
+
+  -- Suspect and bad readings are stored — the gap itself is evidence — but they
+  -- never drive an alert. Alarming on data you have already labelled untrusted
+  -- is how a monitoring programme loses its audience.
+  if p_quality in ('bad', 'suspect') then
+    return jsonb_build_object('recorded', true, 'quality', p_quality,
+      'alerted', false,
+      'note', 'Reading stored but not evaluated against limits: quality is ' || p_quality);
+  end if;
+
+  -- HISTORY IS NOT STATE. Everything below this point describes the present:
+  -- sensors.last_value/status/trend is what the equipment is doing NOW, and an
+  -- alert opened or cleared here appears on the live board. A reading older
+  -- than the newest one already held is a backfill, and it may not speak for
+  -- the present — a 2010 historian export ends with the OLDEST row when it is
+  -- sorted newest-first, so the sensor would come to describe the oldest
+  -- reading in the file. The reading is stored either way; the series head is
+  -- what decides whether it is also the current state.
+  if v_prev_at is not null and p_taken_at < v_prev_at then
+    return jsonb_build_object('recorded', true, 'historical', true,
+      'alerted', false,
+      'note', format(
+        'Reading stored as history. This sensor already holds a reading at %s, '
+        || 'so last_value, status and trend still describe the newest reading '
+        || 'and no alert was raised or cleared at a past timestamp.', v_prev_at));
+  end if;
+
+  if s.limit_direction = 'below' then
+    v_sev := case
+      when s.alarm_limit is not null and p_value <= s.alarm_limit then 'alarm'
+      when s.warning_limit is not null and p_value <= s.warning_limit then 'warning' end;
+    v_limit := case when v_sev = 'alarm' then s.alarm_limit else s.warning_limit end;
+  else
+    v_sev := case
+      when s.alarm_limit is not null and p_value >= s.alarm_limit then 'alarm'
+      when s.warning_limit is not null and p_value >= s.warning_limit then 'warning' end;
+    v_limit := case when v_sev = 'alarm' then s.alarm_limit else s.warning_limit end;
+  end if;
+
+  select * into v_open from condition_alerts
+  where sensor_id = p_sensor_id and cleared_at is null
+  order by triggered_at desc limit 1;
+
+  if v_sev is null then
+    -- Returned inside limits: close the alert but keep it. Its triggered_at is
+    -- the whole record of how much warning there was.
+    if v_open.id is not null then
+      update condition_alerts set cleared_at = p_taken_at where id = v_open.id;
+    end if;
+  elsif v_open.id is null then
+    insert into condition_alerts (organization_id, sensor_id, asset_id, severity,
+      triggered_value, limit_value, triggered_at)
+    values (v_org, p_sensor_id, s.asset_id, v_sev, p_value, v_limit, p_taken_at)
+    returning id into v_alert;
+  elsif v_sev = 'alarm' and v_open.severity = 'warning' then
+    -- Escalation is a new crossing and deserves its own record; the warning is
+    -- closed at the moment it escalated, so both intervals stay measurable.
+    update condition_alerts set cleared_at = p_taken_at where id = v_open.id;
+    insert into condition_alerts (organization_id, sensor_id, asset_id, severity,
+      triggered_value, limit_value, triggered_at)
+    values (v_org, p_sensor_id, s.asset_id, 'alarm', p_value, v_limit, p_taken_at)
+    returning id into v_alert;
+  end if;
+
+  v_trend := case
+    when v_prev is null then 'stable'
+    when p_value > v_prev * 1.02 then 'up'
+    when p_value < v_prev * 0.98 then 'down'
+    else 'stable' end;
+
+  update sensors
+  set last_value = p_value,
+      status = coalesce(v_sev, 'normal'),
+      trend = v_trend
+  where id = p_sensor_id;
+
+  return jsonb_build_object('recorded', true, 'severity', v_sev,
+    'alert_id', v_alert, 'trend', v_trend);
+end
+$$;
+
+revoke all on function public.record_condition_reading(uuid, numeric, timestamptz, text, text, text) from public, anon;
+grant execute on function public.record_condition_reading(uuid, numeric, timestamptz, text, text, text) to authenticated;
+grant execute on function public.record_condition_reading(uuid, numeric, timestamptz, text, text, text) to service_role;
+
+create or replace function public.ingest_batch(
+  p_run_id uuid,
+  p_rows jsonb
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_org uuid := case
+    when coalesce(auth.role(),'') = 'service_role'
+      then nullif(current_setting('app.service_organization_id', true), '')::uuid
+    else public.app_current_org()
+  end;
+  r connector_runs%rowtype;
+  row_in jsonb;
+  v_ext text;
+  v_reason text;
+  v_read int := 0;
+  v_ok int := 0;
+  v_dup int := 0;
+  v_rej int := 0;
+  v_max_ts timestamptz;
+  v_sensor uuid;
+  v_asset uuid;
+  v_material uuid;
+  v_site uuid;
+  v_ts timestamptz;
+  v_source text;
+  v_notif uuid;
+  v_plan_asset uuid;
+  v_ids uuid[];
+  v_stock_key text;
+  v_seen_ids text[] := '{}';
+  v_seen_stock text[] := '{}';
+begin
+  select * into r from connector_runs where id = p_run_id and organization_id = v_org;
+  if not found then
+    return jsonb_build_object('error', 'run not found');
+  end if;
+  if r.status <> 'running' then
+    return jsonb_build_object('error', 'this run is already ' || r.status);
+  end if;
+
+  select connector_key into v_source from connectors where id = r.connector_id;
+
+  for row_in in select * from jsonb_array_elements(p_rows)
+  loop
+    v_read := v_read + 1;
+    v_reason := null;
+    v_ext := row_in->>'external_id';
+
+    if v_ext is null or length(trim(v_ext)) = 0 then
+      -- Without a stable external identity there is no way to make a replay
+      -- idempotent, so the row is refused rather than quietly duplicated.
+      v_reason := 'missing external_id: a source row without a stable identifier cannot be replayed safely';
+    end if;
+
+    -- The same external_id twice in ONE file is a copy-pasted identifier, not a
+    -- replay. Reporting it as `duplicate` told the operator the row was already
+    -- loaded when in fact a DIFFERENT fact under a reused id was discarded.
+    if v_reason is null and v_ext = any (v_seen_ids) then
+      v_reason := format(
+        'external_id "%s" appears more than once in this upload — only the first '
+        || 'line was loaded. Give each row its own identifier.', v_ext);
+    elsif v_reason is null then
+      v_seen_ids := v_seen_ids || v_ext;
+    end if;
+
+    -- EVERY per-row write happens inside this subtransaction. Without it a
+    -- single cell the validator cannot see aborted the WHOLE call and took the
+    -- retained rejects down with the accepted rows. Measured: a
+    -- notification_type of "malfunction" — an ordinary word, and what a
+    -- capitalised CMMS export or a "closed" status looks like too — violated
+    -- maintenance_notifications_notification_type_check and left 0 rows
+    -- written, 0 rejects retained, counters 0/0/0 and the run stuck `running`,
+    -- with a raw Postgres CHECK message where a row-level reason should be.
+    begin
+
+    -- ── condition_reading ────────────────────────────────────────────────
+    if v_reason is null and r.entity_type = 'condition_reading' then
+      v_ts := (row_in->>'taken_at')::timestamptz;
+      if row_in->>'value' is null then
+        v_reason := 'missing value';
+      elsif v_ts is null then
+        v_reason := 'missing or unparseable taken_at';
+      elsif v_ts > now() + interval '1 hour' then
+        v_reason := 'taken_at is in the future: a clock or timezone fault at the source';
+      else
+        select array_agg(id) into v_ids from sensors
+        where organization_id = v_org
+          and (id::text = row_in->>'sensor_id' or name = row_in->>'sensor_name');
+        -- `limit 1` with no ORDER BY bound an ambiguous name to whichever row
+        -- the scan reached first, and a plant with two "Vibration — DE" tags
+        -- would have had half its history charged to the wrong machine.
+        if coalesce(array_length(v_ids, 1), 0) > 1 then
+          v_reason := format('sensor "%s" matches %s sensors — give sensor_id instead of sensor_name',
+            coalesce(row_in->>'sensor_name', row_in->>'sensor_id'), array_length(v_ids, 1));
+        else
+          v_sensor := v_ids[1];
+          if v_sensor is null then
+            v_reason := format('unknown sensor "%s"', coalesce(row_in->>'sensor_id', row_in->>'sensor_name', '(none)'));
+          end if;
+        end if;
+      end if;
+
+      if v_reason is null then
+        if exists (select 1 from condition_readings
+                   where organization_id = v_org and source_system = v_source
+                     and external_id = v_ext) then
+          v_dup := v_dup + 1;
+          insert into ingest_staging (organization_id, connector_id, run_id,
+            entity_type, external_id, payload, status)
+          values (v_org, r.connector_id, p_run_id, r.entity_type, v_ext, row_in, 'duplicate');
+          continue;
+        end if;
+
+        -- ONE write, through the same function a manual reading uses, so an
+        -- ingested breach raises an alert exactly as a keyed-in one would.
+        --
+        -- Until this migration the branch inserted the reading ITSELF and then
+        -- called record_condition_reading, which inserts as well. Every
+        -- ingested reading was therefore stored TWICE — once carrying
+        -- external_id and once not — and the second copy, having no external
+        -- id, sat outside idx_condition_readings_external and outside the
+        -- duplicate check above, so nothing could ever find or dedupe it.
+        perform record_condition_reading(v_sensor, (btrim(row_in->>'value'))::numeric,
+          v_ts, coalesce(nullif(btrim(row_in->>'quality'), ''), 'good'), v_source, v_ext);
+
+        v_max_ts := greatest(coalesce(v_max_ts, v_ts), v_ts);
+      end if;
+
+    -- ── material_stock ───────────────────────────────────────────────────
+    elsif v_reason is null and r.entity_type = 'material_stock' then
+      select array_agg(id) into v_ids from materials
+      where organization_id = v_org
+        and (material_code = row_in->>'material_code'
+             or (source_system = v_source and external_id = v_ext));
+      v_material := null;
+      v_site := null;
+      if coalesce(array_length(v_ids, 1), 0) > 1 then
+        v_reason := format('material "%s" matches %s catalogue entries',
+          coalesce(row_in->>'material_code', v_ext), array_length(v_ids, 1));
+      else
+        v_material := v_ids[1];
+      end if;
+
+      if v_reason is not null then
+        null;
+      elsif v_material is null then
+        v_reason := format('unknown material "%s" — the catalogue must be loaded before stock',
+          coalesce(row_in->>'material_code', v_ext));
+      elsif nullif(btrim(row_in->>'qty_on_hand'), '') is null then
+        v_reason := 'missing qty_on_hand';
+      elsif (btrim(row_in->>'qty_on_hand'))::numeric < 0 then
+        v_reason := 'negative qty_on_hand';
+      -- qty_on_hand was checked and qty_on_order was not, and material_stock
+      -- carries no CHECK, so a stock line arrived holding -999 on order.
+      elsif coalesce((nullif(btrim(row_in->>'qty_on_order'), ''))::numeric, 0) < 0 then
+        v_reason := 'negative qty_on_order';
+      else
+        if nullif(btrim(row_in->>'site_name'), '') is not null then
+          select array_agg(id) into v_ids from sites
+          where organization_id = v_org and name = btrim(row_in->>'site_name');
+          if coalesce(array_length(v_ids, 1), 0) > 1 then
+            v_reason := format('site "%s" matches %s sites', btrim(row_in->>'site_name'), array_length(v_ids, 1));
+          else
+            v_site := v_ids[1];
+          end if;
+          -- A site_name that matched nothing used to be dropped in silence and
+          -- the row ACCEPTED, so a per-site file could land as one site-less
+          -- pile with the counts reporting success. It is a refusal now.
+          if v_reason is null and v_site is null then
+            v_reason := format('unknown site "%s"', btrim(row_in->>'site_name'));
+          end if;
+        end if;
+
+        -- material_stock holds ONE quantity per material per site and has no
+        -- external_id column, so two lines in one file for the same pair
+        -- silently collapsed: the second overwrote the first and BOTH were
+        -- reported accepted. That is the one place the contract's arithmetic —
+        -- count in = count landed + count refused — did not hold.
+        v_stock_key := coalesce(v_material::text, '-') || '|' || coalesce(v_site::text, '-');
+        if v_reason is null and v_stock_key = any (v_seen_stock) then
+          v_reason := format(
+            'another line in this file already sets stock for "%s" at "%s" — '
+            || 'stock is one quantity per material per site, so this line would '
+            || 'overwrite that one and both would be reported as accepted',
+            coalesce(row_in->>'material_code', v_ext),
+            coalesce(nullif(btrim(row_in->>'site_name'), ''), '(no site)'));
+        end if;
+
+        if v_reason is null then
+          v_seen_stock := v_seen_stock || v_stock_key;
+          insert into material_stock (organization_id, material_id, site_id,
+            qty_on_hand, qty_on_order, source_system, updated_at)
+          values (v_org, v_material, v_site, (btrim(row_in->>'qty_on_hand'))::numeric,
+            coalesce((nullif(btrim(row_in->>'qty_on_order'), ''))::numeric, 0), v_source, now())
+          on conflict (material_id, site_id) do update
+            set qty_on_hand = excluded.qty_on_hand,
+                qty_on_order = excluded.qty_on_order,
+                source_system = excluded.source_system,
+                updated_at = now();
+          v_max_ts := greatest(coalesce(v_max_ts, now()), now());
+        end if;
+      end if;
+
+    -- ── work_order ───────────────────────────────────────────────────────
+    elsif v_reason is null and r.entity_type = 'work_order' then
+      if nullif(btrim(row_in->>'title'), '') is null then
+        v_reason := 'missing title';
+      else
+        select array_agg(id) into v_ids from assets
+        where organization_id = v_org
+          and (id::text = row_in->>'asset_id' or name = row_in->>'asset_name');
+        v_asset := null;
+        if coalesce(array_length(v_ids, 1), 0) > 1 then
+          v_reason := format('asset "%s" matches %s assets — give asset_id instead of asset_name',
+            coalesce(row_in->>'asset_name', row_in->>'asset_id'), array_length(v_ids, 1));
+        else
+          v_asset := v_ids[1];
+        end if;
+      end if;
+
+      -- An unmatched asset is a REJECT, not a null. maintenance_notification
+      -- (:347) and maintenance_plan (:378) already refuse one; work_order did
+      -- not, so a row naming an asset that does not exist — including another
+      -- tenant's UUID — was ACCEPTED with asset_id NULL and no reason given.
+      -- Every per-asset reliability figure is computed from work_orders, so a
+      -- work order with no asset is a downtime hour nobody can attribute.
+      if v_reason is null and nullif(btrim(row_in->>'title'), '') is not null then
+        if v_asset is null and coalesce(row_in->>'asset_id', row_in->>'asset_name') is not null then
+          v_reason := format('unknown asset "%s"',
+            coalesce(row_in->>'asset_name', row_in->>'asset_id'));
+        else
+        if exists (select 1 from work_orders
+                   where organization_id = v_org and source_system = v_source
+                     and external_id = v_ext) then
+          v_dup := v_dup + 1;
+          insert into ingest_staging (organization_id, connector_id, run_id,
+            entity_type, external_id, payload, status)
+          values (v_org, r.connector_id, p_run_id, r.entity_type, v_ext, row_in, 'duplicate');
+          continue;
+        end if;
+
+        insert into work_orders (organization_id, asset_id, wo_number, title,
+          status, priority, work_type, created_at, completed_at,
+          actual_failure_mode, downtime_hours, source_system, external_id)
+        values (v_org, v_asset, coalesce(row_in->>'wo_number', v_ext),
+          row_in->>'title', coalesce(row_in->>'status', 'open'),
+          coalesce(row_in->>'priority', 'medium'),
+          coalesce(row_in->>'work_type', 'corrective'),
+          coalesce((row_in->>'created_at')::timestamptz, now()),
+          (row_in->>'completed_at')::timestamptz,
+          row_in->>'failure_mode',
+          (row_in->>'downtime_hours')::numeric, v_source, v_ext);
+        v_max_ts := greatest(coalesce(v_max_ts, now()),
+          coalesce((row_in->>'created_at')::timestamptz, now()));
+        end if;
+      end if;
+
+    -- ── maintenance_notification ─────────────────────────────────────────
+    elsif v_reason is null and r.entity_type = 'maintenance_notification' then
+      -- Both of these columns carry a CHECK, and neither was validated here or
+      -- named in the client-side allowlist. `malfunction` is an ordinary word;
+      -- so is a capitalised `Fault` from a CMMS export, or a `closed` status.
+      -- Any of them raised, and before the subtransaction above that meant the
+      -- whole file was lost with nothing retained to explain it. Refusing the
+      -- row NAMES the column and the accepted values.
+      if nullif(btrim(row_in->>'description'), '') is null then
+        v_reason := 'missing description — a notification with no observation is not a report';
+      elsif coalesce(nullif(btrim(row_in->>'notification_type'), ''), 'fault')
+            not in ('fault', 'observation', 'request', 'safety') then
+        v_reason := format('notification_type "%s" is not one of fault, observation, request, safety',
+          btrim(row_in->>'notification_type'));
+      elsif coalesce(nullif(btrim(row_in->>'status'), ''), 'open')
+            not in ('open', 'in_planning', 'converted', 'rejected', 'merged') then
+        v_reason := format('status "%s" is not one of open, in_planning, converted, rejected, merged',
+          btrim(row_in->>'status'));
+      else
+        select array_agg(id) into v_ids from assets
+        where organization_id = v_org
+          and (id::text = row_in->>'asset_id' or name = row_in->>'asset_name');
+        v_asset := null;
+        if coalesce(array_length(v_ids, 1), 0) > 1 then
+          v_reason := format('asset "%s" matches %s assets — give asset_id instead of asset_name',
+            coalesce(row_in->>'asset_name', row_in->>'asset_id'), array_length(v_ids, 1));
+        else
+          v_asset := v_ids[1];
+        end if;
+        -- An unmatched asset is a REJECT, not a null. A notification whose asset
+        -- cannot be resolved is invisible to duplicate detection and to every
+        -- per-asset reliability figure, so accepting it would quietly lose it.
+        if v_reason is not null then
+          null;
+        elsif v_asset is null and coalesce(row_in->>'asset_id', row_in->>'asset_name') is not null then
+          v_reason := format('unknown asset "%s"',
+            coalesce(row_in->>'asset_id', row_in->>'asset_name'));
+        else
+          insert into maintenance_notifications (organization_id, asset_id,
+            notification_no, description, notification_type, reported_by,
+            reported_at, status)
+          values (v_org, v_asset, coalesce(row_in->>'notification_no', v_ext),
+            btrim(row_in->>'description'),
+            coalesce(nullif(btrim(row_in->>'notification_type'), ''), 'fault'),
+            row_in->>'reported_by',
+            coalesce((row_in->>'reported_at')::timestamptz, now()),
+            coalesce(nullif(btrim(row_in->>'status'), ''), 'open'))
+          on conflict (organization_id, notification_no)
+            where notification_no is not null
+            do update set description = excluded.description,
+                          status = excluded.status
+          returning id into v_notif;
+          v_max_ts := greatest(coalesce(v_max_ts, now()),
+            coalesce((row_in->>'reported_at')::timestamptz, now()));
+        end if;
+      end if;
+
+    -- ── maintenance_plan ─────────────────────────────────────────────────
+    elsif v_reason is null and r.entity_type = 'maintenance_plan' then
+      select array_agg(id) into v_ids from assets
+      where organization_id = v_org
+        and (id::text = row_in->>'asset_id' or name = row_in->>'asset_name');
+      v_plan_asset := null;
+      if coalesce(array_length(v_ids, 1), 0) > 1 then
+        v_reason := format('asset "%s" matches %s assets — give asset_id instead of asset_name',
+          coalesce(row_in->>'asset_name', row_in->>'asset_id'), array_length(v_ids, 1));
+      else
+        v_plan_asset := v_ids[1];
+      end if;
+      if v_reason is not null then
+        null;
+      elsif nullif(btrim(row_in->>'task_label'), '') is null then
+        v_reason := 'missing task_label';
+      elsif v_plan_asset is null then
+        v_reason := format('unknown asset "%s"',
+          coalesce(row_in->>'asset_id', row_in->>'asset_name', '(none supplied)'));
+      elsif (row_in->>'interval_value') is null
+            or (row_in->>'interval_value')::numeric <= 0 then
+        v_reason := 'interval_value must be a positive number';
+      elsif coalesce(row_in->>'interval_basis', 'calendar_days')
+              not in ('calendar_days', 'run_hours') then
+        v_reason := format('interval_basis "%s" is neither calendar_days nor run_hours',
+          row_in->>'interval_basis');
+      else
+        -- `source` carries the operator's own basis for the interval. It is
+        -- recorded rather than defaulted, because an interval with no stated
+        -- source is an assertion and the PM-due denominator is built on these.
+        insert into maintenance_plans (organization_id, asset_id, task_code,
+          task_label, interval_basis, interval_value, last_performed_at, source)
+        values (v_org, v_plan_asset, coalesce(row_in->>'task_code', v_ext),
+          row_in->>'task_label',
+          coalesce(row_in->>'interval_basis', 'calendar_days'),
+          (row_in->>'interval_value')::numeric,
+          (row_in->>'last_performed_at')::timestamptz,
+          coalesce(row_in->>'source', format('Ingested from %s', v_source)))
+        on conflict (organization_id, asset_id, task_code)
+          where task_code is not null
+          do update set task_label = excluded.task_label,
+                        interval_basis = excluded.interval_basis,
+                        interval_value = excluded.interval_value,
+                        last_performed_at = excluded.last_performed_at,
+                        source = excluded.source;
+        v_max_ts := greatest(coalesce(v_max_ts, now()), now());
+      end if;
+
+    elsif v_reason is null then
+      v_reason := format('unsupported entity_type "%s"', r.entity_type);
+    end if;
+
+    exception
+      when unique_violation then
+        -- The dedupe INDEX is the real guarantee; the `exists` check above is
+        -- only an optimisation, and a concurrent run can land the same
+        -- external_id between the two. Before this block that raised and took
+        -- the whole batch — the good rows AND the retained rejects — with it,
+        -- showing the operator an internal index name instead of a row.
+        v_reason := 'already loaded — another run wrote this external_id while this one was in flight';
+      when others then
+        -- The row's own writes are rolled back with the subtransaction; the
+        -- counters are PL/pgSQL variables and are not. The database's own words
+        -- are the reason, because a CHECK it enforces is a fact this validator
+        -- may not have been taught yet.
+        v_reason := format('the database refused this row: %s', sqlerrm);
+    end;
+
+    if v_reason is null then
+      v_ok := v_ok + 1;
+      insert into ingest_staging (organization_id, connector_id, run_id,
+        entity_type, external_id, payload, status)
+      values (v_org, r.connector_id, p_run_id, r.entity_type, v_ext, row_in, 'accepted');
+    else
+      v_rej := v_rej + 1;
+      -- The rejected row is KEPT. A connector that silently drops rows reports
+      -- a successful sync; this is what makes that impossible.
+      insert into ingest_staging (organization_id, connector_id, run_id,
+        entity_type, external_id, payload, status, reject_reason)
+      values (v_org, r.connector_id, p_run_id, r.entity_type, v_ext, row_in, 'rejected', v_reason);
+    end if;
+  end loop;
+
+  update connector_runs
+  set records_read = records_read + v_read,
+      records_accepted = records_accepted + v_ok,
+      records_rejected = records_rejected + v_rej,
+      records_duplicate = records_duplicate + v_dup,
+      watermark_to = greatest(coalesce(watermark_to, v_max_ts), v_max_ts)
+  where id = p_run_id;
+
+  return jsonb_build_object('read', v_read, 'accepted', v_ok,
+    'duplicate', v_dup, 'rejected', v_rej);
+end
+$$;
+
+revoke all on function public.ingest_batch(uuid, jsonb) from public, anon, authenticated;
+grant execute on function public.ingest_batch(uuid, jsonb) to service_role;
+
+create or replace function public.finish_connector_run(
+  p_run_id uuid,
+  p_status text default 'success',
+  p_error text default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_org uuid := case
+    when coalesce(auth.role(),'') = 'service_role'
+      then nullif(current_setting('app.service_organization_id', true), '')::uuid
+    else public.app_current_org()
+  end;
+  r connector_runs%rowtype;
+begin
+  select * into r from connector_runs where id = p_run_id and organization_id = v_org;
+  if not found then
+    return jsonb_build_object('error', 'run not found');
+  end if;
+
+  update connector_runs
+  set status = p_status, finished_at = now(), error_message = p_error,
+      records_processed = records_accepted
+  where id = p_run_id;
+
+  -- The watermark advances only on a clean run. Advancing it after a partial
+  -- failure is how rows get skipped forever.
+  --
+  -- 20260810160000 stated that as a property and enforced only `p_status =
+  -- 'success'`, leaving the rest to the caller. The browser importer does pass
+  -- 'partial' when anything was rejected — but the rule was a property of that
+  -- one call site, not of the contract: a run carrying records_rejected = 1,
+  -- finished with 'success', advanced the watermark straight past the skipped
+  -- row, and `greatest(...)` means it can never come back down. The row is
+  -- already sitting in r.records_rejected; consulting it is what makes the
+  -- sentence above true for every caller, including the vendor adapter that
+  -- does not exist yet.
+  if p_status = 'success' and r.records_rejected = 0 and r.watermark_to is not null then
+    insert into ingest_watermarks (organization_id, connector_id, entity_type,
+      last_position, last_run_id)
+    values (v_org, r.connector_id, r.entity_type, r.watermark_to, p_run_id)
+    on conflict (connector_id, entity_type) do update
+      set last_position = greatest(ingest_watermarks.last_position, excluded.last_position),
+          last_run_id = excluded.last_run_id, updated_at = now();
+  end if;
+
+  update connectors
+  set last_success_at = case when p_status = 'success' then now() else last_success_at end,
+      last_failure_at = case when p_status <> 'success' then now() else last_failure_at end
+  where id = r.connector_id;
+
+  return jsonb_build_object('run_id', p_run_id, 'status', p_status,
+    'watermark_advanced',
+      p_status = 'success' and r.records_rejected = 0 and r.watermark_to is not null,
+    'records_rejected', r.records_rejected);
+end
+$$;
+
+revoke all on function public.finish_connector_run(uuid, text, text) from public, anon;
+grant execute on function public.finish_connector_run(uuid, text, text) to authenticated;
+grant execute on function public.finish_connector_run(uuid, text, text) to service_role;
+
+-- Service-only signed ingress. The run remains an unattended system run
+-- (triggered_by NULL). Organization scope comes from the server-side key
+-- binding via app.service_organization_id, not from a user JWT. The connector
+-- still records which administrator authorized the source.
 create or replace function public.ingest_azure_iot_operations_batch(
   p_organization_id uuid,
   p_connector_key text,
@@ -346,8 +963,6 @@ declare
   v_rows jsonb:='[]'::jsonb;
   v_rejected integer:=0;
   v_result jsonb:=jsonb_build_object('read',0,'accepted',0,'duplicate',0,'rejected',0);
-  v_old_sub text:=current_setting('request.jwt.claim.sub',true);
-  v_old_claims text:=current_setting('request.jwt.claims',true);
   v_status text;
   v_observed_at timestamptz;
   v_health_state text;
@@ -384,7 +999,7 @@ begin
   if v_connector.ingress_authorized_by is null or not exists(
     select 1 from public.user_profiles u
     where u.id=v_connector.ingress_authorized_by
-      and u.organization_id=p_organization_id and u.role in ('admin','ai_admin')
+      and u.organization_id=p_organization_id and u.role = 'admin'
   ) then
     return jsonb_build_object('error','the named ingress authorization is no longer valid');
   end if;
@@ -484,12 +1099,10 @@ begin
     end if;
   end loop;
 
-  -- Reuse the canonical writer under the exact tenant explicitly authorized
-  -- on this connector. The run remains system-triggered, not human-triggered.
-  perform set_config('request.jwt.claim.sub',v_connector.ingress_authorized_by::text,true);
-  perform set_config('request.jwt.claims',jsonb_build_object(
-    'sub',v_connector.ingress_authorized_by::text,'role','authenticated'
-  )::text,true);
+  -- Reuse the canonical writer under the tenant bound to this ingress key.
+  -- No user JWT is installed: an adopted MFA policy would otherwise make
+  -- app_current_org() null because this session has no aal2 claim.
+  perform set_config('app.service_organization_id',p_organization_id::text,true);
   if jsonb_array_length(v_rows)>0 then
     v_result:=public.ingest_batch(v_run,v_rows);
     if v_result ? 'error' then raise exception '%',v_result->>'error'; end if;
@@ -525,8 +1138,7 @@ begin
         (v_result->>'rejected')::integer+v_rejected) end
   where id=v_connector.id;
   perform set_config('app.sync_context_source_write','',true);
-  perform set_config('request.jwt.claim.sub',coalesce(v_old_sub,''),true);
-  perform set_config('request.jwt.claims',coalesce(v_old_claims,''),true);
+  perform set_config('app.service_organization_id','',true);
 
   return jsonb_build_object(
     'ok',true,'replayed',false,'run_id',v_run,'status',v_status,
@@ -539,19 +1151,19 @@ begin
   );
 exception when unique_violation then
   perform set_config('app.sync_context_source_write','',true);
-  perform set_config('request.jwt.claim.sub',coalesce(v_old_sub,''),true);
-  perform set_config('request.jwt.claims',coalesce(v_old_claims,''),true);
+  perform set_config('app.service_organization_id','',true);
   select id,source_body_sha256 into v_run,v_existing_body_sha256 from public.connector_runs
   where connector_id=v_connector.id and source_delivery_id=btrim(p_delivery_id);
   if v_existing_body_sha256 is distinct from p_body_sha256 then
-    raise exception 'delivery ID collision: body digest differs from recorded delivery';
+    return jsonb_build_object(
+      'error','delivery ID collision: body digest differs from recorded delivery'
+    );
   end if;
   return jsonb_build_object('ok',true,'replayed',true,'run_id',v_run,
     'note','delivery already recorded; no rows were written again');
 when others then
   perform set_config('app.sync_context_source_write','',true);
-  perform set_config('request.jwt.claim.sub',coalesce(v_old_sub,''),true);
-  perform set_config('request.jwt.claims',coalesce(v_old_claims,''),true);
+  perform set_config('app.service_organization_id','',true);
   if v_run is not null then
     update public.connector_runs set status='failed',finished_at=now(),
       error_message='Azure IoT Operations ingress failed; inspect protected function logs.'
@@ -568,6 +1180,144 @@ revoke all on function public.ingest_azure_iot_operations_batch(
 grant execute on function public.ingest_azure_iot_operations_batch(
   uuid,text,text,text,text,timestamptz,jsonb
 ) to service_role;
+
+
+-- Durable quarantine for a batch the relay must not retry forever. The row is
+-- a refused connector_runs receipt, not a second queue. Consecutive failures
+-- and a reported checkpoint lag raise one open system_alerts row each.
+create or replace function public.refuse_azure_iot_operations_delivery(
+  p_organization_id uuid,
+  p_connector_key text,
+  p_ingress_key_id text,
+  p_delivery_id text,
+  p_body_sha256 text,
+  p_received_at timestamptz,
+  p_reason text,
+  p_checkpoint_lag_seconds integer default null
+)
+returns jsonb
+language plpgsql
+security definer
+set search_path=public
+as $$
+declare
+  v_connector public.connectors%rowtype;
+  v_run uuid;
+  v_existing text;
+  v_existing_status text;
+  v_reason text:=left(btrim(coalesce(p_reason,'')),480);
+  v_recent integer;
+begin
+  if coalesce(auth.role(),'')<>'service_role' then
+    return jsonb_build_object('error','service role required','dead_lettered',false);
+  end if;
+  if p_organization_id is null or coalesce(length(btrim(p_connector_key)),0)<3
+     or coalesce(length(btrim(p_ingress_key_id)),0)<8
+     or coalesce(length(btrim(p_delivery_id)),0) not between 8 and 200
+     or p_body_sha256 is null or p_body_sha256 !~ '^[0-9a-f]{64}$'
+     or p_received_at is null or length(v_reason)<8 then
+    return jsonb_build_object('error','dead-letter identity is incomplete','dead_lettered',false);
+  end if;
+  if p_checkpoint_lag_seconds is not null
+     and (p_checkpoint_lag_seconds < 0 or p_checkpoint_lag_seconds > 604800) then
+    return jsonb_build_object('error','checkpoint lag is outside the recorded range','dead_lettered',false);
+  end if;
+  select * into v_connector from public.connectors
+  where organization_id=p_organization_id and connector_key=btrim(p_connector_key)
+    and connector_type='azure_iot_operations' and ingress_key_id=btrim(p_ingress_key_id);
+  if not found then
+    return jsonb_build_object('error','Azure IoT Operations connector not found','dead_lettered',false);
+  end if;
+  if v_connector.ingress_authorized_by is null or not exists(
+    select 1 from public.user_profiles u
+    where u.id=v_connector.ingress_authorized_by
+      and u.organization_id=p_organization_id and u.role = 'admin'
+  ) then
+    return jsonb_build_object('error','the named ingress authorization is no longer valid','dead_lettered',false);
+  end if;
+
+  select id, source_body_sha256, status
+    into v_run, v_existing, v_existing_status
+  from public.connector_runs
+  where connector_id=v_connector.id and source_delivery_id=btrim(p_delivery_id);
+  if v_run is not null then
+    if v_existing is distinct from p_body_sha256 then
+      return jsonb_build_object(
+        'error','delivery ID collision: body digest differs from recorded delivery',
+        'dead_lettered',false
+      );
+    end if;
+    return jsonb_build_object('ok',true,'dead_lettered',true,'replayed',true,'run_id',v_run);
+  end if;
+
+  insert into public.connector_runs(
+    organization_id,connector_id,entity_type,run_type,status,started_at,finished_at,
+    error_message,source_delivery_id,source_body_sha256,source_received_at,source_transport
+  ) values(
+    p_organization_id,v_connector.id,'condition_reading','stream','failed',now(),now(),
+    'dead_letter: '||v_reason,
+    btrim(p_delivery_id),p_body_sha256,p_received_at,'azure_event_hubs'
+  ) returning id into v_run;
+
+  update public.connectors set last_failure_at=now() where id=v_connector.id;
+  perform set_config('app.sync_context_source_write','granted',true);
+  update public.connectors set
+    context_checked_at=now(),
+    context_health_detail=left('Dead-lettered Event Hubs batch: '||v_reason,500)
+  where id=v_connector.id;
+  perform set_config('app.sync_context_source_write','',true);
+
+  select count(*)::integer into v_recent from public.connector_runs
+  where connector_id=v_connector.id and status='failed'
+    and started_at>now()-interval '1 hour';
+  if v_recent >= 3 and not exists(
+    select 1 from public.system_alerts
+    where organization_id=p_organization_id
+      and alert_type='azure_iot_ingress_consecutive_failures'
+      and resolved=false and created_at>now()-interval '1 hour'
+  ) then
+    insert into public.system_alerts(
+      organization_id,severity,title,description,alert_type
+    ) values(
+      p_organization_id,'warning',
+      'Azure IoT Operations ingress failures',
+      format('%s failed deliveries for connector %s in the last hour. The latest batch was dead-lettered so the Event Hubs checkpoint can advance.',
+        v_recent, v_connector.connector_key),
+      'azure_iot_ingress_consecutive_failures'
+    );
+  end if;
+  if coalesce(p_checkpoint_lag_seconds,0) >= 900 and not exists(
+    select 1 from public.system_alerts
+    where organization_id=p_organization_id
+      and alert_type='azure_iot_ingress_checkpoint_lag'
+      and resolved=false and created_at>now()-interval '1 hour'
+  ) then
+    insert into public.system_alerts(
+      organization_id,severity,title,description,alert_type
+    ) values(
+      p_organization_id,'warning',
+      'Azure IoT Operations checkpoint lag',
+      format('Connector %s reported an Event Hubs enqueue lag of %s seconds while dead-lettering a batch. This is an operator alarm for a stuck consumer, not an equipment limit.',
+        v_connector.connector_key, p_checkpoint_lag_seconds),
+      'azure_iot_ingress_checkpoint_lag'
+    );
+  end if;
+
+  return jsonb_build_object('ok',true,'dead_lettered',true,'replayed',false,'run_id',v_run,
+    'status','failed');
+exception when others then
+  perform set_config('app.sync_context_source_write','',true);
+  raise;
+end
+$$;
+
+revoke all on function public.refuse_azure_iot_operations_delivery(
+  uuid,text,text,text,text,timestamptz,text,integer
+) from public,anon,authenticated;
+grant execute on function public.refuse_azure_iot_operations_delivery(
+  uuid,text,text,text,text,timestamptz,text,integer
+) to service_role;
+
 
 -- A live Azure source must yield the seed randomizer exactly as the existing
 -- plant-historian source does. Mixing generated values into a live source's

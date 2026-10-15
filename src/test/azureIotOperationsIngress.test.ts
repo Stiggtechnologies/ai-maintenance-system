@@ -1,6 +1,7 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
+  azureIotIngressStatus,
   parseAzureIotIngressBindings,
   parseAzureIotIngressEnvelope,
   sha256Hex,
@@ -125,11 +126,45 @@ describe("Azure IoT Operations signed ingress core", () => {
   it("normalizes quality and preserves replay identities", () => {
     const parsed = parseAzureIotIngressEnvelope(body);
     expect(parsed.deliveryId).toBe("0:1234:1234:1");
+    expect(parsed.deadLetter).toBeUndefined();
     expect(parsed.points[0]).toMatchObject({
       external_id: "0:1234:temperature",
       tag: "mine-a/crusher-01/temperature",
       quality: "good",
       sequence_number: "98",
+    });
+  });
+
+  it("classifies database failures as retryable and refusals as permanent", () => {
+    expect(azureIotIngressStatus({ phase: "rpc_transport" })).toBe(503);
+    expect(
+      azureIotIngressStatus({
+        phase: "rpc_result",
+        message: "enabled Azure IoT Operations connector not found",
+      }),
+    ).toBe(422);
+    expect(
+      azureIotIngressStatus({
+        phase: "signature",
+        message: "invalid_signature",
+      }),
+    ).toBe(401);
+    expect(
+      azureIotIngressStatus({ phase: "parse", message: "invalid_json" }),
+    ).toBe(400);
+    const deadLetter = parseAzureIotIngressEnvelope(
+      JSON.stringify({
+        delivery_id: "3:4401:4401:1:dead-letter",
+        dead_letter_reason: "undecodable",
+        dead_letter_detail: "Event 1 is not valid JSON",
+        checkpoint_lag_seconds: 1200,
+      }),
+    );
+    expect(deadLetter.points).toEqual([]);
+    expect(deadLetter.deadLetter).toEqual({
+      reason: "undecodable",
+      detail: "Event 1 is not valid JSON",
+      lagSeconds: 1200,
     });
   });
 });

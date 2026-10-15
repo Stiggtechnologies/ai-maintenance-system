@@ -6,6 +6,7 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
+  azureIotIngressStatus,
   parseAzureIotIngressBindings,
   parseAzureIotIngressEnvelope,
   verifyAzureIotIngressSignature,
@@ -67,6 +68,8 @@ Deno.serve(async (request) => {
   if (new TextEncoder().encode(body).byteLength > MAX_BODY_BYTES)
     return json({ error: "body_too_large" }, 413);
 
+  let phase: "signature" | "parse" | "rpc_result" | "rpc_transport" =
+    "signature";
   try {
     const verified = await verifyAzureIotIngressSignature({
       body,
@@ -74,10 +77,49 @@ Deno.serve(async (request) => {
       signature,
       secret: binding.secret,
     });
+    phase = "parse";
     const envelope = parseAzureIotIngressEnvelope(body);
     const client = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+    if (envelope.deadLetter) {
+      phase = "rpc_transport";
+      const refused = await client.rpc("refuse_azure_iot_operations_delivery", {
+        p_organization_id: binding.organizationId,
+        p_connector_key: binding.connectorKey,
+        p_ingress_key_id: keyId,
+        p_delivery_id: envelope.deliveryId,
+        p_body_sha256: verified.bodySha256,
+        p_received_at: verified.receivedAt,
+        p_reason: `${envelope.deadLetter.reason}: ${envelope.deadLetter.detail}`,
+        p_checkpoint_lag_seconds: envelope.deadLetter.lagSeconds ?? null,
+      });
+      if (refused.error) {
+        safeLog("dead_letter_unavailable", { keyId });
+        return json({ error: "ingress_unavailable" }, 503);
+      }
+      const refusal = refused.data as Record<string, unknown> | null;
+      if (refusal?.dead_lettered === true) {
+        safeLog("dead_letter_recorded", {
+          keyId,
+          deliveryId: envelope.deliveryId,
+          runId: refusal.run_id,
+        });
+        return json(refusal, 200);
+      }
+      phase = "rpc_result";
+      return json(
+        {
+          error:
+            typeof refusal?.error === "string"
+              ? refusal.error
+              : "dead_letter_not_recorded",
+          dead_lettered: false,
+        },
+        422,
+      );
+    }
+    phase = "rpc_transport";
     const { data, error } = await client.rpc(
       "ingest_azure_iot_operations_batch",
       {
@@ -90,9 +132,41 @@ Deno.serve(async (request) => {
         p_points: envelope.points,
       },
     );
-    if (error) throw new Error(error.message);
+    if (error) {
+      safeLog("delivery_unavailable", { keyId });
+      return json({ error: "ingress_unavailable" }, 503);
+    }
     const result = data as Record<string, unknown> | null;
-    if (typeof result?.error === "string") throw new Error(result.error);
+    if (typeof result?.error === "string") {
+      phase = "rpc_result";
+      const refused = await client.rpc("refuse_azure_iot_operations_delivery", {
+        p_organization_id: binding.organizationId,
+        p_connector_key: binding.connectorKey,
+        p_ingress_key_id: keyId,
+        p_delivery_id: envelope.deliveryId,
+        p_body_sha256: verified.bodySha256,
+        p_received_at: verified.receivedAt,
+        p_reason: result.error,
+      });
+      if (refused.error) {
+        safeLog("dead_letter_unavailable", { keyId });
+        return json({ error: "ingress_unavailable" }, 503);
+      }
+      const refusal = refused.data as Record<string, unknown> | null;
+      safeLog("delivery_refused", {
+        keyId,
+        error: result.error,
+        deadLettered: refusal?.dead_lettered === true,
+      });
+      return json(
+        {
+          error: result.error,
+          dead_lettered: refusal?.dead_lettered === true,
+          run_id: refusal?.run_id,
+        },
+        azureIotIngressStatus({ phase: "rpc_result", message: result.error }),
+      );
+    }
     safeLog("delivery_recorded", {
       keyId,
       connectorKey: binding.connectorKey,
@@ -105,8 +179,9 @@ Deno.serve(async (request) => {
     return json(result ?? { ok: true }, result?.replayed ? 200 : 202);
   } catch (error) {
     const message = error instanceof Error ? error.message : "ingress_failed";
-    safeLog("delivery_refused", { keyId, error: message });
-    const status = message.includes("signature") ? 401 : 422;
-    return json({ error: message }, status);
+    safeLog("delivery_refused", { keyId, error: message, phase });
+    const status = azureIotIngressStatus({ phase, message });
+    if (status >= 500) return json({ error: "ingress_unavailable" }, status);
+    return json({ error: message, dead_lettered: false }, status);
   }
 });

@@ -35,6 +35,17 @@ beforeEach(() => {
 });
 
 describe("AzureIotOperationsConnectorSetup", () => {
+  it("does not treat ai_admin as the configuring administrator", async () => {
+    role = "ai_admin";
+    render(
+      <AzureIotOperationsConnectorSetup onConfigured={async () => undefined} />,
+    );
+    expect(
+      await screen.findByText(/named administrator must configure/i),
+    ).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/Connector key/i)).toBeNull();
+  });
+
   it("keeps configuration behind named administrator authority", async () => {
     role = "reliability_engineer";
     render(

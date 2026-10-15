@@ -1,6 +1,21 @@
 #!/usr/bin/env bash
 set -euo pipefail
-trap 'echo "Azure IoT Operations ingress smoke FAILED at line $LINENO: $BASH_COMMAND"' ERR
+POLICY_ID=
+cleanup_mfa() {
+  if [ -z "${POLICY_ID:-}" ]; then return 0; fi
+  PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -q -v ON_ERROR_STOP=1 <<SQL >/dev/null
+do \$\$
+begin
+  perform set_config('app.organization_mfa_policy_writer','governed',true);
+  update public.organization_mfa_policies
+    set status='superseded'
+  where id='${POLICY_ID}'::uuid and status='adopted';
+end
+\$\$;
+SQL
+  POLICY_ID=
+}
+trap 'echo "Azure IoT Operations ingress smoke FAILED at line $LINENO: $BASH_COMMAND"; cleanup_mfa' ERR
 
 eval "$(supabase status -o env | grep -E '^(API_URL|ANON_KEY|SERVICE_ROLE_KEY)=')"
 : "${API_URL:?}"
@@ -160,4 +175,64 @@ select
     where s.organization_id='$ORG' and c.connector_key='$CONNECTOR' and s.external_id='$EXTERNAL_ID' and s.status='accepted');
 SQL
 
-echo 'Azure IoT Operations ingress smoke passed: service_only=true tenant_wall=true human_mapping=true replay_safe=true rejects_retained=true provenance_retained=true watermark_fail_closed=true source_label=true simulator_yield=true read_only=true'
+EXEC_ID=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atqc \
+  "select id from public.user_profiles where organization_id='$ORG' and email='executive@syncai.ca' limit 1")
+test -n "$EXEC_ID"
+test "$EXEC_ID" != "$ADMIN_ID"
+MFA_VERSION=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atqc \
+  "select coalesce(max(version),0)+1 from public.organization_mfa_policies where organization_id='$ORG'")
+POLICY_ID=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atq -v ON_ERROR_STOP=1 <<SQL
+do \$\$
+declare v_id uuid;
+begin
+  perform set_config('app.organization_mfa_policy_writer','governed',true);
+  insert into public.organization_mfa_policies(
+    organization_id,version,enforcement_scope,privileged_roles,effective_at,status,
+    proposed_by,proposal_reason,decided_by,decided_at,decision_reason
+  ) values(
+    '$ORG',$MFA_VERSION,'all_members',
+    array['admin','ai_admin','executive','maintenance_manager']::text[],
+    now()-interval '1 minute','adopted',
+    '$ADMIN_ID','Smoke adopts MFA so unattended ingress cannot depend on an AAL1 administrator session.',
+    '$EXEC_ID',now(),'A different named human adopts the smoke MFA policy for the service ingress path.'
+  ) returning id into v_id;
+end
+\$\$;
+select id::text from public.organization_mfa_policies
+where organization_id='$ORG' and status='adopted'
+order by version desc limit 1;
+SQL
+)
+test -n "$POLICY_ID"
+
+BLOCKED=$(rpc_user get_azure_iot_operations_status '{}')
+BODY="$BLOCKED" python3 - <<'PY'
+import json, os
+x=json.loads(os.environ['BODY'])
+assert x.get('error')=='forbidden', x
+PY
+
+MFA_DELIVERY="partition-0:offset-102:offset-102:$RUN_SUFFIX"
+MFA_EXTERNAL="0:102:vibration:$RUN_SUFFIX"
+MFA_DIGEST='cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc'
+MFA_OK=$(rpc_service "{\"p_organization_id\":\"$ORG\",\"p_connector_key\":\"$CONNECTOR\",\"p_ingress_key_id\":\"$KEY_ID\",\"p_delivery_id\":\"$MFA_DELIVERY\",\"p_body_sha256\":\"$MFA_DIGEST\",\"p_received_at\":\"$RECEIVED_TS\",\"p_points\":[{\"external_id\":\"$MFA_EXTERNAL\",\"tag\":\"$TAG\",\"value\":4.4,\"source_timestamp\":\"$SOURCE_TS\",\"quality\":\"good\"}]}")
+test "${MFA_OK##*$'\n'}" = '200'
+BODY="${MFA_OK%$'\n'*}" python3 - <<'PY'
+import json, os
+x=json.loads(os.environ['BODY'])
+assert x['ok'] is True and x['replayed'] is False and x['accepted']==1, x
+PY
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atq \
+  -c "select count(*) from public.condition_readings where organization_id='$ORG' and source_system='$CONNECTOR' and external_id='$MFA_EXTERNAL'" \
+  | grep -qx '1'
+
+cleanup_mfa
+RESTORED=$(rpc_user get_azure_iot_operations_status '{}')
+BODY="$RESTORED" python3 - <<'PY'
+import json, os
+x=json.loads(os.environ['BODY'])
+assert x.get('error')!='forbidden', x
+assert x.get('configured') is True, x
+PY
+
+echo 'Azure IoT Operations ingress smoke passed: service_only=true tenant_wall=true human_mapping=true replay_safe=true rejects_retained=true provenance_retained=true watermark_fail_closed=true source_label=true simulator_yield=true read_only=true mfa_adopted=true'

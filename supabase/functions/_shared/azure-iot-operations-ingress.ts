@@ -171,9 +171,42 @@ function optionalBoundedText(
   return text;
 }
 
+export interface AzureIotDeadLetter {
+  reason: string;
+  detail: string;
+  lagSeconds?: number;
+}
+
+const SIGNATURE_FAILURES = new Set([
+  "invalid_signature",
+  "invalid_signature_timestamp",
+  "invalid_signature_format",
+  "signature_timestamp_outside_window",
+]);
+
+/**
+ * Permanent client failures are 4xx. Database, network and unclassified
+ * failures are 503 so the relay retries them instead of quarantining a batch
+ * that never reached durable storage.
+ */
+export function azureIotIngressStatus(input: {
+  phase: "signature" | "parse" | "rpc_result" | "rpc_transport";
+  message?: string;
+}): number {
+  if (input.phase === "rpc_transport") return 503;
+  if (input.phase === "rpc_result") return 422;
+  if (
+    input.phase === "signature" ||
+    (input.message !== undefined && SIGNATURE_FAILURES.has(input.message))
+  )
+    return 401;
+  return 400;
+}
+
 export function parseAzureIotIngressEnvelope(body: string): {
   deliveryId: string;
   points: AzureIotPoint[];
+  deadLetter?: AzureIotDeadLetter;
 } {
   let parsed: unknown;
   try {
@@ -188,6 +221,45 @@ export function parseAzureIotIngressEnvelope(body: string): {
     typeof envelope.delivery_id === "string" ? envelope.delivery_id.trim() : "";
   if (deliveryId.length < 8 || deliveryId.length > 200)
     throw new Error("invalid_delivery_id");
+  const deadLetterReason =
+    typeof envelope.dead_letter_reason === "string"
+      ? envelope.dead_letter_reason.trim()
+      : "";
+  if (deadLetterReason) {
+    if (!/^[a-z0-9_]{3,80}$/.test(deadLetterReason))
+      throw new Error("invalid_dead_letter_reason");
+    const detail =
+      typeof envelope.dead_letter_detail === "string"
+        ? envelope.dead_letter_detail.trim()
+        : "";
+    if (detail.length < 8 || detail.length > 400)
+      throw new Error("invalid_dead_letter_detail");
+    let lagSeconds: number | undefined;
+    if (
+      envelope.checkpoint_lag_seconds !== undefined &&
+      envelope.checkpoint_lag_seconds !== null
+    ) {
+      const lag = envelope.checkpoint_lag_seconds;
+      if (
+        typeof lag !== "number" ||
+        !Number.isInteger(lag) ||
+        lag < 0 ||
+        lag > 604800
+      )
+        throw new Error("invalid_checkpoint_lag");
+      lagSeconds = lag;
+    }
+    if (
+      envelope.points !== undefined &&
+      (!Array.isArray(envelope.points) || envelope.points.length > 0)
+    )
+      throw new Error("dead_letter_has_points");
+    return {
+      deliveryId,
+      points: [],
+      deadLetter: { reason: deadLetterReason, detail, lagSeconds },
+    };
+  }
   if (!Array.isArray(envelope.points) || envelope.points.length < 1)
     throw new Error("points_required");
   if (envelope.points.length > 500) throw new Error("too_many_points");

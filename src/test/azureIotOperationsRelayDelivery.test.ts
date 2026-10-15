@@ -1,12 +1,62 @@
 import { readFileSync } from "node:fs";
-import { describe, expect, it } from "vitest";
-import {
-  UndeliveredRelayError,
-  deliverEventHubBatch,
-  failureAdvancesCheckpoint,
-  relayRetryPolicy,
-  type RelayInvocation,
-} from "../../infra/azure/iot-operations-relay/src/delivery";
+import { beforeEach, describe, expect, it } from "vitest";
+
+const deliveryModulePath =
+  "../../infra/azure/iot-operations-relay/src/delivery.ts";
+
+interface DeadLetterRecord {
+  reason: string;
+  detail: string;
+  deliveryId: string;
+  status: number | null;
+}
+
+interface RelayInvocation {
+  triggerMetadata?: Record<string, unknown> | null;
+  log: (...args: unknown[]) => void;
+  error: (...args: unknown[]) => void;
+  errors: string[];
+}
+
+interface DeliveryModule {
+  UndeliveredRelayError: new (...args: never[]) => Error;
+  PermanentRelayError: new (...args: never[]) => Error;
+  CHECKPOINT_LAG_ALERT_MS: number;
+  CONSECUTIVE_FAILURE_ALERT_COUNT: number;
+  RELAY_TRANSIENT_ATTEMPT_LIMIT: number;
+  checkpointLagMs: (
+    metadata: Record<string, unknown> | null | undefined,
+    nowMs: number,
+  ) => number | null;
+  deadLetterBlobUrl: (containerUrl: string, name: string) => string;
+  deliverEventHubBatch: (
+    messages: unknown[],
+    context: RelayInvocation,
+    options?: {
+      env?: NodeJS.ProcessEnv;
+      fetch?: typeof fetch;
+      now?: () => number;
+      sleep?: (ms: number) => Promise<void>;
+      chunkSize?: number;
+      attempt?: number;
+      deadLetter?: (record: DeadLetterRecord) => Promise<void>;
+    },
+  ) => Promise<void>;
+  failureAdvancesCheckpoint: (
+    policy: { maxRetryCount: number } | undefined,
+    failuresSoFar: number,
+  ) => boolean;
+  relayFailureStreak: () => number;
+  relayRetryPolicy: {
+    strategy: string;
+    maxRetryCount: number;
+    minimumInterval: { seconds: number };
+    maximumInterval: { minutes: number };
+  };
+  resetRelayFailureStreak: () => void;
+}
+
+const delivery = (await import(deliveryModulePath)) as DeliveryModule;
 
 const env = {
   SYNCAI_INGRESS_URL: "https://ingress.example/azure-iot-operations-ingest",
@@ -28,7 +78,7 @@ const reading = {
   },
 };
 
-function invocation(): RelayInvocation & { errors: string[] } {
+function invocation(metadata: Record<string, unknown> = {}): RelayInvocation {
   const errors: string[] = [];
   return {
     errors,
@@ -36,6 +86,7 @@ function invocation(): RelayInvocation & { errors: string[] } {
       partitionContext: { partitionId: "3" },
       offsetArray: ["4401"],
       sequenceNumberArray: ["81"],
+      ...metadata,
     },
     log: () => undefined,
     error: (message) => {
@@ -44,8 +95,11 @@ function invocation(): RelayInvocation & { errors: string[] } {
   };
 }
 
-function response(status: number): Response {
-  return new Response(status >= 400 ? "no" : "{}", {
+function response(
+  status: number,
+  body = status >= 400 ? "no" : "{}",
+): Response {
+  return new Response(body, {
     status,
     headers: { "content-type": "application/json" },
   });
@@ -65,7 +119,9 @@ async function runHost(
       return { checkpoint, failures };
     } catch {
       failures += 1;
-      if (failureAdvancesCheckpoint(relayRetryPolicy, failures)) {
+      if (
+        delivery.failureAdvancesCheckpoint(delivery.relayRetryPolicy, failures)
+      ) {
         checkpoint = endOffset;
         return { checkpoint, failures, exhausted: true };
       }
@@ -74,8 +130,12 @@ async function runHost(
   return { checkpoint, failures };
 }
 
+beforeEach(() => {
+  delivery.resetRelayFailureStreak();
+});
+
 describe("Azure IoT Operations relay checkpoint", () => {
-  it("registers an indefinite host retry so a failed delivery does not finish the checkpoint policy", () => {
+  it("keeps a thrown delivery from finishing the checkpoint policy", () => {
     const relay = readFileSync(
       "infra/azure/iot-operations-relay/src/functions/relay.ts",
       "utf8",
@@ -85,29 +145,41 @@ describe("Azure IoT Operations relay checkpoint", () => {
       "utf8",
     );
     expect(relay).toContain("retry: relayRetryPolicy");
-    expect(relayRetryPolicy).toEqual({
+    expect(delivery.relayRetryPolicy).toEqual({
       strategy: "exponentialBackoff",
       maxRetryCount: -1,
       minimumInterval: { seconds: 10 },
       maximumInterval: { minutes: 5 },
     });
-    expect(failureAdvancesCheckpoint(undefined, 1)).toBe(true);
-    expect(failureAdvancesCheckpoint({ maxRetryCount: 3 }, 3)).toBe(false);
-    expect(failureAdvancesCheckpoint({ maxRetryCount: 3 }, 4)).toBe(true);
-    expect(failureAdvancesCheckpoint(relayRetryPolicy, 4)).toBe(false);
+    expect(delivery.failureAdvancesCheckpoint(undefined, 1)).toBe(true);
+    expect(delivery.failureAdvancesCheckpoint({ maxRetryCount: 3 }, 3)).toBe(
+      false,
+    );
+    expect(delivery.failureAdvancesCheckpoint({ maxRetryCount: 3 }, 4)).toBe(
+      true,
+    );
+    expect(
+      delivery.failureAdvancesCheckpoint(delivery.relayRetryPolicy, 4),
+    ).toBe(false);
     expect(readme).not.toMatch(/does not checkpoint that Event Hubs batch/i);
     expect(readme).toContain("maxRetryCount: -1");
+    expect(readme).toContain("dead-letter");
   });
 
-  it("does not advance the checkpoint while ingress keeps failing", async () => {
+  it("does not advance the checkpoint while a transient failure is still inside the attempt budget", async () => {
     let calls = 0;
     const seen: string[] = [];
+    const deadLetters: DeadLetterRecord[] = [];
     const result = await runHost(async () => {
-      await deliverEventHubBatch([reading], invocation(), {
+      await delivery.deliverEventHubBatch([reading], invocation(), {
         env,
         chunkSize: 1,
+        attempt: 0,
         sleep: async () => undefined,
         now: () => Date.parse("2026-10-03T18:00:05Z"),
+        deadLetter: async (record) => {
+          deadLetters.push(record);
+        },
         fetch: async (_url, init) => {
           calls += 1;
           const body = JSON.parse(String(init?.body)) as {
@@ -121,6 +193,7 @@ describe("Azure IoT Operations relay checkpoint", () => {
     }, "4401");
     expect(result.checkpoint).toBeNull();
     expect(result.failures).toBe(4);
+    expect(deadLetters).toEqual([]);
     expect(calls).toBe(4 * (1 + 3));
     expect(new Set(seen.filter((id) => id.endsWith("chunk-1-of-2")))).toEqual(
       new Set(["3:4401:4401:1:chunk-1-of-2"]),
@@ -145,19 +218,20 @@ describe("Azure IoT Operations relay checkpoint", () => {
       return response(202);
     };
     await expect(
-      deliverEventHubBatch([reading], context, {
+      delivery.deliverEventHubBatch([reading], context, {
         env,
         chunkSize: 1,
+        attempt: 0,
         sleep: async () => undefined,
         now: () => Date.parse("2026-10-03T18:00:05Z"),
         fetch: fetchImpl,
       }),
-    ).rejects.toBeInstanceOf(UndeliveredRelayError);
-    expect(context.errors).toEqual(["SyncAI relay delivery failed"]);
+    ).rejects.toBeInstanceOf(delivery.UndeliveredRelayError);
+    expect(context.errors).toContain("SyncAI relay delivery failed");
     rejectSecond = false;
     const hosted = await runHost(
       () =>
-        deliverEventHubBatch([reading], invocation(), {
+        delivery.deliverEventHubBatch([reading], invocation(), {
           env,
           chunkSize: 1,
           sleep: async () => undefined,
@@ -175,39 +249,146 @@ describe("Azure IoT Operations relay checkpoint", () => {
     expect(ids.at(-1)).toBe("3:4401:4401:1:chunk-2-of-2");
   });
 
-  it("holds the checkpoint for an unpersisted 4xx and for an undecodable payload", async () => {
+  it("dead-letters a permanent refusal and an undecodable payload, then advances", async () => {
+    const deadLetters: DeadLetterRecord[] = [];
     let calls = 0;
     const refused = await runHost(async () => {
-      await deliverEventHubBatch([reading], invocation(), {
+      await delivery.deliverEventHubBatch([reading], invocation(), {
         env,
         sleep: async () => undefined,
+        deadLetter: async (record) => {
+          deadLetters.push(record);
+        },
         fetch: async () => {
           calls += 1;
-          return response(422);
+          return response(
+            422,
+            JSON.stringify({ error: "no", dead_lettered: false }),
+          );
         },
       });
     }, "4401");
-    expect(refused.checkpoint).toBeNull();
-    expect(calls).toBe(4);
+    expect(refused).toEqual({ checkpoint: "4401", failures: 0 });
+    expect(calls).toBe(1);
+    expect(deadLetters.map((entry) => entry.reason)).toEqual([
+      "permanent_refusal",
+    ]);
 
+    const stored = await runHost(async () => {
+      await delivery.deliverEventHubBatch([reading], invocation(), {
+        env,
+        deadLetter: async () => {
+          throw new Error("ingress already stored this refusal");
+        },
+        fetch: async () =>
+          response(
+            422,
+            JSON.stringify({ error: "refused", dead_lettered: true }),
+          ),
+      });
+    }, "4401");
+    expect(stored).toEqual({ checkpoint: "4401", failures: 0 });
+
+    let fetched = 0;
     const undecodable = await runHost(
       () =>
-        deliverEventHubBatch([Buffer.from([0x01, 0x02])], invocation(), {
-          env,
-          fetch: async () => {
-            throw new Error("fetch must not run");
+        delivery.deliverEventHubBatch(
+          [Buffer.from([0x01, 0x02])],
+          invocation(),
+          {
+            env,
+            deadLetter: async (record) => {
+              deadLetters.push(record);
+            },
+            fetch: async () => {
+              fetched += 1;
+              return response(202);
+            },
           },
-        }),
+        ),
       "4401",
     );
-    expect(undecodable.checkpoint).toBeNull();
+    expect(undecodable).toEqual({ checkpoint: "4401", failures: 0 });
+    expect(fetched).toBe(0);
+    expect(deadLetters.at(-1)?.reason).toBe("undecodable");
+  });
+
+  it("dead-letters a transient failure only after the attempt budget", async () => {
+    const deadLetters: DeadLetterRecord[] = [];
+    const early = await runHost(async () => {
+      await delivery.deliverEventHubBatch([reading], invocation(), {
+        env,
+        attempt: delivery.RELAY_TRANSIENT_ATTEMPT_LIMIT - 2,
+        sleep: async () => undefined,
+        deadLetter: async (record) => {
+          deadLetters.push(record);
+        },
+        fetch: async () => response(503),
+      });
+    }, "4401");
+    expect(early.checkpoint).toBeNull();
+    expect(deadLetters).toEqual([]);
+
+    const exhausted = await runHost(async () => {
+      await delivery.deliverEventHubBatch([reading], invocation(), {
+        env,
+        attempt: delivery.RELAY_TRANSIENT_ATTEMPT_LIMIT - 1,
+        sleep: async () => undefined,
+        deadLetter: async (record) => {
+          deadLetters.push(record);
+        },
+        fetch: async () => response(503),
+      });
+    }, "4401");
+    expect(exhausted).toEqual({ checkpoint: "4401", failures: 0 });
+    expect(deadLetters.map((entry) => entry.reason)).toEqual([
+      "transient_exhausted",
+    ]);
+  });
+
+  it("alerts on a consecutive failure streak and on checkpoint lag", async () => {
+    const context = invocation();
+    for (
+      let count = 0;
+      count < delivery.CONSECUTIVE_FAILURE_ALERT_COUNT;
+      count += 1
+    ) {
+      await expect(
+        delivery.deliverEventHubBatch([reading], context, {
+          env,
+          attempt: 0,
+          sleep: async () => undefined,
+          fetch: async () => response(503),
+        }),
+      ).rejects.toBeInstanceOf(delivery.UndeliveredRelayError);
+    }
+    expect(delivery.relayFailureStreak()).toBe(
+      delivery.CONSECUTIVE_FAILURE_ALERT_COUNT,
+    );
+    expect(context.errors).toContain("SyncAI relay consecutive failures");
+
+    const now = Date.parse("2026-10-03T18:20:00Z");
+    const lagging = invocation({
+      enqueuedTimeUtcArray: [
+        new Date(now - delivery.CHECKPOINT_LAG_ALERT_MS).toISOString(),
+      ],
+    });
+    expect(delivery.checkpointLagMs(lagging.triggerMetadata, now)).toBe(
+      delivery.CHECKPOINT_LAG_ALERT_MS,
+    );
+    await delivery.deliverEventHubBatch(
+      [{ MessageType: "ua-metadata", MetaData: { Fields: [] } }],
+      lagging,
+      { env, now: () => now, fetch: async () => response(202) },
+    );
+    expect(lagging.errors).toContain("SyncAI relay checkpoint lag");
   });
 
   it("returns a metadata-only batch without posting it", async () => {
     let calls = 0;
     const hosted = await runHost(
       () =>
-        deliverEventHubBatch(
+        delivery.deliverEventHubBatch(
           [{ MessageType: "ua-metadata", MetaData: { Fields: [] } }],
           invocation(),
           {
@@ -222,5 +403,14 @@ describe("Azure IoT Operations relay checkpoint", () => {
     );
     expect(hosted).toEqual({ checkpoint: "4401", failures: 0 });
     expect(calls).toBe(0);
+  });
+
+  it("keeps a blob SAS query string on the dead-letter object URL", () => {
+    expect(
+      delivery.deadLetterBlobUrl(
+        "https://storage.example/dead-letter?sig=abc",
+        "batch.json",
+      ),
+    ).toBe("https://storage.example/dead-letter/batch.json?sig=abc");
   });
 });

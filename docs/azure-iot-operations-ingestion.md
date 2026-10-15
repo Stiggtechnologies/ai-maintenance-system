@@ -79,6 +79,12 @@ a stable data-set writer identity fail closed. Configure OPC Publisher with
    bounded test batch.
 8. Verify accepted/rejected arithmetic, replay idempotency, live/stale posture,
    condition alerts and evidence citation before authorizing production load.
+9. Set `SYNCAI_DEAD_LETTER_CONTAINER_URL` to a blob container the relay can
+   write when canonical ingress cannot store a refusal. A permanent 4xx, an
+   undecodable payload, or eight transient failures become one refused
+   `connector_runs` row or, if that write fails, one blob. The Event Hubs
+   checkpoint advances only after that record exists. Three failures in an
+   hour, or enqueue lag of at least 15 minutes, raise an operator alert.
 
 The Edge Function secret has this tenant-bound shape (values shown are
 placeholders):
