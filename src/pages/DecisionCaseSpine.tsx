@@ -1502,8 +1502,8 @@ export function DecisionCaseSpine({
         </button>
         <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
           Sending requires a same-tenant administrator or executive using an
-          AAL2 session. Membership is viewer-only. Workspace access never grants
-          engineering or decision authority.
+          AAL2 session. Membership is viewer-only.{" "}
+          {"Workspace access never grants engineering or decision authority."}
         </p>
         {decisionCase.invitation ? (
           <div

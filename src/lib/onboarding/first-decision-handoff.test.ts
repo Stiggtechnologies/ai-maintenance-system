@@ -108,6 +108,30 @@ describe("first decision handoff", () => {
     expect(result.returnTo).not.toContain(withEvidence.id);
   });
 
+  it("keeps the canonical revision returned by the workspace save", async () => {
+    const decision = draft();
+    const createdId = "11111111-1111-4111-8111-111111111111";
+    const create = vi.fn(async (seed: DecisionCase) => ({
+      ...seed,
+      id: createdId,
+      revision: 1,
+    }));
+    const save = vi.fn(async (seed: DecisionCase) => ({
+      ...seed,
+      revision: 2,
+    }));
+    const result = await persistFirstDecisionHandoff(decision, "", "/", {
+      isPersisted: (id) => id === createdId,
+      create,
+      save,
+      storage: sessionStorage,
+    });
+    expect(result.persisted).toBe(true);
+    expect(result.decisionCase.id).toBe(createdId);
+    expect(result.decisionCase.revision).toBe(2);
+    expect(result.decisionCase.objective).toBe(QUESTION);
+  });
+
   it("two saves of the same draft yield one case", async () => {
     const decision = draft();
     const createdId = "11111111-1111-4111-8111-111111111111";
