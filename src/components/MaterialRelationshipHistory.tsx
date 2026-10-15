@@ -61,8 +61,15 @@ export function MaterialRelationshipHistory() {
               <p className="text-xs text-slate-400 break-all">
                 Material:{" "}
                 {record.new_state?.material_code ??
+                  record.new_state?.materialCode ??
                   record.new_state?.material_id ??
+                  record.new_state?.materialId ??
                   "See audit record"}
+                {record.new_state?.masterVersion
+                  ? ` · Version ${record.new_state.masterVersion}`
+                  : record.event_data.masterVersion
+                    ? ` · Version ${record.event_data.masterVersion}`
+                    : ""}
                 {record.new_state?.supplier_id
                   ? ` · Supplier ${record.new_state.supplier_id}`
                   : ""}
