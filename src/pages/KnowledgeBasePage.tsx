@@ -10,6 +10,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshCw, ShieldAlert, ShieldCheck, UploadCloud } from "lucide-react";
 import { useAuth } from "../components/AuthProvider";
+import { ControlledTechnicalDocuments } from "../components/ControlledTechnicalDocuments";
 import { needsOcr, ocrPdfToText, type OcrProgress } from "../services/kbOcr";
 import {
   ingestKbDocument,
@@ -22,6 +23,12 @@ import {
 import { trackUiEvent } from "../services/uiEvents";
 
 const INTAKE_ROLES = ["admin", "ai_admin", "reliability_engineer"];
+const DOCUMENT_CONTROL_ROLES = [
+  "admin",
+  "maintenance_manager",
+  "reliability_engineer",
+  "planner",
+];
 
 const TEXT_FILE_RE = /\.(txt|csv|md|markdown|json|log|pdf)$/i;
 const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
@@ -31,6 +38,9 @@ export function KnowledgeBasePage() {
   const canIngest =
     profile?.role != null && INTAKE_ROLES.includes(profile.role);
   const canReview = ["admin", "reliability_engineer"].includes(
+    String(profile?.role ?? ""),
+  );
+  const canControlTechnicalDocuments = DOCUMENT_CONTROL_ROLES.includes(
     String(profile?.role ?? ""),
   );
 
@@ -562,6 +572,11 @@ export function KnowledgeBasePage() {
           ))}
         </ul>
       )}
+
+      <ControlledTechnicalDocuments
+        canControl={canControlTechnicalDocuments}
+        canReview={canControlTechnicalDocuments}
+      />
     </div>
   );
 }

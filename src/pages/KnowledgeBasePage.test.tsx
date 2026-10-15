@@ -31,6 +31,14 @@ vi.mock("../services/kbIntake", () => ({
     reviewKbDocumentSecurity(...args),
 }));
 
+// C2.09 has its own component/service/SQL contract suite. Keep these C2.15
+// intake tests focused on the existing upload and security-review surface.
+vi.mock("../components/ControlledTechnicalDocuments", () => ({
+  ControlledTechnicalDocuments: () => (
+    <div data-testid="controlled-technical-documents" />
+  ),
+}));
+
 let role = "reliability_engineer";
 vi.mock("../components/AuthProvider", () => ({
   useAuth: () => ({
