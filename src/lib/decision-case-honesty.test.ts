@@ -4,6 +4,7 @@ import {
   createSeedDecisionCases,
   DEFAULT_DECISION_CASE_ID,
 } from "./decision-case";
+import { readDraftImportKey } from "./decision-case-import-key";
 import { createFirstPaintSeed } from "./first-paint-seeds";
 import { classifyDecisionQuestionScope } from "./reliability-agent-contract";
 import {
@@ -26,6 +27,20 @@ import {
 } from "./decision-case-honesty";
 
 describe("decision-case-honesty", () => {
+  it("gives each empty draft its own import UUID, distinct from the DRAFT- number", () => {
+    const first = createHonestEmptyDecisionCase("Reliability Engineer");
+    const second = createHonestEmptyDecisionCase("Reliability Engineer");
+    const firstKey = readDraftImportKey(first);
+    const secondKey = readDraftImportKey(second);
+    expect(first.caseNumber).toMatch(/^DRAFT-/);
+    expect(first.id).toMatch(/^draft-/);
+    expect(firstKey).toMatch(
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    );
+    expect(firstKey).not.toBe(first.caseNumber);
+    expect(firstKey).not.toBe(secondKey);
+  });
+
   it("knows every industry seed id, including the oil-gas default", () => {
     expect(SEED_DECISION_CASE_IDS.has(DEFAULT_DECISION_CASE_ID)).toBe(true);
     expect(isSeedDecisionCaseId("dc-1048")).toBe(true);

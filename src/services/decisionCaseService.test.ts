@@ -12,7 +12,11 @@ import {
   savePersistedDecisionCase,
 } from "./decisionCaseService";
 import { runPublicDecisionCaseAgent } from "./publicReliabilityAgent";
-import { createCoworkWorkspaceFromObjective } from "./operatingLoopService";
+import {
+  createCoworkWorkspaceFromObjective,
+  getCoworkMessages,
+  sendCoworkMessage,
+} from "./operatingLoopService";
 
 const workspaceWrite = vi.hoisted(() => {
   const maybeSingle = vi.fn();
@@ -51,6 +55,8 @@ describe("decisionCaseService", () => {
     workspaceWrite.select.mockClear();
     workspaceWrite.maybeSingle.mockReset();
     workspaceWrite.rpc.mockReset();
+    vi.mocked(sendCoworkMessage).mockReset();
+    vi.mocked(getCoworkMessages).mockReset();
   });
 
   it("requires a tenant-visible initialized row before reporting a case creation", async () => {
@@ -402,6 +408,25 @@ describe("decisionCaseService", () => {
       "get_decision_case_authority_directory",
     );
   });
+
+  it.each(["fallback", "rate_limited"] as const)(
+    "never invokes tenant analysis for a persisted public case after %s",
+    async (status) => {
+      const [seed] = createSeedDecisionCases();
+      const persisted = { ...seed, id: "0fef8f5b-8d79-4d43-8b83-4bde12345678" };
+      runPublicAgentMock.mockResolvedValue({ status, error: "unavailable" });
+      const reply = await askDecisionCase(
+        persisted,
+        "Which failure mechanisms should we test first, and why?",
+        { publicMode: true },
+      );
+      expect(runPublicAgentMock).toHaveBeenCalledOnce();
+      expect(sendCoworkMessage).not.toHaveBeenCalled();
+      expect(getCoworkMessages).not.toHaveBeenCalled();
+      expect(reply.source).toBe("deterministic");
+      expect(reply.scope).toBe("active_case");
+    },
+  );
 
   it("answers from the active case's canonical calculations", async () => {
     const [pump, compressor] = createSeedDecisionCases();

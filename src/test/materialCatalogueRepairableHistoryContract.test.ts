@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270105143000_material_catalogue_repairable_history.sql",
+  "supabase/migrations/20270105162900_material_catalogue_repairable_history.sql",
   "utf8",
 ).toLowerCase();
 const catalogue = readFileSync("src/components/MaterialCatalogue.tsx", "utf8");

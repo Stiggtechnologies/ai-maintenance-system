@@ -114,7 +114,7 @@ describe("P0.2 Decision Case spine", () => {
     expect(policyAdvisory(built.authorityRole)).toMatch(/current policy/);
   });
 
-  it("refuses empty or banned seed subjects", () => {
+  it("refuses empty or banned seed subjects and allows an ordinary equipment tag", () => {
     expect(() =>
       buildSpineDecisionCase({ question: "too short", intent: "solve" }),
     ).toThrow(/real question/i);
@@ -123,7 +123,25 @@ describe("P0.2 Decision Case spine", () => {
         question: "What about P-101 at Fort McMurray today?",
         intent: "solve",
       }),
-    ).toThrow(/Seed plant/i);
+    ).toThrow(/Fort McMurray/);
+    expect(() =>
+      buildSpineDecisionCase({
+        question: "What about P-101 at Fort McMurray today?",
+        intent: "solve",
+      }),
+    ).toThrow(/your own site or asset/i);
+    expect(() =>
+      buildSpineDecisionCase({
+        question: "Should we overhaul the P-101 process pump this month?",
+        intent: "solve",
+      }),
+    ).toThrow(/P-101 process pump/);
+    const tagged = buildSpineDecisionCase({
+      question: "What should we inspect on P-101 before the next outage?",
+      intent: "solve",
+    });
+    expect(tagged.objective).toMatch(/P-101/);
+    expect(tagged.objective).not.toMatch(/Fort McMurray|process pump/i);
   });
 
   it("raises confidence when evidence is attached and keeps plant execute locked", () => {
@@ -678,6 +696,10 @@ describe("P1 Decision Case trust", () => {
 describe("P3 Decision Case stage help", () => {
   it("has short Help for every spine stage, including locked action", () => {
     expect(STAGE_HELP.map((item) => item.stage)).toEqual([...SPINE_STAGES]);
+    expect(stageHelpFor("QUESTION").doThis).toMatch(/open case/i);
+    expect(stageHelpFor("QUESTION").doThis).not.toMatch(
+      /save the assessment to open this case/i,
+    );
     for (const stage of SPINE_STAGES) {
       const help = stageHelpFor(stage);
       expect(help.doThis.trim().length).toBeGreaterThan(20);

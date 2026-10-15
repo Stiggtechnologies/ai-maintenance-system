@@ -12,7 +12,10 @@ export function initialAuthPage(search: string): AuthPage {
   const requested = new URLSearchParams(search).get("view");
   return requested === "signin" ||
     requested === "signup" ||
-    requested === "enterprise"
+    requested === "enterprise" ||
+    requested === "privacy" ||
+    requested === "terms" ||
+    requested === "security"
     ? requested
     : "demo";
 }

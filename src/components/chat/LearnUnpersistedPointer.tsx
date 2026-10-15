@@ -7,12 +7,17 @@ import { Link } from "react-router-dom";
  * persisted. Learning Loop remains available; ConversationLearn is the
  * in-thread write path when an obligation can be resolved.
  */
-export function LearnUnpersistedPointer() {
+export function LearnUnpersistedPointer({
+  illustrative = false,
+}: {
+  illustrative?: boolean;
+}) {
   return (
     <aside className="dw-learn" data-testid="learn-unpersisted">
       <p>
-        This conversation has no verification obligation, so nothing was
-        written.
+        {illustrative
+          ? "Illustrative example only. Its verification window and finance status are sample data. No customer verification result has been saved from this conversation."
+          : "This conversation has no verification obligation, so nothing was written."}
       </p>
       <p>
         Record achieved / not_achieved / inconclusive on{" "}

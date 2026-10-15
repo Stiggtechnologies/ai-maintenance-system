@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const read = (path: string) => readFileSync(path, "utf8");
 const migration = read(
-  "supabase/migrations/20270105145400_governed_fmea_rcm_decision.sql",
+  "supabase/migrations/20270105164800_governed_fmea_rcm_decision.sql",
 ).toLowerCase();
 const service = read("src/services/governedRcmService.ts");
 const workbench = read("src/components/GovernedRcmWorkbench.tsx");

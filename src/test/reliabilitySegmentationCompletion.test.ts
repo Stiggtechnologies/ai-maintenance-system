@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
 const migration = readFileSync(
-  "supabase/migrations/20270105145000_reliability_segmentation_completion.sql",
+  "supabase/migrations/20270105164600_reliability_segmentation_completion.sql",
   "utf8",
 ).toLowerCase();
 const coding = readFileSync("src/components/FailureCoding.tsx", "utf8");

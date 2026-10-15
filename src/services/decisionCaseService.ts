@@ -15,6 +15,7 @@ import {
   isActiveCaseTraceRequest,
   type DecisionQuestionScope,
 } from "../lib/reliability-agent-contract";
+import { readDraftImportKey } from "../lib/decision-case-import-key";
 import {
   buildDecisionAskContextPack,
   formatUnboundLiveQuestion,
@@ -171,7 +172,10 @@ export async function createPersistedDecisionCase(
   seed: DecisionCase,
   context: DecisionJourneyContext,
 ): Promise<DecisionCase> {
-  const result = await createCoworkWorkspaceFromObjective(seed.objective);
+  const importKey = readDraftImportKey(seed);
+  const result = await createCoworkWorkspaceFromObjective(seed.objective, {
+    importKey,
+  });
   const persisted = {
     ...seed,
     id: result.workspaceId,
@@ -179,10 +183,18 @@ export async function createPersistedDecisionCase(
     createdFromIntake: seed.createdFromIntake || Boolean(context.intakeId),
     updatedAt: new Date().toISOString(),
   };
+  if (importKey) Object.assign(persisted, { importKey });
+  else delete (persisted as { importKey?: string }).importKey;
   const { data, error } = await supabase
     .from("cowork_workspaces")
     .update({
-      case_number: persisted.caseNumber,
+      // The column is the import UUID when a draft is being adopted.
+      // Otherwise keep the governed case number. case_state is written only
+      // by apply_decision_case_command, so a failed command cannot leave a
+      // client-authored state on the workspace row.
+      ...(importKey
+        ? { case_number: importKey }
+        : { case_number: persisted.caseNumber }),
       source_intake_id: context.intakeId || null,
       usage_tokens: persisted.tokensUsed,
       next_action: "Complete the technical authority review",
@@ -436,6 +448,15 @@ async function respondToDecisionQuestion(
         questionScope,
       );
     }
+    // Public analysis is a terminal boundary, including provider failure.
+    // A persisted evaluation must never silently invoke the tenant pipeline.
+    return unavailableDecisionReply(
+      decisionCase,
+      prompt,
+      questionScope,
+      binding,
+      true,
+    );
   }
   if (binding.bound && isPersistedDecisionCase(decisionCase.id)) {
     await sendCoworkMessage(
@@ -463,6 +484,22 @@ async function respondToDecisionQuestion(
       };
     }
   }
+  return unavailableDecisionReply(
+    decisionCase,
+    prompt,
+    questionScope,
+    binding,
+    false,
+  );
+}
+
+function unavailableDecisionReply(
+  decisionCase: DecisionCase,
+  prompt: string,
+  questionScope: DecisionQuestionScope,
+  binding: { bound: boolean },
+  publicMode: boolean,
+): DecisionCaseReply {
   if (questionScope === "provisional_new_subject") {
     return buildDeterministicReply(
       prompt,
@@ -479,8 +516,9 @@ async function respondToDecisionQuestion(
     );
   }
   const response = deterministicReply(decisionCase, prompt);
-  if (options.publicMode) {
-    response.meta = "Deterministic fallback · live RAG unavailable";
+  if (publicMode) {
+    response.meta =
+      "Deterministic fallback · public analysis unavailable · no tenant analysis invoked";
   }
   return buildDeterministicReply(prompt, response, questionScope);
 }

@@ -37,11 +37,7 @@ function renderLearn(
 ) {
   return render(
     <MemoryRouter>
-      <ConversationLearn
-        signedIn
-        simulatedApproval
-        {...props}
-      />
+      <ConversationLearn signedIn simulatedApproval {...props} />
     </MemoryRouter>,
   );
 }
@@ -56,7 +52,9 @@ describe("ConversationLearn", () => {
   it("stays a pointer when the session is anonymous — no RPC", () => {
     renderLearn({ signedIn: false });
     expect(screen.getByTestId("learn-unpersisted")).toBeTruthy();
-    expect(screen.getByText(/nothing was written/i)).toBeTruthy();
+    expect(
+      screen.getByText(/No customer verification result has been saved/i),
+    ).toBeTruthy();
     expect(getOpenVerifications).not.toHaveBeenCalled();
     expect(recordVerificationResult).not.toHaveBeenCalled();
   });
@@ -119,6 +117,8 @@ describe("ConversationLearn", () => {
         "obl-1",
         "achieved",
         "leak rate 0 drops/min vs 2 after 48h, 2026-09-04",
+        null,
+        null,
       ),
     );
     expect(await screen.findByTestId("learn-recorded")).toHaveTextContent(
@@ -163,7 +163,11 @@ describe("ConversationLearn", () => {
   it("does not write until a named human picks among multiple open obligations", async () => {
     getOpenVerifications.mockResolvedValue([
       openRec,
-      { ...openRec, obligationId: "obl-2", recommendationTitle: "Inspect coupling" },
+      {
+        ...openRec,
+        obligationId: "obl-2",
+        recommendationTitle: "Inspect coupling",
+      },
     ]);
     renderLearn();
     expect(await screen.findByTestId("learn-select-needed")).toBeTruthy();

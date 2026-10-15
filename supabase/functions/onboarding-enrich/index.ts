@@ -4,6 +4,10 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { withDataEgressGuard } from "../_shared/data-egress-guard.ts";
+import {
+  callWithCommercialBoundary,
+  estimateLlmCallTokens,
+} from "../_shared/llm-commercial-usage.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -119,6 +123,17 @@ Deno.serve(async (req) => {
   const failures: string[] = [];
   const startedAt = Date.now();
 
+  const providerOrigin = providerUrl.origin.replace(/\/$/, "");
+  const onboardingProvider = {
+    name:
+      providerOrigin === "https://api.openai.com"
+        ? "openai-direct"
+        : "configured-onboarding-llm",
+    baseUrl: providerOrigin,
+    apiKey: LLM_API_KEY,
+    model: LLM_MODEL,
+  };
+
   for (const entry of entries) {
     const pending = entry.pending ?? [];
     if (pending.length === 0) continue;
@@ -143,79 +158,74 @@ Deno.serve(async (req) => {
               `- "${item.key}": ${item.label}${item.hint ? ` (${item.hint})` : ""}`,
           )
           .join("\n");
-
+        const providerOptions = {
+          systemPrompt:
+            "You are a senior reliability engineer (RCM/FMEA/MIL-HDBK-338B practice) onboarding an asset " +
+            "into a reliability platform. Deduce ONLY what a competent engineer could infer from the asset's " +
+            "class, OEM, model and operating context. Return strict JSON keyed by requirement key: " +
+            '{"<key>": {"summary": "<concise engineering answer, 1-2 sentences>", ' +
+            '"confidence": "high"|"medium"|"low", "rationale": "<why / basis, one short phrase>"}}. ' +
+            'Use confidence "low" whenever site-specific data is required. Never invent serial numbers, dates, document links or stock levels.',
+          userContent:
+            `Asset: ${JSON.stringify(entry.asset).slice(0, 5000)}\n` +
+            `Already established during onboarding: ${JSON.stringify(entry.known).slice(0, 2500)}\n\n` +
+            `Deduce the following requirements:\n${askList}`,
+          temperature: 0.2,
+          maxTokens: 1200,
+          timeoutMs: 45_000,
+        };
+        const estimatedTokens = Math.min(
+          20_000,
+          Math.max(
+            estimateLlmCallTokens(providerOptions),
+            1200 +
+              Math.ceil(
+                (JSON.stringify(entry.asset).length +
+                  JSON.stringify(entry.known).length +
+                  askList.length) /
+                  4,
+              ),
+          ),
+        );
+        // Paid callers use or refuse the qualified commercial route. A gateway
+        // or non-direct host cannot be priced, and missing terminal metadata
+        // cannot apply a deduction.
         const guardedFetch = withDataEgressGuard(fetch, supabase, {
           organizationId: entry.organization_id,
           dataClass: "operational",
           purpose: "onboarding_enrichment",
           serviceLabel: "onboarding-enrich",
         });
-        const resp = await guardedFetch(providerUrl, {
-          method: "POST",
-          signal: AbortSignal.timeout(45_000),
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${LLM_API_KEY}`,
+        const commercial = await callWithCommercialBoundary(
+          (functionName, args) => supabase.rpc(functionName, args),
+          guardedFetch,
+          [onboardingProvider],
+          providerOptions,
+          {
+            organizationId: entry.organization_id,
+            functionName: "onboarding-enrich",
+            requestedModel: LLM_MODEL,
+            estimatedTokens,
+            costObject: { type: "asset_onboarding", id: entry.asset_id },
           },
-          body: JSON.stringify({
-            model: LLM_MODEL,
-            temperature: 0.2,
-            max_completion_tokens: 1200,
-            messages: [
-              {
-                role: "system",
-                content:
-                  "You are a senior reliability engineer (RCM/FMEA/MIL-HDBK-338B practice) onboarding an asset " +
-                  "into a reliability platform. Deduce ONLY what a competent engineer could infer from the asset's " +
-                  "class, OEM, model and operating context. Return strict JSON keyed by requirement key: " +
-                  '{"<key>": {"summary": "<concise engineering answer, 1-2 sentences>", ' +
-                  '"confidence": "high"|"medium"|"low", "rationale": "<why / basis, one short phrase>"}}. ' +
-                  'Use confidence "low" whenever site-specific data is required. Never invent serial numbers, dates, document links or stock levels.',
-              },
-              {
-                role: "user",
-                content:
-                  `Asset: ${JSON.stringify(entry.asset).slice(0, 5000)}\n` +
-                  `Already established during onboarding: ${JSON.stringify(entry.known).slice(0, 2500)}\n\n` +
-                  `Deduce the following requirements:\n${askList}`,
-              },
-            ],
-          }),
-        });
-
-        if (!resp.ok) {
-          console.error("onboarding-enrich provider request failed", {
+        );
+        if (commercial.status !== "ok") {
+          const reason =
+            commercial.status === "quota_refused"
+              ? "commercial_quota_refused"
+              : commercial.status === "settlement_failed"
+                ? "usage_settlement_failed"
+                : "provider_error";
+          console.error("onboarding-enrich commercial route did not succeed", {
             assetId: entry.asset_id,
-            status: resp.status,
+            status: commercial.status,
+            reason,
           });
-          failures.push(`${entry.asset_id}: provider_error`);
+          failures.push(`${entry.asset_id}: ${reason}`);
           continue;
         }
 
-        const data = await resp.json();
-
-        // Cost telemetry (private.llm_usage) — FAIL-SOFT: a telemetry
-        // failure must never cost an onboarding deduction.
-        try {
-          const usage =
-            data.usage && typeof data.usage === "object" ? data.usage : {};
-          const { error: usageError } = await supabase.rpc("record_llm_usage", {
-            p_organization_id: entry.organization_id,
-            p_fn: "onboarding-enrich",
-            p_model: typeof data.model === "string" ? data.model : LLM_MODEL,
-            p_prompt_tokens: usage.prompt_tokens ?? 0,
-            p_completion_tokens: usage.completion_tokens ?? 0,
-          });
-          if (usageError)
-            console.error("onboarding-enrich usage insert failed", usageError);
-        } catch (usageException) {
-          console.error(
-            "onboarding-enrich usage insert failed",
-            usageException,
-          );
-        }
-
-        const content: string = data.choices?.[0]?.message?.content ?? "";
+        const content: string = commercial.result.content ?? "";
         const match = content.match(/\{[\s\S]*\}/);
         const parsed = match ? JSON.parse(match[0]) : {};
 

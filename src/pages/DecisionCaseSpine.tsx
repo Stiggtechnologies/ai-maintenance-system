@@ -10,7 +10,7 @@ import { Link } from "react-router-dom";
 import { ChevronDown, ChevronRight, Shield, TriangleAlert } from "lucide-react";
 import { useOptionalAuth } from "../components/AuthProvider";
 import { stageDecisionCaseHandoff } from "../lib/decision-case";
-import type { DecisionCase } from "../lib/decision-case";
+import type { DecisionCase, DecisionIndustryId } from "../lib/decision-case";
 import { isSeedDecisionCaseId } from "../lib/decision-case-honesty";
 import type { InvertedIntentId } from "../lib/onboarding/inverted-opening";
 import {
@@ -80,6 +80,11 @@ import {
 } from "../services/decisionCaseInvitationService";
 import { ingestKbDocument } from "../services/kbIntake";
 
+import {
+  stageEvaluationAssistantHandoff,
+  evaluationRestoreDestination,
+} from "../lib/onboarding/evaluation-assistant-handoff";
+
 const emptyPeople = (): CasePeople => ({
   decisionOwner: "",
   recommendationAuthor: "SyncAI",
@@ -99,26 +104,33 @@ const emptyVerification = (): VerificationPlan => ({
 export function DecisionCaseSpine({
   question,
   intent,
+  industry,
   initialCase,
   initiallySaved = false,
   blockWorkspacePersist = false,
   openingNotice = null,
+  onCaseChange,
 }: {
   question: string;
   intent: InvertedIntentId;
+  industry?: DecisionIndustryId;
   initialCase?: DecisionCase;
   initiallySaved?: boolean;
   blockWorkspacePersist?: boolean;
   openingNotice?: string | null;
+  onCaseChange?: (decisionCase: DecisionCase, saved: boolean) => void;
 }) {
   const auth = useOptionalAuth();
   const [decisionCase, setDecisionCase] = useState<WalkthroughDecisionCase>(
     () =>
       asWalkthroughDecisionCase(
-        initialCase ?? buildSpineDecisionCase({ question, intent }),
+        initialCase ?? buildSpineDecisionCase({ question, intent, industry }),
       ),
   );
   const [saved, setSaved] = useState(initiallySaved);
+  useEffect(() => {
+    onCaseChange?.(decisionCase, saved);
+  }, [decisionCase, saved, onCaseChange]);
   const [saveNotice, setSaveNotice] = useState(
     openingNotice
       ? openingNotice
@@ -315,14 +327,20 @@ export function DecisionCaseSpine({
       const canonical = await savePersistedDecisionCase(next, command);
       setDecisionCase(canonical);
       setSaved(true);
-      setSaveNotice("Updates saved on your evaluation workspace.");
+      setSaveNotice("Current revision saved on the evaluation workspace.");
       return true;
     } catch (caught) {
+      const conflict =
+        caught instanceof Error && caught.name === "DecisionCaseConflictError";
+      // A conflict means another writer owns the canonical case, so the local
+      // edit is not applied. Any other refusal stays in this browser so the
+      // note is not lost, and saved stays false so it does not earn readiness.
+      if (!conflict) setDecisionCase(next);
       setSaveNotice(
-        "Workspace update did not complete. The prior saved case remains authoritative; this change did not earn readiness.",
+        "Workspace save did not complete. The prior saved case remains authoritative; this change did not earn readiness.",
       );
       setError(
-        caught instanceof Error && caught.name === "DecisionCaseConflictError"
+        conflict
           ? "This Decision Case changed elsewhere. Reload the saved trail before retrying; no local change was applied."
           : caught instanceof Error
             ? caught.message
@@ -358,6 +376,8 @@ export function DecisionCaseSpine({
       const persisted = isPersistedDecisionCase(decisionCase.id)
         ? await savePersistedDecisionCase(decisionCase, "record_conversation")
         : await createPersistedDecisionCase(decisionCase, {});
+      if (!isPersistedDecisionCase(persisted.id))
+        throw new Error("Workspace save did not produce a persisted case");
       setDecisionCase(persisted);
       setSaved(true);
       setSaveNotice(
@@ -641,6 +661,36 @@ export function DecisionCaseSpine({
                 : "Keep provisional and continue"}
         </button>
       </div>
+      <p
+        className="text-xs text-slate-400"
+        data-testid="spine-evaluation-boundary"
+      >
+        Self-serve evaluation: the recommendations on this page are
+        deterministic examples, not a live AI engineering analysis. Saving an
+        evaluation does not create a governed decision or approval.
+      </p>
+      <button
+        type="button"
+        data-testid="spine-live-assistant"
+        className="text-sm text-teal-300"
+        onClick={() => {
+          try {
+            window.location.assign(
+              stageEvaluationAssistantHandoff(
+                decisionCase,
+                window.location.search,
+                window.sessionStorage,
+              ),
+            );
+          } catch {
+            setSaveNotice(
+              "The assistant handoff did not complete. Your evaluation remains here; export the proof summary or retry.",
+            );
+          }
+        }}
+      >
+        Continue this case with the live assistant
+      </button>
       <p
         className="text-xs text-slate-400"
         data-testid="spine-save-notice"
@@ -1456,8 +1506,8 @@ export function DecisionCaseSpine({
         </button>
         <p className="mt-2 text-[11px] leading-relaxed text-slate-500">
           Sending requires a same-tenant administrator or executive using an
-          AAL2 session. Membership is viewer-only.
-          Workspace access never grants engineering or decision authority.
+          AAL2 session. Membership is viewer-only.{" "}
+          {"Workspace access never grants engineering or decision authority."}
         </p>
         {decisionCase.invitation ? (
           <div
@@ -1471,8 +1521,8 @@ export function DecisionCaseSpine({
               {decisionCase.invitation.detail}
             </p>
             <p className="mt-1 text-[11px] text-amber-100/90">
-              Delivery, acceptance, sign-in, and decision authority are
-              separate states.
+              Delivery, acceptance, sign-in, and decision authority are separate
+              states.
             </p>
           </div>
         ) : null}
@@ -1788,20 +1838,20 @@ export function DecisionCaseSpine({
         </p>
       ) : null}
 
-      <div className="flex items-start gap-2 text-[11px] text-slate-500">
+      <div className="flex items-start gap-2 text-sm leading-relaxed text-slate-200">
         <Shield className="mt-0.5 h-3.5 w-3.5 shrink-0 text-teal-300" />
         <span>
-          {INVERTED_OPENING_AUTHORITY} This spine does not claim seamless
-          self-guided onboarding is live.
+          {INVERTED_OPENING_AUTHORITY} Review the evidence and approval
+          requirements before relying on this evaluation.
         </span>
       </div>
       {!auth?.user ? (
-        <p className="text-center text-[11px] text-slate-600">
-          <TriangleAlert className="mr-1 inline h-3 w-3" />
+        <p className="text-center text-sm leading-relaxed text-slate-200">
+          <TriangleAlert className="mr-1 inline h-4 w-4" />
           Optional:{" "}
           <Link
-            className="text-teal-400"
-            to={`/?view=signup&invertedAsk=${encodeURIComponent(question)}&intent=${intent}`}
+            className="font-semibold text-teal-300"
+            to={`/?view=signup&returnTo=${encodeURIComponent(evaluationRestoreDestination(decisionCase, window.location.search))}`}
             onClick={() => {
               if (
                 blockWorkspacePersist ||

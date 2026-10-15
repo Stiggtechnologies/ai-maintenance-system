@@ -3,7 +3,7 @@ import { AuthShell } from "../components/AuthShell";
 import { PasswordField } from "../components/PasswordField";
 import { ArrowUpRight, LockKeyhole } from "lucide-react";
 import { signIn } from "../lib/auth";
-import { readDecisionCaseHandoff } from "../lib/decision-case";
+import { readFirstDecisionDraft } from "../lib/onboarding/first-decision-handoff";
 import { supabase } from "../lib/supabase";
 import { motion } from "framer-motion";
 
@@ -24,8 +24,10 @@ interface LoginProps {
 }
 
 export function Login({ onSuccess, onTabChange }: LoginProps) {
-  const handoff = readDecisionCaseHandoff(window.sessionStorage);
-  const journey = handoff?.decisionCase ?? null;
+  const journey = readFirstDecisionDraft(
+    window.sessionStorage,
+    window.location.search,
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -189,7 +191,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
             {recoveryMode
               ? "Choose a strong password to restore access to your governed workspace."
               : journey
-                ? `${journey.asset} is staged and will be secured after authentication.`
+                ? `Your ${journey.caseNumber} browser draft is retained for review after sign-in. It is not a governed decision or industrial approval.`
                 : "Use your verified work identity to enter SyncAI."}
           </p>
         </div>
@@ -387,7 +389,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
               {loading ? "Authenticating…" : "Access SyncAI"}
             </motion.button>
 
-            <div className="border-overlook-rule border-t pt-4 text-xs leading-relaxed text-overlook-haze">
+            <div className="border-overlook-rule text-industrial-text border-t pt-4 text-sm leading-relaxed">
               Identity and approval authority are verified before governed
               actions can be released. Enrolled accounts must complete MFA.
             </div>
@@ -405,7 +407,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
         )}
 
         <div className="mt-7 pt-5 border-t border-industrial-border">
-          <div className="flex justify-center gap-4 text-xs text-industrial-muted">
+          <div className="text-industrial-text flex justify-center gap-4 text-sm">
             <button
               onClick={() => onTabChange("security")}
               className="hover:text-industrial-text transition-colors"

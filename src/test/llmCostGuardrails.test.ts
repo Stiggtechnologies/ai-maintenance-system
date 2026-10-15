@@ -389,19 +389,19 @@ describe("public rail — spend key is server-derived, browserId never sufficien
   });
 });
 
-describe("enrichment loops record usage fail-soft", () => {
-  it("agent-loop-enrich inserts one llm_usage row per call inside try/catch", () => {
-    expect(loopEnrich).toContain('"record_llm_usage"');
-    const at = loopEnrich.indexOf('"record_llm_usage"');
-    const window = loopEnrich.slice(Math.max(0, at - 400), at);
-    expect(window).toContain("try {");
+describe("enrichment loops settle commercially reserved usage", () => {
+  it("agent-loop-enrich uses the qualified commercial route per call", () => {
+    expect(loopEnrich).toContain("callWithCommercialBoundary(");
+    expect(loopEnrich).toContain('type: "recommendation"');
+    expect(loopEnrich).toContain('functionName: "agent-loop-enrich"');
+    expect(loopEnrich).not.toContain("prompt_tokens ?? 0");
   });
 
-  it("onboarding-enrich inserts one llm_usage row per chunk inside try/catch", () => {
-    expect(onboardingEnrich).toContain('"record_llm_usage"');
-    const at = onboardingEnrich.indexOf('"record_llm_usage"');
-    const window = onboardingEnrich.slice(Math.max(0, at - 400), at);
-    expect(window).toContain("try {");
+  it("onboarding-enrich uses the qualified commercial route per chunk", () => {
+    expect(onboardingEnrich).toContain("callWithCommercialBoundary(");
+    expect(onboardingEnrich).toContain('type: "asset_onboarding"');
+    expect(onboardingEnrich).toContain('functionName: "onboarding-enrich"');
+    expect(onboardingEnrich).not.toContain("prompt_tokens ?? 0");
   });
 });
 

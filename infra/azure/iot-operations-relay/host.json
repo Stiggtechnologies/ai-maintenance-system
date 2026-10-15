@@ -1,0 +1,17 @@
+{
+  "version": "2.0",
+  "extensions": {
+    "eventHubs": {
+      "maxEventBatchSize": 100,
+      "minEventBatchSize": 1,
+      "maxWaitTime": "00:00:05",
+      "batchCheckpointFrequency": 1
+    }
+  },
+  "logging": {
+    "logLevel": {
+      "default": "Information",
+      "Function": "Information"
+    }
+  }
+}
