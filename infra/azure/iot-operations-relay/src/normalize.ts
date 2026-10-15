@@ -42,6 +42,9 @@ export interface TransportMetadata {
   sequences: string[];
 }
 
+export const NO_USABLE_POINTS_PREFIX =
+  "Batch contains no usable OPC UA data points";
+
 export interface NormalizedBatch {
   deliveryBase: string;
   points: NormalizedPoint[];
@@ -429,7 +432,7 @@ export function normalizeEventHubMessages(
 
   if (points.length === 0)
     throw new Error(
-      `Batch contains no usable OPC UA data points (metadata=${skipped.metadata}, keepalive=${skipped.keepalive}, events_or_conditions=${skipped.eventOrCondition}, unusable_fields=${skipped.unusableFields})`,
+      `${NO_USABLE_POINTS_PREFIX} (metadata=${skipped.metadata}, keepalive=${skipped.keepalive}, events_or_conditions=${skipped.eventOrCondition}, unusable_fields=${skipped.unusableFields})`,
     );
   return {
     deliveryBase: `${metadata.partition}:${metadata.offsets[0]}:${metadata.offsets.at(-1)}:${messages.length}`,

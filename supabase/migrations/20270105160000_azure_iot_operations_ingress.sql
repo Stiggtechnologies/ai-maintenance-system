@@ -1,6 +1,10 @@
 -- ============================================================================
 -- C2.13 — Azure IoT Operations / Event Hubs read-only ingress.
 --
+-- 2026-10-15: file version moved from 20270101750000 to 20270105160000 so it
+-- sorts after deployed head 20270105110600 and the latest open-PR migration
+-- 20270105150400. Column, RPC and grant contracts are unchanged.
+--
 -- Azure IoT Operations remains the OT-edge owner: OPC UA -> MQTT -> data flow
 -- -> Event Hubs.  A small Azure Function relay signs a normalized batch and
 -- sends it here.  SyncAI never opens an OPC UA session and this contract has no
@@ -24,10 +28,18 @@ create unique index if not exists uq_connectors_ingress_key_id
 
 alter table public.connectors
   drop constraint if exists connectors_ingress_authority_complete;
+-- Same accepted set as ^[A-Za-z0-9][A-Za-z0-9._-]{7,79}$: 8-80 characters,
+-- an alphanumeric first character, and only letters, digits, ".", "_" or "-".
+-- translate keeps the predicate dump/restore stable; a POSIX ~ class in this
+-- CHECK did not round-trip through pg_get_constraintdef.
 alter table public.connectors
   add constraint connectors_ingress_authority_complete check (
     ingress_key_id is null or (
-      ingress_key_id ~ '^[A-Za-z0-9][A-Za-z0-9._-]{7,79}$'
+      length(ingress_key_id) between 8 and 80
+      and translate(left(ingress_key_id, 1),
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789', '') = ''
+      and translate(ingress_key_id,
+        'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789._-', '') = ''
       and ingress_authorized_by is not null
       and ingress_authorized_at is not null
     )
@@ -48,11 +60,13 @@ create unique index if not exists uq_connector_runs_source_delivery
 
 alter table public.connector_runs
   drop constraint if exists connector_runs_source_receipt_complete;
+-- Same accepted digest as ^[0-9a-f]{64}$. Lowercase hex only; uppercase fails.
 alter table public.connector_runs
   add constraint connector_runs_source_receipt_complete check (
     source_delivery_id is null or (
       length(btrim(source_delivery_id)) between 8 and 200
-      and source_body_sha256 ~ '^[0-9a-f]{64}$'
+      and length(source_body_sha256) = 64
+      and translate(source_body_sha256, '0123456789abcdef', '') = ''
       and source_received_at is not null
       and source_transport='azure_event_hubs'
     )

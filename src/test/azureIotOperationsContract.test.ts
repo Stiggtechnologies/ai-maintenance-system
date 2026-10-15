@@ -3,11 +3,12 @@ import { describe, expect, it } from "vitest";
 
 const read = (path: string) => readFileSync(path, "utf8");
 const migration = read(
-  "supabase/migrations/20270101750000_azure_iot_operations_ingress.sql",
+  "supabase/migrations/20270105160000_azure_iot_operations_ingress.sql",
 );
 const edge = read("supabase/functions/azure-iot-operations-ingest/index.ts");
 const core = read("supabase/functions/_shared/azure-iot-operations-ingress.ts");
 const relay = read("infra/azure/iot-operations-relay/src/functions/relay.ts");
+const delivery = read("infra/azure/iot-operations-relay/src/delivery.ts");
 const normalizer = read("infra/azure/iot-operations-relay/src/normalize.ts");
 const workflow = read(".github/workflows/deploy-migrations.yml");
 const ci = read(".github/workflows/ci.yml");
@@ -63,11 +64,15 @@ describe("Azure IoT Operations governed ingress contract", () => {
     expect(core).toContain("FORBIDDEN_CONTROL_KEYS");
     expect(core).toContain("control_payload_refused");
     expect(relay).toContain("app.eventHub");
+    expect(relay).toContain("retry: relayRetryPolicy");
+    expect(delivery).toContain("maxRetryCount: -1");
+    expect(delivery).toContain('strategy: "exponentialBackoff"');
     expect(normalizer).toContain(
       "partition and one offset per event are required",
     );
-    expect(relay).toContain("Math.ceil(normalized.points.length / 500)");
-    expect(relay).toContain(":chunk-${index + 1}-of-${deliveries}");
+    expect(delivery).toContain("Math.ceil(points.length / chunkSize)");
+    expect(delivery).toContain("chunkSize = 500");
+    expect(delivery).toContain(":chunk-${index + 1}-of-${deliveries}");
     expect(relay).not.toContain("app.mqtt");
     expect(relay).not.toContain("sendBatch");
     expect(normalizer).toContain("configure Json or JsonGzip rather than UADP");
@@ -82,6 +87,10 @@ describe("Azure IoT Operations governed ingress contract", () => {
     expect(edge).toContain("AZURE_IOT_OPERATIONS_INGRESS_KEYS_JSON");
     expect(migration).toContain("source_delivery_id");
     expect(migration).toContain("source_body_sha256");
+    expect(migration).toContain("length(ingress_key_id) between 8 and 80");
+    expect(migration).toContain(
+      "translate(source_body_sha256, '0123456789abcdef', '') = ''",
+    );
     expect(migration).toContain("source_received_at");
     expect(migration).toContain("uq_connector_runs_source_delivery");
     expect(migration).toContain(
