@@ -30,7 +30,8 @@ describe("StartHerePage (ask-first Decision Case)", () => {
     const page = readFileSync("src/pages/StartHerePage.tsx", "utf8");
     expect(app).toMatch(/path="\/start"/);
     expect(app).toMatch(/StartHerePage/);
-    expect(signup).toMatch(/returnTo=\/start/);
+    expect(signup).toContain('"/start"');
+    expect(signup).toContain("safeAuthReturnTo");
     expect(signup).not.toMatch(/returnTo=\/mission-control/);
     expect(page).toMatch(/InvertedOpeningPage/);
     expect(page).not.toMatch(/start-here-role-pick/);

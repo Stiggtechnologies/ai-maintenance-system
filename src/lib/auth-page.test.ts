@@ -6,14 +6,25 @@ import {
 } from "./auth-page";
 
 describe("public auth page state", () => {
-  it.each(["signin", "signup", "enterprise"] as const)(
-    "opens the requested %s surface",
-    (page) => {
-      expect(initialAuthPage(`?view=${page}`)).toBe(page);
-    },
-  );
+  it.each([
+    "signin",
+    "signup",
+    "enterprise",
+    "privacy",
+    "terms",
+    "security",
+  ] as const)("opens the requested %s surface", (page) => {
+    expect(initialAuthPage(`?view=${page}`)).toBe(page);
+  });
 
-  it.each(["signin", "signup", "enterprise"] as const)(
+  it.each([
+    "signin",
+    "signup",
+    "enterprise",
+    "privacy",
+    "terms",
+    "security",
+  ] as const)(
     "preserves %s when Supabase reports no authorized workspace session",
     (page) => {
       expect(pageAfterWorkspaceAuthorization(page, false)).toBe(page);

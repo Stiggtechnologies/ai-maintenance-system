@@ -117,6 +117,11 @@ function DraftBanner({
           </span>
         )}
       </div>
+      <p className="mt-2 text-xs text-amber-200/70">
+        Import copies the question and approval level. Evidence, calculations
+        and discussion remain in this browser draft until you explicitly discard
+        it.
+      </p>
       <ul className="mt-2 space-y-2" aria-label="Browser drafts">
         {drafts.map((draft) => (
           <li
@@ -153,8 +158,7 @@ function DraftBanner({
                     approvalLevel: draft.authorityRole || null,
                   })
                     .then((result) => {
-                      removeStoredDecisionDraft(window.localStorage, draft.id);
-                      refresh();
+                      // Preserve evidence and discussion: this operation copies only the question.
                       onImported(result.decision_id);
                     })
                     .catch((e) =>
