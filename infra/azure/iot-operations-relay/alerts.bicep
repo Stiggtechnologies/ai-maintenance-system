@@ -22,7 +22,7 @@ param logAnalyticsWorkspaceId string
 @description('Existing Event Hubs namespace name that the relay consumes.')
 param eventHubNamespaceName string
 
-@description('Event Hub entity whose ConsumerLag is watched. This is the EntityName dimension, not a safety limit.')
+@description('Event Hub entity name matched in ApplicationMetricsLogs. Not a safety limit.')
 param eventHubName string
 
 @description('Azure Functions app name. AppTraces for this role are the failure-log query scope.')
@@ -33,13 +33,19 @@ param functionAppName string
 @description('Operator mailbox for the relay action group. No address is assumed.')
 param alertEmail string
 
-@description('Operator-chosen ConsumerLag event count. This is not an equipment, process, or safety limit.')
+@description('Operator-chosen ConsumerLag event count from ApplicationMetricsLogs. This is not an equipment, process, or safety limit. Application metrics logs require an Event Hubs Premium or Dedicated namespace.')
 @minValue(1)
 param consumerLagThreshold int
 
 var actionGroupName = take('${prefix}-${environmentName}-aio-relay', 260)
 var failureAlertName = take('${prefix}-${environmentName}-aio-relay-failures', 260)
 var lagAlertName = take('${prefix}-${environmentName}-aio-consumer-lag', 260)
+var consumerLagQuery = join([
+  'AZMSApplicationMetricLogs'
+  '| where OperationName == "ConsumerLag"'
+  '| where EntityName =~ "${eventHubName}"'
+  '| where todouble(Value) > ${consumerLagThreshold}'
+], '\n')
 var failureQuery = join([
   'AppTraces'
   '| where Message has "SyncAI relay consecutive failures"'
@@ -119,54 +125,40 @@ resource failureLogs 'Microsoft.Insights/scheduledQueryRules@2023-03-15-preview'
   }
 }
 
-resource consumerLag 'Microsoft.Insights/metricAlerts@2018-03-01' = {
+// ConsumerLag is an application-metrics log, not a platform metric. The
+// ApplicationMetricsLogs category is emitted only by Event Hubs Premium and
+// Dedicated namespaces. The diagnostic setting above turns that category on.
+resource consumerLag 'Microsoft.Insights/scheduledQueryRules@2023-03-15-preview' = {
   name: lagAlertName
-  location: 'global'
-  tags: {
-    product: 'SyncAI'
-    component: 'azure-iot-operations-relay'
-  }
+  location: location
   properties: {
-    description: 'Event Hubs ConsumerLag on the relay hub. consumerLagThreshold is an operator-chosen event count, not an equipment limit.'
+    displayName: lagAlertName
+    description: 'ConsumerLag from ApplicationMetricsLogs for the relay Event Hub. Requires Event Hubs Premium or Dedicated. The threshold is an operator-chosen event count, not an equipment limit.'
     severity: 2
     enabled: true
-    scopes: [
-      eventHubNamespace.id
-    ]
     evaluationFrequency: 'PT5M'
+    scopes: [
+      logAnalyticsWorkspaceId
+    ]
     windowSize: 'PT15M'
-    targetResourceType: 'Microsoft.EventHub/namespaces'
-    targetResourceRegion: location
     criteria: {
-      'odata.type': 'Microsoft.Azure.Monitor.SingleResourceMultipleMetricCriteria'
       allOf: [
         {
-          name: 'ConsumerLag'
-          metricName: 'ConsumerLag'
-          metricNamespace: 'Microsoft.EventHub/namespaces'
-          dimensions: [
-            {
-              name: 'EntityName'
-              operator: 'Include'
-              values: [
-                eventHubName
-              ]
-            }
-          ]
+          query: consumerLagQuery
+          timeAggregation: 'Count'
           operator: 'GreaterThan'
-          threshold: consumerLagThreshold
-          timeAggregation: 'Average'
-          criterionType: 'StaticThresholdCriterion'
+          threshold: 0
+          failingPeriods: {
+            numberOfEvaluationPeriods: 1
+            minFailingPeriodsToAlert: 1
+          }
         }
       ]
     }
-    actions: [
-      {
-        actionGroupId: relayOperators.id
-      }
-    ]
+    actions: {
+      actionGroups: [
+        relayOperators.id
+      ]
+    }
   }
-  dependsOn: [
-    applicationMetrics
-  ]
 }

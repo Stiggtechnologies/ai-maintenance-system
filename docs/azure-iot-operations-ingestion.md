@@ -80,16 +80,17 @@ a stable data-set writer identity fail closed. Configure OPC Publisher with
 8. Verify accepted/rejected arithmetic, replay idempotency, live/stale posture,
    condition alerts and evidence citation before authorizing production load.
 9. Set `SYNCAI_DEAD_LETTER_CONTAINER_URL` to a blob container the relay can
-   write when canonical ingress cannot store a refusal. A permanent 4xx or an
-   undecodable payload is stored with its normalized points or raw messages
+   write when canonical ingress cannot store a refusal. HTTP 400, 413 or 422,
+   or an undecodable payload, is stored with its normalized points or raw messages
    on a refused `connector_runs` row (`source_payload`) or, if that write
    fails, as one blob. The Event Hubs checkpoint advances only after that
    record exists. Transient failures are not dead-lettered: the checkpoint
    stays until ingress accepts the batch. Deploy
    `infra/azure/iot-operations-relay/alerts.bicep` for the operator action
-   group, the failure-log query alert, and the Event Hubs ConsumerLag metric
-   alert. Three failures in an hour, or enqueue lag of at least 15 minutes,
-   also raise an in-product operator alert.
+   group, the failure-log query alert, and the ApplicationMetricsLogs
+   ConsumerLag query alert (Event Hubs Premium or Dedicated). Three failures
+   in an hour, or enqueue lag of at least 15 minutes, also raise an
+   in-product operator alert.
 
 The Edge Function secret has this tenant-bound shape (values shown are
 placeholders):

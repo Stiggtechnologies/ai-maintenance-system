@@ -1133,6 +1133,15 @@ begin
         error_message='dead_letter: '||left(v_result->>'error',480),
         source_payload=jsonb_build_object('kind','normalized_points','points',p_points)
       where id=v_run and status='running';
+      -- FOUND is the UPDATE result. set_config returns a row, so a PERFORM
+      -- after this would make a missed write look stored.
+      if not found then
+        perform set_config('app.sync_context_source_write','',true);
+        perform set_config('app.service_organization_id','',true);
+        return jsonb_build_object(
+          'error',v_result->>'error','dead_lettered',false,'run_id',v_run
+        );
+      end if;
       perform set_config('app.sync_context_source_write','',true);
       perform set_config('app.service_organization_id','',true);
       return jsonb_build_object(
@@ -1308,12 +1317,20 @@ begin
         'dead_lettered',false
       );
     end if;
-    if v_existing_payload is null and v_payload_ok is true then
+    if v_existing_payload is not null then
+      return jsonb_build_object('ok',true,'dead_lettered',true,'replayed',true,'run_id',v_run);
+    end if;
+    if v_payload_ok is true then
       update public.connector_runs
         set source_payload=p_payload
       where id=v_run and source_payload is null;
+      if found then
+        return jsonb_build_object('ok',true,'dead_lettered',true,'replayed',true,'run_id',v_run);
+      end if;
     end if;
-    return jsonb_build_object('ok',true,'dead_lettered',true,'replayed',true,'run_id',v_run);
+    return jsonb_build_object(
+      'error','dead-letter payload was not stored','dead_lettered',false,'run_id',v_run
+    );
   end if;
   if v_payload_ok is not true then
     return jsonb_build_object(
@@ -1514,5 +1531,15 @@ end
 $$;
 revoke all on function public.get_contextual_condition_monitoring(int,int) from public,anon;
 grant execute on function public.get_contextual_condition_monitoring(int,int) to authenticated;
+
+-- connector_runs.source_payload is replayable telemetry. The parent-org policy
+-- was FOR ALL, so any org member could insert or rewrite it. Authenticated
+-- callers only read runs (Integrations). SECURITY DEFINER writers and
+-- service_role are unchanged: RLS and these grants do not apply to them.
+revoke insert, update, delete on table public.connector_runs from authenticated;
+drop policy if exists connector_runs_parent_org on public.connector_runs;
+create policy connector_runs_parent_org on public.connector_runs
+  for select to authenticated
+  using (exists (select 1 from connectors c where c.id = connector_id and c.organization_id = app_current_org()));
 
 notify pgrst,'reload schema';

@@ -25,6 +25,7 @@ interface DeliveryModule {
   PermanentRelayError: new (...args: never[]) => Error;
   CHECKPOINT_LAG_ALERT_MS: number;
   CONSECUTIVE_FAILURE_ALERT_COUNT: number;
+  PERMANENT_INGRESS_STATUSES: readonly number[];
   checkpointLagMs: (
     metadata: Record<string, unknown> | null | undefined,
     nowMs: number,
@@ -323,6 +324,58 @@ describe("Azure IoT Operations relay checkpoint", () => {
         data: Buffer.from([0x01, 0x02]).toString("base64"),
       },
     ]);
+  });
+
+  it("dead-letters only 400, 413 and 422, and retries every other 4xx", async () => {
+    expect(delivery.PERMANENT_INGRESS_STATUSES).toEqual([400, 413, 422]);
+    for (const status of [400, 413]) {
+      const deadLetters: DeadLetterRecord[] = [];
+      let calls = 0;
+      const hosted = await runHost(async () => {
+        await delivery.deliverEventHubBatch([reading], invocation(), {
+          env,
+          sleep: async () => undefined,
+          deadLetter: async (record) => {
+            deadLetters.push(record);
+          },
+          fetch: async () => {
+            calls += 1;
+            return response(status, JSON.stringify({ error: "no" }));
+          },
+        });
+      }, "4401");
+      expect(hosted).toEqual({ checkpoint: "4401", failures: 0 });
+      expect(calls).toBe(1);
+      expect(deadLetters).toHaveLength(1);
+      expect(deadLetters[0]?.points?.length).toBe(2);
+    }
+
+    for (const status of [401, 404, 408, 409, 429]) {
+      const deadLetters: DeadLetterRecord[] = [];
+      let calls = 0;
+      const hosted = await runHost(async () => {
+        await delivery.deliverEventHubBatch([reading], invocation(), {
+          env,
+          sleep: async () => undefined,
+          deadLetter: async (record) => {
+            deadLetters.push(record);
+          },
+          fetch: async () => {
+            calls += 1;
+            return response(
+              status,
+              JSON.stringify({
+                error: "signature_timestamp_outside_window",
+              }),
+            );
+          },
+        });
+      }, "4401");
+      expect(hosted.checkpoint).toBeNull();
+      expect(hosted.failures).toBeGreaterThan(0);
+      expect(deadLetters).toEqual([]);
+      expect(calls).toBeGreaterThan(1);
+    }
   });
 
   it("keeps retrying a transient failure instead of dead-lettering it", async () => {

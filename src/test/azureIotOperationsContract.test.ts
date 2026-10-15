@@ -59,18 +59,54 @@ describe("Azure IoT Operations governed ingress contract", () => {
     expect(delivery).toContain("points: normalized.points");
     expect(relayAlerts).toContain("Microsoft.Insights/actionGroups");
     expect(relayAlerts).toContain("Microsoft.Insights/scheduledQueryRules");
-    expect(relayAlerts).toContain("Microsoft.Insights/metricAlerts");
+    expect(relayAlerts).not.toContain("Microsoft.Insights/metricAlerts");
     expect(relayAlerts).toContain("SyncAI relay consecutive failures");
-    expect(relayAlerts).toContain("metricName: 'ConsumerLag'");
-    expect(relayAlerts).toContain(
-      "metricNamespace: 'Microsoft.EventHub/namespaces'",
-    );
+    expect(relayAlerts).toContain('OperationName == "ConsumerLag"');
+    expect(relayAlerts).toContain("AZMSApplicationMetricLogs");
     expect(relayAlerts).toContain("ApplicationMetricsLogs");
+    expect(relayAlerts).toContain("Premium or Dedicated");
     expect(relayAlerts).not.toMatch(/alertEmail string =/);
+    expect(delivery).toContain("PERMANENT_INGRESS_STATUSES = [400, 413, 422]");
+    expect(migration).toContain(
+      "revoke insert, update, delete on table public.connector_runs from authenticated",
+    );
+    expect(migration).toContain(
+      "create policy connector_runs_parent_org on public.connector_runs\n  for select to authenticated",
+    );
     expect(migration).toContain(
       ") from public,anon,authenticated;\ngrant execute on function public.ingest_azure_iot_operations_batch(",
     );
     expect(migration).toContain(") to service_role;");
+  });
+
+  it("returns dead_lettered only when the refusal payload write is found", () => {
+    const ingest = functionBody(
+      migration,
+      "ingest_azure_iot_operations_batch",
+    );
+    const refusal = ingest.slice(ingest.indexOf("if v_result ? 'error'"));
+    const updatedAt = refusal.indexOf("where id=v_run and status='running'");
+    const foundAt = refusal.indexOf("if not found then");
+    const clearedAt = refusal.indexOf(
+      "perform set_config('app.service_organization_id','',true)",
+    );
+    expect(updatedAt).toBeGreaterThanOrEqual(0);
+    expect(foundAt).toBeGreaterThan(updatedAt);
+    expect(clearedAt).toBeGreaterThan(foundAt);
+    expect(refusal).toContain("'dead_lettered',false");
+    expect(refusal).toContain("'dead_lettered',true");
+
+    const refuse = functionBody(
+      migration,
+      "refuse_azure_iot_operations_delivery",
+    );
+    const replay = refuse.slice(refuse.indexOf("set source_payload=p_payload"));
+    const replayFound = replay.indexOf("if found then");
+    expect(replayFound).toBeGreaterThan(0);
+    expect(replayFound).toBeLessThan(
+      replay.indexOf("dead-letter payload was not stored"),
+    );
+    expect(replay).toContain("'dead_lettered',false");
   });
 
   it("requires named-human tag confirmation and retains explicit rejects", () => {

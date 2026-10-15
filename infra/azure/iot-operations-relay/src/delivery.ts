@@ -22,6 +22,13 @@ export const relayRetryPolicy = {
   maximumInterval: { minutes: 5 },
 };
 
+/**
+ * Only these client statuses are permanent. 401 covers signature skew and
+ * secret rotation, and 404, 408 and 429 are retryable. Anything else 4xx
+ * also throws so the checkpoint stays put.
+ */
+export const PERMANENT_INGRESS_STATUSES = [400, 413, 422] as const;
+
 /** Operator alarm for a stuck consumer. Not an equipment limit. */
 export const CONSECUTIVE_FAILURE_ALERT_COUNT = 3;
 export const CHECKPOINT_LAG_ALERT_MS = 15 * 60 * 1000;
@@ -233,7 +240,11 @@ export async function postIngress(
         signal: AbortSignal.timeout(20_000),
       });
       if (response.ok) return;
-      if (response.status >= 400 && response.status < 500) {
+      if (
+        (PERMANENT_INGRESS_STATUSES as readonly number[]).includes(
+          response.status,
+        )
+      ) {
         throw new PermanentRelayError(
           `SyncAI ingress returned HTTP ${response.status}`,
           response.status,
