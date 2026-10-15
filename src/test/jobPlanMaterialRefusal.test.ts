@@ -11,7 +11,7 @@ import { migrationFiles, stripComments } from "./support/migrationPolicies";
 const ORIGINAL = "20260811090000_job_plans.sql";
 const REFUSAL = "20261225140000_job_plan_unresolved_material_refusal.sql";
 const NEW_VERSION = "20261225150000_job_plan_new_version.sql";
-const MAINTENANCE_CONTROL = "20270105102400_maintenance_change_control.sql";
+const MAINTENANCE_CONTROL = "20270105142400_maintenance_change_control.sql";
 
 function functionBodies(): Map<string, { file: string; body: string }> {
   const defs = new Map<string, { file: string; body: string }>();
