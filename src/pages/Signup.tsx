@@ -235,9 +235,9 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
             Create a private evaluation workspace
           </h1>
           <p className="mt-2 text-sm leading-6 text-industrial-text">
-            Continue the Reliability Engineer work you started. Self-signups
-            receive an isolated evaluation organization; production tenant
-            membership remains invitation-controlled.
+            {draft && !example
+              ? "Save the question in this browser as your first Decision Case. Self-signups receive an isolated evaluation organization; production tenant membership remains invitation-controlled."
+              : "Create an isolated evaluation workspace for your first Decision Case. Production tenant membership stays invitation-controlled."}
           </p>
           {draft && !example ? (
             <div

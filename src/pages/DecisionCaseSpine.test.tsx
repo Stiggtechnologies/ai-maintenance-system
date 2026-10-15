@@ -596,11 +596,10 @@ describe("P0.2 Decision Case spine on /get-started", () => {
       /first Decision Case/i,
     );
     expect(
-      screen.getByRole("button", { name: "Talk me through it" }),
-    ).toBeDisabled();
-    expect(screen.getByTestId("self-serve-narration-off").textContent).toMatch(
-      /no speech request is made/i,
-    );
+      screen.queryByRole("button", { name: "Talk me through it" }),
+    ).toBeNull();
+    expect(screen.queryByTestId("self-serve-narration-off")).toBeNull();
+    expect(screen.getByTestId("self-serve-narration")).not.toBeVisible();
     expect(
       screen.queryByRole("link", { name: "Discuss purchasing" }),
     ).toBeNull();
@@ -633,8 +632,8 @@ describe("P0.2 Decision Case spine on /get-started", () => {
       "false",
     );
     expect(
-      screen.getByRole("button", { name: "Talk me through it" }),
-    ).toBeDisabled();
+      screen.queryByRole("button", { name: "Talk me through it" }),
+    ).toBeNull();
     expect(screen.getByTestId("self-serve-step-decision_case")).toHaveAttribute(
       "data-status",
       "now",

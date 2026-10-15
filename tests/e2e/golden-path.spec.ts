@@ -91,12 +91,14 @@ test("public get-started keeps an unsaved draft off the done checklist", async (
   await expect(page.getByTestId("inverted-example-example-seal")).not.toContainText("…");
   await expect(page.getByTestId("inverted-intent-connect")).toContainText(/Optional after first value/i);
   await expect(page.getByTestId("first-decision-help")).toContainText(/first Decision Case/i);
-  await expect(page.getByRole("button", { name: "Talk me through it" })).toBeDisabled();
-  await expect(page.getByRole("button", { name: "Mute" })).toBeVisible();
-  await expect(page.getByTestId("self-serve-narration-off")).toContainText(
-    /unavailable for this workspace|Checking whether this workspace can speak/i,
+  await expect(page.getByRole("button", { name: "Talk me through it" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Mute" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Unmute" })).toHaveCount(0);
+  await expect(page.getByTestId("self-serve-narration-off")).toHaveCount(0);
+  await expect(page.getByTestId("self-serve-narration")).toHaveAttribute(
+    "data-voice-allowed",
+    "false",
   );
-  await expect(page.getByTestId("self-serve-narration-off")).toContainText(/no speech request is made/i);
   await page.getByRole("button", { name: "Open help" }).click();
   await expect(page.getByRole("button", { name: "Reach your first Decision Case" })).toBeVisible();
   await page.getByRole("button", { name: "Close help" }).click();
