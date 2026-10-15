@@ -1,0 +1,92 @@
+{
+  "version": "precision-v1-smooth",
+  "sourceLibraryIDs": [
+    "libfile_5b23a548901481918c424491fa47dc32",
+    "libfile_0ca39865af748191973fc8e2ba204baf"
+  ],
+  "primarySourceSHA256": "8b4e5fcc212e236bf86d63bf52a263b2562afaa4a1f19080bd72364c07c70932",
+  "geometry": "Production vector master rebuilt with smooth cubic Bezier contours for S/y/n/c, straight-edge seven-vertex open-bottom A, four-vertex detached brass quadrilateral, and rectangular I. Preserves refined board silhouette/spacing. Same A/inset paths across all variants; no fonts.",
+  "tokens": {
+    "graphite": "#1E2327",
+    "brass": "#B4935D",
+    "white": "#FEFEFE"
+  },
+  "tokenAuthority": "Raster-derived approximations, not original vector tokens",
+  "wordmarkViewBox": [
+    843,
+    224
+  ],
+  "aBounds": [
+    578.9,
+    1,
+    784.46,
+    175
+  ],
+  "iconViewBox": [
+    166,
+    164
+  ],
+  "assets": {
+    "favicon.ico": {
+      "sha256": "a63429531af1405d0bc83e17e435d1cc001a0e7c775e15c97fdd422840e066b2",
+      "bytes": 2459
+    },
+    "syncai-icon-32.png": {
+      "sha256": "b40e3abc2473c39ac7ca91720213ecb4decd45cbff875222ca413eae741d9c68",
+      "bytes": 821
+    },
+    "syncai-icon-512.png": {
+      "sha256": "c023cc481395eb9a23388afffe76fb7957ee6ba0da298697838a17cd2769ee68",
+      "bytes": 17404
+    },
+    "syncai-wordmark-light.svg": {
+      "sha256": "07146ee2b59623b607acaa4dce664eb585343ebadfe2dbd1d219dc0f805b65fd",
+      "bytes": 983
+    },
+    "syncai-icon-48.png": {
+      "sha256": "fba9e2411d4291d75fcbbf4376ed24e929f5858b4533ab7baeec5674998e09bc",
+      "bytes": 1132
+    },
+    "syncai-icon-192.png": {
+      "sha256": "307823b92d153c5f3c9883b173dee7ca34cf6f468f898ef4dadef84ae1e3bc4f",
+      "bytes": 4680
+    },
+    "syncai-wordmark-dark.svg": {
+      "sha256": "d7ca4a626f02e54d5bdaa0188007402342333c462c8496acb7a98204ae023d76",
+      "bytes": 983
+    },
+    "syncai-wordmark.png": {
+      "sha256": "06284c0473b58fb248e83f6e669e783ff37d4d08d6fe30d465611a6c8bb91dc6",
+      "bytes": 14769
+    },
+    "syncai-icon-180.png": {
+      "sha256": "87364093b78c1cc92694bbceb4a6c28134afa2abb36fb425fa5d6c028768d672",
+      "bytes": 4334
+    },
+    "syncai-icon-16.png": {
+      "sha256": "6924329967ebadc25583157d7865354cd6ff3d2aa687b0d861c5562885622a63",
+      "bytes": 452
+    },
+    "syncai-icon.svg": {
+      "sha256": "cfea27093a858279444c8eaad1399363d6aea8035ad4bdf784044f5b38dad2fe",
+      "bytes": 389
+    },
+    "syncai-social.png": {
+      "sha256": "9b87c88e55af2ee9063987e593fbf31c599025299f97ec1265459a46d79867c9",
+      "bytes": 33228
+    }
+  },
+  "validation": {
+    "refinedAndOriginalBoardsInspected": true,
+    "whiteGlyphComponents": 6,
+    "fonts": "None: outlined paths",
+    "sharedAGeometry": true,
+    "faviconFrames": [
+      16,
+      32,
+      48
+    ],
+    "rasterTokensApproximate": true
+  },
+  "supersedes": "Library version0 rejected for raster stair steps; do not release previous vectors."
+}

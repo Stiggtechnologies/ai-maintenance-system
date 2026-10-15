@@ -44,7 +44,7 @@ describe("ReliabilityEngineerPage", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "SyncAI" })).toHaveAttribute(
       "src",
-      "/brand/wordmark-ink.png",
+      "/brand/syncai-wordmark-light.svg",
     );
     expect(screen.getByTestId("sample-seed-chip")).toBeTruthy();
     expect(screen.queryByText("Decision packet")).toBeNull();

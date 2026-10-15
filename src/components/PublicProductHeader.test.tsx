@@ -6,11 +6,11 @@ import { PublicProductHeader } from "./PublicProductHeader";
 const SRC = readFileSync("src/components/PublicProductHeader.tsx", "utf8");
 
 describe("PublicProductHeader", () => {
-  it("uses the comet wordmark and the job title, not a pulse icon", () => {
+  it("uses the approved precision wordmark and the job title", () => {
     render(<PublicProductHeader active="proof" />);
     expect(screen.getByRole("img", { name: "SyncAI" })).toHaveAttribute(
       "src",
-      "/brand/wordmark-ink.png",
+      "/brand/syncai-wordmark-light.svg",
     );
     expect(screen.getByLabelText("SyncAI Reliability Engineer")).toBeTruthy();
     expect(screen.getByTestId("brand-job-title")).toHaveTextContent(
