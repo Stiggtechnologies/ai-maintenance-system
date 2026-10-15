@@ -6,8 +6,9 @@
  * present model output whose actual model and token usage were not recorded.
  * Provider failure releases the reservation because no inference completed;
  * settlement failure keeps the conservative reservation in place. A completed
- * paid call with a missing/non-standard pricing-mode witness is settled as an
- * unknown-price breach so the ledger freezes later commercial spend.
+ * paid call with a missing/non-standard pricing-mode witness, or without
+ * terminal model and token metadata, is settled as an unknown-price breach so
+ * the ledger freezes later commercial spend. That call is not a priced success.
  */
 
 import {
@@ -103,6 +104,46 @@ export function paidStandardRateTokenUpperBound(
     Math.max(0, Math.ceil(options.maxTokens ?? 0)) +
     PAID_MESSAGE_FRAMING_TOKEN_ALLOWANCE
   );
+}
+
+function finiteToken(value: unknown): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value < 0) {
+    return null;
+  }
+  return Math.trunc(value);
+}
+
+/**
+ * Terminal provider metadata required before a paid call can be priced.
+ * A missing model, a missing token count, or a 0/0 usage object is not a
+ * successful settlement even when a price row exists for the requested model.
+ */
+export function paidTerminalMetadata(result: {
+  model: string | null;
+  usage: Record<string, number> | null | undefined;
+}): {
+  model: string | null;
+  promptTokens: number | null;
+  completionTokens: number | null;
+  missing: boolean;
+} {
+  const usage = result.usage ?? {};
+  const promptTokens = finiteToken(usage.prompt_tokens);
+  const completionTokens = finiteToken(usage.completion_tokens);
+  const model =
+    typeof result.model === "string" && result.model.trim().length > 0
+      ? result.model.trim()
+      : null;
+  return {
+    model,
+    promptTokens,
+    completionTokens,
+    missing:
+      model == null ||
+      promptTokens == null ||
+      completionTokens == null ||
+      (promptTokens === 0 && completionTokens === 0),
+  };
 }
 
 function errorDetail(error: unknown): unknown {
@@ -328,6 +369,8 @@ export async function callWithCommercialBoundary(
   }
 
   const usage = providerResult.usage ?? {};
+  const terminal = paidTerminalMetadata(providerResult);
+  const terminalMetadataMissing = hasCommercialPlan && terminal.missing;
   const pricingModeMismatch =
     hasCommercialPlan && paidRouteWitness.serviceTier !== "default";
   let settlement: CommercialRpcResult;
@@ -335,9 +378,15 @@ export async function callWithCommercialBoundary(
     settlement = await rpc("record_llm_usage", {
       p_organization_id: boundary.organizationId,
       p_fn: boundary.functionName,
-      p_model: providerResult.model ?? boundary.requestedModel,
-      p_prompt_tokens: usage.prompt_tokens ?? 0,
-      p_completion_tokens: usage.completion_tokens ?? 0,
+      p_model: hasCommercialPlan
+        ? terminal.model
+        : (providerResult.model ?? boundary.requestedModel),
+      p_prompt_tokens: hasCommercialPlan
+        ? terminal.promptTokens
+        : (usage.prompt_tokens ?? 0),
+      p_completion_tokens: hasCommercialPlan
+        ? terminal.completionTokens
+        : (usage.completion_tokens ?? 0),
       p_reservation_id: reservationId,
       p_service_tier: hasCommercialPlan ? paidRouteWitness.serviceTier : null,
     });
@@ -355,6 +404,18 @@ export async function callWithCommercialBoundary(
       events: providerResult.events,
       model: providerResult.model,
       error: settlement.error,
+    };
+  }
+
+  if (terminalMetadataMissing) {
+    // The provider may have completed inference, but a paid call without
+    // terminal model and token metadata is not a priced success. Output stays
+    // withheld. The settlement row is an unknown-price breach.
+    return {
+      status: "settlement_failed",
+      events: providerResult.events,
+      model: providerResult.model,
+      error: "commercial_terminal_metadata_missing",
     };
   }
 
