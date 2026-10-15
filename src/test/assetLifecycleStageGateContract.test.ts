@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 
 const read = (path: string) => readFileSync(path, "utf8");
 const migration = read(
-  "supabase/migrations/20270105130200_asset_lifecycle_stage_gates.sql",
+  "supabase/migrations/20270105150400_asset_lifecycle_stage_gates.sql",
 ).toLowerCase();
 const service = read("src/services/assetLifecycleGateService.ts");
 const panel = read("src/components/AssetLifecycleGateWorkspace.tsx");
