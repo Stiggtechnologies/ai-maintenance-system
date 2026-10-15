@@ -32,6 +32,12 @@ describe("inverted opening P0.1", () => {
       "Coordinate field work",
       "Connect my site",
     ]);
+    expect(
+      INVERTED_INTENT_CARDS.find((card) => card.id === "connect")?.body,
+    ).toMatch(/Optional, and not the first step/);
+    expect(
+      INVERTED_INTENT_CARDS.find((card) => card.id === "connect")?.body,
+    ).toMatch(/no connector/);
   });
 
   it("treats exact example text as non-persistable", () => {

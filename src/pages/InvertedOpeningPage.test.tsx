@@ -13,5 +13,18 @@ describe("InvertedOpeningPage", () => {
     expect(page).toMatch(/DecisionCaseSpine/);
     expect(page).not.toMatch(/CAD\s*\$?\s*7\.?5/i);
     expect(page).not.toMatch(/seamless self-guided onboarding is live/i);
+    expect(page).not.toMatch(/slice\(0,\s*42\)/);
+    expect(page).toMatch(/SelfServeProgressChecklist/);
+    expect(page).toMatch(/HelpCenterWidget/);
+    const header = readFileSync(
+      "src/components/PublicJourneyHeader.tsx",
+      "utf8",
+    );
+    expect(header).not.toMatch(/Discuss purchasing/);
+    expect(header).toMatch(/Talk to us/);
+    expect(header).toMatch(/Create a workspace/);
+    const spine = readFileSync("src/pages/DecisionCaseSpine.tsx", "utf8");
+    expect(spine).toMatch(/Self-serve evaluation/);
+    expect(spine).not.toMatch(/Guided evaluation/);
   });
 });

@@ -5,9 +5,13 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import {
   buildProviderChain,
-  callWithResilience,
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
+import {
+  callWithCommercialBoundary,
+  DEFAULT_COMMERCIALLY_PRICED_MODEL,
+  estimateLlmCallTokens,
+} from "../_shared/llm-commercial-usage.ts";
 import {
   buildContractStrategyPrompts,
   parseContractStrategyAdvice,
@@ -15,10 +19,12 @@ import {
 } from "../_shared/develop-contract-strategy-core.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "";
 const MODEL = Deno.env.get("DEVELOP_AGENT_MODEL") || undefined;
+const COMMERCIAL_MODEL = MODEL ?? DEFAULT_COMMERCIALLY_PRICED_MODEL;
 const GATEWAY_MODEL = Deno.env.get("LLM_GATEWAY_MODEL") || undefined;
 const ALLOWED_ORIGIN =
   Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
@@ -52,7 +58,7 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS")
     return new Response(null, { status: 204, headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "POST only" }, 405);
-  if (!SUPABASE_URL || !ANON_KEY)
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !ANON_KEY)
     return json({ error: "function is not configured" }, 500);
 
   const token = bearer(req);
@@ -64,6 +70,17 @@ Deno.serve(async (req: Request) => {
   const { data: authData, error: authError } = await caller.auth.getUser();
   if (authError || !authData.user)
     return json({ error: "authentication required" }, 401);
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { data: profile, error: profileError } = await admin
+    .from("user_profiles")
+    .select("organization_id")
+    .eq("id", authData.user.id)
+    .maybeSingle();
+  if (profileError || !profile?.organization_id) {
+    return json({ error: "authentication required" }, 401);
+  }
 
   let body: { case_id?: string; assessment?: unknown; record?: boolean };
   try {
@@ -156,24 +173,54 @@ Deno.serve(async (req: Request) => {
       sourceReference: row.source_reference ?? null,
     })),
   });
-  const result = await callWithResilience(fetch, providers, {
+  const providerOptions = {
     systemPrompt: prompts.systemPrompt,
     userContent: prompts.userContent,
     maxTokens: 1800,
     timeoutMs: 40_000,
-  });
-  if (!result.ok) {
-    console.error(
-      "contract strategy provider trail",
-      JSON.stringify(result.events),
-    );
+  };
+  const commercial = await callWithCommercialBoundary(
+    (functionName, args) => admin.rpc(functionName, args),
+    fetch,
+    providers,
+    providerOptions,
+    {
+      organizationId: profile.organization_id,
+      functionName: "develop-contract-strategy-agent",
+      requestedModel: COMMERCIAL_MODEL,
+      estimatedTokens: estimateLlmCallTokens(providerOptions),
+      costObject: { type: "development_case", id: caseId },
+    },
+  );
+  if (commercial.status !== "ok") {
+    if (commercial.status === "settlement_failed") {
+      console.error("contract strategy usage settlement failed", {
+        model: commercial.model,
+        error: commercial.error,
+      });
+    } else if (
+      commercial.status === "provider_failed" &&
+      commercial.events.length > 0
+    ) {
+      console.error(
+        "contract strategy provider trail",
+        JSON.stringify(commercial.events),
+      );
+    }
+    const reason =
+      commercial.status === "quota_refused"
+        ? `the commercial usage boundary refused this call (${commercial.limit})`
+        : commercial.status === "settlement_failed"
+          ? "the model answered but usage accounting failed, so its unaccounted output was discarded"
+          : "the model call failed";
     return json({
       ...base,
       advice: null,
       recorded: null,
-      refusal: "the model call failed, so no contract strategy was recommended",
+      refusal: `${reason}; no contract strategy was recommended`,
     });
   }
+  const result = commercial.result;
   const parsed = parseContractStrategyAdvice(result.content);
   if (!parsed.ok)
     return json({

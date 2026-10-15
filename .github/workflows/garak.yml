@@ -1,0 +1,52 @@
+name: Garak
+
+# Not a required check. A missing NVIDIA_API_KEY or garak CLI skips the scan
+# job. That stays neutral: it is not a passing scan, and a fork without the
+# secret does not fail CI. The script itself exits 78 in that case so a
+# direct run is not a pass either. The production assistant stays behind
+# syncai_guard = false.
+
+on:
+  workflow_dispatch:
+  pull_request:
+
+jobs:
+  preflight:
+    name: Garak prerequisites
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.check.outputs.run }}
+    steps:
+      - id: check
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: |
+          if [ -z "${NVIDIA_API_KEY}" ]; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "result=skipped" >> "$GITHUB_OUTPUT"
+            echo "SKIPPED: NVIDIA_API_KEY is unset. Garak scan not run."
+            echo "### Garak" >> "$GITHUB_STEP_SUMMARY"
+            echo "SKIPPED: NVIDIA_API_KEY is unset. Garak scan not run." >> "$GITHUB_STEP_SUMMARY"
+          elif ! command -v garak >/dev/null 2>&1; then
+            echo "run=false" >> "$GITHUB_OUTPUT"
+            echo "result=skipped" >> "$GITHUB_OUTPUT"
+            echo "SKIPPED: garak CLI is not installed. Garak scan not run."
+            echo "### Garak" >> "$GITHUB_STEP_SUMMARY"
+            echo "SKIPPED: garak CLI is not installed. Garak scan not run." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            echo "result=ready" >> "$GITHUB_OUTPUT"
+          fi
+
+  garak:
+    name: LLM vulnerability scan
+    needs: preflight
+    if: needs.preflight.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Run Garak
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: bash scripts/garak-scan.sh

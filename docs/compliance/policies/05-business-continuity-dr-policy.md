@@ -2,6 +2,11 @@
 
 **Owner:** `[SECURITY OWNER]` · **Approved:** `[NAME, DATE]` · **Review:** annual
 
+**2026-10-06 — CONTROLLED POLICY TEMPLATE, NOT AN APPROVED RECOVERY COMMITMENT.**
+Production backup configuration, objectives and successful recovery are not
+established by this document or by the local database drill. See the
+[E5.13 acceptance and drill runbook](../../enterprise-readiness/database-restore-drill.md).
+
 ## 1. Objectives
 
 - **RTO (recovery time objective):** `[e.g. 4 hours]`
@@ -9,8 +14,11 @@
 
 ## 2. Backups
 
-- The Supabase project uses **automated managed backups** (`[frequency/retention
-per plan]`).
+- Verify and record the production project's **actual managed backup/PITR
+  configuration and restore points** (`[frequency/retention per verified plan]`).
+  Do not infer protection from the provider's advertised plan capabilities.
+- Database backups do not cover private Storage file bytes; separate recovery
+  of files, configuration, credentials and deployment dependencies is required.
 - The full schema is reproducible from the versioned **migration chain**; the
   demo/seed data is deterministic.
 - Application code is in version control (GitHub) with full history.

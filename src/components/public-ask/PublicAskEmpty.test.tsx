@@ -8,6 +8,29 @@ vi.mock("../../services/pilotIntake", () => ({
 }));
 
 describe("PublicAskEmpty", () => {
+  it("carries acquisition context to the first decision and examples without forwarding secrets", () => {
+    render(
+      <PublicAskEmpty
+        askBar={<div>ask-slot</div>}
+        onSelectIntent={vi.fn()}
+        search="?industry=mining&source=website&campaign=launch&utm_source=partner&token=secret&returnTo=https://unsafe.invalid"
+      />,
+    );
+    const first = screen.getByRole("link", {
+      name: /Start your first decision/,
+    });
+    const params = new URL(
+      first.getAttribute("href")!,
+      "https://syncai.invalid",
+    ).searchParams;
+    expect(params.get("industry")).toBe("mining");
+    expect(params.get("utm_source")).toBe("partner");
+    for (const link of screen.getAllByTestId("capability-showcase-link")) {
+      expect(link.getAttribute("href")).toContain("industry=mining");
+      expect(link.getAttribute("href")).toContain("utm_source=partner");
+      expect(link.getAttribute("href")).not.toMatch(/secret|returnTo/);
+    }
+  });
   it("renders a credible offer, live product entry, and five intent pills", () => {
     const onSelectIntent = vi.fn();
     render(
@@ -16,10 +39,23 @@ describe("PublicAskEmpty", () => {
         onSelectIntent={onSelectIntent}
       />,
     );
-    expect(screen.getByRole("heading", { name: "SyncAI" })).toBeTruthy();
-    expect(screen.getByText("pro")).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: /defensible engineering decisions/ }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: /Start your first decision/ }),
+    ).toHaveAttribute("href", "/get-started");
+    expect(screen.queryByText("pro")).toBeNull();
     expect(screen.getByText(/defensible engineering decisions/i)).toBeTruthy();
     expect(screen.getByText("US$35,000")).toBeTruthy();
+    expect(document.querySelector(".bolt-sales-hero")).not.toHaveTextContent(
+      "US$35,000",
+    );
+    expect(
+      screen.getByRole("region", { name: "Optional expert support" }),
+    ).toHaveTextContent("US$35,000");
+    expect(screen.getByText("Illustrative product paths")).toBeTruthy();
+    expect(screen.getByText("Human approval required")).toBeTruthy();
     expect(screen.getByText("6–8 weeks")).toBeTruthy();
     expect(screen.getByText("ask-slot")).toBeTruthy();
     expect(
@@ -36,13 +72,12 @@ describe("PublicAskEmpty", () => {
       "/capabilities/learn",
       "/capabilities/fact-check",
     ]);
-    expect(screen.getByRole("link", { name: /Assess/ })).toHaveAttribute(
-      "href",
-      "/setup",
-    );
+    expect(
+      screen.getByRole("link", { name: /Optional assessment/i }),
+    ).toHaveAttribute("href", "/setup");
     expect(screen.getByRole("link", { name: /Sign in/ })).toHaveAttribute(
       "href",
-      "/signin?returnTo=%2Foverview",
+      "/signin?returnTo=%2F",
     );
     expect(
       screen
@@ -60,13 +95,11 @@ describe("PublicAskEmpty", () => {
     );
   });
 
-  it("opens the governed assessment request form from the primary CTA", () => {
+  it("opens the governed assessment request form from Request scope", () => {
     render(
       <PublicAskEmpty askBar={<div>ask-slot</div>} onSelectIntent={vi.fn()} />,
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: /start an assessment/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Request scope" }));
     expect(screen.getByRole("dialog")).toBeTruthy();
     expect(
       screen.getByRole("heading", {
@@ -79,24 +112,22 @@ describe("PublicAskEmpty", () => {
     ).toBeTruthy();
   });
 
-  it("offers a persistent dark appearance mode", () => {
-    window.localStorage.removeItem("syncai-public-theme");
+  it("uses dark appearance despite legacy light preferences without changing other settings", () => {
+    window.localStorage.setItem("syncai-public-theme", "light");
+    window.localStorage.setItem("admin-theme", "light");
     render(
       <PublicAskEmpty askBar={<div>ask-slot</div>} onSelectIntent={vi.fn()} />,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Use dark mode" }));
     expect(screen.getByTestId("first-paint-empty").dataset.theme).toBe("dark");
-    expect(window.localStorage.getItem("syncai-public-theme")).toBe("dark");
-    expect(screen.getByRole("button", { name: "Use light mode" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Use .* mode/ })).toBeNull();
+    expect(window.localStorage.getItem("admin-theme")).toBe("light");
   });
 
   it("submits the minimum buyer context through the existing intake contract", async () => {
     render(
       <PublicAskEmpty askBar={<div>ask-slot</div>} onSelectIntent={vi.fn()} />,
     );
-    fireEvent.click(
-      screen.getByRole("button", { name: /start an assessment/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: "Request scope" }));
     fireEvent.change(screen.getByLabelText("Full name"), {
       target: { value: "Dana Singh" },
     });
@@ -133,5 +164,29 @@ describe("PublicAskEmpty", () => {
         name: /scope the right first decision/i,
       }),
     ).toBeTruthy();
+  });
+});
+
+describe("assessment intake keyboard focus", () => {
+  it("contains reverse tab and returns focus after Escape across repeated openings", () => {
+    render(
+      <PublicAskEmpty askBar={<div>ask-slot</div>} onSelectIntent={vi.fn()} />,
+    );
+    const trigger = screen.getByRole("button", { name: "Request scope" });
+    for (let i = 0; i < 3; i++) {
+      trigger.focus();
+      fireEvent.click(trigger);
+      expect(screen.getByLabelText("Full name")).toHaveFocus();
+      const close = screen.getByRole("button", { name: "Close" });
+      close.focus();
+      fireEvent.keyDown(close, { key: "Tab", shiftKey: true });
+      expect(screen.getByRole("dialog").contains(document.activeElement)).toBe(
+        true,
+      );
+      expect(close).not.toHaveFocus();
+      fireEvent.keyDown(document.activeElement!, { key: "Escape" });
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(trigger).toHaveFocus();
+    }
   });
 });

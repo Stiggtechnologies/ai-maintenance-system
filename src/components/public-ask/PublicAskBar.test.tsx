@@ -17,7 +17,6 @@ function props(
     dictationListening: false,
     dictationTitle: "This browser has no speech recognition",
     onToggleDictation: vi.fn(),
-    photoInputRef: createRef<HTMLInputElement>(),
     fileInputRef: createRef<HTMLInputElement>(),
     ...overrides,
   };
@@ -27,7 +26,7 @@ describe("PublicAskBar", () => {
   it("shows only genuine, immediately usable public actions", () => {
     render(<PublicAskBar {...props()} />);
     expect(screen.getByPlaceholderText(ASK_PLACEHOLDER)).toBeTruthy();
-    expect(screen.getByLabelText("Attach a photo")).toBeEnabled();
+    expect(screen.getByLabelText("Image analysis unavailable")).toBeDisabled();
     expect(screen.getByLabelText("Attach a data file")).toBeEnabled();
     expect(screen.queryByLabelText("Search")).toBeNull();
     expect(screen.queryByLabelText("Web search")).toBeNull();
@@ -38,7 +37,7 @@ describe("PublicAskBar", () => {
       [...(tools?.querySelectorAll("button") ?? [])].map((item) =>
         item.getAttribute("aria-label"),
       ),
-    ).toEqual(["Attach a photo", "Attach a data file"]);
+    ).toEqual(["Image analysis unavailable", "Attach a data file"]);
     expect(tools?.contains(screen.getByTestId("bolt-ask-send"))).toBe(false);
     expect(screen.getByTitle("Send message")).toBeDisabled();
   });
@@ -54,27 +53,23 @@ describe("PublicAskBar", () => {
         disabled: (item as HTMLButtonElement).disabled,
       })),
     ).toEqual([
-      { label: "Attach a photo", disabled: false },
+      { label: "Image analysis unavailable", disabled: true },
       { label: "Attach a data file", disabled: false },
     ]);
   });
 
-  it("opens the real photo and data-file inputs", () => {
-    const photo = document.createElement("input");
+  it("opens supported data input and never opens a photo input", () => {
     const file = document.createElement("input");
-    const photoClick = vi.spyOn(photo, "click");
     const fileClick = vi.spyOn(file, "click");
     render(
       <PublicAskBar
         {...props({
-          photoInputRef: { current: photo },
           fileInputRef: { current: file },
         })}
       />,
     );
-    fireEvent.click(screen.getByLabelText("Attach a photo"));
+    fireEvent.click(screen.getByLabelText("Image analysis unavailable"));
     fireEvent.click(screen.getByLabelText("Attach a data file"));
-    expect(photoClick).toHaveBeenCalledOnce();
     expect(fileClick).toHaveBeenCalledOnce();
   });
 
