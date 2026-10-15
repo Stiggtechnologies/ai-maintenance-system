@@ -79,6 +79,9 @@ describe("U4.11/U4.12/U4.14 governed lifecycle stage gates", () => {
   it("keeps review, movement and disposal as governed human acts", () => {
     expect(migration).toContain("app.gate_review_write");
     expect(migration).toContain("advance_lifecycle_stage");
+    expect(migration).toContain("advance_lifecycle_stage_internal");
+    expect(migration).toContain("record_initial_asset_lifecycle_state");
+    expect(migration).toContain("asset lifecycle state is rpc-only");
     expect(migration).toContain("asset disposal records are rpc-only");
     expect(migration).toContain("app.asset_disposal_writer");
     expect(migration).toContain("expected version");
