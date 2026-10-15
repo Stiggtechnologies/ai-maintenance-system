@@ -77,6 +77,7 @@ import { TrustExplainability } from "./pages/TrustExplainability";
 import { EngineeringModelRegistryPage } from "./pages/EngineeringModelRegistryPage";
 import { BenchmarkingPanel } from "./pages/BenchmarkingPanel";
 import { AutonomyMaturity } from "./pages/AutonomyMaturity";
+import { SyncAiGuardPage } from "./pages/SyncAiGuardPage";
 import { OrganizationalMaturityPage } from "./pages/OrganizationalMaturityPage";
 import { SetupWizard } from "./pages/SetupWizard";
 import { ArtifactWorkspace } from "./pages/ArtifactWorkspace";
@@ -530,6 +531,7 @@ function AuthenticatedApp() {
           />
           <Route path="/autonomy-maturity" element={<AutonomyMaturity />} />
           <Route path="/approvals" element={<ApprovalQueue />} />
+          <Route path="/guard" element={<SyncAiGuardPage />} />
           <Route path="/governance" element={<DecisionGovernance />} />
 
           <Route path="/assets/:assetId" element={<AssetDetailPage />} />
