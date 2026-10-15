@@ -2,6 +2,8 @@
 -- Additive RPC: the zero-argument SC-01 authoring projection is unchanged.
 -- Tenant+role authorization, not a claim of an individual per-site permission model.
 -- No persistence, ingest, approval, dispatch, work release or engineering thresholds.
+-- 2026-10-15: file version moved from 20270103160000 to 20270104091200 after
+-- main head 20270104091000. The RPC signature is unchanged.
 
 create or replace function public.get_sync_context_operating_picture(
   p_site_id uuid default null, p_object_limit integer default 250, p_event_limit integer default 250

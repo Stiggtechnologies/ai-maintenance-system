@@ -2,6 +2,8 @@
 -- emission classification. No backfill, inferred CRS/accuracy, shadow store,
 -- tenant/site operating RPC, map renderer or operational authority is added.
 -- Coordinated after all 76 open PRs; prior maximum 20270103140000 (#652).
+-- 2026-10-15: file version moved from 20270103150000 to 20270104091100 after
+-- main head 20270104091000. RPC and column contracts are unchanged.
 
 create or replace function public.sync_context_source_health_permits_emission(p_source public.connectors)
 returns boolean language sql immutable set search_path=public as $$

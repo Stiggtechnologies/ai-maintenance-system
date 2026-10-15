@@ -4,6 +4,8 @@
 -- Revalidated all 76 open PRs on 2026-10-10 (including all 103 files of #634):
 -- remote open maximum remains 03160000; successful deployment 38015822249/head87667de5.
 -- Local journey slots were moved after the Context/MFA/KB prerequisite reservations.
+-- 2026-10-15: file version moved from 20270103170000 to 20270104091300 after
+-- main head 20270104091000. Inventory and operating RPC signatures are unchanged.
 
 -- Pure value+server-time classification; no stored-row reads or identity lookup.
 -- Preserve operating clock/rights/health predicates and disabled -> malformed ->
