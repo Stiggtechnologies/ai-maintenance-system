@@ -11,8 +11,9 @@ import {
  * a finished execution advances the partition checkpoint even when it throws,
  * unless a function retry policy is still open. maxRetryCount -1 never
  * finishes on a throw, so the checkpoint stays put until this function
- * returns. It returns after HTTP 2xx, or after a dead letter was durably
- * stored. A throw still means the batch was not accepted and not quarantined.
+ * returns. It returns after HTTP 2xx, or after a permanent refusal was
+ * durably stored with its payload. A transient failure always throws, so a
+ * database outage cannot advance the checkpoint or drop the batch.
  */
 export const relayRetryPolicy = {
   strategy: "exponentialBackoff" as const,
@@ -21,8 +22,7 @@ export const relayRetryPolicy = {
   maximumInterval: { minutes: 5 },
 };
 
-/** Operator recovery budget for one stuck batch. Not an equipment limit. */
-export const RELAY_TRANSIENT_ATTEMPT_LIMIT = 8;
+/** Operator alarm for a stuck consumer. Not an equipment limit. */
 export const CONSECUTIVE_FAILURE_ALERT_COUNT = 3;
 export const CHECKPOINT_LAG_ALERT_MS = 15 * 60 * 1000;
 
@@ -62,12 +62,15 @@ export interface RelayInvocation {
 }
 
 export interface DeadLetterRecord {
-  reason: "permanent_refusal" | "transient_exhausted" | "undecodable";
+  reason: "permanent_refusal" | "undecodable";
   detail: string;
   status: number | null;
   deliveryId: string;
   lagSeconds?: number;
-  body?: string;
+  /** Full normalized points. Present for a permanent refusal. */
+  points?: NormalizedPoint[];
+  /** Full raw messages. Present when the batch could not be normalized. */
+  messages?: unknown[];
 }
 
 export interface DeliverOptions {
@@ -292,6 +295,64 @@ export async function putDeadLetterBlob(
     );
 }
 
+function replayableMessage(message: unknown): unknown {
+  if (Buffer.isBuffer(message))
+    return { encoding: "base64", data: message.toString("base64") };
+  if (message instanceof Uint8Array)
+    return {
+      encoding: "base64",
+      data: Buffer.from(message).toString("base64"),
+    };
+  return message;
+}
+
+function deadLetterEnvelope(entry: DeadLetterRecord): string {
+  return JSON.stringify({
+    delivery_id: entry.deliveryId,
+    dead_letter_reason: entry.reason,
+    dead_letter_detail: entry.detail.slice(0, 400),
+    ...(entry.lagSeconds !== undefined
+      ? { checkpoint_lag_seconds: entry.lagSeconds }
+      : {}),
+    ...(entry.points && entry.points.length > 0
+      ? { points: entry.points }
+      : {}),
+    ...(entry.messages && entry.messages.length > 0
+      ? { messages: entry.messages }
+      : {}),
+  });
+}
+
+function splitDeadLetter(entry: DeadLetterRecord): DeadLetterRecord[] {
+  const points = entry.points ?? [];
+  const messages = entry.messages ?? [];
+  if (points.length > 500) {
+    const parts = Math.ceil(points.length / 500);
+    return Array.from({ length: parts }, (_, index) => ({
+      ...entry,
+      messages: undefined,
+      points: points.slice(index * 500, (index + 1) * 500),
+      deliveryId: `${entry.deliveryId}:part-${index + 1}-of-${parts}`.slice(
+        0,
+        200,
+      ),
+    }));
+  }
+  if (messages.length > 500) {
+    const parts = Math.ceil(messages.length / 500);
+    return Array.from({ length: parts }, (_, index) => ({
+      ...entry,
+      points: undefined,
+      messages: messages.slice(index * 500, (index + 1) * 500),
+      deliveryId: `${entry.deliveryId}:part-${index + 1}-of-${parts}`.slice(
+        0,
+        200,
+      ),
+    }));
+  }
+  return [entry];
+}
+
 async function postDeadLetterEnvelope(
   entry: DeadLetterRecord,
   deps: {
@@ -300,14 +361,7 @@ async function postDeadLetterEnvelope(
     now?: () => number;
   },
 ): Promise<boolean> {
-  const body = JSON.stringify({
-    delivery_id: entry.deliveryId,
-    dead_letter_reason: entry.reason,
-    dead_letter_detail: entry.detail.slice(0, 400),
-    ...(entry.lagSeconds !== undefined
-      ? { checkpoint_lag_seconds: entry.lagSeconds }
-      : {}),
-  });
+  const body = deadLetterEnvelope(entry);
   try {
     const signed = signedHeaders(body, deps.env, deps.now ?? Date.now);
     const response = await deps.fetch(signed.endpoint, {
@@ -328,17 +382,28 @@ async function persistDeadLetter(
   env: NodeJS.ProcessEnv,
   fetchImpl: typeof fetch,
 ): Promise<void> {
+  const pointCount = entry.points?.length ?? 0;
+  const messageCount = entry.messages?.length ?? 0;
+  if (pointCount + messageCount < 1)
+    throw new UndeliveredRelayError(
+      "dead-letter payload is empty, so the checkpoint stays",
+      null,
+    );
   if (options.deadLetter) {
     await options.deadLetter(entry);
     return;
   }
-  const stored = await postDeadLetterEnvelope(entry, {
-    env,
-    fetch: fetchImpl,
-    now: options.now,
-  });
-  if (stored) return;
-  await putDeadLetterBlob(entry, { env, fetch: fetchImpl });
+  for (const part of splitDeadLetter(entry)) {
+    const stored = await postDeadLetterEnvelope(part, {
+      env,
+      fetch: fetchImpl,
+      now: options.now,
+    });
+    if (!stored) {
+      await putDeadLetterBlob(entry, { env, fetch: fetchImpl });
+      return;
+    }
+  }
 }
 
 function deliveryIdFor(messages: unknown[], context: RelayInvocation): string {
@@ -404,6 +469,7 @@ export async function deliverEventHubBatch(
         status: null,
         deliveryId: deliveryIdFor(messages, context),
         lagSeconds,
+        messages: messages.map(replayableMessage),
       },
       options,
       env,
@@ -430,8 +496,6 @@ export async function deliverEventHubBatch(
     );
   } catch (error) {
     const permanent = error instanceof PermanentRelayError ? error : null;
-    const exhausted =
-      (options.attempt ?? 0) + 1 >= RELAY_TRANSIENT_ATTEMPT_LIMIT;
     if (permanent?.deadLettered) {
       noteFailure(context);
       context.log("SyncAI relay advanced past a refused batch already stored", {
@@ -439,16 +503,16 @@ export async function deliverEventHubBatch(
       });
       return;
     }
-    if (permanent || exhausted) {
+    if (permanent) {
       const detail = error instanceof Error ? error.message : "delivery failed";
       await persistDeadLetter(
         {
-          reason: permanent ? "permanent_refusal" : "transient_exhausted",
+          reason: "permanent_refusal",
           detail,
-          status: error instanceof UndeliveredRelayError ? error.status : null,
+          status: permanent.status,
           deliveryId: `${normalized.deliveryBase}:dead-letter`.slice(0, 200),
           lagSeconds,
-          body: JSON.stringify({ points: normalized.points.length }),
+          points: normalized.points,
         },
         options,
         env,
@@ -456,11 +520,17 @@ export async function deliverEventHubBatch(
       );
       noteFailure(context);
       context.log("SyncAI relay dead-lettered a batch and will advance", {
-        reason: permanent ? "permanent_refusal" : "transient_exhausted",
+        reason: "permanent_refusal",
+        points: normalized.points.length,
       });
       return;
     }
     noteFailure(context);
+    context.error("SyncAI relay delivery failed", {
+      error: error instanceof Error ? error.message : "delivery failed",
+      attempt: options.attempt ?? 0,
+      retry: "transient_failures_are_not_dead_lettered",
+    });
     throw error;
   }
   noteSuccess();

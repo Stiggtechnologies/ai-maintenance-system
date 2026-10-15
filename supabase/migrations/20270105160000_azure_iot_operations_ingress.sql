@@ -55,7 +55,18 @@ alter table public.connector_runs
   add column if not exists source_delivery_id text,
   add column if not exists source_body_sha256 text,
   add column if not exists source_received_at timestamptz,
-  add column if not exists source_transport text;
+  add column if not exists source_transport text,
+  add column if not exists source_payload jsonb;
+
+comment on column public.connector_runs.source_payload is
+  'Replayable normalized points or raw Event Hubs messages for a dead-lettered delivery.';
+
+alter table public.connector_runs
+  drop constraint if exists connector_runs_source_payload_object;
+alter table public.connector_runs
+  add constraint connector_runs_source_payload_object check (
+    source_payload is null or jsonb_typeof(source_payload) = 'object'
+  );
 
 create unique index if not exists uq_connector_runs_source_delivery
   on public.connector_runs(connector_id,source_delivery_id)
@@ -1105,7 +1116,22 @@ begin
   perform set_config('app.service_organization_id',p_organization_id::text,true);
   if jsonb_array_length(v_rows)>0 then
     v_result:=public.ingest_batch(v_run,v_rows);
-    if v_result ? 'error' then raise exception '%',v_result->>'error'; end if;
+    -- A validator refusal is permanent. Returning it keeps PostgREST on HTTP 200
+    -- with data.error, which the edge maps to 4xx. Raising would be re-thrown
+    -- below and the edge would retry it as 503.
+    if v_result ? 'error' then
+      update public.connector_runs set
+        status='failed',
+        finished_at=now(),
+        error_message='dead_letter: '||left(v_result->>'error',480),
+        source_payload=jsonb_build_object('kind','normalized_points','points',p_points)
+      where id=v_run and status='running';
+      perform set_config('app.sync_context_source_write','',true);
+      perform set_config('app.service_organization_id','',true);
+      return jsonb_build_object(
+        'error',v_result->>'error','dead_lettered',true,'run_id',v_run
+      );
+    end if;
   end if;
   update public.connector_runs set
     records_read=records_read+v_rejected,
@@ -1161,15 +1187,34 @@ exception when unique_violation then
   end if;
   return jsonb_build_object('ok',true,'replayed',true,'run_id',v_run,
     'note','delivery already recorded; no rows were written again');
-when others then
+when check_violation or not_null_violation or foreign_key_violation
+     or invalid_text_representation or numeric_value_out_of_range
+     or invalid_datetime_format or string_data_right_truncation then
+  -- The statements above are already rolled back. Insert a new refused row
+  -- that keeps the points, and return it so the edge answers 4xx.
   perform set_config('app.sync_context_source_write','',true);
   perform set_config('app.service_organization_id','',true);
-  if v_run is not null then
-    update public.connector_runs set status='failed',finished_at=now(),
-      error_message='Azure IoT Operations ingress failed; inspect protected function logs.'
-    where id=v_run and status='running';
-    update public.connectors set last_failure_at=now() where id=v_connector.id;
+  if v_connector.id is not null and p_points is not null then
+    insert into public.connector_runs(
+      organization_id,connector_id,entity_type,run_type,status,started_at,finished_at,
+      error_message,source_delivery_id,source_body_sha256,source_received_at,source_transport,
+      source_payload
+    ) values(
+      p_organization_id,v_connector.id,'condition_reading','stream','failed',now(),now(),
+      'dead_letter: '||left(sqlerrm,480),
+      btrim(p_delivery_id),p_body_sha256,p_received_at,'azure_event_hubs',
+      jsonb_build_object('kind','normalized_points','points',p_points)
+    ) returning id into v_run;
+    return jsonb_build_object(
+      'error',left(sqlerrm,480),'dead_lettered',true,'run_id',v_run
+    );
   end if;
+  return jsonb_build_object('error',left(sqlerrm,480),'dead_lettered',false);
+when others then
+  -- Unclassified failures, including database outages, must not consume the
+  -- delivery id. Re-raise so PostgREST errors and the edge returns 503.
+  perform set_config('app.sync_context_source_write','',true);
+  perform set_config('app.service_organization_id','',true);
   raise;
 end
 $$;
@@ -1193,7 +1238,8 @@ create or replace function public.refuse_azure_iot_operations_delivery(
   p_body_sha256 text,
   p_received_at timestamptz,
   p_reason text,
-  p_checkpoint_lag_seconds integer default null
+  p_checkpoint_lag_seconds integer default null,
+  p_payload jsonb default null
 )
 returns jsonb
 language plpgsql
@@ -1207,6 +1253,8 @@ declare
   v_existing_status text;
   v_reason text:=left(btrim(coalesce(p_reason,'')),480);
   v_recent integer;
+  v_existing_payload jsonb;
+  v_payload_ok boolean;
 begin
   if coalesce(auth.role(),'')<>'service_role' then
     return jsonb_build_object('error','service role required','dead_lettered',false);
@@ -1222,6 +1270,12 @@ begin
      and (p_checkpoint_lag_seconds < 0 or p_checkpoint_lag_seconds > 604800) then
     return jsonb_build_object('error','checkpoint lag is outside the recorded range','dead_lettered',false);
   end if;
+  v_payload_ok:=jsonb_typeof(p_payload)='object' and (
+    (jsonb_typeof(p_payload->'points')='array'
+      and jsonb_array_length(p_payload->'points') between 1 and 500)
+    or (jsonb_typeof(p_payload->'messages')='array'
+      and jsonb_array_length(p_payload->'messages') between 1 and 500)
+  );
   select * into v_connector from public.connectors
   where organization_id=p_organization_id and connector_key=btrim(p_connector_key)
     and connector_type='azure_iot_operations' and ingress_key_id=btrim(p_ingress_key_id);
@@ -1236,8 +1290,8 @@ begin
     return jsonb_build_object('error','the named ingress authorization is no longer valid','dead_lettered',false);
   end if;
 
-  select id, source_body_sha256, status
-    into v_run, v_existing, v_existing_status
+  select id, source_body_sha256, status, source_payload
+    into v_run, v_existing, v_existing_status, v_existing_payload
   from public.connector_runs
   where connector_id=v_connector.id and source_delivery_id=btrim(p_delivery_id);
   if v_run is not null then
@@ -1247,16 +1301,29 @@ begin
         'dead_lettered',false
       );
     end if;
+    if v_existing_payload is null and v_payload_ok is true then
+      update public.connector_runs
+        set source_payload=p_payload
+      where id=v_run and source_payload is null;
+    end if;
     return jsonb_build_object('ok',true,'dead_lettered',true,'replayed',true,'run_id',v_run);
+  end if;
+  if v_payload_ok is not true then
+    return jsonb_build_object(
+      'error','dead-letter payload must contain the normalized points or the raw messages',
+      'dead_lettered',false
+    );
   end if;
 
   insert into public.connector_runs(
     organization_id,connector_id,entity_type,run_type,status,started_at,finished_at,
-    error_message,source_delivery_id,source_body_sha256,source_received_at,source_transport
+    error_message,source_delivery_id,source_body_sha256,source_received_at,source_transport,
+    source_payload
   ) values(
     p_organization_id,v_connector.id,'condition_reading','stream','failed',now(),now(),
     'dead_letter: '||v_reason,
-    btrim(p_delivery_id),p_body_sha256,p_received_at,'azure_event_hubs'
+    btrim(p_delivery_id),p_body_sha256,p_received_at,'azure_event_hubs',
+    p_payload
   ) returning id into v_run;
 
   update public.connectors set last_failure_at=now() where id=v_connector.id;
@@ -1312,10 +1379,10 @@ end
 $$;
 
 revoke all on function public.refuse_azure_iot_operations_delivery(
-  uuid,text,text,text,text,timestamptz,text,integer
+  uuid,text,text,text,text,timestamptz,text,integer,jsonb
 ) from public,anon,authenticated;
 grant execute on function public.refuse_azure_iot_operations_delivery(
-  uuid,text,text,text,text,timestamptz,text,integer
+  uuid,text,text,text,text,timestamptz,text,integer,jsonb
 ) to service_role;
 
 

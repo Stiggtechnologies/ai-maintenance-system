@@ -67,18 +67,19 @@ The function returns, which lets the host checkpoint, only when:
 - normalization finds no deliverable points because the batch contained only
   metadata, keepalives, or event/condition frames withheld from this scalar
   path; or
-- the batch was durably dead-lettered. A permanent ingress 4xx, an
-  undecodable payload, or the eighth host attempt of a transient failure
-  (database, network, HTTP 5xx) is written as a refused `connector_runs` row
-  when ingress can store it, otherwise as one JSON blob under
-  `SYNCAI_DEAD_LETTER_CONTAINER_URL`. The checkpoint advances only after that
-  write succeeds. If neither store accepts the refusal, the function throws
-  and the checkpoint stays.
+- the batch was durably dead-lettered with its payload. A permanent ingress
+  4xx or an undecodable payload is written as a refused `connector_runs` row
+  whose `source_payload` holds the normalized points or the raw messages,
+  otherwise as one JSON blob under `SYNCAI_DEAD_LETTER_CONTAINER_URL` with
+  that same payload. The checkpoint advances only after that write succeeds.
+  If neither store accepts the refusal, the function throws and the checkpoint
+  stays.
 
-Three in-process HTTP attempts are only a short retry before a transient
-throw. They are not the checkpoint guarantee. `maxRetryCount` stays `-1` so
-exhaustion of a host policy cannot move past a batch that was neither
-accepted nor dead-lettered.
+Transient failures are never dead-lettered. HTTP 5xx, database errors and
+network failures throw, and `maxRetryCount: -1` keeps the checkpoint on the
+batch until ingress accepts it. A Supabase outage longer than the host retry
+interval does not drop telemetry. Three in-process HTTP attempts are only a
+short retry before that throw.
 
 Ingress returns 4xx for a permanent refusal and 503 for a database or other
 transient failure. The relay does not retry a permanent refusal.
@@ -89,6 +90,8 @@ a second write. There is no second queue and no Event Hubs send permission.
 
 Three failed runs in an hour, or an Event Hubs enqueue time at least 15
 minutes behind the relay clock, raise one open `system_alerts` row and a
-relay log line. Those are operator alarms for a stuck consumer, not
-equipment limits. This repository's unit test models the documented host
+relay log line. `alerts.bicep` deploys the Azure Monitor action group, a
+scheduled query alert on those log lines, and a ConsumerLag metric alert for
+the Event Hub. The lag threshold is an operator-chosen event count, not an
+equipment limit. This repository's unit test models the documented host
 rule. It is not an observed checkpoint from a customer Event Hubs namespace.

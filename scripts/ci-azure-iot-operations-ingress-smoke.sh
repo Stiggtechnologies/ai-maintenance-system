@@ -155,6 +155,35 @@ x=json.loads(os.environ['BODY'])
 assert 'error' in x and 'not found' in x['error'], x
 PY
 
+REFUSE_DELIVERY="partition-0:offset-900:offset-900:$RUN_SUFFIX"
+REFUSE_DIGEST='dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd'
+REFUSE=$(curl -sS -w '\n%{http_code}' -X POST \
+  "$API_URL/rest/v1/rpc/refuse_azure_iot_operations_delivery" \
+  -H "apikey: $SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
+  -H 'Content-Type: application/json' \
+  -d "{\"p_organization_id\":\"$ORG\",\"p_connector_key\":\"$CONNECTOR\",\"p_ingress_key_id\":\"$KEY_ID\",\"p_delivery_id\":\"$REFUSE_DELIVERY\",\"p_body_sha256\":\"$REFUSE_DIGEST\",\"p_received_at\":\"$RECEIVED_TS\",\"p_reason\":\"permanent_refusal: smoke keeps the normalized point\",\"p_payload\":{\"kind\":\"normalized_points\",\"points\":[{\"external_id\":\"0:900:vibration:$RUN_SUFFIX\",\"tag\":\"$TAG\",\"value\":4.2,\"source_timestamp\":\"$SOURCE_TS\",\"quality\":\"good\"}]}}")
+test "${REFUSE##*$'\n'}" = '200'
+BODY="${REFUSE%$'\n'*}" python3 - <<'PY'
+import json, os
+x=json.loads(os.environ['BODY'])
+assert x.get('dead_lettered') is True and x.get('replayed') is False, x
+PY
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atq \
+  -c "select source_payload->>'kind' || '|' || jsonb_array_length(source_payload->'points') from public.connector_runs where organization_id='$ORG' and source_delivery_id='$REFUSE_DELIVERY'" \
+  | grep -qx 'normalized_points|1'
+EMPTY=$(curl -sS -X POST \
+  "$API_URL/rest/v1/rpc/refuse_azure_iot_operations_delivery" \
+  -H "apikey: $SERVICE_ROLE_KEY" \
+  -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
+  -H 'Content-Type: application/json' \
+  -d "{\"p_organization_id\":\"$ORG\",\"p_connector_key\":\"$CONNECTOR\",\"p_ingress_key_id\":\"$KEY_ID\",\"p_delivery_id\":\"partition-0:offset-901:offset-901:$RUN_SUFFIX\",\"p_body_sha256\":\"$REFUSE_DIGEST\",\"p_received_at\":\"$RECEIVED_TS\",\"p_reason\":\"permanent_refusal: payload missing\"}")
+BODY="$EMPTY" python3 - <<'PY'
+import json, os
+x=json.loads(os.environ['BODY'])
+assert x.get('dead_lettered') is False and 'payload' in x.get('error',''), x
+PY
+
 NOAUTH=$(curl -sS -o /dev/null -w '%{http_code}' -X POST \
   "$API_URL/rest/v1/rpc/ingest_azure_iot_operations_batch" \
   -H "apikey: $ANON_KEY" -H 'Content-Type: application/json' -d '{}')

@@ -175,6 +175,30 @@ export interface AzureIotDeadLetter {
   reason: string;
   detail: string;
   lagSeconds?: number;
+  /** Normalized points kept so a permanent refusal can be replayed. */
+  points: AzureIotPoint[];
+  /** Raw Event Hubs messages kept when the batch could not be normalized. */
+  messages: unknown[];
+}
+
+function parseReplayMessages(raw: unknown): unknown[] {
+  if (raw === undefined || raw === null) return [];
+  if (!Array.isArray(raw) || raw.length < 1 || raw.length > 500)
+    throw new Error("invalid_dead_letter_messages");
+  return raw.map((message, index) => {
+    if (Array.isArray(message)) return message;
+    if (message && typeof message === "object") {
+      assertReadOnlyShape(message as Record<string, unknown>);
+      return message;
+    }
+    if (
+      typeof message === "string" ||
+      typeof message === "number" ||
+      typeof message === "boolean"
+    )
+      return message;
+    throw new Error(`dead_letter_message_${index + 1}_invalid`);
+  });
 }
 
 const SIGNATURE_FAILURES = new Set([
@@ -249,15 +273,30 @@ export function parseAzureIotIngressEnvelope(body: string): {
         throw new Error("invalid_checkpoint_lag");
       lagSeconds = lag;
     }
-    if (
-      envelope.points !== undefined &&
-      (!Array.isArray(envelope.points) || envelope.points.length > 0)
-    )
-      throw new Error("dead_letter_has_points");
+    if (envelope.points !== undefined && !Array.isArray(envelope.points))
+      throw new Error("points_required");
+    const replayPoints =
+      Array.isArray(envelope.points) && envelope.points.length > 0
+        ? parseAzureIotIngressEnvelope(
+            JSON.stringify({
+              delivery_id: deliveryId,
+              points: envelope.points,
+            }),
+          ).points
+        : [];
+    const replayMessages = parseReplayMessages(envelope.messages);
+    if (replayPoints.length === 0 && replayMessages.length === 0)
+      throw new Error("dead_letter_payload_required");
     return {
       deliveryId,
-      points: [],
-      deadLetter: { reason: deadLetterReason, detail, lagSeconds },
+      points: replayPoints,
+      deadLetter: {
+        reason: deadLetterReason,
+        detail,
+        lagSeconds,
+        points: replayPoints,
+        messages: replayMessages,
+      },
     };
   }
   if (!Array.isArray(envelope.points) || envelope.points.length < 1)

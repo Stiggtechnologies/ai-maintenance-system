@@ -19,6 +19,7 @@ const core = read("supabase/functions/_shared/azure-iot-operations-ingress.ts");
 const relay = read("infra/azure/iot-operations-relay/src/functions/relay.ts");
 const delivery = read("infra/azure/iot-operations-relay/src/delivery.ts");
 const normalizer = read("infra/azure/iot-operations-relay/src/normalize.ts");
+const relayAlerts = read("infra/azure/iot-operations-relay/alerts.bicep");
 const workflow = read(".github/workflows/deploy-migrations.yml");
 const ci = read(".github/workflows/ci.yml");
 const integrations = read("src/pages/IntegrationsPage.tsx");
@@ -48,6 +49,24 @@ describe("Azure IoT Operations governed ingress contract", () => {
     expect(migration).not.toContain("request.jwt");
     expect(migration).toContain("app.service_organization_id");
     expect(migration).toContain("refuse_azure_iot_operations_delivery");
+    expect(migration).toContain("source_payload");
+    expect(migration).toContain(
+      "jsonb_build_object('kind','normalized_points','points',p_points)",
+    );
+    expect(migration).not.toContain("raise exception '%',v_result->>'error'");
+    expect(delivery).not.toContain("transient_exhausted");
+    expect(delivery).not.toContain("RELAY_TRANSIENT_ATTEMPT_LIMIT");
+    expect(delivery).toContain("points: normalized.points");
+    expect(relayAlerts).toContain("Microsoft.Insights/actionGroups");
+    expect(relayAlerts).toContain("Microsoft.Insights/scheduledQueryRules");
+    expect(relayAlerts).toContain("Microsoft.Insights/metricAlerts");
+    expect(relayAlerts).toContain("SyncAI relay consecutive failures");
+    expect(relayAlerts).toContain("metricName: 'ConsumerLag'");
+    expect(relayAlerts).toContain(
+      "metricNamespace: 'Microsoft.EventHub/namespaces'",
+    );
+    expect(relayAlerts).toContain("ApplicationMetricsLogs");
+    expect(relayAlerts).not.toMatch(/alertEmail string =/);
     expect(migration).toContain(
       ") from public,anon,authenticated;\ngrant execute on function public.ingest_azure_iot_operations_batch(",
     );

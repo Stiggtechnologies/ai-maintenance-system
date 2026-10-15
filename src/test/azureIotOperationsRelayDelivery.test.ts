@@ -9,6 +9,8 @@ interface DeadLetterRecord {
   detail: string;
   deliveryId: string;
   status: number | null;
+  points?: Array<{ value?: number }>;
+  messages?: unknown[];
 }
 
 interface RelayInvocation {
@@ -23,7 +25,6 @@ interface DeliveryModule {
   PermanentRelayError: new (...args: never[]) => Error;
   CHECKPOINT_LAG_ALERT_MS: number;
   CONSECUTIVE_FAILURE_ALERT_COUNT: number;
-  RELAY_TRANSIENT_ATTEMPT_LIMIT: number;
   checkpointLagMs: (
     metadata: Record<string, unknown> | null | undefined,
     nowMs: number,
@@ -273,6 +274,9 @@ describe("Azure IoT Operations relay checkpoint", () => {
     expect(deadLetters.map((entry) => entry.reason)).toEqual([
       "permanent_refusal",
     ]);
+    expect(deadLetters[0]?.points?.map((point) => point.value)).toEqual([
+      4.2, 71.4,
+    ]);
 
     const stored = await runHost(async () => {
       await delivery.deliverEventHubBatch([reading], invocation(), {
@@ -311,14 +315,20 @@ describe("Azure IoT Operations relay checkpoint", () => {
     expect(undecodable).toEqual({ checkpoint: "4401", failures: 0 });
     expect(fetched).toBe(0);
     expect(deadLetters.at(-1)?.reason).toBe("undecodable");
+    expect(deadLetters.at(-1)?.messages).toEqual([
+      {
+        encoding: "base64",
+        data: Buffer.from([0x01, 0x02]).toString("base64"),
+      },
+    ]);
   });
 
-  it("dead-letters a transient failure only after the attempt budget", async () => {
+  it("keeps retrying a transient failure instead of dead-lettering it", async () => {
     const deadLetters: DeadLetterRecord[] = [];
-    const early = await runHost(async () => {
+    const outage = await runHost(async () => {
       await delivery.deliverEventHubBatch([reading], invocation(), {
         env,
-        attempt: delivery.RELAY_TRANSIENT_ATTEMPT_LIMIT - 2,
+        attempt: 100,
         sleep: async () => undefined,
         deadLetter: async (record) => {
           deadLetters.push(record);
@@ -326,24 +336,8 @@ describe("Azure IoT Operations relay checkpoint", () => {
         fetch: async () => response(503),
       });
     }, "4401");
-    expect(early.checkpoint).toBeNull();
+    expect(outage).toEqual({ checkpoint: null, failures: 4 });
     expect(deadLetters).toEqual([]);
-
-    const exhausted = await runHost(async () => {
-      await delivery.deliverEventHubBatch([reading], invocation(), {
-        env,
-        attempt: delivery.RELAY_TRANSIENT_ATTEMPT_LIMIT - 1,
-        sleep: async () => undefined,
-        deadLetter: async (record) => {
-          deadLetters.push(record);
-        },
-        fetch: async () => response(503),
-      });
-    }, "4401");
-    expect(exhausted).toEqual({ checkpoint: "4401", failures: 0 });
-    expect(deadLetters.map((entry) => entry.reason)).toEqual([
-      "transient_exhausted",
-    ]);
   });
 
   it("alerts on a consecutive failure streak and on checkpoint lag", async () => {

@@ -93,6 +93,10 @@ Deno.serve(async (request) => {
         p_received_at: verified.receivedAt,
         p_reason: `${envelope.deadLetter.reason}: ${envelope.deadLetter.detail}`,
         p_checkpoint_lag_seconds: envelope.deadLetter.lagSeconds ?? null,
+        p_payload:
+          envelope.deadLetter.points.length > 0
+            ? { kind: "normalized_points", points: envelope.deadLetter.points }
+            : { kind: "raw_messages", messages: envelope.deadLetter.messages },
       });
       if (refused.error) {
         safeLog("dead_letter_unavailable", { keyId });
@@ -139,6 +143,24 @@ Deno.serve(async (request) => {
     const result = data as Record<string, unknown> | null;
     if (typeof result?.error === "string") {
       phase = "rpc_result";
+      if (result.dead_lettered === true) {
+        safeLog("delivery_refused", {
+          keyId,
+          error: result.error,
+          deadLettered: true,
+        });
+        return json(
+          {
+            error: result.error,
+            dead_lettered: true,
+            run_id: result.run_id,
+          },
+          azureIotIngressStatus({
+            phase: "rpc_result",
+            message: result.error,
+          }),
+        );
+      }
       const refused = await client.rpc("refuse_azure_iot_operations_delivery", {
         p_organization_id: binding.organizationId,
         p_connector_key: binding.connectorKey,
@@ -147,6 +169,10 @@ Deno.serve(async (request) => {
         p_body_sha256: verified.bodySha256,
         p_received_at: verified.receivedAt,
         p_reason: result.error,
+        p_payload: {
+          kind: "normalized_points",
+          points: envelope.points,
+        },
       });
       if (refused.error) {
         safeLog("dead_letter_unavailable", { keyId });

@@ -158,6 +158,7 @@ describe("Azure IoT Operations signed ingress core", () => {
         dead_letter_reason: "undecodable",
         dead_letter_detail: "Event 1 is not valid JSON",
         checkpoint_lag_seconds: 1200,
+        messages: [{ encoding: "base64", data: "AQI=" }],
       }),
     );
     expect(deadLetter.points).toEqual([]);
@@ -165,6 +166,17 @@ describe("Azure IoT Operations signed ingress core", () => {
       reason: "undecodable",
       detail: "Event 1 is not valid JSON",
       lagSeconds: 1200,
+      points: [],
+      messages: [{ encoding: "base64", data: "AQI=" }],
     });
+    expect(() =>
+      parseAzureIotIngressEnvelope(
+        JSON.stringify({
+          delivery_id: "3:4401:4401:1:dead-letter",
+          dead_letter_reason: "permanent_refusal",
+          dead_letter_detail: "ingress refused this batch",
+        }),
+      ),
+    ).toThrow("dead_letter_payload_required");
   });
 });
