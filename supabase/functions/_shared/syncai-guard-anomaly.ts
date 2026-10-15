@@ -1,11 +1,12 @@
 /**
  * guard-anomaly-v1
  *
- * Statistical screening of seeded or simulated telemetry, plus an explicitly
- * synthetic access event. This is not an equipment limit and not a claim
- * about a live plant. Z-score uses the sample standard deviation of earlier
- * good readings. A limit breach uses only the sensor's stored alarm_limit.
- * Direct plant execution is not a result this detector can produce.
+ * Statistical screening of seeded or simulated telemetry. An explicitly
+ * synthetic access event is included only when includeSynthetic is true.
+ * This is not an equipment limit and not a claim about a live plant.
+ * Z-score uses the sample standard deviation of earlier good readings. A
+ * limit breach uses only the sensor's stored alarm_limit. Direct plant
+ * execution is not a result this detector can produce.
  */
 
 export const GUARD_ANOMALY_RULE = "guard-anomaly-v1";
@@ -82,7 +83,9 @@ export function detectGuardAnomalies(
   const findings: GuardAnomalyFinding[] = [];
   for (const [sensorId, rows] of bySensor) {
     if (findings.length >= MAX_FINDINGS_PER_SCAN) break;
-    const ordered = [...rows].sort((a, b) => a.takenAt.localeCompare(b.takenAt));
+    const ordered = [...rows].sort((a, b) =>
+      a.takenAt.localeCompare(b.takenAt),
+    );
     const latest = ordered[ordered.length - 1];
     const baseline = ordered.slice(0, -1).map((row) => row.value);
     const limit = limits.get(sensorId);
@@ -96,7 +99,10 @@ export function detectGuardAnomalies(
     const sigma = zReady ? sampleStdev(baseline) : 0;
     const mu = zReady ? mean(baseline) : null;
     const zBreach =
-      zReady && sigma > 0 && mu != null && Math.abs(latest.value - mu) / sigma >= zThreshold;
+      zReady &&
+      sigma > 0 &&
+      mu != null &&
+      Math.abs(latest.value - mu) / sigma >= zThreshold;
     if (!limitBreach && !zBreach) continue;
     const name = latest.sensorName;
     const where = latest.assetName ? ` on ${latest.assetName}` : "";
@@ -123,7 +129,10 @@ export function detectGuardAnomalies(
     });
   }
 
-  if (input.includeSynthetic !== false && findings.length < MAX_FINDINGS_PER_SCAN) {
+  if (
+    input.includeSynthetic === true &&
+    findings.length < MAX_FINDINGS_PER_SCAN
+  ) {
     findings.push({
       sourceFindingId: `syncai-guard:synthetic:auth-burst:${input.day}`,
       sensorId: null,

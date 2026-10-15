@@ -200,6 +200,7 @@ describe("guard-anomaly-v1", () => {
       readings: [...z.readings, ...limit.readings],
       limits: [z.limit, limit.limit],
       day: "2026-10-06",
+      includeSynthetic: true,
     });
     expect(findings.map((finding) => finding.plantExecution)).toEqual([
       "disabled",
@@ -262,6 +263,21 @@ describe("guard-anomaly-v1", () => {
     ).toBe(false);
     expect(MIN_BASELINE_SAMPLES).toBe(8);
     expect(DEFAULT_Z_THRESHOLD).toBe(3);
+  });
+
+  it("leaves the synthetic event out unless the caller opts in", () => {
+    const z = series("sensor-z", [1, 2, 3, 4, 5, 6, 7, 8, 40]);
+    const findings = detectGuardAnomalies({
+      readings: z.readings,
+      limits: [z.limit],
+      day: "2026-10-06",
+    });
+    expect(findings).toHaveLength(1);
+    expect(
+      findings.some(
+        (finding) => finding.evidenceType === "synthetic_security_event",
+      ),
+    ).toBe(false);
   });
 });
 
@@ -327,6 +343,39 @@ describe("SyncAI Guard contracts on disk", () => {
     expect(sql).toContain("'syncai_guard',\n       false");
   });
 
+  it("restricts both functions to admin and keeps synthetic findings off by default", () => {
+    const flagFn = sql.slice(
+      sql.indexOf("function public.set_syncai_guard_enabled"),
+      sql.indexOf("function public.raise_syncai_guard_findings"),
+    );
+    const raiseFn = sql.slice(
+      sql.indexOf("function public.raise_syncai_guard_findings"),
+    );
+    expect(flagFn).toContain("lower(coalesce(v_role, '')) <> 'admin'");
+    expect(flagFn).not.toContain("ai_admin");
+    expect(raiseFn).toContain("lower(coalesce(v_role, '')) <> 'admin'");
+    expect(raiseFn).toContain(
+      "raise exception 'raising SyncAI Guard findings requires an administrator role'",
+    );
+    expect(raiseFn).not.toContain("ai_admin");
+    expect(raiseFn).toContain("p_include_synthetic boolean default false");
+    expect(raiseFn).toContain("coalesce(p_include_synthetic, false)");
+    expect(raiseFn).not.toContain("coalesce(p_include_synthetic, true)");
+    expect(raiseFn).not.toContain("default true");
+    expect(raiseFn).toContain(
+      "synthetic SyncAI Guard findings are refused outside a demo organization",
+    );
+    expect(raiseFn).toContain("Fort McMurray Oil Sands Demo");
+    expect(raiseFn).toContain("from seeded/synthetic readings");
+    expect(raiseFn).toContain("from tenant telemetry");
+    expect(raiseFn).not.toContain(
+      "Raised by SyncAI Guard from tenant telemetry.",
+    );
+    expect(raiseFn).toContain("connector_type = 'plant_historian'");
+    expect(raiseFn).toContain("cr.source_system = v_connector_key");
+    expect(raiseFn).toContain("r.latest_source = v_connector_key");
+  });
+
   it("ships NeMo config and a Garak job that skips without a key", () => {
     expect(config).toContain(NIM_CONTENT_SAFETY_MODEL);
     expect(config).toContain(NIM_TOPIC_CONTROL_MODEL);
@@ -335,10 +384,14 @@ describe("SyncAI Guard contracts on disk", () => {
     expect(config).toContain("Do not add NVIDIA Morpheus");
     expect(config).not.toMatch(/type:\s*morpheus/);
     expect(garak).toContain("NVIDIA_API_KEY:-");
-    expect(garak).toContain("exit 0");
+    expect(garak).toContain("SKIPPED:");
+    expect(garak).toContain("result=skipped");
+    expect(garak).not.toMatch(/\bexit 0\b/);
     expect(garak).not.toMatch(/nvapi-[A-Za-z0-9]/);
     expect(workflow).toContain("bash scripts/garak-scan.sh");
     expect(workflow).toContain("secrets.NVIDIA_API_KEY");
+    expect(workflow).toContain("needs.preflight.outputs.run == 'true'");
+    expect(workflow).toContain("SKIPPED:");
     expect(
       readFileSync("config/syncai-guard/garak-probes.txt", "utf8"),
     ).toContain("promptinject");

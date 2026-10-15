@@ -20,6 +20,10 @@ import {
 } from "../services/operatingLoopService";
 import type { RecommendationRow } from "../types/operating";
 
+/** Seeded Fort McMurray organization. Synthetic Guard rows are refused everywhere else. */
+export const SYNCAI_GUARD_DEMO_ORG_ID = "11111111-1111-1111-1111-111111111111";
+export const SYNCAI_GUARD_DEMO_ORG_NAME = "Fort McMurray Oil Sands Demo";
+
 interface RailEvent {
   id: string;
   created_at: string;
@@ -39,14 +43,39 @@ interface GuardSnapshot {
   enabled: boolean;
   events: RailEvent[];
   findings: RecommendationRow[];
+  demoOrg: boolean;
   error: string | null;
 }
 
 function isGuardAdmin(role: unknown): boolean {
-  return role === "admin" || role === "ai_admin";
+  return role === "admin";
 }
 
-async function loadGuardSnapshot(): Promise<GuardSnapshot> {
+function organizationIdOf(
+  profile: { organization_id?: unknown } | null | undefined,
+): string | null {
+  const id = profile?.organization_id;
+  return typeof id === "string" && id.length > 0 ? id : null;
+}
+
+async function loadDemoOrg(organizationId: string | null): Promise<boolean> {
+  if (organizationId !== SYNCAI_GUARD_DEMO_ORG_ID) return false;
+  const org = await supabase
+    .from("organizations")
+    .select("id, name")
+    .eq("id", organizationId)
+    .maybeSingle();
+  if (org.error || !org.data) return false;
+  const row = org.data as { id?: string; name?: string };
+  return (
+    row.id === SYNCAI_GUARD_DEMO_ORG_ID &&
+    row.name === SYNCAI_GUARD_DEMO_ORG_NAME
+  );
+}
+
+async function loadGuardSnapshot(
+  organizationId: string | null,
+): Promise<GuardSnapshot> {
   const flag = await supabase
     .from("feature_flags")
     .select("enabled")
@@ -70,6 +99,7 @@ async function loadGuardSnapshot(): Promise<GuardSnapshot> {
     enabled: !flag.error && flag.data?.enabled === true,
     events: (events.data ?? []) as RailEvent[],
     findings: (findings.data ?? []) as RecommendationRow[],
+    demoOrg: await loadDemoOrg(organizationId),
     error: problem ? problem.message : null,
   };
 }
@@ -77,16 +107,20 @@ async function loadGuardSnapshot(): Promise<GuardSnapshot> {
 export function SyncAiGuardPage() {
   const { profile } = useAuth();
   const admin = isGuardAdmin(profile?.role);
+  const organizationId = organizationIdOf(
+    profile as { organization_id?: unknown } | null,
+  );
   const [snapshot, setSnapshot] = useState<GuardSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [includeSynthetic, setIncludeSynthetic] = useState(false);
 
   const refresh = useCallback(async () => {
-    const next = await loadGuardSnapshot();
+    const next = await loadGuardSnapshot(organizationId);
     setSnapshot(next);
     setLoading(false);
-  }, []);
+  }, [organizationId]);
 
   useEffect(() => {
     void refresh();
@@ -118,9 +152,10 @@ export function SyncAiGuardPage() {
   async function onScan() {
     setBusy("scan");
     setNotice(null);
+    const synthetic = snapshot?.demoOrg === true && includeSynthetic === true;
     const { data, error } = await supabase.rpc("raise_syncai_guard_findings", {
       p_z_threshold: 3,
-      p_include_synthetic: true,
+      p_include_synthetic: synthetic,
     });
     const payload = data as {
       error?: string | null;
@@ -202,14 +237,27 @@ export function SyncAiGuardPage() {
               {snapshot.enabled ? "Turn Guard off" : "Turn Guard on"}
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => void onScan()}
-            disabled={!snapshot.enabled || busy !== null}
-            className="rounded-lg border border-teal-700 px-3 py-1.5 text-sm text-teal-100 hover:bg-teal-950 disabled:opacity-50"
-          >
-            Scan telemetry
-          </button>
+          {admin && snapshot.demoOrg && (
+            <label className="flex items-center gap-2 text-sm text-slate-300">
+              <input
+                type="checkbox"
+                checked={includeSynthetic}
+                onChange={(event) => setIncludeSynthetic(event.target.checked)}
+                disabled={busy !== null}
+              />
+              Include one synthetic authentication-failure event
+            </label>
+          )}
+          {admin && (
+            <button
+              type="button"
+              onClick={() => void onScan()}
+              disabled={!snapshot.enabled || busy !== null}
+              className="rounded-lg border border-teal-700 px-3 py-1.5 text-sm text-teal-100 hover:bg-teal-950 disabled:opacity-50"
+            >
+              Scan telemetry
+            </button>
+          )}
         </div>
       </div>
 
@@ -250,8 +298,16 @@ export function SyncAiGuardPage() {
 
       <section className="space-y-2">
         <h2 className="text-lg font-medium text-white">Anomaly findings</h2>
+        <p className="text-sm text-slate-400">
+          A finding says it is from tenant telemetry only when every cited
+          reading matches the enabled plant historian. Otherwise it says the
+          readings are seeded or synthetic.
+          {snapshot.demoOrg
+            ? " The synthetic access event is stored only for this demo organization, and only when that option is checked."
+            : " Synthetic events are not written for this organization."}
+        </p>
         {snapshot.findings.length === 0 ? (
-          <EmptyState message="No Guard findings yet. A scan reads this organization's seeded telemetry and can add one synthetic access event." />
+          <EmptyState message="No Guard findings yet." />
         ) : (
           <ul className="space-y-2">
             {snapshot.findings.map((rec) => (

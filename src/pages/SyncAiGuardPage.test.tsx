@@ -6,6 +6,9 @@ const state = vi.hoisted(() => ({
   flagError: null as { message: string } | null,
   events: [] as Record<string, unknown>[],
   findings: [] as Record<string, unknown>[],
+  role: "admin",
+  organizationId: "org-live" as string | null,
+  orgName: "Live Plant" as string | null,
 }));
 
 const approveRecommendation = vi.hoisted(() =>
@@ -16,9 +19,17 @@ const approveRecommendation = vi.hoisted(() =>
   })),
 );
 const setRecommendationStatus = vi.hoisted(() => vi.fn(async () => undefined));
+const rpc = vi.hoisted(() =>
+  vi.fn(async () => ({
+    data: { created: 0, skipped_existing: 0, error: null },
+    error: null,
+  })),
+);
 
 vi.mock("../components/AuthProvider", () => ({
-  useAuth: () => ({ profile: { role: "admin" } }),
+  useAuth: () => ({
+    profile: { role: state.role, organization_id: state.organizationId },
+  }),
 }));
 
 vi.mock("../services/operatingLoopService", () => ({
@@ -58,17 +69,27 @@ vi.mock("../lib/supabase", () => {
         if (table === "audit_events") return chain(state.events, null, false);
         if (table === "recommendations")
           return chain(state.findings, null, false);
+        if (table === "organizations") {
+          return chain(
+            state.orgName
+              ? [{ id: state.organizationId, name: state.orgName }]
+              : [],
+            null,
+            true,
+          );
+        }
         return chain([], null, false);
       },
-      rpc: vi.fn(async () => ({
-        data: { created: 0, error: null },
-        error: null,
-      })),
+      rpc,
     },
   };
 });
 
-import { SyncAiGuardPage } from "./SyncAiGuardPage";
+import {
+  SYNCAI_GUARD_DEMO_ORG_ID,
+  SYNCAI_GUARD_DEMO_ORG_NAME,
+  SyncAiGuardPage,
+} from "./SyncAiGuardPage";
 
 const finding = {
   id: "rec-1",
@@ -99,6 +120,9 @@ describe("SyncAI Guard page", () => {
   beforeEach(() => {
     state.flagEnabled = true;
     state.flagError = null;
+    state.role = "admin";
+    state.organizationId = "org-live";
+    state.orgName = "Live Plant";
     state.events = [
       {
         id: "evt-1",
@@ -116,6 +140,7 @@ describe("SyncAI Guard page", () => {
     state.findings = [finding];
     approveRecommendation.mockClear();
     setRecommendationStatus.mockClear();
+    rpc.mockClear();
   });
 
   it("lists a rail event and sends approval through the operating loop", async () => {
@@ -144,5 +169,81 @@ describe("SyncAI Guard page", () => {
     expect(await screen.findByText("feature flag read failed")).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Scan telemetry" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Approve" })).toBeNull();
+  });
+
+  it("scans a live organization without the synthetic event", async () => {
+    render(<SyncAiGuardPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Scan telemetry" }),
+    );
+    expect(
+      screen.queryByRole("checkbox", {
+        name: "Include one synthetic authentication-failure event",
+      }),
+    ).toBeNull();
+    expect(rpc).toHaveBeenCalledWith("raise_syncai_guard_findings", {
+      p_z_threshold: 3,
+      p_include_synthetic: false,
+    });
+  });
+
+  it("passes the synthetic flag only after the demo organization opts in", async () => {
+    state.organizationId = SYNCAI_GUARD_DEMO_ORG_ID;
+    state.orgName = SYNCAI_GUARD_DEMO_ORG_NAME;
+    render(<SyncAiGuardPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Scan telemetry" }),
+    );
+    expect(await screen.findByText(/Scan created 0 finding/)).toBeTruthy();
+    expect(rpc).toHaveBeenCalledWith("raise_syncai_guard_findings", {
+      p_z_threshold: 3,
+      p_include_synthetic: false,
+    });
+    rpc.mockClear();
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: "Include one synthetic authentication-failure event",
+      }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Scan telemetry" }));
+    expect(rpc).toHaveBeenCalledWith("raise_syncai_guard_findings", {
+      p_z_threshold: 3,
+      p_include_synthetic: true,
+    });
+  });
+
+  it("does not offer the synthetic event when the demo id has another name", async () => {
+    state.organizationId = SYNCAI_GUARD_DEMO_ORG_ID;
+    state.orgName = "Live Plant";
+    render(<SyncAiGuardPage />);
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Scan telemetry" }),
+    );
+    expect(
+      screen.queryByRole("checkbox", {
+        name: "Include one synthetic authentication-failure event",
+      }),
+    ).toBeNull();
+    expect(rpc).toHaveBeenCalledWith("raise_syncai_guard_findings", {
+      p_z_threshold: 3,
+      p_include_synthetic: false,
+    });
+  });
+
+  it("hides the flag switch and the scan from ai_admin", async () => {
+    state.role = "ai_admin";
+    state.organizationId = SYNCAI_GUARD_DEMO_ORG_ID;
+    state.orgName = SYNCAI_GUARD_DEMO_ORG_NAME;
+    render(<SyncAiGuardPage />);
+    expect(
+      await screen.findByText("SyncAI Guard is on for this organization."),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Turn Guard off" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Scan telemetry" })).toBeNull();
+    expect(
+      screen.queryByRole("checkbox", {
+        name: "Include one synthetic authentication-failure event",
+      }),
+    ).toBeNull();
   });
 });

@@ -1,20 +1,36 @@
 #!/usr/bin/env bash
 # SyncAI Guard — Garak LLM vulnerability scan.
-# Exits 0 when NVIDIA_API_KEY or the garak CLI is absent so CI stays green
-# on a public repo that has no NVIDIA key. Never prints the key.
+# A missing NVIDIA_API_KEY or garak CLI is SKIPPED, not a pass. Exit 78
+# (EX_CONFIG) so a direct run cannot look green. CI must skip the scan job
+# before invoking this script; a missing secret on a fork must not fail CI.
+# Never prints the key.
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROBES_FILE="${ROOT}/config/syncai-guard/garak-probes.txt"
 
+skip() {
+  local reason="$1"
+  echo "SKIPPED: ${reason}"
+  if [[ -n "${GITHUB_OUTPUT:-}" ]]; then
+    echo "result=skipped" >> "${GITHUB_OUTPUT}"
+    echo "reason=${reason}" >> "${GITHUB_OUTPUT}"
+  fi
+  if [[ -n "${GITHUB_STEP_SUMMARY:-}" ]]; then
+    {
+      echo "### Garak"
+      echo "SKIPPED: ${reason}"
+    } >> "${GITHUB_STEP_SUMMARY}"
+  fi
+  exit 78
+}
+
 if [[ -z "${NVIDIA_API_KEY:-}" ]]; then
-  echo "syncai-guard: NVIDIA_API_KEY is unset; Garak scan skipped."
-  exit 0
+  skip "NVIDIA_API_KEY is unset. Garak scan not run."
 fi
 
 if ! command -v garak >/dev/null 2>&1; then
-  echo "syncai-guard: garak is not installed; scan skipped. See docs/syncai-guard.md."
-  exit 0
+  skip "garak CLI is not installed. Garak scan not run."
 fi
 
 PROBES="$(grep -v '^#' "${PROBES_FILE}" | grep -v '^$' | paste -sd, -)"

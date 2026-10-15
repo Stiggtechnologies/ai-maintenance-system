@@ -20,8 +20,12 @@
 --
 -- Rule id guard-anomaly-v1 matches supabase/functions/_shared/
 -- syncai-guard-anomaly.ts: at least 8 prior good readings, sample standard
--- deviation, default z of 3 (allowed range 2..6), at most 20 findings, and
--- an explicitly synthetic authentication-failure event.
+-- deviation, default z of 3 (allowed range 2..6), and at most 20 findings.
+-- A synthetic authentication-failure event is off unless the caller opts in,
+-- and it is refused outside the Fort McMurray demo organization.
+--
+-- Stamp 20270103120000 sorts after the latest migration on main,
+-- 20270103040000_risk_decision_preview_context.sql.
 -- ============================================================================
 
 insert into feature_flags (organization_id, flag_key, enabled, description)
@@ -51,7 +55,7 @@ begin
   from public.user_profiles
   where id = auth.uid() and organization_id = v_org;
 
-  if coalesce(v_role, '') not in ('admin', 'ai_admin') then
+  if lower(coalesce(v_role, '')) <> 'admin' then
     return jsonb_build_object(
       'error',
       'changing SyncAI Guard requires an administrator role'
@@ -109,7 +113,7 @@ grant execute on function public.set_syncai_guard_enabled(boolean) to authentica
 
 create or replace function public.raise_syncai_guard_findings(
   p_z_threshold numeric default 3,
-  p_include_synthetic boolean default true
+  p_include_synthetic boolean default false
 )
 returns jsonb
 language plpgsql
@@ -118,14 +122,19 @@ set search_path = public
 as $$
 declare
   v_org uuid := app_current_org();
+  v_role text;
   v_enabled boolean;
   v_created int := 0;
   v_skipped int := 0;
   v_z numeric;
   v_today text := to_char(now() at time zone 'UTC', 'YYYY-MM-DD');
+  v_connector_key text;
+  v_demo boolean := false;
   r record;
   v_limit boolean;
   v_zscore boolean;
+  v_from_tenant boolean;
+  v_source_phrase text;
   v_finding_id text;
   v_rec uuid;
   v_issue text;
@@ -140,6 +149,14 @@ begin
       'plant_execution', 'disabled',
       'rule', 'guard-anomaly-v1'
     );
+  end if;
+
+  select role into v_role
+  from public.user_profiles
+  where id = auth.uid() and organization_id = v_org;
+
+  if lower(coalesce(v_role, '')) <> 'admin' then
+    raise exception 'raising SyncAI Guard findings requires an administrator role';
   end if;
 
   select enabled into v_enabled
@@ -166,10 +183,36 @@ begin
     );
   end if;
 
+  -- Same posture as get_contextual_condition_monitoring: a reading is tenant
+  -- telemetry only when its source_system equals the enabled plant-historian
+  -- connector key. Every other source stays seeded, simulated, or imported.
+  select c.connector_key into v_connector_key
+  from public.connectors c
+  where c.organization_id = v_org
+    and c.connector_type = 'plant_historian'
+    and c.enabled
+    and nullif(btrim(c.connector_key), '') is not null
+  order by c.last_success_at desc nulls last, c.created_at desc
+  limit 1;
+
+  if coalesce(p_include_synthetic, false) then
+    select exists (
+      select 1
+      from public.organizations o
+      where o.id = v_org
+        and o.id = '11111111-1111-1111-1111-111111111111'::uuid
+        and o.name = 'Fort McMurray Oil Sands Demo'
+    ) into v_demo;
+    if not coalesce(v_demo, false) then
+      raise exception 'synthetic SyncAI Guard findings are refused outside a demo organization';
+    end if;
+  end if;
+
   for r in
     with latest as (
       select distinct on (cr.sensor_id)
-        cr.sensor_id, cr.asset_id, cr.value as latest_value, cr.taken_at
+        cr.sensor_id, cr.asset_id, cr.value as latest_value, cr.taken_at,
+        cr.source_system
       from public.condition_readings cr
       where cr.organization_id = v_org
         and cr.quality = 'good'
@@ -179,7 +222,11 @@ begin
       select cr.sensor_id,
              avg(cr.value) as mu,
              stddev_samp(cr.value) as sigma,
-             count(*)::int as n
+             count(*)::int as n,
+             count(*) filter (
+               where v_connector_key is not null
+                 and cr.source_system = v_connector_key
+             )::int as tenant_n
       from public.condition_readings cr
       join latest l on l.sensor_id = cr.sensor_id
       where cr.organization_id = v_org
@@ -188,7 +235,9 @@ begin
       group by cr.sensor_id
     )
     select l.sensor_id, l.asset_id, l.latest_value, l.taken_at,
+           l.source_system as latest_source,
            b.mu, b.sigma, coalesce(b.n, 0) as n,
+           coalesce(b.tenant_n, 0) as tenant_n,
            s.name as sensor_name, s.alarm_limit, s.limit_direction, s.unit,
            s.asset_id as sensor_asset_id, a.name as asset_name
     from latest l
@@ -210,6 +259,17 @@ begin
     if not v_limit and not v_zscore then
       continue;
     end if;
+
+    -- Tenant telemetry only when every reading this finding cites is
+    -- connector-backed. A limit cites the latest reading. A z-score also
+    -- cites the earlier good readings that formed the baseline.
+    v_from_tenant := v_connector_key is not null
+      and r.latest_source = v_connector_key
+      and (not v_zscore or (r.n > 0 and r.tenant_n = r.n));
+    v_source_phrase := case
+      when v_from_tenant then 'from tenant telemetry'
+      else 'from seeded/synthetic readings'
+    end;
 
     v_finding_id := 'syncai-guard:sensor:' || r.sensor_id::text || ':' || v_today;
     if exists (
@@ -237,7 +297,8 @@ begin
     v_issue := r.sensor_name
       || case when r.asset_name is not null then ' on ' || r.asset_name else '' end
       || ': ' || v_evidence
-      || '. Rule guard-anomaly-v1. Screening finding from recorded readings, not a diagnosed failure and not a plant command.';
+      || '. Rule guard-anomaly-v1. Screening finding ' || v_source_phrase
+      || ', not a diagnosed failure and not a plant command.';
 
     insert into public.recommendations (
       organization_id, asset_id, title, issue, action, impact,
@@ -263,7 +324,7 @@ begin
       'Operations',
       'Security',
       'Medium',
-      'Raised by SyncAI Guard from tenant telemetry. Human approval required before any work. Plant execution disabled.',
+      'Raised by SyncAI Guard ' || v_source_phrase || '. Human approval required before any work. Plant execution disabled.',
       v_finding_id,
       'If not reviewed: ' || r.sensor_name || ' stays unreviewed after ' || v_evidence
         || '. Safety, environmental and financial magnitude are not quantified. This screen is not a consequence model.',
@@ -301,7 +362,7 @@ begin
     v_created := v_created + 1;
   end loop;
 
-  if coalesce(p_include_synthetic, true) and v_created < 20 then
+  if coalesce(p_include_synthetic, false) and coalesce(v_demo, false) and v_created < 20 then
     v_finding_id := 'syncai-guard:synthetic:auth-burst:' || v_today;
     if exists (
       select 1 from public.recommendations
@@ -379,6 +440,6 @@ revoke all on function public.raise_syncai_guard_findings(numeric, boolean) from
 grant execute on function public.raise_syncai_guard_findings(numeric, boolean) to authenticated;
 
 comment on function public.raise_syncai_guard_findings(numeric, boolean) is
-  'guard-anomaly-v1. Pending recommendations plus evidence and a required approval. Does not create work or command a plant.';
+  'guard-anomaly-v1. Admin only. Pending recommendations plus evidence and a required approval. Synthetic rows default off and are refused outside the demo organization. Does not create work or command a plant.';
 
 notify pgrst, 'reload schema';
