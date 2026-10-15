@@ -226,25 +226,29 @@ describe("AI commercial cost controls", () => {
       "coalesce(nullif(btrim(p_fn),''),'unknown')='ai-agent-processor'",
     );
     expect(migration).toContain("model_not_approved_for_plan");
-    for (const runtime of [
-      investigation,
-      realtime,
-      agentLoopEnrich,
-      onboardingEnrich,
-    ]) {
+    for (const runtime of [investigation, realtime]) {
       expect(runtime).toContain('"check_llm_commercial_quota"');
     }
+    expect(investigation).toContain("commercial_route_refused");
     expect(investigation).toContain(
       '{ type: "sync_conversation", id: workspaceId }',
     );
-    expect(agentLoopEnrich).toContain('p_cost_object_type: "recommendation"');
-    expect(onboardingEnrich).toContain(
-      'p_cost_object_type: "asset_onboarding"',
+    const reserveQuota = investigation.slice(
+      investigation.indexOf("async function reserveQuota"),
+      investigation.indexOf("async function settleQuota"),
+    );
+    expect(reserveQuota.indexOf("releaseQuota(")).toBeLessThan(
+      reserveQuota.indexOf("commercial_route_refused"),
+    );
+    expect(reserveQuota.indexOf("commercial_route_refused")).toBeLessThan(
+      reserveQuota.indexOf("return verdict.reservation_id"),
     );
     for (const runtime of [agentLoopEnrich, onboardingEnrich]) {
-      expect(runtime).toContain("p_reservation_id: reservationId");
-      expect(runtime).toContain('"release_llm_reservation"');
+      expect(runtime).toContain("callWithCommercialBoundary(");
+      expect(runtime).not.toContain("prompt_tokens ?? 0");
     }
+    expect(agentLoopEnrich).toContain('type: "recommendation"');
+    expect(onboardingEnrich).toContain('type: "asset_onboarding"');
     expect(
       commercialUsageBoundary.indexOf('"check_llm_commercial_quota"'),
     ).toBeLessThan(commercialUsageBoundary.indexOf("callWithResilience("));
