@@ -319,8 +319,11 @@ describe("condition readings are written exactly once", () => {
     // too: every ingested reading was stored twice, and the second copy carried
     // no external_id so it sat outside the idempotency index entirely.
     const body = defs.get("ingest_batch")?.body ?? "";
+    // 20270105160101 re-states this body so service-role ingress can pass the
+    // tenant without impersonating a user. The one-writer assertion still
+    // applies to that latest body.
     expect(defs.get("ingest_batch")?.file).toBe(
-      "20261004090100_condition_reading_written_once.sql",
+      "20270105160101_azure_iot_operations_ingress.sql",
     );
     expect(body).not.toContain("insert into condition_readings");
     expect(body).toMatch(
@@ -578,7 +581,7 @@ describe("a row the database refuses is a reject, not a lost batch", () => {
 
   it("mutation-sanity — the assertion is about the CURRENT bodies", () => {
     expect(defs.get("ingest_batch")?.file).toBe(
-      "20261004090100_condition_reading_written_once.sql",
+      "20270105160101_azure_iot_operations_ingress.sql",
     );
     expect(defs.get("ingest_context_batch")?.file).toBe(CONTEXT_FIX);
     expect(defs.get("ingest_schedule_batch")?.file).toBe(

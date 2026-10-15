@@ -1,0 +1,18 @@
+{
+  "name": "syncai-azure-iot-operations-relay",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "main": "dist/src/functions/relay.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "start": "func start"
+  },
+  "dependencies": {
+    "@azure/functions": "^4.7.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "typescript": "^5.9.2"
+  }
+}
