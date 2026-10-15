@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { InvertedOpeningPage } from "./InvertedOpeningPage";
@@ -74,6 +74,143 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     persist.savePersistedDecisionCase.mockClear();
     persist.loadPersistedDecisionCase.mockClear();
     localStorage.clear();
+    sessionStorage.clear();
+    window.history.replaceState(null, "", "/get-started");
+    persist.savePersistedDecisionCase.mockResolvedValue(undefined);
+  });
+
+  it.each(["oil-gas", "mining", "manufacturing"])(
+    "retains a new %s acquisition industry through evidence, Back, refresh and signup handoff",
+    (industry) => {
+      window.history.replaceState(
+        null,
+        "",
+        `/get-started?industry=${industry}&source=industry-acceptance`,
+      );
+      const mounted = renderOpening();
+      openSpine();
+      const caseId = new URLSearchParams(window.location.search).get("case");
+      expect(new URLSearchParams(window.location.search).get("industry")).toBe(
+        industry,
+      );
+      fireEvent.change(screen.getByTestId("spine-evidence-body"), {
+        target: { value: "Synthetic industry-context evidence" },
+      });
+      fireEvent.click(screen.getByTestId("spine-add-evidence"));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Back to your question" }),
+      );
+      fireEvent.click(screen.getByTestId("inverted-continue"));
+      fireEvent.click(screen.getByTestId("inverted-save-continue"));
+      expect(new URLSearchParams(window.location.search).get("case")).toBe(
+        caseId,
+      );
+      mounted.unmount();
+      renderOpening();
+      expect(screen.getByTestId("spine-proof-body")).toHaveTextContent(
+        "Synthetic industry-context evidence",
+      );
+      const signup = new URL(
+        screen
+          .getByRole("link", { name: "create an evaluation workspace" })
+          .getAttribute("href")!,
+        "https://app.test",
+      );
+      const destination = new URL(
+        signup.searchParams.get("returnTo")!,
+        "https://app.test",
+      );
+      expect(destination.searchParams.get("industry")).toBe(industry);
+      expect(persist.createPersistedDecisionCase).not.toHaveBeenCalled();
+    },
+  );
+
+  it("keeps current evidence and identity across back, continue and refresh without another workspace", async () => {
+    authHolder.user = { id: "user-1" };
+    const mounted = renderOpening();
+    openSpine();
+    await waitFor(() =>
+      expect(persist.createPersistedDecisionCase).toHaveBeenCalledTimes(1),
+    );
+    fireEvent.change(screen.getByTestId("spine-evidence-body"), {
+      target: { value: "Synthetic retained inspection evidence" },
+    });
+    fireEvent.click(screen.getByTestId("spine-add-evidence"));
+    await waitFor(() =>
+      expect(screen.getByTestId("spine-save-notice")).toHaveTextContent(
+        "Current revision saved",
+      ),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Back to your question" }),
+    );
+    fireEvent.click(screen.getByTestId("inverted-continue"));
+    fireEvent.click(screen.getByTestId("inverted-save-continue"));
+    expect(screen.getByTestId("spine-proof-body")).toHaveTextContent(
+      "Synthetic retained inspection evidence",
+    );
+    expect(persist.createPersistedDecisionCase).toHaveBeenCalledTimes(1);
+    mounted.unmount();
+    renderOpening();
+    expect(screen.getByTestId("spine-proof-body")).toHaveTextContent(
+      "Synthetic retained inspection evidence",
+    );
+    expect(persist.createPersistedDecisionCase).toHaveBeenCalledTimes(1);
+    expect(screen.getByTestId("spine-gate-audit_trail")).toHaveTextContent(
+      "Open",
+    );
+  });
+  it("retains anonymous evidence through Back and a repeated continuation without persistence", () => {
+    renderOpening();
+    openSpine();
+    fireEvent.change(screen.getByTestId("spine-evidence-body"), {
+      target: { value: "Anonymous synthetic evidence stays in this draft" },
+    });
+    fireEvent.click(screen.getByTestId("spine-add-evidence"));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Back to your question" }),
+    );
+    fireEvent.click(screen.getByTestId("inverted-continue"));
+    fireEvent.click(screen.getByTestId("inverted-save-continue"));
+    expect(screen.getByTestId("spine-proof-body")).toHaveTextContent(
+      "Anonymous synthetic evidence stays in this draft",
+    );
+    expect(persist.createPersistedDecisionCase).not.toHaveBeenCalled();
+    expect(screen.getByTestId("spine-gate-audit_trail")).toHaveTextContent(
+      "Open",
+    );
+  });
+  it("opens the audit gate when a saved case edit fails autosave", async () => {
+    authHolder.user = { id: "user-1" };
+    renderOpening();
+    openSpine();
+    await waitFor(() =>
+      expect(persist.createPersistedDecisionCase).toHaveBeenCalledTimes(1),
+    );
+    expect(screen.getByTestId("spine-gate-audit_trail")).toHaveTextContent(
+      "Met",
+    );
+    persist.savePersistedDecisionCase.mockRejectedValueOnce(
+      Error("save unavailable"),
+    );
+    fireEvent.change(screen.getByTestId("spine-evidence-body"), {
+      target: { value: "Synthetic edit that is not saved" },
+    });
+    fireEvent.click(screen.getByTestId("spine-add-evidence"));
+    await waitFor(() =>
+      expect(screen.getByTestId("spine-save-notice")).toHaveTextContent(
+        "Workspace save did not complete",
+      ),
+    );
+    expect(screen.getByTestId("spine-gate-audit_trail")).toHaveTextContent(
+      "Open",
+    );
+    expect(screen.getByTestId("spine-save-workspace")).toHaveTextContent(
+      "Save to workspace",
+    );
+    expect(screen.getByTestId("spine-proof-body")).toHaveTextContent(
+      "Synthetic edit that is not saved",
+    );
   });
 
   it("does not rewrite the P0.1 opening contract", () => {
@@ -305,9 +442,9 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     expect(screen.getByTestId("spine-help-action").textContent).toMatch(
       /ACTION · locked/,
     );
-    expect(screen.getByTestId("spine-help-action").getAttribute("data-locked")).toBe(
-      "true",
-    );
+    expect(
+      screen.getByTestId("spine-help-action").getAttribute("data-locked"),
+    ).toBe("true");
 
     fireEvent.change(screen.getByTestId("spine-person-decisionOwner"), {
       target: { value: "Ada" },

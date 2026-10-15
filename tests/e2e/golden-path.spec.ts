@@ -20,6 +20,59 @@ const C22_REC_TITLE = "Reschedule PM on Conveyor C-22";
 const C22_REC_ACTION = "Advance PM from Day 14 to Day 3 — bearing replacement";
 const C22_VALUE_LABEL = "Risk mitigated — Reschedule PM on Conveyor C-22";
 
+test("public sample transcript, Markdown and open drawer remain readable in the dark customer theme", async ({ page }) => {
+  await page.goto('/workspace?industry=mining');
+  await page.getByRole('button', { name: 'Compare', exact: true }).click();
+  await page.getByRole('button', { name: 'Conversations', exact: true }).click();
+  {
+    await expect(page.locator('.public-journey.bolt-public')).toHaveAttribute('data-theme', 'dark');
+    await expect(page.getByRole('button', { name: /Use .* mode/ })).toHaveCount(0);
+    const ratios = await page.locator('.dw-message-markdown p, .dw-rec-block h3, .dw-rec-block li, .dw-rec-block p').evaluateAll(elements => {
+      const rgb = (value: string) => (value.match(/[\d.]+/g) ?? []).slice(0, 3).map(Number);
+      const lum = (value: string) => rgb(value).map(channel => channel / 255).map(channel => channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4).reduce((sum, channel, i) => sum + channel * [.2126, .7152, .0722][i], 0);
+      return elements.map(element => {
+        let parent: Element | null = element;
+        while (parent && getComputedStyle(parent).backgroundColor === 'rgba(0, 0, 0, 0)') parent = parent.parentElement;
+        const foreground = lum(getComputedStyle(element).color);
+        const background = lum(parent ? getComputedStyle(parent).backgroundColor : 'rgb(255, 255, 255)');
+        return (Math.max(foreground, background) + .05) / (Math.min(foreground, background) + .05);
+      });
+    });
+    expect(ratios.length).toBeGreaterThan(3);
+    for (const ratio of ratios) expect(ratio).toBeGreaterThanOrEqual(4.5);
+    const surfaceColors = await page.evaluate(() => ['.bolt-capability-switcher', '.bolt-layout.is-rail-open .dw-rail'].map(selector => getComputedStyle(document.querySelector(selector)!).backgroundColor));
+    expect(surfaceColors[0]).toBe(surfaceColors[1]);
+  }
+});
+
+test("evaluation client navigation selects signup and retains safe handoff context", async ({ page }) => {
+  await page.goto('/workspace?industry=mining&utm_source=partner&source=signup-regression');
+  await page.getByRole('link', { name: 'Start your first decision', exact: true }).click();
+  await page.getByTestId('inverted-ask').fill('Synthetic acceptance: inspect conveyor evidence before approving work');
+  await page.getByRole('button', { name: /Coordinate field work/ }).click();
+  await page.getByTestId('inverted-continue').click();
+  await page.getByTestId('inverted-save-continue').click();
+  const draftId = new URL(page.url()).searchParams.get('case');
+  const beforeNavigation = await page.evaluate(() => performance.timeOrigin);
+  await page.getByRole('link', { name: 'create an evaluation workspace' }).click();
+  await expect(page.getByRole('heading', { name: 'Create a private evaluation workspace' })).toBeVisible();
+  expect(await page.evaluate(() => performance.timeOrigin)).toBe(beforeNavigation);
+  const returnTo = new URL(page.url()).searchParams.get('returnTo');
+  expect(returnTo).toContain(`/workspace/cases/${draftId}`);
+  for (const name of ['Assistant', 'First decision']) {
+    const target = new URL(await page.getByRole('link', { name, exact: true }).getAttribute('href') ?? '', page.url());
+    expect(target.searchParams.get('industry')).toBe('mining');
+    expect(target.searchParams.get('utm_source')).toBe('partner');
+    expect(target.searchParams.has('returnTo')).toBe(false);
+  }
+  await page.getByRole('button', { name: 'Sign In', exact: true }).click();
+  await expect(page).toHaveURL(/\/signin\?returnTo=/);
+  expect(new URL(page.url()).searchParams.get('returnTo')).toBe(returnTo);
+  await page.reload();
+  await expect(page.getByRole('textbox', { name: /work email/i })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Create a private evaluation workspace' })).not.toBeVisible();
+});
+
 async function openLogin(page: Page) {
   await page.goto("/signin");
 }
@@ -445,3 +498,64 @@ test.describe("Role-aware copilot dock", () => {
       page.getByRole("heading", { name: "Security Audit Log" }),
     ).not.toBeVisible({ timeout: 10_000 });
   });
+
+// Customer draft/auth acceptance uses only the existing isolated local fixture.
+// It creates one evaluation workspace, never a deployment or industrial action.
+test("public first decision retains full evidence through auth and reports failed revision saves", async ({page}) => {
+  const backend = new URL(process.env.E2E_SUPABASE_URL ?? "http://127.0.0.1:54321");
+  expect(["localhost","127.0.0.1","[::1]"]).toContain(backend.hostname);
+  const question = "Synthetic acceptance: review pump inspection evidence before the next shift";
+  const evidence = "Synthetic inspection observation, without verified measurements or engineering limits";
+  let workspaceCreates = 0;
+  page.on("request",request=>{if(request.method()==="POST" && new URL(request.url()).pathname==="/rest/v1/cowork_workspaces")workspaceCreates++;});
+  await page.goto("/get-started?industry=mining&source=local-acceptance&campaign=auth-handoff");
+  await page.getByTestId("inverted-ask").fill(question);
+  await page.getByRole("button",{name:/Coordinate field work/}).click();
+  await page.getByTestId("inverted-continue").click();
+  await page.getByTestId("inverted-save-continue").click();
+  await page.getByRole("button",{name:"Inspection",exact:true}).click();
+  await page.getByTestId("spine-evidence-body").fill(evidence);
+  await page.getByTestId("spine-add-evidence").click();
+  await expect(page.getByTestId("spine-proof-body")).toContainText(evidence);
+  expect(new URL(page.url()).searchParams.get("industry")).toBe("mining");
+  const draftId = new URL(page.url()).searchParams.get("case");
+  expect(draftId).toBeTruthy();
+  await page.getByRole("button",{name:"Back to your question"}).click();
+  await page.getByTestId("inverted-continue").click();
+  await page.getByTestId("inverted-save-continue").click();
+  expect(new URL(page.url()).searchParams.get("case")).toBe(draftId);
+  await expect(page.getByTestId("spine-proof-body")).toContainText(evidence);
+  await page.reload();
+  await expect(page.getByTestId("spine-proof-body")).toContainText(evidence);
+  await page.getByTestId("spine-live-assistant").click();
+  await expect(page.getByRole("button",{name:"View record",exact:true})).toBeVisible();
+  await page.getByLabel("Sign in",{exact:true}).click();
+  await page.getByRole("textbox",{name:/work email/i}).fill(DEMO_EMAIL);
+  await page.locator('input[type="password"]').fill(DEMO_PASSWORD);
+  await page.getByRole("button",{name:/access syncai/i}).click();
+  await expect(page).toHaveURL(new RegExp(`/workspace/cases/${draftId}\\?`));
+  expect(new URL(page.url()).searchParams.get("source")).toBe("local-acceptance");
+  expect(new URL(page.url()).searchParams.get("industry")).toBe("mining");
+  await expect(page.getByText(question,{exact:true}).first()).toBeVisible();
+  await expect(page.getByText(new RegExp(evidence)).first()).toBeVisible();
+  await page.goto(`/get-started?case=${draftId}&industry=mining&view=evaluation`);
+  await expect(page.getByTestId("spine-proof-body")).toContainText("Intent is coordinate");
+  await expect(page.getByTestId("spine-proof-body")).toContainText(evidence);
+  await page.getByTestId("spine-save-workspace").click();
+  await expect(page.getByTestId("spine-gate-audit_trail")).toContainText("Met");
+  const persistedId = new URL(page.url()).searchParams.get("case");
+  expect(persistedId).toMatch(/^[0-9a-f-]{36}$/i);
+  expect(workspaceCreates).toBe(1);
+  await page.route("**/rest/v1/cowork_workspaces*",route=>route.request().method()==="PATCH" ? route.fulfill({status:503,contentType:"application/json",body:JSON.stringify({message:"Synthetic save outage"})}) : route.continue());
+  await page.getByTestId("spine-evidence-body").fill("Synthetic newer observation whose save is refused");
+  await page.getByTestId("spine-add-evidence").click();
+  await expect(page.getByTestId("spine-save-notice")).toContainText("Workspace save did not complete");
+  await expect(page.getByTestId("spine-gate-audit_trail")).toContainText("Open");
+  await page.getByRole("button",{name:"Back to your question"}).click();
+  await page.getByTestId("inverted-continue").click();
+  await page.getByTestId("inverted-save-continue").click();
+  expect(new URL(page.url()).searchParams.get("case")).toBe(persistedId);
+  expect(workspaceCreates).toBe(1);
+  await expect(page.getByTestId("spine-proof-body")).toContainText("Synthetic newer observation whose save is refused");
+  await expect(page.getByTestId("spine-gate-audit_trail")).toContainText("Open");
+});

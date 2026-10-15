@@ -2,6 +2,7 @@ import { useState } from "react";
 import { AuthShell } from "../components/AuthShell";
 import { AuthTabs } from "../components/AuthTabs";
 import { PasswordField } from "../components/PasswordField";
+import { safeAuthReturnTo } from "../lib/auth-return";
 import { signUp } from "../lib/auth";
 import {
   SIGNUP_INDUSTRY_OPTIONS,
@@ -73,7 +74,12 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
       setLoading(false);
       return;
     }
-    window.location.assign("/signin?returnTo=/start");
+    const returnTo = safeAuthReturnTo(
+      new URLSearchParams(window.location.search).get("returnTo"),
+      window.location.origin,
+      "/start",
+    );
+    window.location.assign(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
   };
 
   if (confirmationEmail) {

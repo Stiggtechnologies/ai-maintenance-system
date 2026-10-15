@@ -14,6 +14,7 @@ import {
 import type {
   DecisionApproval,
   DecisionCase,
+  DecisionIndustryId,
   DecisionCaseStage,
   DecisionEvidence,
   EvidenceQuality,
@@ -355,6 +356,7 @@ function missingSlots(): DecisionEvidence[] {
 export function buildSpineDecisionCase(input: {
   question: string;
   intent: InvertedIntentId | "";
+  industry?: DecisionIndustryId;
 }): DecisionCase {
   const question = input.question.trim();
   if (question.length < 12) {
@@ -365,7 +367,10 @@ export function buildSpineDecisionCase(input: {
       "Seed plant names are not accepted as a first-run subject.",
     );
   }
-  const empty = createHonestEmptyDecisionCase("Reliability Engineer");
+  const empty = createHonestEmptyDecisionCase(
+    "Reliability Engineer",
+    input.industry,
+  );
   if (isSeedDecisionCaseId(empty.id)) {
     throw new Error("Spine refused a seed Decision Case id.");
   }

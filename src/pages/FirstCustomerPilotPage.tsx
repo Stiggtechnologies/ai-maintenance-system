@@ -13,10 +13,13 @@ import {
   COMMERCIAL_VALUE_LADDER,
 } from "../lib/commercial-value-ladder";
 import { RiaAssessmentWorkspacePage } from "./RiaAssessmentWorkspacePage";
+import { usePublicJourneyTheme } from "../lib/use-public-journey-theme";
+import { publicJourneyPath } from "../lib/public-journey-context";
 
-const ASSESSMENT_URL = "https://syncai.ca/reliability-assessment";
+const ASSESSMENT_URL = "https://syncai.ca/contact";
 
 export function FirstCustomerPilotPage() {
+  const { theme } = usePublicJourneyTheme();
   const isAssessmentWorkspace =
     typeof window !== "undefined" &&
     window.location.pathname === "/pilot/reliability";
@@ -32,7 +35,7 @@ export function FirstCustomerPilotPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#0B0F14] text-[#E6EDF3]">
+    <main className="public-journey" data-theme={theme}>
       <PublicProductHeader active="proof" />
       <section className="mx-auto max-w-5xl px-6 py-10 sm:py-20">
         <div className="inline-flex items-center gap-2 rounded-full border border-teal-300/20 bg-teal-300/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.15em] text-teal-200">
@@ -81,10 +84,10 @@ export function FirstCustomerPilotPage() {
             href={ASSESSMENT_URL}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg bg-teal-300 px-6 py-3 text-sm font-bold text-slate-950"
           >
-            View the assessment <ArrowUpRight size={16} />
+            Discuss an assessment <ArrowUpRight size={16} />
           </a>
           <a
-            href="/workspace"
+            href={publicJourneyPath("/workspace", window.location.search)}
             className="inline-flex min-h-12 items-center justify-center gap-2 rounded-lg border border-white/15 px-6 py-3 text-sm font-semibold text-white"
           >
             <ShieldCheck size={16} />
