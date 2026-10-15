@@ -12,6 +12,14 @@ import {
   type CashFlow,
 } from "../../../src/lib/value/index.ts";
 import { selectWeibullMethod } from "../../../src/lib/reliability/method-selection.ts";
+import {
+  analyseModellingStudio,
+  type ModellingCostSource,
+  type ModellingGraphSource,
+  type ModellingHistoryRow,
+  type ModellingScheduleSource,
+  type ModellingTreeSource,
+} from "../../../src/lib/modelling/studio.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -471,6 +479,492 @@ Deno.serve(async (request) => {
     } catch (error) {
       console.error("asset-strategy calculation failed", error);
       return json({ error: "asset_strategy_calculation_failed" }, 422);
+    }
+  }
+
+  if (body.action === "modelling_studio") {
+    try {
+      const [
+        treesResult,
+        schedulesResult,
+        costResult,
+        postureResult,
+        graphResult,
+        historyResult,
+        costWorkOrderResult,
+        treeIdentityResult,
+        eventIdentityResult,
+        dependencyIdentityResult,
+        assetIdentityResult,
+      ] = await Promise.all([
+        userClient.rpc("get_fault_trees"),
+        userClient.rpc("get_shutdown_schedules"),
+        userClient.rpc("get_maintenance_cost_history", { p_months: 24 }),
+        userClient.rpc("get_cost_capture_posture"),
+        userClient.rpc("get_dependency_graph"),
+        service
+          .from("work_orders")
+          .select(
+            "id,asset_id,completed_at,downtime_hours,assets!inner(tag,name)",
+          )
+          .eq("organization_id", organizationId)
+          .eq("work_type", "corrective")
+          .not("completed_at", "is", null)
+          .order("completed_at"),
+        service
+          .from("work_orders")
+          .select("id,asset_id,completed_at")
+          .eq("organization_id", organizationId)
+          .not("completed_at", "is", null)
+          .order("completed_at"),
+        service
+          .from("fault_trees")
+          .select("id,tree_key")
+          .eq("organization_id", organizationId),
+        service
+          .from("shutdown_events")
+          .select("id,event_key")
+          .eq("organization_id", organizationId),
+        service
+          .from("asset_dependencies")
+          .select(
+            "id,dependent_asset_id,supplier_asset_id,redundancy_group,min_suppliers_required",
+          )
+          .eq("organization_id", organizationId),
+        service
+          .from("assets")
+          .select("id")
+          .eq("organization_id", organizationId),
+      ]);
+      for (const result of [
+        treesResult,
+        schedulesResult,
+        costResult,
+        postureResult,
+        graphResult,
+        historyResult,
+        costWorkOrderResult,
+        treeIdentityResult,
+        eventIdentityResult,
+        dependencyIdentityResult,
+        assetIdentityResult,
+      ]) {
+        if (result.error) throw new Error(result.error.message);
+      }
+
+      const treeIdentities = (treeIdentityResult.data ?? []) as Array<{
+        id: string;
+        tree_key: string;
+      }>;
+      const eventIdentities = (eventIdentityResult.data ?? []) as Array<{
+        id: string;
+        event_key: string;
+      }>;
+      const treeIds = treeIdentities.map((row) => row.id);
+      const eventIds = eventIdentities.map((row) => row.id);
+      const assetIdentities = (assetIdentityResult.data ?? []) as Array<{
+        id: string;
+      }>;
+      const assetIds = assetIdentities.map((row) => row.id);
+      const [
+        nodeIdentityResult,
+        taskIdentityResult,
+        dependencyResult,
+        economicsIdentityResult,
+      ] = await Promise.all([
+        treeIds.length === 0
+          ? Promise.resolve({ data: [], error: null })
+          : service
+              .from("fault_tree_nodes")
+              .select("id,tree_id,node_key")
+              .in("tree_id", treeIds),
+        eventIds.length === 0
+          ? Promise.resolve({ data: [], error: null })
+          : service
+              .from("shutdown_tasks")
+              .select("id,event_id,task_key")
+              .in("event_id", eventIds),
+        eventIds.length === 0
+          ? Promise.resolve({ data: [], error: null })
+          : service
+              .from("shutdown_task_dependencies")
+              .select("id,event_id,task_key,predecessor_key")
+              .in("event_id", eventIds),
+        assetIds.length === 0
+          ? Promise.resolve({ data: [], error: null })
+          : service
+              .from("asset_economics")
+              .select("id,asset_id")
+              .in("asset_id", assetIds),
+      ]);
+      for (const result of [
+        nodeIdentityResult,
+        taskIdentityResult,
+        dependencyResult,
+        economicsIdentityResult,
+      ]) {
+        if (result.error) throw new Error(result.error.message);
+      }
+
+      const rawTrees = (treesResult.data ?? []) as Array<
+        Omit<ModellingTreeSource, "id">
+      >;
+      const rawSchedules = (schedulesResult.data ?? []) as Array<
+        Omit<ModellingScheduleSource, "id">
+      >;
+      const nodeIdentities = (nodeIdentityResult.data ?? []) as Array<{
+        id: string | number;
+        tree_id: string;
+        node_key: string;
+      }>;
+      const taskIdentities = (taskIdentityResult.data ?? []) as Array<{
+        id: string | number;
+        event_id: string;
+        task_key: string;
+      }>;
+      const trees: ModellingTreeSource[] = rawTrees.map((tree) => {
+        const identity = treeIdentities.find(
+          (candidate) => candidate.tree_key === tree.treeKey,
+        );
+        if (!identity)
+          throw new Error("fault tree lost its canonical tenant identity");
+        return {
+          ...tree,
+          id: identity.id,
+          nodes: tree.nodes.map((node) => ({
+            ...node,
+            rowId: nodeIdentities.find(
+              (candidate) =>
+                candidate.tree_id === identity.id &&
+                candidate.node_key === node.id,
+            )?.id,
+          })),
+        };
+      });
+      const schedules: ModellingScheduleSource[] = rawSchedules.map(
+        (schedule) => {
+          const identity = eventIdentities.find(
+            (candidate) => candidate.event_key === schedule.eventKey,
+          );
+          if (!identity)
+            throw new Error(
+              "shutdown event lost its canonical tenant identity",
+            );
+          return {
+            ...schedule,
+            id: identity.id,
+            tasks: schedule.tasks.map((task) => ({
+              ...task,
+              rowId: taskIdentities.find(
+                (candidate) =>
+                  candidate.event_id === identity.id &&
+                  candidate.task_key === task.id,
+              )?.id,
+            })),
+          };
+        },
+      );
+      type RawHistory = {
+        id: string;
+        asset_id: string;
+        completed_at: string;
+        downtime_hours: number | string | null;
+        assets:
+          | { tag: string | null; name: string }
+          | Array<{ tag: string | null; name: string }>;
+      };
+      const history: ModellingHistoryRow[] = (
+        (historyResult.data ?? []) as RawHistory[]
+      ).map((row) => {
+        const asset = Array.isArray(row.assets) ? row.assets[0] : row.assets;
+        return {
+          id: row.id,
+          asset_id: row.asset_id,
+          tag: asset?.tag ?? null,
+          name: asset?.name ?? "(unnamed)",
+          completed_at: row.completed_at,
+          downtime_hours: finiteNumber(row.downtime_hours) ?? 0,
+        };
+      });
+      const graph = (graphResult.data ?? null) as ModellingGraphSource | null;
+      const dependencyIdentities = (dependencyIdentityResult.data ??
+        []) as Array<{
+        id: string | number;
+        dependent_asset_id: string;
+        supplier_asset_id: string;
+        redundancy_group: string | null;
+        min_suppliers_required: number | null;
+      }>;
+      if (graph?.edges) {
+        graph.edges = graph.edges.map((edge) => ({
+          ...edge,
+          id: dependencyIdentities.find(
+            (candidate) =>
+              candidate.dependent_asset_id === edge.dependent &&
+              candidate.supplier_asset_id === edge.supplier &&
+              candidate.redundancy_group === (edge.redundancyGroup ?? null) &&
+              candidate.min_suppliers_required === (edge.minRequired ?? 1),
+          )?.id,
+        }));
+      }
+      type CostWorkOrderIdentity = {
+        id: string;
+        asset_id: string;
+        completed_at: string;
+      };
+      const costWorkOrders = (costWorkOrderResult.data ??
+        []) as CostWorkOrderIdentity[];
+      const dataEnd = costWorkOrders.reduce<Date | null>((latest, row) => {
+        const completed = new Date(row.completed_at);
+        return !Number.isFinite(completed.getTime()) ||
+          (latest && latest >= completed)
+          ? latest
+          : completed;
+      }, null);
+      const costWindowStart = dataEnd
+        ? new Date(
+            Date.UTC(dataEnd.getUTCFullYear(), dataEnd.getUTCMonth() - 24, 1),
+          )
+        : null;
+      const costWindowWorkOrders = costWindowStart
+        ? costWorkOrders.filter(
+            (row) => new Date(row.completed_at) >= costWindowStart,
+          )
+        : [];
+      const economicsIdentities = (economicsIdentityResult.data ??
+        []) as Array<{
+        id: string | number;
+        asset_id: string;
+      }>;
+      const source = {
+        trees,
+        schedules,
+        cost: ((costResult.data ?? []) as ModellingCostSource[]).map((row) => ({
+          ...row,
+          plannedCost: finiteNumber(row.plannedCost) ?? 0,
+          unplannedCost: finiteNumber(row.unplannedCost) ?? 0,
+          failureCount: finiteNumber(row.failureCount) ?? 0,
+        })),
+        posture: Array.isArray(postureResult.data)
+          ? ((postureResult.data[0] ?? null) as Record<string, unknown> | null)
+          : (postureResult.data as Record<string, unknown> | null),
+        graph,
+        history,
+      };
+      const analysis = analyseModellingStudio(source);
+
+      async function recordModelRun(input: {
+        subjectType: "organization" | "fault_tree" | "shutdown_event";
+        subjectRef: string;
+        key:
+          | "fault_tree_quantification"
+          | "shutdown_schedule_risk"
+          | "organization_rbd"
+          | "fleet_production_simulation"
+          | "maintenance_cost_forecast";
+        method: string;
+        inputs: Record<string, unknown>;
+        refs: Array<{ table: string; id: string }>;
+        outputs: Record<string, unknown>;
+        refusals: string[];
+      }) {
+        const { data, error } = await service.rpc("record_calculation_run", {
+          p_organization_id: organizationId,
+          p_actor_id: actorId,
+          p_subject_type: input.subjectType,
+          p_subject_ref: input.subjectRef,
+          p_key: input.key,
+          p_method: input.method,
+          p_inputs: input.inputs,
+          p_input_refs: input.refs,
+          p_outputs: input.outputs,
+          p_refusals: input.refusals,
+        });
+        if (error) throw new Error(error.message);
+        if (typeof data !== "string" || !data)
+          throw new Error("calculation ledger returned no run identity");
+        return data;
+      }
+
+      const treeRunIds = await Promise.all(
+        analysis.trees.map((tree) => {
+          const sourceTree = trees.find(
+            (candidate) => candidate.id === tree.id,
+          )!;
+          return recordModelRun({
+            subjectType: "fault_tree",
+            subjectRef: tree.id,
+            key: "fault_tree_quantification",
+            method:
+              "MOCUS minimal cut sets with bounded exact inclusion-exclusion, falling back to the labelled rare-event approximation only above the exact cut-set limit.",
+            inputs: {
+              treeKey: tree.treeKey,
+              topEvent: tree.topEvent,
+              basis: tree.basis,
+              reviewed: tree.reviewed,
+              nodes: sourceTree.nodes,
+            },
+            refs: [
+              inputRef("fault_trees", tree.id),
+              ...sourceTree.nodes
+                .filter((node) => node.rowId != null)
+                .map((node) => inputRef("fault_tree_nodes", node.rowId!)),
+            ],
+            outputs: { result: tree.result, importance: tree.importance },
+            refusals: tree.result.computable ? [] : [tree.result.reason],
+          });
+        }),
+      );
+      const scheduleRunIds = await Promise.all(
+        analysis.schedules.map((schedule) => {
+          const sourceSchedule = schedules.find(
+            (candidate) => candidate.id === schedule.id,
+          )!;
+          const dependencyRows = (dependencyResult.data ?? []) as Array<{
+            id: string | number;
+            event_id: string;
+          }>;
+          return recordModelRun({
+            subjectType: "shutdown_event",
+            subjectRef: schedule.id,
+            key: "shutdown_schedule_risk",
+            method:
+              "Deterministic CPM plus 2,000 seeded triangular-duration simulations, reporting P10/P50/P80/P90, on-plan probability and task criticality index.",
+            inputs: {
+              eventKey: schedule.eventKey,
+              status: schedule.status,
+              tasks: sourceSchedule.tasks,
+              iterations: 2000,
+              seed: schedule.result.seed,
+            },
+            refs: [
+              inputRef("shutdown_events", schedule.id),
+              ...sourceSchedule.tasks
+                .filter((task) => task.rowId != null)
+                .map((task) => inputRef("shutdown_tasks", task.rowId!)),
+              ...dependencyRows
+                .filter((row) => row.event_id === schedule.id)
+                .map((row) => inputRef("shutdown_task_dependencies", row.id)),
+            ],
+            outputs: { result: schedule.result },
+            refusals: schedule.result.simulated ? [] : [schedule.result.reason],
+          });
+        }),
+      );
+      const historyRefs = history.map((row) => inputRef("work_orders", row.id));
+      const dependencyRefs = dependencyIdentities.map((row) =>
+        inputRef("asset_dependencies", row.id),
+      );
+      const assetRefs = assetIdentities.map((row) =>
+        inputRef("assets", row.id),
+      );
+      const commonCauseRefs = (graph?.commonCauseGroups ?? []).flatMap(
+        (group) => [
+          inputRef("common_cause_groups", group.id),
+          ...(group.members ?? []).map((member) =>
+            inputRef("common_cause_members", `${group.id}:${member}`),
+          ),
+        ],
+      );
+      const costRefs = [
+        ...costWindowWorkOrders.map((row) => inputRef("work_orders", row.id)),
+        ...economicsIdentities.map((row) =>
+          inputRef("asset_economics", row.id),
+        ),
+        ...assetRefs,
+      ];
+      const rbdRefusals = [
+        ...(analysis.rbd.result.computable ? [] : [analysis.rbd.result.reason]),
+        ...(analysis.rbd.result.groupsWithUnquantifiedCommonCause.length > 0
+          ? [
+              `${analysis.rbd.result.groupsWithUnquantifiedCommonCause.length} redundancy group(s) have unquantified common cause; the reported figure is an upper bound.`,
+            ]
+          : []),
+      ];
+      const [rbdRunId, simulationRunId, forecastRunId] = await Promise.all([
+        recordModelRun({
+          subjectType: "organization",
+          subjectRef: organizationId,
+          key: "organization_rbd",
+          method:
+            "Compile the tenant asset-dependency graph into k-out-of-n groups and evaluate the series system from observed corrective-history availability using the shared RBD kernel.",
+          inputs: {
+            graph,
+            correctiveWorkOrderCount: history.length,
+          },
+          refs: [
+            ...dependencyRefs,
+            ...historyRefs,
+            ...assetRefs,
+            ...commonCauseRefs,
+          ],
+          outputs: analysis.rbd as unknown as Record<string, unknown>,
+          refusals: rbdRefusals,
+        }),
+        recordModelRun({
+          subjectType: "organization",
+          subjectRef: organizationId,
+          key: "fleet_production_simulation",
+          method:
+            "Select a deterministic Weibull estimator from corrective interarrival history, pair it with observed median repair time, and run 300 seeded one-year fleet-availability simulations.",
+          inputs: {
+            correctiveWorkOrderCount: history.length,
+            horizonHours: 8760,
+            iterations: 300,
+            seed: 20260824,
+            capacityBasis: "unweighted",
+          },
+          refs: historyRefs,
+          outputs: analysis.simulation as unknown as Record<string, unknown>,
+          refusals: analysis.simulation.simulable
+            ? []
+            : [analysis.simulation.reason],
+        }),
+        recordModelRun({
+          subjectType: "organization",
+          subjectRef: organizationId,
+          key: "maintenance_cost_forecast",
+          method:
+            "Forecast one period from the canonical downtime-cost proxy: trend planned history only with at least four periods and use empirical P50/P90 unplanned quantiles.",
+          inputs: {
+            periods: source.cost,
+            posture: source.posture,
+            horizonPeriods: 1,
+          },
+          refs: costRefs,
+          outputs: analysis.forecast as unknown as Record<string, unknown>,
+          refusals: analysis.forecast.forecastable
+            ? []
+            : [analysis.forecast.reason],
+        }),
+      ]);
+
+      return json({
+        ...analysis,
+        posture: source.posture,
+        lineage: {
+          trees: analysis.trees.map((tree, index) => ({
+            subjectId: tree.id,
+            runId: treeRunIds[index],
+          })),
+          schedules: analysis.schedules.map((schedule, index) => ({
+            subjectId: schedule.id,
+            runId: scheduleRunIds[index],
+          })),
+          rbdRunId,
+          simulationRunId,
+          forecastRunId,
+        },
+        governance: {
+          advisory: true,
+          operationalAuthorization: false,
+          humanApprovalRequired: true,
+          note: "These model results support engineering decisions; they do not approve work, change a maintenance strategy, or authorize an outage.",
+        },
+      });
+    } catch (error) {
+      console.error("modelling studio calculation failed", error);
+      return json({ error: "modelling_studio_calculation_failed" }, 422);
     }
   }
 
