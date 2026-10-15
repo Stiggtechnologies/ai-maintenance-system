@@ -1007,12 +1007,29 @@ export async function createCoworkWorkspaceFromObjective(
 /* Interactive controls — every button writes something real                  */
 /* -------------------------------------------------------------------------- */
 
-/** Human approves an approval-gated work order → scheduled, decision logged. */
+/**
+ * Human approves an ordinary approval-gated work order → scheduled, decision
+ * logged. Safety-critical work is deliberately refused here: its independent
+ * C5.17 request must be decided through decide_maintenance_change_control().
+ */
 export async function approveWorkOrder(
   id: string,
   title: string,
 ): Promise<void> {
   const ctx = await getOrgContext();
+  const { data: work, error: readError } = await supabase
+    .from("work_orders")
+    .select("safety_flag")
+    .eq("id", id)
+    .maybeSingle()
+    .returns<{ safety_flag: boolean }>();
+  if (readError) fail("Could not inspect work-order approval route", readError);
+  if (!work) throw new Error("Work order not found in this tenant.");
+  if (work.safety_flag) {
+    throw new Error(
+      "Safety-critical work requires an independent maintenance-manager decision in Decision Governance.",
+    );
+  }
   const { error } = await supabase
     .from("work_orders")
     .update({

@@ -205,11 +205,13 @@ const isDbRow = (id: string) => /^[0-9a-f]{8}-[0-9a-f]{4}/.test(id);
 function WorkCard({
   item,
   onApprove,
+  onGovernance,
   onAssign,
   onOpen,
 }: {
   item: WorkItem;
   onApprove: (item: WorkItem) => void;
+  onGovernance: (item: WorkItem) => void;
   onAssign: (item: WorkItem) => void;
   onOpen: (item: WorkItem) => void;
 }) {
@@ -219,6 +221,7 @@ function WorkCard({
   return (
     <motion.div
       layout
+      data-testid="work-card"
       className={`bg-[#0D1520] border ${status.border} rounded-xl overflow-hidden cursor-pointer`}
       onClick={() => setExpanded(!expanded)}
     >
@@ -317,7 +320,18 @@ function WorkCard({
                   </div>
                 </div>
                 <div className="flex gap-2 mt-2">
-                  {item.approvalRequired ? (
+                  {item.approvalRequired && item.safetyFlag ? (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onGovernance(item);
+                      }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/15 border border-amber-500/30 text-amber-300 text-xs font-medium rounded-lg hover:bg-amber-500/25 transition-colors"
+                    >
+                      <ArrowUpRight className="w-3 h-3" /> Review in Decision
+                      Governance
+                    </button>
+                  ) : item.approvalRequired ? (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
@@ -383,9 +397,13 @@ export function WorkActionBoard() {
       setSiteId(context?.default_site_id ?? null);
       setCanPlanSiteChange(
         context?.roles.some((role) =>
-          ["admin", "executive", "maintenance_manager", "planner", "supervisor"].includes(
-            role.code,
-          ),
+          [
+            "admin",
+            "executive",
+            "maintenance_manager",
+            "planner",
+            "supervisor",
+          ].includes(role.code),
         ) ?? false,
       );
     });
@@ -397,7 +415,9 @@ export function WorkActionBoard() {
       .from("assets")
       .select("id,name")
       .order("name")
-      .then(({ data }) => setWoAssets((data ?? []) as { id: string; name: string }[]));
+      .then(({ data }) =>
+        setWoAssets((data ?? []) as { id: string; name: string }[]),
+      );
   }, [showNewWo, woAssets.length]);
   const { workActions } = useOnboardingOperatingLoop();
   const {
@@ -421,6 +441,10 @@ export function WorkActionBoard() {
       flash(
         "This draft comes from asset onboarding — approve its gate in Decision Governance first.",
       );
+      return;
+    }
+    if (item.safetyFlag) {
+      navigate("/governance");
       return;
     }
     try {
@@ -454,6 +478,16 @@ export function WorkActionBoard() {
   const handleOpen = (item: WorkItem) => {
     if (isDbRow(item.id)) navigate(`/work/${item.id}`);
     else flash("Onboarding drafts have no work-order detail yet.");
+  };
+
+  const handleGovernance = (item: WorkItem) => {
+    if (!isDbRow(item.id)) {
+      flash(
+        "This draft comes from asset onboarding — approve its gate in Decision Governance first.",
+      );
+      return;
+    }
+    navigate("/governance");
   };
 
   const handleCreate = async () => {
@@ -738,6 +772,7 @@ export function WorkActionBoard() {
               <WorkCard
                 item={item}
                 onApprove={handleApprove}
+                onGovernance={handleGovernance}
                 onAssign={handleAssign}
                 onOpen={handleOpen}
               />
