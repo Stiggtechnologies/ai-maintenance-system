@@ -394,6 +394,8 @@ describe("DecisionCaseWorkspacePage — Bolt first paint", () => {
         "obl-chat",
         "not_achieved",
         "leak rate unchanged at 4 drops/min after seal change",
+        null,
+        null,
       ),
     );
     expect(await screen.findByTestId("learn-recorded")).toHaveTextContent(

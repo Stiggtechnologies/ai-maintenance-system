@@ -22,6 +22,8 @@ import {
   ArrowUpCircle,
   HardHat,
   ClipboardList,
+  Link2,
+  CalendarCheck2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { ChallengeAIModal } from "../components/ChallengeAIModal";
@@ -39,6 +41,8 @@ import { EngineeringModelTracePanel } from "../components/EngineeringModelTraceP
 import { RecommendationEvidenceDrawer } from "../components/RecommendationEvidenceDrawer";
 import { RecommendationContractPosturePanel } from "../components/RecommendationContractPosturePanel";
 import { RecommendationAssumptionsDrawer } from "../components/RecommendationAssumptionsDrawer";
+import { RecommendationFailureBasisDrawer } from "../components/RecommendationFailureBasisDrawer";
+import { RecommendationVerificationPlanDrawer } from "../components/RecommendationVerificationPlanDrawer";
 import { FirstRunNextStepStrip } from "../components/help/FirstRunNextStepStrip";
 import { Stage1OperatorRunbook } from "../components/help/Stage1OperatorRunbook";
 import {
@@ -272,10 +276,14 @@ function RecommendationCard({
   rec,
   busy,
   canAct,
+  expanded,
+  onToggle,
   onApprove,
   onAction,
   onEvidence,
   onAssumptions,
+  onFailureBasis,
+  onVerificationPlan,
   onScenarios,
   onChallenge,
   onCreateWO,
@@ -284,6 +292,8 @@ function RecommendationCard({
   rec: RecommendationRow;
   busy: boolean;
   canAct: boolean;
+  expanded: boolean;
+  onToggle: () => void;
   onApprove: (r: RecommendationRow) => void;
   onAction: (
     r: RecommendationRow,
@@ -291,12 +301,13 @@ function RecommendationCard({
   ) => void;
   onEvidence: (r: RecommendationRow) => void;
   onAssumptions: (r: RecommendationRow) => void;
+  onFailureBasis: (r: RecommendationRow) => void;
+  onVerificationPlan: (r: RecommendationRow) => void;
   onScenarios: (r: RecommendationRow) => void;
   onChallenge: (r: RecommendationRow) => void;
   onCreateWO: (r: RecommendationRow) => void;
   onSign: (r: RecommendationRow, note: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const [signNote, setSignNote] = useState("");
   const level = alertLevels[rec.urgency] ?? alertLevels.advisory;
   const autonomous = (rec.approval_required ?? "")
@@ -307,10 +318,7 @@ function RecommendationCard({
       layout
       className={`border ${level.border} ${level.bg} rounded-xl p-4`}
     >
-      <div
-        className="flex items-start gap-3 cursor-pointer"
-        onClick={() => setExpanded(!expanded)}
-      >
+      <div className="flex items-start gap-3 cursor-pointer" onClick={onToggle}>
         <div
           className={`mt-2 w-2 h-2 rounded-full ${level.dot} shrink-0 animate-pulse`}
         />
@@ -447,6 +455,18 @@ function RecommendationCard({
               <ClipboardList className="w-3 h-3" /> Assumptions
             </button>
             <button
+              onClick={() => onFailureBasis(rec)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
+            >
+              <Link2 className="w-3 h-3" /> Failure / risk basis
+            </button>
+            <button
+              onClick={() => onVerificationPlan(rec)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
+            >
+              <CalendarCheck2 className="w-3 h-3" /> Verification plan
+            </button>
+            <button
               onClick={() => onScenarios(rec)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
             >
@@ -529,6 +549,14 @@ const EVIDENCE_GOVERNANCE_ROLES = new Set([
   "reliability_engineer",
 ]);
 
+const VERIFICATION_PLAN_ROLES = new Set([
+  "admin",
+  "executive",
+  "maintenance_manager",
+  "reliability_engineer",
+  "planner",
+]);
+
 const ROLE_LABEL: Record<string, string> = {
   executive: "Executive",
   maintenance_manager: "Maintenance Manager",
@@ -544,6 +572,8 @@ export function MissionControl() {
   const canAct = RECOMMENDATION_ACT_ROLES.has(role);
   const canGovernEvidence =
     profile !== null && EVIDENCE_GOVERNANCE_ROLES.has(role);
+  const canPlanVerification =
+    profile !== null && VERIFICATION_PLAN_ROLES.has(role);
   const { missionSignals } = useOnboardingOperatingLoop();
   const { data, loading, error, refetch } = useAsyncData(
     () => getMissionControl(),
@@ -560,6 +590,10 @@ export function MissionControl() {
   const [assumptionRec, setAssumptionRec] = useState<RecommendationRow | null>(
     null,
   );
+  const [failureBasisRec, setFailureBasisRec] =
+    useState<RecommendationRow | null>(null);
+  const [verificationPlanRec, setVerificationPlanRec] =
+    useState<RecommendationRow | null>(null);
   const [scenarioRec, setScenarioRec] = useState<RecommendationRow | null>(
     null,
   );
@@ -568,6 +602,19 @@ export function MissionControl() {
   );
   const [busyId, setBusyId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // Data refresh temporarily unmounts cards. Keep the user's expansion choices
+  // here so saving evidence or a verification plan does not hide the next action.
+  const [expandedRecIds, setExpandedRecIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const toggleRecommendation = useCallback((id: string) => {
+    setExpandedRecIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   const flash = useCallback((msg: string) => {
     setToast(msg);
@@ -833,11 +880,15 @@ export function MissionControl() {
                     rec={rec}
                     busy={busyId === rec.id}
                     canAct={canAct}
+                    expanded={expandedRecIds.has(rec.id)}
+                    onToggle={() => toggleRecommendation(rec.id)}
                     onApprove={handleApprove}
                     onAction={handleAction}
                     onSign={handleSignEngineering}
                     onEvidence={setEvidenceRec}
                     onAssumptions={setAssumptionRec}
+                    onFailureBasis={setFailureBasisRec}
+                    onVerificationPlan={setVerificationPlanRec}
                     onScenarios={setScenarioRec}
                     onChallenge={setChallengeRec}
                     onCreateWO={handleCreateWO}
@@ -949,6 +1000,22 @@ export function MissionControl() {
           rec={assumptionRec}
           canGovern={canGovernEvidence}
           onClose={() => setAssumptionRec(null)}
+        />
+      )}
+      {failureBasisRec && (
+        <RecommendationFailureBasisDrawer
+          rec={failureBasisRec}
+          canGovern={canGovernEvidence}
+          onClose={() => setFailureBasisRec(null)}
+        />
+      )}
+      {verificationPlanRec && (
+        <RecommendationVerificationPlanDrawer
+          recommendationId={verificationPlanRec.id}
+          recommendationTitle={verificationPlanRec.title}
+          canGovern={canPlanVerification}
+          onSaved={refetch}
+          onClose={() => setVerificationPlanRec(null)}
         />
       )}
       {scenarioRec && (

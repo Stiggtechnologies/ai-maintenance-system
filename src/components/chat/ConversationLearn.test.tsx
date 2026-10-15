@@ -119,6 +119,8 @@ describe("ConversationLearn", () => {
         "obl-1",
         "achieved",
         "leak rate 0 drops/min vs 2 after 48h, 2026-09-04",
+        null,
+        null,
       ),
     );
     expect(await screen.findByTestId("learn-recorded")).toHaveTextContent(

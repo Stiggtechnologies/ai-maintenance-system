@@ -28,6 +28,16 @@ beforeEach(() => {
       blocked_rows: 4,
     },
     {
+      register: "C8.14",
+      label: "Failure mode, governed risk scenario or explicit not-applicable basis",
+      blocking: false,
+      populated: 1,
+      total: 5,
+      share: 0.2,
+      releasable_rows: 1,
+      blocked_rows: 4,
+    },
+    {
       register: "C8.13",
       label: "Evidence used",
       blocking: true,
@@ -51,8 +61,9 @@ describe("RecommendationContractPosturePanel", () => {
     expect(screen.getByText("4 blocked")).toBeInTheDocument();
     expect(screen.getByText("40%")).toBeInTheDocument();
     expect(
-      screen.getByText(/never overrides the binary release gate/i),
+      screen.getByText(/not failure-driven/i),
     ).toBeInTheDocument();
+    expect(screen.getByLabelText("Advisory coverage gap")).toBeInTheDocument();
     expect(
       screen.getByText(/Approval does not prove the outcome/i),
     ).toBeInTheDocument();

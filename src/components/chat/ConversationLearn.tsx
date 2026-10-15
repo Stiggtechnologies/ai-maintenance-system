@@ -32,6 +32,7 @@ export function ConversationLearn({
   const [open, setOpen] = useState<OpenVerification[] | null>(null);
   const [boundId, setBoundId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string>("");
+  const [sourceKey, setSourceKey] = useState<string>("");
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(signedIn);
 
@@ -41,6 +42,7 @@ export function ConversationLearn({
       setOpen(null);
       setBoundId(null);
       setSelectedId("");
+      setSourceKey("");
       setLoadError(null);
       return;
     }
@@ -66,12 +68,14 @@ export function ConversationLearn({
           // obligation. Explicit pick or refuse.
           setSelectedId("");
         }
+        setSourceKey("");
       })
       .catch((caught: unknown) => {
         if (cancelled) return;
         setOpen(null);
         setBoundId(null);
         setSelectedId("");
+        setSourceKey("");
         setLoadError(
           caught instanceof Error
             ? caught.message
@@ -149,7 +153,10 @@ export function ConversationLearn({
           <select
             data-testid="learn-obligation-select"
             value={selectedId}
-            onChange={(event) => setSelectedId(event.target.value)}
+            onChange={(event) => {
+              setSelectedId(event.target.value);
+              setSourceKey("");
+            }}
           >
             <option value="">Select an open obligation…</option>
             {candidates.map((row) => (
@@ -161,29 +168,83 @@ export function ConversationLearn({
           </select>
         </label>
       )}
-      {obligationId ? (
+      {selected?.planComplete === false ? (
+        <aside className="dw-learn" data-testid="learn-plan-needed">
+          <p role="alert">
+            This legacy obligation needs an explicit method, acceptance
+            criteria, outcome date and named owner before it can close.
+          </p>
+          <p>
+            Complete the governed plan on{" "}
+            <Link to="/learning-loop">Learning Loop</Link>. Nothing was
+            written.
+          </p>
+        </aside>
+      ) : null}
+      {obligationId &&
+        selected?.planComplete !== false &&
+        selected?.evidenceRequired && (
+          <label className="dw-learn-pick">
+            <span>Governed evidence source</span>
+            <select
+              data-testid="learn-evidence-select"
+              value={sourceKey}
+              onChange={(event) => setSourceKey(event.target.value)}
+              disabled={(selected.evidenceCandidates ?? []).length === 0}
+            >
+              <option value="">Select validated evidence…</option>
+              {(selected.evidenceCandidates ?? []).map((candidate) => (
+                <option
+                  key={`${candidate.kind}:${candidate.id}`}
+                  value={`${candidate.kind}:${candidate.id}`}
+                >
+                  {candidate.kind === "cmms_work_order"
+                    ? "CMMS work order"
+                    : "Validated evidence"}
+                  {` · ${candidate.label}`}
+                </option>
+              ))}
+            </select>
+            {(selected.evidenceCandidates ?? []).length === 0 && (
+              <span role="alert">
+                No eligible source is available. Validate recommendation
+                evidence or synchronize a completed same-asset CMMS work
+                order. Nothing was written.
+              </span>
+            )}
+          </label>
+        )}
+      {obligationId &&
+      selected?.planComplete !== false &&
+      (!selected?.evidenceRequired || sourceKey !== "") ? (
         <InThreadLearnRecorder
           obligationLabel={
             selected?.recommendationTitle ?? "Open verification obligation"
           }
           method={selected?.method}
           onSubmit={async (result, note) => {
+            const source = (selected?.evidenceCandidates ?? []).find(
+              (candidate) =>
+                `${candidate.kind}:${candidate.id}` === sourceKey,
+            );
             const recorded = await recordVerificationResult(
               obligationId,
               result as VerificationResultKind,
               note,
+              source?.kind === "evidence_item" ? source.id : null,
+              source?.kind === "cmms_work_order" ? source.id : null,
             );
             return recorded.detail;
           }}
         />
-      ) : (
+      ) : !obligationId ? (
         <aside className="dw-learn" data-testid="learn-select-needed">
           <p>
             Choose an open recommendation obligation. Nothing is written until
             a named human records a measured result.
           </p>
         </aside>
-      )}
+      ) : null}
     </div>
   );
 }
