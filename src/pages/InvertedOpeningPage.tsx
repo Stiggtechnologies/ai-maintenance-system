@@ -33,6 +33,7 @@ import {
   rememberEvaluationDraft,
 } from "../lib/onboarding/evaluation-assistant-handoff";
 import { DecisionCaseSpine } from "./DecisionCaseSpine";
+import { productEntryById } from "../lib/product-entry-paths";
 import { PublicJourneyHeader } from "../components/PublicJourneyHeader";
 import { usePublicJourneyTheme } from "../lib/use-public-journey-theme";
 
@@ -47,6 +48,9 @@ function rememberSavedCase(id: string) {
 
 export function InvertedOpeningPage() {
   const auth = useOptionalAuth();
+  const entry = productEntryById(
+    new URLSearchParams(window.location.search).get("entry") ?? "",
+  );
   const journeyTheme = usePublicJourneyTheme();
   const [restored] = useState(() =>
     readEvaluationDraftLocation(window.location.search, window.sessionStorage),
@@ -230,6 +234,21 @@ export function InvertedOpeningPage() {
             <span>{INVERTED_OPENING_AUTHORITY}</span>
           </div>
         </header>
+
+        {entry ? (
+          <aside
+            data-testid="entry-context"
+            className="rounded-xl border border-teal-300/20 p-4 text-sm text-slate-300"
+          >
+            <h2 className="font-semibold text-white">{entry.name}</h2>
+            <p className="mt-2">Bring: {entry.input}</p>
+            <p className="mt-2">{entry.boundary}</p>
+            <p className="mt-2">
+              Describe your own question below. This entry does not load example
+              data or grant workspace permissions.
+            </p>
+          </aside>
+        ) : null}
 
         {!spineQuestion ? (
           <>

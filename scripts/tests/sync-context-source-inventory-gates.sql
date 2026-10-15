@@ -169,6 +169,7 @@ end $$;
 do $negative_inventory$
 declare actor_id uuid; org_id uuid; c public.connectors%rowtype; result jsonb; entry jsonb;
   state_name text; source_count integer; bill_id uuid; clone_id uuid; expected_emit boolean;
+  policy jsonb;
   budget_refusal jsonb:='{"error":"source inventory exceeds response budget; organization inventory unavailable"}'::jsonb;
 begin
   select * into strict c from public.connectors where connector_key='sc02-api-unused-source';
@@ -209,14 +210,35 @@ begin
     context_observed_at=null where id=c.id;
 
   update public.billing_subscriptions set status='inactive' where organization_id=org_id;
-  insert into public.billing_subscriptions(organization_id,plan,status,billing_source,marketplace_subscription_id,marketplace_status)
-    values(org_id,'enterprise_pilot','inactive','azure_marketplace','sc02-inventory-suspended','Suspended') returning id into bill_id;
+  insert into public.billing_subscriptions(organization_id,plan,status,billing_source,marketplace_subscription_id,
+    marketplace_offer_id,marketplace_plan_id,marketplace_status,current_period_start,current_period_end)
+    values(org_id,'enterprise_pilot','inactive','azure_marketplace','sc02-inventory-suspended',
+      'sc02-inventory-fixture','enterprise_pilot','Suspended',now(),now()+interval '30 days') returning id into bill_id;
   if public.app_org_has_commercial_entitlement(org_id) then
     raise exception 'canonical_commercial_suspension fixture did not revoke entitlement'; end if;
   result:=pg_temp.context_inventory_read(actor_id);
   if result is distinct from '{"error":"forbidden"}'::jsonb then
     raise exception 'canonical_commercial_suspension did not refuse inventory'; end if;
   -- Restore by the canonical entitlement model inside this rollback-only fixture.
+  -- Marketplace activation is fail-closed until this exact offer and plan have an
+  -- approved AI commercial policy. No seat quantity is present, so the boundary
+  -- is flat-rate hard-stop. The allowance figures are the CI-only margin inputs
+  -- already used by the Marketplace smokes, not a production price.
+  reset role;
+  set local role service_role;
+  policy:=public.configure_ai_commercial_plan_policy(
+    'azure_marketplace','sc02-inventory-fixture','enterprise_pilot','flat_rate',
+    'hard_stop',10,1000,10,1000,5,1000,0,1.00,0.50,
+    array['gpt-4o-mini']::text[],null,null,null,
+    'CI-only Context inventory entitlement fixture');
+  if policy->>'status'<>'draft'
+     or coalesce((policy->'evaluation'->>'allowed')::boolean,false) is not true then
+    raise exception 'inventory commercial policy fixture failed margin evaluation: %',policy; end if;
+  policy:=public.approve_ai_commercial_plan_policy(
+    'azure_marketplace','sc02-inventory-fixture','enterprise_pilot',actor_id);
+  if coalesce((policy->>'approved')::boolean,false) is not true then
+    raise exception 'inventory commercial policy fixture was not approved: %',policy; end if;
+  reset role;
   update public.billing_subscriptions set status='active',marketplace_status='Subscribed' where id=bill_id;
   if not public.app_org_has_commercial_entitlement(org_id) then raise exception 'commercial positive fixture failed'; end if;
 

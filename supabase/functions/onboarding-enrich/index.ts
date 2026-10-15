@@ -112,6 +112,20 @@ Deno.serve(async (req) => {
   const failures: string[] = [];
   const startedAt = Date.now();
 
+  const releaseReservation = async (reservationId: number | null) => {
+    if (reservationId === null) return;
+    const { error: releaseError } = await supabase.rpc(
+      "release_llm_reservation",
+      { p_reservation_id: reservationId },
+    );
+    if (releaseError) {
+      console.error("onboarding-enrich reservation release failed", {
+        reservationId,
+        error: releaseError,
+      });
+    }
+  };
+
   for (const entry of entries) {
     const pending = entry.pending ?? [];
     if (pending.length === 0) continue;
@@ -128,11 +142,50 @@ Deno.serve(async (req) => {
 
       const chunk = pending.slice(i, i + CHUNK_SIZE);
       asked += chunk.length;
+      let reservationId: number | null = null;
+      let providerCompleted = false;
 
       try {
         const askList = chunk
           .map((item) => `- "${item.key}": ${item.label}${item.hint ? ` (${item.hint})` : ""}`)
           .join("\n");
+        const estimatedTokens = Math.min(
+          20_000,
+          1200 +
+            Math.ceil(
+              (JSON.stringify(entry.asset).length +
+                JSON.stringify(entry.known).length +
+                askList.length) /
+                4,
+            ),
+        );
+        const { data: quota, error: quotaError } = await supabase.rpc(
+          "check_llm_commercial_quota",
+          {
+            p_organization_id: entry.organization_id,
+            p_fn: "onboarding-enrich",
+            p_model: LLM_MODEL,
+            p_estimated_tokens: estimatedTokens,
+            p_cost_object_type: "asset_onboarding",
+            p_cost_object_id: entry.asset_id,
+          },
+        );
+        const verdict = (quota ?? {}) as Record<string, unknown>;
+        reservationId = Number(verdict.reservation_id);
+        if (
+          quotaError ||
+          verdict.allowed !== true ||
+          !Number.isSafeInteger(reservationId)
+        ) {
+          console.error("onboarding-enrich commercial quota refused", {
+            assetId: entry.asset_id,
+            limit: verdict.limit ?? "quota_check_unavailable",
+            error: quotaError,
+          });
+          failures.push(`${entry.asset_id}: commercial_quota_refused`);
+          reservationId = null;
+          continue;
+        }
 
         const resp = await fetch(providerUrl, {
           method: "POST",
@@ -170,34 +223,35 @@ Deno.serve(async (req) => {
         if (!resp.ok) {
           console.error("onboarding-enrich provider request failed", { assetId: entry.asset_id, status: resp.status });
           failures.push(`${entry.asset_id}: provider_error`);
+          await releaseReservation(reservationId);
+          reservationId = null;
           continue;
         }
+        providerCompleted = true;
 
         const data = await resp.json();
 
-        // Cost telemetry (private.llm_usage) — FAIL-SOFT: a telemetry
-        // failure must never cost an onboarding deduction.
-        try {
-          const usage =
-            data.usage && typeof data.usage === "object" ? data.usage : {};
-          const { error: usageError } = await supabase.rpc(
-            "record_llm_usage",
-            {
-              p_organization_id: entry.organization_id,
-              p_fn: "onboarding-enrich",
-              p_model:
-                typeof data.model === "string" ? data.model : LLM_MODEL,
-              p_prompt_tokens: usage.prompt_tokens ?? 0,
-              p_completion_tokens: usage.completion_tokens ?? 0,
-            },
-          );
-          if (usageError)
-            console.error("onboarding-enrich usage insert failed", usageError);
-        } catch (usageException) {
-          console.error(
-            "onboarding-enrich usage insert failed",
-            usageException,
-          );
+        // Settlement is a commercial control. Preserve the reservation and
+        // refuse to apply deductions when actual usage cannot be accounted.
+        const usage =
+          data.usage && typeof data.usage === "object" ? data.usage : {};
+        const { error: usageError } = await supabase.rpc(
+          "record_llm_usage",
+          {
+            p_organization_id: entry.organization_id,
+            p_fn: "onboarding-enrich",
+            p_model:
+              typeof data.model === "string" ? data.model : LLM_MODEL,
+            p_prompt_tokens: usage.prompt_tokens ?? 0,
+            p_completion_tokens: usage.completion_tokens ?? 0,
+            p_reservation_id: reservationId,
+          },
+        );
+        reservationId = null;
+        if (usageError) {
+          console.error("onboarding-enrich usage settlement failed", usageError);
+          failures.push(`${entry.asset_id}: usage_settlement_failed`);
+          continue;
         }
 
         const content: string = data.choices?.[0]?.message?.content ?? "";
@@ -228,6 +282,7 @@ Deno.serve(async (req) => {
           }
         }
       } catch (error) {
+        if (!providerCompleted) await releaseReservation(reservationId);
         console.error("onboarding-enrich chunk failed", { assetId: entry.asset_id, error });
         failures.push(`${entry.asset_id}: deduction_failed`);
       }

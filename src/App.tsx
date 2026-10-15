@@ -20,6 +20,7 @@ import { LoadingScreen } from "./components/LoadingScreen";
 import { Security } from "./pages/Security";
 import { Privacy } from "./pages/Privacy";
 import { Terms } from "./pages/Terms";
+import { Support } from "./pages/Support";
 import { AppShell } from "./components/AppShell";
 import { RecoveryAwarePage } from "./components/RecoveryAwarePage";
 import { AssetDetailPage } from "./pages/AssetDetailPage";
@@ -88,6 +89,10 @@ import { getRoleHome } from "./lib/roleNavigation";
 import { hasWorkspaceMembership } from "./lib/auth";
 import { ReliabilityCopilotPage } from "./pages/ReliabilityCopilotPage";
 import { FirstCustomerPilotPage } from "./pages/FirstCustomerPilotPage";
+import {
+  ProductEntryGateway,
+  ProductEntryPathsPage,
+} from "./pages/ProductEntryPathsPage";
 import { DecisionCaseWorkspacePage } from "./pages/DecisionCaseWorkspacePage";
 import { GovernedDecisionWorkspacePage } from "./pages/GovernedDecisionWorkspacePage";
 import { DevelopCasesPage } from "./pages/DevelopCasesPage";
@@ -299,6 +304,7 @@ function ApplicationRoutes() {
             <Security onNavigate={() => window.location.assign("/signin")} />
           }
         />
+        <Route path="/support" element={<Support />} />
         <Route
           path="/signin"
           element={
@@ -319,6 +325,8 @@ function ApplicationRoutes() {
           }
         />
         <Route path="/get-started" element={<InvertedOpeningPage />} />
+        <Route path="/solutions" element={<ProductEntryPathsPage />} />
+        <Route path="/solutions/:entryId" element={<ProductEntryGateway />} />
         <Route path="/setup" element={<FirstCustomerPilotPage />} />
         <Route path="/pilot/reliability" element={<FirstCustomerPilotPage />} />
         <Route
