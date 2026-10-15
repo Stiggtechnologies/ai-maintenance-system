@@ -11,6 +11,7 @@ import type { User, Session } from "@supabase/supabase-js";
 
 interface UserProfile {
   id: string;
+  organization_id?: string | null;
   email: string;
   full_name: string | null;
   role: "admin" | "manager" | "operator" | "viewer";

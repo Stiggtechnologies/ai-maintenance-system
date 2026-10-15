@@ -88,7 +88,9 @@ describe("Edge deployment checker runtime compatibility", () => {
     expect(result.status, result.output).toBe(0);
     expect(result.output).toContain("Edge-function boundary verified");
     expect(boundary.supabaseCliVersion).toBe("2.84.2");
-    expect(boundary.activeFunctions).toHaveLength(33);
+    expect(boundary.activeFunctions).toHaveLength(34);
+    expect(boundary.activeFunctions).toContain("decision-case-invite");
+    expect(boundary.allowedNoVerifyJwt).not.toContain("decision-case-invite");
     expect(boundary.blockedLegacyFunctions).toHaveLength(14);
     expect(boundary.allowedNoVerifyJwt).toHaveLength(5);
   });
@@ -396,7 +398,7 @@ describe("Reviewed setup-cli interface in every existing workflow", () => {
     expect(isSetupCliReference("supabase/setup-cli-fork@v3")).toBe(false);
     expect(isSetupCliReference(undefined)).toBe(false);
   });
-  it("uses the reviewed SHA and only CLI 2.84.2 in all ten invocations across nine workflows", () => {
+  it("uses the reviewed SHA and only CLI 2.84.2 in all eleven invocations across nine workflows", () => {
     const names = [
       "approval-authority",
       "approval-enforcement",
@@ -438,9 +440,9 @@ describe("Reviewed setup-cli interface in every existing workflow", () => {
           invocations++;
         }
       }
-      expect(workflowInvocations).toBe(name === "ci" ? 2 : 1);
+      expect(workflowInvocations).toBe(name === "ci" ? 3 : 1);
     }
-    expect(invocations).toBe(10);
+    expect(invocations).toBe(11);
   });
 
   it("keeps the main-only deployment gate and normal required unit-test discovery", () => {

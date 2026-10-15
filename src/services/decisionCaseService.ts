@@ -1,14 +1,11 @@
 import { supabase } from "../lib/supabase";
+import type { ContinuationCommand } from "../lib/decision-case-continuation";
 import type {
   DecisionCase,
   DecisionJourneyContext,
   DecisionMessage,
 } from "../lib/decision-case";
-import {
-  createCoworkWorkspaceFromObjective,
-  getCoworkMessages,
-  sendCoworkMessage,
-} from "./operatingLoopService";
+import { getCoworkMessages, sendCoworkMessage } from "./operatingLoopService";
 import { runPublicDecisionCaseAgent } from "./publicReliabilityAgent";
 import {
   classifyDecisionQuestionScope,
@@ -33,33 +30,184 @@ export function isPersistedDecisionCase(id: string): boolean {
   return UUID_PATTERN.test(id);
 }
 
+export type DecisionCaseCommand =
+  | ContinuationCommand
+  | "record_conversation"
+  | "add_evidence"
+  | "record_disposition"
+  | "define_verification"
+  | "record_required_person"
+  | "record_source_check"
+  | "record_approval";
+
+export type DecisionCaseApprovalDecision =
+  "approved" | "rejected" | "changes_requested";
+
+export class DecisionCaseConflictError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "DecisionCaseConflictError";
+  }
+}
+
+type DecisionCaseCommandResult = {
+  caseState: DecisionCase;
+  version: number;
+};
+
+export interface DecisionCaseAuthorityDirectoryEntry {
+  userId: string;
+  name: string;
+  email: string;
+  role: string;
+}
+
+function commandPayload(
+  decisionCase: DecisionCase,
+  command: DecisionCaseCommand | "initialize",
+): Record<string, unknown> {
+  if (command === "initialize") return { ...decisionCase };
+  if (command === "record_conversation") {
+    return {
+      messages: decisionCase.messages,
+      tokensUsed: decisionCase.tokensUsed,
+    };
+  }
+  if (command === "add_evidence") {
+    return {
+      evidence: decisionCase.evidence,
+      evidenceScore: decisionCase.evidenceScore,
+      stage: decisionCase.stage,
+      recommendation: decisionCase.recommendation,
+      recommendationDetail: decisionCase.recommendationDetail,
+      decisionMetrics: decisionCase.decisionMetrics,
+    };
+  }
+  if (command === "record_disposition") {
+    const person = (author: string) =>
+      [...decisionCase.comments]
+        .reverse()
+        .find((item) => item.author === author)
+        ?.text.trim() ?? "";
+    return {
+      humanDecision: {
+        disposition: decisionCase.humanDecision?.disposition,
+        rationale: decisionCase.humanDecision?.rationale,
+        counterfactual: decisionCase.humanDecision?.counterfactual,
+        expiresOn: decisionCase.humanDecision?.expiresOn,
+      },
+      people: {
+        decisionOwner: person("Decision Owner"),
+        recommendationAuthor: person("Recommendation Author"),
+        verificationOwner: person("Verification Owner"),
+      },
+    };
+  }
+  if (command === "define_verification") {
+    const expected = decisionCase.valueMetrics.find(
+      (item) => item.id === "verify-expected",
+    );
+    const evidence = decisionCase.valueMetrics.find(
+      (item) => item.id === "verify-evidence",
+    );
+    return {
+      verification: {
+        question: evidence?.target ?? "",
+        expected: expected?.baseline ?? "",
+        actual: expected?.actual ?? "",
+        evidence:
+          evidence?.detail === "Not yet attached"
+            ? ""
+            : (evidence?.detail ?? ""),
+        scheduledFor: evidence?.baseline ?? "",
+        effectiveness: evidence?.actual ?? "",
+      },
+    };
+  }
+  if (command === "record_required_person") {
+    return { requiredPerson: { userId: decisionCase.requiredPerson?.userId } };
+  }
+  if (command === "record_source_check") {
+    const detail = [...decisionCase.messages]
+      .reverse()
+      .find((item) => item.meta === "Source connection check")
+      ?.text.replace(
+        / This check is not a data pull and supplies no case evidence\.$/,
+        "",
+      );
+    return { sourceCheck: { detail } };
+  }
+  throw new Error(`Unsupported client Decision Case command: ${command}`);
+}
+
+async function applyDecisionCaseCommand(
+  decisionCase: DecisionCase,
+  command: DecisionCaseCommand | "initialize",
+  expectedVersion: number,
+  payload = commandPayload(decisionCase, command),
+): Promise<DecisionCase> {
+  const { data, error } = await supabase.rpc("apply_decision_case_command", {
+    p_workspace_id: decisionCase.id,
+    p_expected_version: expectedVersion,
+    p_command: command,
+    p_case_state: payload,
+  });
+  if (error) {
+    if (
+      error.code === "40001" ||
+      /Decision Case conflict/i.test(error.message)
+    ) {
+      throw new DecisionCaseConflictError(error.message);
+    }
+    throw new Error(`Could not save case: ${error.message}`);
+  }
+  const result = data as DecisionCaseCommandResult | null;
+  if (
+    !result?.caseState ||
+    !Number.isInteger(result.version) ||
+    result.version !== expectedVersion + 1 ||
+    result.caseState.id !== decisionCase.id ||
+    result.caseState.revision !== result.version ||
+    result.caseState.objective !== decisionCase.objective
+  ) {
+    throw new Error(
+      "Could not save case: command did not return a newer canonical version.",
+    );
+  }
+  return { ...result.caseState, revision: result.version };
+}
+
 export async function createPersistedDecisionCase(
   seed: DecisionCase,
   context: DecisionJourneyContext,
 ): Promise<DecisionCase> {
-  const result = await createCoworkWorkspaceFromObjective(seed.objective);
-  const persisted = {
-    ...seed,
-    id: result.workspaceId,
-    createdFromIntake: seed.createdFromIntake || Boolean(context.intakeId),
-    updatedAt: new Date().toISOString(),
-  };
-  const { data, error } = await supabase
-    .from("cowork_workspaces")
-    .update({
-      case_number: persisted.caseNumber,
-      case_state: persisted,
-      source_intake_id: context.intakeId || null,
-      usage_tokens: persisted.tokensUsed,
-      next_action: "Complete the technical authority review",
-    })
-    .eq("id", result.workspaceId)
-    .select("id,case_state")
-    .maybeSingle()
-    .returns<{ id: string; case_state: DecisionCase | null }>();
-  if (error) throw new Error(`Could not initialize case: ${error.message}`);
-  requireCaseReceipt(data, persisted);
-  return persisted;
+  if (context.intakeId) {
+    throw new Error(
+      "Linking a public intake requires an authorized tenant-binding review before case creation.",
+    );
+  }
+  const { data, error } = await supabase.rpc("initialize_decision_case", {
+    p_case_state: seed,
+  });
+  if (error)
+    throw new Error(
+      `Case creation was not confirmed: ${error.message}. Retry the same draft to reconcile its case identity.`,
+    );
+  const receipt = data as DecisionCaseCommandResult | null;
+  if (
+    !receipt?.caseState ||
+    !isPersistedDecisionCase(receipt.caseState.id) ||
+    !Number.isInteger(receipt.version) ||
+    receipt.version < 1 ||
+    receipt.caseState.revision !== receipt.version ||
+    receipt.caseState.caseNumber !== seed.caseNumber ||
+    receipt.caseState.objective !== seed.objective
+  ) {
+    throw new Error(
+      "Case creation returned no valid canonical receipt. Retry the same draft to reconcile its case identity.",
+    );
+  }
+  return receipt.caseState;
 }
 
 export async function loadPersistedDecisionCase(
@@ -68,79 +216,115 @@ export async function loadPersistedDecisionCase(
   if (!isPersistedDecisionCase(id)) return null;
   const { data, error } = await supabase
     .from("cowork_workspaces")
-    .select("case_state")
+    .select("case_state, case_version")
     .eq("id", id)
     .maybeSingle()
-    .returns<{ case_state: DecisionCase | null }>();
+    .returns<{ case_state: DecisionCase | null; case_version: number }>();
   if (error) throw new Error(`Could not load case: ${error.message}`);
-  return data?.case_state ?? null;
+  return data?.case_state
+    ? { ...data.case_state, revision: data.case_version }
+    : null;
+}
+
+export interface RecentDecisionCase {
+  id: string;
+  decisionCase: DecisionCase;
+  updatedAt: string;
+}
+
+/**
+ * Tenant-scoped resume discovery. Local storage remains a convenience pointer,
+ * never the directory of record; RLS on cowork_workspaces limits this list to
+ * the signed-in organization.
+ */
+export async function listRecentPersistedDecisionCases(
+  limit = 5,
+): Promise<RecentDecisionCase[]> {
+  const boundedLimit = Math.max(1, Math.min(20, Math.trunc(limit)));
+  const { data, error } = await supabase
+    .from("cowork_workspaces")
+    .select("id, case_state, updated_at")
+    .not("case_number", "is", null)
+    .order("updated_at", { ascending: false })
+    .limit(boundedLimit)
+    .returns<
+      Array<{
+        id: string;
+        case_state: DecisionCase | null;
+        updated_at: string;
+      }>
+    >();
+  if (error)
+    throw new Error(`Could not discover saved cases: ${error.message}`);
+  return (data ?? [])
+    .filter(
+      (
+        row,
+      ): row is {
+        id: string;
+        case_state: DecisionCase;
+        updated_at: string;
+      } => Boolean(row.case_state?.objective),
+    )
+    .map((row) => ({
+      id: row.id,
+      decisionCase: row.case_state,
+      updatedAt: row.updated_at,
+    }));
 }
 
 export async function savePersistedDecisionCase(
   decisionCase: DecisionCase,
-): Promise<void> {
+  command: DecisionCaseCommand = "record_conversation",
+): Promise<DecisionCase> {
   if (!isPersistedDecisionCase(decisionCase.id)) {
     throw new Error("A browser draft cannot be marked durably saved.");
   }
-  const progress: Record<DecisionCase["stage"], number> = {
-    intent: 10,
-    asset_truth: 20,
-    evidence: 35,
-    analysis: 50,
-    authority: 65,
-    execution: 78,
-    outcomes: 90,
-    learning: 100,
-  };
-  const { data, error } = await supabase
-    .from("cowork_workspaces")
-    .update({
-      case_state: decisionCase,
-      usage_tokens: decisionCase.tokensUsed,
-      progress: progress[decisionCase.stage],
-      status: decisionCase.stage === "learning" ? "complete" : "active",
-      next_action: decisionCase.statusLabel,
-      updated_at: decisionCase.updatedAt,
-    })
-    .eq("id", decisionCase.id)
-    .select("id,case_state")
-    .maybeSingle()
-    .returns<{ id: string; case_state: DecisionCase | null }>();
-  if (error) throw new Error(`Could not save case: ${error.message}`);
-  requireCaseReceipt(data, decisionCase);
-}
-
-function requireCaseReceipt(
-  receipt: { id: string; case_state: DecisionCase | null } | null,
-  expected: DecisionCase,
-): void {
-  if (
-    receipt?.id !== expected.id ||
-    receipt.case_state?.id !== expected.id ||
-    receipt.case_state.updatedAt !== expected.updatedAt ||
-    canonicalCaseContent(receipt.case_state) !== canonicalCaseContent(expected)
-  ) {
+  if (!Number.isInteger(decisionCase.revision) || decisionCase.revision! < 1) {
     throw new Error(
-      "The workspace did not confirm this case revision was saved. Your browser draft remains available.",
+      "Could not save case: canonical revision is missing; reload the case.",
     );
   }
+  return applyDecisionCaseCommand(
+    decisionCase,
+    command,
+    decisionCase.revision!,
+  );
 }
 
-// JSONB may reorder keys. Compare the complete submitted content, while making
-// no claim about concurrent writes occurring after this request's receipt.
-function canonicalCaseContent(value: unknown): string {
-  if (Array.isArray(value))
-    return `[${value.map(canonicalCaseContent).join(",")}]`;
-  if (value !== null && typeof value === "object") {
-    return `{${Object.entries(value)
-      .filter(([, item]) => item !== undefined)
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(
-        ([key, item]) => `${JSON.stringify(key)}:${canonicalCaseContent(item)}`,
-      )
-      .join(",")}}`;
+/**
+ * Separate required-person approval command. The server refuses this unless
+ * auth.uid() is the tenant-bound requiredPerson.userId and stamps the actor.
+ */
+export async function recordDecisionCaseApproval(
+  decisionCase: DecisionCase,
+  decision: DecisionCaseApprovalDecision,
+  reason: string,
+): Promise<DecisionCase> {
+  if (!Number.isInteger(decisionCase.revision) || decisionCase.revision! < 1) {
+    throw new Error(
+      "Could not save case: canonical revision is missing; reload the case.",
+    );
   }
-  return JSON.stringify(value);
+  return applyDecisionCaseCommand(
+    decisionCase,
+    "record_approval",
+    decisionCase.revision!,
+    { decision, reason },
+  );
+}
+
+export async function listDecisionCaseAuthorityDirectory(): Promise<
+  DecisionCaseAuthorityDirectoryEntry[]
+> {
+  const { data, error } = await supabase.rpc(
+    "get_decision_case_authority_directory",
+  );
+  if (error)
+    throw new Error(`Could not load authority directory: ${error.message}`);
+  return Array.isArray(data)
+    ? (data as DecisionCaseAuthorityDirectoryEntry[])
+    : [];
 }
 
 export interface DecisionCaseReply {
@@ -590,4 +774,95 @@ function buildGroundedCaseContext(
     "Conversation contract: respond naturally to greetings and ordinary conversation. If the user signals a topic change without supplying the new subject, ask one focused clarifying question and keep this case unchanged. Do not repeat the case recommendation unless it answers the user's explicit request.",
     "Analysis contract: use only this case context for case claims. Never substitute records, metrics, or failure modes from another asset. State when the context cannot answer the question. Distinguish known evidence, inference, and missing evidence. For substantive questions, show the decision, defensible calculations, burden of proof, evidence blockers, lowest-regret action, approval gates, and value verification as relevant.",
   ].join("\n");
+}
+
+/** New case transitions use the same versioned reducer and canonical receipt. */
+export async function applyDecisionCaseContinuation(
+  decisionCase: DecisionCase,
+  command: ContinuationCommand,
+  payload: Record<string, unknown>,
+): Promise<DecisionCase> {
+  if (
+    !isPersistedDecisionCase(decisionCase.id) ||
+    !Number.isInteger(decisionCase.revision) ||
+    decisionCase.revision! < 1
+  ) {
+    throw new Error("Reload the saved case before a governed transition.");
+  }
+  return applyDecisionCaseCommand(
+    decisionCase,
+    command,
+    decisionCase.revision!,
+    payload,
+  );
+}
+
+export async function loadDecisionCaseReplay(
+  caseId: string,
+  version: number,
+  shareId?: string,
+): Promise<DecisionCase> {
+  if (
+    !isPersistedDecisionCase(caseId) ||
+    !Number.isInteger(version) ||
+    version < 1 ||
+    (shareId && !isPersistedDecisionCase(shareId))
+  )
+    throw new Error("Saved replay is unavailable.");
+  const { data, error } = await supabase.rpc("get_decision_case_replay", {
+    p_workspace_id: caseId,
+    p_version: version,
+    p_share_id: shareId ?? null,
+  });
+  const receipt = data as {
+    caseState?: DecisionCase;
+    version?: number;
+    readOnly?: boolean;
+  } | null;
+  if (
+    error ||
+    receipt?.readOnly !== true ||
+    receipt.version !== version ||
+    receipt.caseState?.id !== caseId ||
+    receipt.caseState.revision !== version
+  )
+    throw new Error(
+      "Saved replay is unavailable for this signed-in account or reference.",
+    );
+  return receipt.caseState;
+}
+
+/** Existing RLS stays authoritative; this is not a delivery queue. */
+export async function listDecisionCaseVerificationReturns(
+  ownerId: string,
+): Promise<RecentDecisionCase[]> {
+  const { data, error } = await supabase
+    .from("cowork_workspaces")
+    .select("id, case_state, updated_at")
+    .eq("case_state->verificationReturn->>ownerId", ownerId)
+    .neq("case_state->verificationReturn->>status", "completed")
+    .order("updated_at", { ascending: false })
+    .limit(50);
+  if (error)
+    throw new Error("Internal verification returns could not be loaded.");
+  return (data ?? []).map((row) => ({
+    id: row.id,
+    decisionCase: row.case_state as DecisionCase,
+    updatedAt: row.updated_at,
+  }));
+}
+
+export async function listDecisionCaseRolloutScope(): Promise<{
+  sites: Array<{ id: string; name: string }>;
+  assets: Array<{ id: string; name: string; site_id: string }>;
+}> {
+  const [sites, assets] = await Promise.all([
+    supabase.from("sites").select("id,name").order("name").limit(200),
+    supabase.from("assets").select("id,name,site_id").order("name").limit(500),
+  ]);
+  if (sites.error || assets.error)
+    throw new Error(
+      "Canonical rollout scope is unavailable; no scope was inferred.",
+    );
+  return { sites: sites.data ?? [], assets: assets.data ?? [] };
 }

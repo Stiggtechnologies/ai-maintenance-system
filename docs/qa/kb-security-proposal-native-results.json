@@ -1,0 +1,79 @@
+{
+  "engine": "PostgreSQL 17 native, disposable synthetic schema",
+  "results": [
+    {
+      "case": "intake versus direct update",
+      "iteration": 0,
+      "result": "passed"
+    },
+    {
+      "case": "intake versus direct update",
+      "iteration": 1,
+      "result": "passed"
+    },
+    {
+      "case": "intake versus direct update",
+      "iteration": 2,
+      "result": "passed"
+    },
+    {
+      "case": "review versus direct insert invalidates release",
+      "iteration": 0,
+      "result": "passed"
+    },
+    {
+      "case": "review versus direct insert invalidates release",
+      "iteration": 1,
+      "result": "passed"
+    },
+    {
+      "case": "review versus direct insert invalidates release",
+      "iteration": 2,
+      "result": "passed"
+    },
+    {
+      "case": "concurrent reupload refuses stale review",
+      "result": "passed"
+    },
+    {
+      "case": "batch scale",
+      "chunks": 1000,
+      "contentBytes": 1000000,
+      "siblingUpdates": 1000,
+      "seconds": 0.576,
+      "result": "passed"
+    },
+    {
+      "case": "batch scale",
+      "chunks": 2500,
+      "contentBytes": 2500000,
+      "siblingUpdates": 2500,
+      "seconds": 1.357,
+      "result": "passed"
+    },
+    {
+      "case": "batch scale",
+      "chunks": 5000,
+      "contentBytes": 5000000,
+      "siblingUpdates": 5000,
+      "seconds": 2.524,
+      "result": "passed"
+    },
+    {
+      "case": "atomic evidence mapping, independent read, stale/forged refusal and audited source invalidation",
+      "result": "passed"
+    },
+    {
+      "case": "source deletion withdraws current case evidence and quarantines retained chunks",
+      "result": "passed"
+    },
+    {
+      "case": "missing security contract and foreign tenant fail closed",
+      "result": "passed"
+    }
+  ],
+  "fullSupabaseChain": false,
+  "operationalAuthorization": false,
+  "proposalSha256": "fd58ab6d318db0f21d2ac9a3ae94252b15454753ef37c5ff3764436b5d62263d",
+  "mappingMigrationSha256": "ff41607b08a59d4f07e7e75385f7d1c5efe04952826bb939c9a4f1870563821a"
+}

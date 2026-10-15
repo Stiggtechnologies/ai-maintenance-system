@@ -68,7 +68,6 @@ import {
   conversationIsEmpty,
   establishedFromEvidence,
   frozenDisposition,
-  isNamedAuthority,
   isRecommendationTurn,
   notProvenFromEvidence,
   reviewingAuthority,
@@ -109,6 +108,10 @@ import {
   savePersistedDecisionCase,
 } from "../services/decisionCaseService";
 import "./DecisionCaseWorkspacePage.css";
+import {
+  reconcileDecisionCaseSave,
+  reconcileLoadedDecisionConversation,
+} from "../lib/decision-case-save-receipt";
 import "../components/public-ask/public-ask.css";
 import { usePublicJourneyTheme } from "../lib/use-public-journey-theme";
 import { publicJourneyPath } from "../lib/public-journey-context";
@@ -303,7 +306,6 @@ export function DecisionCaseWorkspacePage({
   });
   const [cases, setCases] = useState(chatBootstrap.cases);
   const [selectedId, setSelectedId] = useState(chatBootstrap.selectedId);
-  const viewerName = auth?.profile?.full_name ?? null;
   const [railOpen, setRailOpen] = useState(false);
   const [recordOpen, setRecordOpen] = useState(Boolean(routedPublicIntent));
   const [tab, setTab] = useState<PacketTab>(
@@ -337,6 +339,7 @@ export function DecisionCaseWorkspacePage({
   const [notice, setNotice] = useState("");
   const [storageUnavailable, setStorageUnavailable] = useState(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const persistedCaseSnapshot = useRef("");
   const publicThreadRef = useRef<HTMLElement>(null);
   const explicitDemoBound = useRef(
     Boolean(
@@ -344,12 +347,18 @@ export function DecisionCaseWorkspacePage({
       (routedPublicIntent || (caseId && isSeedDecisionCaseId(caseId))),
     ),
   );
+  const acknowledgedVersions = useRef(new Map<string, number>());
+  const caseSaveInFlight = useRef(new Set<string>());
   const suppressRoutedIntent = useRef(false);
   const active =
     cases.find((item) => item.id === selectedId) ??
     cases.find((item) => !isSeedDecisionCaseId(item.id)) ??
     cases[0];
   const activeId = active.id;
+  const simulationOnly =
+    publicMode &&
+    explicitDemoBound.current &&
+    !isPersistedDecisionCase(active.id);
   const askBinding = resolveDecisionAskBinding(active);
   const composerScope = askBinding.bound
     ? classifyDecisionQuestionScope(active, composer)
@@ -418,12 +427,29 @@ export function DecisionCaseWorkspacePage({
   }, [caseId, context, orgSession, publicMode, selectedId]);
   useEffect(() => {
     if (publicMode || !isPersistedDecisionCase(activeId)) return;
+    // Navigation cannot release a command whose response is still pending or
+    // uncertain. A fresh page load performs read-only canonical reconciliation.
+    if (caseSaveInFlight.current.has(activeId)) return;
     let cancelled = false;
     void loadPersistedDecisionCase(activeId)
       .then((saved) => {
-        if (!cancelled && saved) {
+        if (
+          !cancelled &&
+          saved &&
+          !caseSaveInFlight.current.has(activeId) &&
+          (saved.revision ?? 0) >=
+            (acknowledgedVersions.current.get(activeId) ?? 0)
+        ) {
+          persistedCaseSnapshot.current = JSON.stringify(saved);
           setCases((current) =>
-            current.map((item) => (item.id === saved.id ? saved : item)),
+            current.map((item) =>
+              item.id === saved.id
+                ? reconcileLoadedDecisionConversation(item, saved)
+                : item,
+            ),
+          );
+          setNotice(
+            "Canonical case loaded. Unrecorded dialogue is retained; recovered token usage remains an estimate.",
           );
         }
       })
@@ -434,9 +460,31 @@ export function DecisionCaseWorkspacePage({
   }, [activeId, publicMode]);
   useEffect(() => {
     if (publicMode || !isPersistedDecisionCase(active.id)) return;
+    const snapshot = JSON.stringify(active);
+    if (snapshot === persistedCaseSnapshot.current) return;
     const timer = window.setTimeout(() => {
-      void savePersistedDecisionCase(active).catch(() =>
-        setNotice("Changes are safe on this device; cloud sync is pending."),
+      if (caseSaveInFlight.current.has(active.id)) return;
+      caseSaveInFlight.current.add(active.id);
+      void savePersistedDecisionCase(active).then(
+        (saved) => {
+          caseSaveInFlight.current.delete(active.id);
+          acknowledgedVersions.current.set(saved.id, saved.revision ?? 0);
+          persistedCaseSnapshot.current = JSON.stringify(saved);
+          setCases((current) =>
+            current.map((item) =>
+              item.id === saved.id
+                ? reconcileDecisionCaseSave(item, active, saved)
+                : item,
+            ),
+          );
+        },
+        () => {
+          // A lost response can follow a committed command. Keep this case
+          // fenced until a fresh canonical load resolves its write outcome.
+          setNotice(
+            "Cloud save outcome is uncertain. Reload the canonical case before retrying.",
+          );
+        },
       );
     }, 700);
     return () => window.clearTimeout(timer);
@@ -452,6 +500,7 @@ export function DecisionCaseWorkspacePage({
   }, [active.messages.length, replying, publicMode, publicIntent]);
   useEffect(() => {
     if (!notice) return;
+    if (notice.startsWith("Cloud save outcome is uncertain.")) return;
     const timer = window.setTimeout(() => setNotice(""), 3600);
     return () => window.clearTimeout(timer);
   }, [notice]);
@@ -663,6 +712,7 @@ export function DecisionCaseWorkspacePage({
     if (!publicMode) {
       try {
         const persisted = await createPersistedDecisionCase(next, context);
+        persistedCaseSnapshot.current = JSON.stringify(persisted);
         setCases((current) =>
           current.map((item) => (item.id === next.id ? persisted : item)),
         );
@@ -788,6 +838,12 @@ export function DecisionCaseWorkspacePage({
     status: ApprovalStatus,
     extra?: { delegateName?: string },
   ) => {
+    if (!simulationOnly) {
+      setNotice(
+        "Use the First Decision Journey for a governed human disposition. ACTION remains locked.",
+      );
+      return;
+    }
     const approved = status === "approved";
     const decidedAt = new Date().toISOString();
     const time = timestamp(decidedAt);
@@ -846,6 +902,10 @@ export function DecisionCaseWorkspacePage({
   };
 
   const completeWork = () => {
+    if (!simulationOnly) {
+      setNotice("Work completion is unavailable here. ACTION remains locked.");
+      return;
+    }
     updateCase((current) => ({
       ...current,
       stage: "outcomes",
@@ -864,6 +924,12 @@ export function DecisionCaseWorkspacePage({
   };
 
   const verifyValue = () => {
+    if (!simulationOnly) {
+      setNotice(
+        "A measured result requires the governed verification path and retained evidence.",
+      );
+      return;
+    }
     if (publicMode) {
       trackDecisionWorkspaceEvent("industry_value_proof_completed", {
         industry,
@@ -925,13 +991,7 @@ export function DecisionCaseWorkspacePage({
       ),
     );
   const frozen = frozenDisposition(active.approvals);
-  const canDispose = publicMode
-    ? !frozen
-    : Boolean(
-        namedAuthority &&
-        isNamedAuthority(viewerName, namedAuthority.name) &&
-        !frozen,
-      );
+  const canDispose = simulationOnly && !frozen;
   const emptyConversation = conversationIsEmpty(active.messages);
   const exposeSpaces = canExposeBoltSpaces({
     signedIn: Boolean(auth?.user),
@@ -1383,10 +1443,18 @@ export function DecisionCaseWorkspacePage({
                 />
               )}
               {tab === "work" && (
-                <WorkPanel active={active} completeWork={completeWork} />
+                <WorkPanel
+                  active={active}
+                  completeWork={completeWork}
+                  simulationOnly={simulationOnly}
+                />
               )}
               {tab === "value" && (
-                <ValuePanel active={active} verifyValue={verifyValue} />
+                <ValuePanel
+                  active={active}
+                  verifyValue={verifyValue}
+                  simulationOnly={simulationOnly}
+                />
               )}
             </div>
           </aside>
@@ -1977,10 +2045,18 @@ export function DecisionCaseWorkspacePage({
                       />
                     )}
                     {tab === "work" && (
-                      <WorkPanel active={active} completeWork={completeWork} />
+                      <WorkPanel
+                        active={active}
+                        completeWork={completeWork}
+                        simulationOnly={simulationOnly}
+                      />
                     )}
                     {tab === "value" && (
-                      <ValuePanel active={active} verifyValue={verifyValue} />
+                      <ValuePanel
+                        active={active}
+                        verifyValue={verifyValue}
+                        simulationOnly={simulationOnly}
+                      />
                     )}
                   </div>
                 </aside>
@@ -2246,9 +2322,11 @@ function AuthorityPanel({
 function WorkPanel({
   active,
   completeWork,
+  simulationOnly,
 }: {
   active: DecisionCase;
   completeWork: () => void;
+  simulationOnly: boolean;
 }) {
   return (
     <div className="dw-panel">
@@ -2305,16 +2383,19 @@ function WorkPanel({
         className="dw-primary"
         onClick={completeWork}
         disabled={
+          !simulationOnly ||
           active.workPackage.status === "locked" ||
           active.workPackage.status === "complete"
         }
       >
         <Play size={15} />
-        {active.workPackage.status === "locked"
-          ? "Authority approval required"
-          : active.workPackage.status === "complete"
-            ? "Work evidence complete"
-            : "Record work complete"}
+        {!simulationOnly
+          ? "Work completion unavailable — ACTION locked"
+          : active.workPackage.status === "locked"
+            ? "Authority approval required"
+            : active.workPackage.status === "complete"
+              ? "Work evidence complete"
+              : "Record work complete"}
       </button>
     </div>
   );
@@ -2323,9 +2404,11 @@ function WorkPanel({
 function ValuePanel({
   active,
   verifyValue,
+  simulationOnly,
 }: {
   active: DecisionCase;
   verifyValue: () => void;
+  simulationOnly: boolean;
 }) {
   return (
     <div className="dw-panel">
@@ -2397,14 +2480,17 @@ function ValuePanel({
         className="dw-primary"
         onClick={verifyValue}
         disabled={
+          !simulationOnly ||
           active.workPackage.status !== "complete" ||
           active.financeStatus === "verified"
         }
       >
         <CheckCircle2 size={15} />{" "}
-        {active.financeStatus === "verified"
-          ? "Value verified"
-          : "Verify measured value"}
+        {!simulationOnly
+          ? "Use governed verification with evidence"
+          : active.financeStatus === "verified"
+            ? "Value verified"
+            : "Verify measured value"}
       </button>
     </div>
   );
