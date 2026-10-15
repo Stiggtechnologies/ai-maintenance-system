@@ -100,10 +100,10 @@ describe("Azure Marketplace A6 metering boundary", () => {
   });
 
   it("documents A6 as code-complete without claiming buyer proof", () => {
-    expect(docs).toContain(
-      "Hourly metering is implemented in code but remains disabled until",
-    );
-    expect(docs).toContain(
+    const prose = docs.replace(/\s+/g, " ");
+    expect(prose).toContain("Hourly metering is implemented in code.");
+    expect(prose).toContain("does not prove that dispatch is disabled");
+    expect(prose).toContain(
       "No live usage event has been submitted to Microsoft",
     );
   });
