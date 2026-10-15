@@ -6,7 +6,10 @@ import {
 } from "../services/operatingLoopService";
 import { ErrorState, LoadingState } from "./ui/AsyncStates";
 
-function count(rows: RecommendationContractPostureRow[], key: "total" | "releasable_rows" | "blocked_rows") {
+function count(
+  rows: RecommendationContractPostureRow[],
+  key: "total" | "releasable_rows" | "blocked_rows",
+) {
   return Number(rows[0]?.[key] ?? 0);
 }
 
@@ -45,10 +48,10 @@ export function RecommendationContractPosturePanel() {
             Recommendation release readiness
           </h2>
           <p className="mt-1 max-w-3xl text-xs leading-relaxed text-slate-400">
-            Every recommendation must state its evidence, consequence,
-            alternatives, confidence, accountable approver, due date, and how
-            effectiveness will be verified. Coverage explains the backlog; it
-            never overrides the binary release gate.
+            Every recommendation must state its evidence, assumptions,
+            consequence, alternatives, confidence, accountable approver, due
+            date, and how effectiveness will be verified. Coverage explains the
+            backlog; it never overrides the binary release gate.
           </p>
         </div>
         {total > 0 && (
