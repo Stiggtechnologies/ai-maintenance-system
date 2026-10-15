@@ -280,6 +280,11 @@
   font-size: 17px;
   line-height: 1.6;
 }
+.journey-evaluation-body [data-testid^="inverted-example-"] {
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+}
 .journey-evaluation-body [data-testid="decision-case-spine"] {
   gap: 20px;
 }

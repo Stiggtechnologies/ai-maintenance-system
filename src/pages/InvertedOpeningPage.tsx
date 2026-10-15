@@ -49,6 +49,7 @@ import {
   suppliedEvidenceCount,
 } from "../lib/onboarding/self-serve-progress";
 import { usePublicJourneyTheme } from "../lib/use-public-journey-theme";
+import type { SelfServeNavInput } from "../lib/onboarding/self-serve-nav";
 
 function rememberSavedCase(id: string) {
   if (!isPersistedDecisionCase(id)) return;
@@ -107,6 +108,13 @@ export function InvertedOpeningPage() {
   const [persistError, setPersistError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [resumeError, setResumeError] = useState<string | null>(null);
+  const [stageNarration, setStageNarration] = useState<string | null>(null);
+  const onNarrationScript = useCallback((script: string) => {
+    setStageNarration(script);
+  }, []);
+  useEffect(() => {
+    if (!spineQuestion) setStageNarration(null);
+  }, [spineQuestion]);
 
   const rememberCurrentCase = useCallback(
     (next: DecisionCase, currentRevisionSaved: boolean) => {
@@ -165,6 +173,47 @@ export function InvertedOpeningPage() {
     Boolean(persistedCase) &&
     carriedCaseId === persistedCase?.id &&
     persistedCase.objective.trim() === ask.trim();
+  const firstValueDone =
+    progress.steps.find((step) => step.id === "first_value")?.status === "done";
+  const selfServeGate: SelfServeNavInput = savedRevision
+    ? {
+        decisionCaseSaved: true,
+        draftOpen: false,
+        continueHref: signupHref,
+        continueLabel: "Save this Decision Case",
+        askHref: "#inverted-ask",
+      }
+    : examplePreview
+      ? {
+          decisionCaseSaved: false,
+          draftOpen: true,
+          continueHref: "#back-to-question",
+          continueLabel: "Rewrite in your own words",
+          askHref: "#inverted-ask",
+        }
+      : spineQuestion
+        ? {
+            decisionCaseSaved: false,
+            draftOpen: true,
+            continueHref: signupHref,
+            continueLabel: "Save this Decision Case",
+            askHref: "#inverted-ask",
+          }
+        : canSave && !exampleText
+          ? {
+              decisionCaseSaved: false,
+              draftOpen: true,
+              continueHref: "#inverted-continue",
+              continueLabel: "Continue with this question",
+              askHref: "#inverted-ask",
+            }
+          : {
+              decisionCaseSaved: false,
+              draftOpen: false,
+              continueHref: signupHref,
+              continueLabel: "Save this Decision Case",
+              askHref: "#inverted-ask",
+            };
   const unsavedQuestionWarning =
     ask.trim().length >= 12 && !exampleText && !seedPhrase && !draftCarried
       ? "This question is not saved. Leave this page?"
@@ -346,11 +395,17 @@ export function InvertedOpeningPage() {
       className="public-journey journey-evaluation"
       data-theme={journeyTheme.theme}
     >
-      <PublicJourneyHeader unsavedQuestionWarning={unsavedQuestionWarning} />
+      <PublicJourneyHeader
+        unsavedQuestionWarning={unsavedQuestionWarning}
+        selfServeGate={selfServeGate}
+      />
       <div className="journey-evaluation-body mx-auto flex w-full flex-col gap-6">
         <SelfServeProgressChecklist
           progress={progress}
           signupHref={signupHref}
+          narrationScript={
+            spineQuestion ? (stageNarration ?? undefined) : undefined
+          }
         />
         <header className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-300">
@@ -390,6 +445,7 @@ export function InvertedOpeningPage() {
                 Ask
               </label>
               <textarea
+                id="inverted-ask"
                 data-testid="inverted-ask"
                 value={ask}
                 onChange={(e) => setAsk(e.target.value)}
@@ -412,7 +468,7 @@ export function InvertedOpeningPage() {
                     key={ex.id}
                     type="button"
                     data-testid={`inverted-example-${ex.id}`}
-                    className="rounded-2xl border border-white/15 px-3 py-2 text-left text-xs leading-relaxed text-slate-200 hover:border-teal-400/40"
+                    className="whitespace-normal rounded-2xl border border-white/15 px-3 py-2 text-left text-xs leading-relaxed text-slate-200 hover:border-teal-400/40"
                     onClick={() => setAsk(ex.prompt)}
                   >
                     <span className="mr-1 font-semibold text-slate-500">
@@ -435,32 +491,54 @@ export function InvertedOpeningPage() {
                 the Decision Case when the decision needs it.
               </p>
               <div className="grid gap-2 sm:grid-cols-3">
-                {INVERTED_INTENT_CARDS.map((card) => (
-                  <button
-                    key={card.id}
-                    type="button"
-                    data-testid={`inverted-intent-${card.id}`}
-                    onClick={() => setIntent(card.id)}
-                    className={`rounded-2xl border p-3 text-left ${
-                      intent === card.id
-                        ? "border-teal-400/50 bg-teal-500/10"
-                        : "border-white/10 bg-[#0D1520]"
-                    }`}
-                  >
-                    <p className="text-sm font-semibold text-white">
-                      {card.title}
-                    </p>
-                    <p className="mt-1 text-xs leading-relaxed text-slate-400">
-                      {card.body}
-                    </p>
-                  </button>
-                ))}
+                {INVERTED_INTENT_CARDS.map((card) => {
+                  const connectWaiting =
+                    card.id === "connect" && !firstValueDone;
+                  return (
+                    <button
+                      key={card.id}
+                      type="button"
+                      data-testid={`inverted-intent-${card.id}`}
+                      data-selected={intent === card.id ? "true" : "false"}
+                      data-connect-ready={
+                        card.id === "connect"
+                          ? firstValueDone
+                            ? "true"
+                            : "false"
+                          : undefined
+                      }
+                      aria-disabled={connectWaiting ? true : undefined}
+                      onClick={() => {
+                        if (connectWaiting) return;
+                        setIntent(card.id);
+                      }}
+                      className={`rounded-2xl border p-3 text-left ${
+                        intent === card.id
+                          ? "border-teal-400/50 bg-teal-500/10"
+                          : "border-white/10 bg-[#0D1520]"
+                      }`}
+                    >
+                      <p className="text-sm font-semibold text-white">
+                        {card.title}
+                      </p>
+                      <p className="mt-1 text-xs leading-relaxed text-slate-400">
+                        {card.body}
+                      </p>
+                      {connectWaiting ? (
+                        <p className="mt-2 text-xs font-semibold text-slate-200">
+                          Available after first value. Ask and save first.
+                        </p>
+                      ) : null}
+                    </button>
+                  );
+                })}
               </div>
             </section>
 
             {!savePrompt ? (
               <button
                 type="button"
+                id="inverted-continue"
                 data-testid="inverted-continue"
                 disabled={!canSave}
                 onClick={() => {
@@ -552,6 +630,7 @@ export function InvertedOpeningPage() {
           <section aria-label="Your Decision Case">
             <button
               type="button"
+              id="back-to-question"
               className="mb-4 text-sm text-teal-300"
               onClick={() => {
                 setPersistError(null);
@@ -593,6 +672,7 @@ export function InvertedOpeningPage() {
               initialCase={persistedCase}
               initiallySaved={caseSaved}
               onCaseChange={rememberCurrentCase}
+              onNarrationScript={onNarrationScript}
               blockWorkspacePersist={examplePreview}
               openingNotice={persistError}
             />

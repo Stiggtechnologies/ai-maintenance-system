@@ -30,6 +30,7 @@ import {
   readinessFromCase,
   spineStageIndex,
   stageHelpFor,
+  stageNarrationScript,
   stageHelpSlug,
   unknownsFromCase,
 } from "./decision-case-spine";
@@ -494,6 +495,12 @@ describe("P3 Decision Case stage help", () => {
     expect(stageHelpFor("ACTION").willNot).toMatch(/not write a work order/);
     expect(stageHelpFor("QUESTION").willNot).toMatch(/not invent a plant/);
     expect(stageHelpFor("EVIDENCE").willNot).toMatch(/not invent readings/);
+    expect(stageNarrationScript("EVIDENCE")).toMatch(/Add one evidence type/);
+    expect(stageNarrationScript("EVIDENCE")).toMatch(
+      /Sync will not invent readings/,
+    );
+    expect(stageNarrationScript("ACTION")).toMatch(/not write a work order/);
+    expect(stageNarrationScript("QUESTION")).not.toMatch(/…/);
     const source = readFileSync(
       "src/lib/onboarding/decision-case-spine.ts",
       "utf8",

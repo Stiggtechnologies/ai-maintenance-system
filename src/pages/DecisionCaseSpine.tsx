@@ -49,6 +49,7 @@ import {
   readinessFromCase,
   spineStageIndex,
   stageHelpSlug,
+  stageNarrationScript,
   unknownsFromCase,
   verificationFromCase,
   type CasePeople,
@@ -95,6 +96,7 @@ export function DecisionCaseSpine({
   blockWorkspacePersist = false,
   openingNotice = null,
   onCaseChange,
+  onNarrationScript,
 }: {
   question: string;
   intent: InvertedIntentId;
@@ -104,6 +106,8 @@ export function DecisionCaseSpine({
   blockWorkspacePersist?: boolean;
   openingNotice?: string | null;
   onCaseChange?: (decisionCase: DecisionCase, saved: boolean) => void;
+  /** Active stage help, for the existing Talk me through it control. */
+  onNarrationScript?: (script: string) => void;
 }) {
   const auth = useOptionalAuth();
   const [decisionCase, setDecisionCase] = useState(
@@ -114,6 +118,12 @@ export function DecisionCaseSpine({
   useEffect(() => {
     onCaseChange?.(decisionCase, saved);
   }, [decisionCase, saved, onCaseChange]);
+  const narrationScript = stageNarrationScript(
+    activeSpineStage(decisionCase.stage),
+  );
+  useEffect(() => {
+    onNarrationScript?.(narrationScript);
+  }, [narrationScript, onNarrationScript]);
   const [saveNotice, setSaveNotice] = useState(
     openingNotice
       ? openingNotice
@@ -628,9 +638,11 @@ export function DecisionCaseSpine({
             className="mt-3 space-y-2 rounded-xl border border-amber-400/20 bg-amber-400/5 p-3"
           >
             <p className="text-xs text-amber-100/90">
-              Connection is optional. If nothing is connected, upload a file,
-              paste a note, or continue with a manual observation. You do not
-              need another person to keep going. A note for later is optional.
+              Optional after first value. This only checks whether this
+              workspace already has a source. It does not add a connector or
+              pull plant data. Upload a file, paste a note, or continue with a
+              manual observation. You do not need a connection or another person
+              to keep going.
             </p>
             <button
               type="button"

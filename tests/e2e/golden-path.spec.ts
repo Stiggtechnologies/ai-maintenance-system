@@ -83,12 +83,13 @@ test("public get-started keeps an unsaved draft off the done checklist", async (
   await expect(checklist.getByTestId("self-serve-empty-decision_case")).toContainText(/No Decision Case is open yet/i);
   await expect(checklist.getByTestId("self-serve-empty-first_value")).toContainText(/No first value yet/i);
   await expect(page.getByRole("link", { name: "Discuss purchasing" })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: "Talk to us" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Talk to us" })).toHaveCount(0);
+  await expect(page.getByTestId("self-serve-nav-step")).toHaveText("Ask your question");
   await expect(page.getByRole("link", { name: "Create a workspace" })).toBeVisible();
   const example = page.getByTestId("inverted-example-text-example-seal");
   await expect(example).toHaveText("What should we check first if a critical pump is losing seal water and production is at risk?");
   await expect(page.getByTestId("inverted-example-example-seal")).not.toContainText("…");
-  await expect(page.getByTestId("inverted-intent-connect")).toContainText(/Optional, and not the first step/i);
+  await expect(page.getByTestId("inverted-intent-connect")).toContainText(/Optional after first value/i);
   await expect(page.getByTestId("first-decision-help")).toContainText(/first Decision Case/i);
   await expect(page.getByRole("button", { name: "Talk me through it" })).toBeDisabled();
   await expect(page.getByRole("button", { name: "Mute" })).toBeVisible();

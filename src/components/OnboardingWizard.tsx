@@ -289,10 +289,10 @@ export function OnboardingWizard() {
             </a>
             <span className="text-gray-300">•</span>
             <a
-              href="mailto:support@syncai.ca"
+              href="/get-started#first-decision-help"
               className="text-sm text-teal-600 hover:text-teal-700 font-medium"
             >
-              Talk to us
+              Read the self-serve steps
             </a>
           </div>
         </div>

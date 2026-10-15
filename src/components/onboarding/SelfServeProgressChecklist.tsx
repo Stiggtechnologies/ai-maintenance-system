@@ -11,9 +11,12 @@ const STATUS_LABEL = {
 export function SelfServeProgressChecklist({
   progress,
   signupHref,
+  narrationScript,
 }: {
   progress: SelfServeProgress;
   signupHref: string;
+  /** Spoken step. The open Decision Case stage replaces the checklist line. */
+  narrationScript?: string;
 }) {
   return (
     <section
@@ -31,7 +34,7 @@ export function SelfServeProgressChecklist({
             only after they are saved on the workspace.
           </p>
         </div>
-        <SelfServeNarration script={progress.narration} />
+        <SelfServeNarration script={narrationScript ?? progress.narration} />
       </div>
       <ol className="space-y-2">
         {progress.steps.map((step, index) => (
