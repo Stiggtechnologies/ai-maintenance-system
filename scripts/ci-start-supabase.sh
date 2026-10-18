@@ -102,14 +102,18 @@ start_status=1
 while [ "$attempt" -le "$max_attempts" ]; do
   echo "=== supabase start attempt ${attempt}/${max_attempts} ===" | tee -a "$log_file"
   set +e
-  if [ "${CI_SUPABASE_START_DEBUG_STDOUT:-1}" = "0" ]; then
-    # The full --debug trace of this migration chain is tens of megabytes.
-    # Streaming it into the Actions step log held Recovery close-out on
-    # "Apply complete migration chain" until the run was cancelled, so the
-    # lifecycle, activation, and closeout scripts never started. Keep the
-    # trace in the diagnostics file and print only migration progress.
+  if [ "${CI_SUPABASE_START_QUIET:-}" = "1" ] || [ "${CI_SUPABASE_START_DEBUG_STDOUT:-1}" = "0" ]; then
+    # --debug records every PG protocol frame. Streaming that trace to the
+    # Actions log stalled domain-specialist run 38743562032 and Recovery
+    # close-out run 38743566830: the database clock moved seconds while the
+    # log collector took minutes, and the job was cancelled during
+    # "Apply complete migration chain" before the acceptance scripts ran.
+    # Keep the trace in the diagnostics file. Do not background the CLI:
+    # kill -0 stays true on the unreaped child and the wait loop never ends.
+    echo "supabase start debug trace: ${log_file}"
     supabase start --debug >>"$log_file" 2>&1
     start_status=$?
+    echo "supabase start exited ${start_status}"
     grep -E 'Applying migration |Started supabase local|ERROR|FATAL' "$log_file" | tail -n 40 || true
   else
     supabase start --debug 2>&1 | tee -a "$log_file"
