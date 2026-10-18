@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { THREAT_KINDS } from "../services/resilienceConfigurationService";
 
 const migration = readFileSync(
-  "supabase/migrations/20270105144700_resilience_scenario_governance.sql",
+  "supabase/migrations/20270105174500_resilience_scenario_governance.sql",
   "utf8",
 ).toLowerCase();
 const service = readFileSync(
