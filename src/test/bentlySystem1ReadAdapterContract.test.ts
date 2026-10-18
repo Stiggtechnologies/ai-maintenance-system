@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 const root = process.cwd();
 const read = (file: string) => fs.readFileSync(path.join(root, file), "utf8");
 const migration = read(
-  "supabase/migrations/20270105144500_bently_system1_condition_read_adapter.sql",
+  "supabase/migrations/20270105174300_bently_system1_condition_read_adapter.sql",
 );
 const edge = read(
   "supabase/functions/bently-system1-condition-read-pull/index.ts",
