@@ -719,6 +719,14 @@ jobs:
       - name: Smoke — governed knowledge re-review invalidation
         run: bash scripts/ci-governed-knowledge-review-invalidation-smoke.sh
 
+      - name: Smoke — engineering knowledge graph slices
+        run: |
+          shopt -s nullglob
+          for script in scripts/ci-ekg-slice-*.sh; do
+            echo "Running $script"
+            bash "$script"
+          done
+
       - name: Smoke — architectural north-star traversal
         run: bash scripts/ci-architectural-north-star-smoke.sh
 
