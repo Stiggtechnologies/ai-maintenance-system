@@ -36,6 +36,6 @@ The existing vector stores and RAG functions remain the retrieval infrastructure
 1. Persist document-to-engineering mappings with organization-scoped RLS.
 2. Add hybrid retrieval using semantic similarity plus canonical metadata filters.
 3. Add conflict and supersession detection.
-4. Backfill relationships from compiled twins and existing knowledge chunks.
+4. Backfill relationships from compiled twins and existing knowledge chunks. **Done (2026-10-20).** Compiled twins produce draft canonical edges in memory, and `backfill_relationships_from_knowledge_chunks` stores draft edges from `asset_class` and provenance code arrays already on `reliability_kb_chunks`. Edges reference canonical ids. They do not copy records, and they do not grant permission, work release, or approval.
 5. Implement failure-propagation and detection-path graph queries.
 6. Package retrieved knowledge, physics results, evidence, conflicts, and missing evidence for governed agents.
