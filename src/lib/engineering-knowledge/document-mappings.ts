@@ -58,6 +58,8 @@ export interface DocumentEngineeringMapping {
   confidence?: number;
   reviewState: KnowledgeReviewState;
   provenanceChunkIds: string[];
+  /** Required only when an approved mapping is demoted or its reviewer changes. */
+  reason?: string;
 }
 
 export interface DocumentMappingIssue {

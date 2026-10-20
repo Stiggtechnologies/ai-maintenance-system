@@ -12,6 +12,12 @@ const migration = fs.readFileSync(
   ),
   "utf8",
 );
+const humanAuthority = fs.readFileSync(
+  path.resolve(
+    "supabase/migrations/20271020100700_mapping_review_human_authority.sql",
+  ),
+  "utf8",
+);
 const ci = fs.readFileSync(path.resolve(".github/workflows/ci.yml"), "utf8");
 
 describe("document engineering mapping persistence", () => {
@@ -48,6 +54,29 @@ describe("document engineering mapping persistence", () => {
       "revoke all on function public.persist_document_engineering_mappings(uuid, jsonb) from public, anon",
     );
     expect(migration).toContain("set search_path = public");
+  });
+
+  it("refuses ai_admin approval and unreasoned changes to an approved mapping", () => {
+    for (const sql of [migration, humanAuthority]) {
+      expect(sql).toContain(
+        "ai_admin cannot set a mapping review state other than draft",
+      );
+      expect(sql).toContain(
+        "Changing an approved mapping requires an explicit reason",
+      );
+      expect(sql).toContain("review_change_reason");
+      expect(sql).toContain("app_current_role() = 'ai_admin'");
+    }
+    expect(humanAuthority).toContain(
+      "drop function if exists public.upsert_engineering_knowledge_mapping(uuid, text, text, text, numeric, text, uuid[])",
+    );
+    expect(humanAuthority).toContain(
+      "revoke all on function public.upsert_engineering_knowledge_mapping(uuid, text, text, text, numeric, text, uuid[], text) from public, anon",
+    );
+    expect(humanAuthority).toContain("set search_path = public");
+    expect(humanAuthority).not.toMatch(
+      /upsert_engineering_knowledge_mapping\s*\([^)]*organization/i,
+    );
   });
 
   it("keeps organization-scoped read RLS and wires the slice smoke", () => {

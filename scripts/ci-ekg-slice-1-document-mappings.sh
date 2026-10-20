@@ -24,7 +24,74 @@ test -n "$TOKEN"
 test -n "$TECH"
 
 ORG=$(psql_uuid "select organization_id from public.user_profiles where lower(email)='demo@syncai.ca' limit 1")
-test -n "$ORG"
+test "$ORG" = "11111111-1111-1111-1111-111111111111"
+DEMO_UID=$(psql_uuid "select id from public.user_profiles where lower(email)='demo@syncai.ca' limit 1")
+test -n "$DEMO_UID"
+
+PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -q <<'PSQL'
+do $seed$
+declare
+  v_org uuid := '11111111-1111-1111-1111-111111111111';
+  v_user record;
+begin
+  for v_user in
+    select *
+    from (values
+      ('99999999-9999-4999-8999-999999999999'::uuid, 'smoke-aibot@syncai.ca', 'Smoke AI operator', 'ai_admin', 'AiBot123!@#'),
+      ('99999999-9999-4999-8999-999999999998'::uuid, 'smoke-steward@syncai.ca', 'Smoke human steward', 'reliability_engineer', 'Steward123!@#')
+    ) as seeded(uid, email, full_name, role_name, password)
+  loop
+    if not exists (select 1 from auth.users where id = v_user.uid) then
+      insert into auth.users (
+        instance_id, id, aud, role, email, encrypted_password,
+        email_confirmed_at, created_at, updated_at,
+        raw_app_meta_data, raw_user_meta_data,
+        confirmation_token, recovery_token, email_change, email_change_token_new,
+        email_change_token_current, phone_change, phone_change_token, reauthentication_token
+      ) values (
+        '00000000-0000-0000-0000-000000000000', v_user.uid,
+        'authenticated', 'authenticated', v_user.email,
+        extensions.crypt(v_user.password, extensions.gen_salt('bf')),
+        now(), now(), now(),
+        '{"provider":"email","providers":["email"]}',
+        jsonb_build_object('full_name', v_user.full_name),
+        '', '', '', '', '', '', '', ''
+      );
+    end if;
+    update auth.users set
+      confirmation_token = coalesce(confirmation_token, ''),
+      recovery_token = coalesce(recovery_token, ''),
+      email_change = coalesce(email_change, ''),
+      email_change_token_new = coalesce(email_change_token_new, ''),
+      email_change_token_current = coalesce(email_change_token_current, ''),
+      phone_change = coalesce(phone_change, ''),
+      phone_change_token = coalesce(phone_change_token, ''),
+      reauthentication_token = coalesce(reauthentication_token, '')
+    where id = v_user.uid;
+    if not exists (select 1 from auth.identities where user_id = v_user.uid) then
+      insert into auth.identities (
+        id, user_id, provider_id, identity_data, provider, created_at, updated_at, last_sign_in_at
+      ) values (
+        gen_random_uuid(), v_user.uid, v_user.uid,
+        jsonb_build_object('sub', v_user.uid::text, 'email', v_user.email),
+        'email', now(), now(), now()
+      );
+    end if;
+    insert into public.user_profiles (id, organization_id, email, role)
+    values (v_user.uid, v_org, v_user.email, v_user.role_name)
+    on conflict (id) do update
+      set role = excluded.role,
+          organization_id = excluded.organization_id,
+          email = excluded.email;
+  end loop;
+end $seed$;
+PSQL
+AIBOT=$(token "smoke-aibot@syncai.ca" "AiBot123!@#")
+STEWARD=$(token "smoke-steward@syncai.ca" "Steward123!@#")
+test -n "$AIBOT"
+test -n "$STEWARD"
+STEWARD_UID=$(psql_uuid "select id from public.user_profiles where lower(email)='smoke-steward@syncai.ca' limit 1")
+test "$STEWARD_UID" = "99999999-9999-4999-8999-999999999998"
 
 SOURCE_ID=$(curl -fsS -X POST "$API_URL/rest/v1/rpc/register_engineering_knowledge_source" \
   -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TOKEN" \
@@ -150,4 +217,224 @@ text=body if isinstance(body,str) else json.dumps(body)
 assert "AI-generated" in text, body
 PY
 
-echo "Document engineering mapping smoke passed: ontology targets persisted, idempotent, steward-only, tenant wall held, direct insert refused, AI approval refused, no authority granted."
+APPROVE=$(python3 - <<PY
+import json
+print(json.dumps({
+  "p_source_id": "$SOURCE_ID",
+  "p_mappings": [{
+    "entityType": "asset_twin",
+    "canonicalId": "twin-ekg-pump-1",
+    "relationship": "applies_to",
+    "reviewState": "approved",
+    "provenanceChunkIds": ["$CHUNK_ID"]
+  }]
+}))
+PY
+)
+curl -fsS -X POST "$API_URL/rest/v1/rpc/persist_document_engineering_mappings" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d "$APPROVE" >/dev/null
+STATE=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc \
+  "select review_state || '|' || coalesce(reviewed_by::text,'') from public.engineering_knowledge_mappings where source_id='$SOURCE_ID' and canonical_id='twin-ekg-pump-1'")
+test "$STATE" = "approved|$DEMO_UID"
+
+DEMOTE=$(python3 - <<PY
+import json
+print(json.dumps({
+  "p_source_id": "$SOURCE_ID",
+  "p_mappings": [{
+    "entityType": "asset_twin",
+    "canonicalId": "twin-ekg-pump-1",
+    "relationship": "applies_to",
+    "reviewState": "draft",
+    "provenanceChunkIds": ["$CHUNK_ID"]
+  }]
+}))
+PY
+)
+DEMOTE_HTTP=$(curl -sS -o /tmp/ekg-map-demote.json -w "%{http_code}" -X POST "$API_URL/rest/v1/rpc/persist_document_engineering_mappings" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d "$DEMOTE")
+test "$DEMOTE_HTTP" -ge 400
+python3 - <<'PY'
+import json
+body=json.load(open("/tmp/ekg-map-demote.json"))
+text=body if isinstance(body,str) else json.dumps(body)
+assert "explicit reason" in text.lower(), body
+PY
+STATE=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc \
+  "select review_state || '|' || coalesce(reviewed_by::text,'') || '|' || coalesce(review_change_reason,'') from public.engineering_knowledge_mappings where source_id='$SOURCE_ID' and canonical_id='twin-ekg-pump-1'")
+test "$STATE" = "approved|$DEMO_UID|"
+
+TAKEOVER=$(python3 - <<PY
+import json
+print(json.dumps({
+  "p_source_id": "$SOURCE_ID",
+  "p_mappings": [{
+    "entityType": "asset_twin",
+    "canonicalId": "twin-ekg-pump-1",
+    "relationship": "applies_to",
+    "reviewState": "approved",
+    "provenanceChunkIds": ["$CHUNK_ID"]
+  }]
+}))
+PY
+)
+TAKE_HTTP=$(curl -sS -o /tmp/ekg-map-takeover.json -w "%{http_code}" -X POST "$API_URL/rest/v1/rpc/persist_document_engineering_mappings" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $STEWARD" -H "Content-Type: application/json" -d "$TAKEOVER")
+test "$TAKE_HTTP" -ge 400
+python3 - <<'PY'
+import json
+body=json.load(open("/tmp/ekg-map-takeover.json"))
+text=body if isinstance(body,str) else json.dumps(body)
+assert "explicit reason" in text.lower(), body
+PY
+STATE=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc \
+  "select reviewed_by::text from public.engineering_knowledge_mappings where source_id='$SOURCE_ID' and canonical_id='twin-ekg-pump-1'")
+test "$STATE" = "$DEMO_UID"
+
+TAKE_REASON=$(python3 - <<PY
+import json
+print(json.dumps({
+  "p_source_id": "$SOURCE_ID",
+  "p_mappings": [{
+    "entityType": "asset_twin",
+    "canonicalId": "twin-ekg-pump-1",
+    "relationship": "applies_to",
+    "reviewState": "approved",
+    "reason": "Second human steward accepts the same applicability.",
+    "provenanceChunkIds": ["$CHUNK_ID"]
+  }]
+}))
+PY
+)
+curl -fsS -X POST "$API_URL/rest/v1/rpc/persist_document_engineering_mappings" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $STEWARD" -H "Content-Type: application/json" \
+  -d "$TAKE_REASON" >/dev/null
+STATE=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc \
+  "select review_state || '|' || reviewed_by::text from public.engineering_knowledge_mappings where source_id='$SOURCE_ID' and canonical_id='twin-ekg-pump-1'")
+test "$STATE" = "approved|$STEWARD_UID"
+
+AI_APPROVE=$(python3 - <<PY
+import json
+print(json.dumps({
+  "p_source_id": "$SOURCE_ID",
+  "p_mappings": [{
+    "entityType": "sensor",
+    "canonicalId": "sensor-ekg-ai-approve",
+    "relationship": "detected_by",
+    "reviewState": "approved",
+    "provenanceChunkIds": ["$CHUNK_ID"]
+  }]
+}))
+PY
+)
+AI_APPROVE_HTTP=$(curl -sS -o /tmp/ekg-map-ai-approve.json -w "%{http_code}" -X POST "$API_URL/rest/v1/rpc/persist_document_engineering_mappings" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $AIBOT" -H "Content-Type: application/json" -d "$AI_APPROVE")
+test "$AI_APPROVE_HTTP" -ge 400
+python3 - <<'PY'
+import json
+body=json.load(open("/tmp/ekg-map-ai-approve.json"))
+text=body if isinstance(body,str) else json.dumps(body)
+assert "ai_admin" in text, body
+PY
+
+AI_SUPER=$(python3 - <<PY
+import json
+print(json.dumps({
+  "p_source_id": "$SOURCE_ID",
+  "p_mappings": [{
+    "entityType": "sensor",
+    "canonicalId": "sensor-ekg-ai-super",
+    "relationship": "detected_by",
+    "reviewState": "superseded",
+    "provenanceChunkIds": ["$CHUNK_ID"]
+  }]
+}))
+PY
+)
+AI_SUPER_HTTP=$(curl -sS -o /tmp/ekg-map-ai-super.json -w "%{http_code}" -X POST "$API_URL/rest/v1/rpc/persist_document_engineering_mappings" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $AIBOT" -H "Content-Type: application/json" -d "$AI_SUPER")
+test "$AI_SUPER_HTTP" -ge 400
+python3 - <<'PY'
+import json
+body=json.load(open("/tmp/ekg-map-ai-super.json"))
+text=body if isinstance(body,str) else json.dumps(body)
+assert "ai_admin" in text, body
+PY
+
+AI_UPSERT_HTTP=$(curl -sS -o /tmp/ekg-map-ai-upsert.json -w "%{http_code}" -X POST "$API_URL/rest/v1/rpc/upsert_engineering_knowledge_mapping" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $AIBOT" -H "Content-Type: application/json" \
+  -d "{\"p_source_id\":\"$SOURCE_ID\",\"p_entity_type\":\"asset_class\",\"p_canonical_id\":\"upsert-ai-admin-approve\",\"p_relationship\":\"applies_to\",\"p_review_state\":\"approved\",\"p_provenance_chunk_ids\":[\"$CHUNK_ID\"]}")
+test "$AI_UPSERT_HTTP" -ge 400
+python3 - <<'PY'
+import json
+body=json.load(open("/tmp/ekg-map-ai-upsert.json"))
+text=body if isinstance(body,str) else json.dumps(body)
+assert "ai_admin" in text, body
+PY
+ABSENT=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc \
+  "select count(*) from public.engineering_knowledge_mappings where canonical_id in ('sensor-ekg-ai-approve','sensor-ekg-ai-super','upsert-ai-admin-approve')")
+test "$ABSENT" = "0"
+
+AI_DRAFT=$(python3 - <<PY
+import json
+print(json.dumps({
+  "p_source_id": "$SOURCE_ID",
+  "p_mappings": [{
+    "entityType": "sensor",
+    "canonicalId": "sensor-ekg-ai-draft",
+    "relationship": "detected_by",
+    "reviewState": "draft",
+    "provenanceChunkIds": ["$CHUNK_ID"]
+  }]
+}))
+PY
+)
+curl -fsS -X POST "$API_URL/rest/v1/rpc/persist_document_engineering_mappings" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $AIBOT" -H "Content-Type: application/json" \
+  -d "$AI_DRAFT" >/dev/null
+DRAFT_STATE=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc \
+  "select review_state from public.engineering_knowledge_mappings where source_id='$SOURCE_ID' and canonical_id='sensor-ekg-ai-draft'")
+test "$DRAFT_STATE" = "draft"
+
+HUMAN_UPSERT=$(curl -fsS -X POST "$API_URL/rest/v1/rpc/upsert_engineering_knowledge_mapping" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d "{\"p_source_id\":\"$SOURCE_ID\",\"p_entity_type\":\"asset_class\",\"p_canonical_id\":\"upsert-human-approved\",\"p_relationship\":\"applies_to\",\"p_review_state\":\"approved\",\"p_provenance_chunk_ids\":[\"$CHUNK_ID\"]}")
+test -n "$HUMAN_UPSERT"
+AI_DEMOTE_UPSERT=$(curl -sS -o /tmp/ekg-map-ai-demote-upsert.json -w "%{http_code}" -X POST "$API_URL/rest/v1/rpc/upsert_engineering_knowledge_mapping" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $AIBOT" -H "Content-Type: application/json" \
+  -d "{\"p_source_id\":\"$SOURCE_ID\",\"p_entity_type\":\"asset_class\",\"p_canonical_id\":\"upsert-human-approved\",\"p_relationship\":\"applies_to\",\"p_review_state\":\"draft\",\"p_provenance_chunk_ids\":[\"$CHUNK_ID\"]}")
+test "$AI_DEMOTE_UPSERT" -ge 400
+python3 - <<'PY'
+import json
+body=json.load(open("/tmp/ekg-map-ai-demote-upsert.json"))
+text=body if isinstance(body,str) else json.dumps(body)
+assert "explicit reason" in text.lower(), body
+PY
+STILL=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc \
+  "select review_state || '|' || reviewed_by::text from public.engineering_knowledge_mappings where source_id='$SOURCE_ID' and canonical_id='upsert-human-approved'")
+test "$STILL" = "approved|$DEMO_UID"
+
+REASONED=$(python3 - <<PY
+import json
+print(json.dumps({
+  "p_source_id": "$SOURCE_ID",
+  "p_mappings": [{
+    "entityType": "asset_twin",
+    "canonicalId": "twin-ekg-pump-1",
+    "relationship": "applies_to",
+    "reviewState": "superseded",
+    "reason": "Human steward retired this applicability.",
+    "provenanceChunkIds": ["$CHUNK_ID"]
+  }]
+}))
+PY
+)
+curl -fsS -X POST "$API_URL/rest/v1/rpc/persist_document_engineering_mappings" \
+  -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d "$REASONED" >/dev/null
+RETIRED=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -Atc \
+  "select review_state || '|' || review_change_reason from public.engineering_knowledge_mappings where source_id='$SOURCE_ID' and canonical_id='twin-ekg-pump-1'")
+test "$RETIRED" = "superseded|Human steward retired this applicability."
+
+echo "Document engineering mapping smoke passed: ontology targets persisted, idempotent, steward-only, tenant wall held, direct insert refused, AI approval refused, ai_admin cannot approve or supersede, approved mappings keep their reviewer without a reason, no authority granted."

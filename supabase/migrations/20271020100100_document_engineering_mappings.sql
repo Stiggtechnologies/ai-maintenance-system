@@ -27,6 +27,12 @@ alter table public.engineering_knowledge_mappings
   add constraint engineering_knowledge_mappings_review_state_check
   check (review_state in ('draft', 'in_review', 'approved', 'rejected', 'superseded'));
 
+alter table public.engineering_knowledge_mappings
+  add column if not exists review_change_reason text;
+
+comment on column public.engineering_knowledge_mappings.review_change_reason is
+  'Reason recorded when an approved mapping is demoted or its reviewer is replaced. A blank value is not a reason.';
+
 create index if not exists engineering_knowledge_mappings_target_idx
   on public.engineering_knowledge_mappings (organization_id, entity_type, canonical_id);
 
@@ -56,8 +62,13 @@ declare
   v_bad integer;
   v_id uuid;
   v_ids jsonb := '[]'::jsonb;
+  v_reason text;
+  v_existing_state text;
+  v_existing_reviewer uuid;
+  v_next_reviewer uuid;
   v_allowed_keys constant text[] := array[
-    'entityType', 'canonicalId', 'relationship', 'confidence', 'reviewState', 'provenanceChunkIds'
+    'entityType', 'canonicalId', 'relationship', 'confidence', 'reviewState',
+    'provenanceChunkIds', 'reason'
   ];
   v_entities constant text[] := array[
     'site', 'asset_class', 'asset', 'asset_twin', 'component', 'shared_component',
@@ -131,6 +142,10 @@ begin
     if v_authority = 'ai_generated' and v_review = 'approved' then
       raise exception 'AI-generated material cannot be approved as an authoritative mapping';
     end if;
+    if public.app_current_role() = 'ai_admin' and v_review <> 'draft' then
+      raise exception 'ai_admin cannot set a mapping review state other than draft';
+    end if;
+    v_reason := left(nullif(trim(v_item->>'reason'), ''), 2000);
     if v_entity = 'document' and v_canonical = p_source_id::text then
       raise exception 'A relationship cannot point an entity to itself';
     end if;
@@ -158,14 +173,38 @@ begin
       raise exception 'Mapping provenance references a chunk outside the governed source';
     end if;
 
+    v_next_reviewer := case when v_review = 'approved' then auth.uid() else null end;
+    v_existing_state := null;
+    v_existing_reviewer := null;
+    select m.review_state, m.reviewed_by
+      into v_existing_state, v_existing_reviewer
+    from public.engineering_knowledge_mappings m
+    where m.organization_id = v_org
+      and m.source_id = p_source_id
+      and m.entity_type = v_entity
+      and m.canonical_id = v_canonical
+      and m.relationship = v_relationship
+    for update;
+    if v_existing_state = 'approved'
+       and (
+         v_review is distinct from 'approved'
+         or v_existing_reviewer is distinct from v_next_reviewer
+       )
+       and v_reason is null then
+      raise exception 'Changing an approved mapping requires an explicit reason';
+    end if;
+
+    v_id := null;
     insert into public.engineering_knowledge_mappings (
       organization_id, source_id, entity_type, canonical_id, relationship,
-      confidence, review_state, provenance_chunk_ids, reviewed_by, reviewed_at
+      confidence, review_state, provenance_chunk_ids, reviewed_by, reviewed_at,
+      review_change_reason
     ) values (
       v_org, p_source_id, v_entity, v_canonical, v_relationship,
       v_confidence, v_review, v_chunks,
-      case when v_review = 'approved' then auth.uid() else null end,
-      case when v_review = 'approved' then now() else null end
+      v_next_reviewer,
+      case when v_review = 'approved' then now() else null end,
+      v_reason
     )
     on conflict (source_id, entity_type, canonical_id, relationship) do update set
       confidence = excluded.confidence,
@@ -173,8 +212,23 @@ begin
       provenance_chunk_ids = excluded.provenance_chunk_ids,
       reviewed_by = excluded.reviewed_by,
       reviewed_at = excluded.reviewed_at,
+      review_change_reason = coalesce(
+        excluded.review_change_reason,
+        engineering_knowledge_mappings.review_change_reason
+      ),
       updated_at = now()
+    where not (
+      engineering_knowledge_mappings.review_state = 'approved'
+      and (
+        excluded.review_state is distinct from 'approved'
+        or engineering_knowledge_mappings.reviewed_by is distinct from excluded.reviewed_by
+      )
+      and excluded.review_change_reason is null
+    )
     returning id into v_id;
+    if v_id is null then
+      raise exception 'Changing an approved mapping requires an explicit reason';
+    end if;
 
     v_ids := v_ids || to_jsonb(v_id);
   end loop;
