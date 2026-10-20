@@ -35,7 +35,7 @@ The existing vector stores and RAG functions remain the retrieval infrastructure
 
 1. Persist document-to-engineering mappings with organization-scoped RLS.
 2. Add hybrid retrieval using semantic similarity plus canonical metadata filters.
-3. Add conflict and supersession detection.
+3. Add conflict and supersession detection. **Done (2026-10-20).** `detect_engineering_knowledge_conflicts` reports revision disagreements, authority disagreements, and broken supersession for one canonical target in the caller's organization. It does not choose a winner, supersede a source, or grant permission, work release, or approval.
 4. Backfill relationships from compiled twins and existing knowledge chunks.
 5. Implement failure-propagation and detection-path graph queries.
 6. Package retrieved knowledge, physics results, evidence, conflicts, and missing evidence for governed agents.
