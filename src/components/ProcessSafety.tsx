@@ -26,6 +26,7 @@ import {
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
 import { ProcessSafetyActivation } from "./ProcessSafetyActivation";
 import { ProcessSafetyFoundations } from "./ProcessSafetyFoundations";
+import { SafetyCriticalRegulatoryRegister } from "./SafetyCriticalRegulatoryRegister";
 import { PressureIntegrity } from "./PressureIntegrity";
 
 interface Posture {
@@ -155,6 +156,8 @@ export function ProcessSafety() {
       )}
 
       <ProcessSafetyActivation />
+
+      <SafetyCriticalRegulatoryRegister />
 
       <ProcessSafetyFoundations />
 

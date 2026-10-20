@@ -611,7 +611,7 @@ export function ProjectLessonsSection({
               key={lesson.id}
               className="rounded-lg bg-white/[0.03] px-3 py-2 text-xs"
             >
-              <div className="font-semibold text-slate-200">{lesson.title}</div>
+              <h3 className="font-semibold text-slate-200">{lesson.title}</h3>
               <div className="mt-0.5 text-[11px] text-slate-500">
                 {DELIVERY_FAILURE_LABELS[
                   lesson.failureModeKey as keyof typeof DELIVERY_FAILURE_LABELS
@@ -725,7 +725,9 @@ export function ApplicableLessonsBanner({ caseId }: { caseId: string }) {
   const [payload, setPayload] = useState<ApplicableProjectLessons | null>(null);
   const [startKnowledge, setStartKnowledge] =
     useState<ProjectStartKnowledge | null>(null);
-  const [agentResult, setAgentResult] = useState<LessonsAgentResult | null>(null);
+  const [agentResult, setAgentResult] = useState<LessonsAgentResult | null>(
+    null,
+  );
   const [agentBusy, setAgentBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -797,15 +799,32 @@ export function ApplicableLessonsBanner({ caseId }: { caseId: string }) {
               <li key={lesson.id} className="text-xs text-slate-300">
                 <span className="font-semibold">{lesson.title}</span>
                 <span className="text-slate-500"> — {lesson.matchReason}</span>
-                {lesson.adoptedStandard && <div className="mt-1 text-cyan-200">
-                  Adopted standard: {lesson.adoptedStandard.title} · {lesson.adoptedStandard.workKey} v{lesson.adoptedStandard.version}
-                  <p>{lesson.adoptedStandard.changeSummary}</p>
-                  <p>Approved by {lesson.adoptedStandard.adoptedBy} · {lesson.adoptedStandard.adoptedAt}</p>
-                  <p>Review applicability to this project. A match does not authorize work or prove prevention.</p>
-                </div>}
+                {lesson.adoptedStandard && (
+                  <div className="mt-1 text-cyan-200">
+                    Adopted standard: {lesson.adoptedStandard.title} ·{" "}
+                    {lesson.adoptedStandard.workKey} v
+                    {lesson.adoptedStandard.version}
+                    <p>{lesson.adoptedStandard.changeSummary}</p>
+                    <p>
+                      Approved by {lesson.adoptedStandard.adoptedBy} ·{" "}
+                      {lesson.adoptedStandard.adoptedAt}
+                    </p>
+                    <p>
+                      Review applicability to this project. A match does not
+                      authorize work or prove prevention.
+                    </p>
+                  </div>
+                )}
                 <div className="text-[11px] text-slate-500">
                   {lesson.applicability}
                 </div>
+                <a
+                  href={`/develop/cases/${lesson.sourceCaseId}#realize`}
+                  aria-label={`Open source project closure for ${lesson.title}`}
+                  className="mt-1 inline-flex text-[11px] font-semibold text-signal-cyan hover:underline"
+                >
+                  Open source project closure
+                </a>
               </li>
             ))}
           </ul>
@@ -1561,7 +1580,11 @@ export function RealizeCluster({
         canRealize={canRealize}
       />
       <ProjectSuccessSection caseId={caseId} />
-      <StandardWorkLearningPanel key={caseId} caseId={caseId} canRecord={canRealize} />
+      <StandardWorkLearningPanel
+        key={caseId}
+        caseId={caseId}
+        canRecord={canRealize}
+      />
       <LifecycleSuccessSection caseId={caseId} />
       <OperationalWarrantySection
         caseId={caseId}
