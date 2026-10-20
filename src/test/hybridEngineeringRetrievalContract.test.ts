@@ -8,6 +8,12 @@ const migration = fs.readFileSync(
   ),
   "utf8",
 );
+const plannerRestore = fs.readFileSync(
+  path.resolve(
+    "supabase/migrations/20271020100900_restore_hybrid_planner_settings.sql",
+  ),
+  "utf8",
+);
 
 describe("hybrid engineering retrieval contract", () => {
   it("searches the canonical chunk store and does not create another embedding column", () => {
@@ -42,6 +48,19 @@ describe("hybrid engineering retrieval contract", () => {
     expect(migration).toContain(
       "revoke all on function public.retrieve_engineering_knowledge_hybrid(text, text, vector, text, text, text, double precision, int) from public, anon",
     );
+  });
+
+  it("restores the caller's planner settings after the exact-similarity query", () => {
+    expect(plannerRestore).toContain("current_setting('enable_indexscan')");
+    expect(plannerRestore).toContain("current_setting('enable_bitmapscan')");
+    expect(plannerRestore).toContain(
+      "perform set_config('enable_indexscan', v_indexscan, true)",
+    );
+    expect(plannerRestore).not.toMatch(/set_config\('enable_indexscan', 'on'/);
+    expect(plannerRestore).not.toMatch(
+      /\b(retrieve_kb_context|kb_document_classes|kb_claim_types)\b/,
+    );
+    expect(plannerRestore).toContain("set search_path = public");
   });
 
   it("wires the slice smoke into the migration job", () => {

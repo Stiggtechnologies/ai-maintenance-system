@@ -34,7 +34,7 @@ The existing vector stores and RAG functions remain the retrieval infrastructure
 ## Next slices
 
 1. Persist document-to-engineering mappings with organization-scoped RLS.
-2. Add hybrid retrieval using semantic similarity plus canonical metadata filters. **Done (2026-10-20).** `retrieve_engineering_knowledge_hybrid` ranks the canonical `reliability_kb_chunks` corpus by lexical rank and optional cosine similarity, then keeps rows whose approved mapping matches the requested canonical id or asset class. A hit does not grant permission, work release, or approval.
+2. Add hybrid retrieval using semantic similarity plus canonical metadata filters. **Done (2026-10-20).** `retrieve_engineering_knowledge_hybrid` ranks the canonical `reliability_kb_chunks` corpus by lexical rank and optional cosine similarity, then keeps rows whose approved mapping matches the requested canonical id or asset class. Index scans are disabled only for that query, and the caller's previous planner settings are restored. A hit does not grant permission, work release, or approval.
 3. Add conflict and supersession detection.
 4. Backfill relationships from compiled twins and existing knowledge chunks.
 5. Implement failure-propagation and detection-path graph queries.
