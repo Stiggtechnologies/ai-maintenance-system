@@ -5,3 +5,4 @@ export * from "./asset-aware-retrieval";
 export * from "./document-mappings";
 export * from "./hybrid-retrieval";
 export * from "./knowledge-conflicts";
+export * from "./relationship-backfill";
