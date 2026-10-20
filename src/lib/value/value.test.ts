@@ -18,8 +18,104 @@ import {
   irr,
   paybackPeriod,
   cashFlowsDefect,
+  applyEconomicAdjustments,
   type CashFlow,
 } from "./index";
+
+describe("economic cash-flow adjustments — D2.04", () => {
+  const flows: CashFlow[] = [
+    { period: 0, amount: -100 },
+    { period: 1, amount: 60 },
+    { period: 2, amount: 60 },
+  ];
+
+  it("leaves recorded business-case-currency flows unchanged when no adjustment is configured", () => {
+    const result = applyEconomicAdjustments(flows, null);
+    expect(result.refusal).toBeNull();
+    expect(result.applied).toBe(false);
+    expect(result.cashFlows).toEqual(flows);
+    expect(result.reason).toMatch(/no escalation or FX adjustment is configured/i);
+  });
+
+  it("applies the explicitly bound sourced escalation and FX assumptions", () => {
+    const result = applyEconomicAdjustments(flows, {
+      status: "ready",
+      sourceCurrency: "USD",
+      targetCurrency: "CAD",
+      basis: "Base-period USD option converted with the approved planning assumptions.",
+      escalation: {
+        key: "construction_escalation",
+        value: 0.05,
+        unit: "fraction_per_period",
+        source: "Published construction cost index",
+      },
+      foreignExchange: {
+        key: "cad_per_usd",
+        value: 1.35,
+        unit: "CAD_per_USD",
+        source: "Treasury planning rate",
+      },
+      refusal: null,
+    });
+
+    expect(result.refusal).toBeNull();
+    expect(result.applied).toBe(true);
+    expect(result.cashFlows[0].amount).toBeCloseTo(-135, 10);
+    expect(result.cashFlows[1].amount).toBeCloseTo(85.05, 10);
+    expect(result.cashFlows[2].amount).toBeCloseTo(89.3025, 10);
+    expect(result.reason).toContain("construction_escalation");
+    expect(result.reason).toContain("cad_per_usd");
+  });
+
+  it("refuses rather than inventing an exchange rate for mixed currency", () => {
+    const result = applyEconomicAdjustments(flows, {
+      status: "refused",
+      sourceCurrency: "USD",
+      targetCurrency: "CAD",
+      basis: "Foreign-currency option awaiting a governed treasury rate.",
+      escalation: null,
+      foreignExchange: null,
+      refusal:
+        "FX unavailable: source currency USD differs from business-case currency CAD and no approved FX assumption is bound.",
+    });
+    expect(result.cashFlows).toEqual([]);
+    expect(result.refusal).toMatch(/no approved FX assumption/i);
+  });
+
+  it("refuses a mislabeled or impossible assumption instead of applying it", () => {
+    const wrongUnit = applyEconomicAdjustments(flows, {
+      status: "ready",
+      sourceCurrency: "CAD",
+      targetCurrency: "CAD",
+      basis: "Escalate the base-period option with the approved cost index.",
+      escalation: {
+        key: "construction_escalation",
+        value: 5,
+        unit: "%",
+        source: "Published construction cost index",
+      },
+      foreignExchange: null,
+      refusal: null,
+    });
+    expect(wrongUnit.refusal).toMatch(/fraction_per_period/);
+
+    const impossibleFx = applyEconomicAdjustments(flows, {
+      status: "ready",
+      sourceCurrency: "USD",
+      targetCurrency: "CAD",
+      basis: "Convert the foreign-currency option with the treasury planning rate.",
+      escalation: null,
+      foreignExchange: {
+        key: "cad_per_usd",
+        value: 0,
+        unit: "CAD_per_USD",
+        source: "Treasury planning rate",
+      },
+      refusal: null,
+    });
+    expect(impossibleFx.refusal).toMatch(/greater than zero/i);
+  });
+});
 
 describe("npv", () => {
   it("leaves period 0 undiscounted", () => {
