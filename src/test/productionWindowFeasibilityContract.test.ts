@@ -82,6 +82,50 @@ describe("C8.08 production-window schedule feasibility contract", () => {
     );
   });
 
+  it("refuses ai_admin by name before any human release role is considered", () => {
+    const start = migration.indexOf(
+      "create or replace function public.release_schedule_option(",
+    );
+    const end = migration.indexOf(
+      "revoke all on function public.release_schedule_option(uuid, boolean)",
+    );
+    const body = migration.slice(start, end);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+
+    expect(body).toMatch(/coalesce\(v_role,\s*''\)\s*=\s*'ai_admin'/);
+    expect(body).toContain("§70 human act");
+    expect(body).toContain(
+      "The AI-operator identity may prepare a schedule option; it may not freeze the week or authorize a production interruption.",
+    );
+    expect(body).not.toContain(
+      "'planner', 'maintenance_manager', 'admin', 'ai_admin'",
+    );
+    expect(body).toContain(
+      "coalesce(v_role, '') not in ('planner', 'maintenance_manager', 'admin')",
+    );
+
+    const refusal = body.indexOf("= 'ai_admin'");
+    const allow = body.indexOf(
+      "not in ('planner', 'maintenance_manager', 'admin')",
+    );
+    expect(refusal).toBeGreaterThan(-1);
+    expect(allow).toBeGreaterThan(refusal);
+
+    const panel = fs.readFileSync(
+      path.join(root, "src/components/SchedulerPanel.tsx"),
+      "utf8",
+    );
+    const roles = panel.slice(
+      panel.indexOf("const RELEASE_ROLES"),
+      panel.indexOf("const DAYS"),
+    );
+    expect(roles).toContain('"planner"');
+    expect(roles).toContain('"maintenance_manager"');
+    expect(roles).toContain('"admin"');
+    expect(roles).not.toContain("ai_admin");
+  });
+
   it("prevents callers from bypassing the composed production arm", () => {
     expect(migration).toContain(
       "rename to evaluate_schedule_feasibility_core_20261212",

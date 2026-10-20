@@ -6,7 +6,7 @@ eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL|JWT_SECRET)=')"
 : "${API_URL:?missing API_URL}" "${ANON_KEY:?missing ANON_KEY}" "${JWT_SECRET:?missing JWT_SECRET}"
 
 uuid(){ python3 -c 'import uuid; print(uuid.uuid4())'; }
-ORG=$(uuid); FOREIGN_ORG=$(uuid); PLANNER=$(uuid)
+ORG=$(uuid); FOREIGN_ORG=$(uuid); PLANNER=$(uuid); AI=$(uuid)
 SITE_A=$(uuid); SITE_B=$(uuid); FOREIGN_SITE=$(uuid)
 ASSET_A=$(uuid); ASSET_B=$(uuid); FOREIGN_ASSET=$(uuid)
 WO_A=$(uuid); WO_B=$(uuid); FOREIGN_WO=$(uuid)
@@ -34,6 +34,7 @@ jqp(){ BODY="$1" EXPR="$2" python3 -c "import json,os;x=json.loads(os.environ['B
 production(){ BODY="$1" python3 -c "import json,os;x=json.loads(os.environ['BODY']);print(json.dumps(next(c for c in x['checks'] if c['constraint']=='Production window')))"; }
 
 EMAIL="c808-planner-$PLANNER@invalid.syncai.ca"
+AI_EMAIL="c808-ai-$AI@invalid.syncai.ca"
 PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 -q <<PSQL
 insert into public.organizations(id,name) values
   ('$ORG','C8.08 production-window tenant'),
@@ -42,9 +43,11 @@ insert into auth.users(instance_id,id,aud,role,email,encrypted_password,email_co
   created_at,updated_at,raw_app_meta_data,raw_user_meta_data,confirmation_token,
   recovery_token,email_change,email_change_token_new,email_change_token_current,
   phone_change,phone_change_token,reauthentication_token) values
-('00000000-0000-0000-0000-000000000000','$PLANNER','authenticated','authenticated','$EMAIL','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','','');
+('00000000-0000-0000-0000-000000000000','$PLANNER','authenticated','authenticated','$EMAIL','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','',''),
+('00000000-0000-0000-0000-000000000000','$AI','authenticated','authenticated','$AI_EMAIL','',now(),now(),now(),'{"provider":"email","providers":["email"]}','{}','','','','','','','','');
 insert into public.user_profiles(id,organization_id,email,full_name,role) values
-  ('$PLANNER','$ORG','$EMAIL','C8.08 accountable planner','planner');
+  ('$PLANNER','$ORG','$EMAIL','C8.08 accountable planner','planner'),
+  ('$AI','$ORG','$AI_EMAIL','C8.08 AI operator','ai_admin');
 insert into public.sites(id,organization_id,name) values
   ('$SITE_A','$ORG','C8.08 North site'),
   ('$SITE_B','$ORG','C8.08 South site'),
@@ -113,6 +116,15 @@ test "$(jqp "$FOREIGN" "x['error']")" = "schedule option not found"
 # A current exact-asset conflict enters the warning count and the consequential
 # release still requires an accountable human acknowledgement.
 psqlc "insert into public.operational_constraint_signals(organization_id,site_id,asset_id,signal_kind,signal_key,state,observed_at,valid_until,source_system,source_ref,basis) values('$ORG','$SITE_A','$ASSET_A','production','C808-WINDOW','unavailable',now()-interval '1 minute','$WEEK_END'::date+interval '1 day','C808-SMOKE','PLAN-ASSET-CONFLICT','The exact asset production plan conflicts with the full proposed maintenance week.');" >/dev/null
+
+# #630: acknowledging every warning must not give the AI-operator identity
+# live production release. The refusal is by name, and the week stays draft.
+AI_TOKEN=$(jwt "$AI" "$AI_EMAIL")
+test -n "$AI_TOKEN"
+AI_DENIED=$(rpc "$AI_TOKEN" release_schedule_option "{\"p_id\":\"$OPT\",\"p_acknowledge_warnings\":true}")
+test "$(jqp "$AI_DENIED" "'AI-operator identity' in x['error']")" = "True"
+test "$(psqlc "select status from public.schedule_options where id='$OPT'")" = "draft"
+
 DENIED=$(rpc "$TOKEN" release_schedule_option "{\"p_id\":\"$OPT\",\"p_acknowledge_warnings\":false}")
 test "$(jqp "$DENIED" "'constraint warning' in x['error']")" = "True"
 test "$(jqp "$DENIED" "next(c for c in x['feasibility']['checks'] if c['constraint']=='Production window')['passed']")" = "False"
@@ -129,4 +141,4 @@ test "$(psqlc "select status from public.schedule_options where id='$OPT'")" = "
 test "$(psqlc "select has_function_privilege('authenticated','public.release_schedule_option(uuid)','EXECUTE')")" = "f"
 test "$(psqlc "select has_function_privilege('authenticated','public.evaluate_schedule_feasibility_core_20261212(uuid)','EXECUTE')")" = "f"
 
-echo 'C8.08 production-window feasibility smoke passed: canonical_feed=true tenant_wall=true scope_precedence=true full_week_only=true unknown_visible=true warning_ack=true bypass_closed=true'
+echo 'C8.08 production-window feasibility smoke passed: canonical_feed=true tenant_wall=true scope_precedence=true full_week_only=true unknown_visible=true warning_ack=true bypass_closed=true ai_admin_refused=true'

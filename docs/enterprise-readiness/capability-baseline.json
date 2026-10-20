@@ -312,10 +312,10 @@
     "backticked": 6
   },
   "C4.06": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true,
-    "citations": 2,
-    "backticked": 2
+    "citations": 3,
+    "backticked": 3
   },
   "C4.07": {
     "status": "✅",
@@ -810,10 +810,10 @@
     "backticked": 8
   },
   "C8.08": {
-    "status": "✅",
+    "status": "🟡",
     "evidence": true,
-    "citations": 7,
-    "backticked": 7
+    "citations": 9,
+    "backticked": 9
   },
   "C8.09": {
     "status": "🟡",

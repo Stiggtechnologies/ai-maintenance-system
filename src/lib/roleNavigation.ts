@@ -101,7 +101,8 @@ const NAV_ALLOW: Record<string, Set<string> | null> = {
   // above it. Qualifying evidence, item by item:
   //   work          — work_orders is org-scoped RLS with no role gate.
   //   notifications — raise_maintenance_notification is ungated.
-  //   scheduling    — READ-ONLY; release remains planner/mm/admin/ai_admin.
+  //   scheduling    — READ-ONLY; release remains planner/mm/admin.
+  //                   release_schedule_option refuses ai_admin by name (#630).
   //   recovery      — event scope/blockers/live execution are supervisor
   //                   actions; plan generation/release and RTS are not.
   //   handover      — return_equipment is the maintenance act.

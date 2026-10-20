@@ -9,8 +9,10 @@
 --
 -- No capacity, availability or production plan is inferred. An unavailable
 -- signal that overlaps the week is a soft conflict. Missing, unknown, stale or
--- partial-week evidence is NOT ASSESSABLE, never a pass. A planner still owns
--- the release judgement through the existing explicit warning acknowledgement.
+-- partial-week evidence is NOT ASSESSABLE, never a pass. A named human planner,
+-- maintenance manager or administrator still owns the release judgement
+-- through the existing explicit warning acknowledgement. The AI-operator
+-- identity is refused by name and cannot freeze the week (#630).
 
 alter function public.evaluate_schedule_feasibility(uuid)
   rename to evaluate_schedule_feasibility_core_20261212;
@@ -272,8 +274,12 @@ grant execute on function public.evaluate_schedule_feasibility(uuid)
   to authenticated;
 
 -- Recompile the consequential release door against the public composed
--- function. It retains the existing role, hard-block and explicit-warning
--- acknowledgement boundaries unchanged.
+-- function. Hard blocks and explicit warning acknowledgement are unchanged.
+-- The role gate no longer admits ai_admin. That identity is refused by name
+-- before the remaining human check, so deleting the named refusal cannot
+-- fall through into a list that used to grant it live production release
+-- (#630). An absent profile fails closed: SQL NOT IN is not a refusal when
+-- the role is NULL.
 create or replace function public.release_schedule_option(
   p_id uuid,
   p_acknowledge_warnings boolean default false
@@ -289,7 +295,11 @@ declare
   f jsonb;
 begin
   select role into v_role from public.user_profiles where id = auth.uid();
-  if v_role not in ('planner', 'maintenance_manager', 'admin', 'ai_admin') then
+  if coalesce(v_role, '') = 'ai_admin' then
+    return jsonb_build_object('error',
+      'Releasing a weekly schedule is a §70 human act. The AI-operator identity may prepare a schedule option; it may not freeze the week or authorize a production interruption.');
+  end if;
+  if coalesce(v_role, '') not in ('planner', 'maintenance_manager', 'admin') then
     return jsonb_build_object('error',
       'releasing a schedule requires planner or manager authority');
   end if;
@@ -347,6 +357,9 @@ revoke all on function public.release_schedule_option(uuid)
   from public, anon, authenticated, service_role;
 comment on function public.release_schedule_option(uuid) is
   'Retired pre-feasibility overload. No role may execute it; callers must use release_schedule_option(uuid, boolean), which evaluates hard constraints and requires explicit warning acknowledgement.';
+
+comment on function public.release_schedule_option(uuid, boolean) is
+  'C8.08 release door. Hard constraints block; soft warnings require explicit human acknowledgement. ai_admin is refused by name (§70 / #630) before the planner, maintenance-manager and administrator check. The AI-operator identity may not freeze a week or authorize a production interruption.';
 
 comment on function public.evaluate_schedule_feasibility(uuid) is
   'C8.08 + D7.02: the ONE weekly feasibility door. It preserves the existing safety, authority, material, Recovery, labour and portfolio checks and composes tenant-scoped production-window evidence from operational_constraint_signals. Unavailable evidence warns; missing, unknown, stale or partial-week evidence is not assessable; only full-week availability passes. Human acknowledgement is required and software cannot approve a production interruption.';
