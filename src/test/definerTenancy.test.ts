@@ -198,9 +198,15 @@ describe("no function lets a signed-in caller name another tenant without explic
       .sort();
     expect(names).toEqual([
       "activate_ria_from_intake",
+      // U2.08 service consequences: each binds the argument to the session
+      // organization (reviewed with the re-land of #650).
+      "asset_service_level_basis_visible",
+      "asset_service_level_evidence_standing",
       "explain_kb_exclusions",
       "get_pm_due_count",
+      "record_asset_service_level",
       "retrieve_kb_context",
+      "verify_asset_service_level",
     ]);
   });
 
@@ -212,7 +218,15 @@ describe("no function lets a signed-in caller name another tenant without explic
     expect(discovered).toEqual([...PLATFORM_CROSS_TENANT].sort());
   });
 
-  it.each(["get_pm_due_count", "retrieve_kb_context", "explain_kb_exclusions"])(
+  it.each([
+    "get_pm_due_count",
+    "retrieve_kb_context",
+    "explain_kb_exclusions",
+    "asset_service_level_basis_visible",
+    "asset_service_level_evidence_standing",
+    "record_asset_service_level",
+    "verify_asset_service_level",
+  ])(
     "%s resolves the organization from the session, not the argument",
     (name) => {
       const def = defs.get(name);
