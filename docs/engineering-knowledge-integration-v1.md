@@ -33,7 +33,7 @@ The existing vector stores and RAG functions remain the retrieval infrastructure
 
 ## Next slices
 
-1. Persist document-to-engineering mappings with organization-scoped RLS.
+1. Persist document-to-engineering mappings with organization-scoped RLS. **Done (2026-10-20).** `persist_document_engineering_mappings` stores canonical entity references on the existing `engineering_knowledge_mappings` table for the caller's organization. A mapping does not grant permission, work release, or approval.
 2. Add hybrid retrieval using semantic similarity plus canonical metadata filters.
 3. Add conflict and supersession detection.
 4. Backfill relationships from compiled twins and existing knowledge chunks.
