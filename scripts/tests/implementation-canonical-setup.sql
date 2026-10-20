@@ -25,4 +25,4 @@ create function can_read_risk(uuid) returns boolean language sql stable as $$ se
 grant usage on schema auth,public to authenticated,anon,service_role;
 grant select on auth.users to authenticated;
 grant select,insert,update,delete on all tables in schema public to authenticated,service_role;
-\ir ../../supabase/migrations/20270103140000_native_implementation_journey.sql
+\ir ../../supabase/migrations/20270106091000_native_implementation_journey.sql

@@ -16,7 +16,7 @@ if os.environ.get("PGHOST") != "127.0.0.1" or os.environ.get("PGDATABASE") not i
     raise SystemExit("Refusing: fixed disposable loopback fixture only")
 
 root = Path(__file__).resolve().parents[2]
-migration = root / "supabase/migrations/20270103140000_native_implementation_journey.sql"
+migration = root / "supabase/migrations/20270106091000_native_implementation_journey.sql"
 fixture = root / "scripts/tests/implementation-fixture.sql"
 base = ["psql", "-X", "-v", "ON_ERROR_STOP=1", "-v", "VERBOSITY=verbose", "-At"]
 
@@ -59,7 +59,7 @@ for case in ("lock", "statement", "transaction", "success"):
         # Explicit BEGIN/COMMIT models the verified pgconn per-file batch. The
         # history witness is committed with the exact migration, never before it.
         result = run(base + ["-c", "begin;", "-f", str(migration), "-c", delays[case],
-            "-c", "insert into test_migration_history values('20270103140000'); commit; select json_build_array(current_setting('lock_timeout'),current_setting('statement_timeout'),current_setting('transaction_timeout'));"],
+            "-c", "insert into test_migration_history values('20270106091000'); commit; select json_build_array(current_setting('lock_timeout'),current_setting('statement_timeout'),current_setting('transaction_timeout'));"],
             env, timeout=75, expected=case == "success")
         elapsed = time.monotonic() - started
         if case == "success":

@@ -3,7 +3,7 @@ on:
   pull_request:
     paths:
       - ".github/workflows/native-implementation.yml"
-      - "supabase/migrations/20270103140000_native_implementation_journey.sql"
+      - "supabase/migrations/20270106091000_native_implementation_journey.sql"
       - "scripts/tests/implementation-*"
       - "scripts/tests/run-native-browser.py"
       - "src/services/implementation/**"
@@ -41,7 +41,7 @@ jobs:
         run: >-
           psql --single-transaction -v ON_ERROR_STOP=1
           -f scripts/tests/implementation-fixture.sql
-          -f supabase/migrations/20270103140000_native_implementation_journey.sql
+          -f supabase/migrations/20270106091000_native_implementation_journey.sql
           -f scripts/tests/implementation-journey-postgres.sql
       - name: Concurrent duplicate starts in two PostgreSQL sessions
         run: python3 scripts/tests/implementation-concurrency.py
