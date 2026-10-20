@@ -216,12 +216,12 @@
     },
     {
       "object": "kb_document_classes",
-      "definitionDigest": "9a1041cff70399ec84718284a2c55b822abddd1a69e86e3b8809c89fd5a58406",
+      "definitionDigest": "718215e95cde1bed6144601834294d1442f21ff38d702d72e8bccbe28381dfa9",
       "purpose": "trust_rank, permitted_claims and redistributable \u2014 the claim-type and public-redistribution gate"
     },
     {
       "object": "kb_claim_types",
-      "definitionDigest": "4e5749ed5e1343f53cbedaaea03ea725fe8761d957db1fed2c083b84d36281b3",
+      "definitionDigest": "d69b161ab859a467d94c878719eb2983b7a611e8100cae55480845a88a10d127",
       "purpose": "the claim-type enumeration the retrieval gate is written against"
     }
   ],
