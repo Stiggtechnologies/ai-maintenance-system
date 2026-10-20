@@ -1,0 +1,13 @@
+{
+  "baselineId": "RE-2026.08",
+  "kind": "governed-sql",
+  "reviewer": "SyncAI implementation agent",
+  "reviewerRole": "Digest pin only. This is not a reliability-engineering SME signature. Human acceptance is the pull-request review.",
+  "reviewedAt": "2026-10-20T16:10:00Z",
+  "rationale": "Stacked with the folded 20271020100200_hybrid_engineering_retrieval.sql. That file names kb_document_classes and kb_claim_types and does not name retrieve_kb_context. 20271020100600_governed_engineering_context.sql names all three and does not replace them. 20271020100800_unverified_physics_context.sql does not name them. retrieve_kb_context stays 2d4c2da272a8875bbabb998ff39ba4b38e40ce7c45a136ded220e997d7db672d. kb_document_classes is b85c5ba9fff620dd60e2178e2415e0ca87e547da393450451158d59985dea77a. kb_claim_types is 643e2fc26d2463f008fccbde01cf87e13c0f9e03a8c142475180f080257d16f3. This record stores those digests. It does not authorize operational work, change permitted claims, or approve engineering content.",
+  "databaseObjects": {
+    "retrieve_kb_context": "2d4c2da272a8875bbabb998ff39ba4b38e40ce7c45a136ded220e997d7db672d",
+    "kb_document_classes": "b85c5ba9fff620dd60e2178e2415e0ca87e547da393450451158d59985dea77a",
+    "kb_claim_types": "643e2fc26d2463f008fccbde01cf87e13c0f9e03a8c142475180f080257d16f3"
+  }
+}
