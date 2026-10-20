@@ -20,11 +20,22 @@ describe("InvertedOpeningPage", () => {
       "src/components/PublicJourneyHeader.tsx",
       "utf8",
     );
+    const nav = readFileSync("src/lib/onboarding/self-serve-nav.ts", "utf8");
+    const css = readFileSync("src/components/public-journey.css", "utf8");
     expect(header).not.toMatch(/Discuss purchasing/);
-    expect(header).toMatch(/Talk to us/);
+    expect(nav).not.toMatch(/Discuss purchasing/);
+    expect(nav).toMatch(/Talk to us/);
+    expect(header).toMatch(/selfServeGate/);
     expect(header).toMatch(/Create a workspace/);
+    expect(css).toMatch(/\[data-testid\^="inverted-example-"\]/);
+    expect(css).toMatch(/white-space:\s*normal/);
     const spine = readFileSync("src/pages/DecisionCaseSpine.tsx", "utf8");
     expect(spine).toMatch(/Self-serve evaluation/);
     expect(spine).not.toMatch(/Guided evaluation/);
+    const wizard = readFileSync("src/components/OnboardingWizard.tsx", "utf8");
+    expect(wizard).toContain('href="mailto:support@syncai.ca"');
+    expect(
+      wizard.match(/href="\/get-started#first-decision-help"/g) ?? [],
+    ).toHaveLength(1);
   });
 });

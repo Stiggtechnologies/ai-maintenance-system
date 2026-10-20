@@ -1,8 +1,10 @@
 /**
  * Optional step narration for the self-serve Get started path.
- * Talk me through it and Mute stay visible. The speech hook mounts only when
- * tenant Voice output is enabled and this browser is not muted, so no cloud
- * TTS request is made while voice is unavailable or muted.
+ * Talk me through it and Mute render only when tenant Voice output is enabled.
+ * While the flag is off or still loading, the controls stay out of the page
+ * so a new user never sees a walkthrough button that does nothing. The speech
+ * hook mounts only when voice is enabled and this browser is not muted, so no
+ * cloud TTS request is made while voice is unavailable or muted.
  */
 import { useEffect, useState } from "react";
 import { Volume2, VolumeX } from "lucide-react";
@@ -100,44 +102,38 @@ export function SelfServeNarration({ script }: { script: string }) {
     persistBrowserMute(next);
     setMuted(next);
   };
-  const unavailable = voice.loading
-    ? "Checking whether this workspace can speak. No speech request is made until voice is available."
-    : !workspaceVoice
-      ? "Voice is unavailable for this workspace. Talk me through it stays off, and no speech request is made."
-      : "Narration is muted in this browser. Unmute to turn Talk me through it on when this workspace allows voice. No speech request is made while muted.";
+  if (!workspaceVoice) {
+    return (
+      <div
+        hidden
+        className="max-w-sm"
+        data-testid="self-serve-narration"
+        data-narration={script}
+        data-voice-allowed="false"
+      />
+    );
+  }
 
   return (
     <div
       className="max-w-sm"
       data-testid="self-serve-narration"
+      data-narration={script}
       data-voice-allowed={allowed ? "true" : "false"}
     >
       {allowed ? (
         <NarrationControls script={script} onMute={() => setMute(true)} />
       ) : (
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            disabled
-            aria-pressed="false"
-            aria-describedby="self-serve-narration-off"
-            data-testid="self-serve-narration-toggle"
-            className={controlClass}
-          >
-            <Volume2 className="h-4 w-4" aria-hidden />
-            Talk me through it
-          </button>
-          <button
-            type="button"
-            data-testid="self-serve-narration-stop"
-            aria-pressed={muted}
-            className={controlClass}
-            onClick={() => setMute(!muted)}
-          >
-            <VolumeX className="h-4 w-4" aria-hidden />
-            {muted ? "Unmute" : "Mute"}
-          </button>
-        </div>
+        <button
+          type="button"
+          data-testid="self-serve-narration-stop"
+          aria-pressed="true"
+          className={controlClass}
+          onClick={() => setMute(false)}
+        >
+          <VolumeX className="h-4 w-4" aria-hidden />
+          Unmute
+        </button>
       )}
       {allowed ? null : (
         <p
@@ -145,7 +141,8 @@ export function SelfServeNarration({ script }: { script: string }) {
           data-testid="self-serve-narration-off"
           className="mt-1 text-sm leading-relaxed text-slate-200"
         >
-          {unavailable}
+          Narration is muted in this browser. Unmute to turn Talk me through it
+          on. No speech request is made while muted.
         </p>
       )}
     </div>

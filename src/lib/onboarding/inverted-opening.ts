@@ -49,6 +49,6 @@ export const INVERTED_INTENT_CARDS = [
   {
     id: "connect" as const,
     title: "Connect my site",
-    body: "Optional, and not the first step. Ask your question first. You can paste a note or upload a file with no connector. Connecting a source only checks whether this workspace already has one. It does not shop for adapters or pull plant data.",
+    body: "Optional after first value — a saved recommendation or saved evidence. It only checks whether this workspace already has a source. It does not add a connector or pull plant data. Paste a note or upload a file with no connection.",
   },
 ] as const;

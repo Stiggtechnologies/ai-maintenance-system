@@ -21,6 +21,9 @@ describe("inverted opening P0.1", () => {
     expect(INVERTED_EXAMPLE_PROMPTS).toHaveLength(2);
     for (const ex of INVERTED_EXAMPLE_PROMPTS) {
       expect(ex.label).toBe("Example");
+      expect(ex.prompt.endsWith("?")).toBe(true);
+      expect(ex.prompt.length).toBeGreaterThan(40);
+      expect(ex.prompt).not.toMatch(/…/);
     }
     expect(INVERTED_INTENT_CARDS.map((c) => c.id)).toEqual([
       "solve",
@@ -34,10 +37,13 @@ describe("inverted opening P0.1", () => {
     ]);
     expect(
       INVERTED_INTENT_CARDS.find((card) => card.id === "connect")?.body,
-    ).toMatch(/Optional, and not the first step/);
+    ).toMatch(/Optional after first value/);
     expect(
       INVERTED_INTENT_CARDS.find((card) => card.id === "connect")?.body,
-    ).toMatch(/no connector/);
+    ).toMatch(/does not add a connector/);
+    expect(
+      INVERTED_INTENT_CARDS.find((card) => card.id === "connect")?.body,
+    ).toMatch(/no connection/);
   });
 
   it("treats exact example text as non-persistable", () => {

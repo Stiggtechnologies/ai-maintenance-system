@@ -6,11 +6,19 @@ describe("first Decision Case help", () => {
   it("covers the self-serve path without a human walkthrough", () => {
     expect(FIRST_DECISION_HELP.title).toMatch(/first Decision Case/i);
     expect(FIRST_DECISION_HELP.content).toMatch(/Get started/);
-    expect(FIRST_DECISION_HELP.content).toMatch(/Connect my site is optional/);
+    expect(FIRST_DECISION_HELP.content).toMatch(
+      /Connect my site is optional after first value/,
+    );
     expect(FIRST_DECISION_HELP.content).toMatch(/First value/);
     expect(FIRST_DECISION_HELP.content).toMatch(/not an approval/);
     expect(FIRST_DECISION_HELP.content).toMatch(/Talk me through it/);
-    expect(FIRST_DECISION_HELP.content).toMatch(/Talk to us is available/);
+    expect(FIRST_DECISION_HELP.content).toMatch(/stay hidden/);
+    expect(FIRST_DECISION_HELP.content).not.toMatch(
+      /both controls stay visible/,
+    );
+    expect(FIRST_DECISION_HELP.content).toMatch(
+      /Talk to us stays out of the navigation until a Decision Case is saved/,
+    );
     expect(FIRST_DECISION_HELP.content).not.toMatch(
       /self-guided onboarding is live/i,
     );

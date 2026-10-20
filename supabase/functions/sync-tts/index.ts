@@ -9,6 +9,12 @@
  * Optional SYNC_TTS_VOICE (default marin). The preferred model also receives
  * a bounded delivery instruction for warm, expressive speech.
  * ELEVENLABS_API_KEY is a later overlay and is not required.
+ *
+ * Every POST reserves a sync-tts usage row before OpenAI is contacted.
+ * The daily character cap and the per-user rate limit come from
+ * SYNC_TTS_QUOTA_CONFIG. Env overrides may only lower those caps. Audio is
+ * returned only after the reservation is settled. This path does not call
+ * the commercial plan policy functions.
  */
 
 import { createClient } from "npm:@supabase/supabase-js@2";
@@ -16,16 +22,33 @@ import { withDataEgressGuard } from "../_shared/data-egress-guard.ts";
 import {
   FALLBACK_TTS_MODEL,
   PREFERRED_TTS_MODEL,
+  SYNC_TTS_MESSAGES,
   isCloudTtsConfigured,
+  resolveSyncTtsQuotaLimits,
   resolveTtsVoice,
+  runMeteredSyncTts,
+  syncTtsRefusalBody,
+  syncTtsRetryAfterSeconds,
+  syncTtsUsageHeaders,
   synthesizeOpenAiSpeech,
   validateSyncTtsInput,
 } from "../_shared/sync-tts-core.ts";
+import type { SyncTtsRpc } from "../_shared/sync-tts-core.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const TTS_VOICE = resolveTtsVoice(Deno.env.get("SYNC_TTS_VOICE"));
+const QUOTA_LIMITS = resolveSyncTtsQuotaLimits({
+  SYNC_TTS_DAILY_CHAR_QUOTA: Deno.env.get("SYNC_TTS_DAILY_CHAR_QUOTA"),
+  SYNC_TTS_USER_RATE_LIMIT: Deno.env.get("SYNC_TTS_USER_RATE_LIMIT"),
+  // A shorter window would weaken the per-user limit, so the resolver keeps
+  // the configured 60 seconds even when this variable is set.
+  SYNC_TTS_USER_RATE_WINDOW_SECONDS: Deno.env.get(
+    "SYNC_TTS_USER_RATE_WINDOW_SECONDS",
+  ),
+});
 const ALLOWED_ORIGIN =
   Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
 
@@ -37,16 +60,31 @@ const corsHeaders = {
   Vary: "Origin",
 };
 
-function json(body: unknown, status = 200): Response {
+function json(
+  body: unknown,
+  status = 200,
+  extraHeaders: Record<string, string> = {},
+): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       ...corsHeaders,
+      ...extraHeaders,
       "Content-Type": "application/json",
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
     },
   });
+}
+
+function usageRpc(): SyncTtsRpc {
+  const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  return async (functionName, args) => {
+    const { data, error } = await admin.rpc(functionName, args);
+    return { data, error };
+  };
 }
 
 async function requireSignedInUser(request: Request) {
@@ -81,13 +119,65 @@ async function requireSignedInUser(request: Request) {
   }
 }
 
+async function resolveTenant(
+  userId: string,
+): Promise<
+  | { ok: true; organizationId: string }
+  | { ok: false; error: string; message: string; status: number }
+> {
+  if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
+    return {
+      ok: false,
+      error: "tts_usage_unavailable",
+      message: SYNC_TTS_MESSAGES.usageUnavailable,
+      status: 503,
+    };
+  }
+  try {
+    const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    });
+    const { data, error } = await admin
+      .from("user_profiles")
+      .select("organization_id")
+      .eq("id", userId)
+      .maybeSingle();
+    if (error) {
+      return {
+        ok: false,
+        error: "tts_usage_unavailable",
+        message: SYNC_TTS_MESSAGES.usageUnavailable,
+        status: 503,
+      };
+    }
+    if (!data?.organization_id) {
+      return {
+        ok: false,
+        error: "organization_required",
+        message: SYNC_TTS_MESSAGES.organizationRequired,
+        status: 403,
+      };
+    }
+    return { ok: true, organizationId: String(data.organization_id) };
+  } catch {
+    return {
+      ok: false,
+      error: "tts_usage_unavailable",
+      message: SYNC_TTS_MESSAGES.usageUnavailable,
+      status: 503,
+    };
+  }
+}
+
 Deno.serve(async (request) => {
   if (request.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
   }
 
   const auth = await requireSignedInUser(request);
-  if (auth.error) return auth.error;
+  if (auth.error || !auth.user) {
+    return auth.error ?? json({ error: "unauthorized" }, 401);
+  }
 
   if (request.method === "GET") {
     const configured = isCloudTtsConfigured(OPENAI_API_KEY);
@@ -119,33 +209,90 @@ Deno.serve(async (request) => {
     return json({ error: validated.error }, validated.status);
   }
 
+  const tenant = await resolveTenant(auth.user.id);
+  if (!tenant.ok) {
+    console.error(
+      JSON.stringify({
+        fn: "sync-tts",
+        event: "usage_record_failed",
+        error: tenant.error,
+        user_id: auth.user.id,
+      }),
+    );
+    return json(
+      syncTtsRefusalBody({ error: tenant.error, message: tenant.message }),
+      tenant.status,
+    );
+  }
+
   try {
     const guardedFetch = withDataEgressGuard(fetch, auth.client!, {
       dataClass: "security_sensitive",
       purpose: "speech_synthesis",
       serviceLabel: "sync-tts",
     });
-    const result = await synthesizeOpenAiSpeech({
-      apiKey: OPENAI_API_KEY,
+    const metered = await runMeteredSyncTts({
+      rpc: usageRpc(),
+      organizationId: tenant.organizationId,
+      userId: auth.user.id,
       text: validated.text,
-      voice: TTS_VOICE,
-      preferredModel: PREFERRED_TTS_MODEL,
-      fallbackModel: FALLBACK_TTS_MODEL,
-      fetchImpl: guardedFetch as typeof fetch,
+      limits: QUOTA_LIMITS,
+      synthesize: (text) =>
+        synthesizeOpenAiSpeech({
+          apiKey: OPENAI_API_KEY,
+          text,
+          voice: TTS_VOICE,
+          preferredModel: PREFERRED_TTS_MODEL,
+          fallbackModel: FALLBACK_TTS_MODEL,
+          fetchImpl: guardedFetch as typeof fetch,
+        }),
     });
-    if (!result.ok) {
-      const status =
-        result.status === 401 || result.status === 403
-          ? 502
-          : result.status >= 400 && result.status < 600
-            ? result.status
-            : 502;
-      return json({ error: "cloud_tts_failed" }, status);
+    if (!metered.ok) {
+      console.error(
+        JSON.stringify({
+          fn: "sync-tts",
+          event:
+            metered.error === "cloud_tts_failed"
+              ? "synthesize_failed"
+              : "usage_refused",
+          error: metered.error,
+          organization_id: tenant.organizationId,
+          user_id: auth.user.id,
+          reservation_id: metered.reservationId,
+          characters: metered.usage?.characters ?? null,
+        }),
+      );
+      const retryAfter =
+        metered.status === 429
+          ? syncTtsRetryAfterSeconds(metered.usage?.resetsAt ?? null)
+          : null;
+      return json(
+        syncTtsRefusalBody({
+          error: metered.error,
+          message: metered.message,
+          usage: metered.usage,
+        }),
+        metered.status,
+        retryAfter == null ? {} : { "Retry-After": String(retryAfter) },
+      );
     }
-    return new Response(result.bytes, {
+    console.log(
+      JSON.stringify({
+        fn: "sync-tts",
+        event: "usage_recorded",
+        organization_id: tenant.organizationId,
+        user_id: auth.user.id,
+        reservation_id: metered.reservationId,
+        characters: metered.usage.characters,
+        characters_used: metered.usage.charactersUsed,
+        model: metered.model,
+      }),
+    );
+    return new Response(metered.bytes, {
       status: 200,
       headers: {
         ...corsHeaders,
+        ...syncTtsUsageHeaders(metered.usage),
         "Content-Type": "audio/mpeg",
         "Cache-Control": "no-store",
         "X-Content-Type-Options": "nosniff",
@@ -155,10 +302,18 @@ Deno.serve(async (request) => {
     console.error(
       JSON.stringify({
         fn: "sync-tts",
-        event: "synthesize_failed",
+        event: "usage_record_failed",
         message: error instanceof Error ? error.message : "unknown",
+        organization_id: tenant.organizationId,
+        user_id: auth.user.id,
       }),
     );
-    return json({ error: "cloud_tts_failed" }, 502);
+    return json(
+      syncTtsRefusalBody({
+        error: "tts_usage_unavailable",
+        message: SYNC_TTS_MESSAGES.usageUnavailable,
+      }),
+      503,
+    );
   }
 });

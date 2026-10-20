@@ -6,10 +6,9 @@ import {
 } from "./decisionCaseService";
 
 const receipt = vi.hoisted(() => ({
-  maybeSingle: vi.fn(),
-  update: vi.fn(),
-  rpc: vi.fn(),
+  response: vi.fn(),
   create: vi.fn(),
+  update: vi.fn(),
 }));
 vi.mock("../lib/supabase", () => ({
   supabase: {
@@ -19,13 +18,12 @@ vi.mock("../lib/supabase", () => ({
         return {
           eq: vi.fn(() => ({
             select: vi.fn(() => ({
-              maybeSingle: receipt.maybeSingle,
+              maybeSingle: vi.fn(() => ({ returns: receipt.response })),
             })),
           })),
         };
       },
     })),
-    rpc: receipt.rpc,
   },
 }));
 vi.mock("./operatingLoopService", () => ({
@@ -38,117 +36,120 @@ const id = "0fef8f5b-8d79-4d43-8b83-4bde12345678";
 const savedCase = () => ({
   ...createHonestEmptyDecisionCase("Reliability Engineer", "mining"),
   id,
-  revision: 2,
   updatedAt: "2026-10-10T05:00:00.001Z",
 });
 
 describe("durable decision-case receipts", () => {
   beforeEach(() => {
-    receipt.maybeSingle.mockReset();
-    receipt.update.mockReset();
-    receipt.rpc.mockReset();
+    receipt.response.mockReset();
     receipt.create.mockReset();
+    receipt.update.mockReset();
     receipt.create.mockResolvedValue({ workspaceId: id });
   });
 
-  it("refuses a save that has no canonical revision", async () => {
-    const decisionCase = savedCase();
-    decisionCase.revision = Number.NaN;
-    await expect(savePersistedDecisionCase(decisionCase)).rejects.toThrow(
-      "canonical revision is missing",
-    );
-    expect(receipt.rpc).not.toHaveBeenCalled();
-  });
-
-  it("rejects a command that does not return a newer canonical version", async () => {
-    receipt.rpc.mockResolvedValue({ data: null, error: null });
+  it("rejects a zero-row/RLS-filtered update without claiming saved", async () => {
+    receipt.response.mockResolvedValue({ data: null, error: null });
     await expect(savePersistedDecisionCase(savedCase())).rejects.toThrow(
-      "did not return a newer canonical version",
+      "did not confirm this case revision",
     );
   });
 
-  it("rejects a command result that does not advance the revision", async () => {
+  it("rejects a stale revision receipt", async () => {
     const decisionCase = savedCase();
-    receipt.rpc.mockResolvedValue({
-      data: { caseState: decisionCase, version: decisionCase.revision },
+    receipt.response.mockResolvedValue({
+      data: {
+        id,
+        case_state: { ...decisionCase, updatedAt: "older revision" },
+      },
       error: null,
     });
     await expect(savePersistedDecisionCase(decisionCase)).rejects.toThrow(
-      "did not return a newer canonical version",
+      "did not confirm this case revision",
     );
   });
 
-  it("returns the canonical case from a newer command receipt", async () => {
+  it("accepts the authorized row and exact revision receipt", async () => {
     const decisionCase = savedCase();
-    receipt.rpc.mockResolvedValue({
+    receipt.response.mockResolvedValue({
+      data: { id, case_state: decisionCase },
+      error: null,
+    });
+    await expect(
+      savePersistedDecisionCase(decisionCase),
+    ).resolves.toBeUndefined();
+  });
+
+  it("rejects different content even when its timestamp matches", async () => {
+    const decisionCase = savedCase();
+    receipt.response.mockResolvedValue({
       data: {
-        caseState: { ...decisionCase, objective: decisionCase.objective },
-        version: 3,
+        id,
+        case_state: {
+          ...decisionCase,
+          objective: "Stale content with the same timestamp",
+        },
+      },
+      error: null,
+    });
+    await expect(savePersistedDecisionCase(decisionCase)).rejects.toThrow(
+      "did not confirm this case revision",
+    );
+  });
+
+  it("accepts matching content when JSONB reorders object keys", async () => {
+    const decisionCase = savedCase();
+    receipt.response.mockResolvedValue({
+      data: {
+        id,
+        case_state: Object.fromEntries(Object.entries(decisionCase).reverse()),
       },
       error: null,
     });
     await expect(
       savePersistedDecisionCase(decisionCase),
-    ).resolves.toMatchObject({ id, revision: 3 });
-    expect(receipt.rpc).toHaveBeenCalledWith(
-      "apply_decision_case_command",
-      expect.objectContaining({
-        p_workspace_id: id,
-        p_expected_version: 2,
-        p_command: "record_conversation",
-      }),
-    );
+    ).resolves.toBeUndefined();
   });
 
-  it("does not mark a browser draft durably saved", async () => {
-    const draft = { ...savedCase(), id: "draft-local" };
-    await expect(savePersistedDecisionCase(draft)).resolves.toBe(draft);
-    expect(receipt.rpc).not.toHaveBeenCalled();
-  });
-
-  it("adopts the import UUID as the case number and leaves the DRAFT number on the case", async () => {
-    const importKey = "11111111-1111-4111-8111-111111111111";
+  it("dedupes on the import UUID and leaves the DRAFT- number on the case", async () => {
+    receipt.response.mockResolvedValue({ data: null, error: null });
     const decisionCase = {
       ...savedCase(),
       id: "draft-12345",
       caseNumber: "DRAFT-12345",
-      importKey,
+      importKey: "11111111-1111-4111-8111-111111111111",
     };
-    receipt.maybeSingle.mockResolvedValueOnce({
-      data: { id, case_version: 0 },
-      error: null,
-    });
-    receipt.rpc.mockResolvedValueOnce({
-      data: {
-        caseState: { ...decisionCase, id, revision: 1 },
-        version: 1,
-      },
-      error: null,
-    });
-    await expect(
-      createPersistedDecisionCase(decisionCase, {}),
-    ).resolves.toMatchObject({ id, revision: 1 });
+    await expect(createPersistedDecisionCase(decisionCase, {})).rejects.toThrow(
+      "did not confirm this case revision",
+    );
     expect(receipt.create).toHaveBeenCalledWith(decisionCase.objective, {
-      importKey,
+      importKey: "11111111-1111-4111-8111-111111111111",
     });
     expect(receipt.update).toHaveBeenCalledWith(
-      expect.objectContaining({ case_number: importKey }),
+      expect.objectContaining({
+        case_number: "11111111-1111-4111-8111-111111111111",
+        case_state: expect.objectContaining({
+          caseNumber: "DRAFT-12345",
+          importKey: "11111111-1111-4111-8111-111111111111",
+        }),
+      }),
     );
-    expect(receipt.update).toHaveBeenCalledWith(
-      expect.not.objectContaining({ case_state: expect.anything() }),
-    );
-    const command = receipt.rpc.mock.calls[0][1] as {
-      p_case_state: { caseNumber?: string; importKey?: string };
+    const payload = receipt.update.mock.calls[0][0] as {
+      case_number?: string;
     };
-    expect(command.p_case_state.caseNumber).toBe("DRAFT-12345");
-    expect(command.p_case_state.importKey).toBe(importKey);
+    expect(payload.case_number).not.toBe("DRAFT-12345");
   });
 
   it("rejects initialization when the new workspace update returns no row", async () => {
-    receipt.maybeSingle.mockResolvedValue({ data: null, error: null });
+    receipt.response.mockResolvedValue({ data: null, error: null });
     await expect(createPersistedDecisionCase(savedCase(), {})).rejects.toThrow(
-      "no tenant-visible workspace row was updated",
+      "did not confirm this case revision",
     );
-    expect(receipt.rpc).not.toHaveBeenCalled();
+  });
+
+  it("rejects treating a browser ID as a durable save", async () => {
+    await expect(
+      savePersistedDecisionCase({ ...savedCase(), id: "draft-local" }),
+    ).rejects.toThrow("browser draft cannot be marked durably saved");
+    expect(receipt.response).not.toHaveBeenCalled();
   });
 });

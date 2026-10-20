@@ -33,27 +33,10 @@ type DraftImportStorage = Pick<Storage, "getItem" | "setItem">;
 export type FirstDecisionPersistDeps = {
   isPersisted: (id: string) => boolean;
   create: (seed: DecisionCase) => Promise<DecisionCase>;
-  /**
-   * Returns the canonical case when the command advanced it. A void result
-   * means the caller kept the attempted case, including its revision.
-   */
-  save: (decisionCase: DecisionCase) => Promise<DecisionCase | void>;
+  save: (decisionCase: DecisionCase) => Promise<void>;
   /** Same-tab replay reads the workspace id written on the first successful create. */
   storage?: DraftImportStorage;
 };
-
-/** A successful command save is the revision the next save must send. */
-function caseFromSave(
-  attempted: DecisionCase,
-  canonical: DecisionCase | void,
-): DecisionCase {
-  if (!canonical?.id) return attempted;
-  const importKey = readDraftImportKey(attempted);
-  if (importKey && !readDraftImportKey(canonical)) {
-    return Object.assign({ ...canonical }, { importKey });
-  }
-  return canonical;
-}
 
 function readImportMap(storage: DraftImportStorage): Record<string, string> {
   try {
@@ -203,14 +186,10 @@ export async function persistFirstDecisionHandoff(
       id: alreadyPersisted,
     };
     try {
-      const retained = caseFromSave(reused, await deps.save(reused));
+      await deps.save(reused);
       return {
-        decisionCase: retained,
-        returnTo: returnToSavedDecisionCase(
-          retained,
-          requestedReturnTo,
-          search,
-        ),
+        decisionCase: reused,
+        returnTo: returnToSavedDecisionCase(reused, requestedReturnTo, search),
         persisted: true,
       };
     } catch {
@@ -238,18 +217,14 @@ export async function persistFirstDecisionHandoff(
       updatedAt: created.updatedAt,
     };
     Object.assign(saved, { importKey });
-    let retained = saved;
     try {
-      // Initialize already wrote the draft. This command advances the
-      // canonical revision; the browser must keep that revision or the
-      // next save conflicts and the audit trail never becomes saved.
-      retained = caseFromSave(saved, await deps.save(saved));
+      await deps.save(saved);
     } catch {
       // The workspace id is already in this tab. A replay reuses it.
     }
     return {
-      decisionCase: retained,
-      returnTo: evaluationRestoreDestination(retained, search),
+      decisionCase: saved,
+      returnTo: evaluationRestoreDestination(saved, search),
       persisted: true,
     };
   } catch {

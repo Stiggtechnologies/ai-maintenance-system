@@ -106,7 +106,21 @@ describe("Signup industry selection", () => {
     );
     expect(document.body.textContent).not.toMatch(/Reliability Engineer case/i);
     expect(document.body.textContent).toMatch(
+      /Save the question in this browser as your first Decision Case/,
+    );
+    expect(document.body.textContent).not.toMatch(
+      /Continue the Reliability Engineer work you started/i,
+    );
+    expect(document.body.textContent).toMatch(
       /This tab still has .* including the question and evidence you started/,
+    );
+    expect(screen.queryByRole("link", { name: "Talk to us" })).toBeNull();
+    expect(screen.getByTestId("self-serve-nav-step")).toHaveTextContent(
+      "Finish in this form",
+    );
+    expect(screen.getByTestId("self-serve-nav-step")).toHaveAttribute(
+      "href",
+      "#signup-workspace",
     );
   });
 
@@ -126,6 +140,12 @@ describe("Signup industry selection", () => {
     expect(
       screen.getByRole("option", { name: "Buildings & Infrastructure" }),
     ).toBeInTheDocument();
+    expect(document.body.textContent).toMatch(
+      /Create an isolated evaluation workspace for your first Decision Case/,
+    );
+    expect(document.body.textContent).not.toMatch(
+      /Continue the Reliability Engineer work you started/i,
+    );
 
     fireEvent.change(industry, { target: { value: "custom" } });
     expect(screen.getByLabelText("Industry name")).toBeRequired();

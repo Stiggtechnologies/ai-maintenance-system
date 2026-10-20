@@ -266,7 +266,7 @@ function ApplicationRoutes() {
             {
               isPersisted: isPersistedDecisionCase,
               create: (seed) => createPersistedDecisionCase(seed, {}),
-              save: (decisionCase) => savePersistedDecisionCase(decisionCase),
+              save: savePersistedDecisionCase,
               storage: window.sessionStorage,
             },
           );

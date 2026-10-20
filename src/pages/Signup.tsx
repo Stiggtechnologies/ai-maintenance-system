@@ -8,6 +8,7 @@ import { safeAuthReturnTo } from "../lib/auth-return";
 import { isExamplePrompt } from "../lib/onboarding/inverted-opening";
 import { readFirstDecisionDraft } from "../lib/onboarding/first-decision-handoff";
 import { selfServeProgress } from "../lib/onboarding/self-serve-progress";
+import type { SelfServeNavInput } from "../lib/onboarding/self-serve-nav";
 import { hasWorkspaceMembership, signUp } from "../lib/auth";
 import {
   SIGNUP_INDUSTRY_OPTIONS,
@@ -141,9 +142,39 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
     window.location.assign(`/signin?returnTo=${encodeURIComponent(returnTo)}`);
   };
 
+  const selfServeGate: SelfServeNavInput =
+    confirmationEmail || auth?.user
+      ? {
+          decisionCaseSaved: false,
+          draftOpen: true,
+          continueHref: "#signup-continue-signin",
+          continueLabel: "Continue to sign in",
+          askHref: "/get-started",
+        }
+      : draft && !example
+        ? {
+            decisionCaseSaved: false,
+            draftOpen: true,
+            continueHref: "#signup-workspace",
+            continueLabel: "Finish in this form",
+            askHref: "/get-started",
+          }
+        : {
+            decisionCaseSaved: false,
+            draftOpen: false,
+            continueHref: "#signup-workspace",
+            continueLabel: "Finish in this form",
+            askHref: "/get-started",
+          };
+
   if (confirmationEmail || auth?.user) {
     return (
-      <AuthShell offerWorkspace={false} intent="signup" journey={journey}>
+      <AuthShell
+        offerWorkspace={false}
+        intent="signup"
+        journey={journey}
+        selfServeGate={selfServeGate}
+      >
         <div className="mb-6">
           <SelfServeProgressChecklist
             progress={progress}
@@ -176,6 +207,7 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
             </p>
           ) : null}
           <button
+            id="signup-continue-signin"
             onClick={() => onTabChange("signin")}
             className="mt-6 w-full rounded-lg bg-[#3A8DFF] px-4 py-3 font-medium text-white"
           >
@@ -189,7 +221,7 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
   const inputClass =
     "w-full px-4 py-3 bg-industrial-black border border-industrial-border rounded-lg text-industrial-text focus:outline-hidden focus:border-[#3A8DFF] focus:ring-1 focus:ring-[#3A8DFF]";
   return (
-    <AuthShell intent="signup" journey={journey}>
+    <AuthShell intent="signup" journey={journey} selfServeGate={selfServeGate}>
       <div className="bg-industrial-slate rounded-xl p-8 border border-industrial-border backdrop-blur-xs">
         <div className="mb-6">
           <SelfServeProgressChecklist
@@ -203,9 +235,9 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
             Create a private evaluation workspace
           </h1>
           <p className="mt-2 text-sm leading-6 text-industrial-text">
-            Continue the Reliability Engineer work you started. Self-signups
-            receive an isolated evaluation organization; production tenant
-            membership remains invitation-controlled.
+            {draft && !example
+              ? "Save the question in this browser as your first Decision Case. Self-signups receive an isolated evaluation organization; production tenant membership remains invitation-controlled."
+              : "Create an isolated evaluation workspace for your first Decision Case. Production tenant membership stays invitation-controlled."}
           </p>
           {draft && !example ? (
             <div
@@ -234,7 +266,11 @@ export function Signup({ onSuccess, onTabChange }: SignupProps) {
             </div>
           ) : null}
         </div>
-        <form onSubmit={handleSignup} className="space-y-5">
+        <form
+          id="signup-workspace"
+          onSubmit={handleSignup}
+          className="space-y-5"
+        >
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <label className="text-sm font-medium text-industrial-text">
               Full Name

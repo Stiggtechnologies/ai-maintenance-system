@@ -4,6 +4,7 @@ import { PublicJourneyHeader } from "./PublicJourneyHeader";
 import { HelpCenterWidget } from "./HelpCenterWidget";
 import { usePublicJourneyTheme } from "../lib/use-public-journey-theme";
 import { BrandWordmark } from "./BrandWordmark";
+import type { SelfServeNavInput } from "../lib/onboarding/self-serve-nav";
 
 interface AuthShellProps {
   children: ReactNode;
@@ -11,6 +12,8 @@ interface AuthShellProps {
   offerWorkspace?: boolean;
   /** Matches the active auth tab. Signup must not reuse the sign-in heading. */
   intent?: "signin" | "signup";
+  /** First-decision signup and sign-in. Omit to keep Talk to us. */
+  selfServeGate?: SelfServeNavInput;
   journey?: {
     caseNumber: string;
     asset: string;
@@ -36,12 +39,16 @@ export function AuthShell({
   journey,
   offerWorkspace,
   intent = "signin",
+  selfServeGate,
 }: AuthShellProps) {
   const { theme } = usePublicJourneyTheme();
   const signup = intent === "signup";
   return (
     <div className="public-journey" data-theme={theme}>
-      <PublicJourneyHeader offerWorkspace={offerWorkspace} />
+      <PublicJourneyHeader
+        offerWorkspace={offerWorkspace}
+        selfServeGate={selfServeGate}
+      />
       <main className="journey-auth-layout">
         <section className="journey-auth-story">
           <p className="journey-eyebrow">Governed engineering intelligence</p>

@@ -4,6 +4,7 @@ import { PasswordField } from "../components/PasswordField";
 import { ArrowUpRight, LockKeyhole } from "lucide-react";
 import { signIn } from "../lib/auth";
 import { readFirstDecisionDraft } from "../lib/onboarding/first-decision-handoff";
+import type { SelfServeNavInput } from "../lib/onboarding/self-serve-nav";
 import { supabase } from "../lib/supabase";
 import { motion } from "framer-motion";
 
@@ -173,9 +174,19 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
   const recoveryPasswordsMatch =
     confirmNewPassword.length > 0 && newPassword === confirmNewPassword;
 
+  const selfServeGate: SelfServeNavInput | undefined = journey
+    ? {
+        decisionCaseSaved: false,
+        draftOpen: true,
+        continueHref: "#signin-form",
+        continueLabel: "Sign in to save",
+        askHref: "/get-started",
+      }
+    : undefined;
+
   return (
-    <AuthShell journey={journey}>
-      <div>
+    <AuthShell journey={journey} selfServeGate={selfServeGate}>
+      <div id="signin-form">
         <div className="mb-7">
           <span className="text-signal-cyan flex items-center gap-2 text-xs font-semibold tracking-[0.16em] uppercase">
             <LockKeyhole size={14} /> Secure workspace
