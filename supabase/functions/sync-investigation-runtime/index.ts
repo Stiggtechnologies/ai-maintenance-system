@@ -47,6 +47,22 @@ import {
 } from "../_shared/sync-stream.ts";
 import { proposalParamsHash } from "../_shared/sync-tool-proof.ts";
 
+/**
+ * Plain text from an Office XML run. Strips tags until the string stops
+ * changing, then drops any stray angle bracket, so a crafted run such as
+ * "<scr<x>ipt>" cannot leave markup behind in extracted attachment text.
+ */
+function stripXmlMarkup(value: string): string {
+  let current = value;
+  let previous: string;
+  do {
+    previous = current;
+    current = current.replace(/<[^>]*>/g, "");
+  } while (current !== previous);
+  return current.replace(/[<>]/g, "");
+}
+
+
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -702,7 +718,7 @@ async function extractAttachment(
         const paragraphs = (docXml.match(/<w:p[ >][\s\S]*?<\/w:p>/g) ?? [])
           .map((p) =>
             (p.match(/<w:t[^>]*>([\s\S]*?)<\/w:t>/g) ?? [])
-              .map((t) => t.replace(/<[^>]+>/g, ""))
+              .map((t) => stripXmlMarkup(t))
               .join(""),
           )
           .filter((t) => t.trim().length > 0);
@@ -753,7 +769,7 @@ async function extractAttachment(
         const slides = slideKeys.map((k) => {
           const xml = new TextDecoder().decode(files[k]);
           const texts = (xml.match(/<a:t>[\s\S]*?<\/a:t>/g) ?? [])
-            .map((t) => t.replace(/<[^>]+>/g, ""))
+            .map((t) => stripXmlMarkup(t))
             .filter((t) => t.trim().length > 0);
           return `## Slide ${k.replace(/\D+/g, "")}\n${texts.join("\n")}`;
         });

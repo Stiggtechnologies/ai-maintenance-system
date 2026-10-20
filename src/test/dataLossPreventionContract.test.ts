@@ -97,10 +97,10 @@ describe("E5.07 governed data-loss prevention", () => {
       /callWithResilience(?:Stream)?\(/,
       /resolveExternalGatewayUrl\(/,
       /synthesizeOpenAiSpeech\(/,
-      /api\.openai\.com/,
-      /api\.x\.ai/,
-      /openai\.azure\.com/,
-      /generativelanguage\.googleapis/,
+      "api.openai.com",
+      "api.x.ai",
+      "openai.azure.com",
+      "generativelanguage.googleapis",
     ];
     const discovered: string[] = [];
 
@@ -109,7 +109,14 @@ describe("E5.07 governed data-loss prevention", () => {
         `supabase/functions/${name}/index.ts`,
         "utf8",
       );
-      if (!providerCallMarkers.some((marker) => marker.test(source))) continue;
+      if (
+        !providerCallMarkers.some((marker) =>
+          typeof marker === "string"
+            ? source.includes(marker)
+            : marker.test(source),
+        )
+      )
+        continue;
 
       // This is the anonymous, public-reference rail: it has no tenant corpus
       // or tenant id. Authenticated requests are handed to ai-agent-processor,

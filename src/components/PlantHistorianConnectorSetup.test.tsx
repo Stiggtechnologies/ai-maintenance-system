@@ -166,7 +166,7 @@ describe("PlantHistorianConnectorSetup", () => {
     fireEvent.change(screen.getByPlaceholderText("Display name"), {
       target: { value: "Site A PI" },
     });
-    fireEvent.change(screen.getByPlaceholderText(/historian\.example\.com/i), {
+    fireEvent.change(screen.getByPlaceholderText("historian.example.com", { exact: false }), {
       target: { value: "https://historian.example.com/readings" },
     });
     fireEvent.change(screen.getByPlaceholderText(/Opaque binding/i), {
