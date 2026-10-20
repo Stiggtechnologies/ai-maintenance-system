@@ -53,6 +53,9 @@ vi.mock("../components/ValueManagement", () => ({
 vi.mock("../components/EnvironmentalPerformance", () => ({
   EnvironmentalPerformance: () => null,
 }));
+vi.mock("../components/MaintenanceExecutiveAgentWorkbench", () => ({
+  MaintenanceExecutiveAgentWorkbench: () => null,
+}));
 
 /** A dashboard row with everything the page reads, overridable per case. */
 function kpiRow(overrides: Partial<KpiRow> & Pick<KpiRow, "kpi_key">): KpiRow {

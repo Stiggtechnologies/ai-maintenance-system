@@ -1,26 +1,14 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import {
-  ArrowLeft,
-  Activity,
-  Wrench,
-  AlertTriangle,
-  Shield,
-  TrendingUp,
-  TrendingDown,
-  Clock,
-  MapPin,
-  Tag,
-  Calendar,
-  DollarSign,
-} from "lucide-react";
+import { ArrowLeft, MapPin, Tag } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { listAssetConditionReadings } from "../services/conditionStateService";
 import { FieldFailureCapture } from "../components/FieldFailureCapture";
 import { AssetQrLabel } from "../components/AssetQrLabel";
 import { AssetOperatingDuty } from "../components/AssetOperatingDuty";
 import { OperatorRounds } from "../components/OperatorRounds";
+import { AssetOperationalMonitor } from "../components/AssetOperationalMonitor";
 
 export function AssetDetailPage() {
   const { assetId } = useParams<{ assetId: string }>();
@@ -30,7 +18,7 @@ export function AssetDetailPage() {
   const [workOrders, setWorkOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<
-    "overview" | "health" | "work" | "criticality"
+    "overview" | "monitor" | "health" | "work" | "criticality"
   >("overview");
 
   useEffect(() => {
@@ -119,6 +107,7 @@ export function AssetDetailPage() {
 
   const tabs = [
     { id: "overview" as const, label: "Overview" },
+    { id: "monitor" as const, label: "Operational Monitor" },
     {
       id: "health" as const,
       label: "Health History",
@@ -260,7 +249,8 @@ export function AssetDetailPage() {
                   ) : null}
                 </div>
                 <div className="text-sm text-slate-300 mt-1">
-                  {latestHealth.sensor_name ?? "Sensor"} · {latestHealth.quality}
+                  {latestHealth.sensor_name ?? "Sensor"} ·{" "}
+                  {latestHealth.quality}
                 </div>
                 <div className="text-sm text-slate-400 mt-1">
                   {new Date(latestHealth.taken_at).toLocaleString()}
@@ -374,6 +364,10 @@ export function AssetDetailPage() {
             </div>
           )}
         </div>
+      )}
+
+      {activeTab === "monitor" && (
+        <AssetOperationalMonitor assetId={asset.id} />
       )}
 
       {activeTab === "work" && (

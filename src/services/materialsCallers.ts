@@ -41,10 +41,18 @@ export interface MaterialRelationshipAudit {
   entity_type: string;
   event_time: string;
   actor: string;
-  event_data: { actorId?: string; basis?: string; action?: string };
+  event_data: {
+    actorId?: string;
+    basis?: string;
+    action?: string;
+    masterVersion?: number;
+  };
   new_state: {
     material_code?: string;
     material_id?: string;
+    materialCode?: string;
+    materialId?: string;
+    masterVersion?: number;
     supplier_id?: number;
     asset_id?: string;
     asset_class?: string;

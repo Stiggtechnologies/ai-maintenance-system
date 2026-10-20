@@ -45,6 +45,7 @@ import {
   raiseWarrantyClaim,
   recordContractChangeOrder,
   recordContractClaim,
+  recordContractLegalCompliance,
   recordContractorEngineeringResponse,
   recordContractInvoice,
   recordContractPerformancePeriod,
@@ -191,6 +192,16 @@ export function CommercialPanel({
   const [engResponseEvidence, setEngResponseEvidence] = useState("");
   const [engBasis, setEngBasis] = useState("");
 
+  const [legalDetermination, setLegalDetermination] = useState<
+    "compliant" | "not_compliant"
+  >("compliant");
+  const [legalJurisdiction, setLegalJurisdiction] = useState("");
+  const [legalScope, setLegalScope] = useState("");
+  const [legalEvidenceId, setLegalEvidenceId] = useState("");
+  const [legalBasis, setLegalBasis] = useState("");
+  const [legalValidUntil, setLegalValidUntil] = useState("");
+  const [legalSupersessionReason, setLegalSupersessionReason] = useState("");
+
   const [specRef, setSpecRef] = useState("");
   const [specBasis, setSpecBasis] = useState("");
   const [threadRef, setThreadRef] = useState("");
@@ -275,6 +286,12 @@ export function CommercialPanel({
   // usage reading.
   const wcTerm = warranties.find((w) => String(w.warrantyId) === wcWarranty);
   const wcBlocked = wcTerm !== undefined && warrantyTermStatesNoExpiry(wcTerm);
+  const legal = payload.legalCompliance;
+  const legalEvidence = evidence.filter(
+    (item) =>
+      item.verificationStatus === "verified" &&
+      item.evidenceClass === "DOCUMENTED",
+  );
 
   return (
     <div className="space-y-3">
@@ -319,6 +336,137 @@ export function CommercialPanel({
               ?.settlementNote
           }
         />
+      </Block>
+
+      <Block title="Contract legal compliance — human determination">
+        <p className="text-xs text-slate-400">
+          AI may prepare evidence; it cannot make this determination. The
+          current position is an immutable, named-human attestation against
+          verified documented evidence. Absence and expiry remain visible
+          refusals—not implied compliance.
+        </p>
+        {legal?.answered ? (
+          <div className="rounded-md border border-white/8 px-2 py-1.5 text-xs text-slate-300">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <span className="font-semibold text-slate-100">
+                Version {legal.version} ·{" "}
+                {legal.determination?.replace("_", " ")}
+              </span>
+              <span className="text-[10px] uppercase text-slate-500">
+                valid through {legal.validUntil ?? "—"}
+              </span>
+            </div>
+            <div className="mt-1 text-[11px] text-slate-400">
+              {legal.jurisdiction} · {legal.legalScope}
+            </div>
+            <div className="text-[11px] text-slate-500">{legal.basis}</div>
+            <div className="mt-1 text-[11px] text-slate-500">
+              Attested by {legal.attestedBy ?? "named human"} · evidence:{" "}
+              {legal.evidence?.description ?? legal.evidence?.id ?? "—"}
+              {legal.evidence?.verifiedBy
+                ? ` · verified by ${legal.evidence.verifiedBy}`
+                : ""}
+            </div>
+          </div>
+        ) : (
+          <Refusal text={legal?.refusal ?? "No legal position was returned."} />
+        )}
+
+        {canApprove && (
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <select
+              aria-label="Legal compliance determination"
+              value={legalDetermination}
+              onChange={(e) =>
+                setLegalDetermination(
+                  e.target.value as "compliant" | "not_compliant",
+                )
+              }
+              className={inputClass}
+            >
+              <option value="compliant">Compliant</option>
+              <option value="not_compliant">Not compliant</option>
+            </select>
+            <input
+              value={legalJurisdiction}
+              onChange={(e) => setLegalJurisdiction(e.target.value)}
+              placeholder="Jurisdiction"
+              className={inputClass}
+            />
+            <input
+              value={legalScope}
+              onChange={(e) => setLegalScope(e.target.value)}
+              placeholder="Legal review scope (20 characters minimum)"
+              className={`${inputClass} sm:col-span-2`}
+            />
+            <select
+              aria-label="Verified documented legal evidence"
+              value={legalEvidenceId}
+              onChange={(e) => setLegalEvidenceId(e.target.value)}
+              className={inputClass}
+            >
+              <option value="">Verified documented evidence…</option>
+              {legalEvidence.map((item) => (
+                <option key={`legal-${item.id}`} value={item.id}>
+                  {item.description ?? item.sourceReference ?? item.id}
+                </option>
+              ))}
+            </select>
+            <input
+              type="date"
+              aria-label="Legal determination valid until"
+              value={legalValidUntil}
+              onChange={(e) => setLegalValidUntil(e.target.value)}
+              className={inputClass}
+            />
+            <input
+              value={legalBasis}
+              onChange={(e) => setLegalBasis(e.target.value)}
+              placeholder="Legal basis (30 characters minimum)"
+              className={`${inputClass} sm:col-span-2`}
+            />
+            {legal?.version != null && (
+              <input
+                value={legalSupersessionReason}
+                onChange={(e) => setLegalSupersessionReason(e.target.value)}
+                placeholder="Why this supersedes the current version (20 characters)"
+                className={`${inputClass} sm:col-span-2`}
+              />
+            )}
+            <button
+              onClick={() =>
+                void act(async () => {
+                  await recordContractLegalCompliance(packageId, {
+                    determination: legalDetermination,
+                    jurisdiction: legalJurisdiction,
+                    legalScope,
+                    evidenceItemId: legalEvidenceId,
+                    basis: legalBasis,
+                    validUntil: legalValidUntil,
+                    ...(legal?.version != null
+                      ? { supersessionReason: legalSupersessionReason }
+                      : {}),
+                  });
+                  setLegalBasis("");
+                  setLegalSupersessionReason("");
+                })
+              }
+              disabled={
+                busy ||
+                legalJurisdiction.trim().length < 2 ||
+                legalScope.trim().length < 20 ||
+                !legalEvidenceId ||
+                legalBasis.trim().length < 30 ||
+                !legalValidUntil ||
+                (legal?.version != null &&
+                  legalSupersessionReason.trim().length < 20)
+              }
+              className={btnClass}
+            >
+              Record human legal determination (MFA required)
+            </button>
+          </div>
+        )}
       </Block>
 
       <Block title="Change orders">

@@ -33,7 +33,7 @@ The existing vector stores and RAG functions remain the retrieval infrastructure
 
 ## Next slices
 
-1. Persist document-to-engineering mappings with organization-scoped RLS.
+1. Persist document-to-engineering mappings with organization-scoped RLS. **Done (2026-10-20).** `persist_document_engineering_mappings` stores canonical entity references on the existing `engineering_knowledge_mappings` table for the caller's organization. `ai_admin` may draft a mapping and cannot approve or supersede one; changing an approved mapping requires an explicit reason. A mapping does not grant permission, work release, or approval.
 2. Add hybrid retrieval using semantic similarity plus canonical metadata filters.
 3. Add conflict and supersession detection.
 4. Backfill relationships from compiled twins and existing knowledge chunks. **Done (2026-10-20).** Compiled twins produce draft canonical edges in memory, and `backfill_relationships_from_knowledge_chunks` stores draft edges from `asset_class` and provenance code arrays already on `reliability_kb_chunks`. Edges reference canonical ids. They do not copy records, and they do not grant permission, work release, or approval.

@@ -20,6 +20,7 @@ import {
   type GateFinding,
   type WeightedGateReadiness,
 } from "../lifecycle/stages";
+import type { CaseEarnedValue, ForecastConfidence } from "./performance";
 
 export const LIFECYCLE_TYPES = [
   { value: "greenfield", label: "Greenfield" },
@@ -1046,6 +1047,39 @@ export interface FinanceModelOption {
   notes: string | null;
   contingency: number | null;
   contingencyBasis: string | null;
+  economicAdjustment: {
+    status: "ready" | "refused";
+    sourceCurrency: string;
+    targetCurrency: string;
+    basis: string;
+    escalation: {
+      key: string;
+      value: number;
+      unit: string | null;
+      source: string;
+      effectiveFrom: string;
+    } | null;
+    foreignExchange: {
+      key: string;
+      value: number;
+      unit: string | null;
+      source: string;
+      effectiveFrom: string;
+    } | null;
+    refusal: string | null;
+  } | null;
+}
+
+export interface FinanceDimensionStatus {
+  key: string;
+  status:
+    | "recorded"
+    | "computable"
+    | "applied"
+    | "recorded_unbound"
+    | "refused"
+    | "missing";
+  reason: string | string[];
 }
 
 export interface FinanceAssumptionRow {
@@ -1120,6 +1154,13 @@ export interface CaseFinanceModel {
       forecastBasis: string | null;
     }[];
   };
+  dimensions?: FinanceDimensionStatus[];
+  performance?: {
+    earnedValue: CaseEarnedValue;
+    forecastConfidence: ForecastConfidence;
+    sinceSanctionDelta: SinceSanctionDelta;
+  };
+  decisionBoundary?: string;
 }
 
 export interface OptionComparisonDimensionRow {

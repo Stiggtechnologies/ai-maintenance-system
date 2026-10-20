@@ -4,17 +4,17 @@
  *
  * The handover between operations and maintenance is where people get hurt. It
  * is a two-sided transaction — operations releases the equipment and later
- * ACCEPTS it back — and the platform had no record of either side.
+ * accepts it back only after independently released return-to-service test
+ * evidence is available.
  *
  * The state this panel exists to surface is "returned but not accepted": the
  * equipment sits in neither party's hands while each assumes the other owns
  * it. Closing that out silently is how it stays invisible.
  *
- * Until now this panel could only READ that state, and nothing could produce
- * it: release_equipment was wired without return_equipment or accept_equipment,
- * so the first release made through the product stranded the asset — a second
- * release is refused while a prior one is open. Both sides are now actionable
- * here, and the refusals are shown in the database's own words.
+ * The final act binds the exact canonical equipment release to the canonical
+ * Quality acceptance test and its verified evidence. The server rechecks the
+ * tenant, asset, work order, outcome, punch items, human provenance and
+ * separation of duties; the list rendered here grants no authority.
  *
  * Production loss is measured against the rate each asset actually
  * demonstrated while running, never nameplate. Nameplate overstates loss
@@ -24,81 +24,69 @@
 import { HandCoins, ArrowLeftRight, Hourglass } from "lucide-react";
 import { useState } from "react";
 import { useAsyncData } from "../hooks/useAsyncData";
-import { supabase } from "../lib/supabase";
+import {
+  getOpsCoordination,
+  returnEquipmentToOperations,
+  verifyAndAcceptEquipment,
+  type EquipmentRelease,
+  type OpsCoordinationPayload,
+} from "../services/opsCoordinationService";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
 
-interface Release {
-  release_id: string;
-  asset_id: string;
-  asset: string;
-  status: string;
-  released_at: string;
-  returned_at: string | null;
-  isolation_confirmed: boolean;
-  hours_out_of_service: number;
-  awaiting_acceptance: boolean;
-  /** The person who returned it cannot accept it — segregation of duties,
-   *  enforced in accept_equipment. Surfaced so the panel can explain the
-   *  refusal before it happens rather than after. */
-  returned_by_me: boolean;
-}
-
-interface LossRow {
-  asset: string;
-  down_hours: number;
-  demonstrated_rate: number;
-  unit_of_measure: string;
-  units_lost: number;
-}
-
-interface Payload {
-  open_releases: Release[];
-  production_loss: {
-    window_days: number;
-    by_asset: LossRow[];
-    assets_measurable: number;
-    assets: number;
-    basis: string;
-  };
-  note: string;
-}
-
 export function OpsCoordination() {
-  const { data, loading, error, refetch } = useAsyncData<Payload>(async () => {
-    const { data: r, error: e } = await supabase.rpc(
-      "get_ops_coordination",
-      {},
-    );
-    if (e) throw new Error(e.message);
-    return r as Payload;
-  }, []);
+  const { data, loading, error, refetch } =
+    useAsyncData<OpsCoordinationPayload>(getOpsCoordination, []);
 
   const [flash, setFlash] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [selectedTests, setSelectedTests] = useState<Record<string, number>>(
+    {},
+  );
 
-  // Both RPCs answer a refusal as {error} rather than throwing, and those
-  // sentences are the point — "segregation of duties: the person who returned
-  // the equipment cannot also accept it" tells an operator what to do next in
-  // a way a generic failure toast never could.
-  const act = async (fn: string, assetId: string, prompt: string) => {
-    const note = window.prompt(prompt);
+  const returnToOperations = async (release: EquipmentRelease) => {
+    const note = window.prompt(
+      "Returning this equipment to operations. Record its condition, restoration state and outstanding limitations (20 characters minimum):",
+    );
     if (!note) return;
     setBusy(true);
     try {
-      const { data: r, error: e } = await supabase.rpc(fn, {
-        p_asset_id: assetId,
-        p_note: note,
+      await returnEquipmentToOperations({
+        assetId: release.asset_id,
+        note,
       });
-      if (e) throw new Error(e.message);
-      const result = r as { error?: string } | null;
-      if (result?.error) {
-        setFlash(result.error);
-        return;
-      }
       setFlash(
-        fn === "return_equipment"
-          ? "Returned to operations. It is not back in service until operations accepts it."
-          : "Accepted back into service.",
+        "Returned to operations. It remains out of service until governed verification and operations acceptance are recorded.",
+      );
+      refetch();
+    } catch (err) {
+      setFlash(err instanceof Error ? err.message : "That did not work.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const acceptIntoService = async (release: EquipmentRelease) => {
+    const acceptanceTestId =
+      selectedTests[release.release_id] ?? release.eligible_rts_tests[0]?.id;
+    if (!acceptanceTestId) {
+      setFlash(
+        "No eligible return-to-service acceptance test is available for this release.",
+      );
+      return;
+    }
+    const note = window.prompt(
+      "Record what operations independently confirmed against the selected released test (20 characters minimum):",
+    );
+    if (!note) return;
+    setBusy(true);
+    try {
+      await verifyAndAcceptEquipment({
+        releaseId: release.release_id,
+        acceptanceTestId,
+        note,
+      });
+      setFlash(
+        "Verified and accepted back into service with immutable test and evidence provenance.",
       );
       refetch();
     } catch (err) {
@@ -183,16 +171,52 @@ export function OpsCoordination() {
               <div className="mt-2.5 flex flex-wrap items-center gap-2">
                 {r.awaiting_acceptance ? (
                   <>
+                    {r.eligible_rts_tests.length > 0 ? (
+                      <label className="w-full text-xs text-slate-300">
+                        Released return-to-service test
+                        <select
+                          aria-label={`Return-to-service test for ${r.asset}`}
+                          value={
+                            selectedTests[r.release_id] ??
+                            r.eligible_rts_tests[0].id
+                          }
+                          onChange={(event) =>
+                            setSelectedTests((current) => ({
+                              ...current,
+                              [r.release_id]: Number(event.target.value),
+                            }))
+                          }
+                          className="mt-1 block w-full rounded-lg border border-white/10 bg-overlook-deep px-2.5 py-2 text-xs text-slate-200"
+                        >
+                          {r.eligible_rts_tests.map((test) => (
+                            <option key={test.id} value={test.id}>
+                              {test.test_ref} · {test.performed_on}
+                            </option>
+                          ))}
+                        </select>
+                        <span className="mt-1 block text-[11px] leading-relaxed text-slate-500">
+                          {
+                            r.eligible_rts_tests.find(
+                              (test) =>
+                                test.id ===
+                                (selectedTests[r.release_id] ??
+                                  r.eligible_rts_tests[0].id),
+                            )?.evidence_description
+                          }
+                        </span>
+                      </label>
+                    ) : (
+                      <p className="w-full rounded-lg border border-amber-500/20 bg-amber-500/5 p-2.5 text-xs leading-relaxed text-amber-200">
+                        No eligible return-to-service acceptance test exists.
+                        Record the test with verified same-asset evidence, then
+                        have an independent authority release it in Risk →
+                        Quality assurance.
+                      </p>
+                    )}
                     <button
                       type="button"
-                      disabled={busy}
-                      onClick={() =>
-                        void act(
-                          "accept_equipment",
-                          r.asset_id,
-                          "Accepting this equipment back into service. Record what was confirmed (10 characters minimum):",
-                        )
-                      }
+                      disabled={busy || r.eligible_rts_tests.length === 0}
+                      onClick={() => void acceptIntoService(r)}
                       className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1.5 text-xs text-emerald-300 disabled:opacity-50"
                     >
                       Accept back into service
@@ -208,13 +232,7 @@ export function OpsCoordination() {
                   <button
                     type="button"
                     disabled={busy}
-                    onClick={() =>
-                      void act(
-                        "return_equipment",
-                        r.asset_id,
-                        "Returning this equipment to operations. Record the condition it is being handed back in (10 characters minimum):",
-                      )
-                    }
+                    onClick={() => void returnToOperations(r)}
                     className="rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-slate-300 disabled:opacity-50"
                   >
                     Return to operations

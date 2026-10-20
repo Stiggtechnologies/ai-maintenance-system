@@ -77,7 +77,10 @@ export function chunkDocument(
         continue;
       }
 
-      if (currentChunk.length + para.length > maxChunkSize && currentChunk.length > 0) {
+      if (
+        currentChunk.length + para.length > maxChunkSize &&
+        currentChunk.length > 0
+      ) {
         chunks.push(currentChunk.trim());
         const words = currentChunk.split(" ");
         const overlapWords = words.slice(-Math.floor(overlapSize / 5));
@@ -107,7 +110,11 @@ export function chunkDocument(
  */
 export function suggestDocumentClass(title: string): KbDocumentClass {
   const hay = `${title}`.toLowerCase();
-  if (/service manual|parts manual|maintenance manual|repair manual|shop manual/.test(hay)) {
+  if (
+    /service manual|parts manual|maintenance manual|repair manual|shop manual/.test(
+      hay,
+    )
+  ) {
     return "oem_service_manual";
   }
   if (/brochure|specification sheet|datasheet|data sheet/.test(hay)) {
@@ -140,13 +147,20 @@ export function validateIntakeInput(input: {
   if (!input.source_id || input.source_id.trim().length < 3) {
     errors.push("source_id is required (min 3 characters)");
   } else if (!/^[a-z0-9][a-z0-9._-]*$/i.test(input.source_id)) {
-    errors.push("source_id may contain only letters, digits, dot, dash, underscore");
+    errors.push(
+      "source_id may contain only letters, digits, dot, dash, underscore",
+    );
   }
   if (!input.title || input.title.trim().length < 2) {
     errors.push("title is required");
   }
-  if (input.document_class && !(KB_DOCUMENT_CLASSES as readonly string[]).includes(input.document_class)) {
-    errors.push(`document_class must be one of: ${KB_DOCUMENT_CLASSES.join(", ")}`);
+  if (
+    input.document_class &&
+    !(KB_DOCUMENT_CLASSES as readonly string[]).includes(input.document_class)
+  ) {
+    errors.push(
+      `document_class must be one of: ${KB_DOCUMENT_CLASSES.join(", ")}`,
+    );
   }
   if (!input.content || input.content.trim().length < 20) {
     errors.push("content is required (min 20 characters)");
@@ -175,7 +189,10 @@ export function buildIntakeChunks(
  * threshold we refuse rather than index a near-empty corpus that would
  * retrieve as "the document says nothing".
  */
-export function isScannedLike(extractedText: string, pageCount: number): boolean {
+export function isScannedLike(
+  extractedText: string,
+  pageCount: number,
+): boolean {
   const len = (extractedText ?? "").trim().length;
   if (len < 20) return true;
   if (pageCount > 0 && len / pageCount < 40) return true;
@@ -184,6 +201,99 @@ export function isScannedLike(extractedText: string, pageCount: number): boolean
 
 /** Hard cap on pages processed per PDF — bounds extraction cost. */
 export const MAX_PDF_PAGES = 200;
+
+/**
+ * Intake resource ceilings. They are enforced again in the edge function so a
+ * caller cannot bypass the browser's file picker. The corpus is an evidence
+ * store, not a general-purpose binary upload service.
+ */
+export const MAX_DOCUMENT_BYTES = 20 * 1024 * 1024;
+export const MAX_DOCUMENT_CHARACTERS = 5_000_000;
+export const MAX_DOCUMENT_CHUNKS = 5_000;
+
+const SUPPORTED_DOCUMENT_NAME = /\.(txt|csv|md|markdown|json|log|pdf)$/i;
+
+export function isSupportedDocumentFilename(filename: string): boolean {
+  return SUPPORTED_DOCUMENT_NAME.test(filename.trim());
+}
+
+export interface PromptInjectionFinding {
+  signal: string;
+  severity: "warning" | "critical";
+  explanation: string;
+}
+
+const PROMPT_INJECTION_SIGNALS: ReadonlyArray<{
+  signal: string;
+  severity: "warning" | "critical";
+  pattern: RegExp;
+  explanation: string;
+}> = [
+  {
+    signal: "instruction_override",
+    severity: "critical",
+    pattern:
+      /\b(ignore|disregard|forget)\s+(all\s+)?(previous|prior|above|system|developer)\s+(instructions?|messages?|prompts?)\b/i,
+    explanation:
+      "The document contains language attempting to override higher-priority instructions.",
+  },
+  {
+    signal: "role_impersonation",
+    severity: "critical",
+    pattern: /(^|\n)\s*(system|developer|assistant)\s*(message\s*)?[:<[]/im,
+    explanation:
+      "The document contains a model-role marker that could be interpreted as a control message.",
+  },
+  {
+    signal: "prompt_exfiltration",
+    severity: "critical",
+    pattern:
+      /\b(reveal|show|print|repeat|expose)\b[\s\S]{0,60}\b(system|developer)\b[\s\S]{0,30}\b(prompt|message|instructions?)\b/i,
+    explanation:
+      "The document asks for protected prompt or instruction disclosure.",
+  },
+  {
+    signal: "tool_control",
+    severity: "warning",
+    pattern:
+      /\b(call|invoke|execute|run)\s+(the\s+)?(tool|function|shell|command|api)\b/i,
+    explanation:
+      "The document contains imperative tool-execution language and requires human review.",
+  },
+  {
+    signal: "secret_exfiltration",
+    severity: "critical",
+    pattern:
+      /\b(send|upload|post|exfiltrate|leak|return)\b[\s\S]{0,80}\b(secret|password|token|api[ _-]?key|credential)\b/i,
+    explanation:
+      "The document contains a possible credential or secret exfiltration instruction.",
+  },
+  {
+    signal: "context_escape",
+    severity: "warning",
+    pattern:
+      /(end\s+(of\s+)?(untrusted|retrieved)\s+(context|evidence)|<\/retrieved[_-]evidence>)/i,
+    explanation:
+      "The document attempts to imitate or close the retrieval-context boundary.",
+  },
+];
+
+/**
+ * Deterministic client-side preview of the database scanner. This is not an
+ * antivirus verdict and does not decide whether content is malicious. Any
+ * signal means quarantine; only the database controls retrieval eligibility.
+ */
+export function detectPromptInjectionSignals(
+  content: string,
+): PromptInjectionFinding[] {
+  return PROMPT_INJECTION_SIGNALS.filter(({ pattern }) =>
+    pattern.test(content),
+  ).map(({ signal, severity, explanation }) => ({
+    signal,
+    severity,
+    explanation,
+  }));
+}
 
 export const PDF_SCANNED_MESSAGE =
   "This PDF has no usable text layer (scanned or image-only). The OCR lane is not wired yet — paste the text or provide the source document.";

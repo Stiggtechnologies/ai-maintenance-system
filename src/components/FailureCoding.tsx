@@ -91,33 +91,50 @@ const KIND_STYLE: Record<string, string> = {
 };
 
 export function FailureCoding() {
-  const [selectedWorkOrder, setSelectedWorkOrder] = useState<string | null>(null);
+  const [selectedWorkOrder, setSelectedWorkOrder] = useState<string | null>(
+    null,
+  );
   const [mechanismKey, setMechanismKey] = useState("");
   const [codingNote, setCodingNote] = useState("");
+  const [failureObservedAt, setFailureObservedAt] = useState("");
   const [saving, setSaving] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
-  const { data, loading, error, refetch } = useAsyncData<CodingData>(async () => {
-    const [position, queue] = await Promise.all([
-      supabase.rpc("get_failure_coding_position", {}),
-      supabase.rpc("get_failure_coding_queue", { p_limit: 50 }),
-    ]);
-    if (position.error) throw new Error(position.error.message);
-    if (queue.error) throw new Error(queue.error.message);
-    const queueData = queue.data as CodingQueue;
-    if (queueData.error) throw new Error(queueData.error);
-    return { ...(position.data as Payload), queue: queueData };
-  }, []);
+  const { data, loading, error, refetch } =
+    useAsyncData<CodingData>(async () => {
+      const [position, queue] = await Promise.all([
+        supabase.rpc("get_failure_coding_position", {}),
+        supabase.rpc("get_failure_coding_queue", { p_limit: 50 }),
+      ]);
+      if (position.error) throw new Error(position.error.message);
+      if (queue.error) throw new Error(queue.error.message);
+      const queueData = queue.data as CodingQueue;
+      if (queueData.error) throw new Error(queueData.error);
+      return { ...(position.data as Payload), queue: queueData };
+    }, []);
 
   async function submitCoding(item: CodingItem) {
-    if (!mechanismKey || codingNote.trim().length < 10) {
-      setActionError("Select a mechanism and provide an evidence note of at least 10 characters.");
+    const observedAt = new Date(failureObservedAt);
+    if (
+      !mechanismKey ||
+      codingNote.trim().length < 10 ||
+      !failureObservedAt ||
+      Number.isNaN(observedAt.getTime())
+    ) {
+      setActionError(
+        "Select a mechanism, record when the failure was observed, and provide an evidence note of at least 10 characters.",
+      );
       return;
     }
     setSaving(true);
     setActionError(null);
     const { data: result, error: saveError } = await supabase.rpc(
       "code_failure_mechanism",
-      { p_work_order_id: item.workOrderId, p_mechanism_key: mechanismKey, p_note: codingNote.trim() },
+      {
+        p_work_order_id: item.workOrderId,
+        p_mechanism_key: mechanismKey,
+        p_note: codingNote.trim(),
+        p_failure_observed_at: observedAt.toISOString(),
+      },
     );
     setSaving(false);
     if (saveError || (result as { error?: string } | null)?.error) {
@@ -127,6 +144,7 @@ export function FailureCoding() {
     setSelectedWorkOrder(null);
     setMechanismKey("");
     setCodingNote("");
+    setFailureObservedAt("");
     refetch();
   }
 
@@ -139,7 +157,8 @@ export function FailureCoding() {
   const queue = data?.queue?.items ?? [];
   const allMechanisms = data?.queue?.allMechanisms ?? [];
   const mechanismLibraryLimit = data?.queue?.mechanismLibraryLimit ?? 500;
-  const mechanismLibraryTotal = data?.queue?.mechanismLibraryTotal ?? allMechanisms.length;
+  const mechanismLibraryTotal =
+    data?.queue?.mechanismLibraryTotal ?? allMechanisms.length;
 
   return (
     <section aria-labelledby="coding-heading" className="space-y-4">
@@ -264,37 +283,134 @@ export function FailureCoding() {
       ) : (
         <ul className="space-y-2">
           {queue.map((item) => {
-            const candidateKeys = new Set(item.candidates.map((candidate) => candidate.mechanismKey));
+            const candidateKeys = new Set(
+              item.candidates.map((candidate) => candidate.mechanismKey),
+            );
             return (
-              <li key={item.workOrderId} className="rounded-xl border border-white/6 bg-overlook-deep/40 p-3.5">
+              <li
+                key={item.workOrderId}
+                className="rounded-xl border border-white/6 bg-overlook-deep/40 p-3.5"
+              >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <p className="font-medium text-white">{item.workOrderNumber ?? item.workOrderId} · {item.assetTag}</p>
+                    <p className="font-medium text-white">
+                      {item.workOrderNumber ?? item.workOrderId} ·{" "}
+                      {item.assetTag}
+                    </p>
                     <p className="text-sm text-slate-300">{item.title}</p>
-                    <p className="mt-1 text-xs text-slate-500">Source: {item.rawSourceLabel ?? "not recorded"} · System group: {item.systemGroup ?? "not classified"}</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      Source: {item.rawSourceLabel ?? "not recorded"} · System
+                      group: {item.systemGroup ?? "not classified"}
+                    </p>
                   </div>
-                  <button type="button" onClick={() => {
-                    setSelectedWorkOrder(selectedWorkOrder === item.workOrderId ? null : item.workOrderId);
-                    setMechanismKey(item.candidates[0]?.mechanismKey ?? "");
-                    setCodingNote(""); setActionError(null);
-                  }} className="rounded-lg border border-signal-cyan/40 bg-signal-cyan/10 px-3 py-1.5 text-xs font-medium text-signal-cyan hover:bg-signal-cyan/15">
-                    {selectedWorkOrder === item.workOrderId ? "Cancel" : "Code mechanism"}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedWorkOrder(
+                        selectedWorkOrder === item.workOrderId
+                          ? null
+                          : item.workOrderId,
+                      );
+                      setMechanismKey(item.candidates[0]?.mechanismKey ?? "");
+                      setCodingNote("");
+                      setFailureObservedAt("");
+                      setActionError(null);
+                    }}
+                    className="rounded-lg border border-signal-cyan/40 bg-signal-cyan/10 px-3 py-1.5 text-xs font-medium text-signal-cyan hover:bg-signal-cyan/15"
+                  >
+                    {selectedWorkOrder === item.workOrderId
+                      ? "Cancel"
+                      : "Code mechanism"}
                   </button>
                 </div>
                 {selectedWorkOrder === item.workOrderId && (
                   <div className="mt-3 grid gap-3 rounded-lg border border-white/8 bg-black/10 p-3">
-                    <label className="grid gap-1 text-xs text-slate-300">Failure mechanism
-                      <select value={mechanismKey} onChange={(event) => setMechanismKey(event.target.value)} className="rounded-lg border border-white/10 bg-overlook-deep px-3 py-2 text-sm text-white">
+                    <label className="grid gap-1 text-xs text-slate-300">
+                      Failure mechanism
+                      <select
+                        required
+                        value={mechanismKey}
+                        onChange={(event) =>
+                          setMechanismKey(event.target.value)
+                        }
+                        className="rounded-lg border border-white/10 bg-overlook-deep px-3 py-2 text-sm text-white"
+                      >
                         <option value="">Select a governed mechanism</option>
-                        {item.candidates.length > 0 && <optgroup label="Candidate shortlist">{item.candidates.map((option) => <option key={option.mechanismKey} value={option.mechanismKey}>{option.name}</option>)}</optgroup>}
-                        <optgroup label={mechanismLibraryTotal > mechanismLibraryLimit ? `Governed library — first ${mechanismLibraryLimit} of ${mechanismLibraryTotal}` : "Complete governed mechanism library"}>{allMechanisms.filter((option) => !candidateKeys.has(option.mechanismKey)).map((option) => <option key={option.mechanismKey} value={option.mechanismKey}>{option.name}</option>)}</optgroup>
+                        {item.candidates.length > 0 && (
+                          <optgroup label="Candidate shortlist">
+                            {item.candidates.map((option) => (
+                              <option
+                                key={option.mechanismKey}
+                                value={option.mechanismKey}
+                              >
+                                {option.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                        <optgroup
+                          label={
+                            mechanismLibraryTotal > mechanismLibraryLimit
+                              ? `Governed library — first ${mechanismLibraryLimit} of ${mechanismLibraryTotal}`
+                              : "Complete governed mechanism library"
+                          }
+                        >
+                          {allMechanisms
+                            .filter(
+                              (option) =>
+                                !candidateKeys.has(option.mechanismKey),
+                            )
+                            .map((option) => (
+                              <option
+                                key={option.mechanismKey}
+                                value={option.mechanismKey}
+                              >
+                                {option.name}
+                              </option>
+                            ))}
+                        </optgroup>
                       </select>
                     </label>
-                    <label className="grid gap-1 text-xs text-slate-300">Evidence note
-                      <textarea value={codingNote} onChange={(event) => setCodingNote(event.target.value)} rows={2} placeholder="What inspection, teardown, measurement, or report supports this coding?" className="rounded-lg border border-white/10 bg-overlook-deep px-3 py-2 text-sm text-white" />
+                    <label className="grid gap-1 text-xs text-slate-300">
+                      Evidence note
+                      <textarea
+                        required
+                        minLength={10}
+                        value={codingNote}
+                        onChange={(event) => setCodingNote(event.target.value)}
+                        rows={2}
+                        placeholder="What inspection, teardown, measurement, or report supports this coding?"
+                        className="rounded-lg border border-white/10 bg-overlook-deep px-3 py-2 text-sm text-white"
+                      />
                     </label>
-                    {actionError && <p role="alert" className="text-xs text-red-300">{actionError}</p>}
-                    <button type="button" disabled={saving} onClick={() => submitCoding(item)} className="w-fit rounded-lg bg-signal-cyan px-3 py-2 text-xs font-semibold text-overlook-deep disabled:opacity-50">
+                    <label className="grid gap-1 text-xs text-slate-300">
+                      Failure observed at
+                      <input
+                        required
+                        type="datetime-local"
+                        value={failureObservedAt}
+                        onChange={(event) =>
+                          setFailureObservedAt(event.target.value)
+                        }
+                        className="rounded-lg border border-white/10 bg-overlook-deep px-3 py-2 text-sm text-white"
+                      />
+                      <span className="text-[11px] leading-4 text-slate-500">
+                        Use the source event, operator log, alarm, inspection,
+                        or teardown time. Work-order creation and completion are
+                        not substituted.
+                      </span>
+                    </label>
+                    {actionError && (
+                      <p role="alert" className="text-xs text-red-300">
+                        {actionError}
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      disabled={saving}
+                      onClick={() => submitCoding(item)}
+                      className="w-fit rounded-lg bg-signal-cyan px-3 py-2 text-xs font-semibold text-overlook-deep disabled:opacity-50"
+                    >
                       {saving ? "Recording…" : "Record human coding"}
                     </button>
                   </div>

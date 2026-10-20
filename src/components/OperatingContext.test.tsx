@@ -9,6 +9,7 @@ import { OperatingContext } from "./OperatingContext";
 
 const getOperatingContext = vi.fn();
 const getOperatingRegime = vi.fn();
+const getProcessEventContext = vi.fn();
 const listAssetsForContext = vi.fn();
 const rpc = vi.fn();
 
@@ -27,6 +28,8 @@ vi.mock("../services/reliabilityCallers", async () => {
     listAssetsForContext: () => listAssetsForContext(),
     getOperatingContext: (...args: unknown[]) => getOperatingContext(...args),
     getOperatingRegime: (...args: unknown[]) => getOperatingRegime(...args),
+    getProcessEventContext: (...args: unknown[]) =>
+      getProcessEventContext(...args),
   };
 });
 
@@ -74,6 +77,24 @@ beforeEach(() => {
     regime: "Unknown duty",
     basis: "A state record covers this moment but load_pct was not recorded.",
   });
+  getProcessEventContext.mockResolvedValue({
+    asset_id: "a1",
+    window_days: 90,
+    total_in_window: 1,
+    records_total: 1,
+    data_span_from: "2026-08-01T14:02:11Z",
+    data_span_to: "2026-08-01T14:02:11Z",
+    events: [{
+      id: 1,
+      event_type: "trip",
+      severity: "critical",
+      tag: "P101-TRIP",
+      description: "Low suction trip",
+      occurred_at: "2026-08-01T14:02:11Z",
+      source_system: "manual_upload",
+    }],
+    basis: "1 process event falls inside the requested window.",
+  });
 });
 
 describe("OperatingContext per-asset readers", () => {
@@ -102,10 +123,15 @@ describe("OperatingContext per-asset readers", () => {
       expect(getOperatingContext).toHaveBeenCalledWith("a1", 90),
     );
     expect(getOperatingRegime).toHaveBeenCalledWith("a1");
+    expect(getProcessEventContext).toHaveBeenCalledWith("a1", 90);
     expect(await screen.findByTestId("asset-operating-duty")).toHaveTextContent(
       "Unknown duty",
     );
     expect(screen.getByText("running")).toBeInTheDocument();
+    expect(screen.getByText(/Low suction trip/)).toBeInTheDocument();
+    expect(screen.getByTestId("process-event-context")).toHaveTextContent(
+      /not predictive condition alerts/,
+    );
     expect(screen.getByTestId("operating-context-reader")).toHaveTextContent(
       /Silence is not uptime/,
     );

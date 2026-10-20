@@ -21,6 +21,9 @@ import {
   Pencil,
   ArrowUpCircle,
   HardHat,
+  ClipboardList,
+  Link2,
+  CalendarCheck2,
 } from "lucide-react";
 import { motion } from "framer-motion";
 import { ChallengeAIModal } from "../components/ChallengeAIModal";
@@ -35,11 +38,15 @@ import { LiveBadge } from "../components/ui/LiveBadge";
 import { useAuth } from "../components/AuthProvider";
 import { useOnboardingOperatingLoop } from "../hooks/useOnboardingOperatingLoop";
 import { EngineeringModelTracePanel } from "../components/EngineeringModelTracePanel";
+import { RecommendationEvidenceDrawer } from "../components/RecommendationEvidenceDrawer";
+import { RecommendationContractPosturePanel } from "../components/RecommendationContractPosturePanel";
+import { RecommendationAssumptionsDrawer } from "../components/RecommendationAssumptionsDrawer";
+import { RecommendationFailureBasisDrawer } from "../components/RecommendationFailureBasisDrawer";
+import { RecommendationVerificationPlanDrawer } from "../components/RecommendationVerificationPlanDrawer";
 import { FirstRunNextStepStrip } from "../components/help/FirstRunNextStepStrip";
 import { Stage1OperatorRunbook } from "../components/help/Stage1OperatorRunbook";
 import {
   getMissionControl,
-  getEvidence,
   getScenarios,
   approveRecommendation,
   signEngineeringReview,
@@ -48,11 +55,7 @@ import {
   submitChallengeFeedback,
   type RecommendationAction,
 } from "../services/operatingLoopService";
-import type {
-  RecommendationRow,
-  EvidenceItemRow,
-  ScenarioRow,
-} from "../types/operating";
+import type { RecommendationRow, ScenarioRow } from "../types/operating";
 
 const alertLevels: Record<
   string,
@@ -154,85 +157,6 @@ function money(n: number) {
   if (n >= 1_000_000) return `$${(n / 1_000_000).toFixed(1)}M`;
   if (n >= 1_000) return `$${(n / 1_000).toFixed(0)}K`;
   return `$${n}`;
-}
-
-/* ---- Evidence slide-over (real evidence_items) --------------------------- */
-function EvidenceDrawer({
-  rec,
-  onClose,
-}: {
-  rec: RecommendationRow;
-  onClose: () => void;
-}) {
-  const { data, loading, error, refetch } = useAsyncData<EvidenceItemRow[]>(
-    () => getEvidence(rec.id),
-    [rec.id],
-  );
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-md h-full bg-[#0D1520] border-l border-white/8 overflow-y-auto p-5">
-        <div className="flex items-center justify-between mb-1">
-          <h3 className="text-sm font-semibold text-slate-200">Evidence</h3>
-          <button
-            aria-label="Close"
-            onClick={onClose}
-            className="text-slate-400 hover:text-white"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-        <p className="text-xs text-slate-400 mb-4">
-          {rec.title} · {rec.asset?.name ?? "—"}
-        </p>
-        {loading && <LoadingState label="Loading evidence…" />}
-        {error && <ErrorState message={error} onRetry={refetch} />}
-        {!loading && !error && (data?.length ?? 0) === 0 && (
-          <EmptyState message="No evidence recorded for this recommendation." />
-        )}
-        <div className="space-y-3">
-          {(data ?? []).map((e) => (
-            <div
-              key={e.id}
-              className="rounded-xl border border-white/6 bg-black/20 p-3"
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-semibold text-slate-200">
-                  {e.evidence_type}
-                </span>
-                <span className="text-xs font-mono text-teal-400">
-                  +{e.confidence_contribution}% conf
-                </span>
-              </div>
-              <p className="text-xs text-slate-400 mt-1">{e.description}</p>
-              <div className="grid grid-cols-2 gap-x-4 gap-y-1 mt-2 text-xs text-slate-400">
-                <div>
-                  Source:{" "}
-                  <span className="text-slate-400">{e.source_system}</span>
-                </div>
-                <div>
-                  Data quality:{" "}
-                  <span className="text-slate-400">{e.data_quality}</span>
-                </div>
-                <div>
-                  Related asset:{" "}
-                  <span className="text-slate-400">
-                    {e.related_asset ?? rec.asset?.name}
-                  </span>
-                </div>
-                <div>
-                  Captured:{" "}
-                  <span className="text-slate-400">
-                    {new Date(e.ts).toLocaleString()}
-                  </span>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 /* ---- Scenario comparison modal (real scenarios) -------------------------- */
@@ -352,9 +276,14 @@ function RecommendationCard({
   rec,
   busy,
   canAct,
+  expanded,
+  onToggle,
   onApprove,
   onAction,
   onEvidence,
+  onAssumptions,
+  onFailureBasis,
+  onVerificationPlan,
   onScenarios,
   onChallenge,
   onCreateWO,
@@ -363,18 +292,22 @@ function RecommendationCard({
   rec: RecommendationRow;
   busy: boolean;
   canAct: boolean;
+  expanded: boolean;
+  onToggle: () => void;
   onApprove: (r: RecommendationRow) => void;
   onAction: (
     r: RecommendationRow,
     a: Exclude<RecommendationAction, "approved">,
   ) => void;
   onEvidence: (r: RecommendationRow) => void;
+  onAssumptions: (r: RecommendationRow) => void;
+  onFailureBasis: (r: RecommendationRow) => void;
+  onVerificationPlan: (r: RecommendationRow) => void;
   onScenarios: (r: RecommendationRow) => void;
   onChallenge: (r: RecommendationRow) => void;
   onCreateWO: (r: RecommendationRow) => void;
   onSign: (r: RecommendationRow, note: string) => void;
 }) {
-  const [expanded, setExpanded] = useState(false);
   const [signNote, setSignNote] = useState("");
   const level = alertLevels[rec.urgency] ?? alertLevels.advisory;
   const autonomous = (rec.approval_required ?? "")
@@ -385,10 +318,7 @@ function RecommendationCard({
       layout
       className={`border ${level.border} ${level.bg} rounded-xl p-4`}
     >
-      <div
-        className="flex items-start gap-3 cursor-pointer"
-        onClick={() => setExpanded(!expanded)}
-      >
+      <div className="flex items-start gap-3 cursor-pointer" onClick={onToggle}>
         <div
           className={`mt-2 w-2 h-2 rounded-full ${level.dot} shrink-0 animate-pulse`}
         />
@@ -519,6 +449,24 @@ function RecommendationCard({
               <Eye className="w-3 h-3" /> Evidence
             </button>
             <button
+              onClick={() => onAssumptions(rec)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
+            >
+              <ClipboardList className="w-3 h-3" /> Assumptions
+            </button>
+            <button
+              onClick={() => onFailureBasis(rec)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
+            >
+              <Link2 className="w-3 h-3" /> Failure / risk basis
+            </button>
+            <button
+              onClick={() => onVerificationPlan(rec)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
+            >
+              <CalendarCheck2 className="w-3 h-3" /> Verification plan
+            </button>
+            <button
               onClick={() => onScenarios(rec)}
               className="flex items-center gap-1.5 px-3 py-1.5 bg-white/4 border border-white/8 text-slate-400 text-xs rounded-lg hover:bg-white/8"
             >
@@ -594,6 +542,21 @@ const RECOMMENDATION_ACT_ROLES = new Set([
   "operator",
 ]);
 
+const EVIDENCE_GOVERNANCE_ROLES = new Set([
+  "admin",
+  "executive",
+  "maintenance_manager",
+  "reliability_engineer",
+]);
+
+const VERIFICATION_PLAN_ROLES = new Set([
+  "admin",
+  "executive",
+  "maintenance_manager",
+  "reliability_engineer",
+  "planner",
+]);
+
 const ROLE_LABEL: Record<string, string> = {
   executive: "Executive",
   maintenance_manager: "Maintenance Manager",
@@ -604,9 +567,13 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 export function MissionControl() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const role = (profile?.role as string) ?? "reliability_engineer";
   const canAct = RECOMMENDATION_ACT_ROLES.has(role);
+  const canGovernEvidence =
+    profile !== null && EVIDENCE_GOVERNANCE_ROLES.has(role);
+  const canPlanVerification =
+    profile !== null && VERIFICATION_PLAN_ROLES.has(role);
   const { missionSignals } = useOnboardingOperatingLoop();
   const { data, loading, error, refetch } = useAsyncData(
     () => getMissionControl(),
@@ -620,6 +587,13 @@ export function MissionControl() {
   const [evidenceRec, setEvidenceRec] = useState<RecommendationRow | null>(
     null,
   );
+  const [assumptionRec, setAssumptionRec] = useState<RecommendationRow | null>(
+    null,
+  );
+  const [failureBasisRec, setFailureBasisRec] =
+    useState<RecommendationRow | null>(null);
+  const [verificationPlanRec, setVerificationPlanRec] =
+    useState<RecommendationRow | null>(null);
   const [scenarioRec, setScenarioRec] = useState<RecommendationRow | null>(
     null,
   );
@@ -628,6 +602,19 @@ export function MissionControl() {
   );
   const [busyId, setBusyId] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  // Data refresh temporarily unmounts cards. Keep the user's expansion choices
+  // here so saving evidence or a verification plan does not hide the next action.
+  const [expandedRecIds, setExpandedRecIds] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const toggleRecommendation = useCallback((id: string) => {
+    setExpandedRecIds((previous) => {
+      const next = new Set(previous);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
 
   const flash = useCallback((msg: string) => {
     setToast(msg);
@@ -835,6 +822,8 @@ export function MissionControl() {
             })}
           </div>
 
+          <RecommendationContractPosturePanel />
+
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             <div className="bg-[#0D1520] border border-white/6 rounded-2xl p-6">
               <h2 className="text-sm font-semibold text-slate-200 flex items-center gap-2 mb-4">
@@ -891,10 +880,15 @@ export function MissionControl() {
                     rec={rec}
                     busy={busyId === rec.id}
                     canAct={canAct}
+                    expanded={expandedRecIds.has(rec.id)}
+                    onToggle={() => toggleRecommendation(rec.id)}
                     onApprove={handleApprove}
                     onAction={handleAction}
                     onSign={handleSignEngineering}
                     onEvidence={setEvidenceRec}
+                    onAssumptions={setAssumptionRec}
+                    onFailureBasis={setFailureBasisRec}
+                    onVerificationPlan={setVerificationPlanRec}
                     onScenarios={setScenarioRec}
                     onChallenge={setChallengeRec}
                     onCreateWO={handleCreateWO}
@@ -994,9 +988,34 @@ export function MissionControl() {
       )}
 
       {evidenceRec && (
-        <EvidenceDrawer
+        <RecommendationEvidenceDrawer
           rec={evidenceRec}
+          currentUserId={user?.id ?? null}
+          canGovern={canGovernEvidence}
           onClose={() => setEvidenceRec(null)}
+        />
+      )}
+      {assumptionRec && (
+        <RecommendationAssumptionsDrawer
+          rec={assumptionRec}
+          canGovern={canGovernEvidence}
+          onClose={() => setAssumptionRec(null)}
+        />
+      )}
+      {failureBasisRec && (
+        <RecommendationFailureBasisDrawer
+          rec={failureBasisRec}
+          canGovern={canGovernEvidence}
+          onClose={() => setFailureBasisRec(null)}
+        />
+      )}
+      {verificationPlanRec && (
+        <RecommendationVerificationPlanDrawer
+          recommendationId={verificationPlanRec.id}
+          recommendationTitle={verificationPlanRec.title}
+          canGovern={canPlanVerification}
+          onSaved={refetch}
+          onClose={() => setVerificationPlanRec(null)}
         />
       )}
       {scenarioRec && (
