@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import fs from "node:fs";
 import path from "node:path";
+import { stripComments } from "./support/migrationPolicies";
 
 const root = process.cwd();
 const migration = fs.readFileSync(
@@ -16,9 +17,7 @@ describe("C8.08 production-window schedule feasibility contract", () => {
     expect(migration).toContain(
       "create or replace function public.evaluate_schedule_feasibility",
     );
-    expect(migration).toMatch(
-      /join public\.operational_constraint_signals s/,
-    );
+    expect(migration).toMatch(/join public\.operational_constraint_signals s/);
     expect(migration).toContain("s.signal_kind = 'production'");
     expect(migration).toContain("from public.work_orders w");
     expect(migration).not.toMatch(
@@ -40,9 +39,7 @@ describe("C8.08 production-window schedule feasibility contract", () => {
     expect(migration).toContain(
       "order by c.scope_rank desc, c.observed_at desc, c.signal_id desc",
     );
-    expect(migration).toContain(
-      "partition by c.work_order_id, c.signal_key",
-    );
+    expect(migration).toContain("partition by c.work_order_id, c.signal_key");
   });
 
   it("never promotes missing, unknown, stale or partial evidence to a pass", () => {
@@ -65,15 +62,9 @@ describe("C8.08 production-window schedule feasibility contract", () => {
 
   it("keeps the production decision advisory and human-acknowledged", () => {
     expect(migration).toContain("'mayReleaseSchedule', false");
-    expect(migration).toContain(
-      "'mayApproveProductionInterruption', false",
-    );
-    expect(migration).toContain(
-      "'requiresHumanWarningAcknowledgement', true",
-    );
-    expect(migration).toContain(
-      "and not p_acknowledge_warnings",
-    );
+    expect(migration).toContain("'mayApproveProductionInterruption', false");
+    expect(migration).toContain("'requiresHumanWarningAcknowledgement', true");
+    expect(migration).toContain("and not p_acknowledge_warnings");
     expect(migration).toContain(
       "grant execute on function public.release_schedule_option(uuid, boolean)",
     );
@@ -139,5 +130,95 @@ describe("C8.08 production-window schedule feasibility contract", () => {
     expect(migration).toContain(
       "where c.value->>'constraint' <> 'Production window'",
     );
+  });
+});
+
+const DROP_MIGRATION = "20271020101000_drop_legacy_release_schedule_option.sql";
+const LEGACY_DROP =
+  "DROP FUNCTION IF EXISTS public.release_schedule_option(uuid);";
+
+type ReleaseSignature = "uuid" | "uuid_boolean";
+
+function classifyReleaseSignature(args: string): ReleaseSignature {
+  const normalized = args.replace(/\s+/g, " ").trim().toLowerCase();
+  const uuidCount = normalized.match(/\buuid\b/g)?.length ?? 0;
+  const hasBoolean = /\bboolean\b/.test(normalized);
+  if (uuidCount === 1 && hasBoolean) return "uuid_boolean";
+  if (uuidCount === 1 && !hasBoolean) return "uuid";
+  throw new Error(`Unrecognized release_schedule_option signature: ${args}`);
+}
+
+/**
+ * Replay create/drop of release_schedule_option in filename order. Later
+ * statements win, which is the chain a fresh database actually applies.
+ */
+function replayReleaseOverloads(): Record<ReleaseSignature, boolean> {
+  const dir = path.join(root, "supabase/migrations");
+  const files = fs
+    .readdirSync(dir)
+    .filter((name) => name.endsWith(".sql"))
+    .sort();
+  const live: Record<ReleaseSignature, boolean> = {
+    uuid: false,
+    uuid_boolean: false,
+  };
+  const pattern =
+    /\b(?:create\s+(?:or\s+replace\s+)?function|drop\s+function(?:\s+if\s+exists)?)\s+(?:public\.)?release_schedule_option\s*\(([\s\S]*?)\)/gi;
+
+  for (const file of files) {
+    const sql = stripComments(fs.readFileSync(path.join(dir, file), "utf8"));
+    const events = [...sql.matchAll(pattern)]
+      .map((match) => ({
+        index: match.index ?? 0,
+        kind: /^create/i.test(match[0])
+          ? ("create" as const)
+          : ("drop" as const),
+        signature: classifyReleaseSignature(match[1] ?? ""),
+      }))
+      .sort((a, b) => a.index - b.index);
+    for (const event of events) {
+      live[event.signature] = event.kind === "create";
+    }
+  }
+  return live;
+}
+
+describe("legacy release_schedule_option(uuid) overload", () => {
+  const dropSql = fs.readFileSync(
+    path.join(root, "supabase/migrations", DROP_MIGRATION),
+    "utf8",
+  );
+
+  it("is removed by a migration that sorts after the pending knowledge-graph head", () => {
+    expect(DROP_MIGRATION.startsWith("20271020101000")).toBe(true);
+    expect("20271020101000" > "20271020100800").toBe(true);
+    expect(dropSql).toContain(LEGACY_DROP);
+    expect(
+      dropSql.match(
+        /DROP FUNCTION IF EXISTS public\.release_schedule_option\(uuid\);/g,
+      ),
+    ).toEqual([LEGACY_DROP]);
+  });
+
+  it("does not replace, drop, or regrant the governed two-argument door", () => {
+    const executable = stripComments(dropSql);
+    expect(executable).not.toMatch(
+      /create\s+(?:or\s+replace\s+)?function\s+(?:public\.)?release_schedule_option/i,
+    );
+    expect(executable).not.toMatch(
+      /release_schedule_option\s*\(\s*uuid\s*,\s*boolean\s*\)/i,
+    );
+    expect(executable).not.toMatch(/\b(?:grant|revoke)\b/i);
+    expect(migration).toMatch(/coalesce\(v_role,\s*''\)\s*=\s*'ai_admin'/);
+    expect(migration).toContain(
+      "coalesce(v_role, '') not in ('planner', 'maintenance_manager', 'admin')",
+    );
+  });
+
+  it("leaves only release_schedule_option(uuid, boolean) in the migration chain", () => {
+    expect(replayReleaseOverloads()).toEqual({
+      uuid: false,
+      uuid_boolean: true,
+    });
   });
 });

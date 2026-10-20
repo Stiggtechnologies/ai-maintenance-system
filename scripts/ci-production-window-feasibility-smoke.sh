@@ -133,12 +133,15 @@ noerr "$RELEASED"
 test "$(jqp "$RELEASED" "x['released']")" = "$OPT"
 test "$(psqlc "select status from public.schedule_options where id='$OPT'")" = "released"
 
-# The obsolete one-argument release overload has no executable privilege, so
-# it cannot bypass feasibility even though its historical definition remains.
-# Function ACLs are granted to the shared Postgres `authenticated` role; the
-# planner UUID is an auth subject, not a database role accepted by
-# has_function_privilege().
-test "$(psqlc "select has_function_privilege('authenticated','public.release_schedule_option(uuid)','EXECUTE')")" = "f"
+# The obsolete one-argument release overload is dropped, so it cannot resolve
+# a one-argument call or be re-granted. Absence is the check: a privilege
+# probe errors once the function is gone and must not be skipped. The governed
+# door stays release_schedule_option(uuid, boolean), executable by the shared
+# Postgres `authenticated` role. The planner UUID is an auth subject, not a
+# database role accepted by has_function_privilege().
+test "$(psqlc "select to_regprocedure('public.release_schedule_option(uuid)') is null")" = "t"
+test "$(psqlc "select to_regprocedure('public.release_schedule_option(uuid, boolean)') is not null")" = "t"
+test "$(psqlc "select has_function_privilege('authenticated','public.release_schedule_option(uuid, boolean)','EXECUTE')")" = "t"
 test "$(psqlc "select has_function_privilege('authenticated','public.evaluate_schedule_feasibility_core_20261212(uuid)','EXECUTE')")" = "f"
 
 echo 'C8.08 production-window feasibility smoke passed: canonical_feed=true tenant_wall=true scope_precedence=true full_week_only=true unknown_visible=true warning_ack=true bypass_closed=true ai_admin_refused=true'
