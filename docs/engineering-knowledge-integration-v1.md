@@ -34,7 +34,7 @@ The existing vector stores and RAG functions remain the retrieval infrastructure
 ## Next slices
 
 1. Persist document-to-engineering mappings with organization-scoped RLS. **Done (2026-10-20).** `persist_document_engineering_mappings` stores canonical entity references on the existing `engineering_knowledge_mappings` table for the caller's organization. `ai_admin` may draft a mapping and cannot approve or supersede one; changing an approved mapping requires an explicit reason. A mapping does not grant permission, work release, or approval.
-2. Add hybrid retrieval using semantic similarity plus canonical metadata filters.
+2. Add hybrid retrieval using semantic similarity plus canonical metadata filters. **Done (2026-10-20).** `retrieve_engineering_knowledge_hybrid` ranks the canonical `reliability_kb_chunks` corpus by lexical rank and optional cosine similarity, then keeps rows whose approved mapping matches the requested canonical id or asset class. Index scans are disabled only for that query, and the caller's previous planner settings are restored. A hit does not grant permission, work release, or approval.
 3. Add conflict and supersession detection.
 4. Backfill relationships from compiled twins and existing knowledge chunks.
 5. Implement failure-propagation and detection-path graph queries. **Done (2026-10-20).** `query_failure_detection_paths` walks `may_fail_by`, `detected_by`, `verified_by`, `resulted_in`, `composed_of`, `contains`, and `supported_by` inside the caller organization. Rejected and superseded edges are skipped, depth is capped, and a cycle stops instead of repeating. The response names canonical ids and review state. It does not invent a propagation probability, and it does not grant permission, work release, or approval.
