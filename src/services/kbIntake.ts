@@ -18,6 +18,20 @@ export interface KbIntakeDocument {
   page_count: number | null;
   uploaded_at: string;
   error_message: string | null;
+  security_status: "cleared" | "quarantined" | "released" | "rejected";
+  security_findings: Array<{
+    chunkIndex: number;
+    signals: Array<{
+      signal: string;
+      severity: "warning" | "critical";
+      explanation: string;
+    }>;
+  }>;
+  security_scan_version: string;
+  security_scanned_at: string | null;
+  security_reviewed_by: string | null;
+  security_reviewed_at: string | null;
+  security_review_basis: string | null;
 }
 
 export interface KbDocumentClass {
@@ -44,17 +58,49 @@ export interface IngestResult {
   document_class: string;
   chunks_created: number;
   status: string;
+  security_status: "cleared" | "quarantined" | "released" | "rejected";
+  security_findings_count: number;
 }
 
 export async function listKbIntakeDocuments(): Promise<KbIntakeDocument[]> {
   const { data, error } = await supabase
     .from("kb_intake_documents")
     .select(
-      "id, source_id, title, document_class, document_type, original_filename, status, chunk_count, page_count, uploaded_at, error_message",
+      "id, source_id, title, document_class, document_type, original_filename, status, chunk_count, page_count, uploaded_at, error_message, security_status, security_findings, security_scan_version, security_scanned_at, security_reviewed_by, security_reviewed_at, security_review_basis",
     )
     .order("uploaded_at", { ascending: false });
   if (error) throw new Error(error.message);
   return (data ?? []) as KbIntakeDocument[];
+}
+
+export interface ReviewKbDocumentSecurityResult {
+  sourceId: string;
+  securityStatus: "released" | "rejected";
+  chunksReviewed: number;
+  retrievable: boolean;
+  segregationOfDuties: boolean;
+  engineeringAuthority: false;
+}
+
+export async function reviewKbDocumentSecurity(
+  sourceId: string,
+  decision: "release" | "reject",
+  basis: string,
+): Promise<ReviewKbDocumentSecurityResult> {
+  const { data, error } = await supabase.rpc("review_kb_document_security", {
+    p_source_id: sourceId,
+    p_decision: decision,
+    p_basis: basis,
+  });
+  if (error) throw new Error(error.message);
+  if (
+    data &&
+    typeof data === "object" &&
+    "error" in (data as Record<string, unknown>)
+  ) {
+    throw new Error(String((data as Record<string, unknown>).error));
+  }
+  return data as ReviewKbDocumentSecurityResult;
 }
 
 export async function listKbDocumentClasses(): Promise<KbDocumentClass[]> {

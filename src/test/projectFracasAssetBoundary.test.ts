@@ -41,13 +41,20 @@ describe("project FRACAS must not enter asset effectiveness", () => {
   });
   it("refuses project records through both legacy asset mutation paths", () => {
     for (const name of ["attest_ca_stage", "screen_similar_assets"]) {
-      expect(latestFunction(name)).toContain("if v.project_lesson_id is not null then");
+      expect(latestFunction(name)).toContain(
+        "if v.project_lesson_id is not null then",
+      );
     }
   });
   it("starts closure with a tenant-bound human and one audited source", () => {
     const body = latestFunction("start_project_ca_verification");
-    expect(body).toContain("id = v_actor and organization_id = v_org");
-    expect(body).toContain("id = p_lesson_id and organization_id = v_org for update");
+    expect(body).toMatch(
+      /id\s*=\s*v_actor\s+and\s+organization_id\s*=\s*v_org/i,
+    );
+    expect(body).toContain("pg_advisory_xact_lock");
+    expect(body).toMatch(
+      /id\s*=\s*p_lesson_id\s+and\s+organization_id\s*=\s*v_org\s+for\s+share/i,
+    );
     expect(body).toContain("on conflict (project_lesson_id)");
     expect(body).toContain("'actorId',v_actor");
     expect(body).toContain("insert into public.audit_events");

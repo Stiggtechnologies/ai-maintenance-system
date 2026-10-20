@@ -159,6 +159,12 @@ describe("ApplicableLessonsBanner", () => {
   it("opens the governed agent result from the case header", async () => {
     render(<ApplicableLessonsBanner caseId="target-case" />);
 
+    expect(
+      await screen.findByRole("link", {
+        name: "Open source project closure for Freeze vendor data before IFC issue",
+      }),
+    ).toHaveAttribute("href", "/develop/cases/source-case#realize");
+
     const button = await screen.findByRole("button", {
       name: "Run Lessons Agent",
     });
@@ -179,28 +185,39 @@ describe("ApplicableLessonsBanner", () => {
   it("surfaces the three additional project-start knowledge families", async () => {
     render(<ApplicableLessonsBanner caseId="target-case" />);
 
-    expect(await screen.findByText("Project-start knowledge")).toBeInTheDocument();
+    expect(
+      await screen.findByText("Project-start knowledge"),
+    ).toBeInTheDocument();
     expect(screen.getByText("Historical estimates · 1")).toBeInTheDocument();
-    expect(screen.getByText(/Compressor upgrade: CAD 1,000,000 baseline/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Compressor upgrade: CAD 1,000,000 baseline/),
+    ).toBeInTheDocument();
     expect(screen.getByText("Measured vendor records · 1")).toBeInTheDocument();
     expect(screen.getByText("Measured Fabrication Ltd.")).toBeInTheDocument();
     expect(screen.getByText("Startup problems · 1")).toBeInTheDocument();
     expect(screen.getByText(/Seal failure at first start/)).toBeInTheDocument();
-    expect(
-      screen.getByText(/does not authorize work/i),
-    ).toBeInTheDocument();
+    expect(screen.getByText(/does not authorize work/i)).toBeInTheDocument();
   });
   it("shows adopted revision provenance without treating a match as authorization", async () => {
     const payload = await screenApplicableProjectLessons("target-case");
     payload.lessons[0].adoptedStandard = {
-      id: 7, workKey: "vendor-review", version: 2, title: "Vendor review procedure",
-      changeSummary: "Add acceptance owners before IFC release", approvalId: "approval-7",
-      adoptedAt: "2026-09-29T00:00:00Z", adoptedBy: "reviewer-2",
+      id: 7,
+      workKey: "vendor-review",
+      version: 2,
+      title: "Vendor review procedure",
+      changeSummary: "Add acceptance owners before IFC release",
+      approvalId: "approval-7",
+      adoptedAt: "2026-09-29T00:00:00Z",
+      adoptedBy: "reviewer-2",
     };
     vi.mocked(screenApplicableProjectLessons).mockResolvedValue(payload);
     render(<ApplicableLessonsBanner caseId="target-case" />);
-    expect(await screen.findByText(/Adopted standard: Vendor review procedure/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/Adopted standard: Vendor review procedure/),
+    ).toBeInTheDocument();
     expect(screen.getByText(/Approved by reviewer-2/)).toBeInTheDocument();
-    expect(screen.getByText(/A match does not authorize work or prove prevention/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/A match does not authorize work or prove prevention/),
+    ).toBeInTheDocument();
   });
 });

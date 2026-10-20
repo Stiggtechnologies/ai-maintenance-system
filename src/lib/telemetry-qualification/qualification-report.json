@@ -1,0 +1,220 @@
+[
+  {
+    "contractVersion": "syncai-telemetry-qualification-v1",
+    "replayVersion": "synthetic-replay-v1",
+    "synthetic": true,
+    "operationalAuthorization": false,
+    "label": "normal",
+    "asOf": "2026-01-01T00:10:00.000Z",
+    "rows": [
+      {
+        "outcome": "valid",
+        "reasons": ["contract_satisfied"],
+        "sourceId": "sample-1",
+        "kind": "measured_observation",
+        "qualifiedValue": 2
+      },
+      {
+        "outcome": "valid",
+        "reasons": ["contract_satisfied"],
+        "sourceId": "sample-2",
+        "kind": "measured_observation",
+        "qualifiedValue": 2
+      }
+    ],
+    "confidenceMeaning": "No predictive performance measured; scores are uncalibrated model assertions."
+  },
+  {
+    "contractVersion": "syncai-telemetry-qualification-v1",
+    "replayVersion": "synthetic-replay-v1",
+    "synthetic": true,
+    "operationalAuthorization": false,
+    "label": "degraded",
+    "asOf": "2026-01-01T00:10:00.000Z",
+    "rows": [
+      {
+        "outcome": "valid",
+        "reasons": ["contract_satisfied"],
+        "sourceId": "sample-1",
+        "kind": "measured_observation",
+        "qualifiedValue": 2
+      },
+      {
+        "outcome": "valid",
+        "reasons": ["contract_satisfied"],
+        "sourceId": "sample-2",
+        "kind": "measured_observation",
+        "qualifiedValue": 4
+      },
+      {
+        "outcome": "valid",
+        "reasons": ["contract_satisfied"],
+        "sourceId": "sample-3",
+        "kind": "measured_observation",
+        "qualifiedValue": 6
+      }
+    ],
+    "confidenceMeaning": "No predictive performance measured; scores are uncalibrated model assertions."
+  },
+  {
+    "contractVersion": "syncai-telemetry-qualification-v1",
+    "replayVersion": "synthetic-replay-v1",
+    "synthetic": true,
+    "operationalAuthorization": false,
+    "label": "sensor_dropout",
+    "asOf": "2026-01-01T00:10:00.000Z",
+    "rows": [
+      {
+        "outcome": "valid",
+        "reasons": ["contract_satisfied"],
+        "sourceId": "sample-1",
+        "kind": "measured_observation",
+        "qualifiedValue": 2
+      },
+      {
+        "outcome": "unknown",
+        "reasons": ["sensor_dropout"],
+        "sourceId": "sample-2",
+        "kind": "measured_observation",
+        "qualifiedValue": null
+      }
+    ],
+    "confidenceMeaning": "No predictive performance measured; scores are uncalibrated model assertions."
+  },
+  {
+    "contractVersion": "syncai-telemetry-qualification-v1",
+    "replayVersion": "synthetic-replay-v1",
+    "synthetic": true,
+    "operationalAuthorization": false,
+    "label": "contradictory",
+    "asOf": "2026-01-01T00:10:00.000Z",
+    "rows": [
+      {
+        "outcome": "quarantined",
+        "reasons": ["contradictory_same_time"],
+        "sourceId": "sample-1",
+        "kind": "measured_observation",
+        "qualifiedValue": null
+      },
+      {
+        "outcome": "quarantined",
+        "reasons": ["contradictory_same_time"],
+        "sourceId": "sample-2",
+        "kind": "measured_observation",
+        "qualifiedValue": null
+      }
+    ],
+    "confidenceMeaning": "No predictive performance measured; scores are uncalibrated model assertions."
+  },
+  {
+    "contractVersion": "syncai-telemetry-qualification-v1",
+    "replayVersion": "synthetic-replay-v1",
+    "synthetic": true,
+    "operationalAuthorization": false,
+    "label": "late",
+    "asOf": "2026-01-01T00:10:00.000Z",
+    "rows": [
+      {
+        "outcome": "quarantined",
+        "reasons": ["late_reading"],
+        "sourceId": "sample-1",
+        "kind": "measured_observation",
+        "qualifiedValue": null
+      }
+    ],
+    "confidenceMeaning": "No predictive performance measured; scores are uncalibrated model assertions."
+  },
+  {
+    "contractVersion": "syncai-telemetry-qualification-v1",
+    "replayVersion": "synthetic-replay-v1",
+    "synthetic": true,
+    "operationalAuthorization": false,
+    "label": "out_of_order",
+    "asOf": "2026-01-01T00:10:00.000Z",
+    "rows": [
+      {
+        "outcome": "valid",
+        "reasons": ["contract_satisfied"],
+        "sourceId": "sample-2",
+        "kind": "measured_observation",
+        "qualifiedValue": 4
+      },
+      {
+        "outcome": "quarantined",
+        "reasons": ["out_of_order"],
+        "sourceId": "sample-1",
+        "kind": "measured_observation",
+        "qualifiedValue": null
+      }
+    ],
+    "confidenceMeaning": "No predictive performance measured; scores are uncalibrated model assertions."
+  },
+  {
+    "contractVersion": "syncai-telemetry-qualification-v1",
+    "replayVersion": "synthetic-replay-v1",
+    "synthetic": true,
+    "operationalAuthorization": false,
+    "label": "duplicate",
+    "asOf": "2026-01-01T00:10:00.000Z",
+    "rows": [
+      {
+        "outcome": "valid",
+        "reasons": ["contract_satisfied"],
+        "sourceId": "sample-1",
+        "kind": "measured_observation",
+        "qualifiedValue": 2
+      },
+      {
+        "outcome": "duplicate",
+        "reasons": ["same_content_id"],
+        "sourceId": "sample-1",
+        "kind": "measured_observation",
+        "qualifiedValue": null
+      }
+    ],
+    "confidenceMeaning": "No predictive performance measured; scores are uncalibrated model assertions."
+  },
+  {
+    "contractVersion": "syncai-telemetry-qualification-v1",
+    "replayVersion": "synthetic-replay-v1",
+    "synthetic": true,
+    "operationalAuthorization": false,
+    "label": "conflicting_duplicate",
+    "asOf": "2026-01-01T00:10:00.000Z",
+    "rows": [
+      {
+        "outcome": "quarantined",
+        "reasons": ["conflicting_content_id", "contradictory_same_time"],
+        "sourceId": "sample-1",
+        "kind": "measured_observation",
+        "qualifiedValue": null
+      },
+      {
+        "outcome": "quarantined",
+        "reasons": ["conflicting_content_id", "contradictory_same_time"],
+        "sourceId": "sample-1",
+        "kind": "measured_observation",
+        "qualifiedValue": null
+      }
+    ],
+    "confidenceMeaning": "No predictive performance measured; scores are uncalibrated model assertions."
+  },
+  {
+    "contractVersion": "syncai-telemetry-qualification-v1",
+    "replayVersion": "synthetic-replay-v1",
+    "synthetic": true,
+    "operationalAuthorization": false,
+    "label": "misconfigured",
+    "asOf": "2026-01-01T00:10:00.000Z",
+    "rows": [
+      {
+        "outcome": "quarantined",
+        "reasons": ["unit_mismatch"],
+        "sourceId": "sample-1",
+        "kind": "measured_observation",
+        "qualifiedValue": null
+      }
+    ],
+    "confidenceMeaning": "No predictive performance measured; scores are uncalibrated model assertions."
+  }
+]

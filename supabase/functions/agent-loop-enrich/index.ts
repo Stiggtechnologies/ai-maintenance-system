@@ -31,6 +31,7 @@ import {
   callWithResilience,
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
+import { withDataEgressGuard } from "../_shared/data-egress-guard.ts";
 import {
   callWithCommercialBoundary,
   estimateLlmCallTokens,
@@ -199,6 +200,8 @@ Deno.serve(async (req) => {
       })
     : fetch;
   if (path.endsWith("/probe")) {
+    // DLP EXEMPT: fixed deployment-connectivity literal only. No tenant row,
+    // asset data or user content has been read at this point.
     const probe = await callWithResilience(providerFetch, [providers[0]], {
       systemPrompt:
         "Return the single word ready. This is a deployment connectivity probe; do not provide engineering advice.",
@@ -249,6 +252,12 @@ Deno.serve(async (req) => {
 
   for (const rec of recs) {
     try {
+      const guardedFetch = withDataEgressGuard(providerFetch, supabase, {
+        organizationId: rec.organization_id,
+        dataClass: "operational",
+        purpose: "agent_enrichment",
+        serviceLabel: "agent-loop-enrich",
+      });
       const systemPrompt =
         "You are a senior reliability engineer for asset-intensive industry. " +
         "Given a condition-monitoring finding, return strict JSON: " +
@@ -267,7 +276,7 @@ Deno.serve(async (req) => {
       // terminal usage/model metadata does not apply an enrichment.
       const commercial = await callWithCommercialBoundary(
         (functionName, args) => supabase.rpc(functionName, args),
-        providerFetch,
+        guardedFetch,
         providers,
         providerOptions,
         {
