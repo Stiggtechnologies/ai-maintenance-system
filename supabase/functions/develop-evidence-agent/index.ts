@@ -31,6 +31,7 @@ import {
   buildProviderChain,
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
+import { withDataEgressGuard } from "../_shared/data-egress-guard.ts";
 import {
   callWithCommercialBoundary,
   estimateLlmCallTokens,
@@ -314,6 +315,11 @@ Deno.serve(async (req: Request) => {
       analysis,
       kbCitations,
     });
+    const guardedFetch = withDataEgressGuard(fetch, caller, {
+      dataClass: "safety_critical",
+      purpose: "model_inference",
+      serviceLabel: "develop-evidence-agent",
+    });
     const providerOptions = {
       systemPrompt: prompts.systemPrompt,
       userContent: prompts.userContent,
@@ -322,7 +328,7 @@ Deno.serve(async (req: Request) => {
     };
     const commercial = await callWithCommercialBoundary(
       (functionName, args) => admin.rpc(functionName, args),
-      fetch,
+      guardedFetch,
       providers,
       providerOptions,
       {

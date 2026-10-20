@@ -2,7 +2,7 @@
   "baselineId": "RE-2026.08",
   "qualificationLevel": "RE-Q4 Baseline Candidate",
   "frozenFromMainCommit": "7c465f0e911226cf0d886f6412050297ecc66757",
-  "promptVersion": "syncai-reliability-engineer-v4",
+  "promptVersion": "syncai-reliability-engineer-v5",
   "purpose": "Permanent non-regression floor for the Reliability Engineer behavior judged production-worthy in August 2026.",
   "policy": {
     "accidentalDriftAllowed": false,
@@ -20,12 +20,12 @@
   "protectedArtifacts": [
     {
       "path": "supabase/functions/_shared/reliability-engineer-core.ts",
-      "gitBlobSha": "8afa8deeb842f940a3d361735f4d71b22f6cc8f5",
+      "gitBlobSha": "b1e69212367fba56bfe61632224c09393d002708",
       "role": "canonical methodology and evidence/safety contract"
     },
     {
       "path": "supabase/functions/_shared/reliability-engineer-request.ts",
-      "gitBlobSha": "58cc069f7820918208b0e4f5adc00ceff016ac8e",
+      "gitBlobSha": "c42e77013b6922099d6be565f0181a86f6cbdb39",
       "role": "request depth, subject boundary, onboarding success contract and specialist dispatch"
     },
     {
@@ -40,7 +40,7 @@
     },
     {
       "path": "supabase/functions/ai-agent-processor/index.ts",
-      "gitBlobSha": "60006d84b12b3902086f40fa587b5f8b09199be5",
+      "gitBlobSha": "5d022c8cdd10257aa11737b8aa664adeb74198ed",
       "role": "authenticated ReliabilityAgent model tier, gateway, quota, retrieval and audit path"
     },
     {

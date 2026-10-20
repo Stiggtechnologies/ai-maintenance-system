@@ -9,6 +9,12 @@ const register = vi.fn();
 vi.mock("../components/AuthProvider", () => ({
   useAuth: () => ({ profile: { role } }),
 }));
+vi.mock("../components/ModelPerformanceMonitoringPanel", () => ({
+  ModelPerformanceMonitoringPanel: () => <div>Model monitoring workspace</div>,
+}));
+vi.mock("../components/DegradationLibraryPanel", () => ({
+  DegradationLibraryPanel: () => <div>Degradation library workspace</div>,
+}));
 vi.mock("../services/engineeringModelService", async () => {
   const actual = await vi.importActual<
     typeof import("../services/engineeringModelService")

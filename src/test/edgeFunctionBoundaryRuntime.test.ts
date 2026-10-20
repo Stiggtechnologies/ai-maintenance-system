@@ -88,8 +88,19 @@ describe("Edge deployment checker runtime compatibility", () => {
     expect(result.status, result.output).toBe(0);
     expect(result.output).toContain("Edge-function boundary verified");
     expect(boundary.supabaseCliVersion).toBe("2.84.2");
-    // The reviewed boundary plus the Azure IoT Operations ingress function.
-    expect(boundary.activeFunctions).toHaveLength(34);
+    // Main's reviewed boundary, the Azure IoT Operations ingress function,
+    // and the stack's governed read adapters.
+    expect(boundary.activeFunctions).toHaveLength(40);
+    for (const name of [
+      "bently-system1-condition-read-pull",
+      "data-lake-read-pull",
+      "decision-case-invite",
+      "p6-schedule-read-pull",
+      "sap-s4-financial-read-pull",
+      "sap-s4-inventory-read-pull",
+    ]) {
+      expect(boundary.activeFunctions).toContain(name);
+    }
     expect(boundary.activeFunctions).toContain("azure-iot-operations-ingest");
     expect(boundary.blockedLegacyFunctions).toHaveLength(14);
     expect(boundary.allowedNoVerifyJwt).toHaveLength(6);

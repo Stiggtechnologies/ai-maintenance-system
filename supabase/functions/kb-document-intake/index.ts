@@ -3,9 +3,14 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { getDocument } from "npm:pdfjs-dist@4.10.38/legacy/build/pdf.mjs";
 import {
   buildIntakeChunks,
+  detectPromptInjectionSignals,
   isScannedLike,
+  isSupportedDocumentFilename,
   KB_DOCUMENT_CLASSES,
   KB_INTAKE_ROLES,
+  MAX_DOCUMENT_BYTES,
+  MAX_DOCUMENT_CHARACTERS,
+  MAX_DOCUMENT_CHUNKS,
   MAX_PDF_PAGES,
   PDF_SCANNED_MESSAGE,
   suggestDocumentClass,
@@ -32,7 +37,17 @@ function errorResponse(error: string, status = 400): Response {
 
 /** Decode a UTF-8 text file payload (plain text, csv, markdown, json). */
 function decodeTextFile(base64: string, filename: string): string {
+  if (base64.length > Math.ceil((MAX_DOCUMENT_BYTES * 4) / 3) + 4) {
+    throw new Error(
+      `"${filename}" exceeds the ${MAX_DOCUMENT_BYTES / 1024 / 1024} MB intake limit.`,
+    );
+  }
   const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  if (bytes.byteLength > MAX_DOCUMENT_BYTES) {
+    throw new Error(
+      `"${filename}" exceeds the ${MAX_DOCUMENT_BYTES / 1024 / 1024} MB intake limit.`,
+    );
+  }
   const text = new TextDecoder("utf-8", { fatal: false }).decode(bytes);
   if (text.trim().length < 20) {
     throw new Error(
@@ -43,7 +58,18 @@ function decodeTextFile(base64: string, filename: string): string {
 }
 
 function decodeBase64(base64: string): Uint8Array {
-  return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  if (base64.length > Math.ceil((MAX_DOCUMENT_BYTES * 4) / 3) + 4) {
+    throw new Error(
+      `Document exceeds the ${MAX_DOCUMENT_BYTES / 1024 / 1024} MB intake limit.`,
+    );
+  }
+  const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  if (bytes.byteLength > MAX_DOCUMENT_BYTES) {
+    throw new Error(
+      `Document exceeds the ${MAX_DOCUMENT_BYTES / 1024 / 1024} MB intake limit.`,
+    );
+  }
+  return bytes;
 }
 
 /**
@@ -103,7 +129,9 @@ Deno.serve(async (req: Request) => {
   const supabase = createClient(
     Deno.env.get("SUPABASE_URL") ?? "",
     Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-    { global: { headers: { Authorization: req.headers.get("Authorization")! } } },
+    {
+      global: { headers: { Authorization: req.headers.get("Authorization")! } },
+    },
   );
 
   const {
@@ -120,8 +148,14 @@ Deno.serve(async (req: Request) => {
     .select("role")
     .eq("id", user.id)
     .single();
-  if (!profile || !(KB_INTAKE_ROLES as readonly string[]).includes(profile.role)) {
-    return errorResponse("kb intake requires the admin or reliability_engineer role", 403);
+  if (
+    !profile ||
+    !(KB_INTAKE_ROLES as readonly string[]).includes(profile.role)
+  ) {
+    return errorResponse(
+      "kb intake requires the admin or reliability_engineer role",
+      403,
+    );
   }
 
   let body: Record<string, unknown>;
@@ -133,7 +167,8 @@ Deno.serve(async (req: Request) => {
 
   const sourceId = String(body.source_id ?? "").trim();
   const title = String(body.title ?? "").trim();
-  const documentClass = String(body.document_class ?? "").trim() || "unclassified";
+  const documentClass =
+    String(body.document_class ?? "").trim() || "unclassified";
   const documentType = body.document_type ? String(body.document_type) : null;
   const pageStart = body.page_start != null ? Number(body.page_start) : null;
   const pageEnd = body.page_end != null ? Number(body.page_end) : null;
@@ -144,10 +179,22 @@ Deno.serve(async (req: Request) => {
   let pdfPageEnd: number | null = null;
   if (typeof body.content === "string" && body.content.trim().length > 0) {
     content = body.content;
-  } else if (typeof body.file_base64 === "string" && typeof body.filename === "string") {
+  } else if (
+    typeof body.file_base64 === "string" &&
+    typeof body.filename === "string"
+  ) {
     const filename = String(body.filename).toLowerCase();
+    if (!isSupportedDocumentFilename(filename)) {
+      return errorResponse(
+        "unsupported file type; only text, CSV, Markdown, JSON, log and PDF text documents are accepted",
+        400,
+      );
+    }
     if (/\.pdf$/.test(filename)) {
-      const extracted = await extractPdfText(String(body.file_base64), filename);
+      const extracted = await extractPdfText(
+        String(body.file_base64),
+        filename,
+      );
       content = extracted.text;
       pdfPageCount = extracted.pageCount;
       pdfPageStart = 1;
@@ -157,8 +204,16 @@ Deno.serve(async (req: Request) => {
     }
   }
 
+  if (content.length > MAX_DOCUMENT_CHARACTERS) {
+    return errorResponse(
+      `document text exceeds the ${MAX_DOCUMENT_CHARACTERS.toLocaleString()} character intake limit`,
+      400,
+    );
+  }
+
   const suggested = suggestDocumentClass(title || sourceId);
-  const effectiveClass = documentClass === "unclassified" ? suggested : documentClass;
+  const effectiveClass =
+    documentClass === "unclassified" ? suggested : documentClass;
   if (!(KB_DOCUMENT_CLASSES as readonly string[]).includes(effectiveClass)) {
     return errorResponse(
       `document_class must be one of: ${KB_DOCUMENT_CLASSES.join(", ")}`,
@@ -166,7 +221,12 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  const validation = validateIntakeInput({ source_id: sourceId, title, document_class: effectiveClass, content });
+  const validation = validateIntakeInput({
+    source_id: sourceId,
+    title,
+    document_class: effectiveClass,
+    content,
+  });
   if (!validation.ok) {
     return errorResponse(validation.errors.join("; "), 400);
   }
@@ -177,8 +237,22 @@ Deno.serve(async (req: Request) => {
     pdfPageEnd ?? pageEnd,
   );
   if (chunks.length === 0) {
-    return errorResponse("content produced no chunks (min 50 characters per chunk)", 400);
+    return errorResponse(
+      "content produced no chunks (min 50 characters per chunk)",
+      400,
+    );
   }
+  if (chunks.length > MAX_DOCUMENT_CHUNKS) {
+    return errorResponse(
+      `document produced more than ${MAX_DOCUMENT_CHUNKS.toLocaleString()} chunks`,
+      400,
+    );
+  }
+
+  // Preview only: the authoritative scan is the database trigger, which also
+  // protects direct service ingestion. This count lets the caller explain a
+  // likely quarantine without treating client code as the enforcement point.
+  const previewSignals = detectPromptInjectionSignals(content);
 
   const { data, error } = await supabase.rpc("kb_ingest_document", {
     p_source_id: sourceId,
@@ -186,7 +260,11 @@ Deno.serve(async (req: Request) => {
     p_document_class: effectiveClass,
     p_document_type: documentType,
     p_original_filename: body.filename ? String(body.filename) : null,
-    p_page_count: pdfPageCount ?? (pageEnd != null && pageStart != null ? Math.max(1, pageEnd - pageStart + 1) : null),
+    p_page_count:
+      pdfPageCount ??
+      (pageEnd != null && pageStart != null
+        ? Math.max(1, pageEnd - pageStart + 1)
+        : null),
     p_chunks: chunks.map((c) => ({
       chunk_index: c.chunk_index,
       content: c.content,
@@ -198,7 +276,11 @@ Deno.serve(async (req: Request) => {
   if (error) {
     return errorResponse(`intake failed: ${error.message}`, 500);
   }
-  if (data && typeof data === "object" && "error" in (data as Record<string, unknown>)) {
+  if (
+    data &&
+    typeof data === "object" &&
+    "error" in (data as Record<string, unknown>)
+  ) {
     return errorResponse(String((data as Record<string, unknown>).error), 400);
   }
 
@@ -206,6 +288,19 @@ Deno.serve(async (req: Request) => {
     source_id: sourceId,
     document_class: effectiveClass,
     chunks_created: chunks.length,
-    status: "indexed",
+    status:
+      data && typeof data === "object" && "status" in data
+        ? String((data as Record<string, unknown>).status)
+        : "indexed",
+    security_status:
+      data && typeof data === "object" && "security_status" in data
+        ? String((data as Record<string, unknown>).security_status)
+        : previewSignals.length > 0
+          ? "quarantined"
+          : "cleared",
+    security_findings_count:
+      data && typeof data === "object" && "security_findings_count" in data
+        ? Number((data as Record<string, unknown>).security_findings_count)
+        : previewSignals.length,
   });
 });

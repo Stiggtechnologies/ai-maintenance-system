@@ -1438,3 +1438,26 @@ export function unknownsFromCase(decisionCase: DecisionCase): string[] {
   }
   return rows;
 }
+
+/**
+ * Invitation delivery state for the governed decision-case-invite function
+ * (carried in from the First Decision Journey branch). Types only: delivery
+ * status is reported by the server, never inferred on the client.
+ */
+export type DecisionCaseInvitationStatus =
+  | "recorded_only"
+  | "submitted"
+  | "already_member"
+  | "accepted"
+  | "active"
+  | "failed";
+
+export interface DecisionCaseInvitation {
+  name: string;
+  email: string;
+  status: DecisionCaseInvitationStatus;
+  detail: string;
+  invitedUserId?: string | null;
+  submittedAt?: string | null;
+  lastCheckedAt: string;
+}
