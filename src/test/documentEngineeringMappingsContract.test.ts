@@ -12,13 +12,13 @@ const migration = fs.readFileSync(
   ),
   "utf8",
 );
-const humanAuthority = fs.readFileSync(
-  path.resolve(
-    "supabase/migrations/20271020100700_mapping_review_human_authority.sql",
-  ),
-  "utf8",
-);
 const ci = fs.readFileSync(path.resolve(".github/workflows/ci.yml"), "utf8");
+
+function functionBody(sql: string, signature: string) {
+  const start = sql.indexOf(signature);
+  const end = sql.indexOf("$fn$;", start);
+  return sql.slice(start, end);
+}
 
 describe("document engineering mapping persistence", () => {
   it("extends the existing mapping table and does not create a second corpus", () => {
@@ -57,7 +57,21 @@ describe("document engineering mapping persistence", () => {
   });
 
   it("refuses ai_admin approval and unreasoned changes to an approved mapping", () => {
-    for (const sql of [migration, humanAuthority]) {
+    const persist = functionBody(
+      migration,
+      "create or replace function public.persist_document_engineering_mappings(",
+    );
+    const upsert = functionBody(
+      migration,
+      "create or replace function public.upsert_engineering_knowledge_mapping(",
+    );
+    for (const sql of [persist, upsert]) {
+      const guard = sql.indexOf("app_current_role() = 'ai_admin'");
+      const write = sql.indexOf(
+        "insert into public.engineering_knowledge_mappings",
+      );
+      expect(guard).toBeGreaterThan(-1);
+      expect(write).toBeGreaterThan(guard);
       expect(sql).toContain(
         "ai_admin cannot set a mapping review state other than draft",
       );
@@ -65,22 +79,24 @@ describe("document engineering mapping persistence", () => {
         "Changing an approved mapping requires an explicit reason",
       );
       expect(sql).toContain("review_change_reason");
-      expect(sql).toContain("app_current_role() = 'ai_admin'");
+      expect(sql).toContain("set search_path = public");
     }
-    expect(humanAuthority).toContain(
+    expect(migration).toContain(
       "drop function if exists public.upsert_engineering_knowledge_mapping(uuid, text, text, text, numeric, text, uuid[])",
     );
-    expect(humanAuthority).toContain(
+    expect(migration).toContain(
       "revoke all on function public.upsert_engineering_knowledge_mapping(uuid, text, text, text, numeric, text, uuid[], text) from public, anon",
     );
-    expect(humanAuthority).toContain("set search_path = public");
-    expect(humanAuthority).not.toMatch(
+    expect(upsert).toContain("p_reason text default null");
+    expect(migration).not.toMatch(
       /upsert_engineering_knowledge_mapping\s*\([^)]*organization/i,
     );
   });
 
   it("keeps organization-scoped read RLS and wires the slice smoke", () => {
     expect(migration).toContain("engineering_knowledge_mappings_target_idx");
+    expect(migration).not.toMatch(/create policy/i);
+    expect(migration).not.toMatch(/grant\s+(insert|update|delete)\b/i);
     expect(ci).toContain("scripts/ci-ekg-slice-*.sh");
     expect(fs.existsSync("scripts/ci-ekg-slice-1-document-mappings.sh")).toBe(
       true,
