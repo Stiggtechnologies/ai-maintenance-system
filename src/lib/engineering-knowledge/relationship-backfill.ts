@@ -37,7 +37,7 @@ const edge = (
     to: { entityType: toType, canonicalId: toId },
     provenanceSourceIds: provenance,
     reviewState: "draft",
-    createdBy: "migration",
+    createdBy: "system",
   };
   if (validateEngineeringRelationship(relationship).length > 0) return null;
   return {

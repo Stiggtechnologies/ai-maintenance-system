@@ -39,6 +39,8 @@ body=json.loads('''$FIRST''')
 assert body["inserted"]==1 and body["reviewState"]=="draft"
 assert body["grantsAuthority"] is False and body["grantsWorkRelease"] is False and body["grantsApproval"] is False
 PY
+KIND=$(psql_exec "select created_by_kind from public.engineering_knowledge_relationships where relationship_code='EKG-BACKFILL-1' and organization_id='$ORG'")
+test "$KIND" = "human"
 
 SECOND=$(curl -fsS -X POST "$API_URL/rest/v1/rpc/backfill_engineering_relationships" \
   -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d "$EDGE")
@@ -69,7 +71,7 @@ test "$INSERT_HTTP" -ge 400
 psql_exec "insert into public.reliability_kb_chunks(chunk_id,source_id,title,document_type,document_class,page_start,page_end,chunk_index,content,organization_id,provenance) values ('EKG-BACKFILL-CHUNK','EKG-BACKFILL-SRC','Backfill','note','client_supplied',1,1,1,'benign backfill note','$ORG','{\"componentCodes\":[\"PUMP-EKG-BACKFILL\"],\"failureModeCodes\":[\"not a code\"]}'::jsonb)" >/dev/null
 OTHER_ORG=$(psql_exec "insert into public.organizations(name,industry) values ('EKG backfill other','synthetic') returning id" | grep -E '^[0-9a-f-]{36}$' | head -n 1)
 psql_exec "insert into public.reliability_kb_chunks(chunk_id,source_id,title,document_type,document_class,page_start,page_end,chunk_index,content,organization_id,provenance) values ('EKG-BACKFILL-OTHER','EKG-BACKFILL-OTHER','Other','note','client_supplied',1,1,1,'other backfill note','$OTHER_ORG','{\"componentCodes\":[\"OTHER-ONLY-COMPONENT\"]}'::jsonb)" >/dev/null
-psql_exec "insert into public.engineering_knowledge_relationships(organization_id,relationship_code,relationship_type,from_entity_type,from_canonical_id,to_entity_type,to_canonical_id,provenance_canonical_ids,created_by_kind) values ('$OTHER_ORG','EKG-OTHER-EDGE','contains','asset_class','OTHER','component','OTHER-ONLY-COMPONENT',array['OTHER'],'migration')" >/dev/null
+psql_exec "insert into public.engineering_knowledge_relationships(organization_id,relationship_code,relationship_type,from_entity_type,from_canonical_id,to_entity_type,to_canonical_id,provenance_canonical_ids,created_by_kind) values ('$OTHER_ORG','EKG-OTHER-EDGE','contains','asset_class','OTHER','component','OTHER-ONLY-COMPONENT',array['OTHER'],'system')" >/dev/null
 
 CHUNK_FILL=$(curl -fsS -X POST "$API_URL/rest/v1/rpc/backfill_relationships_from_knowledge_chunks" \
   -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" -d '{}')

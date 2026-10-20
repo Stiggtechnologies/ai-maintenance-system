@@ -37,6 +37,11 @@ describe("engineering relationship backfill contract", () => {
     );
     expect(migration).toContain("'grantsAuthority', false");
     expect(migration).toContain(
+      "when public.app_current_role() = 'ai_admin' then 'agent'",
+    );
+    expect(migration).toContain("when v_actor is not null then 'human'");
+    expect(migration).not.toMatch(/p_confidence,\s*'migration'/);
+    expect(migration).toContain(
       "on conflict (organization_id, relationship_code) do nothing",
     );
     expect(migration).toContain(

@@ -131,7 +131,13 @@ begin
     v_org, left(trim(p_code), 500), p_relationship,
     p_from_type, left(trim(p_from_id), 500), p_to_type, left(trim(p_to_id), 500),
     coalesce(p_chunks, '{}'), coalesce(p_canonical, '{}'), 'draft',
-    p_confidence, 'migration', v_actor
+    p_confidence,
+    case
+      when public.app_current_role() = 'ai_admin' then 'agent'
+      when v_actor is not null then 'human'
+      else 'system'
+    end,
+    v_actor
   )
   on conflict (organization_id, relationship_code) do nothing
   returning id into v_id;
