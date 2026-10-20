@@ -63,10 +63,10 @@ curl -fsS -X POST "$API_URL/rest/v1/rpc/approve_engineering_knowledge_source" \
   -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
   -d "{\"p_source_id\":\"$SOURCE_ID\"}" >/dev/null
 
-LEX=$(hits "$ANON_KEY" "$TOKEN" '{"p_claim_type":"failure_behaviour","p_query":"ekghybridalphaqz","p_entity_type":"asset_class","p_canonical_id":"ROT-EKG-HYBRID","p_asset_class":"ROT-EKG-HYBRID","p_limit":8}')
-python3 - <<PY
+hits "$ANON_KEY" "$TOKEN" '{"p_claim_type":"failure_behaviour","p_query":"ekghybridalphaqz","p_entity_type":"asset_class","p_canonical_id":"ROT-EKG-HYBRID","p_asset_class":"ROT-EKG-HYBRID","p_limit":8}' > /tmp/ekg-hybrid-lex.json
+python3 - <<'PY'
 import json
-rows=json.loads('''$LEX''')
+rows=json.load(open("/tmp/ekg-hybrid-lex.json"))
 hit=[x for x in rows if x.get("chunk_id")=="EKG-HYBRID-001"]
 assert len(hit)==1, rows
 assert hit[0]["matchedCanonicalId"]=="ROT-EKG-HYBRID"
@@ -74,14 +74,14 @@ assert "UNTRUSTED RETRIEVED EVIDENCE" in hit[0]["content"]
 assert hit[0]["combinedScore"]>0
 PY
 
-VEC=$(hits "$ANON_KEY" "$TOKEN" "{\"p_claim_type\":\"failure_behaviour\",\"p_query\":\"ekghybridalphaqz\",\"p_query_embedding\":\"$EMBED\",\"p_limit\":8}")
-test "$(echo "$VEC" | python3 -c "import sys,json; print(sum(1 for x in json.load(sys.stdin) if x.get('chunk_id')=='EKG-HYBRID-001'))")" = "1"
+hits "$ANON_KEY" "$TOKEN" "{\"p_claim_type\":\"failure_behaviour\",\"p_query\":\"ekghybridalphaqz\",\"p_query_embedding\":\"$EMBED\",\"p_limit\":8}" > /tmp/ekg-hybrid-vec.json
+test "$(python3 -c "import json; rows=json.load(open('/tmp/ekg-hybrid-vec.json')); print(sum(1 for x in rows if x.get('chunk_id')=='EKG-HYBRID-001'))")" = "1"
 
-MISS=$(hits "$ANON_KEY" "$TOKEN" '{"p_claim_type":"failure_behaviour","p_query":"ekghybridalphaqz","p_entity_type":"asset_class","p_canonical_id":"NOT-THIS-CLASS","p_limit":8}')
-test "$(echo "$MISS" | python3 -c "import sys,json; print(sum(1 for x in json.load(sys.stdin) if x.get('chunk_id')=='EKG-HYBRID-001'))")" = "0"
+hits "$ANON_KEY" "$TOKEN" '{"p_claim_type":"failure_behaviour","p_query":"ekghybridalphaqz","p_entity_type":"asset_class","p_canonical_id":"NOT-THIS-CLASS","p_limit":8}' > /tmp/ekg-hybrid-miss.json
+test "$(python3 -c "import json; rows=json.load(open('/tmp/ekg-hybrid-miss.json')); print(sum(1 for x in rows if x.get('chunk_id')=='EKG-HYBRID-001'))")" = "0"
 
-EMPTY=$(hits "$ANON_KEY" "$TOKEN" '{"p_claim_type":"failure_behaviour","p_query":"","p_limit":8}')
-test "$(echo "$EMPTY" | python3 -c "import sys,json; print(len(json.load(sys.stdin)))")" = "0"
+hits "$ANON_KEY" "$TOKEN" '{"p_claim_type":"failure_behaviour","p_query":"","p_limit":8}' > /tmp/ekg-hybrid-empty.json
+test "$(python3 -c "import json; print(len(json.load(open('/tmp/ekg-hybrid-empty.json'))))")" = "0"
 
 BAD=$(curl -sS -o /tmp/ekg-hybrid-bad.json -w "%{http_code}" -X POST "$API_URL/rest/v1/rpc/retrieve_engineering_knowledge_hybrid" \
   -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
@@ -92,10 +92,10 @@ OTHER_ORG=$(psql_exec "insert into public.organizations(name,industry) values ('
 OTHER_SOURCE=$(psql_exec "insert into public.engineering_knowledge_sources(organization_id,source_key,title,document_class,authority_level,review_state,confidentiality,asset_class,approved_at) values ('$OTHER_ORG','EKG-HYBRID-OTHER','Other hybrid','client_supplied','customer_approved','approved','customer_confidential','ROT-EKG-HYBRID',now()) returning id" | grep -E '^[0-9a-f-]{36}$' | head -n 1)
 psql_exec "insert into public.reliability_kb_chunks(chunk_id,source_id,title,document_type,document_class,page_start,page_end,chunk_index,content,organization_id,governed_source_id,content_checksum,provenance,embedding) select 'EKG-HYBRID-OTHER-001','EKG-HYBRID-OTHER','Other hybrid','manual','client_supplied',1,1,1,'ekghybridalphaqz other tenant','$OTHER_ORG','$OTHER_SOURCE','sha256:other-hybrid','{\"synthetic\":true}'::jsonb, embedding from public.reliability_kb_chunks where id='$CHUNK_ID'" >/dev/null
 
-CROSS=$(hits "$ANON_KEY" "$TOKEN" '{"p_claim_type":"failure_behaviour","p_query":"ekghybridalphaqz","p_limit":20}')
-test "$(echo "$CROSS" | python3 -c "import sys,json; print(sum(1 for x in json.load(sys.stdin) if x.get('chunk_id')=='EKG-HYBRID-OTHER-001'))")" = "0"
+hits "$ANON_KEY" "$TOKEN" '{"p_claim_type":"failure_behaviour","p_query":"ekghybridalphaqz","p_limit":20}' > /tmp/ekg-hybrid-cross.json
+test "$(python3 -c "import json; rows=json.load(open('/tmp/ekg-hybrid-cross.json')); print(sum(1 for x in rows if x.get('chunk_id')=='EKG-HYBRID-OTHER-001'))")" = "0"
 
-SERVICE=$(hits "$SERVICE_ROLE_KEY" "$SERVICE_ROLE_KEY" '{"p_claim_type":"failure_behaviour","p_query":"ekghybridalphaqz","p_limit":20}')
-test "$(echo "$SERVICE" | python3 -c "import sys,json; print(sum(1 for x in json.load(sys.stdin) if x.get('chunk_id')=='EKG-HYBRID-001'))")" = "0"
+hits "$SERVICE_ROLE_KEY" "$SERVICE_ROLE_KEY" '{"p_claim_type":"failure_behaviour","p_query":"ekghybridalphaqz","p_limit":20}' > /tmp/ekg-hybrid-service.json
+test "$(python3 -c "import json; rows=json.load(open('/tmp/ekg-hybrid-service.json')); print(sum(1 for x in rows if x.get('chunk_id')=='EKG-HYBRID-001'))")" = "0"
 
 echo "Hybrid engineering retrieval smoke passed: draft hidden, lexical and vector hits, canonical filter, empty query refused, cross-tenant hidden, service role cannot name a tenant."

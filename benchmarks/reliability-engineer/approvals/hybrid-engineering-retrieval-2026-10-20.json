@@ -1,0 +1,13 @@
+{
+  "baselineId": "RE-2026.08",
+  "kind": "governed-sql",
+  "reviewer": "SyncAI implementation agent",
+  "reviewerRole": "Digest pin only. This is not a reliability-engineering SME signature. Human acceptance is the pull-request review.",
+  "reviewedAt": "2026-10-20T12:45:00Z",
+  "rationale": "20271020100200_hybrid_engineering_retrieval.sql mentions kb_document_classes and kb_claim_types because the hybrid retriever uses the same visibility predicate as the existing retriever. It does not replace retrieve_kb_context, kb_claim_types, or kb_document_classes, and it does not add a second embedding store. The pin moves because every migration that names those objects is included in the digest. This record stores the new digests. It does not authorize operational work or change permitted claims.",
+  "databaseObjects": {
+    "retrieve_kb_context": "235048782cc797f7231555c5f6203cca646e58b903f609b2c52634e05c91985c",
+    "kb_document_classes": "9a1041cff70399ec84718284a2c55b822abddd1a69e86e3b8809c89fd5a58406",
+    "kb_claim_types": "4e5749ed5e1343f53cbedaaea03ea725fe8761d957db1fed2c083b84d36281b3"
+  }
+}
