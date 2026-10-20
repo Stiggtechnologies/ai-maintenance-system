@@ -1,4 +1,5 @@
 export * from "./ontology";
+export * from "./failure-paths";
 export * from "./knowledge-base-factory";
 export * from "./context-package";
 export * from "./engineering-extraction";
