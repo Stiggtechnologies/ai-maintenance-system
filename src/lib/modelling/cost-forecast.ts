@@ -22,7 +22,7 @@
  * confident forecast from noise. Below the threshold it reports the mean and
  * says explicitly that no trend was fitted.
  */
-import { percentile } from "./random";
+import { percentile } from "./random.ts";
 
 export interface CostPeriod {
   /** Period label, e.g. "2026-03". */

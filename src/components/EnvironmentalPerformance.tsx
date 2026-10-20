@@ -13,16 +13,19 @@
  * unauditable emissions figure gets reported anyway.
  */
 import { useMemo } from "react";
-import { Leaf, Info, TrendingUp, FlaskConical } from "lucide-react";
+import { Leaf, Info, TrendingUp, FlaskConical, Droplets } from "lucide-react";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { supabase } from "../lib/supabase";
 import {
   assessDegradation,
   computeEmissions,
+  summariseLosses,
   type EfficiencyReading,
   type EmissionInput,
+  type LossRecord,
 } from "../lib/environmental";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
+import { EnvironmentalEvidenceManagement } from "./EnvironmentalEvidenceManagement";
 
 interface Posture {
   activities_recorded: number;
@@ -48,19 +51,23 @@ export function EnvironmentalPerformance() {
     posture: Posture | null;
     baselines: BaselineRow[];
     activities: EmissionInput[];
+    losses: LossRecord[];
   }>(async () => {
-    const [p, b, a] = await Promise.all([
+    const [p, b, a, l] = await Promise.all([
       supabase.rpc("get_environmental_posture"),
       supabase.rpc("get_efficiency_baselines"),
       supabase.rpc("get_environmental_activities", { p_limit: 50 }),
+      supabase.rpc("get_environmental_loss_records"),
     ]);
     if (p.error) throw new Error(p.error.message);
     if (b.error) throw new Error(b.error.message);
     if (a.error) throw new Error(a.error.message);
+    if (l.error) throw new Error(l.error.message);
     return {
       posture: (p.data as Posture[])?.[0] ?? null,
       baselines: (b.data as BaselineRow[]) ?? [],
       activities: (a.data as EmissionInput[]) ?? [],
+      losses: (l.data as LossRecord[]) ?? [],
     };
   }, []);
 
@@ -98,6 +105,12 @@ export function EnvironmentalPerformance() {
   );
 
   const auditable = emissions.filter((e) => e.auditable);
+  const losses = summariseLosses(
+    (data?.losses ?? []).map((loss) => ({
+      ...loss,
+      quantity: Number(loss.quantity),
+    })),
+  );
   // Totalled BY SCOPE, never across them. The engine refuses an activity with
   // no scope precisely because scope 1, 2 and 3 are not interchangeable, and a
   // single headline number here would contradict that in the same panel.
@@ -224,6 +237,33 @@ export function EnvironmentalPerformance() {
           </ul>
         </div>
       )}
+
+      <div className="rounded-xl border border-white/6 p-4">
+        <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
+          <Droplets className="h-4 w-4 text-signal-cyan" aria-hidden />
+          Lubricant, chemical and containment loss
+        </h3>
+        <p className="mt-2 text-xs leading-relaxed text-slate-400">
+          {losses.reason}
+        </p>
+        {losses.bySubstance.length > 0 && (
+          <ul className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {losses.bySubstance.map((loss) => (
+              <li
+                key={`${loss.substance}-${loss.unit}`}
+                className="rounded-lg border border-white/8 p-3"
+              >
+                <p className="text-xs text-slate-500">{loss.substance}</p>
+                <p className="mt-1 font-mono text-sm text-white">
+                  {loss.quantity.toLocaleString()} {loss.unit}
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      <EnvironmentalEvidenceManagement />
     </section>
   );
 }

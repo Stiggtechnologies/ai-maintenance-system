@@ -73,6 +73,13 @@
       "tier": "core"
     },
     {
+      "path": "supabase/functions/_shared/data-egress-guard.ts",
+      "gitBlobSha": "71e997d153ee625789ac92fc5d6ecdc5ca52c0c0",
+      "reachability": "value-import from ai-agent-processor/index.ts",
+      "purpose": "fail-closed tenant destination, data-class, purpose and redaction authorization before the protected provider call",
+      "tier": "core"
+    },
+    {
       "path": "src/lib/reliability-agent-contract.ts",
       "gitBlobSha": "ca959ad921986c6d82842b9160672eeff0b769e1",
       "reachability": "value-import from src/services/publicReliabilityAgent.ts",

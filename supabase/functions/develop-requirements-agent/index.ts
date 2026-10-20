@@ -44,6 +44,7 @@ import {
   buildProviderChain,
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
+import { withDataEgressGuard } from "../_shared/data-egress-guard.ts";
 import {
   callWithCommercialBoundary,
   DEFAULT_COMMERCIALLY_PRICED_MODEL,
@@ -237,6 +238,11 @@ Deno.serve(async (req: Request) => {
       "semantic inconsistency needs at least two requirements to compare — not attempted, and NOT reported as 'no contradictions found'";
   } else {
     const prompts = buildRequirementsPrompts({ reading, requirements });
+    const guardedFetch = withDataEgressGuard(fetch, caller, {
+      dataClass: "commercial",
+      purpose: "model_inference",
+      serviceLabel: "develop-requirements-agent",
+    });
     const providerOptions = {
       systemPrompt: prompts.systemPrompt,
       userContent: prompts.userContent,
@@ -246,7 +252,7 @@ Deno.serve(async (req: Request) => {
     const commercialAdmin = serviceClient();
     const commercial = await callWithCommercialBoundary(
       (functionName, args) => commercialAdmin.rpc(functionName, args),
-      fetch,
+      guardedFetch,
       providers,
       providerOptions,
       {

@@ -7,6 +7,7 @@ import {
   buildProviderChain,
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
+import { withDataEgressGuard } from "../_shared/data-egress-guard.ts";
 import {
   callWithCommercialBoundary,
   DEFAULT_COMMERCIALLY_PRICED_MODEL,
@@ -173,6 +174,11 @@ Deno.serve(async (req: Request) => {
       sourceReference: row.source_reference ?? null,
     })),
   });
+  const guardedFetch = withDataEgressGuard(fetch, caller, {
+    dataClass: "commercial",
+    purpose: "model_inference",
+    serviceLabel: "develop-contract-strategy-agent",
+  });
   const providerOptions = {
     systemPrompt: prompts.systemPrompt,
     userContent: prompts.userContent,
@@ -181,7 +187,7 @@ Deno.serve(async (req: Request) => {
   };
   const commercial = await callWithCommercialBoundary(
     (functionName, args) => admin.rpc(functionName, args),
-    fetch,
+      guardedFetch,
     providers,
     providerOptions,
     {

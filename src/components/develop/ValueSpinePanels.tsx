@@ -40,9 +40,17 @@ import {
   type CollapseVerdict,
   type SinceSanctionDelta,
 } from "../../lib/develop";
-import { cashFlowsDefect, irr, npv, paybackPeriod, type CashFlow } from "../../lib/value";
+import {
+  applyEconomicAdjustments,
+  cashFlowsDefect,
+  irr,
+  npv,
+  paybackPeriod,
+  type CashFlow,
+} from "../../lib/value";
 import {
   addBusinessCaseOption,
+  configureBusinessCaseOptionEconomics,
   createCaseBusinessCase,
   draftSuccessContract,
   getCaseFinanceModel,
@@ -526,17 +534,23 @@ export function BusinessCaseSection({
     }
     const rate = model.businessCase.discountRate;
     return (model.options ?? []).map((option) => {
-      const flows = option.cashFlows as CashFlow[];
+      const recordedFlows = option.cashFlows as CashFlow[];
+      const adjusted = applyEconomicAdjustments(
+        recordedFlows,
+        option.economicAdjustment,
+      );
+      const flows = adjusted.cashFlows;
       // The DB refuses malformed flows at the schema; this is the same
       // refusal at the render boundary — a defective row gets a NAMED
       // refusal, never NaN dressed as money.
-      const defect = cashFlowsDefect(flows);
+      const defect = adjusted.refusal ?? cashFlowsDefect(flows);
       const rateResult = irr(flows);
       const payback = paybackPeriod(flows);
       if (defect != null) {
         return {
           option,
           defect,
+          adjustmentReason: adjusted.reason,
           npv: null,
           irr: rateResult,
           payback,
@@ -552,6 +566,7 @@ export function BusinessCaseSection({
       return {
         option,
         defect: null,
+        adjustmentReason: adjusted.reason,
         npv: value,
         irr: rateResult,
         payback,
@@ -593,6 +608,8 @@ export function BusinessCaseSection({
           <HypothesisBlock model={model} run={run} busy={busy} canPlan={canPlan} />
           <ViabilityBlock model={model} run={run} busy={busy} canReview={canReview} />
           <OptionsBlock model={model} kernelRows={kernelRows} run={run} busy={busy} canPlan={canPlan} />
+          <FinanceDimensionsBlock model={model} />
+          <ExecutionEconomicsBlock model={model} />
           <ConceptSelectionPanel
             comparison={comparison}
             evidence={workspace.evidence}
@@ -838,6 +855,7 @@ function OptionsBlock({
   kernelRows: {
     option: NonNullable<CaseFinanceModel["options"]>[number];
     defect: string | null;
+    adjustmentReason: string;
     npv: number | null;
     irr: ReturnType<typeof irr>;
     payback: ReturnType<typeof paybackPeriod>;
@@ -902,6 +920,14 @@ function OptionsBlock({
                         {" "}
                         · {option.lifePeriods}p
                       </span>
+                      {k && (
+                        <span
+                          className={`block text-[10px] ${k.defect ? "text-amber-300/80" : "text-slate-500"}`}
+                          title={k.adjustmentReason}
+                        >
+                          {k.adjustmentReason}
+                        </span>
+                      )}
                     </td>
                     <td className="py-1.5 pr-3">
                       {k && k.capital != null ? money(k.capital, currency) : "—"}
@@ -1006,7 +1032,259 @@ function OptionsBlock({
           </button>
         ))}
       <EconomicAssumptionRows model={model} />
+      {canPlan && (
+        <EconomicAdjustmentForm model={model} run={run} busy={busy} />
+      )}
       <FundingRows model={model} />
+    </div>
+  );
+}
+
+function EconomicAdjustmentForm({
+  model,
+  run,
+  busy,
+}: {
+  model: CaseFinanceModel;
+  run: (fn: () => Promise<unknown>) => Promise<void>;
+  busy: boolean;
+}) {
+  const [optionId, setOptionId] = useState("");
+  const [sourceCurrency, setSourceCurrency] = useState(
+    model.businessCase?.currency ?? "USD",
+  );
+  const [escalationKey, setEscalationKey] = useState("");
+  const [fxKey, setFxKey] = useState("");
+  const [basis, setBasis] = useState("");
+  const escalation = (model.economicAssumptions ?? []).filter(
+    (row) => row.kind === "escalation",
+  );
+  const fx = (model.economicAssumptions ?? []).filter(
+    (row) => row.kind === "fx",
+  );
+
+  return (
+    <div className="space-y-2 rounded-lg border border-white/8 p-3">
+      <p className="text-[11px] uppercase tracking-wide text-slate-500">
+        Configure sourced escalation / FX
+      </p>
+      <p className="text-xs text-slate-500">
+        Bind only reviewed, dated assumption series. Raw cash flows stay
+        unchanged; the value kernel applies the bound values and names any
+        refusal. This does not approve or sanction the option.
+      </p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <select
+          value={optionId}
+          onChange={(event) => {
+            const next = event.target.value;
+            setOptionId(next);
+            const option = (model.options ?? []).find(
+              (row) => String(row.id) === next,
+            );
+            setSourceCurrency(
+              option?.economicAdjustment?.sourceCurrency ??
+                model.businessCase?.currency ??
+                "USD",
+            );
+            setEscalationKey(
+              option?.economicAdjustment?.escalation?.key ?? "",
+            );
+            setFxKey(
+              option?.economicAdjustment?.foreignExchange?.key ?? "",
+            );
+            setBasis(option?.economicAdjustment?.basis ?? "");
+          }}
+          className={inputClass}
+        >
+          <option value="">Option to configure</option>
+          {(model.options ?? []).map((option) => (
+            <option key={option.id} value={option.id}>
+              {option.label}
+            </option>
+          ))}
+        </select>
+        <input
+          value={sourceCurrency}
+          onChange={(event) => setSourceCurrency(event.target.value.toUpperCase())}
+          maxLength={3}
+          placeholder="Source currency (USD)"
+          className={inputClass}
+        />
+        <select
+          value={escalationKey}
+          onChange={(event) => setEscalationKey(event.target.value)}
+          className={inputClass}
+        >
+          <option value="">No escalation series</option>
+          {escalation.map((row) => (
+            <option key={row.key} value={row.key}>
+              {row.label} · {row.value} {row.unit ?? ""} · {row.source}
+            </option>
+          ))}
+        </select>
+        <select
+          value={fxKey}
+          onChange={(event) => setFxKey(event.target.value)}
+          className={inputClass}
+        >
+          <option value="">No FX series</option>
+          {fx.map((row) => (
+            <option key={row.key} value={row.key}>
+              {row.label} · {row.value} {row.unit ?? ""} · {row.source}
+            </option>
+          ))}
+        </select>
+        <input
+          value={basis}
+          onChange={(event) => setBasis(event.target.value)}
+          placeholder="Basis for applying these series (20 characters minimum)"
+          className={`${inputClass} sm:col-span-2`}
+        />
+        <button
+          onClick={() =>
+            void run(() =>
+              configureBusinessCaseOptionEconomics({
+                optionId: Number(optionId),
+                sourceCurrency,
+                escalationAssumptionKey: escalationKey || null,
+                fxAssumptionKey: fxKey || null,
+                basis,
+              }),
+            )
+          }
+          disabled={
+            busy ||
+            optionId === "" ||
+            sourceCurrency.length !== 3 ||
+            basis.trim().length < 20 ||
+            (escalationKey === "" && fxKey === "")
+          }
+          className="rounded-lg border border-signal-cyan/30 bg-signal-cyan/10 px-3 py-1.5 text-xs font-semibold text-signal-cyan disabled:opacity-50 sm:col-span-2"
+        >
+          {busy ? "Binding…" : "Bind sourced assumptions"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function FinanceDimensionsBlock({ model }: { model: CaseFinanceModel }) {
+  const dimensions = model.dimensions ?? [];
+  return (
+    <div className="space-y-2">
+      <p className="text-[11px] uppercase tracking-wide text-slate-500">
+        All thirteen finance dimensions
+      </p>
+      {dimensions.length !== 13 ? (
+        <p className="text-xs text-amber-300">
+          Finance-dimension status is unavailable; expected 13 governed rows,
+          received {dimensions.length}. No dimension is inferred.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-3">
+          {dimensions.map((dimension) => (
+            <div
+              key={dimension.key}
+              className="rounded-lg border border-white/6 bg-white/[0.02] px-3 py-2"
+            >
+              <div className="flex items-center justify-between gap-2 text-xs">
+                <span className="font-medium text-slate-200">
+                  {dimension.key.replaceAll("_", " ")}
+                </span>
+                <span
+                  className={
+                    dimension.status === "missing" ||
+                    dimension.status === "refused"
+                      ? "text-amber-300"
+                      : "text-emerald-300"
+                  }
+                >
+                  {dimension.status.replaceAll("_", " ")}
+                </span>
+              </div>
+              <p className="mt-1 text-[11px] text-slate-500">
+                {Array.isArray(dimension.reason)
+                  ? dimension.reason.join(" ")
+                  : dimension.reason}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ExecutionEconomicsBlock({ model }: { model: CaseFinanceModel }) {
+  const performance = model.performance;
+  if (!performance) {
+    return (
+      <div className="space-y-1">
+        <p className="text-[11px] uppercase tracking-wide text-slate-500">
+          Execution economics
+        </p>
+        <p className="text-xs text-slate-500">
+          Canonical earned-value, forecast and since-sanction reads are not
+          available. No execution figure is inferred.
+        </p>
+      </div>
+    );
+  }
+  const earnedValue = performance.earnedValue;
+  const forecast = performance.forecastConfidence;
+  const delta = performance.sinceSanctionDelta;
+  const eac = earnedValue.metrics?.eac;
+  const cpi = earnedValue.metrics?.cpi;
+  return (
+    <div className="space-y-2">
+      <p className="text-[11px] uppercase tracking-wide text-slate-500">
+        Execution economics
+      </p>
+      <div className="grid grid-cols-1 gap-2 text-xs md:grid-cols-3">
+        <div className="rounded-lg bg-white/[0.02] px-3 py-2">
+          <p className="text-slate-500">Earned-value outlook</p>
+          <p className="mt-1 text-slate-200">
+            {eac?.value != null
+              ? `EAC ${money(eac.value, earnedValue.currency ?? undefined)}`
+              : eac?.refusal ?? "EAC unavailable — no canonical metric returned."}
+          </p>
+          <p className="text-[11px] text-slate-500">
+            {cpi?.value != null
+              ? `CPI ${cpi.value.toFixed(3)}`
+              : cpi?.refusal ?? "CPI unavailable."}
+          </p>
+        </div>
+        <div className="rounded-lg bg-white/[0.02] px-3 py-2">
+          <p className="text-slate-500">Recorded forecast</p>
+          <p className="mt-1 text-slate-200">
+            {forecast.cost.recordedForecastTotal != null
+              ? money(
+                  forecast.cost.recordedForecastTotal,
+                  forecast.cost.currency ?? undefined,
+                )
+              : forecast.cost.recordedForecastNote}
+          </p>
+          <p className="text-[11px] text-slate-500">
+            {forecast.cost.recordedForecastLineCount} recorded line(s)
+          </p>
+        </div>
+        <div className="rounded-lg bg-white/[0.02] px-3 py-2">
+          <p className="text-slate-500">Since sanction</p>
+          <p className="mt-1 text-slate-200">
+            {delta.available
+              ? `${delta.dimensions?.length ?? 0} comparable dimension(s)`
+              : delta.reason ?? "No comparable sanction basis recorded."}
+          </p>
+          <p className="text-[11px] text-slate-500">
+            {(delta.notComparable ?? []).length} named non-comparable
+            dimension(s)
+          </p>
+        </div>
+      </div>
+      {model.decisionBoundary && (
+        <p className="text-[11px] text-slate-500">{model.decisionBoundary}</p>
+      )}
     </div>
   );
 }

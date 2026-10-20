@@ -28,6 +28,7 @@ import {
   buildProviderChain,
   resolveExternalGatewayUrl,
 } from "../_shared/llm-provider.ts";
+import { withDataEgressGuard } from "../_shared/data-egress-guard.ts";
 import {
   callWithCommercialBoundary,
   DEFAULT_COMMERCIALLY_PRICED_MODEL,
@@ -244,6 +245,11 @@ Deno.serve(async (req: Request) => {
   }
 
   const prompts = buildRiskPrompts({ risk, position, candidates });
+  const guardedFetch = withDataEgressGuard(fetch, caller, {
+    dataClass: "safety_critical",
+    purpose: "model_inference",
+    serviceLabel: "develop-risk-agent",
+  });
   const providerOptions = {
     systemPrompt: prompts.systemPrompt,
     userContent: prompts.userContent,
@@ -253,7 +259,7 @@ Deno.serve(async (req: Request) => {
   const commercialAdmin = serviceClient();
   const commercial = await callWithCommercialBoundary(
     (functionName, args) => commercialAdmin.rpc(functionName, args),
-    fetch,
+    guardedFetch,
     providers,
     providerOptions,
     {
