@@ -107,7 +107,7 @@ assert "component:PUMP-EKG-MAPPED" not in body["missingEvidence"]
 kinds={item["kind"] for item in body["conflicts"]}
 assert kinds=={"revision_conflict","authority_conflict"}
 assert "$A" in body["sourceConflictIds"] and "$B" in body["sourceConflictIds"]
-assert body["physicsResults"]==[{"capabilityCode":"PHYS-EKG-REF","resultRef":"RESULT-EKG-1"}]
+assert body["physicsResults"]==[{"capabilityCode":"PHYS-EKG-REF","resultRef":"RESULT-EKG-1","unverified":True}]
 assert "confidence" not in body
 PY
 STATE_AFTER=$(psql_exec "select review_state from public.engineering_knowledge_sources where id='$A'")

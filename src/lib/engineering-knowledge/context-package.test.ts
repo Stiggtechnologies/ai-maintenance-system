@@ -70,7 +70,7 @@ describe("governed engineering context package", () => {
     ]);
     expect(packaged.sourceConflictIds).toEqual(["source-a", "source-b"]);
     expect(packaged.physicsResults).toEqual([
-      { capabilityCode: "PHYS-NPSH", resultRef: "RESULT-1" },
+      { capabilityCode: "PHYS-NPSH", resultRef: "RESULT-1", unverified: true },
     ]);
     expect(packaged).not.toHaveProperty("confidence");
     expect(JSON.stringify(packaged)).not.toContain("vapour bubble");

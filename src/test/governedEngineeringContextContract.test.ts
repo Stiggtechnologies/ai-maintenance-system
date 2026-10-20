@@ -8,6 +8,12 @@ const migration = fs.readFileSync(
   ),
   "utf8",
 );
+const unverifiedPhysics = fs.readFileSync(
+  path.resolve(
+    "supabase/migrations/20271020100800_unverified_physics_context.sql",
+  ),
+  "utf8",
+);
 
 describe("governed engineering context contract", () => {
   it("reuses the canonical corpus and evidence table", () => {
@@ -42,6 +48,21 @@ describe("governed engineering context contract", () => {
       /grant\s+execute\s+on\s+function\s+public\.engineering_context_visible_chunk/i,
     );
     expect(migration).not.toMatch(/p_organization_id|p_org\b/i);
+  });
+
+  it("flags caller-supplied physics references unverified without a new result store", () => {
+    expect(unverifiedPhysics).toContain("'unverified', true");
+    expect(unverifiedPhysics).toContain(
+      "build_governed_engineering_context_core",
+    );
+    expect(unverifiedPhysics).not.toMatch(/create\s+table/i);
+    expect(unverifiedPhysics).not.toMatch(
+      /\b(retrieve_kb_context|kb_document_classes|kb_claim_types)\b/,
+    );
+    expect(unverifiedPhysics).toContain("set search_path = public");
+    expect(unverifiedPhysics).toContain(
+      "revoke all on function public.build_governed_engineering_context_core",
+    );
   });
 
   it("wires the slice smoke", () => {

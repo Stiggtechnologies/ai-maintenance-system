@@ -6,6 +6,8 @@ const BARE_NUMBER = /^[+-]?\d+(?:\.\d+)?$/;
 export interface PhysicsResultRef {
   capabilityCode: string;
   resultRef: string;
+  /** Caller-supplied. This package does not check that a stored result exists. */
+  unverified: true;
 }
 
 export interface RetrievedKnowledgePassage {
@@ -104,7 +106,7 @@ export function physicsResultRefs(input: unknown): PhysicsResultRef[] {
         "Physics results must reference a stored result, not carry a calculated value",
       );
     }
-    return { capabilityCode, resultRef };
+    return { capabilityCode, resultRef, unverified: true };
   });
 }
 
