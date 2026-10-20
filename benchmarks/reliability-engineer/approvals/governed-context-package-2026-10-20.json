@@ -1,0 +1,13 @@
+{
+  "baselineId": "RE-2026.08",
+  "kind": "governed-sql",
+  "reviewer": "SyncAI implementation agent",
+  "reviewerRole": "Digest pin only. This is not a reliability-engineering SME signature. Human acceptance is the pull-request review.",
+  "reviewedAt": "2026-10-20T12:40:00Z",
+  "rationale": "20271020100600_governed_engineering_context.sql mentions retrieve_kb_context, kb_document_classes, and kb_claim_types so the context package can reuse the existing retriever and the same visibility predicate. It does not replace those objects. The pin moves because every migration that names them is included in the digest. This record stores the new digests. It does not authorize operational work, change permitted claims, or approve engineering content.",
+  "databaseObjects": {
+    "retrieve_kb_context": "2d4c2da272a8875bbabb998ff39ba4b38e40ce7c45a136ded220e997d7db672d",
+    "kb_document_classes": "ff2255ddaab68748de07b545c0abf5d8d2d8e313708c6325d387a4d24d7e92d4",
+    "kb_claim_types": "c707b9ba0cfbcd820b1da98f2eecab9cd14537a3a133ae5c0d79c46405abdf5d"
+  }
+}

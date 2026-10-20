@@ -76,12 +76,13 @@ EVIDENCE=$(psql_exec "insert into public.evidence_items(organization_id,source_s
 FOREIGN_EVIDENCE=$(psql_exec "insert into public.evidence_items(organization_id,source_system,evidence_type,description) values ('$OTHER_ORG','ekg-context','note','foreign-evidence-body') returning id" | grep -E '^[0-9a-f-]{36}$' | head -n 1)
 
 STATE_BEFORE=$(psql_exec "select review_state from public.engineering_knowledge_sources where id='$A'")
-PACKAGE=$(curl -fsS -X POST "$API_URL/rest/v1/rpc/build_governed_engineering_context" \
+curl -fsS -X POST "$API_URL/rest/v1/rpc/build_governed_engineering_context" \
   -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
-  -d "{\"p_claim_type\":\"failure_behaviour\",\"p_query\":\"ekgcontextalphaqz\",\"p_asset_class\":\"ROT-EKG-CONTEXT\",\"p_asset_twin_id\":\"twin-ekg-context\",\"p_component_codes\":[\"PUMP-EKG-MAPPED\",\"PUMP-EKG-NOMAP\"],\"p_failure_mode_codes\":[\"EKG-NOMAP-FAIL\"],\"p_physics_capability_codes\":[\"PHYS-EKG-NOCALC\"],\"p_retrieved_chunk_ids\":[\"EKG-CONTEXT-FOREIGN\"],\"p_physics_results\":[{\"capabilityCode\":\"PHYS-EKG-REF\",\"resultRef\":\"RESULT-EKG-1\"}],\"p_evidence_ids\":[\"$EVIDENCE\",\"$FOREIGN_EVIDENCE\"]}")
+  -d "{\"p_claim_type\":\"failure_behaviour\",\"p_query\":\"ekgcontextalphaqz\",\"p_asset_class\":\"ROT-EKG-CONTEXT\",\"p_asset_twin_id\":\"twin-ekg-context\",\"p_component_codes\":[\"PUMP-EKG-MAPPED\",\"PUMP-EKG-NOMAP\"],\"p_failure_mode_codes\":[\"EKG-NOMAP-FAIL\"],\"p_physics_capability_codes\":[\"PHYS-EKG-NOCALC\"],\"p_retrieved_chunk_ids\":[\"EKG-CONTEXT-FOREIGN\"],\"p_physics_results\":[{\"capabilityCode\":\"PHYS-EKG-REF\",\"resultRef\":\"RESULT-EKG-1\"}],\"p_evidence_ids\":[\"$EVIDENCE\",\"$FOREIGN_EVIDENCE\"]}" \
+  -o /tmp/ekg-context-package.json
 python3 - <<PY
 import json
-body=json.loads('''$PACKAGE''')
+body=json.load(open("/tmp/ekg-context-package.json"))
 assert body["humanApprovalRequired"] is True
 assert body["autonomousOperationalActionAllowed"] is False
 assert body["grantsWorkRelease"] is False
@@ -113,23 +114,25 @@ STATE_AFTER=$(psql_exec "select review_state from public.engineering_knowledge_s
 test "$STATE_BEFORE" = "$STATE_AFTER"
 test "$STATE_AFTER" = "approved"
 
-TECH_PACKAGE=$(curl -fsS -X POST "$API_URL/rest/v1/rpc/build_governed_engineering_context" \
+curl -fsS -X POST "$API_URL/rest/v1/rpc/build_governed_engineering_context" \
   -H "apikey: $ANON_KEY" -H "Authorization: Bearer $TECH" -H "Content-Type: application/json" \
-  -d '{"p_claim_type":"failure_behaviour","p_query":"ekgcontextalphaqz","p_asset_class":"ROT-EKG-CONTEXT"}')
+  -d '{"p_claim_type":"failure_behaviour","p_query":"ekgcontextalphaqz","p_asset_class":"ROT-EKG-CONTEXT"}' \
+  -o /tmp/ekg-context-tech.json
 python3 - <<PY
 import json
-body=json.loads('''$TECH_PACKAGE''')
+body=json.load(open("/tmp/ekg-context-tech.json"))
 assert body["grantsApproval"] is False
 assert "ekgcontextalphaqz" in json.dumps(body)
 assert "other-tenant-ekg-context-secret" not in json.dumps(body)
 PY
 
-FORBIDDEN=$(curl -fsS -X POST "$API_URL/rest/v1/rpc/build_governed_engineering_context" \
+curl -fsS -X POST "$API_URL/rest/v1/rpc/build_governed_engineering_context" \
   -H "apikey: $SERVICE_ROLE_KEY" -H "Authorization: Bearer $SERVICE_ROLE_KEY" -H "Content-Type: application/json" \
-  -d '{"p_claim_type":"failure_behaviour","p_query":"ekgcontextalphaqz"}')
+  -d '{"p_claim_type":"failure_behaviour","p_query":"ekgcontextalphaqz"}' \
+  -o /tmp/ekg-context-forbidden.json
 python3 - <<PY
 import json
-body=json.loads('''$FORBIDDEN''')
+body=json.load(open("/tmp/ekg-context-forbidden.json"))
 assert body.get("error")=="forbidden"
 assert "ekgcontextalphaqz" not in json.dumps(body)
 assert body["grantsApproval"] is False
