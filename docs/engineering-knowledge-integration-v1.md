@@ -37,5 +37,5 @@ The existing vector stores and RAG functions remain the retrieval infrastructure
 2. Add hybrid retrieval using semantic similarity plus canonical metadata filters.
 3. Add conflict and supersession detection.
 4. Backfill relationships from compiled twins and existing knowledge chunks.
-5. Implement failure-propagation and detection-path graph queries.
+5. Implement failure-propagation and detection-path graph queries. **Done (2026-10-20).** `query_failure_detection_paths` walks `may_fail_by`, `detected_by`, `verified_by`, `resulted_in`, `composed_of`, `contains`, and `supported_by` inside the caller organization. Rejected and superseded edges are skipped, depth is capped, and a cycle stops instead of repeating. The response names canonical ids and review state. It does not invent a propagation probability, and it does not grant permission, work release, or approval.
 6. Package retrieved knowledge, physics results, evidence, conflicts, and missing evidence for governed agents.
