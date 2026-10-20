@@ -39,4 +39,5 @@ The existing vector stores and RAG functions remain the retrieval infrastructure
 4. Backfill relationships from compiled twins and existing knowledge chunks.
    **Done (2026-10-20).** Compiled twins produce draft canonical edges in memory, and `backfill_relationships_from_knowledge_chunks` stores draft edges from `asset_class` and provenance code arrays already on `reliability_kb_chunks`. Edges reference canonical ids. They do not copy records, and they do not grant permission, work release, or approval.
 5. Implement failure-propagation and detection-path graph queries.
+   **Done (2026-10-20).** `query_failure_detection_paths` walks `may_fail_by`, `detected_by`, `verified_by`, `resulted_in`, `composed_of`, `contains`, and `supported_by` inside the caller organization. Rejected and superseded edges are skipped, depth is capped, and a cycle stops instead of repeating. The response names canonical ids and review state. It does not invent a propagation probability, and it does not grant permission, work release, or approval.
 6. Package retrieved knowledge, physics results, evidence, conflicts, and missing evidence for governed agents.
