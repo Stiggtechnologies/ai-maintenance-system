@@ -18,7 +18,7 @@
  *
  * Deterministic given a seed.
  */
-import { mulberry32, percentile, sampleTriangular } from "./random";
+import { mulberry32, percentile, sampleTriangular } from "./random.ts";
 
 export interface ScheduleTask {
   id: string;

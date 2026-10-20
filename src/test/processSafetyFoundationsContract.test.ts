@@ -9,6 +9,10 @@ const surface = readFileSync(
   "src/components/ProcessSafetyFoundations.tsx",
   "utf8",
 );
+const safetyCriticalService = readFileSync(
+  "src/services/safetyCriticalRegulatoryService.ts",
+  "utf8",
+);
 const host = readFileSync("src/components/ProcessSafety.tsx", "utf8");
 const riskPage = readFileSync("src/pages/RiskOperatingSystemPage.tsx", "utf8");
 const assetSignals = readFileSync("src/pages/RiskConsequence.tsx", "utf8");
@@ -55,7 +59,11 @@ describe("process-safety foundations contract", () => {
     for (const fn of WORKFLOWS) {
       expect(migration).toContain(`revoke all on function public.${fn}`);
       expect(migration).toContain(`grant execute on function public.${fn}`);
-      expect(surface).toContain(fn);
+      expect(
+        fn === "record_safety_critical_element"
+          ? safetyCriticalService
+          : surface,
+      ).toContain(fn);
     }
     expect(migration).toContain(
       "revoke all on function public.assert_safety_foundation_actor",
@@ -70,6 +78,7 @@ describe("process-safety foundations contract", () => {
       'import { ProcessSafetyFoundations } from "./ProcessSafetyFoundations"',
     );
     expect(host).toContain("<ProcessSafetyFoundations");
+    expect(host).toContain("<SafetyCriticalRegulatoryRegister");
     expect(riskPage).toContain(
       'import { ProcessSafety } from "../components/ProcessSafety"',
     );

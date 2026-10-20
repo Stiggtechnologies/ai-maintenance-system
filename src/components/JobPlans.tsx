@@ -500,8 +500,10 @@ export function JobPlans() {
                   );
                   return (
                     `Applied to work order: ${result.tasks_created} task(s), ${result.planned_hours}h planned, ${result.materials_requested} material demand(s)` +
-                    (result.safety_flagged
-                      ? ". Permits required — the work order is now safety-flagged."
+                    (result.schedule_approval_required
+                      ? ". Permits required — the work order is safety-flagged and parked in approval until an independent maintenance manager approves its schedule."
+                      : result.safety_flagged
+                        ? ". Permits required — the work order is now safety-flagged."
                       : ".")
                   );
                 })

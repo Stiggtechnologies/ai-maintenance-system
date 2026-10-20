@@ -176,11 +176,18 @@ describe("the resolver sees a real chain", () => {
       "20260917001000_definer_tenancy_guards.sql",
     );
     expect(defs.get("retrieve_kb_context")?.file).toBe(
-      // Last definition moved with KB document security. The session gate and
-      // permitted_claims join must still hold on THIS file, not on the
-      // governed-source overlay or the earlier tenancy-hardening copy.
+      // Last definition is the migration on main. Session, governed-source,
+      // claim-purpose and quarantine gates must hold on THIS file.
       "20270104090700_kb_document_security.sql",
     );
+
+    const latestKbBody = defs.get("retrieve_kb_context")?.body.toLowerCase();
+    expect(latestKbBody).toContain(
+      "c.security_status in ('cleared','released')",
+    );
+    expect(latestKbBody).toContain("s.review_state='approved'");
+    expect(latestKbBody).toContain("s.superseded_by_source_id is null");
+    expect(latestKbBody).toContain("p_claim_type=any(d.permitted_claims)");
   });
 });
 
@@ -191,9 +198,15 @@ describe("no function lets a signed-in caller name another tenant without explic
       .sort();
     expect(names).toEqual([
       "activate_ria_from_intake",
+      // U2.08 service consequences: each binds the argument to the session
+      // organization (reviewed with the re-land of #650).
+      "asset_service_level_basis_visible",
+      "asset_service_level_evidence_standing",
       "explain_kb_exclusions",
       "get_pm_due_count",
+      "record_asset_service_level",
       "retrieve_kb_context",
+      "verify_asset_service_level",
     ]);
   });
 
@@ -205,7 +218,15 @@ describe("no function lets a signed-in caller name another tenant without explic
     expect(discovered).toEqual([...PLATFORM_CROSS_TENANT].sort());
   });
 
-  it.each(["get_pm_due_count", "retrieve_kb_context", "explain_kb_exclusions"])(
+  it.each([
+    "get_pm_due_count",
+    "retrieve_kb_context",
+    "explain_kb_exclusions",
+    "asset_service_level_basis_visible",
+    "asset_service_level_evidence_standing",
+    "record_asset_service_level",
+    "verify_asset_service_level",
+  ])(
     "%s resolves the organization from the session, not the argument",
     (name) => {
       const def = defs.get(name);
