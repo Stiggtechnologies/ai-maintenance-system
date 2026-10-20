@@ -28,6 +28,14 @@ const deployedTenantModelCallers = [
   "sync-tts",
 ] as const;
 
+// Match a provider host inside a whole function source. The host is a
+// complete hostname: it sits at a string edge or beside a character that
+// cannot appear inside a hostname.
+const OPENAI_API_HOST =
+  /(?:^|[^A-Za-z0-9.-])api\.openai\.com(?:[^A-Za-z0-9.-]|$)/;
+const AZURE_OPENAI_HOST =
+  /(?:^|[^A-Za-z0-9-])openai\.azure\.com(?:[^A-Za-z0-9.-]|$)/;
+
 describe("E5.07 governed data-loss prevention", () => {
   it("extends the canonical egress register with an immutable governed lifecycle", () => {
     expect(migration).toContain("alter table public.data_egress_rules");
@@ -97,9 +105,9 @@ describe("E5.07 governed data-loss prevention", () => {
       /callWithResilience(?:Stream)?\(/,
       /resolveExternalGatewayUrl\(/,
       /synthesizeOpenAiSpeech\(/,
-      "api.openai.com",
+      OPENAI_API_HOST,
       "api.x.ai",
-      "openai.azure.com",
+      AZURE_OPENAI_HOST,
       "generativelanguage.googleapis",
     ];
     const discovered: string[] = [];
@@ -134,6 +142,26 @@ describe("E5.07 governed data-loss prevention", () => {
     }
 
     expect(discovered.sort()).toEqual([...deployedTenantModelCallers].sort());
+  });
+
+  it("matches provider hosts only as whole hostnames", () => {
+    expect(OPENAI_API_HOST.test('fetch("https://api.openai.com/v1")')).toBe(
+      true,
+    );
+    expect(OPENAI_API_HOST.test("https://api.openai.com")).toBe(true);
+    expect(
+      OPENAI_API_HOST.test("https://api.openai.com.evil.example/steal"),
+    ).toBe(false);
+    expect(OPENAI_API_HOST.test("https://notapi.openai.com/v1")).toBe(false);
+    expect(
+      AZURE_OPENAI_HOST.test(
+        "https://syncai.openai.azure.com/openai/deployments",
+      ),
+    ).toBe(true);
+    expect(
+      AZURE_OPENAI_HOST.test("https://openai.azure.com.evil.example/"),
+    ).toBe(false);
+    expect(AZURE_OPENAI_HOST.test("https://notopenai.azure.com/")).toBe(false);
   });
 
   it("exposes the governed register to customers without claiming plant authority", () => {

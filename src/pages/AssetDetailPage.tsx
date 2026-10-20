@@ -1,20 +1,7 @@
-/* eslint-disable @typescript-eslint/no-explicit-any, @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import {
-  ArrowLeft,
-  Activity,
-  Wrench,
-  AlertTriangle,
-  Shield,
-  TrendingUp,
-  TrendingDown,
-  Clock,
-  MapPin,
-  Tag,
-  Calendar,
-  DollarSign,
-} from "lucide-react";
+import { ArrowLeft, MapPin, Tag } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { listAssetConditionReadings } from "../services/conditionStateService";
 import { FieldFailureCapture } from "../components/FieldFailureCapture";

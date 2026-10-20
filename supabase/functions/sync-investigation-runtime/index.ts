@@ -46,22 +46,7 @@ import {
   type StreamableEvent,
 } from "../_shared/sync-stream.ts";
 import { proposalParamsHash } from "../_shared/sync-tool-proof.ts";
-
-/**
- * Plain text from an Office XML run. Strips tags until the string stops
- * changing, then drops any stray angle bracket, so a crafted run such as
- * "<scr<x>ipt>" cannot leave markup behind in extracted attachment text.
- */
-function stripXmlMarkup(value: string): string {
-  let current = value;
-  let previous: string;
-  do {
-    previous = current;
-    current = current.replace(/<[^>]*>/g, "");
-  } while (current !== previous);
-  return current.replace(/[<>]/g, "");
-}
-
+import { stripXmlMarkup } from "../_shared/office-xml-text.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
