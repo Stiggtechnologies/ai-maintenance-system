@@ -88,10 +88,10 @@ const nodes: SystemNode[] = [
   ], { template: "CRIT-STANDBY-GENERATOR" }),
   equipment("DC-PARALLELING-GEAR", "Generator paralleling switchgear and controls", "DC-ELEC-GENERATION", [
     fn("F-PARALLEL", "synchronise generators and share load between them", true, loss("paralleling", ["failure to synchronise", "load-share instability"])),
-  ], { maintainableItems: ["generator breakers", "synchronising controls", "load-share controllers", "master controls and PLC", "busbar", "control power"] }),
+  ], { template: "CRIT-PARALLELING-SWITCHGEAR" }),
   equipment("DC-FUEL-SYSTEM", "Fuel storage, transfer and polishing", "DC-ELEC-GENERATION", [
     fn("F-FUEL", "store and deliver clean fuel to the generators", true, loss("fuel delivery", ["fuel contamination"])),
-  ], { maintainableItems: ["bulk storage tanks", "day tanks", "transfer pumps", "fuel polishing filters", "level and leak sensors", "piping and valves", "containment"] }),
+  ], { template: "CRIT-FUEL-SYSTEM" }),
 
   subsystem("DC-ELEC-TRANSFER", "Transfer and switching", "DC-ELEC", [
     fn("F-TRANSFER", "select a healthy source for each load path", true, loss("source selection", ["transfer to a failed source"])),
@@ -114,14 +114,14 @@ const nodes: SystemNode[] = [
   ], { template: "CRIT-BESS" }),
   equipment("DC-ROTARY-UPS", "Flywheel or rotary UPS", "DC-ELEC-UPS", [
     fn("F-ROTARY", "bridge the gap between source loss and generator pickup from kinetic energy", true, loss("kinetic ride-through")),
-  ], { maintainableItems: ["flywheel rotor", "bearings", "motor-generator", "vacuum system", "power electronics", "clutch or coupling (diesel rotary)"] }),
+  ], { template: "CRIT-ROTARY-UPS" }),
 
   subsystem("DC-ELEC-DISTRIBUTION", "Low-voltage and critical power distribution", "DC-ELEC", [
     fn("F-DIST", "distribute power from sources to each rack and mechanical load", true, loss("distribution path")),
   ]),
   equipment("DC-LV-SWITCHBOARD", "Low-voltage main switchboard", "DC-ELEC-DISTRIBUTION", [
     fn("F-LV-SWITCH", "distribute and protect low-voltage feeders", true, loss("LV distribution", ["failure to clear a fault"])),
-  ], { maintainableItems: ["air circuit breakers", "moulded-case breakers", "busbar", "protection trip units", "metering", "surge protection"] }),
+  ], { template: "CRIT-LV-SWITCHBOARD" }),
   equipment("DC-PDU", "Power distribution unit (floor-standing)", "DC-ELEC-DISTRIBUTION", [
     fn("F-PDU", "transform and distribute power to rack circuits", true, loss("rack circuit power")),
   ], { template: "CRIT-PDU" }),
@@ -179,7 +179,7 @@ const nodes: SystemNode[] = [
   ], { template: "CRIT-CRAH" }),
   equipment("DC-CRAC", "Computer room air conditioner (direct expansion)", "DC-MECH-AIR", [
     fn("F-CRAC", "cool air with its own refrigeration circuit", true, loss("air cooling")),
-  ], { maintainableItems: ["compressor", "evaporator coil", "condenser (remote or integral)", "expansion valve", "fans", "filters", "controls"] }),
+  ], { template: "CRIT-CRAC" }),
   equipment("DC-AHU-ECONOMISER", "Air handling unit with economiser or evaporative cooling", "DC-MECH-AIR", [
     fn("F-AHU", "cool the IT space with outside air or evaporative cooling when conditions allow", true, loss("air cooling", ["contaminated or wet air admitted"])),
   ], { maintainableItems: ["dampers and actuators", "filters", "fans", "evaporative media", "heat wheel or plate exchanger", "controls"] }),
@@ -239,7 +239,7 @@ const nodes: SystemNode[] = [
   ]),
   equipment("DC-EPO", "Emergency power off", "DC-FLS-EMERGENCY", [
     fn("F-EPO", "isolate IT-space power on deliberate operation only", true, loss("emergency isolation", ["inadvertent operation"])),
-  ], { maintainableItems: ["EPO stations and covers", "wiring and supervision", "interface relays", "test bypass"] }),
+  ], { template: "CRIT-EPO" }),
   equipment("DC-EMERGENCY-LIGHTING", "Emergency lighting and egress", "DC-FLS-EMERGENCY", [
     fn("F-EGRESS", "light escape routes when normal lighting fails", true, loss("egress lighting")),
   ], { maintainableItems: ["luminaires", "batteries or central system", "exit signs", "test system"] }),
@@ -253,10 +253,10 @@ const nodes: SystemNode[] = [
   ]),
   equipment("DC-BMS", "Building management system", "DC-CONTROLS-PLATFORMS", [
     fn("F-BMS", "control and monitor mechanical plant", true, loss("plant control", ["stale or wrong data"])),
-  ], { maintainableItems: ["supervisory servers", "plant controllers (PLC or DDC)", "field sensors", "actuators", "network switches", "operator workstations"] }),
+  ], { template: "CRIT-BMS" }),
   equipment("DC-EPMS", "Electrical power monitoring system", "DC-CONTROLS-PLATFORMS", [
     fn("F-EPMS", "monitor electrical state, events and power quality", false, loss("electrical visibility", ["missed event capture"])),
-  ], { maintainableItems: ["power meters", "relay data links", "gateways", "time synchronisation", "servers"] }),
+  ], { template: "CRIT-EPMS" }),
   equipment("DC-DCIM", "Data centre infrastructure management", "DC-CONTROLS-PLATFORMS", [
     fn("F-DCIM", "track capacity, assets and rack-level conditions", false, loss("capacity visibility", ["inaccurate asset records"])),
   ], { maintainableItems: ["DCIM software", "rack sensors", "integrations", "asset database"] }),

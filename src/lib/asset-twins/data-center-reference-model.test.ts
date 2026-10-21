@@ -26,7 +26,7 @@ describe("data centre system reference model", () => {
   it("binds the shipped critical-facility templates and lists maintainable items for the rest", () => {
     const bound = model.nodes.filter((n) => n.assetClassTemplateCode).map((n) => n.assetClassTemplateCode);
     expect(bound).toEqual(
-      expect.arrayContaining(["CRIT-STANDBY-GENERATOR", "CRIT-UPS-SYSTEM", "CRIT-TRANSFER-SWITCH", "CRIT-CHILLER", "ROT-CENT-PUMP", "CRIT-CRAH", "CRIT-STATIC-TRANSFER-SWITCH", "CRIT-PDU", "CRIT-BUSWAY", "CRIT-MV-SWITCHGEAR", "CRIT-POWER-TRANSFORMER", "CRIT-COOLING-TOWER", "CRIT-BESS", "CRIT-CDU", "CRIT-RDHX", "CRIT-CLEAN-AGENT", "CRIT-FIRE-DETECTION", "CRIT-PREACTION"]),
+      expect.arrayContaining(["CRIT-STANDBY-GENERATOR", "CRIT-UPS-SYSTEM", "CRIT-TRANSFER-SWITCH", "CRIT-CHILLER", "ROT-CENT-PUMP", "CRIT-CRAH", "CRIT-STATIC-TRANSFER-SWITCH", "CRIT-PDU", "CRIT-BUSWAY", "CRIT-MV-SWITCHGEAR", "CRIT-POWER-TRANSFORMER", "CRIT-COOLING-TOWER", "CRIT-BESS", "CRIT-CDU", "CRIT-RDHX", "CRIT-CLEAN-AGENT", "CRIT-FIRE-DETECTION", "CRIT-PREACTION", "CRIT-ROTARY-UPS", "CRIT-EPO", "CRIT-BMS", "CRIT-EPMS", "CRIT-CRAC", "CRIT-LV-SWITCHBOARD", "CRIT-PARALLELING-SWITCHGEAR", "CRIT-FUEL-SYSTEM"]),
     );
     for (const n of model.nodes.filter((x) => x.equipmentClassStatus === "template_planned")) {
       expect(n.maintainableItems!.length, n.code).toBeGreaterThan(2);
@@ -84,13 +84,13 @@ describe("validateSystemReferenceModel negative paths", () => {
   it("rejects an unknown template, a planned class with no items, and a function with no failure", () => {
     const m = clone();
     m.nodes.find((n) => n.code === "DC-UPS")!.assetClassTemplateCode = "CRIT-PHANTOM";
-    const sts = m.nodes.find((n) => n.code === "DC-ROTARY-UPS")!;
+    const sts = m.nodes.find((n) => n.code === "DC-DRY-COOLER")!;
     sts.maintainableItems = [];
     sts.functions[0].functionalFailures = [];
     const out = messages(m);
     expect(out).toContain("DC-UPS: unknown template CRIT-PHANTOM");
-    expect(out).toContain("DC-ROTARY-UPS: planned equipment class must list maintainable items");
-    expect(out).toContain("F-ROTARY: function has no functional failure");
+    expect(out).toContain("DC-DRY-COOLER: planned equipment class must list maintainable items");
+    expect(out).toContain("F-DRY-COOLER: function has no functional failure");
   });
 
   it("rejects a critical function with no redundancy slot, a dangling edge and a non-draft model", () => {

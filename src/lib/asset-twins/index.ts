@@ -1,3 +1,11 @@
+import { rotaryUpsTemplate } from "./rotary-ups";
+import { emergencyPowerOffTemplate } from "./emergency-power-off";
+import { buildingManagementSystemTemplate } from "./building-management-system";
+import { electricalPowerMonitoringTemplate } from "./electrical-power-monitoring";
+import { computerRoomAirConditionerTemplate } from "./computer-room-air-conditioner";
+import { lvSwitchboardTemplate } from "./lv-switchboard";
+import { generatorParallelingSwitchgearTemplate } from "./generator-paralleling-switchgear";
+import { generatorFuelSystemTemplate } from "./generator-fuel-system";
 import { batteryEnergyStorageTemplate } from "./battery-energy-storage";
 import { coolantDistributionUnitTemplate } from "./coolant-distribution-unit";
 import { rearDoorHeatExchangerTemplate } from "./rear-door-heat-exchanger";
@@ -225,6 +233,14 @@ export function getAssetClassTemplate(
   if (code === cleanAgentSuppressionTemplate.code) return cleanAgentSuppressionTemplate;
   if (code === fireDetectionAlarmTemplate.code) return fireDetectionAlarmTemplate;
   if (code === preactionSprinklerTemplate.code) return preactionSprinklerTemplate;
+  if (code === rotaryUpsTemplate.code) return rotaryUpsTemplate;
+  if (code === emergencyPowerOffTemplate.code) return emergencyPowerOffTemplate;
+  if (code === buildingManagementSystemTemplate.code) return buildingManagementSystemTemplate;
+  if (code === electricalPowerMonitoringTemplate.code) return electricalPowerMonitoringTemplate;
+  if (code === computerRoomAirConditionerTemplate.code) return computerRoomAirConditionerTemplate;
+  if (code === lvSwitchboardTemplate.code) return lvSwitchboardTemplate;
+  if (code === generatorParallelingSwitchgearTemplate.code) return generatorParallelingSwitchgearTemplate;
+  if (code === generatorFuelSystemTemplate.code) return generatorFuelSystemTemplate;
   return miningAssetClassLibrary.find((template) => template.code === code);
 }
 
@@ -244,3 +260,11 @@ export { rearDoorHeatExchangerTemplate } from "./rear-door-heat-exchanger";
 export { cleanAgentSuppressionTemplate } from "./clean-agent-suppression";
 export { fireDetectionAlarmTemplate } from "./fire-detection-alarm";
 export { preactionSprinklerTemplate } from "./preaction-sprinkler";
+export { rotaryUpsTemplate } from "./rotary-ups";
+export { emergencyPowerOffTemplate } from "./emergency-power-off";
+export { buildingManagementSystemTemplate } from "./building-management-system";
+export { electricalPowerMonitoringTemplate } from "./electrical-power-monitoring";
+export { computerRoomAirConditionerTemplate } from "./computer-room-air-conditioner";
+export { lvSwitchboardTemplate } from "./lv-switchboard";
+export { generatorParallelingSwitchgearTemplate } from "./generator-paralleling-switchgear";
+export { generatorFuelSystemTemplate } from "./generator-fuel-system";
