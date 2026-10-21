@@ -48,6 +48,7 @@ on:
       - "supabase/functions/develop-lessons-agent/**"
       - "supabase/functions/develop-governance-agent/**"
       - "supabase/functions/develop-hop-agent/**"
+      - "supabase/functions/kb-document-intake/**"
       - "supabase/functions/lead-notify/**"
       - "supabase/functions/marketplace-fulfillment/**"
       - "supabase/functions/marketplace-metering/**"
@@ -194,6 +195,7 @@ jobs:
           supabase functions deploy develop-lessons-agent
           supabase functions deploy develop-governance-agent
           supabase functions deploy develop-hop-agent
+          supabase functions deploy kb-document-intake
           supabase functions deploy lead-notify
           supabase functions deploy marketplace-fulfillment --no-verify-jwt
           supabase functions deploy marketplace-metering
