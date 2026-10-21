@@ -328,3 +328,4 @@ export { accessControlTemplate } from "./access-control";
 export { videoSurveillanceTemplate } from "./video-surveillance";
 export { itRackCabinetTemplate } from "./it-rack-cabinet";
 export { raisedFloorPathwaysTemplate } from "./raised-floor-pathways";
+export * from "./reference-hierarchy-plan";
