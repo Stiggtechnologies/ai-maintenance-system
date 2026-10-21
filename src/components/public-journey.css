@@ -109,16 +109,33 @@
 }
 .journey-header nav a {
   color: var(--journey-muted);
+  font-weight: 500;
   text-decoration: none;
+  transition: color 120ms ease;
 }
 .journey-header nav a:hover {
   color: var(--journey-ink);
 }
+/* Primary action, matched to the syncai.ca header CTA: brass fill, graphite
+   text, 44px target. Same accent on the website and in the app. */
 .journey-header nav a.journey-header-quiet {
-  font-size: 16px;
-  font-weight: 600;
-  color: var(--journey-ink);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 20px;
+  border-radius: 2px;
+  background: #d6b885;
+  color: #111214;
+  font-size: 14px;
+  font-weight: 700;
   opacity: 1;
+  transition: background-color 120ms ease;
+}
+.journey-header nav a.journey-header-quiet:hover,
+.journey-header nav a.journey-header-quiet:focus-visible {
+  background: #e8d7b6;
+  color: #111214;
 }
 .journey-theme-toggle {
   display: grid;
@@ -299,6 +316,11 @@
     flex-wrap: wrap;
     justify-content: flex-end;
     font-size: 12px;
+  }
+  .journey-header nav a.journey-header-quiet {
+    min-height: 40px;
+    padding: 0 14px;
+    font-size: 13px;
   }
   .journey-brand {
     padding: 5px 7px;
