@@ -240,72 +240,47 @@ export function getAssetClassTemplate(
   if (code === automaticTransferSwitchTemplate.code)
     return automaticTransferSwitchTemplate;
   if (code === dataCenterChillerTemplate.code) return dataCenterChillerTemplate;
-  if (code === computerRoomAirHandlerTemplate.code)
-    return computerRoomAirHandlerTemplate;
-  if (code === staticTransferSwitchTemplate.code)
-    return staticTransferSwitchTemplate;
-  if (code === powerDistributionUnitTemplate.code)
-    return powerDistributionUnitTemplate;
+  if (code === computerRoomAirHandlerTemplate.code) return computerRoomAirHandlerTemplate;
+  if (code === staticTransferSwitchTemplate.code) return staticTransferSwitchTemplate;
+  if (code === powerDistributionUnitTemplate.code) return powerDistributionUnitTemplate;
   if (code === buswayTemplate.code) return buswayTemplate;
   if (code === mvSwitchgearTemplate.code) return mvSwitchgearTemplate;
   if (code === powerTransformerTemplate.code) return powerTransformerTemplate;
   if (code === coolingTowerTemplate.code) return coolingTowerTemplate;
-  if (code === batteryEnergyStorageTemplate.code)
-    return batteryEnergyStorageTemplate;
-  if (code === coolantDistributionUnitTemplate.code)
-    return coolantDistributionUnitTemplate;
-  if (code === rearDoorHeatExchangerTemplate.code)
-    return rearDoorHeatExchangerTemplate;
-  if (code === cleanAgentSuppressionTemplate.code)
-    return cleanAgentSuppressionTemplate;
-  if (code === fireDetectionAlarmTemplate.code)
-    return fireDetectionAlarmTemplate;
-  if (code === preactionSprinklerTemplate.code)
-    return preactionSprinklerTemplate;
+  if (code === batteryEnergyStorageTemplate.code) return batteryEnergyStorageTemplate;
+  if (code === coolantDistributionUnitTemplate.code) return coolantDistributionUnitTemplate;
+  if (code === rearDoorHeatExchangerTemplate.code) return rearDoorHeatExchangerTemplate;
+  if (code === cleanAgentSuppressionTemplate.code) return cleanAgentSuppressionTemplate;
+  if (code === fireDetectionAlarmTemplate.code) return fireDetectionAlarmTemplate;
+  if (code === preactionSprinklerTemplate.code) return preactionSprinklerTemplate;
   if (code === rotaryUpsTemplate.code) return rotaryUpsTemplate;
   if (code === emergencyPowerOffTemplate.code) return emergencyPowerOffTemplate;
-  if (code === buildingManagementSystemTemplate.code)
-    return buildingManagementSystemTemplate;
-  if (code === electricalPowerMonitoringTemplate.code)
-    return electricalPowerMonitoringTemplate;
-  if (code === computerRoomAirConditionerTemplate.code)
-    return computerRoomAirConditionerTemplate;
+  if (code === buildingManagementSystemTemplate.code) return buildingManagementSystemTemplate;
+  if (code === electricalPowerMonitoringTemplate.code) return electricalPowerMonitoringTemplate;
+  if (code === computerRoomAirConditionerTemplate.code) return computerRoomAirConditionerTemplate;
   if (code === lvSwitchboardTemplate.code) return lvSwitchboardTemplate;
-  if (code === generatorParallelingSwitchgearTemplate.code)
-    return generatorParallelingSwitchgearTemplate;
-  if (code === generatorFuelSystemTemplate.code)
-    return generatorFuelSystemTemplate;
+  if (code === generatorParallelingSwitchgearTemplate.code) return generatorParallelingSwitchgearTemplate;
+  if (code === generatorFuelSystemTemplate.code) return generatorFuelSystemTemplate;
   if (code === earthingSystemTemplate.code) return earthingSystemTemplate;
-  if (code === rackPowerDistributionTemplate.code)
-    return rackPowerDistributionTemplate;
+  if (code === rackPowerDistributionTemplate.code) return rackPowerDistributionTemplate;
   if (code === dryCoolerTemplate.code) return dryCoolerTemplate;
-  if (code === thermalStorageTankTemplate.code)
-    return thermalStorageTankTemplate;
-  if (code === coolingWaterTreatmentTemplate.code)
-    return coolingWaterTreatmentTemplate;
-  if (code === chilledWaterDistributionTemplate.code)
-    return chilledWaterDistributionTemplate;
-  if (code === airHandlingEconomiserTemplate.code)
-    return airHandlingEconomiserTemplate;
+  if (code === thermalStorageTankTemplate.code) return thermalStorageTankTemplate;
+  if (code === coolingWaterTreatmentTemplate.code) return coolingWaterTreatmentTemplate;
+  if (code === chilledWaterDistributionTemplate.code) return chilledWaterDistributionTemplate;
+  if (code === airHandlingEconomiserTemplate.code) return airHandlingEconomiserTemplate;
   if (code === humidityControlTemplate.code) return humidityControlTemplate;
-  if (code === airflowContainmentTemplate.code)
-    return airflowContainmentTemplate;
-  if (code === directLiquidCoolingTemplate.code)
-    return directLiquidCoolingTemplate;
-  if (code === immersionCoolingTankTemplate.code)
-    return immersionCoolingTankTemplate;
+  if (code === airflowContainmentTemplate.code) return airflowContainmentTemplate;
+  if (code === directLiquidCoolingTemplate.code) return directLiquidCoolingTemplate;
+  if (code === immersionCoolingTankTemplate.code) return immersionCoolingTankTemplate;
   if (code === leakDetectionTemplate.code) return leakDetectionTemplate;
-  if (code === waterMistSuppressionTemplate.code)
-    return waterMistSuppressionTemplate;
+  if (code === waterMistSuppressionTemplate.code) return waterMistSuppressionTemplate;
   if (code === emergencyLightingTemplate.code) return emergencyLightingTemplate;
   if (code === dcimPlatformTemplate.code) return dcimPlatformTemplate;
-  if (code === facilityControlsNetworkTemplate.code)
-    return facilityControlsNetworkTemplate;
+  if (code === facilityControlsNetworkTemplate.code) return facilityControlsNetworkTemplate;
   if (code === accessControlTemplate.code) return accessControlTemplate;
   if (code === videoSurveillanceTemplate.code) return videoSurveillanceTemplate;
   if (code === itRackCabinetTemplate.code) return itRackCabinetTemplate;
-  if (code === raisedFloorPathwaysTemplate.code)
-    return raisedFloorPathwaysTemplate;
+  if (code === raisedFloorPathwaysTemplate.code) return raisedFloorPathwaysTemplate;
   return miningAssetClassLibrary.find((template) => template.code === code);
 }
 

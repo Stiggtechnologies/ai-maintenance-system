@@ -10,17 +10,8 @@ export const dryCoolerTemplate: AssetClassTemplate = {
   family: "critical_cooling",
   description:
     "Reusable engineering template for dry and adiabatic coolers rejecting heat to air. Fluid and spray water limits come only from the approved design.",
-  functions: [
-    "reject heat to air",
-    "pre-cool inlet air adiabatically when enabled",
-  ],
-  operatingStates: [
-    "running",
-    "adiabatic_assist",
-    "standby",
-    "freeze_protection",
-    "offline",
-  ],
+  functions: ["reject heat to air", "pre-cool inlet air adiabatically when enabled"],
+  operatingStates: ["running", "adiabatic_assist", "standby", "freeze_protection", "offline"],
   standards: ["EN 1048", "ISO 55000"],
   reviewState: "draft",
   components: [
@@ -28,24 +19,15 @@ export const dryCoolerTemplate: AssetClassTemplate = {
       code: "DRY-COIL",
       name: "Coil and fluid circuit",
       functions: ["exchange heat with air"],
-      telemetryConcepts: [
-        "fluid_supply_temperature",
-        "fluid_return_temperature",
-        "approach_temperature",
-      ],
+      telemetryConcepts: ["fluid_supply_temperature", "fluid_return_temperature", "approach_temperature"],
       inspectionZones: ["coil face", "headers", "glycol connections"],
       failureModes: [
-        f(
-          "DRY-COIL-FOULING",
-          "DRY-COIL",
-          "Coil fouling",
+        f("DRY-COIL-FOULING", "DRY-COIL", "Coil fouling",
           "debris and scale on the coil face reduce heat rejection",
           ["airborne debris", "cottonwood", "spray-water scale"],
           ["higher fluid temperature", "chiller or CDU capacity loss"],
           ["approach_temperature", "inspection"],
-          ["coil_inspection"],
-          3,
-        ),
+          ["coil_inspection"], 3),
       ],
     },
     {
@@ -56,17 +38,12 @@ export const dryCoolerTemplate: AssetClassTemplate = {
       telemetryConcepts: ["fan_speed", "fan_status"],
       inspectionZones: ["fans", "motors"],
       failureModes: [
-        f(
-          "DRY-FAN-FAIL",
-          "DRY-FANS",
-          "Fan failure",
+        f("DRY-FAN-FAIL", "DRY-FANS", "Fan failure",
           "failed fans reduce heat rejection",
           ["bearing wear", "drive fault"],
           ["capacity loss"],
           ["fan_status"],
-          ["fan_inspection"],
-          3,
-        ),
+          ["fan_inspection"], 3),
       ],
     },
     {
@@ -76,17 +53,12 @@ export const dryCoolerTemplate: AssetClassTemplate = {
       telemetryConcepts: ["spray_status", "water_quality"],
       inspectionZones: ["pads", "nozzles", "water supply"],
       failureModes: [
-        f(
-          "DRY-ADIABATIC-WATER",
-          "DRY-ADIABATIC",
-          "Adiabatic water quality or supply loss",
+        f("DRY-ADIABATIC-WATER", "DRY-ADIABATIC", "Adiabatic water quality or supply loss",
           "poor water or supply loss scales pads and removes assist on hot days",
           ["no treatment", "supply interruption"],
           ["capacity loss on hot days", "microbial risk"],
           ["water_quality", "spray_status"],
-          ["water_management_plan_review"],
-          3,
-        ),
+          ["water_management_plan_review"], 3),
       ],
     },
   ],

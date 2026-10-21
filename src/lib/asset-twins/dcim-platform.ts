@@ -9,10 +9,7 @@ export const dcimPlatformTemplate: AssetClassTemplate = {
   family: "critical_controls",
   description:
     "Reusable engineering template for DCIM software, rack sensors and integrations. It observes and records only; it never changes plant or IT state.",
-  functions: [
-    "track space, power and cooling capacity",
-    "record assets and connectivity",
-  ],
+  functions: ["track space, power and cooling capacity", "record assets and connectivity"],
   operatingStates: ["normal", "degraded", "offline"],
   standards: ["ISO/IEC 30134", "ISO 55000"],
   reviewState: "draft",
@@ -24,17 +21,12 @@ export const dcimPlatformTemplate: AssetClassTemplate = {
       telemetryConcepts: ["record_reconciliation_status"],
       inspectionZones: ["asset database", "integrations"],
       failureModes: [
-        f(
-          "DCIM-RECORD-DRIFT",
-          "DCIM-DATA",
-          "Records drift from reality",
+        f("DCIM-RECORD-DRIFT", "DCIM-DATA", "Records drift from reality",
           "changes not recorded leave capacity and connectivity wrong",
           ["unrecorded moves and changes", "integration failure"],
           ["wrong capacity decisions", "overload on failover"],
           ["record_reconciliation_status"],
-          ["physical_audit"],
-          3,
-        ),
+          ["physical_audit"], 3),
       ],
     },
     {
@@ -44,17 +36,12 @@ export const dcimPlatformTemplate: AssetClassTemplate = {
       telemetryConcepts: ["sensor_status", "communication_status"],
       inspectionZones: ["sensors", "gateways"],
       failureModes: [
-        f(
-          "DCIM-SENSOR-LOSS",
-          "DCIM-SENSORS",
-          "Sensor or gateway loss",
+        f("DCIM-SENSOR-LOSS", "DCIM-SENSORS", "Sensor or gateway loss",
           "failed sensors hide rack hot spots",
           ["battery depletion", "gateway failure"],
           ["unseen hot spots"],
           ["sensor_status"],
-          ["sensor_function_test"],
-          2,
-        ),
+          ["sensor_function_test"], 2),
       ],
     },
   ],
