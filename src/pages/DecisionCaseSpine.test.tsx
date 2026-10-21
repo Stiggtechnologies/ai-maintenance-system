@@ -1028,7 +1028,7 @@ describe("P0.2 Decision Case spine on /get-started", () => {
       /Review/,
     );
     expect(screen.getByTestId("spine-case-class-basis").textContent).toMatch(
-      /Criticality, duty, consequence/,
+      /criticality, duty, consequence/i,
     );
     expect(screen.getByTestId("spine-unknowns").textContent).toMatch(
       /Criticality, duty, and consequence are not stated/,

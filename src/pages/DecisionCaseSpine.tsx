@@ -669,9 +669,9 @@ export function DecisionCaseSpine({
         className="text-xs text-slate-400"
         data-testid="spine-evaluation-boundary"
       >
-        Self-serve evaluation: the recommendations on this page are
-        deterministic examples, not a live AI engineering analysis. Saving an
-        evaluation does not create a governed decision or approval.
+        Self-serve evaluation: recommendations on this page come from fixed
+        examples, not a live engineering analysis. Saving an evaluation does
+        not create an approval.
       </p>
       <button
         type="button"

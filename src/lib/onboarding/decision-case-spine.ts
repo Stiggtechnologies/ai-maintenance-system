@@ -376,7 +376,7 @@ export function inferRequiredAuthority(
 }
 
 export function noConnectedDataHonesty(): string {
-  return "No connected operating data. Structure reasoning is valid. An asset-specific recommendation is not justified until you attach evidence.";
+  return "No operating data is connected yet. Sync can lay out how to approach this question, but it will not recommend an action for a specific asset until you add evidence.";
 }
 
 export function policyAdvisory(requiredAuthority: string): string {
@@ -1635,7 +1635,7 @@ export function classifySpineCase(
   const kinds = suppliedEvidenceKinds(decisionCase.evidence);
   const technical = kinds.filter((kind) => TECHNICAL_EVIDENCE.has(kind));
   const honesty =
-    "Class uses intent, attached evidence types, and disposition. Criticality, duty, consequence, and a signed approval policy are not used.";
+    "This class is based on your stated aim, the kinds of evidence attached and your decision. It does not use criticality, duty, consequence or an approval policy.";
   const hold =
     disposition === "need_more_evidence" ||
     disposition === "park" ||
@@ -1672,7 +1672,7 @@ export function classifySpineCase(
     return {
       id: "review",
       label: "Review",
-      basis: `No supplied evidence is attached${intent ? ` (intent ${intent})` : ""}. An advisory label would over-claim. ${honesty}`,
+      basis: `No evidence is attached yet${intent ? ` (aim: ${intent})` : ""}, so calling this advisory would overstate it. ${honesty}`,
     };
   }
   return {
