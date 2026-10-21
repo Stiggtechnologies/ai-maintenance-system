@@ -23,6 +23,26 @@ import { computerRoomAirConditionerTemplate } from "./computer-room-air-conditio
 import { lvSwitchboardTemplate } from "./lv-switchboard";
 import { generatorParallelingSwitchgearTemplate } from "./generator-paralleling-switchgear";
 import { generatorFuelSystemTemplate } from "./generator-fuel-system";
+import { earthingSystemTemplate } from "./earthing-lightning-protection";
+import { rackPowerDistributionTemplate } from "./rack-power-distribution";
+import { dryCoolerTemplate } from "./dry-cooler";
+import { thermalStorageTankTemplate } from "./thermal-storage-tank";
+import { coolingWaterTreatmentTemplate } from "./cooling-water-treatment";
+import { chilledWaterDistributionTemplate } from "./chilled-water-distribution";
+import { airHandlingEconomiserTemplate } from "./air-handling-economiser";
+import { humidityControlTemplate } from "./humidity-control";
+import { airflowContainmentTemplate } from "./airflow-containment";
+import { directLiquidCoolingTemplate } from "./direct-liquid-cooling";
+import { immersionCoolingTankTemplate } from "./immersion-cooling-tank";
+import { leakDetectionTemplate } from "./leak-detection";
+import { waterMistSuppressionTemplate } from "./water-mist-suppression";
+import { emergencyLightingTemplate } from "./emergency-lighting";
+import { dcimPlatformTemplate } from "./dcim-platform";
+import { facilityControlsNetworkTemplate } from "./facility-controls-network";
+import { accessControlTemplate } from "./access-control";
+import { videoSurveillanceTemplate } from "./video-surveillance";
+import { itRackCabinetTemplate } from "./it-rack-cabinet";
+import { raisedFloorPathwaysTemplate } from "./raised-floor-pathways";
 import type { AssetClassTemplate } from "./types";
 import { upsSystemTemplate } from "./ups-system";
 
@@ -208,6 +228,106 @@ export const generatorFuelSystemEngineeringDna = criticalFacilityDna(
   "Governed reusable blueprint for generator fuel storage and transfer twins.",
 );
 
+export const earthingSystemEngineeringDna = criticalFacilityDna(
+  earthingSystemTemplate,
+  "Governed reusable blueprint for earthing, bonding and lightning protection twins.",
+);
+
+export const rackPowerDistributionEngineeringDna = criticalFacilityDna(
+  rackPowerDistributionTemplate,
+  "Governed reusable blueprint for rack power distribution unit twins.",
+);
+
+export const dryCoolerEngineeringDna = criticalFacilityDna(
+  dryCoolerTemplate,
+  "Governed reusable blueprint for dry cooler or adiabatic cooler twins.",
+);
+
+export const thermalStorageTankEngineeringDna = criticalFacilityDna(
+  thermalStorageTankTemplate,
+  "Governed reusable blueprint for chilled-water thermal storage tank twins.",
+);
+
+export const coolingWaterTreatmentEngineeringDna = criticalFacilityDna(
+  coolingWaterTreatmentTemplate,
+  "Governed reusable blueprint for cooling water treatment and make-up twins.",
+);
+
+export const chilledWaterDistributionEngineeringDna = criticalFacilityDna(
+  chilledWaterDistributionTemplate,
+  "Governed reusable blueprint for chilled-water distribution piping and valves twins.",
+);
+
+export const airHandlingEconomiserEngineeringDna = criticalFacilityDna(
+  airHandlingEconomiserTemplate,
+  "Governed reusable blueprint for air handling unit with economiser or evaporative cooling twins.",
+);
+
+export const humidityControlEngineeringDna = criticalFacilityDna(
+  humidityControlTemplate,
+  "Governed reusable blueprint for humidification and dehumidification twins.",
+);
+
+export const airflowContainmentEngineeringDna = criticalFacilityDna(
+  airflowContainmentTemplate,
+  "Governed reusable blueprint for hot- or cold-aisle containment twins.",
+);
+
+export const directLiquidCoolingEngineeringDna = criticalFacilityDna(
+  directLiquidCoolingTemplate,
+  "Governed reusable blueprint for direct-to-chip manifolds and cold plates twins.",
+);
+
+export const immersionCoolingTankEngineeringDna = criticalFacilityDna(
+  immersionCoolingTankTemplate,
+  "Governed reusable blueprint for immersion cooling tank twins.",
+);
+
+export const leakDetectionEngineeringDna = criticalFacilityDna(
+  leakDetectionTemplate,
+  "Governed reusable blueprint for water and coolant leak detection twins.",
+);
+
+export const waterMistSuppressionEngineeringDna = criticalFacilityDna(
+  waterMistSuppressionTemplate,
+  "Governed reusable blueprint for water-mist suppression twins.",
+);
+
+export const emergencyLightingEngineeringDna = criticalFacilityDna(
+  emergencyLightingTemplate,
+  "Governed reusable blueprint for emergency lighting and egress signage twins.",
+);
+
+export const dcimPlatformEngineeringDna = criticalFacilityDna(
+  dcimPlatformTemplate,
+  "Governed reusable blueprint for data centre infrastructure management platform twins.",
+);
+
+export const facilityControlsNetworkEngineeringDna = criticalFacilityDna(
+  facilityControlsNetworkTemplate,
+  "Governed reusable blueprint for facility controls network twins.",
+);
+
+export const accessControlEngineeringDna = criticalFacilityDna(
+  accessControlTemplate,
+  "Governed reusable blueprint for physical access control twins.",
+);
+
+export const videoSurveillanceEngineeringDna = criticalFacilityDna(
+  videoSurveillanceTemplate,
+  "Governed reusable blueprint for video surveillance twins.",
+);
+
+export const itRackCabinetEngineeringDna = criticalFacilityDna(
+  itRackCabinetTemplate,
+  "Governed reusable blueprint for iT racks and cabinets (critical load) twins.",
+);
+
+export const raisedFloorPathwaysEngineeringDna = criticalFacilityDna(
+  raisedFloorPathwaysTemplate,
+  "Governed reusable blueprint for raised floor and overhead pathways twins.",
+);
+
 export const criticalFacilityEngineeringDna: EngineeringDnaProfile[] = [
   standbyGeneratorEngineeringDna,
   upsSystemEngineeringDna,
@@ -234,4 +354,24 @@ export const criticalFacilityEngineeringDna: EngineeringDnaProfile[] = [
   lvSwitchboardEngineeringDna,
   generatorParallelingSwitchgearEngineeringDna,
   generatorFuelSystemEngineeringDna,
+  earthingSystemEngineeringDna,
+  rackPowerDistributionEngineeringDna,
+  dryCoolerEngineeringDna,
+  thermalStorageTankEngineeringDna,
+  coolingWaterTreatmentEngineeringDna,
+  chilledWaterDistributionEngineeringDna,
+  airHandlingEconomiserEngineeringDna,
+  humidityControlEngineeringDna,
+  airflowContainmentEngineeringDna,
+  directLiquidCoolingEngineeringDna,
+  immersionCoolingTankEngineeringDna,
+  leakDetectionEngineeringDna,
+  waterMistSuppressionEngineeringDna,
+  emergencyLightingEngineeringDna,
+  dcimPlatformEngineeringDna,
+  facilityControlsNetworkEngineeringDna,
+  accessControlEngineeringDna,
+  videoSurveillanceEngineeringDna,
+  itRackCabinetEngineeringDna,
+  raisedFloorPathwaysEngineeringDna,
 ];

@@ -1,3 +1,23 @@
+import { earthingSystemTemplate } from "./earthing-lightning-protection";
+import { rackPowerDistributionTemplate } from "./rack-power-distribution";
+import { dryCoolerTemplate } from "./dry-cooler";
+import { thermalStorageTankTemplate } from "./thermal-storage-tank";
+import { coolingWaterTreatmentTemplate } from "./cooling-water-treatment";
+import { chilledWaterDistributionTemplate } from "./chilled-water-distribution";
+import { airHandlingEconomiserTemplate } from "./air-handling-economiser";
+import { humidityControlTemplate } from "./humidity-control";
+import { airflowContainmentTemplate } from "./airflow-containment";
+import { directLiquidCoolingTemplate } from "./direct-liquid-cooling";
+import { immersionCoolingTankTemplate } from "./immersion-cooling-tank";
+import { leakDetectionTemplate } from "./leak-detection";
+import { waterMistSuppressionTemplate } from "./water-mist-suppression";
+import { emergencyLightingTemplate } from "./emergency-lighting";
+import { dcimPlatformTemplate } from "./dcim-platform";
+import { facilityControlsNetworkTemplate } from "./facility-controls-network";
+import { accessControlTemplate } from "./access-control";
+import { videoSurveillanceTemplate } from "./video-surveillance";
+import { itRackCabinetTemplate } from "./it-rack-cabinet";
+import { raisedFloorPathwaysTemplate } from "./raised-floor-pathways";
 import { rotaryUpsTemplate } from "./rotary-ups";
 import { emergencyPowerOffTemplate } from "./emergency-power-off";
 import { buildingManagementSystemTemplate } from "./building-management-system";
@@ -220,27 +240,72 @@ export function getAssetClassTemplate(
   if (code === automaticTransferSwitchTemplate.code)
     return automaticTransferSwitchTemplate;
   if (code === dataCenterChillerTemplate.code) return dataCenterChillerTemplate;
-  if (code === computerRoomAirHandlerTemplate.code) return computerRoomAirHandlerTemplate;
-  if (code === staticTransferSwitchTemplate.code) return staticTransferSwitchTemplate;
-  if (code === powerDistributionUnitTemplate.code) return powerDistributionUnitTemplate;
+  if (code === computerRoomAirHandlerTemplate.code)
+    return computerRoomAirHandlerTemplate;
+  if (code === staticTransferSwitchTemplate.code)
+    return staticTransferSwitchTemplate;
+  if (code === powerDistributionUnitTemplate.code)
+    return powerDistributionUnitTemplate;
   if (code === buswayTemplate.code) return buswayTemplate;
   if (code === mvSwitchgearTemplate.code) return mvSwitchgearTemplate;
   if (code === powerTransformerTemplate.code) return powerTransformerTemplate;
   if (code === coolingTowerTemplate.code) return coolingTowerTemplate;
-  if (code === batteryEnergyStorageTemplate.code) return batteryEnergyStorageTemplate;
-  if (code === coolantDistributionUnitTemplate.code) return coolantDistributionUnitTemplate;
-  if (code === rearDoorHeatExchangerTemplate.code) return rearDoorHeatExchangerTemplate;
-  if (code === cleanAgentSuppressionTemplate.code) return cleanAgentSuppressionTemplate;
-  if (code === fireDetectionAlarmTemplate.code) return fireDetectionAlarmTemplate;
-  if (code === preactionSprinklerTemplate.code) return preactionSprinklerTemplate;
+  if (code === batteryEnergyStorageTemplate.code)
+    return batteryEnergyStorageTemplate;
+  if (code === coolantDistributionUnitTemplate.code)
+    return coolantDistributionUnitTemplate;
+  if (code === rearDoorHeatExchangerTemplate.code)
+    return rearDoorHeatExchangerTemplate;
+  if (code === cleanAgentSuppressionTemplate.code)
+    return cleanAgentSuppressionTemplate;
+  if (code === fireDetectionAlarmTemplate.code)
+    return fireDetectionAlarmTemplate;
+  if (code === preactionSprinklerTemplate.code)
+    return preactionSprinklerTemplate;
   if (code === rotaryUpsTemplate.code) return rotaryUpsTemplate;
   if (code === emergencyPowerOffTemplate.code) return emergencyPowerOffTemplate;
-  if (code === buildingManagementSystemTemplate.code) return buildingManagementSystemTemplate;
-  if (code === electricalPowerMonitoringTemplate.code) return electricalPowerMonitoringTemplate;
-  if (code === computerRoomAirConditionerTemplate.code) return computerRoomAirConditionerTemplate;
+  if (code === buildingManagementSystemTemplate.code)
+    return buildingManagementSystemTemplate;
+  if (code === electricalPowerMonitoringTemplate.code)
+    return electricalPowerMonitoringTemplate;
+  if (code === computerRoomAirConditionerTemplate.code)
+    return computerRoomAirConditionerTemplate;
   if (code === lvSwitchboardTemplate.code) return lvSwitchboardTemplate;
-  if (code === generatorParallelingSwitchgearTemplate.code) return generatorParallelingSwitchgearTemplate;
-  if (code === generatorFuelSystemTemplate.code) return generatorFuelSystemTemplate;
+  if (code === generatorParallelingSwitchgearTemplate.code)
+    return generatorParallelingSwitchgearTemplate;
+  if (code === generatorFuelSystemTemplate.code)
+    return generatorFuelSystemTemplate;
+  if (code === earthingSystemTemplate.code) return earthingSystemTemplate;
+  if (code === rackPowerDistributionTemplate.code)
+    return rackPowerDistributionTemplate;
+  if (code === dryCoolerTemplate.code) return dryCoolerTemplate;
+  if (code === thermalStorageTankTemplate.code)
+    return thermalStorageTankTemplate;
+  if (code === coolingWaterTreatmentTemplate.code)
+    return coolingWaterTreatmentTemplate;
+  if (code === chilledWaterDistributionTemplate.code)
+    return chilledWaterDistributionTemplate;
+  if (code === airHandlingEconomiserTemplate.code)
+    return airHandlingEconomiserTemplate;
+  if (code === humidityControlTemplate.code) return humidityControlTemplate;
+  if (code === airflowContainmentTemplate.code)
+    return airflowContainmentTemplate;
+  if (code === directLiquidCoolingTemplate.code)
+    return directLiquidCoolingTemplate;
+  if (code === immersionCoolingTankTemplate.code)
+    return immersionCoolingTankTemplate;
+  if (code === leakDetectionTemplate.code) return leakDetectionTemplate;
+  if (code === waterMistSuppressionTemplate.code)
+    return waterMistSuppressionTemplate;
+  if (code === emergencyLightingTemplate.code) return emergencyLightingTemplate;
+  if (code === dcimPlatformTemplate.code) return dcimPlatformTemplate;
+  if (code === facilityControlsNetworkTemplate.code)
+    return facilityControlsNetworkTemplate;
+  if (code === accessControlTemplate.code) return accessControlTemplate;
+  if (code === videoSurveillanceTemplate.code) return videoSurveillanceTemplate;
+  if (code === itRackCabinetTemplate.code) return itRackCabinetTemplate;
+  if (code === raisedFloorPathwaysTemplate.code)
+    return raisedFloorPathwaysTemplate;
   return miningAssetClassLibrary.find((template) => template.code === code);
 }
 
@@ -268,4 +333,24 @@ export { computerRoomAirConditionerTemplate } from "./computer-room-air-conditio
 export { lvSwitchboardTemplate } from "./lv-switchboard";
 export { generatorParallelingSwitchgearTemplate } from "./generator-paralleling-switchgear";
 export { generatorFuelSystemTemplate } from "./generator-fuel-system";
+export { earthingSystemTemplate } from "./earthing-lightning-protection";
+export { rackPowerDistributionTemplate } from "./rack-power-distribution";
+export { dryCoolerTemplate } from "./dry-cooler";
+export { thermalStorageTankTemplate } from "./thermal-storage-tank";
+export { coolingWaterTreatmentTemplate } from "./cooling-water-treatment";
+export { chilledWaterDistributionTemplate } from "./chilled-water-distribution";
+export { airHandlingEconomiserTemplate } from "./air-handling-economiser";
+export { humidityControlTemplate } from "./humidity-control";
+export { airflowContainmentTemplate } from "./airflow-containment";
+export { directLiquidCoolingTemplate } from "./direct-liquid-cooling";
+export { immersionCoolingTankTemplate } from "./immersion-cooling-tank";
+export { leakDetectionTemplate } from "./leak-detection";
+export { waterMistSuppressionTemplate } from "./water-mist-suppression";
+export { emergencyLightingTemplate } from "./emergency-lighting";
+export { dcimPlatformTemplate } from "./dcim-platform";
+export { facilityControlsNetworkTemplate } from "./facility-controls-network";
+export { accessControlTemplate } from "./access-control";
+export { videoSurveillanceTemplate } from "./video-surveillance";
+export { itRackCabinetTemplate } from "./it-rack-cabinet";
+export { raisedFloorPathwaysTemplate } from "./raised-floor-pathways";
 export * from "./reference-hierarchy-plan";
