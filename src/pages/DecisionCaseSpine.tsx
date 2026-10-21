@@ -773,7 +773,7 @@ export function DecisionCaseSpine({
             Evidence is locked to the recorded approval basis.
           </p>
         ) : null}
-        <ul className="mt-3 space-y-2">
+        <ul className="mt-3 space-y-1.5">
           {STAGE_HELP.map((item) => {
             const active = item.stage === activeSpineStage(decisionCase.stage);
             return (
@@ -788,19 +788,24 @@ export function DecisionCaseSpine({
                     : "border-white/10"
                 }`}
               >
-                <p className="text-[10px] font-bold tracking-wide text-teal-200">
-                  {item.label}
-                  {active ? " · this stage" : ""}
-                </p>
-                <p className="mt-1 text-xs leading-relaxed text-slate-200">
-                  <span className="font-semibold text-slate-400">
-                    What to do.{" "}
-                  </span>
-                  {item.doThis}
-                </p>
-                <p className="mt-1 text-xs leading-relaxed text-amber-100/90">
-                  {item.willNot}
-                </p>
+                {/* Only the current stage is open; the rest stay one line until
+                    asked for, so the help reads as guidance rather than a wall
+                    of limits. Every stage still carries its own boundary. */}
+                <details open={active}>
+                  <summary className="cursor-pointer list-none text-[10px] font-bold tracking-wide text-teal-200">
+                    {item.label}
+                    {active ? " · this stage" : ""}
+                  </summary>
+                  <p className="mt-1 text-xs leading-relaxed text-slate-200">
+                    <span className="font-semibold text-slate-400">
+                      What to do.{" "}
+                    </span>
+                    {item.doThis}
+                  </p>
+                  <p className="mt-1 text-xs leading-relaxed text-amber-100/90">
+                    {item.willNot}
+                  </p>
+                </details>
               </li>
             );
           })}
