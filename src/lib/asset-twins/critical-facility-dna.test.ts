@@ -19,7 +19,24 @@ import {
   cleanAgentSuppressionEngineeringDna,
   fireDetectionAlarmEngineeringDna,
   preactionSprinklerEngineeringDna,
+  rotaryUpsEngineeringDna,
+  emergencyPowerOffEngineeringDna,
+  buildingManagementSystemEngineeringDna,
+  electricalPowerMonitoringEngineeringDna,
+  computerRoomAirConditionerEngineeringDna,
+  lvSwitchboardEngineeringDna,
+  generatorParallelingSwitchgearEngineeringDna,
+  generatorFuelSystemEngineeringDna,
 } from "./critical-facility-dna";
+import { rotaryUpsTemplate } from "./rotary-ups";
+import { emergencyPowerOffTemplate } from "./emergency-power-off";
+import { buildingManagementSystemTemplate } from "./building-management-system";
+import { electricalPowerMonitoringTemplate } from "./electrical-power-monitoring";
+import { computerRoomAirConditionerTemplate } from "./computer-room-air-conditioner";
+import { lvSwitchboardTemplate } from "./lv-switchboard";
+import { generatorParallelingSwitchgearTemplate } from "./generator-paralleling-switchgear";
+import { generatorFuelSystemTemplate } from "./generator-fuel-system";
+
 import { batteryEnergyStorageTemplate } from "./battery-energy-storage";
 import { coolantDistributionUnitTemplate } from "./coolant-distribution-unit";
 import { rearDoorHeatExchangerTemplate } from "./rear-door-heat-exchanger";
@@ -70,6 +87,14 @@ const pairs = [
   [cleanAgentSuppressionTemplate, cleanAgentSuppressionEngineeringDna],
   [fireDetectionAlarmTemplate, fireDetectionAlarmEngineeringDna],
   [preactionSprinklerTemplate, preactionSprinklerEngineeringDna],
+  [rotaryUpsTemplate, rotaryUpsEngineeringDna],
+  [emergencyPowerOffTemplate, emergencyPowerOffEngineeringDna],
+  [buildingManagementSystemTemplate, buildingManagementSystemEngineeringDna],
+  [electricalPowerMonitoringTemplate, electricalPowerMonitoringEngineeringDna],
+  [computerRoomAirConditionerTemplate, computerRoomAirConditionerEngineeringDna],
+  [lvSwitchboardTemplate, lvSwitchboardEngineeringDna],
+  [generatorParallelingSwitchgearTemplate, generatorParallelingSwitchgearEngineeringDna],
+  [generatorFuelSystemTemplate, generatorFuelSystemEngineeringDna],
 ] as const;
 
 describe("critical power and cooling Digital Engineering DNA", () => {

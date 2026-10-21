@@ -15,6 +15,14 @@ import { rearDoorHeatExchangerTemplate } from "./rear-door-heat-exchanger";
 import { cleanAgentSuppressionTemplate } from "./clean-agent-suppression";
 import { fireDetectionAlarmTemplate } from "./fire-detection-alarm";
 import { preactionSprinklerTemplate } from "./preaction-sprinkler";
+import { rotaryUpsTemplate } from "./rotary-ups";
+import { emergencyPowerOffTemplate } from "./emergency-power-off";
+import { buildingManagementSystemTemplate } from "./building-management-system";
+import { electricalPowerMonitoringTemplate } from "./electrical-power-monitoring";
+import { computerRoomAirConditionerTemplate } from "./computer-room-air-conditioner";
+import { lvSwitchboardTemplate } from "./lv-switchboard";
+import { generatorParallelingSwitchgearTemplate } from "./generator-paralleling-switchgear";
+import { generatorFuelSystemTemplate } from "./generator-fuel-system";
 import type { AssetClassTemplate } from "./types";
 import { upsSystemTemplate } from "./ups-system";
 
@@ -160,6 +168,46 @@ export const preactionSprinklerEngineeringDna = criticalFacilityDna(
   "Governed reusable blueprint for pre-action sprinkler twins.",
 );
 
+export const rotaryUpsEngineeringDna = criticalFacilityDna(
+  rotaryUpsTemplate,
+  "Governed reusable blueprint for flywheel or rotary UPS twins.",
+);
+
+export const emergencyPowerOffEngineeringDna = criticalFacilityDna(
+  emergencyPowerOffTemplate,
+  "Governed reusable blueprint for emergency power off system twins.",
+);
+
+export const buildingManagementSystemEngineeringDna = criticalFacilityDna(
+  buildingManagementSystemTemplate,
+  "Governed reusable blueprint for building management system twins.",
+);
+
+export const electricalPowerMonitoringEngineeringDna = criticalFacilityDna(
+  electricalPowerMonitoringTemplate,
+  "Governed reusable blueprint for electrical power monitoring system twins.",
+);
+
+export const computerRoomAirConditionerEngineeringDna = criticalFacilityDna(
+  computerRoomAirConditionerTemplate,
+  "Governed reusable blueprint for computer room air conditioner (direct expansion) twins.",
+);
+
+export const lvSwitchboardEngineeringDna = criticalFacilityDna(
+  lvSwitchboardTemplate,
+  "Governed reusable blueprint for low-voltage main switchboard twins.",
+);
+
+export const generatorParallelingSwitchgearEngineeringDna = criticalFacilityDna(
+  generatorParallelingSwitchgearTemplate,
+  "Governed reusable blueprint for generator paralleling switchgear twins.",
+);
+
+export const generatorFuelSystemEngineeringDna = criticalFacilityDna(
+  generatorFuelSystemTemplate,
+  "Governed reusable blueprint for generator fuel storage and transfer twins.",
+);
+
 export const criticalFacilityEngineeringDna: EngineeringDnaProfile[] = [
   standbyGeneratorEngineeringDna,
   upsSystemEngineeringDna,
@@ -178,4 +226,12 @@ export const criticalFacilityEngineeringDna: EngineeringDnaProfile[] = [
   cleanAgentSuppressionEngineeringDna,
   fireDetectionAlarmEngineeringDna,
   preactionSprinklerEngineeringDna,
+  rotaryUpsEngineeringDna,
+  emergencyPowerOffEngineeringDna,
+  buildingManagementSystemEngineeringDna,
+  electricalPowerMonitoringEngineeringDna,
+  computerRoomAirConditionerEngineeringDna,
+  lvSwitchboardEngineeringDna,
+  generatorParallelingSwitchgearEngineeringDna,
+  generatorFuelSystemEngineeringDna,
 ];
