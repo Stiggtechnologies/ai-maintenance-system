@@ -155,7 +155,7 @@ describe("Decision Case command authority contract", () => {
     expect(page).toContain('data-testid="spine-approval-basis"');
     expect(page).toContain('data-testid="spine-approval-prerequisites"');
     expect(page).toContain("First Decision Journey");
-    expect(page).toContain("not the full 20-step journey");
+    expect(page).toContain("not the full 24-step journey");
   });
 
   it("bounds command growth and refuses malformed identities and counters", () => {

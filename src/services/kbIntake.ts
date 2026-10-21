@@ -5,6 +5,7 @@
  * register via RLS.
  */
 import { supabase } from "../lib/supabase";
+import { edgeFunctionErrorMessage } from "./edgeFunctionError";
 
 export interface KbIntakeDocument {
   id: string;
@@ -69,7 +70,7 @@ export async function listKbIntakeDocuments(): Promise<KbIntakeDocument[]> {
       "id, source_id, title, document_class, document_type, original_filename, status, chunk_count, page_count, uploaded_at, error_message, security_status, security_findings, security_scan_version, security_scanned_at, security_reviewed_by, security_reviewed_at, security_review_basis",
     )
     .order("uploaded_at", { ascending: false });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(await edgeFunctionErrorMessage(error));
   return (data ?? []) as KbIntakeDocument[];
 }
 
@@ -92,7 +93,7 @@ export async function reviewKbDocumentSecurity(
     p_decision: decision,
     p_basis: basis,
   });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(await edgeFunctionErrorMessage(error));
   if (
     data &&
     typeof data === "object" &&
@@ -108,7 +109,7 @@ export async function listKbDocumentClasses(): Promise<KbDocumentClass[]> {
     .from("kb_document_classes")
     .select("class_key, label, trust_rank")
     .order("trust_rank", { ascending: false });
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(await edgeFunctionErrorMessage(error));
   return (data ?? []) as KbDocumentClass[];
 }
 
@@ -121,7 +122,7 @@ export async function ingestKbDocument(
       body: input,
     },
   );
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(await edgeFunctionErrorMessage(error));
   if (
     data &&
     typeof data === "object" &&

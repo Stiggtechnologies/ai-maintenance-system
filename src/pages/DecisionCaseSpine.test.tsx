@@ -442,7 +442,7 @@ describe("P0.2 Decision Case spine on /get-started", () => {
     openSpine();
     expect(screen.getByTestId("decision-case-spine")).toBeTruthy();
     expect(screen.getByText("First Decision Journey")).toBeTruthy();
-    expect(screen.getByText(/not the full 20-step journey/i)).toBeTruthy();
+    expect(screen.getByText(/not the full 24-step journey/i)).toBeTruthy();
     expect(screen.getByTestId("spine-loop").textContent).toMatch(/QUESTION/);
     expect(screen.getByTestId("spine-loop").textContent).toMatch(/LEARNING/);
     expect(screen.getByTestId("spine-stage-help")).toBeTruthy();
