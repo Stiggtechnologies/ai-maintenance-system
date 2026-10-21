@@ -3,6 +3,8 @@ import { ballMillTemplate } from "./ball-mill";
 import { centrifugalPumpTemplate } from "./centrifugal-pump";
 import { conveyorSystemTemplate } from "./conveyor-system";
 import { draglineTemplate } from "./dragline";
+import { automaticTransferSwitchTemplate } from "./automatic-transfer-switch";
+import { dataCenterChillerTemplate } from "./data-center-chiller";
 import { electricMotorTemplate } from "./electric-motor";
 import { hydraulicMiningShovelTemplate } from "./hydraulic-mining-shovel";
 import { industrialGearboxTemplate } from "./industrial-gearbox";
@@ -15,9 +17,11 @@ import { primaryCrusherTemplate } from "./primary-crusher";
 import { sagMillTemplate } from "./sag-mill";
 import { getSharedComponentDna } from "./shared-component-dna-library";
 import { stackerReclaimerTemplate } from "./stacker-reclaimer";
+import { standbyGeneratorTemplate } from "./standby-generator";
 import { thickenerTemplate } from "./thickener";
 import { ultraClassHaulTruckTemplate } from "./ultra-class-haul-truck";
 import type { AssetClassTemplate } from "./types";
+import { upsSystemTemplate } from "./ups-system";
 
 export * from "./types";
 export * from "./mining-library";
@@ -71,6 +75,11 @@ export * from "./mobile-crusher-inspections";
 export * from "./mobile-crusher-dna";
 export * from "./thickener";
 export * from "./thickener-dna";
+export * from "./standby-generator";
+export * from "./ups-system";
+export * from "./automatic-transfer-switch";
+export * from "./data-center-chiller";
+export * from "./critical-facility-dna";
 export * from "./shared-component-dna";
 export * from "./shared-component-dna-library";
 export * from "./physics-capability";
@@ -185,5 +194,10 @@ export function getAssetClassTemplate(
   if (code === miningDozerTemplate.code) return miningDozerTemplate;
   if (code === miningGraderTemplate.code) return miningGraderTemplate;
   if (code === mobileCrusherTemplate.code) return mobileCrusherTemplate;
+  if (code === standbyGeneratorTemplate.code) return standbyGeneratorTemplate;
+  if (code === upsSystemTemplate.code) return upsSystemTemplate;
+  if (code === automaticTransferSwitchTemplate.code)
+    return automaticTransferSwitchTemplate;
+  if (code === dataCenterChillerTemplate.code) return dataCenterChillerTemplate;
   return miningAssetClassLibrary.find((template) => template.code === code);
 }

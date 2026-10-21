@@ -87,7 +87,18 @@ profiles for:
 
 bearings, couplings, seals, lubrication, AC motors, industrial gearboxes,
 friction brakes, wire ropes, sheaves, centrifugal pumps, hydraulic cylinders,
-cooling, switchgear, VFDs, and transformers.
+cooling, switchgear, VFDs, transformers, stationary battery strings,
+reciprocating engines, static power converters (rectifier/inverter/bypass), and
+vapour-compression refrigeration circuits.
+
+The last four support the critical power and cooling asset classes added for
+data centres and similar critical facilities: `CRIT-STANDBY-GENERATOR`,
+`CRIT-UPS-SYSTEM`, `CRIT-TRANSFER-SWITCH` and `CRIT-CHILLER`
+(`src/lib/asset-twins/critical-facility-dna.ts`). They are drafts: standards
+are listed by identifier only (for example NFPA 110, IEC 62040, IEEE 1188,
+UL 1008, ASHRAE 15) and no limit, interval or setpoint from those documents is
+encoded. Device-specific and site-specific values must come from an approved
+source and a named engineer.
 
 Each profile carries reusable functions, failure mechanisms, detectable
 indicators, verification methods, and maintenance-strategy references. No
