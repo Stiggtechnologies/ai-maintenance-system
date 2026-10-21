@@ -4,8 +4,8 @@ This inventory is generated deterministically from `package-lock.json` by
 `scripts/compliance/generate-license-inventory.mjs`. It is technical
 diligence evidence, not a legal opinion.
 
-- Lockfile SHA-256: `094c0411154bfb49f7f425bcf89a82cc79935015e6d87fedae65ee355554c201`
-- Package instances: **406**
+- Lockfile SHA-256: `bf788d6f5fb4f3c94344e1a01ac3802b5c7b146243f736cf1e0ec43472089711`
+- Package instances: **418**
 - Direct production dependencies: **14**
 - Direct development dependencies: **27**
 - Prohibited-license matches: **0**
@@ -34,7 +34,7 @@ patents, trademarks, or customer distribution obligations.
 | ISC | 22 | Permitted by automated baseline |
 | MIT | 323 | Permitted by automated baseline |
 | MIT-0 | 2 | Permitted by automated baseline |
-| MPL-2.0 | 12 | Manual notice review |
+| MPL-2.0 | 24 | Manual notice review |
 | OFL-1.1 | 2 | Manual notice review |
 
 ## Direct dependencies
@@ -66,7 +66,7 @@ patents, trademarks, or customer distribution obligations.
 | lint-staged | 17.1.0 | development | MIT |
 | lucide-react | 1.52.0 | production | ISC |
 | pdfjs-dist | 4.10.38 | production | Apache-2.0 |
-| postcss | 8.5.26 | development | MIT |
+| postcss | 8.5.31 | development | MIT |
 | prettier | 3.9.5 | development | MIT |
 | qrcode | 1.5.4 | production | MIT |
 | react-dom | 19.3.0 | production | MIT |
@@ -78,7 +78,7 @@ patents, trademarks, or customer distribution obligations.
 | tsx | 4.23.1 | development | MIT |
 | typescript-eslint | 8.65.0 | development | MIT |
 | typescript | 5.9.3 | development | Apache-2.0 |
-| vite | 8.1.5 | development | MIT |
+| vite | 8.3.5 | development | MIT |
 | vitest | 4.1.11 | development | MIT |
 | yaml | 2.9.0 | development | ISC |
 | zustand | 5.0.15 | production | MIT |
@@ -91,14 +91,26 @@ patents, trademarks, or customer distribution obligations.
 | @fontsource-variable/jetbrains-mono | 5.3.0 | OFL-1.1 | production |
 | caniuse-lite | 1.0.30001809 | CC-BY-4.0 | transitive |
 | lightningcss-android-arm64 | 1.32.0 | MPL-2.0 | transitive |
+| lightningcss-android-arm64 | 1.33.0 | MPL-2.0 | transitive |
 | lightningcss-darwin-arm64 | 1.32.0 | MPL-2.0 | transitive |
+| lightningcss-darwin-arm64 | 1.33.0 | MPL-2.0 | transitive |
 | lightningcss-darwin-x64 | 1.32.0 | MPL-2.0 | transitive |
+| lightningcss-darwin-x64 | 1.33.0 | MPL-2.0 | transitive |
 | lightningcss-freebsd-x64 | 1.32.0 | MPL-2.0 | transitive |
+| lightningcss-freebsd-x64 | 1.33.0 | MPL-2.0 | transitive |
 | lightningcss-linux-arm-gnueabihf | 1.32.0 | MPL-2.0 | transitive |
+| lightningcss-linux-arm-gnueabihf | 1.33.0 | MPL-2.0 | transitive |
 | lightningcss-linux-arm64-gnu | 1.32.0 | MPL-2.0 | transitive |
+| lightningcss-linux-arm64-gnu | 1.33.0 | MPL-2.0 | transitive |
 | lightningcss-linux-arm64-musl | 1.32.0 | MPL-2.0 | transitive |
+| lightningcss-linux-arm64-musl | 1.33.0 | MPL-2.0 | transitive |
 | lightningcss-linux-x64-gnu | 1.32.0 | MPL-2.0 | transitive |
+| lightningcss-linux-x64-gnu | 1.33.0 | MPL-2.0 | transitive |
 | lightningcss-linux-x64-musl | 1.32.0 | MPL-2.0 | transitive |
+| lightningcss-linux-x64-musl | 1.33.0 | MPL-2.0 | transitive |
 | lightningcss-win32-arm64-msvc | 1.32.0 | MPL-2.0 | transitive |
+| lightningcss-win32-arm64-msvc | 1.33.0 | MPL-2.0 | transitive |
 | lightningcss-win32-x64-msvc | 1.32.0 | MPL-2.0 | transitive |
+| lightningcss-win32-x64-msvc | 1.33.0 | MPL-2.0 | transitive |
 | lightningcss | 1.32.0 | MPL-2.0 | transitive |
+| lightningcss | 1.33.0 | MPL-2.0 | transitive |
