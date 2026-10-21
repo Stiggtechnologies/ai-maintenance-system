@@ -111,7 +111,7 @@ const nodes: SystemNode[] = [
   ], { template: "CRIT-UPS-SYSTEM" }),
   equipment("DC-BESS", "Lithium-ion battery energy storage cabinets", "DC-ELEC-UPS", [
     fn("F-BESS", "store and release energy for UPS ride-through", true, loss("stored energy", ["thermal runaway"])),
-  ], { maintainableItems: ["battery modules", "battery management system", "rack DC breakers", "cabinet cooling", "off-gas and fire detection", "busbars and connectors"] }),
+  ], { template: "CRIT-BESS" }),
   equipment("DC-ROTARY-UPS", "Flywheel or rotary UPS", "DC-ELEC-UPS", [
     fn("F-ROTARY", "bridge the gap between source loss and generator pickup from kinetic energy", true, loss("kinetic ride-through")),
   ], { maintainableItems: ["flywheel rotor", "bearings", "motor-generator", "vacuum system", "power electronics", "clutch or coupling (diesel rotary)"] }),
@@ -195,13 +195,13 @@ const nodes: SystemNode[] = [
   ]),
   equipment("DC-CDU", "Coolant distribution unit", "DC-MECH-LIQUID", [
     fn("F-CDU", "circulate and condition technology coolant and exchange heat with facility water", true, loss("coolant flow", ["coolant contamination"])),
-  ], { maintainableItems: ["pumps", "heat exchanger", "filters", "expansion tank", "flow, pressure and temperature sensors", "leak sensors", "controls"] }),
+  ], { template: "CRIT-CDU" }),
   equipment("DC-DLC-MANIFOLD", "Direct-to-chip manifolds and cold plates", "DC-MECH-LIQUID", [
     fn("F-DLC", "carry coolant to and from processor cold plates", true, loss("cold-plate flow", ["leak at quick-disconnect"])),
   ], { maintainableItems: ["rack manifolds", "quick-disconnect couplings", "hoses", "cold plates", "leak detection"] }),
   equipment("DC-RDHX", "Rear-door heat exchanger", "DC-MECH-LIQUID", [
     fn("F-RDHX", "remove rack exhaust heat at the rack door", true, loss("rack heat removal")),
-  ], { maintainableItems: ["coil", "fans (active doors)", "valves and hoses", "condensation control"] }),
+  ], { template: "CRIT-RDHX" }),
   equipment("DC-IMMERSION", "Immersion cooling tank", "DC-MECH-LIQUID", [
     fn("F-IMMERSION", "cool submerged IT equipment in dielectric fluid", true, loss("immersion cooling", ["fluid degradation"])),
   ], { maintainableItems: ["tank", "dielectric fluid", "pumps", "heat exchanger", "filters", "level and temperature sensors"] }),
@@ -215,10 +215,10 @@ const nodes: SystemNode[] = [
   ]),
   equipment("DC-FIRE-ALARM", "Fire alarm control panel and devices", "DC-FLS-DETECTION", [
     fn("F-FACP", "monitor detectors and initiate alarm and release sequences", true, loss("alarm initiation", ["false alarm"])),
-  ], { maintainableItems: ["control panel", "spot detectors", "manual call points", "sounders and strobes", "batteries", "interfaces to suppression and HVAC"] }),
+  ], { template: "CRIT-FIRE-DETECTION" }),
   equipment("DC-VESDA", "Aspirating smoke detection", "DC-FLS-DETECTION", [
     fn("F-VESDA", "sample air for very early smoke detection", true, loss("early detection", ["pipe blockage"])),
-  ], { maintainableItems: ["detector unit", "sampling pipe network", "aspirator fan", "filters", "flow monitoring"] }),
+  ], { template: "CRIT-FIRE-DETECTION" }),
   equipment("DC-LEAK-DETECTION", "Water and coolant leak detection", "DC-FLS-DETECTION", [
     fn("F-LEAK", "detect water or coolant where it should not be", true, loss("leak detection")),
   ], { maintainableItems: ["sensing cable", "spot sensors", "controller", "interface to BMS"] }),
@@ -227,10 +227,10 @@ const nodes: SystemNode[] = [
   ]),
   equipment("DC-CLEAN-AGENT", "Clean-agent suppression", "DC-FLS-SUPPRESSION", [
     fn("F-CLEAN-AGENT", "discharge clean agent to suppress fire without damaging IT", true, loss("agent discharge", ["loss of agent", "room integrity failure"])),
-  ], { maintainableItems: ["agent cylinders", "valves and actuators", "discharge piping and nozzles", "release panel", "pressure switches", "room integrity (sealing, dampers)"] }),
+  ], { template: "CRIT-CLEAN-AGENT" }),
   equipment("DC-PREACTION", "Pre-action sprinkler system", "DC-FLS-SUPPRESSION", [
     fn("F-PREACTION", "admit water only after detection and a sprinkler operating", true, loss("sprinkler protection", ["unwanted water admission", "corrosion leak"])),
-  ], { maintainableItems: ["pre-action valve", "air compressor and supervisory pressure", "sprinkler heads", "piping", "fire pump (where fitted)", "control panel"] }),
+  ], { template: "CRIT-PREACTION" }),
   equipment("DC-WATER-MIST", "Water-mist suppression", "DC-FLS-SUPPRESSION", [
     fn("F-MIST", "suppress fire with fine water spray", true, loss("mist protection")),
   ], { maintainableItems: ["pump unit", "nozzles", "piping", "section valves", "controls"] }),
