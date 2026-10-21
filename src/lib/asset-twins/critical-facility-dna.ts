@@ -9,6 +9,12 @@ import { buswayTemplate } from "./busway";
 import { mvSwitchgearTemplate } from "./mv-switchgear";
 import { powerTransformerTemplate } from "./power-transformer";
 import { coolingTowerTemplate } from "./cooling-tower";
+import { batteryEnergyStorageTemplate } from "./battery-energy-storage";
+import { coolantDistributionUnitTemplate } from "./coolant-distribution-unit";
+import { rearDoorHeatExchangerTemplate } from "./rear-door-heat-exchanger";
+import { cleanAgentSuppressionTemplate } from "./clean-agent-suppression";
+import { fireDetectionAlarmTemplate } from "./fire-detection-alarm";
+import { preactionSprinklerTemplate } from "./preaction-sprinkler";
 import type { AssetClassTemplate } from "./types";
 import { upsSystemTemplate } from "./ups-system";
 
@@ -124,6 +130,36 @@ export const coolingTowerEngineeringDna = criticalFacilityDna(
   "Governed reusable blueprint for evaporative cooling tower twins.",
 );
 
+export const batteryEnergyStorageEngineeringDna = criticalFacilityDna(
+  batteryEnergyStorageTemplate,
+  "Governed reusable blueprint for lithium-ion battery energy storage twins behind UPS systems.",
+);
+
+export const coolantDistributionUnitEngineeringDna = criticalFacilityDna(
+  coolantDistributionUnitTemplate,
+  "Governed reusable blueprint for liquid-cooling coolant distribution unit twins.",
+);
+
+export const rearDoorHeatExchangerEngineeringDna = criticalFacilityDna(
+  rearDoorHeatExchangerTemplate,
+  "Governed reusable blueprint for rear-door heat exchanger twins.",
+);
+
+export const cleanAgentSuppressionEngineeringDna = criticalFacilityDna(
+  cleanAgentSuppressionTemplate,
+  "Governed reusable blueprint for clean-agent and inert-gas suppression twins.",
+);
+
+export const fireDetectionAlarmEngineeringDna = criticalFacilityDna(
+  fireDetectionAlarmTemplate,
+  "Governed reusable blueprint for fire detection, alarm and aspirating smoke detection twins.",
+);
+
+export const preactionSprinklerEngineeringDna = criticalFacilityDna(
+  preactionSprinklerTemplate,
+  "Governed reusable blueprint for pre-action sprinkler twins.",
+);
+
 export const criticalFacilityEngineeringDna: EngineeringDnaProfile[] = [
   standbyGeneratorEngineeringDna,
   upsSystemEngineeringDna,
@@ -136,4 +172,10 @@ export const criticalFacilityEngineeringDna: EngineeringDnaProfile[] = [
   mvSwitchgearEngineeringDna,
   powerTransformerEngineeringDna,
   coolingTowerEngineeringDna,
+  batteryEnergyStorageEngineeringDna,
+  coolantDistributionUnitEngineeringDna,
+  rearDoorHeatExchangerEngineeringDna,
+  cleanAgentSuppressionEngineeringDna,
+  fireDetectionAlarmEngineeringDna,
+  preactionSprinklerEngineeringDna,
 ];

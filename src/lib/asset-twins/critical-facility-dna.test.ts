@@ -13,7 +13,20 @@ import {
   mvSwitchgearEngineeringDna,
   powerTransformerEngineeringDna,
   coolingTowerEngineeringDna,
+  batteryEnergyStorageEngineeringDna,
+  coolantDistributionUnitEngineeringDna,
+  rearDoorHeatExchangerEngineeringDna,
+  cleanAgentSuppressionEngineeringDna,
+  fireDetectionAlarmEngineeringDna,
+  preactionSprinklerEngineeringDna,
 } from "./critical-facility-dna";
+import { batteryEnergyStorageTemplate } from "./battery-energy-storage";
+import { coolantDistributionUnitTemplate } from "./coolant-distribution-unit";
+import { rearDoorHeatExchangerTemplate } from "./rear-door-heat-exchanger";
+import { cleanAgentSuppressionTemplate } from "./clean-agent-suppression";
+import { fireDetectionAlarmTemplate } from "./fire-detection-alarm";
+import { preactionSprinklerTemplate } from "./preaction-sprinkler";
+
 import { computerRoomAirHandlerTemplate } from "./computer-room-air-handler";
 import { staticTransferSwitchTemplate } from "./static-transfer-switch";
 import { powerDistributionUnitTemplate } from "./power-distribution-unit";
@@ -51,6 +64,12 @@ const pairs = [
   [mvSwitchgearTemplate, mvSwitchgearEngineeringDna],
   [powerTransformerTemplate, powerTransformerEngineeringDna],
   [coolingTowerTemplate, coolingTowerEngineeringDna],
+  [batteryEnergyStorageTemplate, batteryEnergyStorageEngineeringDna],
+  [coolantDistributionUnitTemplate, coolantDistributionUnitEngineeringDna],
+  [rearDoorHeatExchangerTemplate, rearDoorHeatExchangerEngineeringDna],
+  [cleanAgentSuppressionTemplate, cleanAgentSuppressionEngineeringDna],
+  [fireDetectionAlarmTemplate, fireDetectionAlarmEngineeringDna],
+  [preactionSprinklerTemplate, preactionSprinklerEngineeringDna],
 ] as const;
 
 describe("critical power and cooling Digital Engineering DNA", () => {

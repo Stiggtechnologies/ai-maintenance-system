@@ -1,3 +1,9 @@
+import { batteryEnergyStorageTemplate } from "./battery-energy-storage";
+import { coolantDistributionUnitTemplate } from "./coolant-distribution-unit";
+import { rearDoorHeatExchangerTemplate } from "./rear-door-heat-exchanger";
+import { cleanAgentSuppressionTemplate } from "./clean-agent-suppression";
+import { fireDetectionAlarmTemplate } from "./fire-detection-alarm";
+import { preactionSprinklerTemplate } from "./preaction-sprinkler";
 import { computerRoomAirHandlerTemplate } from "./computer-room-air-handler";
 import { staticTransferSwitchTemplate } from "./static-transfer-switch";
 import { powerDistributionUnitTemplate } from "./power-distribution-unit";
@@ -213,6 +219,12 @@ export function getAssetClassTemplate(
   if (code === mvSwitchgearTemplate.code) return mvSwitchgearTemplate;
   if (code === powerTransformerTemplate.code) return powerTransformerTemplate;
   if (code === coolingTowerTemplate.code) return coolingTowerTemplate;
+  if (code === batteryEnergyStorageTemplate.code) return batteryEnergyStorageTemplate;
+  if (code === coolantDistributionUnitTemplate.code) return coolantDistributionUnitTemplate;
+  if (code === rearDoorHeatExchangerTemplate.code) return rearDoorHeatExchangerTemplate;
+  if (code === cleanAgentSuppressionTemplate.code) return cleanAgentSuppressionTemplate;
+  if (code === fireDetectionAlarmTemplate.code) return fireDetectionAlarmTemplate;
+  if (code === preactionSprinklerTemplate.code) return preactionSprinklerTemplate;
   return miningAssetClassLibrary.find((template) => template.code === code);
 }
 
@@ -226,3 +238,9 @@ export { buswayTemplate } from "./busway";
 export { mvSwitchgearTemplate } from "./mv-switchgear";
 export { powerTransformerTemplate } from "./power-transformer";
 export { coolingTowerTemplate } from "./cooling-tower";
+export { batteryEnergyStorageTemplate } from "./battery-energy-storage";
+export { coolantDistributionUnitTemplate } from "./coolant-distribution-unit";
+export { rearDoorHeatExchangerTemplate } from "./rear-door-heat-exchanger";
+export { cleanAgentSuppressionTemplate } from "./clean-agent-suppression";
+export { fireDetectionAlarmTemplate } from "./fire-detection-alarm";
+export { preactionSprinklerTemplate } from "./preaction-sprinkler";
