@@ -3,6 +3,7 @@ import type {
   DecisionCaseInvitation,
   DecisionCaseInvitationStatus,
 } from "../lib/onboarding/decision-case-spine";
+import { edgeFunctionErrorMessage } from "./edgeFunctionError";
 
 interface InvitationResponse {
   status?: DecisionCaseInvitationStatus;
@@ -43,7 +44,7 @@ async function invokeInvitation(
     "decision-case-invite",
     { body },
   );
-  if (error) throw new Error(error.message);
+  if (error) throw new Error(await edgeFunctionErrorMessage(error));
   return unwrapInvitation(data, fallback);
 }
 

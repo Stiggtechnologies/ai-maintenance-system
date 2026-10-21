@@ -635,7 +635,7 @@ export function DecisionCaseSpine({
             First Decision Journey
           </p>
           <p className="mt-1 text-[11px] text-slate-400">
-            Supported governed slice · not the full 20-step journey
+            Supported governed slice · not the full 24-step journey
           </p>
           <p className="mt-1 text-sm font-semibold text-white">
             {decisionCase.caseNumber} · {decisionCase.statusLabel}
