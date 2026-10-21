@@ -212,6 +212,18 @@ test("first decision journey: anonymous question to approved, verified, resumabl
     await expect(proof).not.toContainText("· quarantined ·");
   });
 
+  await test.step("14 — each cited source shows its system, recorded revision, lineage and access scope", async () => {
+    await page.getByTestId("spine-provenance-toggle").click();
+    const provenance = page.getByTestId("spine-provenance");
+    await expect(provenance).toContainText("SyncAI governed document intake");
+    await expect(provenance.getByTestId("spine-provenance-revision").first()).toBeVisible();
+    await expect(provenance).toContainText("No document revision or equipment configuration");
+    await expect(provenance).toContainText("· indexed · cleared");
+    await expect(provenance.getByTestId("spine-provenance-access").first()).toContainText("no one outside it can");
+    await expect(provenance).not.toContainText("quarantined");
+    await page.getByTestId("spine-provenance-toggle").click();
+  });
+
   await test.step("16 — source check reports status only and never simulates a live pull", async () => {
     // Recorded after the decision and required person below; asserted here for order.
     await expect(page.getByTestId("spine-connect-panel")).toContainText("does not end the case");
@@ -343,7 +355,7 @@ test("21 negative — another tenant cannot open the case", async ({ browser }) 
 
 // Declared gaps: these steps are part of the contract but this local witness
 // cannot honestly exercise them yet. Each stays visible until it is covered.
-test.fixme("14–15 — evidence source, revision, provenance, access scope and approved source mappings", () => {
+test.fixme("15 — approved source mappings for the selected site, asset and component", () => {
   // Needs a governed source mapping for a selected site/asset/component in the
   // demo tenant; no mapping fixture exists for the journey yet.
 });

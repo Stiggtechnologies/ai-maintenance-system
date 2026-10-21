@@ -797,3 +797,28 @@ describe("governed document evidence persistence", () => {
     expect(next.evidence.some((row) => row.id === "missing-inspection")).toBe(true);
   });
 });
+
+describe("provenance cites (journey step 14)", () => {
+  it("states source, recorded revision and access scope without inventing a revision", () => {
+    const base = buildSpineDecisionCase({
+      question: "Should we hold or change the current inspection interval on this rotating asset?",
+      intent: "solve",
+    });
+    const governed = attachGovernedSpineEvidence(base, "inspection", "Synthetic governed inspection excerpt for provenance", {
+      sourceId: "decision-case-test-inspection",
+      ingestionStatus: "indexed",
+      securityStatus: "cleared",
+      chunksCreated: 1,
+    });
+    const both = attachSpineEvidence(governed, "work_history", "paste_data", "Synthetic manual work history note");
+    const cites = provenanceFromCase(both).cites;
+    const g = cites.find((c) => c.sourceSystem === "SyncAI governed document intake")!;
+    const m = cites.find((c) => c.sourceSystem !== "SyncAI governed document intake")!;
+    expect(g.revision).toContain("Knowledge source decision-case-test-inspection · indexed · cleared");
+    expect(g.revision).toContain("No document revision or equipment configuration was recorded");
+    expect(g.accessScope).toContain("only within your organization");
+    expect(m.revision).toMatch(/^Customer-supplied note\. No document revision/);
+    expect(m.accessScope).toContain("no one outside it can");
+    expect(JSON.stringify(cites)).not.toMatch(/\bRev\.? ?[A-Z0-9]|version \d/);
+  });
+});
