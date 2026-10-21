@@ -839,8 +839,16 @@ jobs:
             psql -X -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -f scripts/tests/asset-service-level-browser-fixture.sql
 
+      - name: First Decision Journey browser fixture (one foreign-tenant identity only)
+        run: |
+          set -euo pipefail
+          test "${GITHUB_ACTIONS:-}" = true
+          PGOPTIONS='-c app.ci_first_decision_browser_fixture=github_actions_only' PGPASSWORD=postgres \
+            psql -X -h 127.0.0.1 -p 54322 -U postgres -d postgres -v ON_ERROR_STOP=1 \
+            -f scripts/tests/first-decision-journey-browser-fixture.sql
+
       - name: Golden-path E2E (login → evidence → scenarios → approve → verify)
-        run: npx playwright test tests/e2e/golden-path.spec.ts tests/e2e/material-commercial-thread.spec.ts tests/e2e/project-fracas.spec.ts tests/e2e/time-synchronization-assurance.spec.ts tests/e2e/sync-context.spec.ts tests/e2e/covariate-survival.spec.ts tests/e2e/asset-service-level-governance.spec.ts
+        run: npx playwright test tests/e2e/golden-path.spec.ts tests/e2e/material-commercial-thread.spec.ts tests/e2e/project-fracas.spec.ts tests/e2e/time-synchronization-assurance.spec.ts tests/e2e/sync-context.spec.ts tests/e2e/covariate-survival.spec.ts tests/e2e/asset-service-level-governance.spec.ts tests/e2e/first-decision-journey.spec.ts
 
       - name: Upload Playwright artifacts
         if: always()
