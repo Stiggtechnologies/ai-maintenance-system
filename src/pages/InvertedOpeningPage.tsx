@@ -3,7 +3,7 @@
  * Arrive → Ask → Save (workspace) → evidence → recommend → decide → verify.
  * Example prompts fill the box only. They are never written to a workspace.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, Shield } from "lucide-react";
 import { useOptionalAuth } from "../components/AuthProvider";
 import { hasWorkspaceMembership } from "../lib/auth";
@@ -360,6 +360,19 @@ export function InvertedOpeningPage() {
     }
   };
 
+  // Bumped when the canonical case loaded from the workspace is newer than
+  // the copy restored from this tab's session, so the Spine remounts on the
+  // server state instead of keeping a stale browser copy (same case id).
+  const [canonicalLoad, setCanonicalLoad] = useState(0);
+  const restoredRevision = useRef(
+    restored
+      ? {
+          id: restored.decisionCase.id,
+          revision: restored.decisionCase.revision ?? 0,
+        }
+      : null,
+  );
+
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("case") ?? "";
     if (!isPersistedDecisionCase(id)) return;
@@ -376,6 +389,12 @@ export function InvertedOpeningPage() {
         setPersistedCase(loaded);
         setCaseSaved(true);
         setExamplePreview(false);
+        if (
+          restoredRevision.current?.id === loaded.id &&
+          restoredRevision.current.revision !== (loaded.revision ?? 0)
+        ) {
+          setCanonicalLoad((count) => count + 1);
+        }
         if (new URLSearchParams(window.location.search).get("view") !== "ask") {
           setSpineQuestion(loaded.objective);
         }
@@ -728,7 +747,7 @@ export function InvertedOpeningPage() {
               </p>
             ) : null}
             <DecisionCaseSpine
-              key={persistedCase?.id ?? spineQuestion}
+              key={`${persistedCase?.id ?? spineQuestion}:${canonicalLoad}`}
               question={spineQuestion}
               intent={intent}
               industry={industry}
