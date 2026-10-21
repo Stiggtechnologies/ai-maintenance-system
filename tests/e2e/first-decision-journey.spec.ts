@@ -47,7 +47,12 @@ async function openCase(page: Page, caseId: string) {
 }
 
 async function expectSaved(page: Page) {
-  await expect(page.getByTestId("spine-save-notice")).toContainText("Updates saved", { timeout: 20_000 });
+  const notice = page.getByTestId("spine-save-notice");
+  await expect(notice).toContainText(/Updates saved|did not complete/, { timeout: 20_000 });
+  if (!/Updates saved/.test((await notice.textContent()) ?? "")) {
+    const alerts = await page.getByRole("alert").allTextContents();
+    throw new Error(`Workspace command refused: ${alerts.join(" | ") || "no error text shown"}`);
+  }
 }
 
 async function contextFor(browser: Browser, page?: Page): Promise<BrowserContext> {
@@ -131,6 +136,12 @@ test("first decision journey: anonymous question to approved, verified, resumabl
     const stale = await other.newPage();
     try {
       await openCase(stale, caseId);
+      await stale.waitForLoadState("networkidle");
+      // Opening a case may itself record canonical state; refresh the first
+      // tab so it holds the newest version and the second tab is the stale one.
+      await page.reload();
+      await expect(page.getByTestId("decision-case-spine")).toBeVisible({ timeout: 30_000 });
+      await page.waitForLoadState("networkidle");
       await page.getByTestId("spine-evidence-body").fill("Synthetic note from the first tab");
       await page.getByTestId("spine-add-evidence").click();
       await expectSaved(page);
