@@ -1533,7 +1533,38 @@ export type ProvenanceCite = {
   lineage: string;
   quality: EvidenceQuality;
   summary: string;
+  /** What revision or configuration is actually recorded — never inferred. */
+  revision: string;
+  /** Who can read this evidence, from where it is stored. */
+  accessScope: string;
 };
+
+const CASE_ACCESS_SCOPE =
+  "Stored on this Decision Case: signed-in people in your organization can read it; no one outside it can.";
+
+function citeRevision(item: DecisionCase["evidence"][number]): string {
+  const receipt = (
+    item as {
+      sourceReceipt?: {
+        sourceId?: string;
+        ingestionStatus?: string;
+        securityStatus?: string;
+      };
+    }
+  ).sourceReceipt;
+  if (receipt?.sourceId) {
+    return `Knowledge source ${receipt.sourceId} · ${receipt.ingestionStatus ?? "status not recorded"} · ${receipt.securityStatus ?? "security state not recorded"}. No document revision or equipment configuration was recorded at intake.`;
+  }
+  return "Customer-supplied note. No document revision or equipment configuration is recorded for it.";
+}
+
+function citeAccessScope(item: DecisionCase["evidence"][number]): string {
+  const receipt = (item as { sourceReceipt?: { sourceId?: string } })
+    .sourceReceipt;
+  return receipt?.sourceId
+    ? `${CASE_ACCESS_SCOPE} The governed source is retrievable only within your organization's knowledge base.`
+    : CASE_ACCESS_SCOPE;
+}
 
 /** Cites evidence already attached. Missing slots are not sources. */
 export function provenanceFromCase(decisionCase: DecisionCase): {
@@ -1549,6 +1580,8 @@ export function provenanceFromCase(decisionCase: DecisionCase): {
       lineage: item.lineage,
       quality: item.quality,
       summary: item.summary,
+      revision: citeRevision(item),
+      accessScope: citeAccessScope(item),
     }));
   return {
     cites,

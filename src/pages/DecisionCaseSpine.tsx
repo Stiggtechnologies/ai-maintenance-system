@@ -1135,6 +1135,18 @@ export function DecisionCaseSpine({
                     <p className="mt-1 text-xs text-slate-200">
                       {cite.summary}
                     </p>
+                    <p
+                      data-testid="spine-provenance-revision"
+                      className="mt-1 text-[11px] text-slate-400"
+                    >
+                      Revision · {cite.revision}
+                    </p>
+                    <p
+                      data-testid="spine-provenance-access"
+                      className="mt-1 text-[11px] text-slate-400"
+                    >
+                      Access · {cite.accessScope}
+                    </p>
                   </li>
                 ))}
               </ul>
