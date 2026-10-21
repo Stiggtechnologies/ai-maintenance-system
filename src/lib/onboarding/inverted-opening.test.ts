@@ -5,6 +5,7 @@ import {
   INVERTED_OPENING_AUTHORITY,
   INVERTED_OPENING_HEADLINE,
   INVERTED_OPENING_SUB,
+  INVERTED_RETENTION_NOTICE,
   isExamplePrompt,
   workedExampleFor,
 } from "./inverted-opening";
@@ -75,5 +76,17 @@ describe("worked examples for labelled example prompts", () => {
     const text = JSON.stringify(INVERTED_EXAMPLE_PROMPTS.map((e) => workedExampleFor(e.prompt)));
     expect(text).not.toMatch(/\d/);
     expect(text).not.toMatch(/Fort McMurray|North Ridge|Copper Ridge|P-101/i);
+  });
+});
+
+describe("retention and access notice (journey step 4)", () => {
+  it("says where an anonymous draft lives, who can open a saved case, and that viewing grants no authority", () => {
+    expect(INVERTED_RETENTION_NOTICE.beforeSignIn).toMatch(/this browser tab only/);
+    expect(INVERTED_RETENTION_NOTICE.beforeSignIn).toMatch(/Nothing is saved to a workspace/);
+    expect(INVERTED_RETENTION_NOTICE.afterSave).toMatch(/your organization's SyncAI workspace/);
+    expect(INVERTED_RETENTION_NOTICE.afterSave).toMatch(/people outside it cannot/);
+    expect(INVERTED_RETENTION_NOTICE.authority).toMatch(/does not give anyone approval authority/);
+    const all = Object.values(INVERTED_RETENTION_NOTICE).join(" ");
+    expect(all).not.toMatch(/encrypt|certif|SOC ?2|ISO|forever|never stored|anonymous/i);
   });
 });

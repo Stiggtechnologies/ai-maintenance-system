@@ -92,8 +92,20 @@ function commandPayload(
         .reverse()
         .find((item) => item.author === author)
         ?.text.trim() ?? "";
+    // Actor and record metadata (recordedAt, actor) are server-owned; send
+    // only the human-entered fields or the command is refused.
+    const decision = decisionCase.humanDecision;
     return {
-      humanDecision: decisionCase.humanDecision,
+      humanDecision: decision
+        ? {
+            disposition: decision.disposition,
+            rationale: decision.rationale,
+            ...(decision.counterfactual
+              ? { counterfactual: decision.counterfactual }
+              : {}),
+            ...(decision.expiresOn ? { expiresOn: decision.expiresOn } : {}),
+          }
+        : decision,
       people: {
         decisionOwner: person("Decision Owner"),
         recommendationAuthor: person("Recommendation Author"),

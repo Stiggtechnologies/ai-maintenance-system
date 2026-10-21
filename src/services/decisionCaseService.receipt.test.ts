@@ -72,6 +72,27 @@ describe("durable decision-case receipts (command model)", () => {
     expect(receipt.update).not.toHaveBeenCalled();
   });
 
+  it("sends only human-entered disposition fields; actor and recordedAt stay server-owned", async () => {
+    const decisionCase = {
+      ...savedCase(3),
+      humanDecision: {
+        disposition: "accept" as const,
+        rationale: "Synthetic rationale",
+        counterfactual: "Synthetic counterfactual",
+        recordedAt: "2026-10-21T00:00:00.000Z",
+        actor: { id: "forged", name: "Forged", role: "admin" },
+      },
+    };
+    receipt.rpc.mockResolvedValue({ data: { caseState: { ...decisionCase }, version: 4 }, error: null });
+    await savePersistedDecisionCase(decisionCase as never, "record_disposition");
+    const sent = receipt.rpc.mock.calls[0][1].p_case_state as { humanDecision: Record<string, unknown> };
+    expect(sent.humanDecision).toEqual({
+      disposition: "accept",
+      rationale: "Synthetic rationale",
+      counterfactual: "Synthetic counterfactual",
+    });
+  });
+
   it("refuses to report a save when the server returns no newer version", async () => {
     receipt.rpc.mockResolvedValue({
       data: { caseState: savedCase(3), version: 3 },

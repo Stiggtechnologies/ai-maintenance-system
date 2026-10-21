@@ -6,6 +6,20 @@ export const INVERTED_OPENING_HEADLINE =
 export const INVERTED_OPENING_SUB =
   "Ask a real question. See the evidence. Make the decision. Verify the outcome.";
 
+/**
+ * Step 4 of the First Decision Journey: say what is kept and who can see it
+ * before the person types anything. Anonymous drafts live in this browser
+ * tab's session storage; a saved case is a tenant-scoped workspace row.
+ */
+export const INVERTED_RETENTION_NOTICE = {
+  beforeSignIn:
+    "Before you sign in, your question and notes stay in this browser tab only. Nothing is saved to a workspace.",
+  afterSave:
+    "When you sign in and save, the case is stored in your organization's SyncAI workspace. Signed-in people in your organization can open it; people outside it cannot.",
+  authority:
+    "Opening a case does not give anyone approval authority. Only the person you name can approve.",
+} as const;
+
 export const INVERTED_OPENING_AUTHORITY =
   "Sync recommends. Humans authorize. No plant execute.";
 

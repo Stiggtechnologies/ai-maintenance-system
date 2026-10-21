@@ -3,7 +3,7 @@
  * Arrive → Ask → Save (workspace) → evidence → recommend → decide → verify.
  * Example prompts fill the box only. They are never written to a workspace.
  */
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ArrowRight, Shield } from "lucide-react";
 import { useOptionalAuth } from "../components/AuthProvider";
 import { hasWorkspaceMembership } from "../lib/auth";
@@ -13,6 +13,7 @@ import {
   INVERTED_OPENING_AUTHORITY,
   INVERTED_OPENING_HEADLINE,
   INVERTED_OPENING_SUB,
+  INVERTED_RETENTION_NOTICE,
   isExamplePrompt,
   type InvertedIntentId,
 } from "../lib/onboarding/inverted-opening";
@@ -359,6 +360,19 @@ export function InvertedOpeningPage() {
     }
   };
 
+  // Bumped when the canonical case loaded from the workspace is newer than
+  // the copy restored from this tab's session, so the Spine remounts on the
+  // server state instead of keeping a stale browser copy (same case id).
+  const [canonicalLoad, setCanonicalLoad] = useState(0);
+  const restoredRevision = useRef(
+    restored
+      ? {
+          id: restored.decisionCase.id,
+          revision: restored.decisionCase.revision ?? 0,
+        }
+      : null,
+  );
+
   useEffect(() => {
     const id = new URLSearchParams(window.location.search).get("case") ?? "";
     if (!isPersistedDecisionCase(id)) return;
@@ -375,6 +389,12 @@ export function InvertedOpeningPage() {
         setPersistedCase(loaded);
         setCaseSaved(true);
         setExamplePreview(false);
+        if (
+          restoredRevision.current?.id === loaded.id &&
+          restoredRevision.current.revision !== (loaded.revision ?? 0)
+        ) {
+          setCanonicalLoad((count) => count + 1);
+        }
         if (new URLSearchParams(window.location.search).get("view") !== "ask") {
           setSpineQuestion(loaded.objective);
         }
@@ -488,6 +508,17 @@ export function InvertedOpeningPage() {
                 placeholder="What engineering decision do you need to make?"
                 className="w-full rounded-2xl border border-white/10 bg-[#0D1520] px-4 py-3 text-sm text-white outline-none ring-teal-400/40 placeholder:text-slate-500 focus:ring-2"
               />
+              <div
+                data-testid="inverted-retention"
+                className="space-y-1 rounded-xl border border-white/10 px-3 py-2 text-xs leading-relaxed text-slate-400"
+              >
+                <p className="font-semibold text-slate-200">
+                  What is kept and who can see it
+                </p>
+                <p>{INVERTED_RETENTION_NOTICE.beforeSignIn}</p>
+                <p>{INVERTED_RETENTION_NOTICE.afterSave}</p>
+                <p>{INVERTED_RETENTION_NOTICE.authority}</p>
+              </div>
               {seedPhrase ? (
                 <p
                   role="alert"
@@ -716,7 +747,7 @@ export function InvertedOpeningPage() {
               </p>
             ) : null}
             <DecisionCaseSpine
-              key={persistedCase?.id ?? spineQuestion}
+              key={`${persistedCase?.id ?? spineQuestion}:${canonicalLoad}`}
               question={spineQuestion}
               intent={intent}
               industry={industry}
