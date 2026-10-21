@@ -13,6 +13,7 @@ import {
   applyInvite,
   applyInvitationDelivery,
   applyVerificationPlan,
+  attachGovernedSpineEvidence,
   attachSpineEvidence,
   buildProofSummary,
   buildSpineDecisionCase,
@@ -756,5 +757,43 @@ describe("P3 Decision Case stage help", () => {
     expect(activeSpineStage(learned.stage)).toBe("LEARNING");
     expect(activeSpineStage("execution")).toBe("ACTION");
     expect(stageHelpFor("ACTION").label).toMatch(/locked/);
+  });
+});
+
+describe("governed document evidence persistence", () => {
+  const base = () =>
+    buildSpineDecisionCase({
+      question: "Should we hold or change the current inspection interval on this rotating asset?",
+      intent: "solve",
+    });
+  const receipt = (securityStatus: "cleared" | "quarantined") => ({
+    sourceId: "decision-case-test-inspection",
+    ingestionStatus: "indexed",
+    securityStatus,
+    chunksCreated: 1,
+  });
+
+  it("embeds a usable source's reviewed excerpt so the governed command can persist it", () => {
+    const next = attachGovernedSpineEvidence(
+      base(),
+      "inspection",
+      "Synthetic inspection excerpt with enough text to persist",
+      receipt("cleared"),
+    );
+    const item = next.evidence[0];
+    expect(item).toMatchObject({ quality: "medium", persistence: "embedded" });
+    expect(item.finding.trim().length).toBeGreaterThanOrEqual(12);
+    expect(next.evidence.some((row) => row.id === "missing-inspection")).toBe(false);
+  });
+
+  it("keeps a quarantined source as excluded, unsupplied evidence and keeps the gap open", () => {
+    const next = attachGovernedSpineEvidence(
+      base(),
+      "inspection",
+      "Synthetic inspection excerpt with enough text to persist",
+      receipt("quarantined"),
+    );
+    expect(next.evidence[0]).toMatchObject({ quality: "conflict", persistence: "pending" });
+    expect(next.evidence.some((row) => row.id === "missing-inspection")).toBe(true);
   });
 });

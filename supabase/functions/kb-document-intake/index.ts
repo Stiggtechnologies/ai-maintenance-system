@@ -21,7 +21,10 @@ const corsHeaders = {
   "Access-Control-Allow-Origin":
     Deno.env.get("ALLOWED_ORIGIN") || "https://app.syncai.ca",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  // supabase-js functions.invoke sends apikey and x-client-info; a preflight
+  // that does not allow them blocks every browser call.
+  "Access-Control-Allow-Headers":
+    "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
 function jsonResponse(body: unknown, status = 200): Response {

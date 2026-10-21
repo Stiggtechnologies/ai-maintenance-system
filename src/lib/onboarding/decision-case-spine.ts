@@ -682,6 +682,9 @@ export function attachGovernedSpineEvidence(
       : "The source is retained but excluded from retrieval until its security state is resolved.",
     lineage: `Tenant knowledge intake · ${receipt.sourceId} · ${receipt.ingestionStatus} · ${receipt.securityStatus} · ${now}`,
     sourceSystem: "SyncAI governed document intake",
+    // The reviewed excerpt is embedded on the case; the governed source stays
+    // the system of record. A retained-but-excluded source supplies nothing.
+    persistence: retrievable ? "embedded" : "pending",
     sourceReceipt: {
       kind: "governed_document",
       sourceId: receipt.sourceId,

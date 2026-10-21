@@ -89,8 +89,9 @@ describe("Edge deployment checker runtime compatibility", () => {
     expect(result.output).toContain("Edge-function boundary verified");
     expect(boundary.supabaseCliVersion).toBe("2.84.2");
     // Main's reviewed boundary, the Azure IoT Operations ingress function,
-    // and the stack's governed read adapters.
-    expect(boundary.activeFunctions).toHaveLength(40);
+    // and the stack's governed read adapters, plus kb-document-intake
+    // (approved in #287, restored after #288 dropped it).
+    expect(boundary.activeFunctions).toHaveLength(41);
     for (const name of [
       "bently-system1-condition-read-pull",
       "data-lake-read-pull",
