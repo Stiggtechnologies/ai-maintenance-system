@@ -75,10 +75,10 @@ const nodes: SystemNode[] = [
   ]),
   equipment("DC-MV-SWITCHGEAR", "Medium-voltage switchgear and protection relays", "DC-ELEC-UTILITY", [
     fn("F-MV-SWITCH", "switch and protect medium-voltage feeders", true, loss("feeder switching", ["failure to clear a fault", "nuisance trip"])),
-  ], { maintainableItems: ["circuit breakers", "vacuum interrupters", "protection relays", "current and voltage transformers", "busbar and insulation", "control power and DC supply", "earthing switches", "interlocks"] }),
+  ], { template: "CRIT-MV-SWITCHGEAR" }),
   equipment("DC-MV-TRANSFORMER", "Step-down power transformer", "DC-ELEC-UTILITY", [
     fn("F-TRANSFORM", "step medium voltage down to facility distribution voltage", true, loss("transformation", ["insulation breakdown"])),
-  ], { maintainableItems: ["windings", "core", "bushings", "insulating oil or resin", "tap changer", "cooling fans and radiators", "protection devices", "temperature monitoring"] }),
+  ], { template: "CRIT-POWER-TRANSFORMER" }),
 
   subsystem("DC-ELEC-GENERATION", "Standby generation", "DC-ELEC", [
     fn("F-GEN-SUPPLY", "supply facility power when utility power is lost", true, loss("standby supply", ["failure to start", "failure to accept load"])),
@@ -101,7 +101,7 @@ const nodes: SystemNode[] = [
   ], { template: "CRIT-TRANSFER-SWITCH" }),
   equipment("DC-STS", "Static transfer switch", "DC-ELEC-TRANSFER", [
     fn("F-STS", "transfer single-corded loads between two UPS sources without interruption", true, loss("static transfer", ["unwanted transfer", "failure to transfer"])),
-  ], { maintainableItems: ["thyristor (SCR) modules", "control logic", "bypass switches", "cooling fans", "sensing and metering"] }),
+  ], { template: "CRIT-STATIC-TRANSFER-SWITCH" }),
 
   subsystem("DC-ELEC-UPS", "Uninterruptible power and energy storage", "DC-ELEC", [
     fn("F-UPS-SUB", "carry critical load without interruption through source loss and transfer", true, loss("ride-through")),
@@ -124,13 +124,13 @@ const nodes: SystemNode[] = [
   ], { maintainableItems: ["air circuit breakers", "moulded-case breakers", "busbar", "protection trip units", "metering", "surge protection"] }),
   equipment("DC-PDU", "Power distribution unit (floor-standing)", "DC-ELEC-DISTRIBUTION", [
     fn("F-PDU", "transform and distribute power to rack circuits", true, loss("rack circuit power")),
-  ], { maintainableItems: ["isolation transformer", "panelboards", "branch circuit breakers", "branch circuit monitoring", "cooling fans"] }),
+  ], { template: "CRIT-PDU" }),
   equipment("DC-RPP", "Remote power panel", "DC-ELEC-DISTRIBUTION", [
     fn("F-RPP", "distribute branch circuits close to the racks", true, loss("branch circuits")),
-  ], { maintainableItems: ["panelboards", "branch breakers", "branch circuit monitoring"] }),
+  ], { template: "CRIT-PDU" }),
   equipment("DC-BUSWAY", "Overhead busway and tap-off units", "DC-ELEC-DISTRIBUTION", [
     fn("F-BUSWAY", "carry power along rack rows with plug-in tap-offs", true, loss("row power", ["joint overheating"])),
-  ], { maintainableItems: ["busway sections", "joints and joint packs", "tap-off boxes", "end feeds", "joint temperature monitoring"] }),
+  ], { template: "CRIT-BUSWAY" }),
   equipment("DC-RACK-PDU", "Rack power strip", "DC-ELEC-DISTRIBUTION", [
     fn("F-RACK-PDU", "deliver power to each IT device in the rack", true, loss("outlet power")),
   ], { maintainableItems: ["outlets", "circuit protection", "metering and network card", "inlet cords"] }),
@@ -157,7 +157,7 @@ const nodes: SystemNode[] = [
   ], { template: "ROT-CENT-PUMP" }),
   equipment("DC-COOLING-TOWER", "Cooling tower", "DC-MECH-PLANT", [
     fn("F-TOWER", "reject condenser heat to atmosphere by evaporation", true, loss("heat rejection", ["biological contamination"])),
-  ], { maintainableItems: ["fill media", "fan and motor", "gearbox or belt drive", "basin and strainers", "spray nozzles", "drift eliminators", "make-up valve", "basin heaters"] }),
+  ], { template: "CRIT-COOLING-TOWER" }),
   equipment("DC-DRY-COOLER", "Dry cooler or adiabatic cooler", "DC-MECH-PLANT", [
     fn("F-DRY-COOLER", "reject heat to air without (or with limited) evaporation", true, loss("heat rejection")),
   ], { maintainableItems: ["coil", "fans and EC motors", "adiabatic pads and sprays", "controls"] }),
@@ -176,7 +176,7 @@ const nodes: SystemNode[] = [
   ]),
   equipment("DC-CRAH", "Computer room air handler (chilled water)", "DC-MECH-AIR", [
     fn("F-CRAH", "cool and move air through the IT space", true, loss("air cooling")),
-  ], { maintainableItems: ["cooling coil", "EC fans", "chilled-water control valve", "filters", "condensate drain", "controls and sensors"] }),
+  ], { template: "CRIT-CRAH" }),
   equipment("DC-CRAC", "Computer room air conditioner (direct expansion)", "DC-MECH-AIR", [
     fn("F-CRAC", "cool air with its own refrigeration circuit", true, loss("air cooling")),
   ], { maintainableItems: ["compressor", "evaporator coil", "condenser (remote or integral)", "expansion valve", "fans", "filters", "controls"] }),

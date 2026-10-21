@@ -6,7 +6,22 @@ import {
   dataCenterChillerEngineeringDna,
   standbyGeneratorEngineeringDna,
   upsSystemEngineeringDna,
+  computerRoomAirHandlerEngineeringDna,
+  staticTransferSwitchEngineeringDna,
+  powerDistributionUnitEngineeringDna,
+  buswayEngineeringDna,
+  mvSwitchgearEngineeringDna,
+  powerTransformerEngineeringDna,
+  coolingTowerEngineeringDna,
 } from "./critical-facility-dna";
+import { computerRoomAirHandlerTemplate } from "./computer-room-air-handler";
+import { staticTransferSwitchTemplate } from "./static-transfer-switch";
+import { powerDistributionUnitTemplate } from "./power-distribution-unit";
+import { buswayTemplate } from "./busway";
+import { mvSwitchgearTemplate } from "./mv-switchgear";
+import { powerTransformerTemplate } from "./power-transformer";
+import { coolingTowerTemplate } from "./cooling-tower";
+
 import { dataCenterChillerTemplate } from "./data-center-chiller";
 import {
   instantiateEngineeringTwin,
@@ -29,6 +44,13 @@ const pairs = [
   [upsSystemTemplate, upsSystemEngineeringDna],
   [automaticTransferSwitchTemplate, automaticTransferSwitchEngineeringDna],
   [dataCenterChillerTemplate, dataCenterChillerEngineeringDna],
+  [computerRoomAirHandlerTemplate, computerRoomAirHandlerEngineeringDna],
+  [staticTransferSwitchTemplate, staticTransferSwitchEngineeringDna],
+  [powerDistributionUnitTemplate, powerDistributionUnitEngineeringDna],
+  [buswayTemplate, buswayEngineeringDna],
+  [mvSwitchgearTemplate, mvSwitchgearEngineeringDna],
+  [powerTransformerTemplate, powerTransformerEngineeringDna],
+  [coolingTowerTemplate, coolingTowerEngineeringDna],
 ] as const;
 
 describe("critical power and cooling Digital Engineering DNA", () => {

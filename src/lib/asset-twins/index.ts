@@ -1,3 +1,10 @@
+import { computerRoomAirHandlerTemplate } from "./computer-room-air-handler";
+import { staticTransferSwitchTemplate } from "./static-transfer-switch";
+import { powerDistributionUnitTemplate } from "./power-distribution-unit";
+import { buswayTemplate } from "./busway";
+import { mvSwitchgearTemplate } from "./mv-switchgear";
+import { powerTransformerTemplate } from "./power-transformer";
+import { coolingTowerTemplate } from "./cooling-tower";
 import { blastholeDrillTemplate } from "./blasthole-drill";
 import { ballMillTemplate } from "./ball-mill";
 import { centrifugalPumpTemplate } from "./centrifugal-pump";
@@ -199,8 +206,23 @@ export function getAssetClassTemplate(
   if (code === automaticTransferSwitchTemplate.code)
     return automaticTransferSwitchTemplate;
   if (code === dataCenterChillerTemplate.code) return dataCenterChillerTemplate;
+  if (code === computerRoomAirHandlerTemplate.code) return computerRoomAirHandlerTemplate;
+  if (code === staticTransferSwitchTemplate.code) return staticTransferSwitchTemplate;
+  if (code === powerDistributionUnitTemplate.code) return powerDistributionUnitTemplate;
+  if (code === buswayTemplate.code) return buswayTemplate;
+  if (code === mvSwitchgearTemplate.code) return mvSwitchgearTemplate;
+  if (code === powerTransformerTemplate.code) return powerTransformerTemplate;
+  if (code === coolingTowerTemplate.code) return coolingTowerTemplate;
   return miningAssetClassLibrary.find((template) => template.code === code);
 }
 
 export * from "./system-model";
 export { dataCenterReferenceModel } from "./data-center-reference-model";
+
+export { computerRoomAirHandlerTemplate } from "./computer-room-air-handler";
+export { staticTransferSwitchTemplate } from "./static-transfer-switch";
+export { powerDistributionUnitTemplate } from "./power-distribution-unit";
+export { buswayTemplate } from "./busway";
+export { mvSwitchgearTemplate } from "./mv-switchgear";
+export { powerTransformerTemplate } from "./power-transformer";
+export { coolingTowerTemplate } from "./cooling-tower";

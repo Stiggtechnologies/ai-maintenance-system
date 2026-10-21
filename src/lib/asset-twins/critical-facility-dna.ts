@@ -2,6 +2,13 @@ import type { EngineeringDnaProfile } from "./engineering-dna";
 import { automaticTransferSwitchTemplate } from "./automatic-transfer-switch";
 import { dataCenterChillerTemplate } from "./data-center-chiller";
 import { standbyGeneratorTemplate } from "./standby-generator";
+import { computerRoomAirHandlerTemplate } from "./computer-room-air-handler";
+import { staticTransferSwitchTemplate } from "./static-transfer-switch";
+import { powerDistributionUnitTemplate } from "./power-distribution-unit";
+import { buswayTemplate } from "./busway";
+import { mvSwitchgearTemplate } from "./mv-switchgear";
+import { powerTransformerTemplate } from "./power-transformer";
+import { coolingTowerTemplate } from "./cooling-tower";
 import type { AssetClassTemplate } from "./types";
 import { upsSystemTemplate } from "./ups-system";
 
@@ -82,9 +89,51 @@ export const dataCenterChillerEngineeringDna = criticalFacilityDna(
   "Governed reusable blueprint for chiller plant twins that keep data halls and other critical spaces cooled.",
 );
 
+export const computerRoomAirHandlerEngineeringDna = criticalFacilityDna(
+  computerRoomAirHandlerTemplate,
+  "Governed reusable blueprint for chilled-water air handler and fan-wall twins in data halls.",
+);
+
+export const staticTransferSwitchEngineeringDna = criticalFacilityDna(
+  staticTransferSwitchTemplate,
+  "Governed reusable blueprint for static transfer switch twins feeding single-corded critical loads.",
+);
+
+export const powerDistributionUnitEngineeringDna = criticalFacilityDna(
+  powerDistributionUnitTemplate,
+  "Governed reusable blueprint for PDU and remote power panel twins.",
+);
+
+export const buswayEngineeringDna = criticalFacilityDna(
+  buswayTemplate,
+  "Governed reusable blueprint for overhead busway and tap-off twins.",
+);
+
+export const mvSwitchgearEngineeringDna = criticalFacilityDna(
+  mvSwitchgearTemplate,
+  "Governed reusable blueprint for medium-voltage switchgear and protection twins.",
+);
+
+export const powerTransformerEngineeringDna = criticalFacilityDna(
+  powerTransformerTemplate,
+  "Governed reusable blueprint for facility step-down transformer twins.",
+);
+
+export const coolingTowerEngineeringDna = criticalFacilityDna(
+  coolingTowerTemplate,
+  "Governed reusable blueprint for evaporative cooling tower twins.",
+);
+
 export const criticalFacilityEngineeringDna: EngineeringDnaProfile[] = [
   standbyGeneratorEngineeringDna,
   upsSystemEngineeringDna,
   automaticTransferSwitchEngineeringDna,
   dataCenterChillerEngineeringDna,
+  computerRoomAirHandlerEngineeringDna,
+  staticTransferSwitchEngineeringDna,
+  powerDistributionUnitEngineeringDna,
+  buswayEngineeringDna,
+  mvSwitchgearEngineeringDna,
+  powerTransformerEngineeringDna,
+  coolingTowerEngineeringDna,
 ];
