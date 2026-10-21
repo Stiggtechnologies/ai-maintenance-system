@@ -27,7 +27,48 @@ import {
   lvSwitchboardEngineeringDna,
   generatorParallelingSwitchgearEngineeringDna,
   generatorFuelSystemEngineeringDna,
+  earthingSystemEngineeringDna,
+  rackPowerDistributionEngineeringDna,
+  dryCoolerEngineeringDna,
+  thermalStorageTankEngineeringDna,
+  coolingWaterTreatmentEngineeringDna,
+  chilledWaterDistributionEngineeringDna,
+  airHandlingEconomiserEngineeringDna,
+  humidityControlEngineeringDna,
+  airflowContainmentEngineeringDna,
+  directLiquidCoolingEngineeringDna,
+  immersionCoolingTankEngineeringDna,
+  leakDetectionEngineeringDna,
+  waterMistSuppressionEngineeringDna,
+  emergencyLightingEngineeringDna,
+  dcimPlatformEngineeringDna,
+  facilityControlsNetworkEngineeringDna,
+  accessControlEngineeringDna,
+  videoSurveillanceEngineeringDna,
+  itRackCabinetEngineeringDna,
+  raisedFloorPathwaysEngineeringDna,
 } from "./critical-facility-dna";
+import { earthingSystemTemplate } from "./earthing-lightning-protection";
+import { rackPowerDistributionTemplate } from "./rack-power-distribution";
+import { dryCoolerTemplate } from "./dry-cooler";
+import { thermalStorageTankTemplate } from "./thermal-storage-tank";
+import { coolingWaterTreatmentTemplate } from "./cooling-water-treatment";
+import { chilledWaterDistributionTemplate } from "./chilled-water-distribution";
+import { airHandlingEconomiserTemplate } from "./air-handling-economiser";
+import { humidityControlTemplate } from "./humidity-control";
+import { airflowContainmentTemplate } from "./airflow-containment";
+import { directLiquidCoolingTemplate } from "./direct-liquid-cooling";
+import { immersionCoolingTankTemplate } from "./immersion-cooling-tank";
+import { leakDetectionTemplate } from "./leak-detection";
+import { waterMistSuppressionTemplate } from "./water-mist-suppression";
+import { emergencyLightingTemplate } from "./emergency-lighting";
+import { dcimPlatformTemplate } from "./dcim-platform";
+import { facilityControlsNetworkTemplate } from "./facility-controls-network";
+import { accessControlTemplate } from "./access-control";
+import { videoSurveillanceTemplate } from "./video-surveillance";
+import { itRackCabinetTemplate } from "./it-rack-cabinet";
+import { raisedFloorPathwaysTemplate } from "./raised-floor-pathways";
+
 import { rotaryUpsTemplate } from "./rotary-ups";
 import { emergencyPowerOffTemplate } from "./emergency-power-off";
 import { buildingManagementSystemTemplate } from "./building-management-system";
@@ -95,6 +136,26 @@ const pairs = [
   [lvSwitchboardTemplate, lvSwitchboardEngineeringDna],
   [generatorParallelingSwitchgearTemplate, generatorParallelingSwitchgearEngineeringDna],
   [generatorFuelSystemTemplate, generatorFuelSystemEngineeringDna],
+  [earthingSystemTemplate, earthingSystemEngineeringDna],
+  [rackPowerDistributionTemplate, rackPowerDistributionEngineeringDna],
+  [dryCoolerTemplate, dryCoolerEngineeringDna],
+  [thermalStorageTankTemplate, thermalStorageTankEngineeringDna],
+  [coolingWaterTreatmentTemplate, coolingWaterTreatmentEngineeringDna],
+  [chilledWaterDistributionTemplate, chilledWaterDistributionEngineeringDna],
+  [airHandlingEconomiserTemplate, airHandlingEconomiserEngineeringDna],
+  [humidityControlTemplate, humidityControlEngineeringDna],
+  [airflowContainmentTemplate, airflowContainmentEngineeringDna],
+  [directLiquidCoolingTemplate, directLiquidCoolingEngineeringDna],
+  [immersionCoolingTankTemplate, immersionCoolingTankEngineeringDna],
+  [leakDetectionTemplate, leakDetectionEngineeringDna],
+  [waterMistSuppressionTemplate, waterMistSuppressionEngineeringDna],
+  [emergencyLightingTemplate, emergencyLightingEngineeringDna],
+  [dcimPlatformTemplate, dcimPlatformEngineeringDna],
+  [facilityControlsNetworkTemplate, facilityControlsNetworkEngineeringDna],
+  [accessControlTemplate, accessControlEngineeringDna],
+  [videoSurveillanceTemplate, videoSurveillanceEngineeringDna],
+  [itRackCabinetTemplate, itRackCabinetEngineeringDna],
+  [raisedFloorPathwaysTemplate, raisedFloorPathwaysEngineeringDna],
 ] as const;
 
 describe("critical power and cooling Digital Engineering DNA", () => {

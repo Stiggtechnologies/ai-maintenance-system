@@ -133,14 +133,14 @@ const nodes: SystemNode[] = [
   ], { template: "CRIT-BUSWAY" }),
   equipment("DC-RACK-PDU", "Rack power strip", "DC-ELEC-DISTRIBUTION", [
     fn("F-RACK-PDU", "deliver power to each IT device in the rack", true, loss("outlet power")),
-  ], { maintainableItems: ["outlets", "circuit protection", "metering and network card", "inlet cords"] }),
+  ], { template: "CRIT-RACK-PDU" }),
 
   subsystem("DC-ELEC-EARTHING", "Earthing, bonding and lightning protection", "DC-ELEC", [
     fn("F-EARTH", "provide a safe fault path and protect against lightning and surges", true, loss("earthing integrity", ["high earth resistance"])),
   ]),
   equipment("DC-EARTHING-SYSTEM", "Earthing grid, bonding network and lightning protection", "DC-ELEC-EARTHING", [
     fn("F-EARTH-GRID", "bond equipment and dissipate fault and lightning current", true, loss("bonding", ["broken bond"])),
-  ], { maintainableItems: ["earth electrodes and grid", "main earthing bar", "bonding conductors", "signal reference grid", "air terminals and down conductors", "surge protective devices"] }),
+  ], { template: "CRIT-EARTHING" }),
 
   // ── Mechanical cooling ──────────────────────────────────────────────────
   system("DC-MECH", "Mechanical cooling system", [
@@ -160,16 +160,16 @@ const nodes: SystemNode[] = [
   ], { template: "CRIT-COOLING-TOWER" }),
   equipment("DC-DRY-COOLER", "Dry cooler or adiabatic cooler", "DC-MECH-PLANT", [
     fn("F-DRY-COOLER", "reject heat to air without (or with limited) evaporation", true, loss("heat rejection")),
-  ], { maintainableItems: ["coil", "fans and EC motors", "adiabatic pads and sprays", "controls"] }),
+  ], { template: "CRIT-DRY-COOLER" }),
   equipment("DC-THERMAL-STORAGE", "Chilled-water thermal storage tank", "DC-MECH-PLANT", [
     fn("F-TES", "carry cooling through chiller restart after a power event", true, loss("stored cooling")),
-  ], { maintainableItems: ["tank and insulation", "diffusers", "isolation valves", "temperature stratification sensors"] }),
+  ], { template: "CRIT-THERMAL-STORAGE" }),
   equipment("DC-WATER-TREATMENT", "Water treatment and make-up water", "DC-MECH-PLANT", [
     fn("F-WATER", "supply and treat make-up water for heat rejection", true, loss("make-up water", ["scaling or corrosion", "legionella risk"])),
-  ], { maintainableItems: ["make-up storage", "dosing pumps", "conductivity and chemistry sensors", "side-stream filters", "blowdown valves", "backflow preventers"] }),
+  ], { template: "CRIT-WATER-TREATMENT" }),
   equipment("DC-CHW-DISTRIBUTION", "Chilled-water piping, valves and heat exchangers", "DC-MECH-PLANT", [
     fn("F-CHW-DIST", "deliver chilled water to air and liquid cooling units", true, loss("chilled-water delivery", ["leak into IT space"])),
-  ], { maintainableItems: ["piping and insulation", "isolation and control valves", "plate heat exchangers (economiser)", "expansion and pressurisation", "air separators", "strainers"] }),
+  ], { template: "CRIT-CHW-DISTRIBUTION" }),
 
   subsystem("DC-MECH-AIR", "Air-side cooling and environmental control", "DC-MECH", [
     fn("F-AIR", "deliver cool air to IT intakes and return hot air", true, loss("air delivery", ["hot-air recirculation"])),
@@ -182,13 +182,13 @@ const nodes: SystemNode[] = [
   ], { template: "CRIT-CRAC" }),
   equipment("DC-AHU-ECONOMISER", "Air handling unit with economiser or evaporative cooling", "DC-MECH-AIR", [
     fn("F-AHU", "cool the IT space with outside air or evaporative cooling when conditions allow", true, loss("air cooling", ["contaminated or wet air admitted"])),
-  ], { maintainableItems: ["dampers and actuators", "filters", "fans", "evaporative media", "heat wheel or plate exchanger", "controls"] }),
+  ], { template: "CRIT-AHU-ECONOMISER" }),
   equipment("DC-HUMIDITY", "Humidification and dehumidification", "DC-MECH-AIR", [
     fn("F-HUMIDITY", "keep moisture within the site's envelope", false, loss("humidity control", ["condensation"])),
-  ], { maintainableItems: ["humidifier (steam, ultrasonic or adiabatic)", "water supply", "dehumidification coil", "humidity sensors"] }),
+  ], { template: "CRIT-HUMIDITY" }),
   equipment("DC-CONTAINMENT", "Hot- or cold-aisle containment", "DC-MECH-AIR", [
     fn("F-CONTAIN", "separate supply and return air streams", false, loss("air separation", ["recirculation through gaps"])),
-  ], { maintainableItems: ["aisle doors", "roof panels", "blanking panels", "floor grommets and brush strips", "fire-release mechanisms"] }),
+  ], { template: "CRIT-CONTAINMENT" }),
 
   subsystem("DC-MECH-LIQUID", "Liquid cooling", "DC-MECH", [
     fn("F-LIQUID", "remove heat directly from high-density IT equipment", true, loss("liquid cooling", ["leak at IT equipment"])),
@@ -198,13 +198,13 @@ const nodes: SystemNode[] = [
   ], { template: "CRIT-CDU" }),
   equipment("DC-DLC-MANIFOLD", "Direct-to-chip manifolds and cold plates", "DC-MECH-LIQUID", [
     fn("F-DLC", "carry coolant to and from processor cold plates", true, loss("cold-plate flow", ["leak at quick-disconnect"])),
-  ], { maintainableItems: ["rack manifolds", "quick-disconnect couplings", "hoses", "cold plates", "leak detection"] }),
+  ], { template: "CRIT-DLC" }),
   equipment("DC-RDHX", "Rear-door heat exchanger", "DC-MECH-LIQUID", [
     fn("F-RDHX", "remove rack exhaust heat at the rack door", true, loss("rack heat removal")),
   ], { template: "CRIT-RDHX" }),
   equipment("DC-IMMERSION", "Immersion cooling tank", "DC-MECH-LIQUID", [
     fn("F-IMMERSION", "cool submerged IT equipment in dielectric fluid", true, loss("immersion cooling", ["fluid degradation"])),
-  ], { maintainableItems: ["tank", "dielectric fluid", "pumps", "heat exchanger", "filters", "level and temperature sensors"] }),
+  ], { template: "CRIT-IMMERSION" }),
 
   // ── Fire and life safety ────────────────────────────────────────────────
   system("DC-FLS", "Fire and life safety system", [
@@ -221,7 +221,7 @@ const nodes: SystemNode[] = [
   ], { template: "CRIT-FIRE-DETECTION" }),
   equipment("DC-LEAK-DETECTION", "Water and coolant leak detection", "DC-FLS-DETECTION", [
     fn("F-LEAK", "detect water or coolant where it should not be", true, loss("leak detection")),
-  ], { maintainableItems: ["sensing cable", "spot sensors", "controller", "interface to BMS"] }),
+  ], { template: "CRIT-LEAK-DETECTION" }),
   subsystem("DC-FLS-SUPPRESSION", "Suppression", "DC-FLS", [
     fn("F-SUPPRESS", "suppress fire in the protected space", true, loss("suppression", ["unwanted discharge"])),
   ]),
@@ -233,7 +233,7 @@ const nodes: SystemNode[] = [
   ], { template: "CRIT-PREACTION" }),
   equipment("DC-WATER-MIST", "Water-mist suppression", "DC-FLS-SUPPRESSION", [
     fn("F-MIST", "suppress fire with fine water spray", true, loss("mist protection")),
-  ], { maintainableItems: ["pump unit", "nozzles", "piping", "section valves", "controls"] }),
+  ], { template: "CRIT-WATER-MIST" }),
   subsystem("DC-FLS-EMERGENCY", "Emergency power off and life safety", "DC-FLS", [
     fn("F-EMERGENCY", "let people isolate power and leave safely", true, loss("emergency isolation", ["inadvertent power off"])),
   ]),
@@ -242,7 +242,7 @@ const nodes: SystemNode[] = [
   ], { template: "CRIT-EPO" }),
   equipment("DC-EMERGENCY-LIGHTING", "Emergency lighting and egress", "DC-FLS-EMERGENCY", [
     fn("F-EGRESS", "light escape routes when normal lighting fails", true, loss("egress lighting")),
-  ], { maintainableItems: ["luminaires", "batteries or central system", "exit signs", "test system"] }),
+  ], { template: "CRIT-EMERGENCY-LIGHTING" }),
 
   // ── Monitoring and controls ─────────────────────────────────────────────
   system("DC-CONTROLS", "Monitoring and control system", [
@@ -259,10 +259,10 @@ const nodes: SystemNode[] = [
   ], { template: "CRIT-EPMS" }),
   equipment("DC-DCIM", "Data centre infrastructure management", "DC-CONTROLS-PLATFORMS", [
     fn("F-DCIM", "track capacity, assets and rack-level conditions", false, loss("capacity visibility", ["inaccurate asset records"])),
-  ], { maintainableItems: ["DCIM software", "rack sensors", "integrations", "asset database"] }),
+  ], { template: "CRIT-DCIM" }),
   equipment("DC-OT-NETWORK", "Facility controls network", "DC-CONTROLS-PLATFORMS", [
     fn("F-OT-NET", "carry control and monitoring traffic securely", true, loss("controls communication", ["unauthorised access"])),
-  ], { maintainableItems: ["switches", "firewalls", "fibre and cabling", "time servers", "redundant paths"] }),
+  ], { template: "CRIT-OT-NETWORK" }),
 
   // ── Security ────────────────────────────────────────────────────────────
   system("DC-SECURITY", "Physical security system", [
@@ -273,10 +273,10 @@ const nodes: SystemNode[] = [
   ]),
   equipment("DC-ACCESS-CONTROL", "Access control", "DC-SECURITY-ACCESS", [
     fn("F-ACS", "authenticate and admit authorised people", false, loss("entry control", ["door held or forced"])),
-  ], { maintainableItems: ["readers and biometrics", "door controllers", "locks and door hardware", "mantraps", "server"] }),
+  ], { template: "CRIT-ACCESS-CONTROL" }),
   equipment("DC-CCTV", "Video surveillance", "DC-SECURITY-ACCESS", [
     fn("F-CCTV", "record and display site video", false, loss("video coverage")),
-  ], { maintainableItems: ["cameras", "recorders and storage", "network", "monitoring station"] }),
+  ], { template: "CRIT-CCTV" }),
 
   // ── IT spaces (the critical load and its housing) ───────────────────────
   system("DC-WHITE-SPACE", "IT space (white space)", [
@@ -287,10 +287,10 @@ const nodes: SystemNode[] = [
   ]),
   equipment("DC-IT-LOAD", "IT load (racks and installed equipment)", "DC-WHITE-SPACE-ROOM", [
     fn("F-IT-LOAD", "run customer IT workloads", true, loss("IT service")),
-  ], { maintainableItems: ["cabinets and racks", "blanking panels", "cable management", "rack doors and locks", "rack sensors"] }),
+  ], { template: "CRIT-IT-RACK" }),
   equipment("DC-RAISED-FLOOR", "Raised floor and overhead pathways", "DC-WHITE-SPACE-ROOM", [
     fn("F-PATHWAYS", "carry cabling and, where used, supply air", false, loss("pathway support", ["floor-tile air leakage"])),
-  ], { maintainableItems: ["floor pedestals and tiles", "perforated tiles", "cable trays and ladders", "fibre pathways"] }),
+  ], { template: "CRIT-RAISED-FLOOR" }),
 ];
 
 /** Topology: who supplies, cools, backs up, protects, controls and monitors whom. */
