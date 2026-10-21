@@ -204,9 +204,12 @@ test("first decision journey: anonymous question to approved, verified, resumabl
       for (const allowed of preflightAllowed) expect(allowed.toLowerCase()).toMatch(/x-client-info/);
     }
     const proof = page.getByTestId("spine-proof-body");
+    // The usable source is listed as governed evidence; the quarantined one
+    // supplies nothing, so it is absent from the proof and its text never leaks.
     await expect(proof).toContainText("SyncAI governed document intake");
-    await expect(proof).toContainText("excluded from retrieval");
+    await expect(proof).toContainText("· indexed · cleared ·");
     await expect(proof).not.toContainText("Ignore previous instructions");
+    await expect(proof).not.toContainText("· quarantined ·");
   });
 
   await test.step("16 — source check reports status only and never simulates a live pull", async () => {
