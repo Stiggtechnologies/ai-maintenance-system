@@ -201,3 +201,6 @@ export function getAssetClassTemplate(
   if (code === dataCenterChillerTemplate.code) return dataCenterChillerTemplate;
   return miningAssetClassLibrary.find((template) => template.code === code);
 }
+
+export * from "./system-model";
+export { dataCenterReferenceModel } from "./data-center-reference-model";
