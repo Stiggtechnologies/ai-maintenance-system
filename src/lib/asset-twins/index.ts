@@ -268,3 +268,4 @@ export { computerRoomAirConditionerTemplate } from "./computer-room-air-conditio
 export { lvSwitchboardTemplate } from "./lv-switchboard";
 export { generatorParallelingSwitchgearTemplate } from "./generator-paralleling-switchgear";
 export { generatorFuelSystemTemplate } from "./generator-fuel-system";
+export * from "./reference-hierarchy-plan";

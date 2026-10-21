@@ -18,6 +18,7 @@ import {
   type FoundationScores,
 } from "../services/assetFoundationService";
 import { ErrorState, LoadingState } from "./ui/AsyncStates";
+import { ReferenceHierarchyPlanPanel } from "./ReferenceHierarchyPlanPanel";
 
 const SCORE_DIMENSIONS: Array<{ key: keyof FoundationScores; label: string }> =
   [
@@ -299,6 +300,27 @@ export function AssetFoundationWorkbench() {
             {notice.text}
           </div>
         )}
+
+        <ReferenceHierarchyPlanPanel
+          existing={(data?.locations ?? [])
+            .filter((location) => location.siteId === siteId)
+            .map((location) => ({
+              id: location.id,
+              code: location.code,
+              status: location.status,
+            }))}
+          onUseStep={(step, parentId) => {
+            setLocationKind(step.kind);
+            setParentLocationId(parentId ?? "");
+            setLocationCode(step.code);
+            setLocationName(step.name);
+            setLocationDescription(step.description);
+            setNotice({
+              kind: "ok",
+              text: `Form filled from the reference model for ${step.code}. Choose your verified evidence and propose it; an independent reviewer must verify it.`,
+            });
+          }}
+        />
 
         <div className="grid gap-5 xl:grid-cols-2">
           <div className="space-y-4 rounded-xl border border-white/8 bg-white/[0.025] p-4">
