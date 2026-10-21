@@ -359,6 +359,7 @@ export function DecisionCaseWorkspacePage({
       (routedPublicIntent || (caseId && isSeedDecisionCaseId(caseId))),
     ),
   );
+  const persistedCaseSnapshot = useRef("");
   const suppressRoutedIntent = useRef(false);
   const trackedPublicEntry = useRef("");
   const active =
@@ -453,6 +454,7 @@ export function DecisionCaseWorkspacePage({
     void loadPersistedDecisionCase(activeId)
       .then((saved) => {
         if (!cancelled && saved) {
+          persistedCaseSnapshot.current = JSON.stringify(saved);
           setCases((current) =>
             current.map((item) => (item.id === saved.id ? saved : item)),
           );
@@ -465,9 +467,20 @@ export function DecisionCaseWorkspacePage({
   }, [activeId, publicMode]);
   useEffect(() => {
     if (publicMode || !isPersistedDecisionCase(active.id)) return;
+    const snapshot = JSON.stringify(active);
+    if (snapshot === persistedCaseSnapshot.current) return;
     const timer = window.setTimeout(() => {
-      void savePersistedDecisionCase(active).catch(() =>
-        setNotice("Changes are safe on this device; cloud sync is pending."),
+      void savePersistedDecisionCase(active).then(
+        (saved) => {
+          persistedCaseSnapshot.current = JSON.stringify(saved);
+          setCases((current) =>
+            current.map((item) => (item.id === saved.id ? saved : item)),
+          );
+        },
+        () =>
+          setNotice(
+            "Cloud sync did not complete. Reload the canonical case before retrying.",
+          ),
       );
     }, 700);
     return () => window.clearTimeout(timer);
@@ -695,6 +708,7 @@ export function DecisionCaseWorkspacePage({
     if (!publicMode) {
       try {
         const persisted = await createPersistedDecisionCase(next, context);
+        persistedCaseSnapshot.current = JSON.stringify(persisted);
         setCases((current) =>
           current.map((item) => (item.id === next.id ? persisted : item)),
         );

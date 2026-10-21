@@ -116,7 +116,7 @@ import {
 import {
   createPersistedDecisionCase,
   isPersistedDecisionCase,
-  savePersistedDecisionCase,
+  loadPersistedDecisionCase,
 } from "./services/decisionCaseService";
 import {
   initialAuthPage,
@@ -266,7 +266,13 @@ function ApplicationRoutes() {
             {
               isPersisted: isPersistedDecisionCase,
               create: (seed) => createPersistedDecisionCase(seed, {}),
-              save: savePersistedDecisionCase,
+              // Case state is server-owned (apply_decision_case_command). A draft
+              // that was already imported is confirmed by reading the canonical
+              // case back, never by overwriting it from the browser.
+              save: async (draft) => {
+                const canonical = await loadPersistedDecisionCase(draft.id);
+                if (!canonical) throw new Error("Saved Decision Case not found");
+              },
               storage: window.sessionStorage,
             },
           );

@@ -775,18 +775,22 @@ test("public first decision retains full evidence through auth and reports faile
   await expect(page.getByTestId("self-serve-step-decision_case")).toHaveAttribute("data-status","done");
   expect(new URL(page.url()).searchParams.get("case")).toBe(persistedId);
   expect(workspaceCreates).toBe(1);
-  await page.route("**/rest/v1/cowork_workspaces*",route=>route.request().method()==="PATCH" ? route.fulfill({status:503,contentType:"application/json",body:JSON.stringify({message:"Synthetic save outage"})}) : route.continue());
+  // Case state is server-owned: every edit is a versioned command. Refuse the
+  // command and confirm nothing is reported saved or applied to the case.
+  await page.route("**/rest/v1/rpc/apply_decision_case_command*",route=>route.fulfill({status:503,contentType:"application/json",body:JSON.stringify({message:"Synthetic save outage"})}));
   await page.getByTestId("spine-evidence-body").fill("Synthetic newer observation whose save is refused");
   await page.getByTestId("spine-add-evidence").click();
-  await expect(page.getByTestId("spine-save-notice")).toContainText("Workspace save did not complete");
-  await expect(page.getByTestId("spine-gate-audit_trail")).toContainText("Open");
+  await expect(page.getByTestId("spine-save-notice")).toContainText("Workspace update did not complete");
+  await expect(page.getByTestId("spine-evidence-body")).toHaveValue("Synthetic newer observation whose save is refused");
+  await expect(page.getByTestId("spine-proof-body")).not.toContainText("Synthetic newer observation whose save is refused");
+  await page.unroute("**/rest/v1/rpc/apply_decision_case_command*");
   await page.getByRole("button",{name:"Back to your question"}).click();
   await page.getByTestId("inverted-continue").click();
   await page.getByTestId("inverted-save-continue").click();
   expect(new URL(page.url()).searchParams.get("case")).toBe(persistedId);
   expect(workspaceCreates).toBe(1);
-  await expect(page.getByTestId("spine-proof-body")).toContainText("Synthetic newer observation whose save is refused");
-  await expect(page.getByTestId("spine-gate-audit_trail")).toContainText("Open");
+  await expect(page.getByTestId("spine-proof-body")).toContainText(evidence);
+  await expect(page.getByTestId("spine-proof-body")).not.toContainText("Synthetic newer observation whose save is refused");
 });
 
 test("saved Decision Case reloads question, evidence, and case id from the workspace", async ({ page, browser }) => {
