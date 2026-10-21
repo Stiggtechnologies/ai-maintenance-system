@@ -62,10 +62,10 @@ describe("browser-invoked Edge Functions allow the supabase-js preflight headers
     });
   }
 
-  it("deploys governed document intake through the reviewed pipeline", () => {
-    expect(boundary.activeFunctions).toContain("kb-document-intake");
-    const workflow = fs.readFileSync(path.join(root, ".github/workflows/deploy-migrations.yml"), "utf8");
-    expect(workflow).toContain("supabase functions deploy kb-document-intake");
+  it("keeps governed document intake's browser headers correct while its deploy is held (#712)", () => {
+    const source = functionSource("kb-document-intake");
+    expect(source).toMatch(/x-client-info/i);
+    expect(source).toMatch(/apikey/i);
   });
 });
 
