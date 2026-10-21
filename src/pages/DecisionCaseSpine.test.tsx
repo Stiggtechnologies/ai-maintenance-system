@@ -1338,4 +1338,27 @@ describe("P0.2 Decision Case spine on /get-started", () => {
       screen.getByTestId("self-serve-done-first_value").textContent,
     ).toMatch(/not an approval/);
   });
+
+  it("shows a labelled worked example only when previewing an example prompt", () => {
+    const example =
+      "What should we check first if a critical pump is losing seal water and production is at risk?";
+    const first = render(
+      <MemoryRouter>
+        <DecisionCaseSpine question={example} intent="solve" />
+      </MemoryRouter>,
+    );
+    const worked = screen.getByTestId("spine-worked-example");
+    expect(worked).toHaveTextContent("Illustrative. Not based on your plant or data.");
+    expect(worked).toHaveTextContent(/seal water supply before the seal itself/);
+    first.unmount();
+    render(
+      <MemoryRouter>
+        <DecisionCaseSpine
+          question="Synthetic acceptance: why does our own conveyor keep tripping?"
+          intent="solve"
+        />
+      </MemoryRouter>,
+    );
+    expect(screen.queryByTestId("spine-worked-example")).toBeNull();
+  });
 });
