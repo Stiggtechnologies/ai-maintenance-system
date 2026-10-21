@@ -15,28 +15,14 @@
 -- permission, work release, approval, or redundancy rating. Redundancy schemes
 -- are not stored here; sites declare them separately under named approval.
 
-do $mig$
-declare
-  v_con record;
-begin
-  for v_con in
-    select c.conname
-    from pg_constraint c
-    where c.conrelid = 'public.engineering_knowledge_relationships'::regclass
-      and c.contype = 'c'
-      and (
-        pg_get_constraintdef(c.oid) ilike '%(relationship_type = any%'
-        or pg_get_constraintdef(c.oid) ilike '%(from_entity_type = any%'
-        or pg_get_constraintdef(c.oid) ilike '%(to_entity_type = any%'
-      )
-  loop
-    execute format(
-      'alter table public.engineering_knowledge_relationships drop constraint %I',
-      v_con.conname
-    );
-  end loop;
-end;
-$mig$;
+-- Postgres names inline column checks <table>_<column>_check; the table was
+-- created with inline checks, so these are the constraints being widened.
+alter table public.engineering_knowledge_relationships
+  drop constraint if exists engineering_knowledge_relationships_relationship_type_check;
+alter table public.engineering_knowledge_relationships
+  drop constraint if exists engineering_knowledge_relationships_from_entity_type_check;
+alter table public.engineering_knowledge_relationships
+  drop constraint if exists engineering_knowledge_relationships_to_entity_type_check;
 
 alter table public.engineering_knowledge_relationships
   add constraint engineering_knowledge_relationships_relationship_type_check
