@@ -525,7 +525,7 @@ describe("P1 Decision Case trust", () => {
     const solve = buildSpineDecisionCase({ question, intent: "solve" });
     expect(classifySpineCase(solve, "").id).toBe("review");
     expect(classifySpineCase(solve, "").basis).toMatch(
-      /Criticality, duty, consequence/,
+      /criticality, duty, consequence/i,
     );
     expect(classifySpineCase(solve, "").basis).not.toMatch(
       /criticality is (high|loaded|known)/i,

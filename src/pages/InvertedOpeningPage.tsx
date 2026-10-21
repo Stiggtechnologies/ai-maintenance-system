@@ -435,13 +435,6 @@ export function InvertedOpeningPage() {
         selfServeGate={selfServeGate}
       />
       <div className="journey-evaluation-body mx-auto flex w-full flex-col gap-6">
-        <SelfServeProgressChecklist
-          progress={progress}
-          signupHref={signupHref}
-          narrationScript={
-            spineQuestion ? (stageNarration ?? undefined) : undefined
-          }
-        />
         <header className="space-y-3">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-teal-300">
             Sync · first decision
@@ -457,6 +450,13 @@ export function InvertedOpeningPage() {
             <span>{INVERTED_OPENING_AUTHORITY}</span>
           </div>
         </header>
+        <SelfServeProgressChecklist
+          progress={progress}
+          signupHref={signupHref}
+          narrationScript={
+            spineQuestion ? (stageNarration ?? undefined) : undefined
+          }
+        />
 
         {entry ? (
           <aside
@@ -599,7 +599,7 @@ export function InvertedOpeningPage() {
                 </p>
                 <p className="text-sm leading-relaxed text-slate-200">
                   {exampleText
-                    ? "This text is an Example prompt. It stays an affordance and is not saved into your workspace. Rewrite it as your question, or preview the loop without saving."
+                    ? "This is an example question. Previewing it shows how a Decision Case works, and nothing is saved. To keep a case, rewrite it as your own question."
                     : auth?.user
                       ? "Saving creates the Decision Case on your evaluation workspace. Ask already happened — org setup is not repeated here. Pricing stays out of this path."
                       : "The Decision Case continues in this browser. It is not saved until you sign in. Pricing stays out of this path."}

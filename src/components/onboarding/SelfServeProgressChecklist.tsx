@@ -30,13 +30,13 @@ export function SelfServeProgressChecklist({
             Your path to a first Decision Case
           </h2>
           <p className="mt-1 text-xs leading-relaxed text-slate-400">
-            A browser draft is not done. The Decision Case and first value count
-            only after they are saved on the workspace.
+            Four steps. Your Decision Case and first value count once they are
+            saved to a workspace; a draft in this browser does not.
           </p>
         </div>
         <SelfServeNarration script={narrationScript ?? progress.narration} />
       </div>
-      <ol className="space-y-2">
+      <ol className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
         {progress.steps.map((step, index) => (
           <li
             key={step.id}
