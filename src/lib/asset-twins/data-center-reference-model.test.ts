@@ -23,13 +23,12 @@ describe("data centre system reference model", () => {
     );
   });
 
-  it("binds the shipped critical-facility templates and lists maintainable items for the rest", () => {
-    const bound = model.nodes.filter((n) => n.assetClassTemplateCode).map((n) => n.assetClassTemplateCode);
-    expect(bound).toEqual(
-      expect.arrayContaining(["CRIT-STANDBY-GENERATOR", "CRIT-UPS-SYSTEM", "CRIT-TRANSFER-SWITCH", "CRIT-CHILLER", "ROT-CENT-PUMP", "CRIT-CRAH", "CRIT-STATIC-TRANSFER-SWITCH", "CRIT-PDU", "CRIT-BUSWAY", "CRIT-MV-SWITCHGEAR", "CRIT-POWER-TRANSFORMER", "CRIT-COOLING-TOWER", "CRIT-BESS", "CRIT-CDU", "CRIT-RDHX", "CRIT-CLEAN-AGENT", "CRIT-FIRE-DETECTION", "CRIT-PREACTION", "CRIT-ROTARY-UPS", "CRIT-EPO", "CRIT-BMS", "CRIT-EPMS", "CRIT-CRAC", "CRIT-LV-SWITCHBOARD", "CRIT-PARALLELING-SWITCHGEAR", "CRIT-FUEL-SYSTEM"]),
-    );
-    for (const n of model.nodes.filter((x) => x.equipmentClassStatus === "template_planned")) {
-      expect(n.maintainableItems!.length, n.code).toBeGreaterThan(2);
+  it("binds every equipment unit to a registered asset-class template", () => {
+    const equipment = model.nodes.filter((n) => n.level === "equipment_unit");
+    expect(equipment.length).toBeGreaterThanOrEqual(48);
+    for (const n of equipment) {
+      expect(n.equipmentClassStatus, n.code).toBe("template_available");
+      expect(getAssetClassTemplate(n.assetClassTemplateCode!), n.code).toBeDefined();
     }
   });
 
@@ -85,6 +84,8 @@ describe("validateSystemReferenceModel negative paths", () => {
     const m = clone();
     m.nodes.find((n) => n.code === "DC-UPS")!.assetClassTemplateCode = "CRIT-PHANTOM";
     const sts = m.nodes.find((n) => n.code === "DC-DRY-COOLER")!;
+    delete sts.assetClassTemplateCode;
+    sts.equipmentClassStatus = "template_planned";
     sts.maintainableItems = [];
     sts.functions[0].functionalFailures = [];
     const out = messages(m);
