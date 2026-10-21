@@ -6,6 +6,7 @@ import {
   INVERTED_OPENING_HEADLINE,
   INVERTED_OPENING_SUB,
   isExamplePrompt,
+  workedExampleFor,
 } from "./inverted-opening";
 
 describe("inverted opening P0.1", () => {
@@ -56,5 +57,23 @@ describe("inverted opening P0.1", () => {
         "Should we hold the inspection interval on the reclaim pump until the next outage?",
       ),
     ).toBe(false);
+  });
+});
+
+describe("worked examples for labelled example prompts", () => {
+  it("returns a worked example only for the labelled example prompts", () => {
+    for (const example of INVERTED_EXAMPLE_PROMPTS) {
+      const worked = workedExampleFor(`  ${example.prompt}  `);
+      expect(worked, example.id).not.toBeNull();
+      expect(worked!.steps.length).toBeGreaterThanOrEqual(3);
+      expect(worked!.evidenceThatWouldMakeItSpecific.length).toBeGreaterThanOrEqual(3);
+    }
+    expect(workedExampleFor("Why does our conveyor C-7 keep tripping?")).toBeNull();
+  });
+
+  it("carries no numeric limits, readings or plant identities", () => {
+    const text = JSON.stringify(INVERTED_EXAMPLE_PROMPTS.map((e) => workedExampleFor(e.prompt)));
+    expect(text).not.toMatch(/\d/);
+    expect(text).not.toMatch(/Fort McMurray|North Ridge|Copper Ridge|P-101/i);
   });
 });

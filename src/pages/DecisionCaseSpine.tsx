@@ -16,6 +16,7 @@ import type { InvertedIntentId } from "../lib/onboarding/inverted-opening";
 import {
   INVERTED_OPENING_AUTHORITY,
   isExamplePrompt,
+  workedExampleFor,
 } from "../lib/onboarding/inverted-opening";
 import {
   CONNECTION_FAILURE_FALLBACKS,
@@ -207,6 +208,7 @@ export function DecisionCaseSpine({
     () => classifySpineCase(decisionCase, disposition),
     [decisionCase, disposition],
   );
+  const workedExample = workedExampleFor(decisionCase.objective);
   const provenance = useMemo(
     () => provenanceFromCase(decisionCase),
     [decisionCase],
@@ -1058,6 +1060,48 @@ export function DecisionCaseSpine({
         <p className="mt-2 text-xs leading-relaxed text-slate-400">
           {decisionCase.recommendationDetail}
         </p>
+        {workedExample ? (
+          <div
+            data-testid="spine-worked-example"
+            className="mt-3 space-y-3 rounded-xl border border-amber-300/25 bg-amber-300/5 p-3"
+          >
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="text-sm font-semibold text-white">
+                Worked example: what a recommendation looks like
+              </h3>
+              <span className="rounded-full border border-amber-300/40 px-2 py-0.5 text-[11px] font-semibold text-amber-100">
+                Illustrative. Not based on your plant or data.
+              </span>
+            </div>
+            <p className="text-sm text-slate-100">
+              {workedExample.recommendation}
+            </p>
+            <ol className="list-decimal space-y-1 pl-5 text-xs leading-relaxed text-slate-300">
+              {workedExample.steps.map((step) => (
+                <li key={step}>{step}</li>
+              ))}
+            </ol>
+            <div>
+              <p className="text-xs font-semibold text-slate-200">
+                Evidence that would make it specific to your asset
+              </p>
+              <ul className="mt-1 list-disc space-y-0.5 pl-5 text-xs text-slate-300">
+                {workedExample.evidenceThatWouldMakeItSpecific.map((item) => (
+                  <li key={item}>{item}</li>
+                ))}
+              </ul>
+            </div>
+            <p className="text-xs leading-relaxed text-slate-300">
+              <span className="font-semibold text-slate-200">
+                What would change it:{" "}
+              </span>
+              {workedExample.whatWouldChangeIt}
+            </p>
+            <p className="text-xs text-slate-400">
+              Ask your own question to get a case built on your evidence.
+            </p>
+          </div>
+        ) : null}
         <p
           data-testid="spine-advisory"
           className="mt-3 text-xs leading-relaxed text-amber-100/90"
