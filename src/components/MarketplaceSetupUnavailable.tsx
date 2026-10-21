@@ -25,15 +25,23 @@ export function MarketplaceSetupUnavailable({
           licensing, or an active SyncAI subscription. Keep purchase details out
           of this public page.
         </p>
-        <a className="journey-primary-action" href="https://syncai.ca/contact">
-          Discuss marketplace setup
+        <a className="journey-primary-action" href="/get-started">
+          Start a Decision Case yourself
         </a>
         <a className="journey-secondary-action" href="/signin?returnTo=%2F">
           Sign in to an existing SyncAI workspace
         </a>
+        <a
+          className="journey-secondary-action"
+          href="https://syncai.ca/contact"
+        >
+          Talk to us
+        </a>
         <p className="text-xs text-overlook-mist">
-          Existing workspace access remains subject to your organization
-          membership and entitlements.
+          Marketplace activation still needs SyncAI to verify the subscription.
+          Starting a Decision Case does not enable marketplace access. Existing
+          workspace access remains subject to your organization membership and
+          entitlements. Talking to us is optional.
         </p>
       </section>
     </AuthShell>

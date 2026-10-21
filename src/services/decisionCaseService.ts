@@ -15,6 +15,7 @@ import {
   isActiveCaseTraceRequest,
   type DecisionQuestionScope,
 } from "../lib/reliability-agent-contract";
+import { readDraftImportKey } from "../lib/decision-case-import-key";
 import {
   buildDecisionAskContextPack,
   formatUnboundLiveQuestion,
@@ -37,17 +38,23 @@ export async function createPersistedDecisionCase(
   seed: DecisionCase,
   context: DecisionJourneyContext,
 ): Promise<DecisionCase> {
-  const result = await createCoworkWorkspaceFromObjective(seed.objective);
+  const importKey = readDraftImportKey(seed);
+  const result = await createCoworkWorkspaceFromObjective(seed.objective, {
+    importKey,
+  });
   const persisted = {
     ...seed,
     id: result.workspaceId,
     createdFromIntake: seed.createdFromIntake || Boolean(context.intakeId),
     updatedAt: new Date().toISOString(),
   };
+  if (importKey) Object.assign(persisted, { importKey });
+  else delete (persisted as { importKey?: string }).importKey;
   const { data, error } = await supabase
     .from("cowork_workspaces")
     .update({
-      case_number: persisted.caseNumber,
+      // The column is the import UUID. `DRAFT-` stays on case_state.caseNumber.
+      ...(importKey ? { case_number: importKey } : {}),
       case_state: persisted,
       source_intake_id: context.intakeId || null,
       usage_tokens: persisted.tokensUsed,

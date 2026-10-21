@@ -35,6 +35,10 @@ export interface GeospatialFeature {
   observed_at: string;
   valid_until: string | null;
   validity_kind: "permanent" | "temporary" | null;
+  coordinate_reference_system?: string | null;
+  coordinate_axis_order?: string | null;
+  coordinate_basis?: string | null;
+  horizontal_accuracy_m?: number | null;
   data_quality: string;
   evidence_item_ids: string[];
   missing_evidence: string[];
@@ -116,7 +120,13 @@ export async function getGeospatialReferences(): Promise<GeospatialReferences> {
         .select("id,title,asset_id")
         .order("created_at", { ascending: false })
         .limit(100),
-      supabase.from("crew_templates").select("id,title").order("title"),
+      supabase
+        .from("crew_templates")
+        .select("id,title")
+        .eq("active", true)
+        .not("recorded_by", "is", null)
+        .not("evidence_item_id", "is", null)
+        .order("title"),
       supabase
         .from("materials")
         .select("id,material_code,description")

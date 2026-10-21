@@ -3,6 +3,11 @@
 // Service-only, fail-soft, and human-in-the-loop by design.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { withDataEgressGuard } from "../_shared/data-egress-guard.ts";
+import {
+  callWithCommercialBoundary,
+  estimateLlmCallTokens,
+} from "../_shared/llm-commercial-usage.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -24,9 +29,10 @@ const DEADLINE_MS = 100_000;
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "https://app.syncai.ca",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers":
+    "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
-  "Vary": "Origin",
+  Vary: "Origin",
 };
 
 function json(body: unknown, status = 200): Response {
@@ -67,7 +73,8 @@ interface QueueEntry {
 }
 
 Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") return new Response(null, { status: 204, headers: corsHeaders });
+  if (req.method === "OPTIONS")
+    return new Response(null, { status: 204, headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
   if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
@@ -77,8 +84,12 @@ Deno.serve(async (req) => {
 
   const auth = req.headers.get("Authorization") ?? "";
   const serviceToken = `Bearer ${SERVICE_ROLE_KEY}`;
-  const sharedToken = ENRICH_SHARED_SECRET ? `Bearer ${ENRICH_SHARED_SECRET}` : "";
-  const authorized = safeEqual(auth, serviceToken) || (sharedToken !== "" && safeEqual(auth, sharedToken));
+  const sharedToken = ENRICH_SHARED_SECRET
+    ? `Bearer ${ENRICH_SHARED_SECRET}`
+    : "";
+  const authorized =
+    safeEqual(auth, serviceToken) ||
+    (sharedToken !== "" && safeEqual(auth, sharedToken));
   if (!authorized) return json({ error: "unauthorized" }, 401);
 
   if (!LLM_API_KEY) return json({ deduced: 0, skipped: "llm_not_configured" });
@@ -112,6 +123,17 @@ Deno.serve(async (req) => {
   const failures: string[] = [];
   const startedAt = Date.now();
 
+  const providerOrigin = providerUrl.origin.replace(/\/$/, "");
+  const onboardingProvider = {
+    name:
+      providerOrigin === "https://api.openai.com"
+        ? "openai-direct"
+        : "configured-onboarding-llm",
+    baseUrl: providerOrigin,
+    apiKey: LLM_API_KEY,
+    model: LLM_MODEL,
+  };
+
   for (const entry of entries) {
     const pending = entry.pending ?? [];
     if (pending.length === 0) continue;
@@ -131,95 +153,114 @@ Deno.serve(async (req) => {
 
       try {
         const askList = chunk
-          .map((item) => `- "${item.key}": ${item.label}${item.hint ? ` (${item.hint})` : ""}`)
+          .map(
+            (item) =>
+              `- "${item.key}": ${item.label}${item.hint ? ` (${item.hint})` : ""}`,
+          )
           .join("\n");
-
-        const resp = await fetch(providerUrl, {
-          method: "POST",
-          signal: AbortSignal.timeout(45_000),
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${LLM_API_KEY}`,
-          },
-          body: JSON.stringify({
-            model: LLM_MODEL,
-            temperature: 0.2,
-            max_completion_tokens: 1200,
-            messages: [
-              {
-                role: "system",
-                content:
-                  "You are a senior reliability engineer (RCM/FMEA/MIL-HDBK-338B practice) onboarding an asset " +
-                  "into a reliability platform. Deduce ONLY what a competent engineer could infer from the asset's " +
-                  "class, OEM, model and operating context. Return strict JSON keyed by requirement key: " +
-                  '{"<key>": {"summary": "<concise engineering answer, 1-2 sentences>", ' +
-                  '"confidence": "high"|"medium"|"low", "rationale": "<why / basis, one short phrase>"}}. ' +
-                  'Use confidence "low" whenever site-specific data is required. Never invent serial numbers, dates, document links or stock levels.',
-              },
-              {
-                role: "user",
-                content:
-                  `Asset: ${JSON.stringify(entry.asset).slice(0, 5000)}\n` +
-                  `Already established during onboarding: ${JSON.stringify(entry.known).slice(0, 2500)}\n\n` +
-                  `Deduce the following requirements:\n${askList}`,
-              },
-            ],
-          }),
+        const providerOptions = {
+          systemPrompt:
+            "You are a senior reliability engineer (RCM/FMEA/MIL-HDBK-338B practice) onboarding an asset " +
+            "into a reliability platform. Deduce ONLY what a competent engineer could infer from the asset's " +
+            "class, OEM, model and operating context. Return strict JSON keyed by requirement key: " +
+            '{"<key>": {"summary": "<concise engineering answer, 1-2 sentences>", ' +
+            '"confidence": "high"|"medium"|"low", "rationale": "<why / basis, one short phrase>"}}. ' +
+            'Use confidence "low" whenever site-specific data is required. Never invent serial numbers, dates, document links or stock levels.',
+          userContent:
+            `Asset: ${JSON.stringify(entry.asset).slice(0, 5000)}\n` +
+            `Already established during onboarding: ${JSON.stringify(entry.known).slice(0, 2500)}\n\n` +
+            `Deduce the following requirements:\n${askList}`,
+          temperature: 0.2,
+          maxTokens: 1200,
+          timeoutMs: 45_000,
+        };
+        const estimatedTokens = Math.min(
+          20_000,
+          Math.max(
+            estimateLlmCallTokens(providerOptions),
+            1200 +
+              Math.ceil(
+                (JSON.stringify(entry.asset).length +
+                  JSON.stringify(entry.known).length +
+                  askList.length) /
+                  4,
+              ),
+          ),
+        );
+        // Paid callers use or refuse the qualified commercial route. A gateway
+        // or non-direct host cannot be priced, and missing terminal metadata
+        // cannot apply a deduction.
+        const guardedFetch = withDataEgressGuard(fetch, supabase, {
+          organizationId: entry.organization_id,
+          dataClass: "operational",
+          purpose: "onboarding_enrichment",
+          serviceLabel: "onboarding-enrich",
         });
-
-        if (!resp.ok) {
-          console.error("onboarding-enrich provider request failed", { assetId: entry.asset_id, status: resp.status });
-          failures.push(`${entry.asset_id}: provider_error`);
+        const commercial = await callWithCommercialBoundary(
+          (functionName, args) => supabase.rpc(functionName, args),
+          guardedFetch,
+          [onboardingProvider],
+          providerOptions,
+          {
+            organizationId: entry.organization_id,
+            functionName: "onboarding-enrich",
+            requestedModel: LLM_MODEL,
+            estimatedTokens,
+            costObject: { type: "asset_onboarding", id: entry.asset_id },
+          },
+        );
+        if (commercial.status !== "ok") {
+          const reason =
+            commercial.status === "quota_refused"
+              ? "commercial_quota_refused"
+              : commercial.status === "settlement_failed"
+                ? "usage_settlement_failed"
+                : "provider_error";
+          console.error("onboarding-enrich commercial route did not succeed", {
+            assetId: entry.asset_id,
+            status: commercial.status,
+            reason,
+          });
+          failures.push(`${entry.asset_id}: ${reason}`);
           continue;
         }
 
-        const data = await resp.json();
-
-        // Cost telemetry (private.llm_usage) — FAIL-SOFT: a telemetry
-        // failure must never cost an onboarding deduction.
-        try {
-          const usage =
-            data.usage && typeof data.usage === "object" ? data.usage : {};
-          const { error: usageError } = await supabase.rpc(
-            "record_llm_usage",
-            {
-              p_organization_id: entry.organization_id,
-              p_fn: "onboarding-enrich",
-              p_model:
-                typeof data.model === "string" ? data.model : LLM_MODEL,
-              p_prompt_tokens: usage.prompt_tokens ?? 0,
-              p_completion_tokens: usage.completion_tokens ?? 0,
-            },
-          );
-          if (usageError)
-            console.error("onboarding-enrich usage insert failed", usageError);
-        } catch (usageException) {
-          console.error(
-            "onboarding-enrich usage insert failed",
-            usageException,
-          );
-        }
-
-        const content: string = data.choices?.[0]?.message?.content ?? "";
+        const content: string = commercial.result.content ?? "";
         const match = content.match(/\{[\s\S]*\}/);
         const parsed = match ? JSON.parse(match[0]) : {};
 
         for (const item of chunk) {
           const answer = parsed[item.key];
-          if (!answer || typeof answer.summary !== "string" || answer.summary.trim().length === 0) continue;
-          const confidence = ["high", "medium", "low"].includes(answer.confidence)
+          if (
+            !answer ||
+            typeof answer.summary !== "string" ||
+            answer.summary.trim().length === 0
+          )
+            continue;
+          const confidence = ["high", "medium", "low"].includes(
+            answer.confidence,
+          )
             ? answer.confidence
             : "low";
 
-          const { error: applyError } = await supabase.rpc("apply_onboarding_ai_deduction", {
-            p_item_id: item.item_id,
-            p_value: { summary: answer.summary.trim() },
-            p_confidence: confidence,
-            p_rationale: typeof answer.rationale === "string" ? answer.rationale.slice(0, 500) : null,
-          });
+          const { error: applyError } = await supabase.rpc(
+            "apply_onboarding_ai_deduction",
+            {
+              p_item_id: item.item_id,
+              p_value: { summary: answer.summary.trim() },
+              p_confidence: confidence,
+              p_rationale:
+                typeof answer.rationale === "string"
+                  ? answer.rationale.slice(0, 500)
+                  : null,
+            },
+          );
 
           if (applyError) {
-            console.error("onboarding-enrich deduction apply failed", { itemId: item.item_id, error: applyError });
+            console.error("onboarding-enrich deduction apply failed", {
+              itemId: item.item_id,
+              error: applyError,
+            });
             failures.push(`${item.key}: apply_failed`);
           } else if (confidence === "low") {
             assetDemoted += 1;
@@ -228,7 +269,10 @@ Deno.serve(async (req) => {
           }
         }
       } catch (error) {
-        console.error("onboarding-enrich chunk failed", { assetId: entry.asset_id, error });
+        console.error("onboarding-enrich chunk failed", {
+          assetId: entry.asset_id,
+          error,
+        });
         failures.push(`${entry.asset_id}: deduction_failed`);
       }
     }
@@ -236,15 +280,21 @@ Deno.serve(async (req) => {
     deduced += assetDeduced;
     demotedToHuman += assetDemoted;
 
-    const { error: runError } = await supabase.from("asset_onboarding_runs").insert({
-      organization_id: entry.organization_id,
-      asset_id: entry.asset_id,
-      run_type: "ai_deduction",
-      items_deduced: assetDeduced,
-      items_human_required: assetDemoted,
-      detail: { model: LLM_MODEL, asked },
-    });
-    if (runError) console.error("onboarding-enrich run audit insert failed", { assetId: entry.asset_id, error: runError });
+    const { error: runError } = await supabase
+      .from("asset_onboarding_runs")
+      .insert({
+        organization_id: entry.organization_id,
+        asset_id: entry.asset_id,
+        run_type: "ai_deduction",
+        items_deduced: assetDeduced,
+        items_human_required: assetDemoted,
+        detail: { model: LLM_MODEL, asked },
+      });
+    if (runError)
+      console.error("onboarding-enrich run audit insert failed", {
+        assetId: entry.asset_id,
+        error: runError,
+      });
   }
 
   return json({

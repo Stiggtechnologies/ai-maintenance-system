@@ -1,0 +1,3042 @@
+{
+  "provenance": {
+    "data": "Entirely synthetic; deterministic seed 7123; no engineering thresholds or customer observations.",
+    "python": "3.9.6",
+    "numpy": "2.0.2",
+    "scipy": "1.13.1",
+    "statsmodels": "0.14.6",
+    "reference": "statsmodels.duration.hazard_regression.PHReg",
+    "ties": "efron",
+    "missing": "raise",
+    "baselineReference": "Independent explicit Efron denominator calculation, not PHReg baseline helper.",
+    "intervalConvention": "(start, stop]; fixture entry boundaries do not coincide with failures.",
+    "covariance": "Model-based information inverse; not cluster-robust, causal or calibrated predictive uncertainty.",
+    "sources": [
+      "https://www.statsmodels.org/stable/generated/statsmodels.duration.hazard_regression.PHReg.html",
+      "https://www.stat.ethz.ch/R-manual/R-devel/library/survival/html/coxph.html"
+    ]
+  },
+  "cases": [
+    {
+      "name": "tied-right-censored",
+      "covariateNames": ["synthetic_load", "synthetic_indicator"],
+      "rows": [
+        {
+          "id": "synthetic-0-0",
+          "subjectId": "component-instance-0",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 10.0,
+          "failed": true,
+          "covariates": [-0.010960348915028062, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-1-0",
+          "subjectId": "component-instance-1",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 22.0,
+          "failed": false,
+          "covariates": [0.15729113347633916, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-2-0",
+          "subjectId": "component-instance-2",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 3.0,
+          "failed": true,
+          "covariates": [-0.5921801874008874, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-3-0",
+          "subjectId": "component-instance-3",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 21.0,
+          "failed": true,
+          "covariates": [0.5164155891568347, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-4-0",
+          "subjectId": "component-instance-4",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 4.0,
+          "failed": true,
+          "covariates": [-0.7437977361636003, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-5-0",
+          "subjectId": "component-instance-5",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 6.0,
+          "failed": true,
+          "covariates": [-0.8769061542992482, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-6-0",
+          "subjectId": "component-instance-6",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 13.0,
+          "failed": true,
+          "covariates": [0.9527933813487444, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-7-0",
+          "subjectId": "component-instance-7",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 21.0,
+          "failed": true,
+          "covariates": [1.1235163628642213, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-8-0",
+          "subjectId": "component-instance-8",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 3.0,
+          "failed": true,
+          "covariates": [-1.2232473346697401, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-9-0",
+          "subjectId": "component-instance-9",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 14.0,
+          "failed": true,
+          "covariates": [1.357712084811996, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-10-0",
+          "subjectId": "component-instance-10",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 17.0,
+          "failed": true,
+          "covariates": [-0.1356200255209412, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-11-0",
+          "subjectId": "component-instance-11",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 19.0,
+          "failed": false,
+          "covariates": [-1.0866497030824607, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-12-0",
+          "subjectId": "component-instance-12",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 22.0,
+          "failed": true,
+          "covariates": [1.2634395066642945, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-13-0",
+          "subjectId": "component-instance-13",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 3.0,
+          "failed": true,
+          "covariates": [1.1305277851470574, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-14-0",
+          "subjectId": "component-instance-14",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 21.0,
+          "failed": false,
+          "covariates": [-1.2851312174313234, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-15-0",
+          "subjectId": "component-instance-15",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 7.0,
+          "failed": true,
+          "covariates": [1.0522927387747658, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-16-0",
+          "subjectId": "component-instance-16",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 3.0,
+          "failed": false,
+          "covariates": [0.46695279813592117, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-17-0",
+          "subjectId": "component-instance-17",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 22.0,
+          "failed": false,
+          "covariates": [-1.330799456538407, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-18-0",
+          "subjectId": "component-instance-18",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 14.0,
+          "failed": true,
+          "covariates": [1.4374203521522304, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-19-0",
+          "subjectId": "component-instance-19",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 19.0,
+          "failed": true,
+          "covariates": [1.4590739177040217, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-20-0",
+          "subjectId": "component-instance-20",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.0,
+          "failed": false,
+          "covariates": [-0.7573231348954362, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-21-0",
+          "subjectId": "component-instance-21",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 10.0,
+          "failed": true,
+          "covariates": [-0.45320721633175465, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-22-0",
+          "subjectId": "component-instance-22",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 19.0,
+          "failed": true,
+          "covariates": [-1.1203490980408377, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-23-0",
+          "subjectId": "component-instance-23",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.0,
+          "failed": false,
+          "covariates": [-0.6884774435309412, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-24-0",
+          "subjectId": "component-instance-24",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 17.0,
+          "failed": false,
+          "covariates": [1.264637247924349, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-25-0",
+          "subjectId": "component-instance-25",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 9.0,
+          "failed": true,
+          "covariates": [0.4029712686801754, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-26-0",
+          "subjectId": "component-instance-26",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 21.0,
+          "failed": true,
+          "covariates": [0.19058598861717502, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-27-0",
+          "subjectId": "component-instance-27",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 6.0,
+          "failed": true,
+          "covariates": [-0.8566846447067883, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-28-0",
+          "subjectId": "component-instance-28",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 4.0,
+          "failed": false,
+          "covariates": [-0.5003922346696631, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-29-0",
+          "subjectId": "component-instance-29",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 9.0,
+          "failed": true,
+          "covariates": [1.1605310327250926, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-30-0",
+          "subjectId": "component-instance-30",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 12.0,
+          "failed": true,
+          "covariates": [-0.41044834585124046, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-31-0",
+          "subjectId": "component-instance-31",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 9.0,
+          "failed": false,
+          "covariates": [-0.0797455398149971, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-32-0",
+          "subjectId": "component-instance-32",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.0,
+          "failed": true,
+          "covariates": [0.09657157759027868, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-33-0",
+          "subjectId": "component-instance-33",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 22.0,
+          "failed": true,
+          "covariates": [-0.6951743857063359, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-34-0",
+          "subjectId": "component-instance-34",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 5.0,
+          "failed": true,
+          "covariates": [-0.6164615366016034, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-35-0",
+          "subjectId": "component-instance-35",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.0,
+          "failed": true,
+          "covariates": [-0.2547209633385421, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-36-0",
+          "subjectId": "component-instance-36",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.0,
+          "failed": true,
+          "covariates": [0.34006620300377555, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-37-0",
+          "subjectId": "component-instance-37",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 18.0,
+          "failed": true,
+          "covariates": [1.3269469510374328, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-38-0",
+          "subjectId": "component-instance-38",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 9.0,
+          "failed": false,
+          "covariates": [-0.7408309714336054, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-39-0",
+          "subjectId": "component-instance-39",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 4.0,
+          "failed": false,
+          "covariates": [1.4749795946988442, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-40-0",
+          "subjectId": "component-instance-40",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 9.0,
+          "failed": true,
+          "covariates": [-1.4902233272723073, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-41-0",
+          "subjectId": "component-instance-41",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 19.0,
+          "failed": true,
+          "covariates": [0.10314133775995415, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-42-0",
+          "subjectId": "component-instance-42",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 9.0,
+          "failed": true,
+          "covariates": [-1.0301693610422056, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-43-0",
+          "subjectId": "component-instance-43",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 3.0,
+          "failed": true,
+          "covariates": [-1.0306102647127857, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-44-0",
+          "subjectId": "component-instance-44",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 21.0,
+          "failed": true,
+          "covariates": [-1.443294569466763, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-45-0",
+          "subjectId": "component-instance-45",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 4.0,
+          "failed": true,
+          "covariates": [0.5951248492146504, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-46-0",
+          "subjectId": "component-instance-46",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 20.0,
+          "failed": true,
+          "covariates": [-0.8864555285014842, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-47-0",
+          "subjectId": "component-instance-47",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 5.0,
+          "failed": true,
+          "covariates": [1.48428769435841, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-48-0",
+          "subjectId": "component-instance-48",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 7.0,
+          "failed": true,
+          "covariates": [-1.3341216616736427, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-49-0",
+          "subjectId": "component-instance-49",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 5.0,
+          "failed": true,
+          "covariates": [0.9899340024739764, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-50-0",
+          "subjectId": "component-instance-50",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 11.0,
+          "failed": true,
+          "covariates": [0.011153504375923218, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-51-0",
+          "subjectId": "component-instance-51",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 16.0,
+          "failed": true,
+          "covariates": [-0.3629472198825274, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-52-0",
+          "subjectId": "component-instance-52",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 3.0,
+          "failed": true,
+          "covariates": [-0.8468509587822926, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-53-0",
+          "subjectId": "component-instance-53",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 12.0,
+          "failed": true,
+          "covariates": [-1.0680191237021395, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-54-0",
+          "subjectId": "component-instance-54",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 15.0,
+          "failed": true,
+          "covariates": [0.518390765577891, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-55-0",
+          "subjectId": "component-instance-55",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 15.0,
+          "failed": true,
+          "covariates": [1.1845460251669095, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-56-0",
+          "subjectId": "component-instance-56",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 14.0,
+          "failed": true,
+          "covariates": [-0.16570577067654568, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-57-0",
+          "subjectId": "component-instance-57",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 5.0,
+          "failed": false,
+          "covariates": [-1.3415673548003357, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-58-0",
+          "subjectId": "component-instance-58",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 22.0,
+          "failed": false,
+          "covariates": [-0.9602020462826122, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-59-0",
+          "subjectId": "component-instance-59",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 5.0,
+          "failed": false,
+          "covariates": [-0.7647652981035683, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-60-0",
+          "subjectId": "component-instance-60",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 21.0,
+          "failed": true,
+          "covariates": [0.06223771145749524, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-61-0",
+          "subjectId": "component-instance-61",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 9.0,
+          "failed": true,
+          "covariates": [-0.8400849355555512, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-62-0",
+          "subjectId": "component-instance-62",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 4.0,
+          "failed": true,
+          "covariates": [-0.712909943100114, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-63-0",
+          "subjectId": "component-instance-63",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 14.0,
+          "failed": true,
+          "covariates": [-0.6349617089743668, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-64-0",
+          "subjectId": "component-instance-64",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 12.0,
+          "failed": true,
+          "covariates": [0.5596606008643561, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-65-0",
+          "subjectId": "component-instance-65",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 19.0,
+          "failed": false,
+          "covariates": [-0.45854554940603376, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-66-0",
+          "subjectId": "component-instance-66",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 22.0,
+          "failed": true,
+          "covariates": [-0.45588294156229137, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-67-0",
+          "subjectId": "component-instance-67",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 6.0,
+          "failed": true,
+          "covariates": [-0.19525669677948665, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-68-0",
+          "subjectId": "component-instance-68",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 6.0,
+          "failed": true,
+          "covariates": [0.963185004051974, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-69-0",
+          "subjectId": "component-instance-69",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 7.0,
+          "failed": false,
+          "covariates": [-0.957908869786162, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-70-0",
+          "subjectId": "component-instance-70",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 22.0,
+          "failed": true,
+          "covariates": [-1.3540483859612218, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-71-0",
+          "subjectId": "component-instance-71",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 11.0,
+          "failed": false,
+          "covariates": [-0.0978827914581264, 0.0],
+          "observedAt": 0.0
+        }
+      ],
+      "expected": {
+        "coefficients": [0.17571814056773824, -0.021735415643043845],
+        "covariance": [
+          [0.023580768356102448, -0.012231404479511168],
+          [-0.01223140447951117, 0.08644537116228575]
+        ],
+        "logLikelihood": -182.95192870784098,
+        "score": [-1.124100812432971e-15, 8.881784197001252e-16],
+        "baselineEfronPostEvent": [
+          {
+            "stratum": "A",
+            "time": 3.0,
+            "cumulativeHazard": 0.07259737889549432
+          },
+          {
+            "stratum": "A",
+            "time": 4.0,
+            "cumulativeHazard": 0.1194137879669411
+          },
+          {
+            "stratum": "A",
+            "time": 5.0,
+            "cumulativeHazard": 0.1703775445292059
+          },
+          {
+            "stratum": "A",
+            "time": 6.0,
+            "cumulativeHazard": 0.24512937287185702
+          },
+          {
+            "stratum": "A",
+            "time": 7.0,
+            "cumulativeHazard": 0.284628916643744
+          },
+          {
+            "stratum": "A",
+            "time": 8.0,
+            "cumulativeHazard": 0.3480141772514477
+          },
+          {
+            "stratum": "A",
+            "time": 9.0,
+            "cumulativeHazard": 0.46811523836962976
+          },
+          {
+            "stratum": "A",
+            "time": 10.0,
+            "cumulativeHazard": 0.5229312019974801
+          },
+          {
+            "stratum": "A",
+            "time": 11.0,
+            "cumulativeHazard": 0.5514361596215398
+          },
+          {
+            "stratum": "A",
+            "time": 12.0,
+            "cumulativeHazard": 0.6448052797527446
+          },
+          {
+            "stratum": "A",
+            "time": 13.0,
+            "cumulativeHazard": 0.6778586863215332
+          },
+          {
+            "stratum": "A",
+            "time": 14.0,
+            "cumulativeHazard": 0.8237760796010993
+          },
+          {
+            "stratum": "A",
+            "time": 15.0,
+            "cumulativeHazard": 0.906559559639306
+          },
+          {
+            "stratum": "A",
+            "time": 16.0,
+            "cumulativeHazard": 0.9511114879493563
+          },
+          {
+            "stratum": "A",
+            "time": 17.0,
+            "cumulativeHazard": 0.9975633220120587
+          },
+          {
+            "stratum": "A",
+            "time": 18.0,
+            "cumulativeHazard": 1.0492984401328964
+          },
+          {
+            "stratum": "A",
+            "time": 19.0,
+            "cumulativeHazard": 1.2259773665924836
+          },
+          {
+            "stratum": "A",
+            "time": 20.0,
+            "cumulativeHazard": 1.3018152051187795
+          },
+          {
+            "stratum": "A",
+            "time": 21.0,
+            "cumulativeHazard": 1.7973263102403325
+          },
+          {
+            "stratum": "A",
+            "time": 22.0,
+            "cumulativeHazard": 2.6310658705144503
+          }
+        ]
+      }
+    },
+    {
+      "name": "stratified-delayed-entry",
+      "covariateNames": ["synthetic_load", "synthetic_indicator"],
+      "rows": [
+        {
+          "id": "synthetic-0-0",
+          "subjectId": "component-instance-0",
+          "stratum": "A",
+          "start": 0.25,
+          "stop": 10.0,
+          "failed": true,
+          "covariates": [-0.010960348915028062, 1.0],
+          "observedAt": 0.25
+        },
+        {
+          "id": "synthetic-1-0",
+          "subjectId": "component-instance-1",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 22.0,
+          "failed": false,
+          "covariates": [0.15729113347633916, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-2-0",
+          "subjectId": "component-instance-2",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 3.0,
+          "failed": true,
+          "covariates": [-0.5921801874008874, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-3-0",
+          "subjectId": "component-instance-3",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 21.0,
+          "failed": true,
+          "covariates": [0.5164155891568347, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-4-0",
+          "subjectId": "component-instance-4",
+          "stratum": "A",
+          "start": 0.25,
+          "stop": 4.0,
+          "failed": true,
+          "covariates": [-0.7437977361636003, 0.0],
+          "observedAt": 0.25
+        },
+        {
+          "id": "synthetic-5-0",
+          "subjectId": "component-instance-5",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 6.0,
+          "failed": true,
+          "covariates": [-0.8769061542992482, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-6-0",
+          "subjectId": "component-instance-6",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 13.0,
+          "failed": true,
+          "covariates": [0.9527933813487444, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-7-0",
+          "subjectId": "component-instance-7",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 21.0,
+          "failed": true,
+          "covariates": [1.1235163628642213, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-8-0",
+          "subjectId": "component-instance-8",
+          "stratum": "A",
+          "start": 0.25,
+          "stop": 3.0,
+          "failed": true,
+          "covariates": [-1.2232473346697401, 0.0],
+          "observedAt": 0.25
+        },
+        {
+          "id": "synthetic-9-0",
+          "subjectId": "component-instance-9",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 14.0,
+          "failed": true,
+          "covariates": [1.357712084811996, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-10-0",
+          "subjectId": "component-instance-10",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 17.0,
+          "failed": true,
+          "covariates": [-0.1356200255209412, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-11-0",
+          "subjectId": "component-instance-11",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 19.0,
+          "failed": false,
+          "covariates": [-1.0866497030824607, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-12-0",
+          "subjectId": "component-instance-12",
+          "stratum": "A",
+          "start": 0.25,
+          "stop": 22.0,
+          "failed": true,
+          "covariates": [1.2634395066642945, 1.0],
+          "observedAt": 0.25
+        },
+        {
+          "id": "synthetic-13-0",
+          "subjectId": "component-instance-13",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 3.0,
+          "failed": true,
+          "covariates": [1.1305277851470574, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-14-0",
+          "subjectId": "component-instance-14",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 21.0,
+          "failed": false,
+          "covariates": [-1.2851312174313234, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-15-0",
+          "subjectId": "component-instance-15",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 7.0,
+          "failed": true,
+          "covariates": [1.0522927387747658, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-16-0",
+          "subjectId": "component-instance-16",
+          "stratum": "A",
+          "start": 0.25,
+          "stop": 3.0,
+          "failed": false,
+          "covariates": [0.46695279813592117, 0.0],
+          "observedAt": 0.25
+        },
+        {
+          "id": "synthetic-17-0",
+          "subjectId": "component-instance-17",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 22.0,
+          "failed": false,
+          "covariates": [-1.330799456538407, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-18-0",
+          "subjectId": "component-instance-18",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 14.0,
+          "failed": true,
+          "covariates": [1.4374203521522304, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-19-0",
+          "subjectId": "component-instance-19",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 19.0,
+          "failed": true,
+          "covariates": [1.4590739177040217, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-20-0",
+          "subjectId": "component-instance-20",
+          "stratum": "A",
+          "start": 0.25,
+          "stop": 8.0,
+          "failed": false,
+          "covariates": [-0.7573231348954362, 0.0],
+          "observedAt": 0.25
+        },
+        {
+          "id": "synthetic-21-0",
+          "subjectId": "component-instance-21",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 10.0,
+          "failed": true,
+          "covariates": [-0.45320721633175465, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-22-0",
+          "subjectId": "component-instance-22",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 19.0,
+          "failed": true,
+          "covariates": [-1.1203490980408377, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-23-0",
+          "subjectId": "component-instance-23",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 8.0,
+          "failed": false,
+          "covariates": [-0.6884774435309412, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-24-0",
+          "subjectId": "component-instance-24",
+          "stratum": "A",
+          "start": 0.25,
+          "stop": 17.0,
+          "failed": false,
+          "covariates": [1.264637247924349, 1.0],
+          "observedAt": 0.25
+        },
+        {
+          "id": "synthetic-25-0",
+          "subjectId": "component-instance-25",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 9.0,
+          "failed": true,
+          "covariates": [0.4029712686801754, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-26-0",
+          "subjectId": "component-instance-26",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 21.0,
+          "failed": true,
+          "covariates": [0.19058598861717502, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-27-0",
+          "subjectId": "component-instance-27",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 6.0,
+          "failed": true,
+          "covariates": [-0.8566846447067883, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-28-0",
+          "subjectId": "component-instance-28",
+          "stratum": "A",
+          "start": 0.25,
+          "stop": 4.0,
+          "failed": false,
+          "covariates": [-0.5003922346696631, 0.0],
+          "observedAt": 0.25
+        },
+        {
+          "id": "synthetic-29-0",
+          "subjectId": "component-instance-29",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 9.0,
+          "failed": true,
+          "covariates": [1.1605310327250926, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-30-0",
+          "subjectId": "component-instance-30",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 12.0,
+          "failed": true,
+          "covariates": [-0.41044834585124046, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-31-0",
+          "subjectId": "component-instance-31",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 9.0,
+          "failed": false,
+          "covariates": [-0.0797455398149971, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-32-0",
+          "subjectId": "component-instance-32",
+          "stratum": "A",
+          "start": 0.25,
+          "stop": 8.0,
+          "failed": true,
+          "covariates": [0.09657157759027868, 0.0],
+          "observedAt": 0.25
+        },
+        {
+          "id": "synthetic-33-0",
+          "subjectId": "component-instance-33",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 22.0,
+          "failed": true,
+          "covariates": [-0.6951743857063359, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-34-0",
+          "subjectId": "component-instance-34",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 5.0,
+          "failed": true,
+          "covariates": [-0.6164615366016034, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-35-0",
+          "subjectId": "component-instance-35",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 8.0,
+          "failed": true,
+          "covariates": [-0.2547209633385421, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-36-0",
+          "subjectId": "component-instance-36",
+          "stratum": "A",
+          "start": 0.25,
+          "stop": 8.0,
+          "failed": true,
+          "covariates": [0.34006620300377555, 1.0],
+          "observedAt": 0.25
+        },
+        {
+          "id": "synthetic-37-0",
+          "subjectId": "component-instance-37",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 18.0,
+          "failed": true,
+          "covariates": [1.3269469510374328, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-38-0",
+          "subjectId": "component-instance-38",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 9.0,
+          "failed": false,
+          "covariates": [-0.7408309714336054, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-39-0",
+          "subjectId": "component-instance-39",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 4.0,
+          "failed": false,
+          "covariates": [1.4749795946988442, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-40-0",
+          "subjectId": "component-instance-40",
+          "stratum": "A",
+          "start": 0.25,
+          "stop": 9.0,
+          "failed": true,
+          "covariates": [-1.4902233272723073, 0.0],
+          "observedAt": 0.25
+        },
+        {
+          "id": "synthetic-41-0",
+          "subjectId": "component-instance-41",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 19.0,
+          "failed": true,
+          "covariates": [0.10314133775995415, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-42-0",
+          "subjectId": "component-instance-42",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 9.0,
+          "failed": true,
+          "covariates": [-1.0301693610422056, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-43-0",
+          "subjectId": "component-instance-43",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 3.0,
+          "failed": true,
+          "covariates": [-1.0306102647127857, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-44-0",
+          "subjectId": "component-instance-44",
+          "stratum": "A",
+          "start": 0.25,
+          "stop": 21.0,
+          "failed": true,
+          "covariates": [-1.443294569466763, 0.0],
+          "observedAt": 0.25
+        },
+        {
+          "id": "synthetic-45-0",
+          "subjectId": "component-instance-45",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 4.0,
+          "failed": true,
+          "covariates": [0.5951248492146504, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-46-0",
+          "subjectId": "component-instance-46",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 20.0,
+          "failed": true,
+          "covariates": [-0.8864555285014842, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-47-0",
+          "subjectId": "component-instance-47",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 5.0,
+          "failed": true,
+          "covariates": [1.48428769435841, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-48-0",
+          "subjectId": "component-instance-48",
+          "stratum": "A",
+          "start": 0.25,
+          "stop": 7.0,
+          "failed": true,
+          "covariates": [-1.3341216616736427, 1.0],
+          "observedAt": 0.25
+        },
+        {
+          "id": "synthetic-49-0",
+          "subjectId": "component-instance-49",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 5.0,
+          "failed": true,
+          "covariates": [0.9899340024739764, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-50-0",
+          "subjectId": "component-instance-50",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 11.0,
+          "failed": true,
+          "covariates": [0.011153504375923218, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-51-0",
+          "subjectId": "component-instance-51",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 16.0,
+          "failed": true,
+          "covariates": [-0.3629472198825274, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-52-0",
+          "subjectId": "component-instance-52",
+          "stratum": "A",
+          "start": 0.25,
+          "stop": 3.0,
+          "failed": true,
+          "covariates": [-0.8468509587822926, 0.0],
+          "observedAt": 0.25
+        },
+        {
+          "id": "synthetic-53-0",
+          "subjectId": "component-instance-53",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 12.0,
+          "failed": true,
+          "covariates": [-1.0680191237021395, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-54-0",
+          "subjectId": "component-instance-54",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 15.0,
+          "failed": true,
+          "covariates": [0.518390765577891, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-55-0",
+          "subjectId": "component-instance-55",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 15.0,
+          "failed": true,
+          "covariates": [1.1845460251669095, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-56-0",
+          "subjectId": "component-instance-56",
+          "stratum": "A",
+          "start": 0.25,
+          "stop": 14.0,
+          "failed": true,
+          "covariates": [-0.16570577067654568, 0.0],
+          "observedAt": 0.25
+        },
+        {
+          "id": "synthetic-57-0",
+          "subjectId": "component-instance-57",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 5.0,
+          "failed": false,
+          "covariates": [-1.3415673548003357, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-58-0",
+          "subjectId": "component-instance-58",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 22.0,
+          "failed": false,
+          "covariates": [-0.9602020462826122, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-59-0",
+          "subjectId": "component-instance-59",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 5.0,
+          "failed": false,
+          "covariates": [-0.7647652981035683, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-60-0",
+          "subjectId": "component-instance-60",
+          "stratum": "A",
+          "start": 0.25,
+          "stop": 21.0,
+          "failed": true,
+          "covariates": [0.06223771145749524, 1.0],
+          "observedAt": 0.25
+        },
+        {
+          "id": "synthetic-61-0",
+          "subjectId": "component-instance-61",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 9.0,
+          "failed": true,
+          "covariates": [-0.8400849355555512, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-62-0",
+          "subjectId": "component-instance-62",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 4.0,
+          "failed": true,
+          "covariates": [-0.712909943100114, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-63-0",
+          "subjectId": "component-instance-63",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 14.0,
+          "failed": true,
+          "covariates": [-0.6349617089743668, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-64-0",
+          "subjectId": "component-instance-64",
+          "stratum": "A",
+          "start": 0.25,
+          "stop": 12.0,
+          "failed": true,
+          "covariates": [0.5596606008643561, 0.0],
+          "observedAt": 0.25
+        },
+        {
+          "id": "synthetic-65-0",
+          "subjectId": "component-instance-65",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 19.0,
+          "failed": false,
+          "covariates": [-0.45854554940603376, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-66-0",
+          "subjectId": "component-instance-66",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 22.0,
+          "failed": true,
+          "covariates": [-0.45588294156229137, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-67-0",
+          "subjectId": "component-instance-67",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 6.0,
+          "failed": true,
+          "covariates": [-0.19525669677948665, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-68-0",
+          "subjectId": "component-instance-68",
+          "stratum": "A",
+          "start": 0.25,
+          "stop": 6.0,
+          "failed": true,
+          "covariates": [0.963185004051974, 0.0],
+          "observedAt": 0.25
+        },
+        {
+          "id": "synthetic-69-0",
+          "subjectId": "component-instance-69",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 7.0,
+          "failed": false,
+          "covariates": [-0.957908869786162, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-70-0",
+          "subjectId": "component-instance-70",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 22.0,
+          "failed": true,
+          "covariates": [-1.3540483859612218, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-71-0",
+          "subjectId": "component-instance-71",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 11.0,
+          "failed": false,
+          "covariates": [-0.0978827914581264, 0.0],
+          "observedAt": 0.0
+        }
+      ],
+      "expected": {
+        "coefficients": [0.17000272167448544, -0.0449729823023659],
+        "covariance": [
+          [0.024958283398232025, -0.015137912762399659],
+          [-0.015137912762399662, 0.09115230012091294]
+        ],
+        "logLikelihood": -147.0904707986501,
+        "score": [3.3306690738754696e-16, 8.881784197001252e-16],
+        "baselineEfronPostEvent": [
+          {
+            "stratum": "A",
+            "time": 3.0,
+            "cumulativeHazard": 0.09052231949047557
+          },
+          {
+            "stratum": "A",
+            "time": 4.0,
+            "cumulativeHazard": 0.15740436151749654
+          },
+          {
+            "stratum": "A",
+            "time": 5.0,
+            "cumulativeHazard": 0.19354960396696613
+          },
+          {
+            "stratum": "A",
+            "time": 6.0,
+            "cumulativeHazard": 0.23091091806431568
+          },
+          {
+            "stratum": "A",
+            "time": 7.0,
+            "cumulativeHazard": 0.26999213274439016
+          },
+          {
+            "stratum": "A",
+            "time": 8.0,
+            "cumulativeHazard": 0.3522703751596896
+          },
+          {
+            "stratum": "A",
+            "time": 9.0,
+            "cumulativeHazard": 0.445228130154525
+          },
+          {
+            "stratum": "A",
+            "time": 10.0,
+            "cumulativeHazard": 0.4966241918869898
+          },
+          {
+            "stratum": "A",
+            "time": 11.0,
+            "cumulativeHazard": 0.55067094211555
+          },
+          {
+            "stratum": "A",
+            "time": 12.0,
+            "cumulativeHazard": 0.6683999035977607
+          },
+          {
+            "stratum": "A",
+            "time": 13.0,
+            "cumulativeHazard": 0.7328777768999466
+          },
+          {
+            "stratum": "A",
+            "time": 14.0,
+            "cumulativeHazard": 0.8776465883764275
+          },
+          {
+            "stratum": "A",
+            "time": 15.0,
+            "cumulativeHazard": 0.9596663181962702
+          },
+          {
+            "stratum": "A",
+            "time": 17.0,
+            "cumulativeHazard": 1.0493677920194524
+          },
+          {
+            "stratum": "A",
+            "time": 19.0,
+            "cumulativeHazard": 1.160657538720594
+          },
+          {
+            "stratum": "A",
+            "time": 20.0,
+            "cumulativeHazard": 1.2832219253953676
+          },
+          {
+            "stratum": "A",
+            "time": 21.0,
+            "cumulativeHazard": 1.7608449252450518
+          },
+          {
+            "stratum": "A",
+            "time": 22.0,
+            "cumulativeHazard": 2.9468821794674915
+          },
+          {
+            "stratum": "B",
+            "time": 3.0,
+            "cumulativeHazard": 0.05609915528086924
+          },
+          {
+            "stratum": "B",
+            "time": 4.0,
+            "cumulativeHazard": 0.08540735492793775
+          },
+          {
+            "stratum": "B",
+            "time": 5.0,
+            "cumulativeHazard": 0.14950157696628785
+          },
+          {
+            "stratum": "B",
+            "time": 6.0,
+            "cumulativeHazard": 0.2613590846771103
+          },
+          {
+            "stratum": "B",
+            "time": 7.0,
+            "cumulativeHazard": 0.3012488338916641
+          },
+          {
+            "stratum": "B",
+            "time": 8.0,
+            "cumulativeHazard": 0.3445136991378197
+          },
+          {
+            "stratum": "B",
+            "time": 9.0,
+            "cumulativeHazard": 0.493192162150095
+          },
+          {
+            "stratum": "B",
+            "time": 10.0,
+            "cumulativeHazard": 0.5515903498457363
+          },
+          {
+            "stratum": "B",
+            "time": 12.0,
+            "cumulativeHazard": 0.6171418089242241
+          },
+          {
+            "stratum": "B",
+            "time": 14.0,
+            "cumulativeHazard": 0.7611665675845525
+          },
+          {
+            "stratum": "B",
+            "time": 15.0,
+            "cumulativeHazard": 0.842080599164529
+          },
+          {
+            "stratum": "B",
+            "time": 16.0,
+            "cumulativeHazard": 0.9318817781968955
+          },
+          {
+            "stratum": "B",
+            "time": 18.0,
+            "cumulativeHazard": 1.02956766297712
+          },
+          {
+            "stratum": "B",
+            "time": 19.0,
+            "cumulativeHazard": 1.268523552247292
+          },
+          {
+            "stratum": "B",
+            "time": 21.0,
+            "cumulativeHazard": 1.7345087438711295
+          },
+          {
+            "stratum": "B",
+            "time": 22.0,
+            "cumulativeHazard": 2.108468070075193
+          }
+        ]
+      }
+    },
+    {
+      "name": "piecewise-time-varying",
+      "covariateNames": ["synthetic_load", "synthetic_indicator"],
+      "rows": [
+        {
+          "id": "synthetic-0-0",
+          "subjectId": "component-instance-0",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [-0.010960348915028062, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-0-1",
+          "subjectId": "component-instance-0",
+          "stratum": "A",
+          "start": 8.25,
+          "stop": 10.0,
+          "failed": true,
+          "covariates": [0.38903965108497196, 0.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-1-0",
+          "subjectId": "component-instance-1",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [0.15729113347633916, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-1-1",
+          "subjectId": "component-instance-1",
+          "stratum": "B",
+          "start": 8.25,
+          "stop": 22.0,
+          "failed": false,
+          "covariates": [0.5572911334763392, 1.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-2-0",
+          "subjectId": "component-instance-2",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 3.0,
+          "failed": true,
+          "covariates": [-0.5921801874008874, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-3-0",
+          "subjectId": "component-instance-3",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [0.5164155891568347, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-3-1",
+          "subjectId": "component-instance-3",
+          "stratum": "B",
+          "start": 8.25,
+          "stop": 21.0,
+          "failed": true,
+          "covariates": [0.9164155891568347, 0.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-4-0",
+          "subjectId": "component-instance-4",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 4.0,
+          "failed": true,
+          "covariates": [-0.7437977361636003, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-5-0",
+          "subjectId": "component-instance-5",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 6.0,
+          "failed": true,
+          "covariates": [-0.8769061542992482, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-6-0",
+          "subjectId": "component-instance-6",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [0.9527933813487444, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-6-1",
+          "subjectId": "component-instance-6",
+          "stratum": "A",
+          "start": 8.25,
+          "stop": 13.0,
+          "failed": true,
+          "covariates": [1.3527933813487443, 0.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-7-0",
+          "subjectId": "component-instance-7",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [1.1235163628642213, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-7-1",
+          "subjectId": "component-instance-7",
+          "stratum": "B",
+          "start": 8.25,
+          "stop": 21.0,
+          "failed": true,
+          "covariates": [1.5235163628642212, 1.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-8-0",
+          "subjectId": "component-instance-8",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 3.0,
+          "failed": true,
+          "covariates": [-1.2232473346697401, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-9-0",
+          "subjectId": "component-instance-9",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [1.357712084811996, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-9-1",
+          "subjectId": "component-instance-9",
+          "stratum": "B",
+          "start": 8.25,
+          "stop": 14.0,
+          "failed": true,
+          "covariates": [1.7577120848119958, 0.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-10-0",
+          "subjectId": "component-instance-10",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [-0.1356200255209412, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-10-1",
+          "subjectId": "component-instance-10",
+          "stratum": "A",
+          "start": 8.25,
+          "stop": 17.0,
+          "failed": true,
+          "covariates": [0.2643799744790588, 1.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-11-0",
+          "subjectId": "component-instance-11",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [-1.0866497030824607, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-11-1",
+          "subjectId": "component-instance-11",
+          "stratum": "B",
+          "start": 8.25,
+          "stop": 19.0,
+          "failed": false,
+          "covariates": [-0.6866497030824606, 1.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-12-0",
+          "subjectId": "component-instance-12",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [1.2634395066642945, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-12-1",
+          "subjectId": "component-instance-12",
+          "stratum": "A",
+          "start": 8.25,
+          "stop": 22.0,
+          "failed": true,
+          "covariates": [1.6634395066642944, 0.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-13-0",
+          "subjectId": "component-instance-13",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 3.0,
+          "failed": true,
+          "covariates": [1.1305277851470574, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-14-0",
+          "subjectId": "component-instance-14",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [-1.2851312174313234, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-14-1",
+          "subjectId": "component-instance-14",
+          "stratum": "A",
+          "start": 8.25,
+          "stop": 21.0,
+          "failed": false,
+          "covariates": [-0.8851312174313234, 1.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-15-0",
+          "subjectId": "component-instance-15",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 7.0,
+          "failed": true,
+          "covariates": [1.0522927387747658, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-16-0",
+          "subjectId": "component-instance-16",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 3.0,
+          "failed": false,
+          "covariates": [0.46695279813592117, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-17-0",
+          "subjectId": "component-instance-17",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [-1.330799456538407, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-17-1",
+          "subjectId": "component-instance-17",
+          "stratum": "B",
+          "start": 8.25,
+          "stop": 22.0,
+          "failed": false,
+          "covariates": [-0.9307994565384069, 1.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-18-0",
+          "subjectId": "component-instance-18",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [1.4374203521522304, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-18-1",
+          "subjectId": "component-instance-18",
+          "stratum": "A",
+          "start": 8.25,
+          "stop": 14.0,
+          "failed": true,
+          "covariates": [1.8374203521522303, 0.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-19-0",
+          "subjectId": "component-instance-19",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [1.4590739177040217, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-19-1",
+          "subjectId": "component-instance-19",
+          "stratum": "B",
+          "start": 8.25,
+          "stop": 19.0,
+          "failed": true,
+          "covariates": [1.8590739177040216, 1.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-20-0",
+          "subjectId": "component-instance-20",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.0,
+          "failed": false,
+          "covariates": [-0.7573231348954362, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-21-0",
+          "subjectId": "component-instance-21",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [-0.45320721633175465, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-21-1",
+          "subjectId": "component-instance-21",
+          "stratum": "B",
+          "start": 8.25,
+          "stop": 10.0,
+          "failed": true,
+          "covariates": [-0.053207216331754625, 0.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-22-0",
+          "subjectId": "component-instance-22",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [-1.1203490980408377, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-22-1",
+          "subjectId": "component-instance-22",
+          "stratum": "A",
+          "start": 8.25,
+          "stop": 19.0,
+          "failed": true,
+          "covariates": [-0.7203490980408377, 1.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-23-0",
+          "subjectId": "component-instance-23",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 8.0,
+          "failed": false,
+          "covariates": [-0.6884774435309412, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-24-0",
+          "subjectId": "component-instance-24",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [1.264637247924349, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-24-1",
+          "subjectId": "component-instance-24",
+          "stratum": "A",
+          "start": 8.25,
+          "stop": 17.0,
+          "failed": false,
+          "covariates": [1.664637247924349, 0.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-25-0",
+          "subjectId": "component-instance-25",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 9.0,
+          "failed": true,
+          "covariates": [0.4029712686801754, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-26-0",
+          "subjectId": "component-instance-26",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [0.19058598861717502, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-26-1",
+          "subjectId": "component-instance-26",
+          "stratum": "A",
+          "start": 8.25,
+          "stop": 21.0,
+          "failed": true,
+          "covariates": [0.590585988617175, 1.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-27-0",
+          "subjectId": "component-instance-27",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 6.0,
+          "failed": true,
+          "covariates": [-0.8566846447067883, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-28-0",
+          "subjectId": "component-instance-28",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 4.0,
+          "failed": false,
+          "covariates": [-0.5003922346696631, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-29-0",
+          "subjectId": "component-instance-29",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 9.0,
+          "failed": true,
+          "covariates": [1.1605310327250926, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-30-0",
+          "subjectId": "component-instance-30",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [-0.41044834585124046, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-30-1",
+          "subjectId": "component-instance-30",
+          "stratum": "A",
+          "start": 8.25,
+          "stop": 12.0,
+          "failed": true,
+          "covariates": [-0.010448345851240437, 0.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-31-0",
+          "subjectId": "component-instance-31",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 9.0,
+          "failed": false,
+          "covariates": [-0.0797455398149971, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-32-0",
+          "subjectId": "component-instance-32",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.0,
+          "failed": true,
+          "covariates": [0.09657157759027868, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-33-0",
+          "subjectId": "component-instance-33",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [-0.6951743857063359, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-33-1",
+          "subjectId": "component-instance-33",
+          "stratum": "B",
+          "start": 8.25,
+          "stop": 22.0,
+          "failed": true,
+          "covariates": [-0.2951743857063359, 0.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-34-0",
+          "subjectId": "component-instance-34",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 5.0,
+          "failed": true,
+          "covariates": [-0.6164615366016034, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-35-0",
+          "subjectId": "component-instance-35",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 8.0,
+          "failed": true,
+          "covariates": [-0.2547209633385421, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-36-0",
+          "subjectId": "component-instance-36",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.0,
+          "failed": true,
+          "covariates": [0.34006620300377555, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-37-0",
+          "subjectId": "component-instance-37",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [1.3269469510374328, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-37-1",
+          "subjectId": "component-instance-37",
+          "stratum": "B",
+          "start": 8.25,
+          "stop": 18.0,
+          "failed": true,
+          "covariates": [1.7269469510374327, 1.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-38-0",
+          "subjectId": "component-instance-38",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 9.0,
+          "failed": false,
+          "covariates": [-0.7408309714336054, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-39-0",
+          "subjectId": "component-instance-39",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 4.0,
+          "failed": false,
+          "covariates": [1.4749795946988442, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-40-0",
+          "subjectId": "component-instance-40",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 9.0,
+          "failed": true,
+          "covariates": [-1.4902233272723073, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-41-0",
+          "subjectId": "component-instance-41",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [0.10314133775995415, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-41-1",
+          "subjectId": "component-instance-41",
+          "stratum": "B",
+          "start": 8.25,
+          "stop": 19.0,
+          "failed": true,
+          "covariates": [0.5031413377599542, 1.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-42-0",
+          "subjectId": "component-instance-42",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 9.0,
+          "failed": true,
+          "covariates": [-1.0301693610422056, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-43-0",
+          "subjectId": "component-instance-43",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 3.0,
+          "failed": true,
+          "covariates": [-1.0306102647127857, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-44-0",
+          "subjectId": "component-instance-44",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [-1.443294569466763, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-44-1",
+          "subjectId": "component-instance-44",
+          "stratum": "A",
+          "start": 8.25,
+          "stop": 21.0,
+          "failed": true,
+          "covariates": [-1.043294569466763, 1.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-45-0",
+          "subjectId": "component-instance-45",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 4.0,
+          "failed": true,
+          "covariates": [0.5951248492146504, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-46-0",
+          "subjectId": "component-instance-46",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [-0.8864555285014842, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-46-1",
+          "subjectId": "component-instance-46",
+          "stratum": "A",
+          "start": 8.25,
+          "stop": 20.0,
+          "failed": true,
+          "covariates": [-0.4864555285014842, 1.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-47-0",
+          "subjectId": "component-instance-47",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 5.0,
+          "failed": true,
+          "covariates": [1.48428769435841, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-48-0",
+          "subjectId": "component-instance-48",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 7.0,
+          "failed": true,
+          "covariates": [-1.3341216616736427, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-49-0",
+          "subjectId": "component-instance-49",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 5.0,
+          "failed": true,
+          "covariates": [0.9899340024739764, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-50-0",
+          "subjectId": "component-instance-50",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [0.011153504375923218, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-50-1",
+          "subjectId": "component-instance-50",
+          "stratum": "A",
+          "start": 8.25,
+          "stop": 11.0,
+          "failed": true,
+          "covariates": [0.41115350437592324, 1.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-51-0",
+          "subjectId": "component-instance-51",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [-0.3629472198825274, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-51-1",
+          "subjectId": "component-instance-51",
+          "stratum": "B",
+          "start": 8.25,
+          "stop": 16.0,
+          "failed": true,
+          "covariates": [0.037052780117472595, 0.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-52-0",
+          "subjectId": "component-instance-52",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 3.0,
+          "failed": true,
+          "covariates": [-0.8468509587822926, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-53-0",
+          "subjectId": "component-instance-53",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [-1.0680191237021395, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-53-1",
+          "subjectId": "component-instance-53",
+          "stratum": "B",
+          "start": 8.25,
+          "stop": 12.0,
+          "failed": true,
+          "covariates": [-0.6680191237021395, 1.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-54-0",
+          "subjectId": "component-instance-54",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [0.518390765577891, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-54-1",
+          "subjectId": "component-instance-54",
+          "stratum": "A",
+          "start": 8.25,
+          "stop": 15.0,
+          "failed": true,
+          "covariates": [0.918390765577891, 0.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-55-0",
+          "subjectId": "component-instance-55",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [1.1845460251669095, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-55-1",
+          "subjectId": "component-instance-55",
+          "stratum": "B",
+          "start": 8.25,
+          "stop": 15.0,
+          "failed": true,
+          "covariates": [1.5845460251669095, 1.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-56-0",
+          "subjectId": "component-instance-56",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [-0.16570577067654568, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-56-1",
+          "subjectId": "component-instance-56",
+          "stratum": "A",
+          "start": 8.25,
+          "stop": 14.0,
+          "failed": true,
+          "covariates": [0.23429422932345434, 1.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-57-0",
+          "subjectId": "component-instance-57",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 5.0,
+          "failed": false,
+          "covariates": [-1.3415673548003357, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-58-0",
+          "subjectId": "component-instance-58",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [-0.9602020462826122, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-58-1",
+          "subjectId": "component-instance-58",
+          "stratum": "A",
+          "start": 8.25,
+          "stop": 22.0,
+          "failed": false,
+          "covariates": [-0.5602020462826122, 1.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-59-0",
+          "subjectId": "component-instance-59",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 5.0,
+          "failed": false,
+          "covariates": [-0.7647652981035683, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-60-0",
+          "subjectId": "component-instance-60",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [0.06223771145749524, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-60-1",
+          "subjectId": "component-instance-60",
+          "stratum": "A",
+          "start": 8.25,
+          "stop": 21.0,
+          "failed": true,
+          "covariates": [0.46223771145749526, 0.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-61-0",
+          "subjectId": "component-instance-61",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 9.0,
+          "failed": true,
+          "covariates": [-0.8400849355555512, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-62-0",
+          "subjectId": "component-instance-62",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 4.0,
+          "failed": true,
+          "covariates": [-0.712909943100114, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-63-0",
+          "subjectId": "component-instance-63",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [-0.6349617089743668, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-63-1",
+          "subjectId": "component-instance-63",
+          "stratum": "B",
+          "start": 8.25,
+          "stop": 14.0,
+          "failed": true,
+          "covariates": [-0.23496170897436675, 0.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-64-0",
+          "subjectId": "component-instance-64",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [0.5596606008643561, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-64-1",
+          "subjectId": "component-instance-64",
+          "stratum": "A",
+          "start": 8.25,
+          "stop": 12.0,
+          "failed": true,
+          "covariates": [0.9596606008643561, 1.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-65-0",
+          "subjectId": "component-instance-65",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [-0.45854554940603376, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-65-1",
+          "subjectId": "component-instance-65",
+          "stratum": "B",
+          "start": 8.25,
+          "stop": 19.0,
+          "failed": false,
+          "covariates": [-0.05854554940603374, 1.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-66-0",
+          "subjectId": "component-instance-66",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [-0.45588294156229137, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-66-1",
+          "subjectId": "component-instance-66",
+          "stratum": "A",
+          "start": 8.25,
+          "stop": 22.0,
+          "failed": true,
+          "covariates": [-0.055882941562291344, 0.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-67-0",
+          "subjectId": "component-instance-67",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 6.0,
+          "failed": true,
+          "covariates": [-0.19525669677948665, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-68-0",
+          "subjectId": "component-instance-68",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 6.0,
+          "failed": true,
+          "covariates": [0.963185004051974, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-69-0",
+          "subjectId": "component-instance-69",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 7.0,
+          "failed": false,
+          "covariates": [-0.957908869786162, 1.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-70-0",
+          "subjectId": "component-instance-70",
+          "stratum": "A",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [-1.3540483859612218, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-70-1",
+          "subjectId": "component-instance-70",
+          "stratum": "A",
+          "start": 8.25,
+          "stop": 22.0,
+          "failed": true,
+          "covariates": [-0.9540483859612218, 1.0],
+          "observedAt": 8.25
+        },
+        {
+          "id": "synthetic-71-0",
+          "subjectId": "component-instance-71",
+          "stratum": "B",
+          "start": 0.0,
+          "stop": 8.25,
+          "failed": false,
+          "covariates": [-0.0978827914581264, 0.0],
+          "observedAt": 0.0
+        },
+        {
+          "id": "synthetic-71-1",
+          "subjectId": "component-instance-71",
+          "stratum": "B",
+          "start": 8.25,
+          "stop": 11.0,
+          "failed": false,
+          "covariates": [0.3021172085418736, 1.0],
+          "observedAt": 8.25
+        }
+      ],
+      "expected": {
+        "coefficients": [0.07217959422434843, -0.583740448054568],
+        "covariance": [
+          [0.02386917454699722, 0.0078073600761032775],
+          [0.007807360076103279, 0.08706393781646209]
+        ],
+        "logLikelihood": -145.33861708008564,
+        "score": [4.496403249731884e-15, -2.220446049250313e-15],
+        "baselineEfronPostEvent": [
+          {
+            "stratum": "A",
+            "time": 3.0,
+            "cumulativeHazard": 0.10366199992746641
+          },
+          {
+            "stratum": "A",
+            "time": 4.0,
+            "cumulativeHazard": 0.18188854861199508
+          },
+          {
+            "stratum": "A",
+            "time": 5.0,
+            "cumulativeHazard": 0.22501456139052298
+          },
+          {
+            "stratum": "A",
+            "time": 6.0,
+            "cumulativeHazard": 0.26999602097516834
+          },
+          {
+            "stratum": "A",
+            "time": 7.0,
+            "cumulativeHazard": 0.3172563720105051
+          },
+          {
+            "stratum": "A",
+            "time": 8.0,
+            "cumulativeHazard": 0.41601969435512
+          },
+          {
+            "stratum": "A",
+            "time": 9.0,
+            "cumulativeHazard": 0.5291158499187061
+          },
+          {
+            "stratum": "A",
+            "time": 10.0,
+            "cumulativeHazard": 0.5928859656740612
+          },
+          {
+            "stratum": "A",
+            "time": 11.0,
+            "cumulativeHazard": 0.6611320855043338
+          },
+          {
+            "stratum": "A",
+            "time": 12.0,
+            "cumulativeHazard": 0.8074665722514403
+          },
+          {
+            "stratum": "A",
+            "time": 13.0,
+            "cumulativeHazard": 0.8875872298925068
+          },
+          {
+            "stratum": "A",
+            "time": 14.0,
+            "cumulativeHazard": 1.0704920585842996
+          },
+          {
+            "stratum": "A",
+            "time": 15.0,
+            "cumulativeHazard": 1.1739104179701843
+          },
+          {
+            "stratum": "A",
+            "time": 17.0,
+            "cumulativeHazard": 1.2901769492472719
+          },
+          {
+            "stratum": "A",
+            "time": 19.0,
+            "cumulativeHazard": 1.435005761081739
+          },
+          {
+            "stratum": "A",
+            "time": 20.0,
+            "cumulativeHazard": 1.591864635292166
+          },
+          {
+            "stratum": "A",
+            "time": 21.0,
+            "cumulativeHazard": 2.184835492205399
+          },
+          {
+            "stratum": "A",
+            "time": 22.0,
+            "cumulativeHazard": 3.640027792202258
+          },
+          {
+            "stratum": "B",
+            "time": 3.0,
+            "cumulativeHazard": 0.06586442341136453
+          },
+          {
+            "stratum": "B",
+            "time": 4.0,
+            "cumulativeHazard": 0.10050995924306075
+          },
+          {
+            "stratum": "B",
+            "time": 5.0,
+            "cumulativeHazard": 0.17430206281257626
+          },
+          {
+            "stratum": "B",
+            "time": 6.0,
+            "cumulativeHazard": 0.30369208563143796
+          },
+          {
+            "stratum": "B",
+            "time": 7.0,
+            "cumulativeHazard": 0.3500480891935951
+          },
+          {
+            "stratum": "B",
+            "time": 8.0,
+            "cumulativeHazard": 0.39894830119167635
+          },
+          {
+            "stratum": "B",
+            "time": 9.0,
+            "cumulativeHazard": 0.5920044702005851
+          },
+          {
+            "stratum": "B",
+            "time": 10.0,
+            "cumulativeHazard": 0.6716789512983814
+          },
+          {
+            "stratum": "B",
+            "time": 12.0,
+            "cumulativeHazard": 0.7627138550355255
+          },
+          {
+            "stratum": "B",
+            "time": 14.0,
+            "cumulativeHazard": 0.9648285985044012
+          },
+          {
+            "stratum": "B",
+            "time": 15.0,
+            "cumulativeHazard": 1.0848075755623048
+          },
+          {
+            "stratum": "B",
+            "time": 16.0,
+            "cumulativeHazard": 1.2145194153677559
+          },
+          {
+            "stratum": "B",
+            "time": 18.0,
+            "cumulativeHazard": 1.3636236322019049
+          },
+          {
+            "stratum": "B",
+            "time": 19.0,
+            "cumulativeHazard": 1.7111627048551177
+          },
+          {
+            "stratum": "B",
+            "time": 21.0,
+            "cumulativeHazard": 2.317940319836985
+          },
+          {
+            "stratum": "B",
+            "time": 22.0,
+            "cumulativeHazard": 2.7984355609217113
+          }
+        ]
+      }
+    }
+  ]
+}

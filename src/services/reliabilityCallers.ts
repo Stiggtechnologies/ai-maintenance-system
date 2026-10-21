@@ -125,6 +125,27 @@ export interface OperatingRegimeResult {
   basis: string;
 }
 
+export interface ProcessEventRow {
+  id: number;
+  event_type: "alarm" | "trip" | "interlock" | "excursion" | "start" | "stop";
+  severity: "low" | "medium" | "high" | "critical" | null;
+  tag: string | null;
+  description: string | null;
+  occurred_at: string;
+  source_system: string | null;
+}
+
+export interface ProcessEventContextResult {
+  asset_id: string;
+  window_days: number;
+  total_in_window: number;
+  records_total: number;
+  data_span_from: string | null;
+  data_span_to: string | null;
+  events: ProcessEventRow[];
+  basis: string;
+}
+
 export async function listAssetsForContext(): Promise<AssetOption[]> {
   const { data, error } = await supabase
     .from("assets")
@@ -175,6 +196,16 @@ export async function getOperatingRegime(
         : `Duty class from the state record covering this moment: ${regime}.`
       : "No operating-state record covers this moment. The platform does not assume an asset with no state was running.",
   };
+}
+
+export async function getProcessEventContext(
+  assetId: string,
+  windowDays = 90,
+): Promise<ProcessEventContextResult> {
+  return callRpc<ProcessEventContextResult>("get_process_event_context", {
+    p_asset_id: assetId,
+    p_window_days: windowDays,
+  });
 }
 
 export function suggestedWindowDays(

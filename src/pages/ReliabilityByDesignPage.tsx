@@ -8,6 +8,7 @@
  * (reliability_engineer, executive, and the admin roles); every table behind
  * it is SELECT-only RLS, so the surface is read-only for everyone.
  */
+import { OperationalObjectivesWorkbench } from "../components/OperationalObjectivesWorkbench";
 import { ReliabilityByDesign } from "../components/ReliabilityByDesign";
 
 export function ReliabilityByDesignPage() {
@@ -22,6 +23,7 @@ export function ReliabilityByDesignPage() {
           the decisions made before anything is bought
         </p>
       </div>
+      <OperationalObjectivesWorkbench />
       <ReliabilityByDesign />
     </div>
   );

@@ -186,39 +186,26 @@ Four things changed:
 
 The eight pairwise dimensions are technical correctness, evidence discipline, quantitative correctness, causal reasoning, completeness, actionability, governance/safety and communication.
 
-## Capturing the reference behavior — OPEN BLOCKER
+## Captured reference behavior
 
-The structural baseline is already pinned by commit/hash. The actual model outputs that represent the behavior we want to preserve must also be frozen while the protected code still matches the manifest.
+The structural baseline is pinned by commit/hash, and the behavioral reference is now frozen in `benchmarks/reliability-engineer/re-2026.08/reference-outputs.json`.
 
-**They have not been captured, and cannot be captured with the credentials this repository has.** `benchmarks/reliability-engineer/re-2026.08/reference-outputs.json` does not exist, so the gate correctly refuses every protected change: the Reliability Engineer is frozen solid, not merely floored.
+The reference contains all 31 cases from `grok-4.6` under `syncai-reliability-engineer-v4`. It was produced and committed by the qualification workflow on 2026-08-28 in Actions run `33158199760`; the file records the repository, run, workflow, head SHA, producer digest, suite digest and manifest digest. The release gate verifies that provenance against GitHub before treating the file as evidence.
 
-What is actually missing:
-
-| Need                                        | Status                                                                      |
-| ------------------------------------------- | --------------------------------------------------------------------------- |
-| `OPENAI_API_KEY` repository secret          | **absent** — the repository has exactly one secret, `SUPABASE_ACCESS_TOKEN` |
-| Workflow to dispatch once the secret exists | `.github/workflows/reliability-qualification.yml`, mode `capture-reference` |
-| Independent judge model                     | required — see below                                                        |
+`capture-reference` is a one-time baseline operation and refuses to overwrite the reference after any protected path diverges from the frozen hashes. Candidate qualification uses the same workflow with `mode=candidate`, the repository `XAI_API_KEY`, and an explicitly different xAI judge model. The historical production-capture fallback remains accepted for provenance verification, but it is not the normal candidate-qualification path and is not needed to release the current protected change.
 
 ```bash
-# after the owner adds OPENAI_API_KEY
 gh workflow run reliability-qualification.yml \
-  -f mode=capture-reference \
+  --ref <candidate-branch> \
+  -f mode=candidate \
   -f model=<candidate-model> \
-  -f judge_model=<independent-judge-model>
+  -f judge_model=<independent-judge-model> \
+  -f commit_evidence=true
 ```
-
-There is a second route that needs **no new secret**: `.github/workflows/one-shot-capture-re-2026-08.yml` captures through the already-deployed production `ai-agent-processor` using `SUPABASE_ACCESS_TOKEN` to reveal the service key (`gh workflow run one-shot-capture-re-2026-08.yml`). It previously had no `workflow_dispatch` trigger at all, so the fallback the gate advertised could not actually be dispatched, and its `push` trigger pointed at the branch of the now-closed PR #234. Both are fixed. Four things to know before relying on it:
-
-- **It produces the reference only.** Qualifying a candidate change still needs `OPENAI_API_KEY` in CI. This route unblocks the freeze; it does not unblock the workflow.
-- It selected the **legacy `service_role` JWT**, which this project's edge functions reject (production authenticates with the newer `sb_secret_` key). The script now prefers a revealed `sb_secret_` key and warns loudly when it has to fall back. **This route has still never been executed**, so that fix is reasoned, not observed.
-
-- It sends `publicOnly: true`, and that branch of `ai-agent-processor/index.ts` calls `callPublicReliabilityEngineer`, which hardcodes `https://api.openai.com/v1/responses` at line 402. It does **not** use `LLM_BASE_URL` and does **not** go through `buildProviderChain`, so this route cannot reach the Stigg AI Gateway the platform otherwise routes through, and it depends on `OPENAI_API_KEY` being set _on the deployed edge function_ rather than in the repository. (The authenticated path, `callLLM`, does honour `LLM_BASE_URL` — the bypass is specific to the public path.) That divergence is recorded here, not fixed: changing it is a protected-surface change, which is precisely what the gate exists to hold.
-- The reference it captures is therefore a snapshot of production-as-deployed, not of the repository as checked out. That is arguably the more honest floor, but it must be stated on the artefact.
 
 ### Proving the harness without a credential
 
-Because the real harness cannot run today, it would otherwise sit unexecuted until the day someone urgently needed it. `--dry-run` runs the entire pipeline — prompt construction, specialist routing, blind A/B slot assignment, the judge JSON schema, metric aggregation, dimension-regression detection, report shape, protected-path hashing and file write — against a deterministic stub model:
+`--dry-run` runs the entire pipeline — prompt construction, specialist routing, blind A/B slot assignment, the judge JSON schema, metric aggregation, dimension-regression detection, report shape, protected-path hashing and file write — against a deterministic stub model without spending model calls:
 
 ```bash
 npm run reliability:dryrun
@@ -244,7 +231,7 @@ npm run reliability:requalify -- \
 Locally, for development only — the resulting report has `runnerEnvironment: "local"` and the gate will refuse it as evidence:
 
 ```bash
-OPENAI_API_KEY=... \
+XAI_API_KEY=... \
 RELIABILITY_QUALIFICATION_MODEL=<candidate-model> \
 RELIABILITY_JUDGE_MODEL=<approved-judge-model-that-is-NOT-the-candidate> \
 npx tsx scripts/run-reliability-qualification.ts

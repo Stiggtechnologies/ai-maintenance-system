@@ -17,8 +17,16 @@ on:
       - "supabase/migrations/**"
       - "supabase/functions/agent-loop-enrich/**"
       - "supabase/functions/cmms-read-pull/**"
+      - "supabase/functions/data-lake-read-pull/**"
+      - "supabase/functions/decision-case-invite/**"
+      - "supabase/functions/_shared/decision-case-invite-core.ts"
+      - "supabase/functions/_shared/adls-data-lake.ts"
       - "supabase/functions/ai-agent-processor/**"
       - "supabase/functions/autonomous-orchestrator/**"
+      - "supabase/functions/azure-iot-operations-ingest/**"
+      - "supabase/functions/_shared/azure-iot-operations-ingress.ts"
+      - "supabase/functions/bently-system1-condition-read-pull/**"
+      - "supabase/functions/_shared/bently-system1-condition-read.ts"
       - "supabase/functions/calculation-service/**"
       - "src/lib/value/**"
       - "supabase/functions/domain-specialist-run/**"
@@ -45,6 +53,12 @@ on:
       - "supabase/functions/marketplace-metering/**"
       - "supabase/functions/marketplace-webhook/**"
       - "supabase/functions/onboarding-enrich/**"
+      - "supabase/functions/p6-schedule-read-pull/**"
+      - "supabase/functions/_shared/p6-schedule-read.ts"
+      - "supabase/functions/sap-s4-inventory-read-pull/**"
+      - "supabase/functions/_shared/sap-s4-inventory-read.ts"
+      - "supabase/functions/sap-s4-financial-read-pull/**"
+      - "supabase/functions/_shared/sap-s4-financial-read.ts"
       - "supabase/functions/plant-historian-pull/**"
       - "supabase/functions/public-reliability-agent/**"
       - "supabase/functions/recovery-activation-pull/**"
@@ -158,8 +172,12 @@ jobs:
           supabase functions deploy agent-loop-enrich --no-verify-jwt
           supabase functions deploy ai-agent-processor
           supabase functions deploy autonomous-orchestrator
+          supabase functions deploy azure-iot-operations-ingest --no-verify-jwt
+          supabase functions deploy bently-system1-condition-read-pull
           supabase functions deploy calculation-service
           supabase functions deploy cmms-read-pull
+          supabase functions deploy data-lake-read-pull
+          supabase functions deploy decision-case-invite
           supabase functions deploy domain-specialist-run
           supabase functions deploy edge-evidence-ingest --no-verify-jwt
           supabase functions deploy engineering-model-supply-chain
@@ -181,9 +199,12 @@ jobs:
           supabase functions deploy marketplace-metering
           supabase functions deploy marketplace-webhook --no-verify-jwt
           supabase functions deploy onboarding-enrich --no-verify-jwt
+          supabase functions deploy p6-schedule-read-pull
           supabase functions deploy plant-historian-pull
           supabase functions deploy public-reliability-agent
           supabase functions deploy recovery-activation-pull
+          supabase functions deploy sap-s4-inventory-read-pull
+          supabase functions deploy sap-s4-financial-read-pull
           supabase functions deploy sync-investigation-runtime
           supabase functions deploy sync-realtime-session
           supabase functions deploy sync-runtime
@@ -206,7 +227,7 @@ jobs:
             if [ -n "${!name:-}" ]; then present=$((present + 1)); fi
           done
           if [ "$present" -eq 0 ]; then
-            echo "::warning title=Azure Marketplace metering disabled::No protected metering configuration was supplied. Hourly dispatch remains unconfigured and no usage will be submitted."
+            echo "::warning title=Azure Marketplace metering configuration unchanged::No meter inputs were supplied by GitHub. Configuration unchanged by this run; existing runtime/database configuration and end-to-end outcomes were not verified."
             exit 0
           fi
           if [ "$present" -ne 5 ] || [ -z "${SUPABASE_SERVICE_ROLE_KEY:-}" ]; then
@@ -344,6 +365,23 @@ jobs:
           fi
           echo "Sync Realtime Voice is deployed and JWT-protected (HTTP 401 unauthenticated)."
 
+      - name: Prove Decision Case invitation boundary is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/decision-case-invite"
+          status=$(curl --silent --show-error --output /tmp/decision-case-invite-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"action":"status","decisionCaseId":"11111111-1111-4111-8111-111111111111"}' \
+            "$endpoint")
+          cat /tmp/decision-case-invite-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=Decision Case invitation boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Decision Case invitations are deployed and JWT-protected (HTTP 401 unauthenticated)."
+
       - name: Prove Recovery Activation adapter is deployed
         run: |
           set -euo pipefail
@@ -360,6 +398,23 @@ jobs:
             exit 1
           fi
           echo "Recovery Activation adapter is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove Azure Data Lake adapter is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/data-lake-read-pull"
+          status=$(curl --silent --show-error --output /tmp/data-lake-read-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"connector_key":"boundary-probe","entity_type":"site","dry_run":true}' \
+            "$endpoint")
+          cat /tmp/data-lake-read-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=Azure Data Lake adapter boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Azure Data Lake adapter is deployed and JWT-protected (HTTP 401 unauthenticated)."
 
       - name: Prove Domain Specialist executor is deployed
         run: |
@@ -429,6 +484,87 @@ jobs:
           fi
           echo "Plant historian adapter is deployed and JWT-protected (HTTP 401 unauthenticated)."
 
+      - name: Prove P6 schedule read adapter is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/p6-schedule-read-pull"
+          status=$(curl --silent --show-error --output /tmp/p6-schedule-read-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"connector_key":"boundary-probe","dry_run":true}' \
+            "$endpoint")
+          cat /tmp/p6-schedule-read-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=P6 schedule read adapter boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "P6 schedule read adapter is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove SAP S/4HANA inventory read adapter is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/sap-s4-inventory-read-pull"
+          status=$(curl --silent --show-error --output /tmp/sap-s4-inventory-read-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"connector_key":"boundary-probe","dry_run":true}' \
+            "$endpoint")
+          cat /tmp/sap-s4-inventory-read-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=SAP inventory read adapter boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "SAP inventory read adapter is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove SAP S/4HANA financial read adapter is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/sap-s4-financial-read-pull"
+          status=$(curl --silent --show-error --output /tmp/sap-s4-financial-read-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"connector_key":"boundary-probe","dry_run":true}' \
+            "$endpoint")
+          cat /tmp/sap-s4-financial-read-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=SAP financial read adapter boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "SAP financial read adapter is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove Bently System 1 condition read adapter is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/bently-system1-condition-read-pull"
+          status=$(curl --silent --show-error --output /tmp/system1-condition-read-probe.txt \
+            --write-out '%{http_code}' \
+            --request POST \
+            --header 'Content-Type: application/json' \
+            --data '{"connector_key":"boundary-probe","dry_run":true}' \
+            "$endpoint")
+          cat /tmp/system1-condition-read-probe.txt || true
+          if [ "$status" != "401" ]; then
+            echo "::error title=System 1 condition read adapter boundary probe failed::Expected JWT-protected deployed function to return HTTP 401 without credentials; got HTTP ${status}."
+            exit 1
+          fi
+          echo "System 1 condition read adapter is deployed and JWT-protected (HTTP 401 unauthenticated)."
+
+      - name: Prove Azure IoT Operations ingress is deployed
+        run: |
+          set -euo pipefail
+          endpoint="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/azure-iot-operations-ingest"
+          status=$(curl --silent --show-error --output /tmp/azure-iot-ingress-probe.txt \
+            --write-out '%{http_code}' --request GET "$endpoint")
+          cat /tmp/azure-iot-ingress-probe.txt || true
+          if [ "$status" != "405" ]; then
+            echo "::error title=Azure IoT Operations ingress probe failed::Expected the deployed telemetry-only endpoint to refuse GET with HTTP 405; got HTTP ${status}."
+            exit 1
+          fi
+          echo "Azure IoT Operations ingress is deployed and exposes POST only (HTTP 405 for GET)."
+
       - name: Prove CMMS read adapter is deployed
         run: |
           set -euo pipefail
@@ -466,7 +602,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${RESEND_API_KEY:-}" ]; then
-            echo "::warning title=lead-notify has no mail transport::RESEND_API_KEY is not set as a repository secret, so lead-notify will mark every incoming lead 'failed' and neither the visitor nor the owner will be emailed. See docs/lead-response-sla.md."
+            echo "::warning title=lead-notify mail configuration unchanged::RESEND_API_KEY was not supplied by GitHub. Configuration unchanged by this run; existing runtime/database configuration and end-to-end outcomes were not verified."
             exit 0
           fi
           supabase secrets set RESEND_API_KEY="$RESEND_API_KEY"
@@ -477,7 +613,7 @@ jobs:
         run: |
           set -euo pipefail
           if [ -z "${LEAD_NOTIFY_SERVICE_KEY:-}" ]; then
-            echo "::warning title=lead-notify is not wired::LEAD_NOTIFY_SERVICE_KEY is not set, so private.lead_notify_config stays empty and trg_pilot_intake_notify will no-op. See docs/lead-response-sla.md."
+            echo "::warning title=lead-notify wiring unchanged::LEAD_NOTIFY_SERVICE_KEY was not supplied by GitHub. Configuration unchanged by this run; existing runtime/database configuration and end-to-end outcomes were not verified."
             exit 0
           fi
           LEAD_FUNCTION_URL="https://${SUPABASE_PROJECT_ID}.supabase.co/functions/v1/lead-notify"

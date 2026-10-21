@@ -11,6 +11,8 @@ FOREIGN_ASSET='98100000-0000-0000-0000-000000000002'
 EVIDENCE='98100000-0000-0000-0000-000000000021'
 RECOMMENDATION='98100000-0000-0000-0000-000000000031'
 MATERIAL='98100000-0000-0000-0000-000000000041'
+# Explicit synthetic encoding declaration, never an inferred survey accuracy.
+COORDINATE='"coordinate":{"referenceSystem":"EPSG:4326","axisOrder":"longitude_latitude","basis":"Synthetic CI source explicitly declares WGS84 longitude/latitude encoding.","horizontalAccuracyM":null}'
 
 token(){ curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}" | python3 -c "import json,sys;print(json.load(sys.stdin).get('access_token',''))"; }
 rpc(){ curl -sS -w '\n%{http_code}' -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "authorization: Bearer $1" -H 'content-type: application/json' -d "$3"; }
@@ -36,8 +38,6 @@ psqlc "insert into recommendations(id,organization_id,asset_id,title,issue,actio
 psqlc "insert into evidence_items(id,organization_id,asset_id,recommendation_id,source_system,evidence_type,description,evidence_class) values('$EVIDENCE','$ORG','$ASSET','$RECOMMENDATION','ci-gis','inspection','Surveyed access alignment and hazard-overlay source package.','DOCUMENTED') on conflict(id) do nothing"
 psqlc "insert into materials(id,organization_id,material_code,description,unit_of_measure,is_template,basis) values('$MATERIAL','$ORG','U10-REGIONAL-SPARE','U10 governed regional spare','each',false,'CI canonical material fixture.') on conflict(id) do nothing"
 psqlc "insert into material_stock(organization_id,material_id,site_id,qty_on_hand,qty_reserved,qty_on_order,last_counted_at,source_system) values('$ORG','$MATERIAL','$SITE',2,1,1,now(),'ci-inventory') on conflict(material_id,site_id) do update set qty_on_hand=excluded.qty_on_hand,last_counted_at=excluded.last_counted_at"
-CREW=$(psqlc "insert into crew_templates(organization_id,template_key,title,description) values('$ORG','u10-remote-crew','U10 remote response crew','CI crew identity only; availability is not inferred.') on conflict(organization_id,template_key) do update set title=excluded.title returning id")
-[[ "$CREW" =~ ^[0-9]+$ ]]
 SOURCE=$(psqlc "insert into connectors(organization_id,connector_key,name,connector_type,status,expected_interval_minutes) values('$ORG','ci-geospatial-context','CI governed geospatial source','gis','active',15) on conflict(organization_id,connector_key) where connector_key is not null do update set name=excluded.name,expected_interval_minutes=excluded.expected_interval_minutes returning id")
 test -n "$SOURCE"
 if [[ "$(psqlc "select context_source_class is null from connectors where id='$SOURCE'")" = t ]]; then
@@ -49,17 +49,20 @@ SOURCE_OBSERVED_AT=$(psqlc "select to_char(('$SOURCE_CHECKED_AT'::timestamptz-in
 SOURCE_HEALTH=$(rpc "$ADMIN" record_context_source_health "{\"p_connector_id\":\"$SOURCE\",\"p_state\":\"live\",\"p_checked_at\":\"$SOURCE_CHECKED_AT\",\"p_observed_at\":\"$SOURCE_OBSERVED_AT\",\"p_detail\":\"CI observed the customer-authorized surveyed source within its governed freshness interval.\"}")
 ok "$SOURCE_HEALTH"
 VERIFY_EVIDENCE=$(rpc "$ADMIN" verify_evidence_item "{\"p_evidence_id\":\"$EVIDENCE\",\"p_method\":\"Independent CI review against the surveyed source package\",\"p_outcome\":\"verified\",\"p_note\":\"Coordinate source, alignment reference and evidence ownership confirmed.\"}"); ok "$VERIFY_EVIDENCE"
+CREW_RESULT=$(rpc "$AUTHOR" record_crew_template "{\"p_payload\":{\"templateKey\":\"u10-remote-crew\",\"title\":\"U10 remote response crew\",\"description\":\"CI governed crew identity; dispatch and availability are not inferred.\",\"basis\":\"Verified access study defines the minimum remote response crew.\",\"evidenceItemId\":\"$EVIDENCE\",\"roles\":[{\"roleLabel\":\"Remote response lead\",\"headcount\":1,\"isMandatory\":true}]}}")
+ok "$CREW_RESULT"; CREW=$(field "$CREW_RESULT" crewTemplateId)
+[[ "$CREW" =~ ^[0-9]+$ ]]
 
 NOAUTH=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$API_URL/rest/v1/rpc/get_geospatial_operational_workspace" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d '{}')
 test "$NOAUTH" = 401
 NO_SOURCE=$(rpc "$AUTHOR" record_geospatial_feature '{"p_feature":{"feature_type":"access_route","feature_key":"u10-empty","name":"Unsupported line","geometry_type":"LineString","geometry":{"type":"LineString","coordinates":[[-113.5,53.5],[-113.4,53.6]]},"source_reference":"draft","observed_at":"2026-09-15T06:00:00Z","validity_kind":"permanent","data_quality":"good"}}'); err "$NO_SOURCE" 'classified Context source'
 
-ACCESS_RESULT=$(rpc "$AUTHOR" record_geospatial_feature "{\"p_feature\":{\"feature_type\":\"access_route\",\"feature_key\":\"u10-access-main\",\"name\":\"Surveyed north access\",\"geometry_type\":\"LineString\",\"geometry\":{\"type\":\"LineString\",\"coordinates\":[[-113.5,53.5],[-113.4,53.6]]},\"source_connector_id\":\"$SOURCE\",\"source_reference\":\"SURVEY-U10-1\",\"observed_at\":\"2026-09-15T06:00:00Z\",\"validity_kind\":\"temporary\",\"valid_until\":\"2027-09-15T06:00:00Z\",\"data_quality\":\"good\",\"evidence_item_ids\":[\"$EVIDENCE\"]}}")
+ACCESS_RESULT=$(rpc "$AUTHOR" record_geospatial_feature "{\"p_feature\":{$COORDINATE,\"feature_type\":\"access_route\",\"feature_key\":\"u10-access-main\",\"name\":\"Surveyed north access\",\"geometry_type\":\"LineString\",\"geometry\":{\"type\":\"LineString\",\"coordinates\":[[-113.5,53.5],[-113.4,53.6]]},\"source_connector_id\":\"$SOURCE\",\"source_reference\":\"SURVEY-U10-1\",\"observed_at\":\"2026-09-15T06:00:00Z\",\"validity_kind\":\"temporary\",\"valid_until\":\"2027-09-15T06:00:00Z\",\"data_quality\":\"good\",\"evidence_item_ids\":[\"$EVIDENCE\"]}}")
 ok "$ACCESS_RESULT"; ACCESS=$(field "$ACCESS_RESULT" feature_id)
 SELF_FEATURE=$(rpc "$AUTHOR" verify_geospatial_feature "{\"p_feature_id\":\"$ACCESS\",\"p_note\":\"The author cannot independently verify this feature.\"}"); err "$SELF_FEATURE" 'author cannot independently verify'
 VERIFY_ACCESS=$(rpc "$ADMIN" verify_geospatial_feature "{\"p_feature_id\":\"$ACCESS\",\"p_note\":\"Independent survey review confirms the source alignment and coordinate reference.\"}"); ok "$VERIFY_ACCESS"
 
-HAZARD_RESULT=$(rpc "$AUTHOR" record_geospatial_feature "{\"p_feature\":{\"feature_type\":\"hazard_zone\",\"feature_key\":\"u10-hazard-zone\",\"name\":\"Supplied flood exposure polygon\",\"geometry_type\":\"Polygon\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[-113.6,53.4],[-113.3,53.4],[-113.3,53.7],[-113.6,53.4]]]},\"source_connector_id\":\"$SOURCE\",\"source_reference\":\"HAZ-U10-1\",\"observed_at\":\"2026-09-15T06:00:00Z\",\"validity_kind\":\"temporary\",\"valid_until\":\"2027-09-15T06:00:00Z\",\"data_quality\":\"good\",\"evidence_item_ids\":[\"$EVIDENCE\"]}}")
+HAZARD_RESULT=$(rpc "$AUTHOR" record_geospatial_feature "{\"p_feature\":{$COORDINATE,\"feature_type\":\"hazard_zone\",\"feature_key\":\"u10-hazard-zone\",\"name\":\"Supplied flood exposure polygon\",\"geometry_type\":\"Polygon\",\"geometry\":{\"type\":\"Polygon\",\"coordinates\":[[[-113.6,53.4],[-113.3,53.4],[-113.3,53.7],[-113.6,53.4]]]},\"source_connector_id\":\"$SOURCE\",\"source_reference\":\"HAZ-U10-1\",\"observed_at\":\"2026-09-15T06:00:00Z\",\"validity_kind\":\"temporary\",\"valid_until\":\"2027-09-15T06:00:00Z\",\"data_quality\":\"good\",\"evidence_item_ids\":[\"$EVIDENCE\"]}}")
 ok "$HAZARD_RESULT"; HAZARD=$(field "$HAZARD_RESULT" feature_id)
 VERIFY_HAZARD=$(rpc "$ADMIN" verify_geospatial_feature "{\"p_feature_id\":\"$HAZARD\",\"p_note\":\"Independent hazard-source review confirms the supplied polygon and publication version.\"}"); ok "$VERIFY_HAZARD"
 

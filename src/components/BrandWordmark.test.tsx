@@ -96,6 +96,7 @@ describe("BrandWordmark", () => {
       "src/pages/Security.tsx",
       "src/pages/Privacy.tsx",
       "src/pages/Terms.tsx",
+      "src/pages/Support.tsx",
     ];
     for (const path of chrome) {
       const src = readFileSync(path, "utf8");

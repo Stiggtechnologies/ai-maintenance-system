@@ -22,7 +22,21 @@ describe("D12.02 contract-strategy agent contract", () => {
 
   it("enforces caller identity, tenant/case evidence binding, and model provenance", () => {
     expect(edge).toContain('Deno.env.get("SUPABASE_ANON_KEY")');
-    expect(edge).not.toContain("SUPABASE_SERVICE_ROLE_KEY");
+    // Domain reads and governed writes remain the caller's. The service
+    // client is limited to resolving that caller's organization and invoking
+    // the service-only commercial reservation/settlement boundary.
+    expect(edge).toContain('Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")');
+    expect(edge.match(/admin\s*\.from\(/g)).toHaveLength(1);
+    expect(edge).toContain('.from("user_profiles")');
+    expect(edge).toContain(
+      "(functionName, args) => admin.rpc(functionName, args)",
+    );
+    expect(edge).toContain(
+      "const { data: contextData, error: contextError } = await caller.rpc(",
+    );
+    expect(edge).toContain(
+      "const { data: evidenceRows, error: evidenceError } = await caller",
+    );
     expect(edge).toContain('"record_contract_strategy_recommendation"');
     expect(migration).toContain("e.organization_id = v_org");
     expect(migration).toContain("e.development_case_id = p_case_id");

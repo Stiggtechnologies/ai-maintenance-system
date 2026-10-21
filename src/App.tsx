@@ -20,7 +20,9 @@ import { LoadingScreen } from "./components/LoadingScreen";
 import { Security } from "./pages/Security";
 import { Privacy } from "./pages/Privacy";
 import { Terms } from "./pages/Terms";
+import { Support } from "./pages/Support";
 import { AppShell } from "./components/AppShell";
+import { MfaAccessGate } from "./components/MfaAccessGate";
 import { RecoveryAwarePage } from "./components/RecoveryAwarePage";
 import { AssetDetailPage } from "./pages/AssetDetailPage";
 import { AssessmentsPage } from "./pages/AssessmentsPage";
@@ -48,6 +50,7 @@ import { Reliability } from "./pages/ReliabilityPage";
 import { ReadinessPage } from "./pages/ReadinessPage";
 import { OperationalBriefing } from "./pages/OperationalBriefing";
 import { AssetOntologyPage } from "./pages/AssetOntologyPage";
+import { SyncContextPage } from "./pages/SyncContextPage";
 import { AssetTwinsPage } from "./pages/AssetTwinsPage";
 import { LifecyclePositionPage } from "./pages/LifecyclePositionPage";
 import { ReliabilityByDesignPage } from "./pages/ReliabilityByDesignPage";
@@ -76,6 +79,7 @@ import { TrustExplainability } from "./pages/TrustExplainability";
 import { EngineeringModelRegistryPage } from "./pages/EngineeringModelRegistryPage";
 import { BenchmarkingPanel } from "./pages/BenchmarkingPanel";
 import { AutonomyMaturity } from "./pages/AutonomyMaturity";
+import { SyncAiGuardPage } from "./pages/SyncAiGuardPage";
 import { OrganizationalMaturityPage } from "./pages/OrganizationalMaturityPage";
 import { SetupWizard } from "./pages/SetupWizard";
 import { ArtifactWorkspace } from "./pages/ArtifactWorkspace";
@@ -86,6 +90,10 @@ import { getRoleHome } from "./lib/roleNavigation";
 import { hasWorkspaceMembership } from "./lib/auth";
 import { ReliabilityCopilotPage } from "./pages/ReliabilityCopilotPage";
 import { FirstCustomerPilotPage } from "./pages/FirstCustomerPilotPage";
+import {
+  ProductEntryGateway,
+  ProductEntryPathsPage,
+} from "./pages/ProductEntryPathsPage";
 import { DecisionCaseWorkspacePage } from "./pages/DecisionCaseWorkspacePage";
 import { GovernedDecisionWorkspacePage } from "./pages/GovernedDecisionWorkspacePage";
 import { DevelopCasesPage } from "./pages/DevelopCasesPage";
@@ -99,9 +107,17 @@ import { SyncFieldPage } from "./pages/SyncFieldPage";
 import { SyncTransitionPage } from "./pages/SyncTransitionPage";
 import { GateReviewPage } from "./pages/GateReviewPage";
 import { AssuranceCasePage } from "./pages/AssuranceCasePage";
-import { readDecisionCaseHandoff } from "./lib/decision-case";
 import { safeAuthReturnTo } from "./lib/auth-return";
 import { completePublicDraftHandoff } from "./lib/public-draft-handoff";
+import {
+  persistFirstDecisionHandoff,
+  readFirstDecisionDraft,
+} from "./lib/onboarding/first-decision-handoff";
+import {
+  createPersistedDecisionCase,
+  isPersistedDecisionCase,
+  savePersistedDecisionCase,
+} from "./services/decisionCaseService";
 import {
   initialAuthPage,
   pageAfterWorkspaceAuthorization,
@@ -231,15 +247,32 @@ function ApplicationRoutes() {
       setIsAuthenticated(true);
       setSignInApproved(true);
       setCurrentPage("app");
-      const handoff = readDecisionCaseHandoff(window.sessionStorage);
-      if (handoff) {
-        // Preserve the complete browser draft and chosen return path. This is
-        // not promotion into decisions/scenarios or a granted approval.
-        // The staged handoff is cleared only after both full copies are verified.
+      const staged = readFirstDecisionDraft(
+        window.sessionStorage,
+        signInReturnTo,
+      );
+      if (staged) {
+        // Persist a non-example browser draft onto the canonical Decision Case,
+        // then return to that saved case. A failed save keeps the staged draft.
+        // This is not an approval and does not execute plant work.
         try {
-          const destination = completePublicDraftHandoff(
-            handoff.decisionCase,
+          const search = signInReturnTo.includes("?")
+            ? signInReturnTo.slice(signInReturnTo.indexOf("?"))
+            : "";
+          const saved = await persistFirstDecisionHandoff(
+            staged,
+            search,
             signInReturnTo,
+            {
+              isPersisted: isPersistedDecisionCase,
+              create: (seed) => createPersistedDecisionCase(seed, {}),
+              save: savePersistedDecisionCase,
+              storage: window.sessionStorage,
+            },
+          );
+          const destination = completePublicDraftHandoff(
+            saved.decisionCase,
+            saved.returnTo,
             window.localStorage,
             window.sessionStorage,
           );
@@ -297,6 +330,7 @@ function ApplicationRoutes() {
             <Security onNavigate={() => window.location.assign("/signin")} />
           }
         />
+        <Route path="/support" element={<Support />} />
         <Route
           path="/signin"
           element={
@@ -317,6 +351,8 @@ function ApplicationRoutes() {
           }
         />
         <Route path="/get-started" element={<InvertedOpeningPage />} />
+        <Route path="/solutions" element={<ProductEntryPathsPage />} />
+        <Route path="/solutions/:entryId" element={<ProductEntryGateway />} />
         <Route path="/setup" element={<FirstCustomerPilotPage />} />
         <Route path="/pilot/reliability" element={<FirstCustomerPilotPage />} />
         <Route
@@ -464,287 +500,291 @@ function AuthenticatedApp() {
   const location = useLocation();
 
   return (
-    <AppShell
-      currentPath={location.pathname}
-      onNavigate={(path) => navigate(path)}
-    >
-      <ErrorBoundary inline resetKey={location.pathname}>
-        <Routes>
-          <Route path="/" element={<RoleLanding />} />
-          <Route path="/overview" element={<RoleLanding />} />
+    <MfaAccessGate>
+      <AppShell
+        currentPath={location.pathname}
+        onNavigate={(path) => navigate(path)}
+      >
+        <ErrorBoundary inline resetKey={location.pathname}>
+          <Routes>
+            <Route path="/" element={<RoleLanding />} />
+            <Route path="/overview" element={<RoleLanding />} />
 
-          <Route path="/start" element={<StartHerePage />} />
-          <Route
-            path="/mission-control"
-            element={
-              <RecoveryAwarePage surface="mission">
-                <MissionControl />
-              </RecoveryAwarePage>
-            }
-          />
-          <Route path="/command-centers" element={<CommandCenters />} />
-          <Route path="/readiness" element={<ReadinessPage />} />
-          <Route
-            path="/assessments"
-            element={
-              <AssessmentGate>
-                <AssessmentsPage />
-              </AssessmentGate>
-            }
-          />
-          <Route
-            path="/assessments/:assessmentId"
-            element={
-              <AssessmentGate>
-                <AssessmentHomePage />
-              </AssessmentGate>
-            }
-          />
-          <Route
-            path="/cowork"
-            element={<Navigate to="/decision-cases" replace />}
-          />
-          <Route
-            path="/decision-cases"
-            element={<GovernedDecisionWorkspacePage />}
-          />
-          <Route
-            path="/decision-cases/demo"
-            element={<Navigate to="/decision-cases" replace />}
-          />
-          {/* D13.07 (overlap-map ruling 15): the signed-in decision
+            <Route path="/start" element={<StartHerePage />} />
+            <Route
+              path="/mission-control"
+              element={
+                <RecoveryAwarePage surface="mission">
+                  <MissionControl />
+                </RecoveryAwarePage>
+              }
+            />
+            <Route path="/command-centers" element={<CommandCenters />} />
+            <Route path="/readiness" element={<ReadinessPage />} />
+            <Route
+              path="/assessments"
+              element={
+                <AssessmentGate>
+                  <AssessmentsPage />
+                </AssessmentGate>
+              }
+            />
+            <Route
+              path="/assessments/:assessmentId"
+              element={
+                <AssessmentGate>
+                  <AssessmentHomePage />
+                </AssessmentGate>
+              }
+            />
+            <Route
+              path="/cowork"
+              element={<Navigate to="/decision-cases" replace />}
+            />
+            <Route
+              path="/decision-cases"
+              element={<GovernedDecisionWorkspacePage />}
+            />
+            <Route
+              path="/decision-cases/demo"
+              element={<Navigate to="/decision-cases" replace />}
+            />
+            {/* D13.07 (overlap-map ruling 15): the signed-in decision
               workspace reads the canonical decisions + scenarios stores;
               localStorage is never a system of record. Old local drafts
               surface in an explicit import/discard banner. The public
               value-proof demo keeps its own sessionStorage surface. */}
-          <Route
-            path="/decision-cases/:caseId"
-            element={<GovernedDecisionWorkspacePage />}
-          />
+            <Route
+              path="/decision-cases/:caseId"
+              element={<GovernedDecisionWorkspacePage />}
+            />
 
-          <Route path="/ai-workforce" element={<AIWorkforce />} />
-          <Route
-            path="/autonomy"
-            element={<Navigate to="/governance" replace />}
-          />
-          <Route path="/autonomy-maturity" element={<AutonomyMaturity />} />
-          <Route path="/approvals" element={<ApprovalQueue />} />
-          <Route path="/governance" element={<DecisionGovernance />} />
+            <Route path="/ai-workforce" element={<AIWorkforce />} />
+            <Route
+              path="/autonomy"
+              element={<Navigate to="/governance" replace />}
+            />
+            <Route path="/autonomy-maturity" element={<AutonomyMaturity />} />
+            <Route path="/approvals" element={<ApprovalQueue />} />
+            <Route path="/guard" element={<SyncAiGuardPage />} />
+            <Route path="/governance" element={<DecisionGovernance />} />
 
-          <Route path="/assets/:assetId" element={<AssetDetailPage />} />
-          <Route path="/assets/ontology" element={<AssetOntologyPage />} />
-          <Route path="/assets/twins" element={<AssetTwinsPage />} />
-          <Route path="/assets" element={<AssetManagement />} />
-          <Route path="/onboarding" element={<AssetOnboardingHub />} />
-          <Route
-            path="/reliability"
-            element={
-              <RecoveryAwarePage surface="reliability">
-                <Reliability />
-              </RecoveryAwarePage>
-            }
-          />
-          <Route
-            path="/reliability/intervals"
-            element={<IntervalDecisionsPage />}
-          />
-          <Route
-            path="/reliability-copilot"
-            element={<ReliabilityCopilotPage />}
-          />
-          <Route path="/risk" element={<RiskOperatingSystemPage />} />
-          <Route path="/job-plans" element={<JobPlansPage />} />
-          <Route path="/pm-programme" element={<PmProgrammePage />} />
-          <Route path="/stage-1" element={<Stage1PilotPackPage />} />
+            <Route path="/assets/:assetId" element={<AssetDetailPage />} />
+            <Route path="/assets/ontology" element={<AssetOntologyPage />} />
+            <Route path="/assets/twins" element={<AssetTwinsPage />} />
+            <Route path="/assets" element={<AssetManagement />} />
+            <Route path="/context" element={<SyncContextPage />} />
+            <Route path="/onboarding" element={<AssetOnboardingHub />} />
+            <Route
+              path="/reliability"
+              element={
+                <RecoveryAwarePage surface="reliability">
+                  <Reliability />
+                </RecoveryAwarePage>
+              }
+            />
+            <Route
+              path="/reliability/intervals"
+              element={<IntervalDecisionsPage />}
+            />
+            <Route
+              path="/reliability-copilot"
+              element={<ReliabilityCopilotPage />}
+            />
+            <Route path="/risk" element={<RiskOperatingSystemPage />} />
+            <Route path="/job-plans" element={<JobPlansPage />} />
+            <Route path="/pm-programme" element={<PmProgrammePage />} />
+            <Route path="/stage-1" element={<Stage1PilotPackPage />} />
 
-          <Route path="/lifecycle" element={<LifecyclePositionPage />} />
-          <Route
-            path="/lifecycle/decisions"
-            element={<LifecycleDecisionsPage />}
-          />
-          <Route path="/design" element={<ReliabilityByDesignPage />} />
-          <Route path="/develop" element={<DevelopCasesPage />} />
-          <Route
-            path="/develop/portfolio"
-            element={<DevelopmentPortfolioPage />}
-          />
-          <Route
-            path="/develop/operational-readiness"
-            element={<OperationalReadinessMatrixPage />}
-          />
-          <Route path="/develop/handover" element={<SystemHandoverPage />} />
-          <Route path="/develop/new" element={<DevelopIntakePage />} />
-          <Route
-            path="/develop/cases/:caseId"
-            element={<DevelopmentCaseWorkspacePage />}
-          />
-          {/* Slice 3D: Workflow 2 (D3.31) and the Assurance Case (D13.06).
+            <Route path="/lifecycle" element={<LifecyclePositionPage />} />
+            <Route
+              path="/lifecycle/decisions"
+              element={<LifecycleDecisionsPage />}
+            />
+            <Route path="/design" element={<ReliabilityByDesignPage />} />
+            <Route path="/develop" element={<DevelopCasesPage />} />
+            <Route
+              path="/develop/portfolio"
+              element={<DevelopmentPortfolioPage />}
+            />
+            <Route
+              path="/develop/operational-readiness"
+              element={<OperationalReadinessMatrixPage />}
+            />
+            <Route path="/develop/handover" element={<SystemHandoverPage />} />
+            <Route path="/develop/new" element={<DevelopIntakePage />} />
+            <Route
+              path="/develop/cases/:caseId"
+              element={<DevelopmentCaseWorkspacePage />}
+            />
+            {/* Slice 3D: Workflow 2 (D3.31) and the Assurance Case (D13.06).
               Both hang off a case, both reachable from the workspace. */}
-          <Route
-            path="/develop/cases/:caseId/gates/:gateId/review"
-            element={<GateReviewPage />}
-          />
-          <Route
-            path="/develop/cases/:caseId/assurance"
-            element={<AssuranceCasePage />}
-          />
-          {/* Slice 7B: the Execution Readiness board (D13.09) — the surface
+            <Route
+              path="/develop/cases/:caseId/gates/:gateId/review"
+              element={<GateReviewPage />}
+            />
+            <Route
+              path="/develop/cases/:caseId/assurance"
+              element={<AssuranceCasePage />}
+            />
+            {/* Slice 7B: the Execution Readiness board (D13.09) — the surface
               Workflow 4 names (D7.19). Org-wide rather than case-scoped, because
               the person who works it down is a supervisor across cases. */}
-          <Route
-            path="/execution-readiness"
-            element={<ExecutionReadinessPage />}
-          />
-          {/* Slice 7C: Sync Field composed (D7.16) — work packaging, the
+            <Route
+              path="/execution-readiness"
+              element={<ExecutionReadinessPage />}
+            />
+            {/* Slice 7C: Sync Field composed (D7.16) — work packaging, the
               constraint-free work index and its forward face, workface
               planning, resource demand against capacity, the portfolio
               conflict position and execution readiness, on ONE server-side
               composition that recomputes none of them. The row stays 🟡 and
               the page says why: three of the parts it composes are open. */}
-          <Route path="/sync-field" element={<SyncFieldPage />} />
-          <Route
-            path="/develop/cases/:caseId/transition"
-            element={<SyncTransitionPage />}
-          />
+            <Route path="/sync-field" element={<SyncFieldPage />} />
+            <Route
+              path="/develop/cases/:caseId/transition"
+              element={<SyncTransitionPage />}
+            />
 
-          <Route
-            path="/work/:workOrderId"
-            element={
-              <RecoveryAwarePage surface="work_order">
-                <WorkOrderDetailPage />
-              </RecoveryAwarePage>
-            }
-          />
-          <Route path="/work" element={<WorkActionBoard />} />
-          <Route path="/notifications" element={<NotificationScreening />} />
-          <Route path="/scheduling" element={<SchedulingPage />} />
-          <Route path="/recovery" element={<SyncRecoveryPage />} />
-          <Route path="/materials" element={<MaterialsPage />} />
-          <Route path="/handover" element={<HandoverPage />} />
-          <Route path="/turnarounds" element={<TurnaroundsPage />} />
-          <Route path="/briefing" element={<OperationalBriefing />} />
+            <Route
+              path="/work/:workOrderId"
+              element={
+                <RecoveryAwarePage surface="work_order">
+                  <WorkOrderDetailPage />
+                </RecoveryAwarePage>
+              }
+            />
+            <Route path="/work" element={<WorkActionBoard />} />
+            <Route path="/notifications" element={<NotificationScreening />} />
+            <Route path="/scheduling" element={<SchedulingPage />} />
+            <Route path="/recovery" element={<SyncRecoveryPage />} />
+            <Route path="/materials" element={<MaterialsPage />} />
+            <Route path="/handover" element={<HandoverPage />} />
+            <Route path="/turnarounds" element={<TurnaroundsPage />} />
+            <Route path="/briefing" element={<OperationalBriefing />} />
 
-          <Route path="/executive" element={<ExecutiveIntelligence />} />
-          <Route
-            path="/executive/capital"
-            element={<ExecutiveCapitalBriefingPage />}
-          />
-          <Route
-            path="/performance"
-            element={<Navigate to="/executive" replace />}
-          />
-          <Route path="/oee" element={<OEEDashboard />} />
-          <Route
-            path="/learning-loop"
-            element={
-              <RecoveryAwarePage surface="learning">
-                <LearningLoop />
-              </RecoveryAwarePage>
-            }
-          />
-          <Route
-            path="/value"
-            element={
-              <RecoveryAwarePage surface="value">
-                <ValueRealization />
-              </RecoveryAwarePage>
-            }
-          />
-          <Route path="/benchmarking" element={<BenchmarkingPanel />} />
-          <Route
-            path="/organizational-maturity"
-            element={<OrganizationalMaturityPage />}
-          />
-          <Route path="/trust" element={<TrustExplainability />} />
-          <Route
-            path="/engineering-models"
-            element={<EngineeringModelRegistryPage />}
-          />
+            <Route path="/executive" element={<ExecutiveIntelligence />} />
+            <Route
+              path="/executive/capital"
+              element={<ExecutiveCapitalBriefingPage />}
+            />
+            <Route
+              path="/performance"
+              element={<Navigate to="/executive" replace />}
+            />
+            <Route path="/oee" element={<OEEDashboard />} />
+            <Route
+              path="/learning-loop"
+              element={
+                <RecoveryAwarePage surface="learning">
+                  <LearningLoop />
+                </RecoveryAwarePage>
+              }
+            />
+            <Route
+              path="/value"
+              element={
+                <RecoveryAwarePage surface="value">
+                  <ValueRealization />
+                </RecoveryAwarePage>
+              }
+            />
+            <Route path="/benchmarking" element={<BenchmarkingPanel />} />
+            <Route
+              path="/organizational-maturity"
+              element={<OrganizationalMaturityPage />}
+            />
+            <Route path="/trust" element={<TrustExplainability />} />
+            <Route
+              path="/engineering-models"
+              element={<EngineeringModelRegistryPage />}
+            />
 
-          <Route path="/integrations" element={<IntegrationsPage />} />
-          <Route
-            path="/integration-health"
-            element={<IntegrationHealthPanel />}
-          />
-          <Route path="/playbooks" element={<PlaybooksLibrary />} />
-          <Route path="/emergency" element={<EmergencyMode />} />
-          <Route path="/artifacts" element={<ArtifactWorkspace />} />
-          <Route
-            path="/setup"
-            element={
-              <AdminGate>
-                <SetupWizard />
-              </AdminGate>
-            }
-          />
-          <Route
-            path="/research"
-            element={
-              <AdminGate>
-                <ResearchDashboard />
-              </AdminGate>
-            }
-          />
-          <Route
-            path="/runs"
-            element={
-              <AdminGate>
-                <RunsAuditPage />
-              </AdminGate>
-            }
-          />
-          <Route
-            path="/deployments/new/configure"
-            element={
-              <AdminGate>
-                <DeploymentConfiguratorPage />
-              </AdminGate>
-            }
-          />
-          <Route
-            path="/deployments/new"
-            element={
-              <AdminGate>
-                <TemplateSelectorPage />
-              </AdminGate>
-            }
-          />
-          <Route
-            path="/deployments"
-            element={
-              <AdminGate>
-                <TemplateSelectorPage />
-              </AdminGate>
-            }
-          />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route
-            path="/security-log"
-            element={
-              <AdminGate>
-                <SecurityAuditLog />
-              </AdminGate>
-            }
-          />
-          <Route
-            path="/pilot-leads"
-            element={
-              <AdminGate>
-                <PilotLeads />
-              </AdminGate>
-            }
-          />
+            <Route path="/integrations" element={<IntegrationsPage />} />
+            <Route
+              path="/integration-health"
+              element={<IntegrationHealthPanel />}
+            />
+            <Route path="/playbooks" element={<PlaybooksLibrary />} />
+            <Route path="/emergency" element={<EmergencyMode />} />
+            <Route path="/artifacts" element={<ArtifactWorkspace />} />
+            <Route
+              path="/setup"
+              element={
+                <AdminGate>
+                  <SetupWizard />
+                </AdminGate>
+              }
+            />
+            <Route
+              path="/research"
+              element={
+                <AdminGate>
+                  <ResearchDashboard />
+                </AdminGate>
+              }
+            />
+            <Route
+              path="/runs"
+              element={
+                <AdminGate>
+                  <RunsAuditPage />
+                </AdminGate>
+              }
+            />
+            <Route
+              path="/deployments/new/configure"
+              element={
+                <AdminGate>
+                  <DeploymentConfiguratorPage />
+                </AdminGate>
+              }
+            />
+            <Route
+              path="/deployments/new"
+              element={
+                <AdminGate>
+                  <TemplateSelectorPage />
+                </AdminGate>
+              }
+            />
+            <Route
+              path="/deployments"
+              element={
+                <AdminGate>
+                  <TemplateSelectorPage />
+                </AdminGate>
+              }
+            />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route
+              path="/security-log"
+              element={
+                <AdminGate>
+                  <SecurityAuditLog />
+                </AdminGate>
+              }
+            />
+            <Route
+              path="/pilot-leads"
+              element={
+                <AdminGate>
+                  <PilotLeads />
+                </AdminGate>
+              }
+            />
 
-          <Route path="/knowledge" element={<KnowledgeBasePage />} />
-          <Route path="/field" element={<FieldPage />} />
+            <Route path="/knowledge" element={<KnowledgeBasePage />} />
+            <Route path="/field" element={<FieldPage />} />
 
-          <Route
-            path="*"
-            element={<Navigate to="/mission-control" replace />}
-          />
-        </Routes>
-      </ErrorBoundary>
-    </AppShell>
+            <Route
+              path="*"
+              element={<Navigate to="/mission-control" replace />}
+            />
+          </Routes>
+        </ErrorBoundary>
+      </AppShell>
+    </MfaAccessGate>
   );
 }
 

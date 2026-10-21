@@ -14,6 +14,7 @@ beforeEach(() => {
     id: 3,
     language_code: "en",
     content: "Original observed content",
+    standard: { safety_critical: false, engineering_change_class: null },
   });
   api.listProjectStandardWork.mockResolvedValue([]);
 });
@@ -35,9 +36,11 @@ const revision = {
   version: 2,
   change_summary: "Added hold point",
   basis: "Observed evidence",
+  safety_critical: false,
+  engineering_change_class: null,
   revision_requested_by: "requester",
   procedures: [{ id: 8, language_code: "en", content: "Changed content" }],
-  approval: { status: "required", approver_user_id: null, decided_at: null },
+  approval: { status: "required", owner_role: "authorized standard-work approver", approver_user_id: null, decided_at: null },
 };
 it("loads beyond the first page without dropping older revision decisions", async () => {
   const first = Array.from({ length: 100 }, (_, index) => ({
@@ -110,11 +113,13 @@ it("keeps a single durable draft status while revision history reloads", async (
     id: number;
     language_code: string;
     content: string;
+    standard: { safety_critical: boolean; engineering_change_class: string | null };
   }) => void = () => {};
   const pendingSource = new Promise<{
     id: number;
     language_code: string;
     content: string;
+    standard: { safety_critical: boolean; engineering_change_class: string | null };
   }>((resolve) => {
     releaseSource = resolve;
   });
@@ -127,12 +132,15 @@ it("keeps a single durable draft status while revision history reloads", async (
       id: 3,
       language_code: "en",
       content: "Original observed content",
+      standard: { safety_critical: false, engineering_change_class: null },
     })
     .mockReturnValueOnce(pendingSource);
   api.requestLearningStandardRevision.mockResolvedValue({
     revisionId: 7,
     approvalId: "a",
     status: "draft",
+    safetyCritical: false,
+    requiredAuthority: null,
   });
   open();
   await screen.findByText("Original observed content");
@@ -168,6 +176,7 @@ it("keeps a single durable draft status while revision history reloads", async (
     id: 3,
     language_code: "en",
     content: "Original observed content",
+    standard: { safety_critical: false, engineering_change_class: null },
   });
   releaseHistory([revision]);
   expect(
@@ -181,6 +190,8 @@ it("requests a draft and reloads history instead of locally inventing adoption",
     revisionId: 7,
     approvalId: "a",
     status: "draft",
+    safetyCritical: false,
+    requiredAuthority: null,
   });
   open();
   await screen.findByText("Original observed content");
@@ -208,7 +219,43 @@ it("requests a draft and reloads history instead of locally inventing adoption",
     content: "Changed content",
     changeSummary: "Added hold point",
     basis: "Observed evidence",
+    safetyCritical: false,
   });
+});
+it("makes safety classification and the independent authority visible before adoption", async () => {
+  api.requestLearningStandardRevision.mockResolvedValue({
+    revisionId: 7,
+    approvalId: "a",
+    status: "draft",
+    safetyCritical: true,
+    requiredAuthority: "admin",
+  });
+  api.listProjectStandardWork.mockResolvedValue([
+    {
+      ...revision,
+      safety_critical: true,
+      engineering_change_class: "safety_critical_procedure_change",
+      approval: { ...revision.approval, owner_role: "admin" },
+    },
+  ]);
+  open();
+  await screen.findByText("Original observed content");
+  fireEvent.click(screen.getByLabelText("Safety-critical procedure"));
+  fireEvent.change(screen.getByLabelText("Changed procedure content"), {
+    target: { value: "Changed safety-critical content" },
+  });
+  fireEvent.change(screen.getByLabelText("Change summary"), {
+    target: { value: "Added protective hold point" },
+  });
+  fireEvent.change(screen.getByLabelText("Evidence and applicability basis"), {
+    target: { value: "Protective-system evidence reviewed" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Request procedure revision" }));
+  expect(await screen.findByText(/different designated safety authority \(admin\)/i)).toBeInTheDocument();
+  expect(api.requestLearningStandardRevision).toHaveBeenCalledWith(
+    expect.objectContaining({ safetyCritical: true }),
+  );
+  expect(screen.getByText(/Designated safety authority: admin/)).toBeInTheDocument();
 });
 it("preserves decision basis on a self-approval refusal", async () => {
   api.listProjectStandardWork.mockResolvedValue([revision]);
@@ -244,6 +291,7 @@ it("reloads a successful decision and removes decided controls", async () => {
         ...revision,
         approval: {
           status: "approved",
+          owner_role: "authorized standard-work approver",
           approver_user_id: "other-human",
           decided_at: "2026-09-28",
         },
@@ -280,6 +328,7 @@ it("reports failed source reads rather than an empty history and supports retry"
       id: 3,
       language_code: "en",
       content: "Recovered source",
+      standard: { safety_critical: false, engineering_change_class: null },
     });
   open();
   expect(await screen.findByRole("alert")).toHaveTextContent(

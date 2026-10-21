@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ChevronRight, HelpCircle, Search, X } from "lucide-react";
+import { FIRST_DECISION_HELP } from "../lib/onboarding/first-decision-help";
 import { BrandWordmark } from "./BrandWordmark";
 
 type HelpArticle = {
@@ -11,13 +12,14 @@ type HelpArticle = {
 };
 
 const helpArticles: HelpArticle[] = [
+  FIRST_DECISION_HELP,
   {
     id: "start",
     title: "Getting started",
     category: "Product",
-    summary: "Understand the governed decision workflow",
+    summary: "Reach a first Decision Case yourself",
     content:
-      "Start with Reliability Engineer or a Decision Case. Ground the question in asset context and evidence, separate facts from hypotheses, route consequential recommendations through the named authority, and define how the outcome will be verified.",
+      "Reach a first Decision Case on Get started without a walkthrough. Write your question, then save the case on a workspace. A browser draft is not done. First value is a saved recommendation or saved evidence you can review. It is not an approval and it does not run the plant. Navigation keeps the next self-serve step until that case is saved.",
   },
   {
     id: "assessment",

@@ -11,9 +11,32 @@
  * must not block this path.
  *
  * Deno-free so vitest can pin validation without the edge runtime.
+ *
+ * Spend is metered before the provider call: a per-tenant UTC-day character
+ * quota and a per-user rate limit, both capped by SYNC_TTS_QUOTA_CONFIG.
+ * The provider is not called unless that usage row is reserved, and the
+ * audio is not returned unless the same row is settled.
  */
 
 export const SYNC_TTS_MAX_CHARS = 420;
+/**
+ * stripForSpeech may append one ellipsis when it cannot cut on a sentence.
+ * The quota gate charges the text actually sent, so the ceiling is one
+ * character above the strip budget.
+ */
+export const SYNC_TTS_MAX_UTTERANCE_CHARS = SYNC_TTS_MAX_CHARS + 1;
+/**
+ * Abuse ceilings for signed-in speech. Not an OEM limit and not a commercial
+ * plan allowance. speechOutput may split one turn into two requests, and each
+ * request is at most SYNC_TTS_MAX_UTTERANCE_CHARS. Twenty turns is the daily
+ * tenant budget. Ten requests a minute is five split turns. Environment
+ * overrides may only lower the character and request caps.
+ */
+export const SYNC_TTS_QUOTA_CONFIG = {
+  dailyCharactersPerTenant: 20 * 2 * SYNC_TTS_MAX_UTTERANCE_CHARS,
+  userRequestsPerWindow: 10,
+  userWindowSeconds: 60,
+} as const;
 export const PREFERRED_TTS_MODEL = "gpt-4o-mini-tts";
 export const FALLBACK_TTS_MODEL = "tts-1";
 export const DEFAULT_TTS_VOICE = "marin";
@@ -182,4 +205,428 @@ async function callOpenAiSpeech(input: {
     contentType: contentType.includes("audio/") ? contentType : "audio/mpeg",
     model: input.model,
   };
+}
+
+export interface SyncTtsQuotaLimits {
+  dailyCharactersPerTenant: number;
+  userRequestsPerWindow: number;
+  userWindowSeconds: number;
+}
+
+export const SYNC_TTS_MESSAGES = {
+  usageUnavailable:
+    "Speech usage could not be recorded, so this request was not sent to the speech provider.",
+  usageRecordFailed:
+    "Speech usage could not be confirmed on the usage record, so the audio was withheld. The reserved characters stay counted.",
+  organizationRequired:
+    "Speech cannot be metered for this user without an organization, so the request was not sent.",
+  organizationMismatch:
+    "Speech usage could not be recorded for this organization, so the request was not sent.",
+  utteranceTooLong: "Speech text exceeds the maximum utterance length.",
+  cloudFailed: "Cloud speech did not return audio.",
+} as const;
+
+export interface SyncTtsUsageSnapshot {
+  characters: number;
+  charactersUsed: number | null;
+  maxCharacters: number | null;
+  requestsInWindow: number | null;
+  maxRequests: number | null;
+  windowSeconds: number | null;
+  resetsAt: string | null;
+}
+
+export type SyncTtsRpc = (
+  functionName: string,
+  args: Record<string, unknown>,
+) => Promise<{ data: unknown; error: unknown }>;
+
+export type MeteredSyncTtsResult =
+  | {
+      ok: true;
+      bytes: Uint8Array;
+      contentType: string;
+      model: string;
+      reservationId: number;
+      usage: SyncTtsUsageSnapshot;
+    }
+  | {
+      ok: false;
+      error: string;
+      status: number;
+      message: string;
+      reservationId: number | null;
+      usage: SyncTtsUsageSnapshot | null;
+    };
+
+/**
+ * Positive integers at or below the configured ceiling. Blank, zero,
+ * negative, and non-integer values keep the ceiling so a bad override
+ * cannot remove the cap.
+ */
+export function resolveSyncTtsQuotaLimits(
+  env: Record<string, string | undefined> = {},
+): SyncTtsQuotaLimits {
+  return {
+    dailyCharactersPerTenant: tightenPositiveInteger(
+      env.SYNC_TTS_DAILY_CHAR_QUOTA,
+      SYNC_TTS_QUOTA_CONFIG.dailyCharactersPerTenant,
+    ),
+    userRequestsPerWindow: tightenPositiveInteger(
+      env.SYNC_TTS_USER_RATE_LIMIT,
+      SYNC_TTS_QUOTA_CONFIG.userRequestsPerWindow,
+    ),
+    // The published window is fixed. A shorter window would count fewer
+    // requests and weaken the per-user limit.
+    userWindowSeconds: SYNC_TTS_QUOTA_CONFIG.userWindowSeconds,
+  };
+}
+
+export function syncTtsUsageHeaders(
+  usage: SyncTtsUsageSnapshot,
+): Record<string, string> {
+  return {
+    "X-Sync-Tts-Characters": String(usage.characters),
+    "X-Sync-Tts-Characters-Used":
+      usage.charactersUsed == null ? "" : String(usage.charactersUsed),
+    "X-Sync-Tts-Daily-Character-Limit":
+      usage.maxCharacters == null ? "" : String(usage.maxCharacters),
+  };
+}
+
+export function syncTtsRefusalBody(input: {
+  error: string;
+  message: string;
+  usage?: SyncTtsUsageSnapshot | null;
+}): Record<string, unknown> {
+  const usage = input.usage ?? null;
+  return {
+    error: input.error,
+    message: input.message,
+    characters_used: usage?.charactersUsed ?? null,
+    max_characters: usage?.maxCharacters ?? null,
+    requests_in_window: usage?.requestsInWindow ?? null,
+    max_requests: usage?.maxRequests ?? null,
+    window_seconds: usage?.windowSeconds ?? null,
+    resets_at: usage?.resetsAt ?? null,
+  };
+}
+
+export function syncTtsRetryAfterSeconds(
+  resetsAt: string | null,
+  nowMs = Date.now(),
+): number | null {
+  if (!resetsAt) return null;
+  const when = Date.parse(resetsAt);
+  if (!Number.isFinite(when)) return null;
+  return Math.max(1, Math.ceil((when - nowMs) / 1000));
+}
+
+/**
+ * Reserve speech usage, call the provider, then settle the same row.
+ * The provider is not contacted unless the reservation insert succeeds.
+ * Audio is returned only after that row is settled. A failed provider call
+ * releases the reservation; a failed settlement keeps it.
+ */
+export async function runMeteredSyncTts(input: {
+  rpc: SyncTtsRpc;
+  organizationId: string;
+  userId: string;
+  text: string;
+  limits: SyncTtsQuotaLimits;
+  synthesize: (text: string) => Promise<OpenAiSpeechResult>;
+}): Promise<MeteredSyncTtsResult> {
+  const characters = input.text.length;
+  if (characters < 1 || characters > SYNC_TTS_MAX_UTTERANCE_CHARS) {
+    return refusal({
+      error: "utterance_too_long",
+      status: 400,
+      message: SYNC_TTS_MESSAGES.utteranceTooLong,
+      reservationId: null,
+      usage: emptyUsage(characters),
+    });
+  }
+
+  let reserved: { data: unknown; error: unknown };
+  try {
+    reserved = await input.rpc("reserve_sync_tts_usage", {
+      p_organization_id: input.organizationId,
+      p_user_id: input.userId,
+      p_characters: characters,
+      p_max_characters: input.limits.dailyCharactersPerTenant,
+      p_max_requests: input.limits.userRequestsPerWindow,
+      p_window_seconds: input.limits.userWindowSeconds,
+    });
+  } catch {
+    return unavailable();
+  }
+  if (reserved.error) return unavailable();
+
+  const verdict = asRecord(reserved.data);
+  if (!verdict) return unavailable();
+  const usage = snapshotFromVerdict(verdict, characters);
+  if (verdict.allowed !== true) {
+    return refusalFromVerdict(verdict, usage);
+  }
+  const reservationId = parseReservationId(verdict.reservation_id);
+  if (reservationId === null) return unavailable();
+
+  let speech: OpenAiSpeechResult;
+  try {
+    speech = await input.synthesize(input.text);
+  } catch {
+    await releaseReservation(input, reservationId);
+    return providerFailed(502, reservationId, usage);
+  }
+  if (!speech.ok) {
+    await releaseReservation(input, reservationId);
+    return providerFailed(
+      providerFailureStatus(speech.status),
+      reservationId,
+      usage,
+    );
+  }
+
+  let settled: { data: unknown; error: unknown };
+  try {
+    settled = await input.rpc("settle_sync_tts_usage", {
+      p_reservation_id: reservationId,
+      p_organization_id: input.organizationId,
+      p_user_id: input.userId,
+      p_model: speech.model,
+    });
+  } catch {
+    return recordFailed(reservationId, usage);
+  }
+  if (settled.error || !isRecorded(settled.data)) {
+    return recordFailed(reservationId, usage);
+  }
+
+  return {
+    ok: true,
+    bytes: speech.bytes,
+    contentType: speech.contentType,
+    model: speech.model,
+    reservationId,
+    usage,
+  };
+}
+
+function tightenPositiveInteger(
+  raw: string | undefined,
+  ceiling: number,
+): number {
+  if (raw == null) return ceiling;
+  const trimmed = raw.trim();
+  if (!/^[0-9]+$/.test(trimmed)) return ceiling;
+  const value = Number(trimmed);
+  if (!Number.isSafeInteger(value) || value < 1) return ceiling;
+  return Math.min(value, ceiling);
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function readNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return null;
+}
+
+function readString(value: unknown): string | null {
+  return typeof value === "string" && value.trim() !== "" ? value : null;
+}
+
+function parseReservationId(value: unknown): number | null {
+  const id = readNumber(value);
+  if (id == null || !Number.isSafeInteger(id) || id <= 0) return null;
+  return id;
+}
+
+function emptyUsage(characters: number): SyncTtsUsageSnapshot {
+  return {
+    characters,
+    charactersUsed: null,
+    maxCharacters: null,
+    requestsInWindow: null,
+    maxRequests: null,
+    windowSeconds: null,
+    resetsAt: null,
+  };
+}
+
+function snapshotFromVerdict(
+  verdict: Record<string, unknown>,
+  characters: number,
+): SyncTtsUsageSnapshot {
+  return {
+    characters,
+    charactersUsed: readNumber(verdict.characters_used),
+    maxCharacters: readNumber(verdict.max_characters),
+    requestsInWindow: readNumber(verdict.requests_in_window),
+    maxRequests: readNumber(verdict.max_requests),
+    windowSeconds: readNumber(verdict.window_seconds),
+    resetsAt: readString(verdict.resets_at),
+  };
+}
+
+function unavailable(): MeteredSyncTtsResult {
+  return refusal({
+    error: "tts_usage_unavailable",
+    status: 503,
+    message: SYNC_TTS_MESSAGES.usageUnavailable,
+    reservationId: null,
+    usage: null,
+  });
+}
+
+function recordFailed(
+  reservationId: number,
+  usage: SyncTtsUsageSnapshot,
+): MeteredSyncTtsResult {
+  return refusal({
+    error: "tts_usage_record_failed",
+    status: 503,
+    message: SYNC_TTS_MESSAGES.usageRecordFailed,
+    reservationId,
+    usage,
+  });
+}
+
+function providerFailed(
+  status: number,
+  reservationId: number,
+  usage: SyncTtsUsageSnapshot,
+): MeteredSyncTtsResult {
+  return refusal({
+    error: "cloud_tts_failed",
+    status,
+    message: SYNC_TTS_MESSAGES.cloudFailed,
+    reservationId,
+    usage,
+  });
+}
+
+function providerFailureStatus(status: number): number {
+  if (status === 401 || status === 403) return 502;
+  if (status >= 400 && status < 600) return status;
+  return 502;
+}
+
+function refusalFromVerdict(
+  verdict: Record<string, unknown>,
+  usage: SyncTtsUsageSnapshot,
+): MeteredSyncTtsResult {
+  const limit = readString(verdict.limit) ?? "tts_usage_unavailable";
+  if (limit === "org_daily_character_quota_exceeded") {
+    return refusal({
+      error: limit,
+      status: 429,
+      message: dailyQuotaMessage(usage.resetsAt),
+      reservationId: null,
+      usage,
+    });
+  }
+  if (limit === "user_rate_limit_exceeded") {
+    return refusal({
+      error: limit,
+      status: 429,
+      message: rateLimitMessage(usage.resetsAt),
+      reservationId: null,
+      usage,
+    });
+  }
+  if (limit === "organization_required") {
+    return refusal({
+      error: limit,
+      status: 403,
+      message: SYNC_TTS_MESSAGES.organizationRequired,
+      reservationId: null,
+      usage,
+    });
+  }
+  if (limit === "organization_mismatch") {
+    return refusal({
+      error: limit,
+      status: 403,
+      message: SYNC_TTS_MESSAGES.organizationMismatch,
+      reservationId: null,
+      usage,
+    });
+  }
+  if (limit === "utterance_too_long" || limit === "invalid_characters") {
+    return refusal({
+      error: "utterance_too_long",
+      status: 400,
+      message: SYNC_TTS_MESSAGES.utteranceTooLong,
+      reservationId: null,
+      usage,
+    });
+  }
+  return unavailable();
+}
+
+function dailyQuotaMessage(resetsAt: string | null): string {
+  return `This organization's daily speech character allowance is used up.${
+    resetsAt ? ` It resets at ${resetsAt}.` : " It resets at midnight UTC."
+  }`;
+}
+
+function rateLimitMessage(resetsAt: string | null): string {
+  return `Speech requests from this user are temporarily limited.${
+    resetsAt ? ` Try again after ${resetsAt}.` : " Try again in a minute."
+  }`;
+}
+
+function refusal(input: {
+  error: string;
+  status: number;
+  message: string;
+  reservationId: number | null;
+  usage: SyncTtsUsageSnapshot | null;
+}): MeteredSyncTtsResult {
+  return { ok: false, ...input };
+}
+
+function isRecorded(data: unknown): boolean {
+  return asRecord(data)?.recorded === true;
+}
+
+async function releaseReservation(
+  input: {
+    rpc: SyncTtsRpc;
+    organizationId: string;
+    userId: string;
+  },
+  reservationId: number,
+): Promise<void> {
+  try {
+    const released = await input.rpc("release_sync_tts_usage", {
+      p_reservation_id: reservationId,
+      p_organization_id: input.organizationId,
+      p_user_id: input.userId,
+    });
+    if (released.error) {
+      console.error(
+        JSON.stringify({
+          fn: "sync-tts",
+          event: "usage_release_failed",
+          reservation_id: reservationId,
+        }),
+      );
+    }
+  } catch {
+    console.error(
+      JSON.stringify({
+        fn: "sync-tts",
+        event: "usage_release_failed",
+        reservation_id: reservationId,
+      }),
+    );
+  }
 }

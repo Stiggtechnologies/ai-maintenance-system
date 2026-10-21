@@ -1,0 +1,236 @@
+import { describe, expect, it } from "vitest";
+import { automaticTransferSwitchTemplate } from "./automatic-transfer-switch";
+import {
+  automaticTransferSwitchEngineeringDna,
+  criticalFacilityEngineeringDna,
+  dataCenterChillerEngineeringDna,
+  standbyGeneratorEngineeringDna,
+  upsSystemEngineeringDna,
+  computerRoomAirHandlerEngineeringDna,
+  staticTransferSwitchEngineeringDna,
+  powerDistributionUnitEngineeringDna,
+  buswayEngineeringDna,
+  mvSwitchgearEngineeringDna,
+  powerTransformerEngineeringDna,
+  coolingTowerEngineeringDna,
+  batteryEnergyStorageEngineeringDna,
+  coolantDistributionUnitEngineeringDna,
+  rearDoorHeatExchangerEngineeringDna,
+  cleanAgentSuppressionEngineeringDna,
+  fireDetectionAlarmEngineeringDna,
+  preactionSprinklerEngineeringDna,
+  rotaryUpsEngineeringDna,
+  emergencyPowerOffEngineeringDna,
+  buildingManagementSystemEngineeringDna,
+  electricalPowerMonitoringEngineeringDna,
+  computerRoomAirConditionerEngineeringDna,
+  lvSwitchboardEngineeringDna,
+  generatorParallelingSwitchgearEngineeringDna,
+  generatorFuelSystemEngineeringDna,
+  earthingSystemEngineeringDna,
+  rackPowerDistributionEngineeringDna,
+  dryCoolerEngineeringDna,
+  thermalStorageTankEngineeringDna,
+  coolingWaterTreatmentEngineeringDna,
+  chilledWaterDistributionEngineeringDna,
+  airHandlingEconomiserEngineeringDna,
+  humidityControlEngineeringDna,
+  airflowContainmentEngineeringDna,
+  directLiquidCoolingEngineeringDna,
+  immersionCoolingTankEngineeringDna,
+  leakDetectionEngineeringDna,
+  waterMistSuppressionEngineeringDna,
+  emergencyLightingEngineeringDna,
+  dcimPlatformEngineeringDna,
+  facilityControlsNetworkEngineeringDna,
+  accessControlEngineeringDna,
+  videoSurveillanceEngineeringDna,
+  itRackCabinetEngineeringDna,
+  raisedFloorPathwaysEngineeringDna,
+} from "./critical-facility-dna";
+import { earthingSystemTemplate } from "./earthing-lightning-protection";
+import { rackPowerDistributionTemplate } from "./rack-power-distribution";
+import { dryCoolerTemplate } from "./dry-cooler";
+import { thermalStorageTankTemplate } from "./thermal-storage-tank";
+import { coolingWaterTreatmentTemplate } from "./cooling-water-treatment";
+import { chilledWaterDistributionTemplate } from "./chilled-water-distribution";
+import { airHandlingEconomiserTemplate } from "./air-handling-economiser";
+import { humidityControlTemplate } from "./humidity-control";
+import { airflowContainmentTemplate } from "./airflow-containment";
+import { directLiquidCoolingTemplate } from "./direct-liquid-cooling";
+import { immersionCoolingTankTemplate } from "./immersion-cooling-tank";
+import { leakDetectionTemplate } from "./leak-detection";
+import { waterMistSuppressionTemplate } from "./water-mist-suppression";
+import { emergencyLightingTemplate } from "./emergency-lighting";
+import { dcimPlatformTemplate } from "./dcim-platform";
+import { facilityControlsNetworkTemplate } from "./facility-controls-network";
+import { accessControlTemplate } from "./access-control";
+import { videoSurveillanceTemplate } from "./video-surveillance";
+import { itRackCabinetTemplate } from "./it-rack-cabinet";
+import { raisedFloorPathwaysTemplate } from "./raised-floor-pathways";
+
+import { rotaryUpsTemplate } from "./rotary-ups";
+import { emergencyPowerOffTemplate } from "./emergency-power-off";
+import { buildingManagementSystemTemplate } from "./building-management-system";
+import { electricalPowerMonitoringTemplate } from "./electrical-power-monitoring";
+import { computerRoomAirConditionerTemplate } from "./computer-room-air-conditioner";
+import { lvSwitchboardTemplate } from "./lv-switchboard";
+import { generatorParallelingSwitchgearTemplate } from "./generator-paralleling-switchgear";
+import { generatorFuelSystemTemplate } from "./generator-fuel-system";
+
+import { batteryEnergyStorageTemplate } from "./battery-energy-storage";
+import { coolantDistributionUnitTemplate } from "./coolant-distribution-unit";
+import { rearDoorHeatExchangerTemplate } from "./rear-door-heat-exchanger";
+import { cleanAgentSuppressionTemplate } from "./clean-agent-suppression";
+import { fireDetectionAlarmTemplate } from "./fire-detection-alarm";
+import { preactionSprinklerTemplate } from "./preaction-sprinkler";
+
+import { computerRoomAirHandlerTemplate } from "./computer-room-air-handler";
+import { staticTransferSwitchTemplate } from "./static-transfer-switch";
+import { powerDistributionUnitTemplate } from "./power-distribution-unit";
+import { buswayTemplate } from "./busway";
+import { mvSwitchgearTemplate } from "./mv-switchgear";
+import { powerTransformerTemplate } from "./power-transformer";
+import { coolingTowerTemplate } from "./cooling-tower";
+
+import { dataCenterChillerTemplate } from "./data-center-chiller";
+import {
+  instantiateEngineeringTwin,
+  validateEngineeringDnaProfile,
+} from "./engineering-dna";
+import {
+  engineeringDnaLibrary,
+  getEngineeringDnaForAssetClass,
+} from "./electric-rope-shovel-dna";
+import { getAssetClassTemplate, validateAssetClassTemplate } from "./index";
+import {
+  getSharedComponentDna,
+  sharedComponentDnaLibrary,
+} from "./shared-component-dna-library";
+import { standbyGeneratorTemplate } from "./standby-generator";
+import { upsSystemTemplate } from "./ups-system";
+
+const pairs = [
+  [standbyGeneratorTemplate, standbyGeneratorEngineeringDna],
+  [upsSystemTemplate, upsSystemEngineeringDna],
+  [automaticTransferSwitchTemplate, automaticTransferSwitchEngineeringDna],
+  [dataCenterChillerTemplate, dataCenterChillerEngineeringDna],
+  [computerRoomAirHandlerTemplate, computerRoomAirHandlerEngineeringDna],
+  [staticTransferSwitchTemplate, staticTransferSwitchEngineeringDna],
+  [powerDistributionUnitTemplate, powerDistributionUnitEngineeringDna],
+  [buswayTemplate, buswayEngineeringDna],
+  [mvSwitchgearTemplate, mvSwitchgearEngineeringDna],
+  [powerTransformerTemplate, powerTransformerEngineeringDna],
+  [coolingTowerTemplate, coolingTowerEngineeringDna],
+  [batteryEnergyStorageTemplate, batteryEnergyStorageEngineeringDna],
+  [coolantDistributionUnitTemplate, coolantDistributionUnitEngineeringDna],
+  [rearDoorHeatExchangerTemplate, rearDoorHeatExchangerEngineeringDna],
+  [cleanAgentSuppressionTemplate, cleanAgentSuppressionEngineeringDna],
+  [fireDetectionAlarmTemplate, fireDetectionAlarmEngineeringDna],
+  [preactionSprinklerTemplate, preactionSprinklerEngineeringDna],
+  [rotaryUpsTemplate, rotaryUpsEngineeringDna],
+  [emergencyPowerOffTemplate, emergencyPowerOffEngineeringDna],
+  [buildingManagementSystemTemplate, buildingManagementSystemEngineeringDna],
+  [electricalPowerMonitoringTemplate, electricalPowerMonitoringEngineeringDna],
+  [computerRoomAirConditionerTemplate, computerRoomAirConditionerEngineeringDna],
+  [lvSwitchboardTemplate, lvSwitchboardEngineeringDna],
+  [generatorParallelingSwitchgearTemplate, generatorParallelingSwitchgearEngineeringDna],
+  [generatorFuelSystemTemplate, generatorFuelSystemEngineeringDna],
+  [earthingSystemTemplate, earthingSystemEngineeringDna],
+  [rackPowerDistributionTemplate, rackPowerDistributionEngineeringDna],
+  [dryCoolerTemplate, dryCoolerEngineeringDna],
+  [thermalStorageTankTemplate, thermalStorageTankEngineeringDna],
+  [coolingWaterTreatmentTemplate, coolingWaterTreatmentEngineeringDna],
+  [chilledWaterDistributionTemplate, chilledWaterDistributionEngineeringDna],
+  [airHandlingEconomiserTemplate, airHandlingEconomiserEngineeringDna],
+  [humidityControlTemplate, humidityControlEngineeringDna],
+  [airflowContainmentTemplate, airflowContainmentEngineeringDna],
+  [directLiquidCoolingTemplate, directLiquidCoolingEngineeringDna],
+  [immersionCoolingTankTemplate, immersionCoolingTankEngineeringDna],
+  [leakDetectionTemplate, leakDetectionEngineeringDna],
+  [waterMistSuppressionTemplate, waterMistSuppressionEngineeringDna],
+  [emergencyLightingTemplate, emergencyLightingEngineeringDna],
+  [dcimPlatformTemplate, dcimPlatformEngineeringDna],
+  [facilityControlsNetworkTemplate, facilityControlsNetworkEngineeringDna],
+  [accessControlTemplate, accessControlEngineeringDna],
+  [videoSurveillanceTemplate, videoSurveillanceEngineeringDna],
+  [itRackCabinetTemplate, itRackCabinetEngineeringDna],
+  [raisedFloorPathwaysTemplate, raisedFloorPathwaysEngineeringDna],
+] as const;
+
+describe("critical power and cooling Digital Engineering DNA", () => {
+  it.each(pairs)("%s keeps a valid canonical hierarchy and DNA", (template, dna) => {
+    expect(validateAssetClassTemplate(template)).toEqual([]);
+    expect(
+      validateEngineeringDnaProfile(dna, template, [], sharedComponentDnaLibrary),
+    ).toEqual([]);
+  });
+
+  it.each(pairs)("%s is draft, approval-gated and never acts on its own", (template, dna) => {
+    expect(template.reviewState).toBe("draft");
+    expect(dna.governance.thresholdsPolicy).toBe("approved_source_only");
+    expect(dna.governance.autonomousOperationalActionAllowed).toBe(false);
+    expect(dna.governance.engineeringApprovalRequired).toBe(true);
+    for (const component of template.components) {
+      for (const failure of component.failureModes) {
+        expect(failure.reviewState).toBe("draft");
+        expect(failure.recommendedActions).toEqual([]);
+        expect(failure.evidence).toEqual([]);
+        expect(failure.detectableBy.length).toBeGreaterThan(0);
+        expect(failure.verificationMethods.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it.each(pairs)("%s carries no numeric limits in its text", (template) => {
+    // Limits, intervals and setpoints come only from an approved source.
+    const text = JSON.stringify(template);
+    expect(text).not.toMatch(/\d+\s?(%|°|deg|kpa|psi|bar|volts?|vdc|vac|hz|hours?|hrs|minutes?|seconds?|ms)\b/i);
+  });
+
+  it.each(pairs)("%s is registered for lookup and twin creation", (template, dna) => {
+    expect(getAssetClassTemplate(template.code)).toBe(template);
+    expect(getEngineeringDnaForAssetClass(template.code)).toBe(dna);
+    expect(engineeringDnaLibrary).toContain(dna);
+    const twin = instantiateEngineeringTwin(dna, { assetId: "DC1-ASSET", siteId: "DC1" });
+    expect(twin.assetClassCode).toBe(template.code);
+    expect(twin.customerOverrides.approvalRequired).toBe(true);
+  });
+
+  it("binds every component reference to a real shared component", () => {
+    for (const dna of criticalFacilityEngineeringDna) {
+      for (const binding of dna.sharedComponentBindings ?? []) {
+        expect(getSharedComponentDna(binding.sharedComponentDnaCode)).toBeDefined();
+      }
+    }
+    expect(upsSystemEngineeringDna.sharedComponentBindings?.map((b) => b.sharedComponentDnaCode)).toEqual(
+      expect.arrayContaining(["COMP-DNA-POWER-CONVERTER", "COMP-DNA-BATTERY-STATIONARY"]),
+    );
+    expect(standbyGeneratorEngineeringDna.sharedComponentBindings?.map((b) => b.sharedComponentDnaCode)).toContain(
+      "COMP-DNA-ENGINE-RECIPROCATING",
+    );
+    expect(dataCenterChillerEngineeringDna.sharedComponentBindings?.map((b) => b.sharedComponentDnaCode)).toContain(
+      "COMP-DNA-REFRIGERATION-CIRCUIT",
+    );
+  });
+
+  it("rejects a profile that claims a component the template does not have", () => {
+    const invalid = {
+      ...upsSystemEngineeringDna,
+      componentCodes: [...upsSystemEngineeringDna.componentCodes, "UPS-NOT-REAL"],
+    };
+    expect(
+      validateEngineeringDnaProfile(invalid, upsSystemTemplate, [], sharedComponentDnaLibrary).length,
+    ).toBeGreaterThan(0);
+  });
+
+  it("rejects an unknown shared component reference", () => {
+    const broken = {
+      ...standbyGeneratorTemplate,
+      components: standbyGeneratorTemplate.components.map((component, index) =>
+        index === 0 ? { ...component, sharedComponentDnaCodes: ["COMP-DNA-NOT-REAL"] } : component,
+      ),
+    };
+    expect(validateAssetClassTemplate(broken).some((issue) => issue.message.includes("Unknown shared component DNA"))).toBe(true);
+  });
+});
