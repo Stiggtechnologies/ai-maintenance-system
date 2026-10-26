@@ -1,4 +1,5 @@
 import { dataCenterReferenceModel } from "./data-center-reference-model";
+import { residentialDwellingReferenceModel } from "./residential-dwelling-reference-model";
 import type { SystemNode, SystemReferenceModel } from "./system-model";
 
 /**
@@ -132,6 +133,7 @@ export function planReferenceHierarchy(
 /** Reference models available per industry pack code (industry-catalog codes). */
 export const systemReferenceModelsByIndustry: Readonly<Record<string, SystemReferenceModel>> = {
   data_centers: dataCenterReferenceModel,
+  buildings_infrastructure: residentialDwellingReferenceModel,
 };
 
 export function getSystemReferenceModelForIndustry(industryCode: string): SystemReferenceModel | undefined {
