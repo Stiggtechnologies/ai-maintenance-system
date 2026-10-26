@@ -275,6 +275,27 @@ test("first decision journey: anonymous question to approved, verified, resumabl
     try {
       await signIn(admin, ADMIN);
       await openCase(admin, caseId);
+
+      // 20 (refusal paths) — the real local decision-case-invite function. Only
+      // the allowed origin is rewritten for this localhost browser.
+      await admin.route("**/functions/v1/decision-case-invite", async (route) => {
+        const response = await route.fetch();
+        await route.fulfill({
+          response,
+          headers: { ...response.headers(), "access-control-allow-origin": "http://localhost:5173" },
+        });
+      });
+      // Without an AAL2 session, sending is refused with the real reason and no
+      // delivery, acceptance or membership state is claimed.
+      await admin.getByTestId("spine-send-invite").click();
+      await expect(admin.getByRole("alert")).toContainText("requires an AAL2 session", { timeout: 20_000 });
+      await expect(admin.getByTestId("spine-invite-status")).toHaveCount(0);
+      // Status reports that nothing was sent instead of inventing a state.
+      await admin.getByTestId("spine-refresh-invite").click();
+      await expect(admin.getByRole("alert")).toContainText("no workspace invitation is recorded", { timeout: 20_000 });
+      await expect(admin.getByTestId("spine-invite-status")).toHaveCount(0);
+      await admin.unroute("**/functions/v1/decision-case-invite");
+
       const panel = admin.getByTestId("spine-required-person-approval");
       await expect(panel).toBeVisible({ timeout: 20_000 });
       await expect(admin.getByTestId("spine-approval-approved")).toBeDisabled();
@@ -359,7 +380,7 @@ test.fixme("15 — approved source mappings for the selected site, asset and com
   // Needs a governed source mapping for a selected site/asset/component in the
   // demo tenant; no mapping fixture exists for the journey yet.
 });
-test.fixme("20 — invitation submitted, delivered, accepted and active states", () => {
+test.fixme("20 — invitation submitted, delivered, accepted and active states (refusal paths are witnessed above)", () => {
   // Sending requires an AAL2 administrator session and a mail provider; the
   // local stack has neither, and delivery must not be simulated.
 });
