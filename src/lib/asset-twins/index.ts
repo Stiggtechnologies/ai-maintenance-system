@@ -51,6 +51,7 @@ import { hydraulicMiningShovelTemplate } from "./hydraulic-mining-shovel";
 import { industrialGearboxTemplate } from "./industrial-gearbox";
 import { largeWheelLoaderTemplate } from "./large-wheel-loader";
 import { miningAssetClassLibrary } from "./mining-library";
+import { residentialFacilityLibrary } from "./residential-facility";
 import { miningDozerTemplate } from "./mining-dozer";
 import { miningGraderTemplate } from "./mining-grader";
 import { mobileCrusherTemplate } from "./mobile-crusher";
@@ -281,11 +282,15 @@ export function getAssetClassTemplate(
   if (code === videoSurveillanceTemplate.code) return videoSurveillanceTemplate;
   if (code === itRackCabinetTemplate.code) return itRackCabinetTemplate;
   if (code === raisedFloorPathwaysTemplate.code) return raisedFloorPathwaysTemplate;
+  const residential = residentialFacilityLibrary.find((template) => template.code === code);
+  if (residential) return residential;
   return miningAssetClassLibrary.find((template) => template.code === code);
 }
 
 export * from "./system-model";
 export { dataCenterReferenceModel } from "./data-center-reference-model";
+export { residentialDwellingReferenceModel } from "./residential-dwelling-reference-model";
+export * from "./residential-facility";
 
 export { computerRoomAirHandlerTemplate } from "./computer-room-air-handler";
 export { staticTransferSwitchTemplate } from "./static-transfer-switch";
