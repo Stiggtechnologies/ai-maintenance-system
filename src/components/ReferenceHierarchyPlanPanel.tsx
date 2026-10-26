@@ -3,7 +3,7 @@ import { Layers } from "lucide-react";
 import {
   planReferenceHierarchy,
   planStepStatuses,
-  systemReferenceModelsByIndustry,
+  systemReferenceModels,
   type ExistingLocationRef,
   type HierarchyPlanStep,
   type PlanStepState,
@@ -42,22 +42,22 @@ export function ReferenceHierarchyPlanPanel({
   existing: ExistingLocationRef[];
   onUseStep: (step: HierarchyPlanStep, parentLocationId: string | null) => void;
 }) {
-  const industries = Object.keys(systemReferenceModelsByIndustry);
-  const [industry, setIndustry] = useState(industries[0] ?? "");
+  const modelCodes = Object.keys(systemReferenceModels);
+  const [modelCode, setModelCode] = useState(modelCodes[0] ?? "");
   const [areaCode, setAreaCode] = useState("DH1");
   const [areaName, setAreaName] = useState("Data hall 1");
   const [showEquipment, setShowEquipment] = useState(false);
 
   const result = useMemo(() => {
-    const model = systemReferenceModelsByIndustry[industry];
-    if (!model) return { error: "No reference model for this industry." } as const;
+    const model = systemReferenceModels[modelCode];
+    if (!model) return { error: "No reference model selected." } as const;
     try {
       const plan = planReferenceHierarchy(model, { code: areaCode, name: areaName });
       return { plan, statuses: planStepStatuses(plan, existing) } as const;
     } catch (err) {
       return { error: err instanceof Error ? err.message : "Plan could not be built." } as const;
     }
-  }, [industry, areaCode, areaName, existing]);
+  }, [modelCode, areaCode, areaName, existing]);
 
   return (
     <div className="space-y-4 rounded-xl border border-white/8 bg-white/[0.025] p-4">
@@ -72,16 +72,16 @@ export function ReferenceHierarchyPlanPanel({
       </p>
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="space-y-1 text-xs text-slate-400">
-          <span>Industry model</span>
+          <span>Reference model</span>
           <select
-            aria-label="Industry model"
-            value={industry}
-            onChange={(e) => setIndustry(e.target.value)}
+            aria-label="Reference model"
+            value={modelCode}
+            onChange={(e) => setModelCode(e.target.value)}
             className="w-full rounded-lg border border-white/10 bg-slate-950/60 px-3 py-2 text-sm text-white"
           >
-            {industries.map((code) => (
+            {modelCodes.map((code) => (
               <option key={code} value={code}>
-                {systemReferenceModelsByIndustry[code].name}
+                {systemReferenceModels[code].name}
               </option>
             ))}
           </select>

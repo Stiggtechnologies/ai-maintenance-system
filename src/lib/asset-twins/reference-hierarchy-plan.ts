@@ -1,5 +1,6 @@
 import { dataCenterReferenceModel } from "./data-center-reference-model";
 import { residentialDwellingReferenceModel } from "./residential-dwelling-reference-model";
+import { apartmentBuildingReferenceModel } from "./apartment-building-reference-model";
 import type { SystemNode, SystemReferenceModel } from "./system-model";
 
 /**
@@ -135,6 +136,18 @@ export const systemReferenceModelsByIndustry: Readonly<Record<string, SystemRefe
   data_centers: dataCenterReferenceModel,
   buildings_infrastructure: residentialDwellingReferenceModel,
 };
+
+/**
+ * Every reference model, keyed by model code. An industry can carry more than
+ * one (a dwelling unit and the apartment building around it); the map above
+ * names each industry's default.
+ */
+export const systemReferenceModels: Readonly<Record<string, SystemReferenceModel>> = Object.fromEntries(
+  [dataCenterReferenceModel, residentialDwellingReferenceModel, apartmentBuildingReferenceModel].map((model) => [
+    model.code,
+    model,
+  ]),
+);
 
 export function getSystemReferenceModelForIndustry(industryCode: string): SystemReferenceModel | undefined {
   return Object.prototype.hasOwnProperty.call(systemReferenceModelsByIndustry, industryCode)

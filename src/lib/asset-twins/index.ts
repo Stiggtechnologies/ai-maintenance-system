@@ -290,6 +290,7 @@ export function getAssetClassTemplate(
 export * from "./system-model";
 export { dataCenterReferenceModel } from "./data-center-reference-model";
 export { residentialDwellingReferenceModel } from "./residential-dwelling-reference-model";
+export { apartmentBuildingReferenceModel } from "./apartment-building-reference-model";
 export * from "./residential-facility";
 
 export { computerRoomAirHandlerTemplate } from "./computer-room-air-handler";
