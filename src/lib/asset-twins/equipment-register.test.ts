@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseWalkdown, WALKDOWN_COLUMNS, walkdownCsv, walkdownRows } from "./equipment-register";
+import { ASSET_IMPORT_COLUMNS, parseWalkdown, WALKDOWN_COLUMNS, walkdownCsv, walkdownRows, walkdownToAssetImportCsv } from "./equipment-register";
 import { residentialDwellingReferenceModel as model } from "./residential-dwelling-reference-model";
 import { parseCSV } from "../fleet-import";
 
@@ -74,5 +74,31 @@ describe("equipment register walk-down", () => {
     );
     expect(messages.some((m) => m.startsWith("same make and serial as row"))).toBe(true);
     expect(parseWalkdown("property,unit\nA,B", model, { currentYear: 2026 }).issues[0].message).toMatch(/missing columns/);
+  });
+
+  it("hands reviewed proposals to Asset Management's existing import without deciding criticality", () => {
+    const csv = fill(walkdownCsv(model, areas), {
+      "Townhouse 1|RES-FURNACE-UNIT": { make: "Example Make", model: "X1", serial: "SN-1" },
+    });
+    const { proposals } = parseWalkdown(csv, model, { currentYear: 2026 });
+    const out = parseCSV(walkdownToAssetImportCsv(proposals, model));
+    expect(out[0]).toEqual([...ASSET_IMPORT_COLUMNS]);
+    expect(out[1]).toEqual([
+      "230 Wilson Drive · Townhouse 1 · Forced-air furnace",
+      "",
+      "RES-FURNACE",
+      "230 Wilson Drive / Townhouse 1",
+      "",
+      "",
+      "Example Make",
+      "X1",
+      "SN-1",
+    ]);
+  });
+
+  it("matches the header Asset Management's import accepts", async () => {
+    const fs = await import("node:fs");
+    const wizard = fs.readFileSync("src/components/CSVImportWizard.tsx", "utf8");
+    expect(wizard).toContain(ASSET_IMPORT_COLUMNS.join(","));
   });
 });

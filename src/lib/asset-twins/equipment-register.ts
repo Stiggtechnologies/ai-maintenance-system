@@ -186,3 +186,42 @@ export function parseWalkdown(
 
   return { proposals, issues };
 }
+
+/** Columns of Asset Management's existing CSV import (CSVImportWizard). */
+export const ASSET_IMPORT_COLUMNS = [
+  "name",
+  "tag",
+  "asset_class",
+  "area",
+  "criticality",
+  "status",
+  "manufacturer",
+  "model",
+  "serial_number",
+] as const;
+
+/**
+ * Reviewed walk-down proposals in the format Asset Management's existing CSV
+ * import already loads under tenant access rules. Criticality and status are
+ * left blank: they are decided by a person, not by the walk-down. Install
+ * year, filter size, location note and photo link have no asset column yet
+ * and stay on the walk-down sheet as the evidence record.
+ */
+export function walkdownToAssetImportCsv(proposals: WalkdownProposal[], model: SystemReferenceModel): string {
+  const names = new Map(model.nodes.map((n) => [n.code, n.name]));
+  const rows = proposals.map((p) => ({
+    name: `${p.property} · ${p.unit} · ${names.get(p.referenceNodeCode) ?? p.referenceNodeCode}`,
+    tag: "",
+    asset_class: p.assetClassCode,
+    area: `${p.property} / ${p.unit}`,
+    criticality: "",
+    status: "",
+    manufacturer: p.manufacturer ?? "",
+    model: p.model ?? "",
+    serial_number: p.serialNumber ?? "",
+  }));
+  return [
+    ASSET_IMPORT_COLUMNS.join(","),
+    ...rows.map((r) => ASSET_IMPORT_COLUMNS.map((c) => cell(r[c])).join(",")),
+  ].join("\n");
+}
