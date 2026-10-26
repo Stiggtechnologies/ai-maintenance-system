@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "source": "package-lock.json",
-  "lockfileSha256": "094c0411154bfb49f7f425bcf89a82cc79935015e6d87fedae65ee355554c201",
+  "lockfileSha256": "33b20a1669b98798a128195d378eae6b99e310c311575796eabeac4326cfe326",
   "packageInstances": 406,
   "directProductionDependencies": 14,
   "directDevelopmentDependencies": 27,
@@ -1167,49 +1167,49 @@
     },
     {
       "name": "@vitest/expect",
-      "version": "4.1.11",
+      "version": "4.1.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@vitest/expect"
     },
     {
       "name": "@vitest/mocker",
-      "version": "4.1.11",
+      "version": "4.1.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@vitest/mocker"
     },
     {
       "name": "@vitest/pretty-format",
-      "version": "4.1.11",
+      "version": "4.1.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@vitest/pretty-format"
     },
     {
       "name": "@vitest/runner",
-      "version": "4.1.11",
+      "version": "4.1.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@vitest/runner"
     },
     {
       "name": "@vitest/snapshot",
-      "version": "4.1.11",
+      "version": "4.1.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@vitest/snapshot"
     },
     {
       "name": "@vitest/spy",
-      "version": "4.1.11",
+      "version": "4.1.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@vitest/spy"
     },
     {
       "name": "@vitest/utils",
-      "version": "4.1.11",
+      "version": "4.1.12",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@vitest/utils"
@@ -1335,7 +1335,7 @@
     },
     {
       "name": "chai",
-      "version": "6.2.2",
+      "version": "6.3.0",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/chai"
@@ -2588,7 +2588,7 @@
     },
     {
       "name": "tinyrainbow",
-      "version": "3.1.1",
+      "version": "3.2.0",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/tinyrainbow"
@@ -2707,7 +2707,7 @@
     },
     {
       "name": "vitest",
-      "version": "4.1.11",
+      "version": "4.1.12",
       "license": "MIT",
       "direct": "development",
       "packagePath": "node_modules/vitest"
