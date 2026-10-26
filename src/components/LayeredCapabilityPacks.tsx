@@ -13,6 +13,10 @@ import {
   type JurisdictionRequirementDraft,
 } from "../lib/jurisdiction-requirements";
 import {
+  ALBERTA_LIFE_SAFETY_LAYER_TITLE,
+  albertaLifeSafetyDrafts,
+} from "../lib/alberta-life-safety-requirements";
+import {
   adoptCapabilityPackLayer,
   authorCapabilityPackLayer,
   canApprovePackOverride,
@@ -573,6 +577,25 @@ export function LayeredCapabilityPacks() {
                   Class, applicability and obligation are explicit. Industry
                   guidance remains advisory unless an accountable authority has
                   adopted it and the adoption reference is recorded.
+                </p>
+                <button
+                  type="button"
+                  className="mt-2 rounded-lg border border-signal-cyan/30 px-3 py-2 text-xs text-signal-cyan"
+                  onClick={() =>
+                    setDraft({
+                      ...draft,
+                      title: draft.title || ALBERTA_LIFE_SAFETY_LAYER_TITLE,
+                      jurisdiction: draft.jurisdiction || "Alberta",
+                      jurisdictionRequirements: albertaLifeSafetyDrafts(),
+                    })
+                  }
+                >
+                  Start from Alberta housing life-safety template
+                </button>
+                <p className="mt-1 text-xs text-slate-500">
+                  Drafts only: applicability undetermined, obligation advisory,
+                  no intervals. A named reviewer cites each clause before
+                  marking it mandatory.
                 </p>
               </div>
               {draft.jurisdictionRequirements.map((requirement, index) => (
