@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "source": "package-lock.json",
-  "lockfileSha256": "094c0411154bfb49f7f425bcf89a82cc79935015e6d87fedae65ee355554c201",
+  "lockfileSha256": "77b225516c4b631ed22c8c6bc7596eb8db0027d377435afdc6a594d718cf1cc1",
   "packageInstances": 406,
   "directProductionDependencies": 14,
   "directDevelopmentDependencies": 27,
@@ -831,14 +831,14 @@
     },
     {
       "name": "@supabase/auth-js",
-      "version": "2.117.2",
+      "version": "2.118.0",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/auth-js"
     },
     {
       "name": "@supabase/functions-js",
-      "version": "2.117.2",
+      "version": "2.118.0",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/functions-js"
@@ -852,28 +852,28 @@
     },
     {
       "name": "@supabase/postgrest-js",
-      "version": "2.117.2",
+      "version": "2.118.0",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/postgrest-js"
     },
     {
       "name": "@supabase/realtime-js",
-      "version": "2.117.2",
+      "version": "2.118.0",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/realtime-js"
     },
     {
       "name": "@supabase/storage-js",
-      "version": "2.117.2",
+      "version": "2.118.0",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/@supabase/storage-js"
     },
     {
       "name": "@supabase/supabase-js",
-      "version": "2.117.2",
+      "version": "2.118.0",
       "license": "MIT",
       "direct": "production",
       "packagePath": "node_modules/@supabase/supabase-js"
@@ -2063,7 +2063,7 @@
     },
     {
       "name": "lucide-react",
-      "version": "1.52.0",
+      "version": "1.61.0",
       "license": "ISC",
       "direct": "production",
       "packagePath": "node_modules/lucide-react"
@@ -2322,7 +2322,7 @@
     },
     {
       "name": "react-dom",
-      "version": "19.3.0",
+      "version": "19.3.1",
       "license": "MIT",
       "direct": "production",
       "packagePath": "node_modules/react-dom"
@@ -2350,7 +2350,7 @@
     },
     {
       "name": "react",
-      "version": "19.3.0",
+      "version": "19.3.1",
       "license": "MIT",
       "direct": "production",
       "packagePath": "node_modules/react"
@@ -2875,7 +2875,7 @@
     },
     {
       "name": "zustand",
-      "version": "5.0.15",
+      "version": "5.0.16",
       "license": "MIT",
       "direct": "production",
       "packagePath": "node_modules/zustand"
