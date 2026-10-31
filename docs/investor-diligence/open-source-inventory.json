@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "source": "package-lock.json",
-  "lockfileSha256": "094c0411154bfb49f7f425bcf89a82cc79935015e6d87fedae65ee355554c201",
+  "lockfileSha256": "9e81bb9ae4d7b1afc040d861256a057ee2f0a981e978e637041f235c3b92a90e",
   "packageInstances": 406,
   "directProductionDependencies": 14,
   "directDevelopmentDependencies": 27,
@@ -2679,7 +2679,7 @@
     },
     {
       "name": "undici",
-      "version": "7.30.0",
+      "version": "7.30.1",
       "license": "MIT",
       "direct": "transitive",
       "packagePath": "node_modules/undici"
