@@ -38,8 +38,7 @@
       ],
       "blockers": [
         "The existing CAD bank profile must be updated, assigned to Azure Marketplace, and taken through verification; the prior 48-hour processing window has elapsed",
-        "AZURE_MARKETPLACE_CLIENT_SECRET is absent from the live project",
-        "No Supplemental content scenario is saved; the truthful current production answer is not hosted in Azure, so the paid transactable Azure-platforming gate remains open",
+        "AZURE_MARKETPLACE_CLIENT_SECRET is absent from the live project, and all five Marketplace publisher inputs are absent from the repository-scoped GitHub deployment secrets",
         "Preview purchase, Microsoft validation, certification, and publication remain incomplete"
       ]
     },

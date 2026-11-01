@@ -243,6 +243,22 @@
         "missingOnLiveProject": ["AZURE_MARKETPLACE_CLIENT_SECRET"],
         "configuredAt": "2026-11-01",
         "observationMethod": "Supabase secret-name inventory; secret values were not inspected.",
+        "githubDeploymentControl": {
+          "workflow": ".github/workflows/deploy-migrations.yml",
+          "secretScope": "repository",
+          "observedAt": "2026-11-01",
+          "presentMarketplaceSecretNames": [],
+          "missingMarketplaceSecretNames": [
+            "AZURE_MARKETPLACE_CLIENT_ID",
+            "AZURE_MARKETPLACE_CLIENT_SECRET",
+            "AZURE_MARKETPLACE_TENANT_ID",
+            "AZURE_MARKETPLACE_PUBLISHER_ID",
+            "AZURE_MARKETPLACE_OFFER_ID"
+          ],
+          "secretValuesInspected": false,
+          "consequence": "The main deployment workflow currently leaves the existing runtime Marketplace configuration unchanged and cannot reproduce all five publisher inputs from GitHub.",
+          "status": "blocked"
+        },
         "status": "blocked"
       },
       "partnerCenterDraftSavedAt": "2026-10-06",
@@ -740,7 +756,7 @@
     {
       "id": "PC-010",
       "owner": "Marketplace identity and production secret owner",
-      "action": "Create a new client secret for the verified publisher application and configure AZURE_MARKETPLACE_CLIENT_SECRET on the live SyncAI Supabase project. A 2026-11-01 secret-name inventory confirms the verified client ID, tenant ID, publisher ID, and offer ID are present and the client secret remains absent. Then run the protected authenticated preview witness.",
+      "action": "Create a new client secret for the verified publisher application. Configure AZURE_MARKETPLACE_CLIENT_SECRET on the live SyncAI Supabase project, and configure all five Marketplace publisher/offer inputs as repository-scoped GitHub Actions secrets because deploy-migrations.yml has no deployment environment and reads repository secrets. Supabase currently has the four non-secret identifiers but lacks the client secret; GitHub currently has none of the five names. Do not expose values. Then run the protected main deployment and authenticated preview witness.",
       "status": "blocked"
     },
     {

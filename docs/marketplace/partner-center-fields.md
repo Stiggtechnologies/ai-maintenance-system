@@ -118,7 +118,11 @@ That draft entry and the upstream witness are evidence of configuration, not of
 a working paid purchase. The live SyncAI Supabase project contains the verified
 client ID, tenant ID, publisher ID, and offer ID, but it does not contain
 `AZURE_MARKETPLACE_CLIENT_SECRET`. Authenticated resolution, activation,
-lifecycle, metering, and certification therefore remain blocked.
+lifecycle, metering, and certification therefore remain blocked. The
+repository-scoped GitHub Actions secrets used by `deploy-migrations.yml` contain
+none of the five Marketplace input names, so durable setup must place all five
+there as well as the missing runtime secret. Secret values were not inspected
+and must never be committed or pasted into chat.
 
 ## Plans
 

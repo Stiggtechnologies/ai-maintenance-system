@@ -267,6 +267,24 @@ const manifest = JSON.parse(
     status: string;
     truthfulCurrentScenario: string;
   };
+  technicalConfiguration: {
+    connectionWebhook: {
+      runtimeSecrets: {
+        githubDeploymentControl: {
+          missingMarketplaceSecretNames: string[];
+          observedAt: string;
+          presentMarketplaceSecretNames: string[];
+          secretScope: string;
+          secretValuesInspected: boolean;
+          status: string;
+          workflow: string;
+        };
+        missingOnLiveProject: string[];
+        presentOnLiveProject: string[];
+        status: string;
+      };
+    };
+  };
   taxAndPayout: {
     azureMarketplaceAssignment: {
       paymentCurrency: string;
@@ -586,6 +604,44 @@ describe("competitive pricing benchmark", () => {
     expect(payoutAction?.action).toMatch(/payment profile Action required/i);
     expect(payoutAction?.action).toMatch(/verification Not started/i);
     expect(payoutAction?.action).toMatch(/bank profile needs to be updated/i);
+  });
+
+  it("records both runtime and deployment-control Marketplace secret gaps", () => {
+    const runtime =
+      manifest.technicalConfiguration.connectionWebhook.runtimeSecrets;
+    expect(runtime).toMatchObject({
+      presentOnLiveProject: [
+        "AZURE_MARKETPLACE_CLIENT_ID",
+        "AZURE_MARKETPLACE_TENANT_ID",
+        "AZURE_MARKETPLACE_PUBLISHER_ID",
+        "AZURE_MARKETPLACE_OFFER_ID",
+      ],
+      missingOnLiveProject: ["AZURE_MARKETPLACE_CLIENT_SECRET"],
+      status: "blocked",
+      githubDeploymentControl: {
+        workflow: ".github/workflows/deploy-migrations.yml",
+        secretScope: "repository",
+        observedAt: "2026-11-01",
+        presentMarketplaceSecretNames: [],
+        missingMarketplaceSecretNames: [
+          "AZURE_MARKETPLACE_CLIENT_ID",
+          "AZURE_MARKETPLACE_CLIENT_SECRET",
+          "AZURE_MARKETPLACE_TENANT_ID",
+          "AZURE_MARKETPLACE_PUBLISHER_ID",
+          "AZURE_MARKETPLACE_OFFER_ID",
+        ],
+        secretValuesInspected: false,
+        status: "blocked",
+      },
+    });
+    const credentialAction = manifest.blockingActions.find(
+      ({ id }) => id === "PC-010",
+    );
+    expect(credentialAction).toMatchObject({ status: "blocked" });
+    expect(credentialAction?.action).toMatch(
+      /repository-scoped GitHub Actions secrets/i,
+    );
+    expect(credentialAction?.action).toMatch(/none of the five names/i);
   });
 
   it("records the live offer inventory without promoting any draft to a product", () => {
