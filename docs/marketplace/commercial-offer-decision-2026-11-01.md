@@ -122,15 +122,18 @@ Public activation remains blocked until all of the following are evidenced:
 1. Microsoft accepts and verifies the Canadian payment profile assignment.
 2. The production Marketplace client secret is configured without exposing it.
 3. The exact flat-rate hard-stop policies are deployed and approved.
-4. The protected Reliability Engineer path uses the shared reservation and
+4. The database-level site and named-user entitlement policy is reviewed,
+   merged, deployed, configured against the exact Microsoft offer and plan
+   identities, and approved.
+5. The protected Reliability Engineer path uses the shared reservation and
    settlement boundary.
-5. Two real preview purchases pass fulfillment, activation, lifecycle,
+6. Two real preview purchases pass fulfillment, activation, lifecycle,
    entitlement, refusal, and certification tests.
-6. Measured p50/p95 inference cost and complete cost-to-serve preserve at least
+7. Measured p50/p95 inference cost and complete cost-to-serve preserve at least
    75% gross margin.
-7. Buyer-visible names, prices, limits, support, terms, and markets exactly
+8. Buyer-visible names, prices, limits, support, terms, and markets exactly
    match the controlled record.
-8. Microsoft certification succeeds before go-live.
+9. Microsoft certification succeeds before go-live.
 
 The machine-readable authority for this decision is
 `marketplace/commercial-offer-decision.json`.

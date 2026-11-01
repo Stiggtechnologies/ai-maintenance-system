@@ -12,6 +12,7 @@
     "secondaryReleaseGates": [
       "production_missing_AZURE_MARKETPLACE_CLIENT_SECRET",
       "commercial_plan_policy_not_approved_or_configured",
+      "site_and_named_user_entitlement_policy_not_reviewed_merged_deployed_or_configured",
       "two_real_preview_purchases_not_completed",
       "authenticated_marketplace_lifecycle_witness_not_completed"
     ],
@@ -210,6 +211,17 @@
       "controlledValue": false,
       "reason": "Current implementation requires manual activation by an administrator of an existing matching organization.",
       "status": "verified"
+    },
+    "commercialEntitlementEnforcement": {
+      "source": "supabase/migrations/20271027090000_marketplace_commercial_entitlements.sql",
+      "enforces": [
+        "approved exact offer and plan policy before active Marketplace entitlement",
+        "maximum sites at activation and every later site write",
+        "maximum named users at activation and every later membership write",
+        "one unambiguous active Marketplace subscription per organization",
+        "tenant-scoped entitlement readback"
+      ],
+      "status": "implemented_on_branch_not_reviewed_merged_deployed_or_configured"
     }
   },
   "plans": [
@@ -565,7 +577,7 @@
     {
       "id": "PC-003",
       "owner": "Product and engineering owners",
-      "action": "Implementation commit 7072c3d2 in PR #634 passed the fresh-database synthetic enforcement suite in GitHub Actions run 37524709308, including 25-to-10 seat quantity rebinding. It is not merged or deployed, and no commercial values are approved. Obtain independent review, merge and deployment authorization, configure approved policies, and then prove the production runtime enforces every approved plan and meter boundary.",
+      "action": "The AI commercial-cost control implementation from PR #634 is present on current main, but production deployment and approved policy values remain unproven. The current marketplace-readiness branch also adds database-level site and named-user entitlement enforcement; it is not yet reviewed, merged, deployed, or configured. Complete those steps, then prove the production runtime enforces every approved plan boundary.",
       "status": "blocked"
     },
     {
