@@ -87,6 +87,35 @@
     ],
     "status": "verified"
   },
+  "reviewAndSubmit": {
+    "observedAt": "2026-11-01",
+    "submitOfferEnabled": false,
+    "publishEnabled": false,
+    "completeSections": [
+      "offer_setup",
+      "properties",
+      "offer_listing",
+      "preview_audience",
+      "technical_configuration",
+      "csp_reseller_audience",
+      "supplemental_content"
+    ],
+    "incompleteSections": [
+      "plan_overview",
+      "starter",
+      "professional",
+      "enterprise"
+    ],
+    "observedPlanSummary": {
+      "planCount": 3,
+      "pricingModel": "per_user",
+      "markets": 141,
+      "autoActivation": false,
+      "audience": "public"
+    },
+    "interpretation": "The review table exposes no incomplete non-plan section. Each plan pricing page separately reports that the account is not publish eligible because of payout, payout hold, or tax. The saved plans also remain on the superseded per-user configuration, so account eligibility and the controlled flat-rate draft changes are both required before submission.",
+    "status": "blocked"
+  },
   "technicalConfiguration": {
     "status": "blocked",
     "partnerCenterPageStatus": {
@@ -214,6 +243,22 @@
         "missingOnLiveProject": ["AZURE_MARKETPLACE_CLIENT_SECRET"],
         "configuredAt": "2026-11-01",
         "observationMethod": "Supabase secret-name inventory; secret values were not inspected.",
+        "githubDeploymentControl": {
+          "workflow": ".github/workflows/deploy-migrations.yml",
+          "secretScope": "repository",
+          "observedAt": "2026-11-01",
+          "presentMarketplaceSecretNames": [],
+          "missingMarketplaceSecretNames": [
+            "AZURE_MARKETPLACE_CLIENT_ID",
+            "AZURE_MARKETPLACE_CLIENT_SECRET",
+            "AZURE_MARKETPLACE_TENANT_ID",
+            "AZURE_MARKETPLACE_PUBLISHER_ID",
+            "AZURE_MARKETPLACE_OFFER_ID"
+          ],
+          "secretValuesInspected": false,
+          "consequence": "The main deployment workflow currently leaves the existing runtime Marketplace configuration unchanged and cannot reproduce all five publisher inputs from GitHub.",
+          "status": "blocked"
+        },
         "status": "blocked"
       },
       "partnerCenterDraftSavedAt": "2026-10-06",
@@ -571,14 +616,46 @@
     "partnerCenterPageStatus": {
       "observedAt": "2026-11-01",
       "status": "complete",
-      "evidenceScope": "Partner Center form completeness; external routes and artifact quality were not revalidated in this observation."
+      "evidenceScope": "Partner Center form completeness plus read-only field inventory. The exact privacy URL was browser-witnessed separately; logo and screenshot visual quality were not approved."
     },
-    "privacyPolicyUrl": "saved_in_partner_center_not_reinspected",
-    "termsOrContract": "owner_decision_required",
+    "privacyPolicyUrl": "https://syncai.ca/privacy",
+    "partnerCenterPrivacyPolicyUrl": "https://syncai.ca/privacy",
+    "privacyPolicyBrowserWitness": {
+      "observedAt": "2026-11-01",
+      "signedOut": true,
+      "directPathLoad": true,
+      "renderedHeading": "Privacy Policy",
+      "matchesPartnerCenterSavedValue": true,
+      "status": "verified"
+    },
+    "termsUrl": "https://app.syncai.ca/terms",
+    "termsBrowserWitness": {
+      "observedAt": "2026-11-01",
+      "signedOut": true,
+      "directPathLoad": true,
+      "renderedHeading": "Terms of Service",
+      "status": "verified"
+    },
+    "termsOrContract": "microsoft_standard_contract_selected_legal_approval_required",
+    "contractSelection": {
+      "observedAt": "2026-11-01",
+      "microsoftStandardContractSelected": true,
+      "universalAmendmentObserved": false,
+      "customAmendmentObserved": false,
+      "legalOwnerApprovalRecorded": false,
+      "status": "selection_verified_approval_blocked"
+    },
     "supportEmail": "support@syncai.ca",
     "engineeringContact": "owner_decision_required",
-    "marketingPdf": "partner_center_listing_complete_asset_not_reinspected",
-    "logo": "partner_center_listing_complete_asset_not_reinspected",
+    "marketingPdf": "not_observed_in_partner_center_listing_2026-11-01",
+    "logo": "large_medium_small_present_not_quality_approved",
+    "screenshots": {
+      "observedCount": 1,
+      "requiredCountSatisfied": true,
+      "captionPresent": true,
+      "visualQualityApproved": false,
+      "status": "present_unapproved"
+    },
     "status": "verified"
   },
   "previewAndCertification": {
@@ -637,13 +714,13 @@
     {
       "id": "PC-003",
       "owner": "Product and engineering owners",
-      "action": "The AI commercial-cost control implementation from PR #634 is present on current main, but production deployment and approved policy values remain unproven. The current marketplace-readiness branch also adds database-level site and named-user entitlement enforcement; it is not yet reviewed, merged, deployed, or configured. Complete those steps, then prove the production runtime enforces every approved plan boundary.",
+      "action": "The AI commercial-cost controls and database-level site and named-user entitlement enforcement are present on current main and deployed to the canonical SyncAI production project. Production exposes both entitlement RPCs and denies anonymous execution. Exact offer-and-plan policy rows remain absent, unapproved, and unconfigured. After the Partner Center drafts and production client secret are verified, stage the exact draft policies through the fail-closed transaction, obtain named independent approval, and prove every runtime boundary with a real preview subscription.",
       "status": "blocked"
     },
     {
       "id": "PC-004",
       "owner": "Legal/privacy owner",
-      "action": "Publish and witness a directly addressable HTTPS privacy policy and approve the contract/EULA posture.",
+      "action": "The exact Partner Center privacy URL, https://syncai.ca/privacy, rendered a dedicated Privacy Policy in a fresh signed-out browser session on 2026-11-01. Partner Center has the Microsoft Standard Contract selected. Obtain named legal approval for that selection and an explicit decision on universal or customer-specific amendments. Route and selection evidence are not legal approval.",
       "status": "blocked"
     },
     {
@@ -655,7 +732,7 @@
     {
       "id": "PC-006",
       "owner": "Brand and claims owners",
-      "action": "Partner Center marks Offer listing Complete. Reinspect and improve the saved marketing PDF and logo as a conversion-quality workstream, not as the present submit-button blocker.",
+      "action": "Partner Center marks Offer listing Complete. The required large, medium and small logos and one captioned screenshot are present, but visual quality is not approved and no supplemental marketing PDF was observed on 2026-11-01. Improve the conversion assets as a separate brand workstream; do not misstate the absent PDF as a publication-form blocker or as an existing asset.",
       "status": "verified"
     },
     {
@@ -679,7 +756,7 @@
     {
       "id": "PC-010",
       "owner": "Marketplace identity and production secret owner",
-      "action": "Create a new client secret for the verified publisher application and configure AZURE_MARKETPLACE_CLIENT_SECRET on the live SyncAI Supabase project. A 2026-11-01 secret-name inventory confirms the verified client ID, tenant ID, publisher ID, and offer ID are present and the client secret remains absent. Then run the protected authenticated preview witness.",
+      "action": "Create a new client secret for the verified publisher application. Configure AZURE_MARKETPLACE_CLIENT_SECRET on the live SyncAI Supabase project, and configure all five Marketplace publisher/offer inputs as repository-scoped GitHub Actions secrets because deploy-migrations.yml has no deployment environment and reads repository secrets. Supabase currently has the four non-secret identifiers but lacks the client secret; GitHub currently has none of the five names. Do not expose values. Then run the protected main deployment and authenticated preview witness.",
       "status": "blocked"
     },
     {
@@ -705,9 +782,9 @@
     {
       "id": "PC-014",
       "owner": "Production architecture owner",
-      "action": "Inventory workloads on the noncanonical snlevbkyjipucmkpkqka project and decide whether to quarantine, rename or retire it. Do not move Marketplace production back to it and do not delete it without a separate impact review.",
+      "action": "The 2026-11-01 read-only inventory proves snlevbkyjipucmkpkqka is an ACTIVE_HEALTHY, separate Stigg Security operations system with 39 active Edge Functions, 115 public tables, 9 active scheduled jobs, 9 auth users and 3,589 stored objects. Logically quarantine it from SyncAI Marketplace production. Do not move Marketplace production to it, and do not rename, migrate, pause or retire it without a separate owner-approved dependency and impact plan.",
       "dependsOn": [],
-      "status": "external_action_required"
+      "status": "verified"
     }
   ],
   "sources": [
