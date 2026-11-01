@@ -2,7 +2,7 @@
   "schemaVersion": 7,
   "asOf": "2026-11-01",
   "scope": "AI inference cost controls and Microsoft Marketplace commercial compatibility",
-  "finding": "commercial_cost_controls_paid_direct_route_standard_rate_envelope_and_durable_pricing_breach_implemented_protected_reliability_surface_blocked_not_reviewed_merged_deployed_or_configured",
+  "finding": "commercial_cost_controls_and_marketplace_capacity_enforcement_deployed_production_plan_policies_not_configured_or_approved_protected_reliability_surface_release_blocked",
   "sustainabilityAssessment": {
     "verdict": "not_proven_sustainable_for_public_release",
     "summary": "The proposed hard-stop AI allowances are mathematically inside a 75% modeled variable gross-margin floor, but complete customer cost-to-serve has not been measured. Starter is structurally underpriced at one seat if it receives human onboarding, security review, support, or customer-success work.",

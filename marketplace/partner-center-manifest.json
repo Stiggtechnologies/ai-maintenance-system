@@ -12,7 +12,7 @@
     "secondaryReleaseGates": [
       "production_missing_AZURE_MARKETPLACE_CLIENT_SECRET",
       "commercial_plan_policy_not_approved_or_configured",
-      "site_and_named_user_entitlement_policy_not_reviewed_merged_deployed_or_configured",
+      "site_and_named_user_entitlement_policy_not_configured_or_approved",
       "two_real_preview_purchases_not_completed",
       "authenticated_marketplace_lifecycle_witness_not_completed"
     ],
@@ -50,7 +50,8 @@
     "offers": [
       {
         "partnerCenterName": "SyncAI Predictive Maintenance",
-        "offerId": "771d0f8e-11f8-4ac3-9325-7ee01ce6fe6b",
+        "offerId": "syncai-predictive-maintenance",
+        "partnerCenterResourceId": "771d0f8e-11f8-4ac3-9325-7ee01ce6fe6b",
         "type": "saas",
         "status": "draft",
         "publicListingName": "SyncAI Industrial Engineering Intelligence",
@@ -58,7 +59,8 @@
       },
       {
         "partnerCenterName": "Reliability Intelligence Assessment",
-        "offerId": "82535999-46d1-4810-8bbb-b2650b9a4e3a",
+        "offerId": "syncai-reliability-intelligence-assessment",
+        "partnerCenterResourceId": "82535999-46d1-4810-8bbb-b2650b9a4e3a",
         "type": "professional_service",
         "status": "draft",
         "observedMarkets": 0,
@@ -67,14 +69,16 @@
       },
       {
         "partnerCenterName": "Industrial Decision Proof of Concept",
-        "offerId": "6c1a18a9-d71b-4207-aea0-a1c73042691c",
+        "offerId": "syncai-industrial-decision-proof-of-concept",
+        "partnerCenterResourceId": "6c1a18a9-d71b-4207-aea0-a1c73042691c",
         "type": "professional_service",
         "status": "draft",
         "canonicalRecurringPath": false
       },
       {
         "partnerCenterName": "SyncAI Implementation and Scale",
-        "offerId": "12c6243a-ab61-4e59-8bcc-9d8d6135fd3b",
+        "offerId": "syncai-implementation-and-scale",
+        "partnerCenterResourceId": "12c6243a-ab61-4e59-8bcc-9d8d6135fd3b",
         "type": "professional_service",
         "status": "draft",
         "canonicalRecurringPath": false
@@ -229,13 +233,30 @@
         "one unambiguous active Marketplace subscription per organization",
         "tenant-scoped entitlement readback"
       ],
-      "status": "implemented_on_branch_not_reviewed_merged_deployed_or_configured"
+      "status": "deployed_to_production_not_configured",
+      "productionVerification": {
+        "verifiedAt": "2026-11-01",
+        "project": "stigg-os-prod",
+        "projectRef": "snlevbkyjipucmkpkqka",
+        "witnesses": [
+          "PostgREST resolves public.get_current_commercial_plan_limits and denies anonymous execution with PostgreSQL code 42501",
+          "PostgREST resolves public.configure_commercial_plan_capacity and denies anonymous execution with PostgreSQL code 42501",
+          "get_current_commercial_plan_limits is the final statement in the atomic migration file"
+        ],
+        "doesNotProve": [
+          "exact Marketplace offer and plan policies are configured or approved",
+          "a Marketplace subscription is activated",
+          "preview purchase or certification is complete"
+        ]
+      }
     }
   },
   "plans": [
     {
       "name": "Starter",
       "proposedPlanId": "starter",
+      "technicalPlanId": "starter",
+      "partnerCenterPlanResourceId": "792e22d3-8169-4cc5-a422-575799ff78ec",
       "listingCopy": "verified",
       "partnerCenterDraftSavedAt": "2026-10-06",
       "partnerCenterPageStatus": "incomplete_account_publish_eligibility",
@@ -275,6 +296,8 @@
     {
       "name": "Professional",
       "proposedPlanId": "professional",
+      "technicalPlanId": "professional",
+      "partnerCenterPlanResourceId": "c5fd0cf9-b83b-4203-9b21-df1970a17c10",
       "listingCopy": "verified",
       "partnerCenterDraftSavedAt": "2026-10-06",
       "partnerCenterPageStatus": "incomplete_account_publish_eligibility",
@@ -314,6 +337,8 @@
     {
       "name": "Enterprise",
       "proposedPlanId": "enterprise",
+      "technicalPlanId": "enterprise",
+      "partnerCenterPlanResourceId": "7a494a0b-e89f-4211-8cf6-46c6d187b1ab",
       "listingCopy": "verified",
       "partnerCenterDraftSavedAt": "2026-10-06",
       "partnerCenterPageStatus": "incomplete_account_publish_eligibility",
@@ -511,7 +536,8 @@
   "listing": {
     "partnerCenterOfferName": "SyncAI Predictive Maintenance",
     "publicOfferName": "SyncAI Industrial Engineering Intelligence",
-    "offerId": "771d0f8e-11f8-4ac3-9325-7ee01ce6fe6b",
+    "offerId": "syncai-predictive-maintenance",
+    "partnerCenterResourceId": "771d0f8e-11f8-4ac3-9325-7ee01ce6fe6b",
     "offerCopy": "verified",
     "gettingStarted": "verified",
     "keywords": "verified",
