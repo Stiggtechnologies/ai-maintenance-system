@@ -4,6 +4,17 @@
 design, not owner approval for a price change, Partner Center mutation, customer
 quote, discount, or outcome guarantee.**
 
+**Operating decision — 2026-11-01.** The controlled commercial evaluation now
+selects flat-rate, site-and-outcome pricing for the core Microsoft SaaS offer.
+The current per-user drafts must not be published. Exact preview plan prices,
+allowances, margin reserves, value-qualification rules, and release gates are
+recorded in
+[`commercial-offer-decision.json`](../../marketplace/commercial-offer-decision.json)
+and
+[`commercial-offer-decision-2026-11-01.md`](commercial-offer-decision-2026-11-01.md).
+The narrow Failure Investigation Agent remains a separate acquisition
+experiment; it is not allowed to lock the core platform to a seat model.
+
 ## Commercial decision
 
 SyncAI is not being sold as a repository, generic AI assistant, or replacement

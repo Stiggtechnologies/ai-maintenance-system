@@ -45,6 +45,11 @@ begin
      or coalesce((v_result->'evaluation'->>'allowed')::boolean,false) is not true then
     raise exception 'CI preview policy failed margin evaluation: %',v_result;
   end if;
+  v_result := public.configure_commercial_plan_capacity(
+    'azure_marketplace','syncai-preview','enterprise-metered',10,100);
+  if v_result->>'status'<>'draft' then
+    raise exception 'CI preview capacity fixture was not configured: %',v_result;
+  end if;
   v_result := public.approve_ai_commercial_plan_policy(
     'azure_marketplace','syncai-preview','enterprise-metered',
     'c7777777-7777-4777-8777-777777777777'

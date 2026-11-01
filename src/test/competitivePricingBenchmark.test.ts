@@ -5,10 +5,12 @@ const unitEconomics = JSON.parse(
   readFileSync("marketplace/ai-unit-economics.json", "utf8"),
 ) as {
   commercialCompatibility: {
+    automaticMeteredOverageAtLaunch: boolean;
     currentDraftCompatibleWithImplementedMeter: boolean;
+    futureMeteringCompatibilityPreserved: boolean;
     microsoftMeteringSupportedForPerUser: boolean;
     partnerCenterMutationAuthorized: boolean;
-    recommendedCoreSaasArchitecture: string;
+    selectedCoreSaasArchitecture: string;
   };
   economicsModel: {
     commercialAllowanceApproved: boolean;
@@ -137,6 +139,7 @@ const manifest = JSON.parse(
       stage: string;
     }>;
     ownerApprovalRecorded: boolean;
+    operatingCeoDecisionRecorded: boolean;
     positioning: {
       customerPromise: string;
       entryProduct: string;
@@ -146,10 +149,16 @@ const manifest = JSON.parse(
       defaultEngineeringQuotaMayBeUsedAsAllowance?: boolean;
       id: string;
       microsoftMeteredOverageSupported?: boolean;
-      partnerCenterMutationAuthorized: boolean;
+      partnerCenterMutationAuthorized?: boolean;
+      partnerCenterDraftMutationAuthorized?: boolean;
+      partnerCenterPublicationAuthorizedByEvidence?: boolean;
       priceUsd?: number;
       monthlyUsdPerUser?: number;
+      pricingModel?: string;
       pricingModelChangeBeforePublicationRequired?: boolean;
+      basePriceApprovedByOperatingCeo?: boolean;
+      includedAllowanceApprovedByOperatingCeo?: boolean;
+      automaticMeteredOverageAtLaunch?: boolean;
     }>;
     status: string;
   };
@@ -248,11 +257,14 @@ describe("competitive pricing benchmark", () => {
     ).toEqual(expect.arrayContaining(["MaintainX", "UpKeep", "Fiix"]));
   });
 
-  it("keeps the entry tests and every price mutation unapproved", () => {
+  it("records the controlled core decision while keeping publication blocked", () => {
     expect(manifest.commercialBenchmark.status).toBe(
-      "recommendation_not_approved",
+      "controlled_decision_public_activation_blocked",
     );
     expect(manifest.commercialBenchmark.ownerApprovalRecorded).toBe(false);
+    expect(manifest.commercialBenchmark.operatingCeoDecisionRecorded).toBe(
+      true,
+    );
     expect(manifest.commercialBenchmark.pricingExperiments).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -268,9 +280,14 @@ describe("competitive pricing benchmark", () => {
           partnerCenterMutationAuthorized: false,
         }),
         expect.objectContaining({
-          id: "core_saas_flat_rate_metered",
+          id: "core_saas_flat_rate_hard_stop_launch",
+          pricingModel: "flat_rate",
+          basePriceApprovedByOperatingCeo: true,
+          includedAllowanceApprovedByOperatingCeo: true,
+          automaticMeteredOverageAtLaunch: false,
           pricingModelChangeBeforePublicationRequired: true,
-          partnerCenterMutationAuthorized: false,
+          partnerCenterDraftMutationAuthorized: true,
+          partnerCenterPublicationAuthorizedByEvidence: false,
         }),
       ]),
     );
@@ -455,8 +472,14 @@ describe("competitive pricing benchmark", () => {
         .currentDraftCompatibleWithImplementedMeter,
     ).toBe(false);
     expect(
-      unitEconomics.commercialCompatibility.recommendedCoreSaasArchitecture,
-    ).toBe("flat_rate_base_with_included_allowance_and_metered_overage");
+      unitEconomics.commercialCompatibility.selectedCoreSaasArchitecture,
+    ).toBe("flat_rate_base_with_hard_stop_allowance_at_launch");
+    expect(
+      unitEconomics.commercialCompatibility.automaticMeteredOverageAtLaunch,
+    ).toBe(false);
+    expect(
+      unitEconomics.commercialCompatibility.futureMeteringCompatibilityPreserved,
+    ).toBe(true);
     expect(
       unitEconomics.commercialCompatibility.partnerCenterMutationAuthorized,
     ).toBe(false);
@@ -464,14 +487,14 @@ describe("competitive pricing benchmark", () => {
 
   it("keeps Partner Center payout state internally consistent", () => {
     expect(manifest.taxAndPayout).toMatchObject({
-      publisherSubmission: "submitted_pending_validation",
+      publisherSubmission: "payment_profile_action_required",
       partnerCenterTaxValidationOrAssignment: "complete",
-      partnerCenterPayoutProfile: "pending_microsoft_validation",
+      partnerCenterPayoutProfile: "existing_cad_profile_requires_update",
       status: "blocked",
       azureMarketplaceAssignment: {
         submittedAt: "2026-10-06",
         taxProfileStatus: "complete",
-        paymentProfileStatus: "pending_microsoft_validation",
+        paymentProfileStatus: "action_required",
         paymentCurrency: "CAD",
         verificationStatus: "not_started",
       },
@@ -481,9 +504,10 @@ describe("competitive pricing benchmark", () => {
       ({ id }) => id === "PC-009",
     );
     expect(payoutAction).toMatchObject({ status: "blocked" });
-    expect(payoutAction?.action).toMatch(/Tax is Complete/);
-    expect(payoutAction?.action).toMatch(/Pending Microsoft validation/);
-    expect(payoutAction?.action).toMatch(/verification is Not started/);
+    expect(payoutAction?.action).toMatch(/tax profile Complete/i);
+    expect(payoutAction?.action).toMatch(/payment profile Action required/i);
+    expect(payoutAction?.action).toMatch(/verification Not started/i);
+    expect(payoutAction?.action).toMatch(/bank profile needs to be updated/i);
   });
 
   it("records the live offer inventory without promoting any draft to a product", () => {
@@ -510,20 +534,17 @@ describe("competitive pricing benchmark", () => {
     ).toHaveLength(3);
   });
 
-  it("keeps the truthful non-Azure declaration unsaved until action-time approval", () => {
+  it("records the authorized non-Azure draft without claiming certification", () => {
     expect(manifest.supplementalContent).toMatchObject({
-      selectedScenario: null,
+      selectedScenario: "not_hosted_in_azure",
       truthfulCurrentScenario: "not_hosted_in_azure",
       portalOptionLabel: "SaaS solution is not hosted in Azure",
-      draftSaveAuthorized: false,
-      partnerCenterDraftSavedAt: null,
-      status: "blocked",
+      draftSaveAuthorized: true,
+      partnerCenterDraftSavedAt: "2026-11-01",
+      status: "verified",
     });
     expect(manifest.supplementalContent.commercialConsequence).toMatch(
-      /primarily platformed on Azure/i,
-    );
-    expect(manifest.supplementalContent.commercialConsequence).toMatch(
-      /purchasable within Azure portal/i,
+      /do not claim Azure platforming, MACC eligibility, certification, or purchase eligibility/i,
     );
     expect(manifest.plans).toHaveLength(3);
     for (const plan of manifest.plans) {
@@ -557,8 +578,10 @@ describe("competitive pricing benchmark", () => {
       ({ id }) => id === "PC-003",
     );
     expect(productAction).toMatchObject({ status: "blocked" });
-    expect(productAction?.action).toMatch(/not merged or deployed/i);
-    expect(productAction?.action).toMatch(/no commercial values are approved/i);
+    expect(productAction?.action).toMatch(
+      /not yet reviewed, merged, deployed, or configured/i,
+    );
+    expect(productAction?.action).toMatch(/policy values remain unproven/i);
   });
 
   it("records an expansion path capable of reaching enterprise ACV", () => {

@@ -64,6 +64,11 @@ begin
      or coalesce((v_result->'evaluation'->>'allowed')::boolean,false) is not true then
     raise exception 'enterprise commercial fixture failed margin evaluation: %',v_result;
   end if;
+  v_result := public.configure_commercial_plan_capacity(
+    'azure_marketplace','syncai-enterprise','enterprise',10,100);
+  if v_result->>'status'<>'draft' then
+    raise exception 'enterprise capacity fixture was not configured: %',v_result;
+  end if;
   v_result := public.approve_ai_commercial_plan_policy(
     'azure_marketplace','syncai-enterprise','enterprise',
     '92222222-2222-4222-8222-222222222222');
@@ -80,6 +85,11 @@ begin
   if v_result->>'status'<>'draft'
      or coalesce((v_result->'evaluation'->>'allowed')::boolean,false) is not true then
     raise exception 'enterprise-plus commercial fixture failed margin evaluation: %',v_result;
+  end if;
+  v_result := public.configure_commercial_plan_capacity(
+    'azure_marketplace','syncai-enterprise','enterprise-plus',20,200);
+  if v_result->>'status'<>'draft' then
+    raise exception 'enterprise-plus capacity fixture was not configured: %',v_result;
   end if;
   v_result := public.approve_ai_commercial_plan_policy(
     'azure_marketplace','syncai-enterprise','enterprise-plus',

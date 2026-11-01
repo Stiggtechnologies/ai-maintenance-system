@@ -107,6 +107,12 @@ begin
     raise exception 'commercial policy fixture failed margin evaluation: %',v_result;
   end if;
 
+  v_result := public.configure_commercial_plan_capacity(
+    'azure_marketplace','syncai-enterprise','enterprise',10,100);
+  if v_result->>'status'<>'draft' then
+    raise exception 'commercial capacity fixture was not configured: %',v_result;
+  end if;
+
   v_result := public.approve_ai_commercial_plan_policy(
     'azure_marketplace','syncai-enterprise','enterprise',
     '83333333-3333-4333-8333-333333333333');

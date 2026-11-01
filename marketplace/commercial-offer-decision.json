@@ -1,0 +1,234 @@
+{
+  "schemaVersion": "1.0",
+  "artifact": "syncai-core-saas-commercial-offer-decision",
+  "asOf": "2026-11-01",
+  "decision": {
+    "status": "approved_for_controlled_preview_not_public_activation",
+    "decisionAuthority": "SyncAI AI Operating CEO under the user-delegated operating mandate",
+    "publicationIntentAuthorizedByUser": true,
+    "publicActivationAuthorizedByEvidence": false,
+    "bindingDecision": "Use one flat-rate, site-and-outcome-priced Microsoft SaaS offer for the SyncAI platform. Do not publish the current per-user Starter, Professional, and Enterprise drafts.",
+    "reasons": [
+      "SyncAI is bought to improve governed reliability decisions and reduce the economic impact of unplanned downtime, not to provide repository seats.",
+      "Microsoft permits Marketplace metering only for flat-rate SaaS plans and requires all plans in an offer to use the same pricing model.",
+      "Microsoft does not allow the SaaS pricing model to change after publication.",
+      "The current one-seat Starter annual contract value of USD 1068 cannot absorb material onboarding, security, support, or customer-success work.",
+      "The durable ARR path is proof-to-site-to-network-to-enterprise expansion, not isolated low-value seats."
+    ]
+  },
+  "positioning": {
+    "publicOfferName": "SyncAI Unplanned Downtime Reduction",
+    "categoryDescription": "Governed reliability decision platform for failure investigation, downtime recovery, preventive-maintenance decisions, cost tracking, human approval, and verified learning.",
+    "outcomePromise": "Reduce the recurrence, duration, and economic impact of unplanned downtime.",
+    "outcomeGuarantee": false,
+    "platformNotSoldAs": [
+      "a repository",
+      "a generic chatbot",
+      "a replacement CMMS",
+      "a sensor-monitoring or predictive-failure system"
+    ]
+  },
+  "offerArchitecture": {
+    "pricingModel": "flat_rate",
+    "activation": "manual_after_verified_tenant_binding",
+    "freeTrial": false,
+    "trialAlternative": "Use the separately contracted Reliability Intelligence Assessment or bounded Industrial Decision Proof of Concept.",
+    "automaticMeteredOverageAtLaunch": false,
+    "overageBehaviorAtLaunch": "hard_stop_then_customer_authorized_plan_change_or_private_offer",
+    "futureMeteringCompatibility": "Preserved by the flat-rate model, but no dimension may be activated until a canonical usage unit and live Marketplace certification are approved.",
+    "siteAndNamedUserEntitlementEnforcement": "implemented_on_branch_not_reviewed_merged_deployed_or_configured",
+    "painLedEntrances": [
+      "failure_investigation",
+      "downtime_recovery",
+      "preventive_maintenance_optimization",
+      "maintenance_cost_reduction"
+    ],
+    "canonicalDestination": "one SyncAI organization and governed Decision Case platform"
+  },
+  "plans": [
+    {
+      "currentDraftName": "Starter",
+      "controlledDisplayName": "Site Reliability",
+      "planRole": "public_land_plan",
+      "visibility": "public",
+      "contractDuration": "one_year",
+      "billingFrequency": "monthly_equal_payments",
+      "monthlyPriceUsd": 5000,
+      "annualContractValueUsd": 60000,
+      "includedSites": 1,
+      "includedNamedUsers": 25,
+      "includedGovernedAiDecisionsPerMonth": 20,
+      "maximumModelCallsPerMonth": 100,
+      "maximumTokensPerMonth": 10000000,
+      "allowanceMode": "hard_stop",
+      "supportBoundary": "standard_remote_product_support; implementation and engineering services require a separate order",
+      "publicationStatus": "blocked_pending_release_gates"
+    },
+    {
+      "currentDraftName": "Professional",
+      "controlledDisplayName": "Reliability Network",
+      "planRole": "private_expand_plan",
+      "visibility": "private",
+      "contractDuration": "one_year",
+      "billingFrequency": "monthly_equal_payments",
+      "monthlyPriceUsd": 15000,
+      "annualContractValueUsd": 180000,
+      "includedSites": 5,
+      "includedNamedUsers": 100,
+      "includedGovernedAiDecisionsPerMonth": 60,
+      "maximumModelCallsPerMonth": 300,
+      "maximumTokensPerMonth": 30000000,
+      "allowanceMode": "hard_stop",
+      "supportBoundary": "enhanced_remote product support; rollout, integration, and engineering services require a separate order",
+      "publicationStatus": "blocked_pending_release_gates"
+    },
+    {
+      "currentDraftName": "Enterprise",
+      "controlledDisplayName": "Enterprise Reliability",
+      "planRole": "private_standardize_plan",
+      "visibility": "private",
+      "contractDuration": "one_year",
+      "billingFrequency": "monthly_equal_payments",
+      "monthlyPriceUsd": 30000,
+      "annualContractValueUsd": 360000,
+      "includedSites": 15,
+      "includedNamedUsers": 250,
+      "includedGovernedAiDecisionsPerMonth": 120,
+      "maximumModelCallsPerMonth": 600,
+      "maximumTokensPerMonth": 60000000,
+      "allowanceMode": "hard_stop",
+      "supportBoundary": "enterprise remote product support; custom rollout, integration, residency, and engineering services require an approved order",
+      "publicationStatus": "blocked_pending_release_gates"
+    }
+  ],
+  "entryAndExpansion": {
+    "outcomeLedProof": {
+      "offer": "Unplanned Downtime Reduction Proof",
+      "deliveryVehicle": "Reliability Intelligence Assessment or bounded Industrial Decision Proof of Concept selected from customer readiness",
+      "referencePriceUsd": 35000,
+      "normalDurationWeeks": {
+        "minimum": 6,
+        "maximum": 8
+      },
+      "isRecurringArr": false,
+      "requiredExit": "customer-owned go, change, hold, or stop decision"
+    },
+    "softwareLedFailureInvestigationExperiment": {
+      "status": "separate_offer_research_only",
+      "reason": "A narrow team agent can test low-friction demand, but placing it inside the core SaaS offer would lock the platform to per-user pricing and weaken site expansion economics.",
+      "closestPublicAnchor": "Causelink Team at USD 6250 per year for five users",
+      "publicationBlockedUntil": [
+        "agent-specific entitlements are isolated from the full platform",
+        "self-serve onboarding and support burden are measured",
+        "a hard AI allowance is enforced",
+        "the acquisition-to-site-expansion path is instrumented"
+      ]
+    }
+  },
+  "economics": {
+    "currency": {
+      "planPrice": "USD",
+      "costModel": "CAD",
+      "usdCad": 1.396,
+      "observationDate": "2026-10-30"
+    },
+    "marketplaceServiceFeeRatio": 0.03,
+    "maximumInferenceCostCadPerGovernedDecision": 9.2136,
+    "inferenceStressBasis": {
+      "maximumTokensPerDecision": 500000,
+      "maximumModelCallsPerDecision": 5,
+      "providerCostMultiplier": 1.1,
+      "worstAllowedRateBasis": "GPT-5.6 Terra output rate",
+      "status": "conservative planning ceiling, not measured production COGS"
+    },
+    "minimumGrossMarginRatio": 0.75,
+    "planStressTests": [
+      {
+        "plan": "Site Reliability",
+        "grossMonthlyRevenueCad": 6980,
+        "marketplaceFeeCad": 209.4,
+        "maximumInferenceCostCad": 184.272,
+        "otherNonInferenceVariableCostReserveCad": 1100,
+        "totalModeledVariableCostCad": 1493.672,
+        "modeledGrossMarginRatio": 0.786006877
+      },
+      {
+        "plan": "Reliability Network",
+        "grossMonthlyRevenueCad": 20940,
+        "marketplaceFeeCad": 628.2,
+        "maximumInferenceCostCad": 552.816,
+        "otherNonInferenceVariableCostReserveCad": 3700,
+        "totalModeledVariableCostCad": 4881.016,
+        "modeledGrossMarginRatio": 0.76690468
+      },
+      {
+        "plan": "Enterprise Reliability",
+        "grossMonthlyRevenueCad": 41880,
+        "marketplaceFeeCad": 1256.4,
+        "maximumInferenceCostCad": 1105.632,
+        "otherNonInferenceVariableCostReserveCad": 7400,
+        "totalModeledVariableCostCad": 9762.032,
+        "modeledGrossMarginRatio": 0.76690468
+      }
+    ],
+    "interpretation": "All three candidates clear the 75% modeled variable-margin floor under planning reserves. Network and Enterprise have only about 1.69 percentage points of headroom, so measured hosting, storage, observability, support, customer-success, and implementation costs remain a mandatory release gate."
+  },
+  "valueQualification": {
+    "pricingRule": "Do not quote a production plan until the customer validates an addressable annual value hypothesis that makes the price economically credible.",
+    "targetPriceToAddressableValueRatio": {
+      "minimum": 0.05,
+      "maximum": 0.15,
+      "status": "qualification range, not a value guarantee or gainshare commitment"
+    },
+    "requiredInputs": [
+      "baseline downtime events and hours",
+      "customer-approved economic value per hour or event",
+      "addressable failure or recovery scope",
+      "counterfactual",
+      "proof and implementation investment",
+      "observed and independently verified result",
+      "attribution confidence and material confounders"
+    ]
+  },
+  "scaleGeometry": {
+    "status": "portfolio math, not a forecast",
+    "exampleCustomers": {
+      "siteReliability": 401,
+      "reliabilityNetwork": 300,
+      "enterpriseReliability": 61
+    },
+    "exampleTotalCustomers": 762,
+    "exampleArrUsd": 100020000,
+    "leadingMetrics": [
+      "qualified proof close rate",
+      "proof-to-site conversion",
+      "site-to-network expansion",
+      "network-to-enterprise standardization",
+      "gross and net revenue retention",
+      "verified customer value and payback",
+      "measured gross margin and support burden"
+    ]
+  },
+  "releaseGates": [
+    "Partner Center payment profile is updated, assigned, and verified",
+    "production AZURE_MARKETPLACE_CLIENT_SECRET is configured without exposing its value",
+    "the flat-rate plan policy is deployed and approved with the exact hard-stop allowances",
+    "the database-level site and named-user entitlement policy is reviewed, merged, deployed, configured against the exact Microsoft offer and plan identities, and approved",
+    "the protected Reliability Engineer path uses the shared commercial reservation and settlement boundary",
+    "two real preview purchases pass resolve, activation, lifecycle, entitlement, and refusal tests",
+    "measured p50 and p95 inference cost and complete cost-to-serve preserve at least 75% gross margin",
+    "the exact buyer-visible plan names, prices, limits, support boundary, terms, and markets match this control record",
+    "Microsoft certification succeeds before go-live"
+  ],
+  "sources": [
+    "https://www.causelink.com/pricing",
+    "https://www.ibm.com/products/maximo/pricing",
+    "https://learn.microsoft.com/en-us/partner-center/marketplace-offers/plan-saas-offer",
+    "https://learn.microsoft.com/en-us/partner-center/marketplace-offers/saas-metered-billing",
+    "https://learn.microsoft.com/en-us/partner-center/marketplace-offers/payout-faq",
+    "marketplace/ai-unit-economics.json",
+    "marketplace/partner-center-manifest.json",
+    "docs/marketplace/competitive-pricing-benchmark.md",
+    "marketplace/professional-services-offers.json"
+  ]
+}

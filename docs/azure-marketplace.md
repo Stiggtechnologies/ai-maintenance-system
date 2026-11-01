@@ -41,6 +41,30 @@ The controlled sequence is:
 No certification or co-sell claim may be published from source code, a preview
 offer, or a successful infrastructure deployment alone.
 
+## Controlled product-line queue
+
+The two Azure commercial paths are now durable portfolio items in
+[`marketplace/azure-product-line-queue.json`](../marketplace/azure-product-line-queue.json):
+
+1. **Azure-hosted SyncAI SaaS — P0, primary commercial version.** Retain and
+   update the existing Marketplace SaaS offer. The Container Apps, identity,
+   Key Vault, observability and Azure OpenAI foundation is implemented in code.
+   The unresolved application move is explicit: production deployment plus the
+   PostgreSQL data-plane migration to Azure Database for PostgreSQL Flexible
+   Server, object/document migration to Azure Blob Storage, reconciliation,
+   backup/restore, rollback and buyer evidence.
+2. **SyncAI Managed Application — P1, enterprise spin-off.** Treat this as a
+   separate customer-tenant product and Marketplace certification path. It is
+   queued for discovery after the shared Azure SaaS foundation is proven, or
+   earlier if a qualified enterprise contract funds customer-tenant delivery.
+   It must reuse the canonical decision, approval and audit model rather than
+   fork the product.
+
+The Managed Application must not delay the primary SaaS cutover based only on
+assumed demand. Its entry gate is buyer evidence: three qualified enterprises
+requesting customer-tenant deployment, or one funded contract, plus a support
+and upgrade model that preserves the commercial margin floor.
+
 ## Foundation architecture
 
 The first stamp uses:

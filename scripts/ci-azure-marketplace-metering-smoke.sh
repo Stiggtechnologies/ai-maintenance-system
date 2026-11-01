@@ -61,6 +61,11 @@ begin
        <>0.00170712 then
     raise exception 'provider pricing multiplier was not applied to both base and overage cost: %',v_result;
   end if;
+  v_result := public.configure_commercial_plan_capacity(
+    'azure_marketplace','syncai-enterprise','enterprise-metered',10,100);
+  if v_result->>'status'<>'draft' then
+    raise exception 'metered capacity fixture was not configured: %',v_result;
+  end if;
   v_result := public.approve_ai_commercial_plan_policy(
     'azure_marketplace','syncai-enterprise','enterprise-metered',
     'a7777777-7777-4777-8777-777777777777'
