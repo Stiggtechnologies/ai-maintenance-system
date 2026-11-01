@@ -183,6 +183,26 @@ const manifest = JSON.parse(
     publishedCount: number;
     submitOrPublishEnabled: boolean;
   };
+  listing: {
+    partnerCenterPrivacyPolicyUrl: string;
+    privacyPolicyBrowserWitness: {
+      directPathLoad: boolean;
+      observedAt: string;
+      renderedHeading: string;
+      signedOut: boolean;
+      status: string;
+    };
+    privacyPolicyUrl: string;
+    termsBrowserWitness: {
+      directPathLoad: boolean;
+      observedAt: string;
+      renderedHeading: string;
+      signedOut: boolean;
+      status: string;
+    };
+    termsOrContract: string;
+    termsUrl: string;
+  };
   plans: Array<{
     autoActivation: boolean;
     name: string;
@@ -581,6 +601,36 @@ describe("competitive pricing benchmark", () => {
         ownerApprovalRecorded: false,
       });
     }
+  });
+
+  it("records direct signed-out policy routes without inventing legal approval", () => {
+    expect(manifest.listing).toMatchObject({
+      privacyPolicyUrl: "https://app.syncai.ca/privacy",
+      partnerCenterPrivacyPolicyUrl: "saved_in_partner_center_not_reinspected",
+      privacyPolicyBrowserWitness: {
+        observedAt: "2026-11-01",
+        signedOut: true,
+        directPathLoad: true,
+        renderedHeading: "Privacy Policy",
+        status: "verified",
+      },
+      termsUrl: "https://app.syncai.ca/terms",
+      termsBrowserWitness: {
+        observedAt: "2026-11-01",
+        signedOut: true,
+        directPathLoad: true,
+        renderedHeading: "Terms of Service",
+        status: "verified",
+      },
+      termsOrContract: "legal_approval_required",
+    });
+    const legalAction = manifest.blockingActions.find(
+      ({ id }) => id === "PC-004",
+    );
+    expect(legalAction).toMatchObject({ status: "blocked" });
+    expect(legalAction?.action).toMatch(
+      /public route availability is not legal approval/i,
+    );
   });
 
   it("separates green repository proof from production and purchase evidence", () => {

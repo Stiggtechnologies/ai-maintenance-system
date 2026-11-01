@@ -573,8 +573,24 @@
       "status": "complete",
       "evidenceScope": "Partner Center form completeness; external routes and artifact quality were not revalidated in this observation."
     },
-    "privacyPolicyUrl": "saved_in_partner_center_not_reinspected",
-    "termsOrContract": "owner_decision_required",
+    "privacyPolicyUrl": "https://app.syncai.ca/privacy",
+    "partnerCenterPrivacyPolicyUrl": "saved_in_partner_center_not_reinspected",
+    "privacyPolicyBrowserWitness": {
+      "observedAt": "2026-11-01",
+      "signedOut": true,
+      "directPathLoad": true,
+      "renderedHeading": "Privacy Policy",
+      "status": "verified"
+    },
+    "termsUrl": "https://app.syncai.ca/terms",
+    "termsBrowserWitness": {
+      "observedAt": "2026-11-01",
+      "signedOut": true,
+      "directPathLoad": true,
+      "renderedHeading": "Terms of Service",
+      "status": "verified"
+    },
+    "termsOrContract": "legal_approval_required",
     "supportEmail": "support@syncai.ca",
     "engineeringContact": "owner_decision_required",
     "marketingPdf": "partner_center_listing_complete_asset_not_reinspected",
@@ -643,7 +659,7 @@
     {
       "id": "PC-004",
       "owner": "Legal/privacy owner",
-      "action": "Publish and witness a directly addressable HTTPS privacy policy and approve the contract/EULA posture.",
+      "action": "The directly addressable HTTPS privacy policy and public Terms of Service were rendered in fresh signed-out browser sessions on 2026-11-01. Reinspect the exact privacy URL saved in Partner Center, then obtain named legal approval for the Microsoft Standard Contract or approved EULA/amendment posture. Public route availability is not legal approval.",
       "status": "blocked"
     },
     {

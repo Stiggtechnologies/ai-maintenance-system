@@ -152,11 +152,11 @@ secret value.
    SAP/Maximo/historian connectivity, private/on-premises deployment,
    autonomous control execution, Marketplace certification, MACC eligibility,
    or co-sell readiness.
-4. `https://app.syncai.ca/privacy`, `/terms`, and `/security` return the SPA
-   shell but are not dedicated path-addressable document routes in the current
-   application. They are not approved Partner Center URLs until a browser
-   witness proves the requested document loads directly in a fresh signed-out
-   session.
+4. `https://app.syncai.ca/privacy` and `/terms` were browser-witnessed in fresh
+   signed-out sessions on 2026-11-01 and directly rendered the Privacy Policy
+   and Terms of Service. This closes route addressability only. Reinspect the
+   exact privacy URL saved in Partner Center and obtain named legal approval for
+   the contract/EULA posture before submission.
 5. Keep the Publish button blocked until the manifest has no `blocked` item and
    Partner Center reports every required section complete. A green repository
    check cannot replace Microsoft certification.

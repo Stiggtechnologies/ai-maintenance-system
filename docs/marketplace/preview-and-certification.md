@@ -17,8 +17,10 @@ publishing while a blocking item remains open.**
       current tax validation/assignment and payout-profile statuses.
 - [ ] Verify the commercial marketplace account, tax profile and payout profile
       are accepted for the selected markets; do not infer this from submission.
-- [ ] Publish a stable, directly addressable HTTPS privacy policy and witness it
-      in a fresh signed-out browser session.
+- [x] Witness `https://app.syncai.ca/privacy` rendering the Privacy Policy in a
+      fresh signed-out browser session on 2026-11-01. This proves route
+      availability only; it does not replace legal approval or reinspection of
+      the exact URL saved in Partner Center.
 - [ ] Confirm support and engineering contacts are named and monitored.
 - [ ] Produce, review, visually inspect and upload at least one accessible
       marketing PDF.

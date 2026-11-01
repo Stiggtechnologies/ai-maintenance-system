@@ -69,7 +69,9 @@ For Marketplace activation help, contact **support@syncai.ca**.
 - Add approved SyncAI logo and accessible document title/reading order.
 - Add reviewed product screenshots only if they contain no customer or
   confidential information and no unsupported claims.
-- Add a directly addressable, approved privacy-policy URL after it exists.
+- Add the browser-witnessed `https://app.syncai.ca/privacy` URL after the
+  legal/claims owner approves the policy and the exact Partner Center field is
+  reinspected.
 - Add the product URL only after its public claims are checked against the
   claims register.
 - Record legal/claims approver, approval date, source commit, PDF checksum and
