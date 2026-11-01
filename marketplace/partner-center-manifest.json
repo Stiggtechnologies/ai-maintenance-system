@@ -13,6 +13,8 @@
       "production_missing_AZURE_MARKETPLACE_CLIENT_SECRET",
       "commercial_plan_policy_not_approved_or_configured",
       "site_and_named_user_entitlement_policy_not_configured_or_approved",
+      "paid_commercial_direct_model_route_runtime_witness_not_completed",
+      "deprecated_default_commercial_model_not_replaced_in_production",
       "two_real_preview_purchases_not_completed",
       "authenticated_marketplace_lifecycle_witness_not_completed"
     ],
@@ -226,6 +228,7 @@
     },
     "commercialEntitlementEnforcement": {
       "source": "supabase/migrations/20271027090000_marketplace_commercial_entitlements.sql",
+      "productionDataPlaneRecord": "marketplace/production-data-plane-boundary.json",
       "enforces": [
         "approved exact offer and plan policy before active Marketplace entitlement",
         "maximum sites at activation and every later site write",
@@ -236,12 +239,13 @@
       "status": "deployed_to_production_not_configured",
       "productionVerification": {
         "verifiedAt": "2026-11-01",
-        "project": "stigg-os-prod",
-        "projectRef": "snlevbkyjipucmkpkqka",
+        "project": "SyncAI",
+        "projectRef": "pjvoswbwomesuwhygpby",
         "witnesses": [
           "PostgREST resolves public.get_current_commercial_plan_limits and denies anonymous execution with PostgreSQL code 42501",
           "PostgREST resolves public.configure_commercial_plan_capacity and denies anonymous execution with PostgreSQL code 42501",
-          "get_current_commercial_plan_limits is the final statement in the atomic migration file"
+          "marketplace-fulfillment, marketplace-webhook and marketplace-metering respond on the canonical project",
+          "app.syncai.ca, the syncai-github Vercel environment and the protected deployment workflow converge on this project"
         ],
         "doesNotProve": [
           "exact Marketplace offer and plan policies are configured or approved",
@@ -249,6 +253,23 @@
           "preview purchase or certification is complete"
         ]
       }
+    },
+    "commercialPolicyReadinessAudit": {
+      "observedAt": "2026-11-01",
+      "projectRef": "pjvoswbwomesuwhygpby",
+      "secretValuesInspected": false,
+      "personalDetailsInspected": false,
+      "currentPriceRowsPresent": [
+        "gpt-5.6-terra",
+        "gpt-5.6-luna",
+        "gpt-4o-mini"
+      ],
+      "exactOfferPolicyCount": 0,
+      "namedAdministrativeOwnerCount": 2,
+      "activeAzureMarketplaceSubscriptionCount": 0,
+      "defaultCommercialModelReleaseCandidate": "gpt-5.6-terra",
+      "defaultCommercialModelDeploymentStatus": "implemented_in_pr_not_deployed",
+      "status": "verified"
     }
   },
   "plans": [
@@ -668,6 +689,20 @@
       "action": "After the payment profile is eligible, replace the current per-user draft configuration with the controlled flat-rate Site Reliability, Reliability Network, and Enterprise Reliability plans. Preserve the current drafts as observations, not authority. Do not submit until the production policy, preview, cost-to-serve, legal, and certification gates are green.",
       "dependsOn": ["PC-002", "PC-009"],
       "status": "blocked"
+    },
+    {
+      "id": "PC-013",
+      "owner": "Marketplace runtime and commercial policy release owner",
+      "action": "The protected Deploy migrations run 41283398055 deployed every function importing the merged paid-plan direct-model boundary to canonical project pjvoswbwomesuwhygpby. Configure the exact syncai-predictive-maintenance starter, professional and enterprise policies and capacities, evaluate the margin gate, and obtain controlled-preview approval from an existing named administrative user. Then complete a real preview purchase and capture the necessarily post-approval bound paid runtime witness proving exact direct provider, requested model, standard service tier, terminal settlement and refusal behavior. Do not publish before that witness passes. Follow docs/marketplace/commercial-policy-activation-runbook.md; refuse any other project target.",
+      "dependsOn": ["PC-002", "PC-012"],
+      "status": "blocked"
+    },
+    {
+      "id": "PC-014",
+      "owner": "Production architecture owner",
+      "action": "Inventory workloads on the noncanonical snlevbkyjipucmkpkqka project and decide whether to quarantine, rename or retire it. Do not move Marketplace production back to it and do not delete it without a separate impact review.",
+      "dependsOn": [],
+      "status": "external_action_required"
     }
   ],
   "sources": [
@@ -695,6 +730,8 @@
     "marketplace/ai-unit-economics.json",
     "marketplace/commercial-offer-decision.json",
     "marketplace/azure-product-line-queue.json",
+    "marketplace/production-data-plane-boundary.json",
+    "docs/marketplace/commercial-policy-activation-runbook.md",
     "docs/marketplace/partner-center-fields.md",
     "docs/marketplace/supplemental-content.md",
     "docs/marketplace/supporting-document-source.md",

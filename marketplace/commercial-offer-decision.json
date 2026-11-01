@@ -215,6 +215,8 @@
     "the flat-rate plan policy is deployed and approved with the exact hard-stop allowances",
     "the database-level site and named-user entitlement policy is reviewed, merged, deployed, configured against the exact Microsoft offer and plan identities, and approved",
     "the protected Reliability Engineer path uses the shared commercial reservation and settlement boundary",
+    "the merged paid-plan direct-model route is deployed and witnessed on every production AI function that can consume a commercial allowance",
+    "the deprecated gpt-4o-mini commercial default is replaced in production and excluded from the approved plan allowlist",
     "two real preview purchases pass resolve, activation, lifecycle, entitlement, and refusal tests",
     "measured p50 and p95 inference cost and complete cost-to-serve preserve at least 75% gross margin",
     "the exact buyer-visible plan names, prices, limits, support boundary, terms, and markets match this control record",

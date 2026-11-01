@@ -89,6 +89,9 @@ const unitEconomics = JSON.parse(
     currentFirstProviderClass: string;
     currentRouteCompatibleWithProposedPolicy: boolean;
     defaultCommercialRequestedModel: string;
+    defaultCommercialRequestedModelLifecycle: { status: string };
+    releaseCandidateDefaultCommercialModel: string;
+    releaseCandidateDefaultModelMigration: { status: string };
     defaultGatewayRequestedAlias: string;
     directProviderConfigurationNamePresent: string;
     gatewayModelEvidence: {
@@ -107,6 +110,13 @@ const unitEconomics = JSON.parse(
     proposedAllowedModels: string[];
     providerCostMultiplierOneReleaseEligible: boolean;
     releaseCandidateDeployed: boolean;
+    releaseCandidateRuntimeWitnessed: boolean;
+    releaseCandidateDeploymentEvidence: {
+      canonicalProjectRef: string;
+      deployedHead: string;
+      result: string;
+      workflowRunId: string;
+    };
     releaseCandidatePinsBoundPaidPlansToExactDirectModel: boolean;
     requestedAndGatewayModelIdentityMatch: boolean;
     secretValuesInspected: boolean;
@@ -347,7 +357,7 @@ describe("competitive pricing benchmark", () => {
     );
   });
 
-  it("refuses the proposed model policy and a 1.0 multiplier on the unproved gateway-first route", () => {
+  it("keeps the proposed model policy unapproved until the deployed paid route is witnessed", () => {
     expect(unitEconomics.observedProductionConfiguration).toMatchObject({
       secretValuesInspected: false,
       gatewayConfigurationNamesPresent: ["LLM_BASE_URL", "LLM_API_KEY"],
@@ -365,20 +375,33 @@ describe("competitive pricing benchmark", () => {
       defaultCommercialRequestedModel: "gpt-4o-mini",
       defaultGatewayRequestedAlias: "stigg/fast",
       requestedAndGatewayModelIdentityMatch: false,
-      proposedAllowedModels: ["gpt-5.6-terra", "gpt-5.6-luna", "gpt-4o-mini"],
+      proposedAllowedModels: ["gpt-5.6-terra", "gpt-5.6-luna"],
       allConfiguredGatewayOutcomesPricedAndApproved: false,
       currentRouteCompatibleWithProposedPolicy: false,
       releaseCandidatePinsBoundPaidPlansToExactDirectModel: true,
-      releaseCandidateDeployed: false,
+      releaseCandidateDeployed: true,
+      releaseCandidateRuntimeWitnessed: false,
       gatewayCostScheduleEvidenced: false,
       providerCostMultiplierOneReleaseEligible: false,
     });
+    expect(
+      unitEconomics.observedProductionConfiguration
+        .defaultCommercialRequestedModelLifecycle.status,
+    ).toBe("deprecated_in_current_official_model_catalog");
+    expect(
+      unitEconomics.observedProductionConfiguration
+        .releaseCandidateDefaultCommercialModel,
+    ).toBe("gpt-5.6-terra");
+    expect(
+      unitEconomics.observedProductionConfiguration
+        .releaseCandidateDefaultModelMigration.status,
+    ).toBe("implemented_in_pr_not_deployed");
     expect(unitEconomics.pending.providerAndPricingTierEvidence).toMatchObject({
       status:
-        "gateway_first_route_not_release_executable_for_proposed_model_policy",
+        "bound_paid_direct_route_deployed_runtime_and_current_price_witness_pending",
     });
     expect(unitEconomics.pending.providerAndPricingTierEvidence.reason).toMatch(
-      /proposed model policy (?:is|are) not release-eligible/i,
+      /proposed model policy and a provider multiplier of 1\.0 therefore remain ineligible/i,
     );
     expect(
       unitEconomics.observedProductionConfiguration.gatewayModelEvidence,
@@ -399,9 +422,9 @@ describe("competitive pricing benchmark", () => {
     ).toMatch(/concrete model used after fallback/i);
   });
 
-  it("pins bound paid traffic to the exact direct model without claiming deployment", () => {
+  it("pins bound paid traffic to the exact direct model without claiming a runtime witness", () => {
     expect(unitEconomics.implemented.paidCommercialProviderRoute).toEqual({
-      status: "implemented_not_reviewed_merged_or_deployed",
+      status: "implemented_merged_deployed_runtime_witness_pending",
       source: "supabase/functions/_shared/llm-commercial-usage.ts",
       commercialBindingSignal:
         "nonempty commercialPlanId returned by the atomic quota reservation",
@@ -418,7 +441,7 @@ describe("competitive pricing benchmark", () => {
       crossModelSafetyFallbackAllowedForBoundPaidPlan: false,
       noExactDirectRouteBehavior: "release_reservation_refuse_provider_contact",
       standardRateEnvelope: {
-        status: "implemented_not_reviewed_merged_or_deployed",
+        status: "implemented_merged_deployed_runtime_witness_pending",
         maximumOutputTokens: 8192,
         maximumUtf8BytePlusOutputAndFramingUpperBound: 100000,
         framingTokenAllowance: 1024,
@@ -478,7 +501,8 @@ describe("competitive pricing benchmark", () => {
       unitEconomics.commercialCompatibility.automaticMeteredOverageAtLaunch,
     ).toBe(false);
     expect(
-      unitEconomics.commercialCompatibility.futureMeteringCompatibilityPreserved,
+      unitEconomics.commercialCompatibility
+        .futureMeteringCompatibilityPreserved,
     ).toBe(true);
     expect(
       unitEconomics.commercialCompatibility.partnerCenterMutationAuthorized,
