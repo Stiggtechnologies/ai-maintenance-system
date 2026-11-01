@@ -1,8 +1,22 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "artifact": "syncai-partner-center-publication",
-  "asOf": "2026-10-06",
+  "asOf": "2026-11-01",
   "overallStatus": "blocked",
+  "bindingConstraint": {
+    "primary": "partner_center_account_publish_eligibility",
+    "observedAt": "2026-11-01",
+    "authoritativeEvidence": "The live Starter pricing and availability page reports: This account is not publish eligible due to either an invalid payout, payout on hold, or invalid tax. The payout assignment page shows the tax profile Complete, payment profile Action required, verification Not started, and the selected CAD bank profile reports that it needs to be updated. The Review and submit page disables Submit offer and Publish.",
+    "consequence": "No Microsoft buyer can purchase the offer until Partner Center clears the account eligibility gate.",
+    "nextAction": "Update the existing CAD bank profile through Microsoft's payment profile editor, return to Partner Center, assign it to Azure Marketplace, and complete the verification prompts. If Microsoft still refuses the profile after completion, open a support case because the previously stated 48-hour validation window has elapsed.",
+    "secondaryReleaseGates": [
+      "production_missing_AZURE_MARKETPLACE_CLIENT_SECRET",
+      "commercial_plan_policy_not_approved_or_configured",
+      "two_real_preview_purchases_not_completed",
+      "authenticated_marketplace_lifecycle_witness_not_completed"
+    ],
+    "status": "blocked"
+  },
   "statusVocabulary": [
     "verified",
     "draft",
@@ -20,7 +34,7 @@
     "coSellReady": false
   },
   "offerInventory": {
-    "observedAt": "2026-10-06",
+    "observedAt": "2026-11-01",
     "draftCount": 4,
     "publishedCount": 0,
     "submitOrPublishEnabled": false,
@@ -61,6 +75,13 @@
   },
   "technicalConfiguration": {
     "status": "blocked",
+    "partnerCenterPageStatus": {
+      "observedAt": "2026-11-01",
+      "status": "complete",
+      "landingPage": "https://app.syncai.ca/marketplace/activate",
+      "connectionWebhook": "https://app.syncai.ca/api/marketplace/webhook",
+      "evidenceScope": "Partner Center form completeness only; this does not prove the authenticated production lifecycle."
+    },
     "deploymentEvidence": {
       "mergeCommit": "a0c4186efd1d449fbd80d67d5150d63f18684875",
       "mergeCommitUrl": "https://github.com/Stiggtechnologies/ai-maintenance-system/commit/a0c4186efd1d449fbd80d67d5150d63f18684875",
@@ -177,7 +198,8 @@
           "AZURE_MARKETPLACE_OFFER_ID"
         ],
         "missingOnLiveProject": ["AZURE_MARKETPLACE_CLIENT_SECRET"],
-        "configuredAt": "2026-10-06",
+        "configuredAt": "2026-11-01",
+        "observationMethod": "Supabase secret-name inventory; secret values were not inspected.",
         "status": "blocked"
       },
       "partnerCenterDraftSavedAt": "2026-10-06",
@@ -208,14 +230,26 @@
         "visibility": "public",
         "ownerApprovalRecorded": false
       },
-      "featureBoundary": "owner_decision_required",
-      "price": "owner_decision_required",
-      "billingTerm": "owner_decision_required",
-      "markets": "owner_decision_required",
-      "quantitySemantics": "owner_decision_required",
-      "includedUsage": "owner_decision_required",
-      "metering": "owner_decision_required",
-      "supportLevel": "owner_decision_required",
+      "controlledCommercialDecision": {
+        "displayName": "Site Reliability",
+        "model": "flat_rate",
+        "visibility": "public",
+        "monthlyUsdOnOneYearTerm": 5000,
+        "annualContractValueUsd": 60000,
+        "includedSites": 1,
+        "includedNamedUsers": 25,
+        "includedGovernedAiDecisionsPerMonth": 20,
+        "allowanceMode": "hard_stop",
+        "record": "marketplace/commercial-offer-decision.json"
+      },
+      "featureBoundary": "one_site_up_to_25_named_users",
+      "price": "USD_5000_per_month_USD_60000_ACV",
+      "billingTerm": "one_year_monthly_equal_payments",
+      "markets": "all_141_current_draft_markets_subject_to_legal_tax_release_gate",
+      "quantitySemantics": "one_flat_rate_subscription_not_per_user",
+      "includedUsage": "20_governed_ai_decisions_100_model_calls_10000000_tokens_per_month",
+      "metering": "hard_stop_no_automatic_overage_at_launch",
+      "supportLevel": "standard_remote_product_support_services_separate",
       "status": "blocked"
     },
     {
@@ -235,14 +269,26 @@
         "visibility": "public",
         "ownerApprovalRecorded": false
       },
-      "featureBoundary": "owner_decision_required",
-      "price": "owner_decision_required",
-      "billingTerm": "owner_decision_required",
-      "markets": "owner_decision_required",
-      "quantitySemantics": "owner_decision_required",
-      "includedUsage": "owner_decision_required",
-      "metering": "owner_decision_required",
-      "supportLevel": "owner_decision_required",
+      "controlledCommercialDecision": {
+        "displayName": "Reliability Network",
+        "model": "flat_rate",
+        "visibility": "private",
+        "monthlyUsdOnOneYearTerm": 15000,
+        "annualContractValueUsd": 180000,
+        "includedSites": 5,
+        "includedNamedUsers": 100,
+        "includedGovernedAiDecisionsPerMonth": 60,
+        "allowanceMode": "hard_stop",
+        "record": "marketplace/commercial-offer-decision.json"
+      },
+      "featureBoundary": "up_to_5_sites_and_100_named_users",
+      "price": "USD_15000_per_month_USD_180000_ACV",
+      "billingTerm": "one_year_monthly_equal_payments",
+      "markets": "private_offer_markets_subject_to_legal_tax_release_gate",
+      "quantitySemantics": "one_flat_rate_subscription_not_per_user",
+      "includedUsage": "60_governed_ai_decisions_300_model_calls_30000000_tokens_per_month",
+      "metering": "hard_stop_no_automatic_overage_at_launch",
+      "supportLevel": "enhanced_remote_product_support_services_separate",
       "status": "blocked"
     },
     {
@@ -262,14 +308,26 @@
         "visibility": "public",
         "ownerApprovalRecorded": false
       },
-      "featureBoundary": "owner_decision_required",
-      "price": "owner_decision_required",
-      "billingTerm": "owner_decision_required",
-      "markets": "owner_decision_required",
-      "quantitySemantics": "owner_decision_required",
-      "includedUsage": "owner_decision_required",
-      "metering": "owner_decision_required",
-      "supportLevel": "owner_decision_required",
+      "controlledCommercialDecision": {
+        "displayName": "Enterprise Reliability",
+        "model": "flat_rate",
+        "visibility": "private",
+        "monthlyUsdOnOneYearTerm": 30000,
+        "annualContractValueUsd": 360000,
+        "includedSites": 15,
+        "includedNamedUsers": 250,
+        "includedGovernedAiDecisionsPerMonth": 120,
+        "allowanceMode": "hard_stop",
+        "record": "marketplace/commercial-offer-decision.json"
+      },
+      "featureBoundary": "up_to_15_sites_and_250_named_users",
+      "price": "USD_30000_per_month_USD_360000_ACV",
+      "billingTerm": "one_year_monthly_equal_payments",
+      "markets": "private_offer_markets_subject_to_legal_tax_release_gate",
+      "quantitySemantics": "one_flat_rate_subscription_not_per_user",
+      "includedUsage": "120_governed_ai_decisions_600_model_calls_60000000_tokens_per_month",
+      "metering": "hard_stop_no_automatic_overage_at_launch",
+      "supportLevel": "enterprise_remote_product_support_services_separate",
       "status": "blocked"
     }
   ],
@@ -279,7 +337,7 @@
     "reason": "Repository history identifies these values and their limits as commercially unconfirmed and superseded."
   },
   "commercialBenchmark": {
-    "asOf": "2026-10-06",
+    "asOf": "2026-11-01",
     "positioning": {
       "customerPromise": "Unplanned Downtime Reduction",
       "entryProduct": "SyncAI Failure Investigation Agent",
@@ -324,17 +382,34 @@
         "partnerCenterMutationAuthorized": false
       },
       {
-        "id": "core_saas_flat_rate_metered",
+        "id": "core_saas_flat_rate_hard_stop_launch",
         "customerPromise": "Unplanned Downtime Reduction",
         "product": "SyncAI governed reliability decision platform",
-        "pricingModel": "flat_rate_with_metered_overage",
-        "basePriceApproved": false,
-        "includedAllowanceApproved": false,
+        "pricingModel": "flat_rate",
+        "basePriceApprovedByOperatingCeo": true,
+        "includedAllowanceApprovedByOperatingCeo": true,
         "overagePriceApproved": false,
+        "automaticMeteredOverageAtLaunch": false,
+        "publicLandPlanAnnualContractValueUsd": 60000,
+        "privateNetworkPlanAnnualContractValueUsd": 180000,
+        "privateEnterprisePlanAnnualContractValueUsd": 360000,
         "pricingModelChangeBeforePublicationRequired": true,
-        "partnerCenterMutationAuthorized": false
+        "partnerCenterDraftMutationAuthorized": true,
+        "partnerCenterPublicationAuthorizedByEvidence": false
       }
     ],
+    "controlledDecision": {
+      "recordedAt": "2026-11-01",
+      "decisionAuthority": "SyncAI AI Operating CEO under the user-delegated operating mandate",
+      "coreOfferPricingModel": "flat_rate",
+      "publicOfferName": "SyncAI Unplanned Downtime Reduction",
+      "publicLandPlanAnnualContractValueUsd": 60000,
+      "privateNetworkPlanAnnualContractValueUsd": 180000,
+      "privateEnterprisePlanAnnualContractValueUsd": 360000,
+      "currentPerUserDraftMayBePublished": false,
+      "publicActivationAuthorizedByEvidence": false,
+      "controlRecord": "marketplace/commercial-offer-decision.json"
+    },
     "expansionPlanningBands": [
       {
         "stage": "production_site",
@@ -353,7 +428,8 @@
       }
     ],
     "ownerApprovalRecorded": false,
-    "status": "recommendation_not_approved",
+    "operatingCeoDecisionRecorded": true,
+    "status": "controlled_decision_public_activation_blocked",
     "controlRecord": "docs/marketplace/competitive-pricing-benchmark.md",
     "aiUnitEconomicsRecord": "marketplace/ai-unit-economics.json"
   },
@@ -367,39 +443,50 @@
     "status": "draft"
   },
   "taxAndPayout": {
-    "publisherSubmission": "submitted_pending_validation",
+    "publisherSubmission": "payment_profile_action_required",
     "standaloneCanadianTaxProfile": "complete",
     "partnerCenterTaxValidationOrAssignment": "complete",
-    "partnerCenterPayoutProfile": "pending_microsoft_validation",
+    "partnerCenterPayoutProfile": "existing_cad_profile_requires_update",
     "azureMarketplaceAssignment": {
       "submittedAt": "2026-10-06",
       "taxProfileStatus": "complete",
-      "paymentProfileStatus": "pending_microsoft_validation",
+      "paymentProfileStatus": "action_required",
       "paymentCurrency": "CAD",
-      "verificationStatus": "not_started"
+      "verificationStatus": "not_started",
+      "authoritativeMessage": "The bank profile needs to be updated."
     },
     "observedEligibilityMessage": "This account is not publish eligible due to either an invalid payout, payout on hold, or invalid tax.",
-    "observedAt": "2026-10-06",
+    "observedAt": "2026-11-01",
     "microsoftProcessingWindow": "up_to_48_hours_after_completion",
+    "processingWindowElapsed": true,
+    "currentAction": "Update the existing CAD bank profile in Microsoft's payment profile editor, assign it to Azure Marketplace, and complete verification. Open a Microsoft support case only if the completed profile remains ineligible; no further passive waiting is treated as progress.",
     "taxRemittedMarketSelection": "owner_decision_required",
     "submissionImpliesPartnerCenterCompletion": false,
     "status": "blocked"
   },
   "supplementalContent": {
-    "narrative": "live_form_inspected_not_saved",
-    "selectedScenario": null,
-    "selectedModel": null,
+    "narrative": "live_form_saved",
+    "selectedScenario": "not_hosted_in_azure",
+    "selectedModel": "publisher_hosted_multitenant_saas_on_vercel_and_supabase",
     "truthfulCurrentScenario": "not_hosted_in_azure",
     "portalOptionLabel": "SaaS solution is not hosted in Azure",
-    "draftSaveAuthorized": false,
-    "partnerCenterDraftSavedAt": null,
-    "commercialConsequence": "The truthful non-Azure declaration can be saved, but current Microsoft SaaS policy requires a SaaS offer to be primarily platformed on Azure to be purchasable within Azure portal. Preserve the transactable draft as blocked until the primary Azure workload is deployed and evidenced, or deliberately convert to a non-purchasable listing path.",
+    "draftSaveAuthorized": true,
+    "partnerCenterDraftSavedAt": "2026-11-01",
+    "partnerCenterPageStatus": "complete_and_ready_for_publish",
+    "savedNarrative": "SyncAI is a publisher-hosted multitenant SaaS. The current production user interface is hosted on Vercel and the application data and serverless backend are hosted on Supabase. Customers acquire a Marketplace subscription, sign in with Microsoft Entra ID, and use SyncAI through app.syncai.ca. No software is deployed into the customer's Azure tenant. A future Azure edition is under development but is not part of this submission, and no Azure-hosting eligibility claim is made.",
+    "commercialConsequence": "The form is complete, but Microsoft certification has not validated the non-Azure architecture. Do not claim Azure platforming, MACC eligibility, certification, or purchase eligibility from form completeness alone.",
     "azureSubscriptionId": "not_applicable_for_current_truthful_scenario",
     "deployedAzureResourceEvidence": "not_present",
     "azureConsumptionEvidence": "not_present",
-    "architectureDiagram": "not_evaluated_for_unselected_scenario",
+    "architectureDiagram": {
+      "filename": "syncai-saas-architecture-and-product-documentation.pdf",
+      "sha256": "24c6c73bcfb8ae3df339734abb3cd09f9702c3ad16ac9049990d818ee13ff36b",
+      "category": "Architectural diagram",
+      "uploadedAtUtc": "2026-11-01T06:13:45Z",
+      "status": "uploaded"
+    },
     "externalDependenciesDisclosed": true,
-    "status": "blocked"
+    "status": "verified"
   },
   "listing": {
     "partnerCenterOfferName": "SyncAI Predictive Maintenance",
@@ -409,13 +496,18 @@
     "gettingStarted": "verified",
     "keywords": "verified",
     "partnerCenterDraftSavedAt": "2026-10-06",
-    "privacyPolicyUrl": "blocked",
+    "partnerCenterPageStatus": {
+      "observedAt": "2026-11-01",
+      "status": "complete",
+      "evidenceScope": "Partner Center form completeness; external routes and artifact quality were not revalidated in this observation."
+    },
+    "privacyPolicyUrl": "saved_in_partner_center_not_reinspected",
     "termsOrContract": "owner_decision_required",
     "supportEmail": "support@syncai.ca",
     "engineeringContact": "owner_decision_required",
-    "marketingPdf": "blocked",
-    "logo": "blocked",
-    "status": "blocked"
+    "marketingPdf": "partner_center_listing_complete_asset_not_reinspected",
+    "logo": "partner_center_listing_complete_asset_not_reinspected",
+    "status": "verified"
   },
   "previewAndCertification": {
     "previewAudience": "external_action_required",
@@ -467,8 +559,8 @@
     {
       "id": "PC-002",
       "owner": "Commercial owner",
-      "action": "Review the controlled outcome-led benchmark, approve the exact software-led and outcome-led test boundaries, and approve the pricing model, price, term, markets, quantities, metering, support and expansion rules before any Partner Center mutation.",
-      "status": "blocked"
+      "action": "The operating CEO decision selects one flat-rate core SaaS offer: Site Reliability at USD 60000 ARR public, Reliability Network at USD 180000 ARR private, and Enterprise Reliability at USD 360000 ARR private, all with one-year monthly payments and hard AI stops. The Failure Investigation Agent remains a separate research offer. Public activation remains subject to the release gates in marketplace/commercial-offer-decision.json.",
+      "status": "verified"
     },
     {
       "id": "PC-003",
@@ -485,14 +577,14 @@
     {
       "id": "PC-005",
       "owner": "Azure subscription owner",
-      "action": "Current production is Vercel/Supabase and not hosted in Azure. Under action-time authorization, save the truthful 'SaaS solution is not hosted in Azure' Supplemental Content answer; this records but does not clear the paid-purchase blocker. To retain a SaaS offer purchasable within Azure portal, separately authorize an Azure subscription and scoped production deployment, complete the existing 6-of-8 protected bootstrap, and evidence Azure-primary resource, identity, health, architecture and commensurate consumption. Otherwise deliberately convert to a compliant non-purchasable listing path.",
-      "status": "blocked"
+      "action": "The truthful 'SaaS solution is not hosted in Azure' scenario, hosting narrative, and architecture document were saved on 2026-11-01. Treat an Azure-hosted SaaS or customer-tenant Managed Application as a separate controlled productization decision; do not rewrite current deployment facts.",
+      "status": "verified"
     },
     {
       "id": "PC-006",
       "owner": "Brand and claims owners",
-      "action": "Produce and approve the required accessible marketing PDF and logo.",
-      "status": "blocked"
+      "action": "Partner Center marks Offer listing Complete. Reinspect and improve the saved marketing PDF and logo as a conversion-quality workstream, not as the present submit-button blocker.",
+      "status": "verified"
     },
     {
       "id": "PC-007",
@@ -509,19 +601,26 @@
     {
       "id": "PC-009",
       "owner": "Partner Center account owner",
-      "action": "The Azure Marketplace assignment was submitted on 2026-10-06 using the existing Canadian tax profile and Canadian business-bank payment profile in CAD. Tax is Complete, payment is Pending Microsoft validation, and verification is Not started. Allow Microsoft's stated processing window of up to 48 hours, then complete any verification prompt and capture the resulting status.",
+      "action": "On 2026-11-01 Partner Center shows the Canadian tax profile Complete, the payment profile Action required, verification Not started, and the existing CAD bank profile needs to be updated. Complete that bank-profile update, return to the assignment, select it, and finish verification. If the completed profile remains ineligible, open a Microsoft support case and capture the exact result.",
       "status": "blocked"
     },
     {
       "id": "PC-010",
       "owner": "Marketplace identity and production secret owner",
-      "action": "Create a new client secret for the verified publisher application and configure AZURE_MARKETPLACE_CLIENT_SECRET on the live SyncAI Supabase project. The verified client ID, tenant ID, publisher ID, and offer ID are already configured. Then run the protected authenticated preview witness.",
+      "action": "Create a new client secret for the verified publisher application and configure AZURE_MARKETPLACE_CLIENT_SECRET on the live SyncAI Supabase project. A 2026-11-01 secret-name inventory confirms the verified client ID, tenant ID, publisher ID, and offer ID are present and the client secret remains absent. Then run the protected authenticated preview witness.",
       "status": "blocked"
     },
     {
       "id": "PC-011",
       "owner": "Marketplace release owner",
-      "action": "Obtain action-time authorization to select 'SaaS solution is not hosted in Azure' in Supplemental Content and save the draft only. This representation does not authorize submission or publication.",
+      "action": "Action-time authorization was obtained and the non-Azure Supplemental Content draft was saved on 2026-11-01. No submission or publication occurred.",
+      "status": "verified"
+    },
+    {
+      "id": "PC-012",
+      "owner": "Partner Center operator and Marketplace release owner",
+      "action": "After the payment profile is eligible, replace the current per-user draft configuration with the controlled flat-rate Site Reliability, Reliability Network, and Enterprise Reliability plans. Preserve the current drafts as observations, not authority. Do not submit until the production policy, preview, cost-to-serve, legal, and certification gates are green.",
+      "dependsOn": ["PC-002", "PC-009"],
       "status": "blocked"
     }
   ],
@@ -535,6 +634,9 @@
     "src/pages/MarketplaceSignup.tsx",
     "src/pages/Privacy.tsx",
     "src/pages/Terms.tsx",
+    "https://partner.microsoft.com/dashboard/v2/marketplace-offers/commercial-marketplace/offers/771d0f8e-11f8-4ac3-9325-7ee01ce6fe6b/submit",
+    "https://partner.microsoft.com/dashboard/v2/marketplace-offers/commercial-marketplace/offers/771d0f8e-11f8-4ac3-9325-7ee01ce6fe6b/plans/792e22d3-8169-4cc5-a422-575799ff78ec/availability",
+    "https://partner.microsoft.com/dashboard/v2/marketplace-offers/commercial-marketplace/offers/771d0f8e-11f8-4ac3-9325-7ee01ce6fe6b/resources/supplementalcontent",
     ".github/workflows/deploy-migrations.yml",
     ".github/workflows/azure-marketplace-preview-certification.yml",
     "scripts/azure-marketplace-preview-certification.ts",
@@ -543,7 +645,9 @@
   "documents": [
     "docs/marketplace/README.md",
     "docs/marketplace/competitive-pricing-benchmark.md",
+    "docs/marketplace/commercial-offer-decision-2026-11-01.md",
     "marketplace/ai-unit-economics.json",
+    "marketplace/commercial-offer-decision.json",
     "docs/marketplace/partner-center-fields.md",
     "docs/marketplace/supplemental-content.md",
     "docs/marketplace/supporting-document-source.md",

@@ -1,8 +1,95 @@
 {
-  "schemaVersion": 5,
-  "asOf": "2026-10-07",
+  "schemaVersion": 7,
+  "asOf": "2026-11-01",
   "scope": "AI inference cost controls and Microsoft Marketplace commercial compatibility",
   "finding": "commercial_cost_controls_paid_direct_route_standard_rate_envelope_and_durable_pricing_breach_implemented_protected_reliability_surface_blocked_not_reviewed_merged_deployed_or_configured",
+  "sustainabilityAssessment": {
+    "verdict": "not_proven_sustainable_for_public_release",
+    "summary": "The proposed hard-stop AI allowances are mathematically inside a 75% modeled variable gross-margin floor, but complete customer cost-to-serve has not been measured. Starter is structurally underpriced at one seat if it receives human onboarding, security review, support, or customer-success work.",
+    "externalInputs": {
+      "verifiedAt": "2026-11-01",
+      "microsoftMarketplaceServiceFeeRatio": 0.03,
+      "usdCadRate": 1.396,
+      "usdCadObservationDate": "2026-10-30",
+      "gpt56TerraUsdPerMillionTokens": {
+        "input": 2,
+        "cachedInput": 0.2,
+        "output": 12
+      },
+      "gpt56LunaUsdPerMillionTokens": {
+        "input": 0.2,
+        "cachedInput": 0.02,
+        "output": 1.2
+      }
+    },
+    "stressTestAssumptions": {
+      "status": "planning_assumptions_not_entitlements_or_approved_policy",
+      "allowanceMode": "hard_stop",
+      "maximumModelCallsPerDecision": 5,
+      "maximumTokensPerDecision": 500000,
+      "providerCostMultiplier": 1.1,
+      "totalNonInferenceVariableCostReserveRatio": 0.15,
+      "minimumGrossMarginRatio": 0.75,
+      "actualNonInferenceCostMeasured": false
+    },
+    "annualTermPriceFloorStressTest": [
+      {
+        "plan": "Starter",
+        "annualTermMonthlyUsdPerUser": 89,
+        "includedDecisionsPerUserMonth": 1,
+        "minimumUsers": 1,
+        "minimumAnnualContractValueUsd": 1068,
+        "modeledRevenueCadPerUserMonth": 124.244,
+        "modeledNonInferenceReserveCadPerUserMonth": 18.6366,
+        "modeledMaximumInferenceCostCadPerUserMonth": 9.2136,
+        "modeledGrossMarginRatio": 0.775842697,
+        "headroomToMinimumMarginCadPerUserMonth": 3.2108,
+        "sustainabilityRisk": "one_seat_contract_cannot_absorb_material_human_service_cost"
+      },
+      {
+        "plan": "Professional",
+        "annualTermMonthlyUsdPerUser": 179,
+        "includedDecisionsPerUserMonth": 2,
+        "minimumUsers": 3,
+        "minimumAnnualContractValueUsd": 6444,
+        "modeledRevenueCadPerUserMonth": 249.884,
+        "modeledNonInferenceReserveCadPerUserMonth": 37.4826,
+        "modeledMaximumInferenceCostCadPerUserMonth": 18.4272,
+        "modeledGrossMarginRatio": 0.776256983,
+        "headroomToMinimumMarginCadPerUserMonth": 6.5612,
+        "sustainabilityRisk": "support_and_customer_success_cost_unmeasured"
+      },
+      {
+        "plan": "Enterprise",
+        "annualTermMonthlyUsdPerUser": 299,
+        "includedDecisionsPerUserMonth": 4,
+        "minimumUsers": 10,
+        "minimumAnnualContractValueUsd": 35880,
+        "modeledRevenueCadPerUserMonth": 417.404,
+        "modeledNonInferenceReserveCadPerUserMonth": 62.6106,
+        "modeledMaximumInferenceCostCadPerUserMonth": 36.8544,
+        "modeledGrossMarginRatio": 0.761705686,
+        "headroomToMinimumMarginCadPerUserMonth": 4.886,
+        "sustainabilityRisk": "only_1.17_percentage_points_above_the_75_percent_floor"
+      }
+    ],
+    "releaseDecision": {
+      "currentPricesMayRemainDraftExperiments": true,
+      "currentPerUserPricesMayBePublished": false,
+      "selectedCoreOfferArchitecture": "flat_rate_site_and_outcome_pricing",
+      "selectedCommercialDecisionRecord": "marketplace/commercial-offer-decision.json",
+      "publicActivationAuthorized": false,
+      "requiredBeforePublicActivation": [
+        "enforce_the_exact_hard_stop_allowance",
+        "measure_p50_and_p95_inference_cost_per_completed_decision",
+        "measure_hosting_storage_observability_support_and_customer_success_cost",
+        "complete_two_real_preview_purchases",
+        "prove_gross_margin_at_or_above_75_percent_with_measured_costs",
+        "set_a_minimum_order_or_setup_fee_for_any_human_serviced_entry_plan"
+      ],
+      "recommendedRoleInScaleModel": "Use the narrow per-user plan only as an acquisition wedge. Durable ARR must expand into the existing USD 60000 to 100000 production-site band and higher multi-site or enterprise contracts."
+    }
+  },
   "implemented": {
     "usageLedger": {
       "status": "implemented",
@@ -248,7 +335,7 @@
     }
   },
   "observedProductionConfiguration": {
-    "observedAt": "2026-10-06",
+    "observedAt": "2026-11-01",
     "scope": "live SyncAI Supabase secret-name inventory only",
     "secretValuesInspected": false,
     "gatewayConfigurationNamesPresent": ["LLM_BASE_URL", "LLM_API_KEY"],
@@ -293,7 +380,10 @@
     "microsoftMeteringSupportedForFlatRate": true,
     "allPlansInOfferMustSharePricingModel": true,
     "currentDraftCompatibleWithImplementedMeter": false,
-    "recommendedCoreSaasArchitecture": "flat_rate_base_with_included_allowance_and_metered_overage",
+    "selectedCoreSaasArchitecture": "flat_rate_base_with_hard_stop_allowance_at_launch",
+    "futureMeteringCompatibilityPreserved": true,
+    "automaticMeteredOverageAtLaunch": false,
+    "selectedCommercialDecisionRecord": "marketplace/commercial-offer-decision.json",
     "recommendedNarrowAgentArchitecture": "per_user_with_hard_bundled_allowance_and_no_automatic_metered_overage",
     "pricingModelChangeBeforePublicationRequiredForCoreMetering": true,
     "partnerCenterMutationAuthorized": false
@@ -328,6 +418,7 @@
   ],
   "sources": {
     "repository": [
+      "marketplace/commercial-offer-decision.json",
       "supabase/migrations/20260916000000_llm_cost_guardrails.sql",
       "supabase/migrations/20261229100000_azure_marketplace_metering.sql",
       "supabase/migrations/20261230110000_azure_marketplace_metering_clock_consistency.sql",
@@ -340,13 +431,17 @@
     ],
     "microsoft": [
       "https://learn.microsoft.com/en-us/partner-center/marketplace-offers/saas-metered-billing",
-      "https://learn.microsoft.com/en-us/partner-center/marketplace-offers/plan-saas-offer"
+      "https://learn.microsoft.com/en-us/partner-center/marketplace-offers/plan-saas-offer",
+      "https://learn.microsoft.com/en-us/partner-center/marketplace-offers/payout-faq"
     ],
     "openai": [
       "https://developers.openai.com/api/docs/pricing",
       "https://developers.openai.com/api/docs/models/gpt-5.6-terra",
       "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
       "https://developers.openai.com/api/docs/models/gpt-4o-mini"
+    ],
+    "bankOfCanada": [
+      "https://www.bankofcanada.ca/rates/exchange/daily-exchange-rates-lookup/?dF=2026-10-24&dT=2026-10-31&lP=lookup_daily_exchange_rates_2017.php&rangeType=dates&rangeValue=&sR=2009-03-06&se=FXUSDCAD"
     ]
   }
 }

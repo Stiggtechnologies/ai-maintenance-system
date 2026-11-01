@@ -52,7 +52,7 @@ candidate sequence and release gates are controlled in
 | Technical configuration | URLs and production upstream verified                | Keep the saved `app.syncai.ca` activation and webhook values                                     | Configure the missing `AZURE_MARKETPLACE_CLIENT_SECRET`; the other four required identifiers are present, and authenticated preview remains separate          |
 | CSP resale              | **Any partner** saved as a draft channel experiment  | Build the minimum enablement, support, pricing, and escalation controls                          | Publisher support obligations remain; narrow to specific partners if the controls cannot be staffed before release                                            |
 | Supplemental content    | No scenario saved                                    | Preserve the truthful current answer, **not hosted in Azure**, without submitting the paid offer | The protected Azure environment exists but has zero secrets; bootstrap, deploy and evidence the Azure edition or deliberately choose a listing-only path      |
-| Tax and payout profile  | Assignment submitted on 2026-10-06                   | Wait for Microsoft validation and complete any verification prompt                               | Tax is **Complete**, CAD payment profile is **Pending Microsoft validation**, and verification is **Not started**; Microsoft allows up to 48 hours to process |
+| Tax and payout profile  | Tax profile complete; CAD payment profile exists     | Update the bank profile, assign it to Azure Marketplace, and complete verification                | Payment profile is **Action required**, verification is **Not started**, and Microsoft says the existing bank profile needs to be updated                     |
 | Offer listing           | Capability-audited copy and caption saved in draft   | Preserve the governed condition-monitoring and reliability wording                               | Privacy/terms and collateral controls remain; listing is not public                                                                                           |
 | Preview/certification   | Checklist ready                                      | Configure preview audience and execute the checklist                                             | Requires Partner Center access, two real preview purchases and Microsoft-side evidence                                                                        |
 | Publish control         | Disabled                                             | Close every validation item, then request action-time publish approval                           | Microsoft account eligibility and incomplete required sections currently prevent submission                                                                   |
@@ -61,7 +61,11 @@ candidate sequence and release gates are controlled in
 
 - [`competitive-pricing-benchmark.md`](competitive-pricing-benchmark.md) —
   outcome-led competitor set, two-entry pricing experiment, cost track, and
-  expansion bands; recommendations remain unapproved and non-binding.
+  expansion bands, with the 2026-11-01 operating decision linked at the top.
+- [`commercial-offer-decision-2026-11-01.md`](commercial-offer-decision-2026-11-01.md)
+  and [`../../marketplace/commercial-offer-decision.json`](../../marketplace/commercial-offer-decision.json)
+  — controlled flat-rate Microsoft plan architecture, exact preview economics,
+  value qualification, scale geometry, and public-activation gates.
 - [`../../marketplace/ai-unit-economics.json`](../../marketplace/ai-unit-economics.json)
   — machine-readable audit of the implemented AI-cost substrate, missing
   commercial bindings, Marketplace pricing-model compatibility, and release
