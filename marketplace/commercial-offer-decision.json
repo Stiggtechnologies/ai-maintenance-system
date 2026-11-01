@@ -36,7 +36,7 @@
     "automaticMeteredOverageAtLaunch": false,
     "overageBehaviorAtLaunch": "hard_stop_then_customer_authorized_plan_change_or_private_offer",
     "futureMeteringCompatibility": "Preserved by the flat-rate model, but no dimension may be activated until a canonical usage unit and live Marketplace certification are approved.",
-    "siteAndNamedUserEntitlementEnforcement": "implemented_on_branch_not_reviewed_merged_deployed_or_configured",
+    "siteAndNamedUserEntitlementEnforcement": "deployed_to_production_not_configured",
     "painLedEntrances": [
       "failure_investigation",
       "downtime_recovery",
