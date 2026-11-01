@@ -571,7 +571,7 @@
     "partnerCenterPageStatus": {
       "observedAt": "2026-11-01",
       "status": "complete",
-      "evidenceScope": "Partner Center form completeness; external routes and artifact quality were not revalidated in this observation."
+      "evidenceScope": "Partner Center form completeness plus read-only field inventory. The exact privacy URL was browser-witnessed separately; logo and screenshot visual quality were not approved."
     },
     "privacyPolicyUrl": "https://syncai.ca/privacy",
     "partnerCenterPrivacyPolicyUrl": "https://syncai.ca/privacy",
@@ -602,8 +602,15 @@
     },
     "supportEmail": "support@syncai.ca",
     "engineeringContact": "owner_decision_required",
-    "marketingPdf": "partner_center_listing_complete_asset_not_reinspected",
-    "logo": "partner_center_listing_complete_asset_not_reinspected",
+    "marketingPdf": "not_observed_in_partner_center_listing_2026-11-01",
+    "logo": "large_medium_small_present_not_quality_approved",
+    "screenshots": {
+      "observedCount": 1,
+      "requiredCountSatisfied": true,
+      "captionPresent": true,
+      "visualQualityApproved": false,
+      "status": "present_unapproved"
+    },
     "status": "verified"
   },
   "previewAndCertification": {
@@ -680,7 +687,7 @@
     {
       "id": "PC-006",
       "owner": "Brand and claims owners",
-      "action": "Partner Center marks Offer listing Complete. Reinspect and improve the saved marketing PDF and logo as a conversion-quality workstream, not as the present submit-button blocker.",
+      "action": "Partner Center marks Offer listing Complete. The required large, medium and small logos and one captioned screenshot are present, but visual quality is not approved and no supplemental marketing PDF was observed on 2026-11-01. Improve the conversion assets as a separate brand workstream; do not misstate the absent PDF as a publication-form blocker or as an existing asset.",
       "status": "verified"
     },
     {

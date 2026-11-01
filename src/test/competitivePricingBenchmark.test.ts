@@ -193,6 +193,8 @@ const manifest = JSON.parse(
       universalAmendmentObserved: boolean;
     };
     partnerCenterPrivacyPolicyUrl: string;
+    logo: string;
+    marketingPdf: string;
     privacyPolicyBrowserWitness: {
       directPathLoad: boolean;
       matchesPartnerCenterSavedValue: boolean;
@@ -202,6 +204,13 @@ const manifest = JSON.parse(
       status: string;
     };
     privacyPolicyUrl: string;
+    screenshots: {
+      captionPresent: boolean;
+      observedCount: number;
+      requiredCountSatisfied: boolean;
+      status: string;
+      visualQualityApproved: boolean;
+    };
     termsBrowserWitness: {
       directPathLoad: boolean;
       observedAt: string;
@@ -642,6 +651,15 @@ describe("competitive pricing benchmark", () => {
         legalOwnerApprovalRecorded: false,
         status: "selection_verified_approval_blocked",
       },
+      marketingPdf: "not_observed_in_partner_center_listing_2026-11-01",
+      logo: "large_medium_small_present_not_quality_approved",
+      screenshots: {
+        observedCount: 1,
+        requiredCountSatisfied: true,
+        captionPresent: true,
+        visualQualityApproved: false,
+        status: "present_unapproved",
+      },
     });
     const legalAction = manifest.blockingActions.find(
       ({ id }) => id === "PC-004",
@@ -649,6 +667,13 @@ describe("competitive pricing benchmark", () => {
     expect(legalAction).toMatchObject({ status: "blocked" });
     expect(legalAction?.action).toMatch(
       /route and selection evidence are not legal approval/i,
+    );
+    const brandAction = manifest.blockingActions.find(
+      ({ id }) => id === "PC-006",
+    );
+    expect(brandAction).toMatchObject({ status: "verified" });
+    expect(brandAction?.action).toMatch(
+      /no supplemental marketing PDF was observed/i,
     );
   });
 
