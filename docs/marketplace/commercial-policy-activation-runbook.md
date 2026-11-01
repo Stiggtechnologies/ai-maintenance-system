@@ -15,9 +15,13 @@ entitlement registry or seed an approval.
 fulfillment client, the same-origin Marketplace webhook proxy, and the protected
 deployment workflow all converge on Supabase project
 `pjvoswbwomesuwhygpby`. The observed `stigg-os-prod` project
-(`snlevbkyjipucmkpkqka`) is not the buyer-facing Marketplace target. Never
-configure Marketplace secrets, policies, capacities, subscriptions or release
-witnesses there. The evidence and retirement boundary are recorded in
+(`snlevbkyjipucmkpkqka`) is an active, separate Stigg Security operations
+system, not the buyer-facing Marketplace target. Its read-only inventory found
+39 active Edge Functions, 115 public tables, nine active scheduled jobs, nine
+auth users and 3,589 stored objects. Never configure SyncAI Marketplace
+secrets, policies, capacities, subscriptions or release witnesses there. Do not
+rename, migrate, pause or retire it without a separate owner-approved dependency
+and impact plan. The evidence and logical-quarantine boundary are recorded in
 `marketplace/production-data-plane-boundary.json`.
 
 ## Authoritative identities
