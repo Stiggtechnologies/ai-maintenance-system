@@ -98,6 +98,52 @@ grant execute on function public.configure_commercial_plan_capacity(
   text, text, text, integer, integer
 ) to service_role;
 
+create or replace function private.invalidate_marketplace_capacity_on_policy_reconfiguration()
+returns trigger
+language plpgsql
+security definer
+set search_path = public, pg_temp
+as $$
+begin
+  if new.billing_source = 'azure_marketplace'
+    and row(
+      new.pricing_model, new.allowance_mode,
+      new.included_calls_per_period, new.included_tokens_per_period,
+      new.max_calls_per_period, new.max_tokens_per_period,
+      new.max_decisions_per_period, new.minimum_period_revenue_cad,
+      new.non_inference_variable_cost_cad, new.provider_cost_multiplier,
+      new.minimum_gross_margin_ratio, new.allowed_models,
+      new.meter_dimension, new.meter_unit_tokens,
+      new.overage_revenue_cad_per_unit
+    ) is distinct from row(
+      old.pricing_model, old.allowance_mode,
+      old.included_calls_per_period, old.included_tokens_per_period,
+      old.max_calls_per_period, old.max_tokens_per_period,
+      old.max_decisions_per_period, old.minimum_period_revenue_cad,
+      old.non_inference_variable_cost_cad, old.provider_cost_multiplier,
+      old.minimum_gross_margin_ratio, old.allowed_models,
+      old.meter_dimension, old.meter_unit_tokens,
+      old.overage_revenue_cad_per_unit
+    ) then
+    new.max_sites := null;
+    new.max_named_users := null;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists invalidate_marketplace_capacity_on_policy_reconfiguration
+  on private.ai_commercial_plan_policies;
+create trigger invalidate_marketplace_capacity_on_policy_reconfiguration
+before update of pricing_model, allowance_mode, included_calls_per_period,
+  included_tokens_per_period, max_calls_per_period, max_tokens_per_period,
+  max_decisions_per_period, minimum_period_revenue_cad,
+  non_inference_variable_cost_cad, provider_cost_multiplier,
+  minimum_gross_margin_ratio, allowed_models, meter_dimension,
+  meter_unit_tokens, overage_revenue_cad_per_unit
+on private.ai_commercial_plan_policies
+for each row execute function private.invalidate_marketplace_capacity_on_policy_reconfiguration();
+
 create or replace function private.require_marketplace_capacity_before_policy_approval()
 returns trigger
 language plpgsql

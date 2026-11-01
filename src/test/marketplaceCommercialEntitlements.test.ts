@@ -48,6 +48,11 @@ describe("Marketplace commercial entitlement controls", () => {
     expect(migration).toContain(
       "draft ai commercial policy must exist before capacity is configured",
     );
+    expect(migration).toContain(
+      "invalidate_marketplace_capacity_on_policy_reconfiguration",
+    );
+    expect(migration).toContain("new.max_sites := null");
+    expect(migration).toContain("new.max_named_users := null");
   });
 
   it("fails Marketplace activation closed on absent or exceeded limits", () => {
