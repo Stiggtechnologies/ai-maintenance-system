@@ -14,7 +14,6 @@
       "commercial_plan_policy_not_approved_or_configured",
       "site_and_named_user_entitlement_policy_not_configured_or_approved",
       "paid_commercial_direct_model_route_runtime_witness_not_completed",
-      "deprecated_default_commercial_model_not_replaced_in_production",
       "two_real_preview_purchases_not_completed",
       "authenticated_marketplace_lifecycle_witness_not_completed"
     ],
@@ -268,7 +267,13 @@
       "namedAdministrativeOwnerCount": 2,
       "activeAzureMarketplaceSubscriptionCount": 0,
       "defaultCommercialModelReleaseCandidate": "gpt-5.6-terra",
-      "defaultCommercialModelDeploymentStatus": "implemented_in_pr_not_deployed",
+      "defaultCommercialModelDeploymentStatus": "deployed_to_canonical_production",
+      "defaultCommercialModelDeploymentEvidence": {
+        "mergeCommit": "f709231aaa5f1a5d3f1f6c373d6269cf70feb90d",
+        "consumerCount": 9,
+        "allConsumersActive": true,
+        "updatedAtRange": ["2026-11-01T07:47:51Z", "2026-11-01T07:48:13Z"]
+      },
       "status": "verified"
     }
   },

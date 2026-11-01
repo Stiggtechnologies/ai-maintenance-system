@@ -97,11 +97,12 @@ The local gateway configuration still requests `stigg/fast`, maps it to a
 Claude primary, and can fall back across Claude, GPT, and Gemini models. That
 chain is retained only for unbound engineering traffic. The paid policy
 candidate allows `gpt-5.6-terra` and `gpt-5.6-luna`; any gateway outcome is
-therefore intentionally outside the commercial route. The production defaults
-still include deprecated `gpt-4o-mini`, so this release candidate migrates the
-shared, Develop evidence and onboarding paid defaults to `gpt-5.6-terra`.
-Production deployment of that migration and the subsequent paid runtime witness
-remain release gates. No secret value was read.
+therefore intentionally outside the commercial route. The post-merge production
+deployment for commit `f709231aaa5f1a5d3f1f6c373d6269cf70feb90d`
+advanced all nine commercial-boundary consumers on the canonical project, so
+the shared, Develop evidence and onboarding paid defaults now use
+`gpt-5.6-terra`. The subsequent bound paid runtime witness remains a release
+gate. No secret value was read.
 
 The release candidate now implements the first path for bound paid plans. Once
 the atomic reservation returns a nonempty commercial plan ID, the shared caller

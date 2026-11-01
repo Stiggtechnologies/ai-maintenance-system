@@ -323,7 +323,7 @@
     },
     "providerAndPricingTierEvidence": {
       "status": "bound_paid_direct_route_deployed_runtime_and_current_price_witness_pending",
-      "reason": "The protected 2026-11-01 deployment run packaged the exact direct-model boundary into every production function that imports the commercial-usage helper on canonical project pjvoswbwomesuwhygpby. Bound paid traffic is designed to bypass the configured gateway-first chain. The current production defaults still include deprecated gpt-4o-mini; this release candidate migrates all commercial defaults to gpt-5.6-terra and removes gpt-4o-mini from the proposed plan allowlist, but that migration is not production evidence until the protected post-merge deployment succeeds. A real bound paid production call has not yet proved the exact OpenAI endpoint, requested model, standard service tier, terminal settlement, refusal behavior, or current CAD price rows. The proposed model policy and a provider multiplier of 1.0 therefore remain ineligible for approval until deployment and the witness pass. The gateway inventory remains relevant only to unbound engineering traffic. No secret value was inspected."
+      "reason": "The protected 2026-11-01 deployment run packaged the exact direct-model boundary into every production function that imports the commercial-usage helper on canonical project pjvoswbwomesuwhygpby. The post-merge deployment for f709231aaa5f1a5d3f1f6c373d6269cf70feb90d then advanced all nine commercial-boundary consumers and migrated the paid default to gpt-5.6-terra; deprecated gpt-4o-mini is excluded from the proposed plan allowlist. Bound paid traffic is designed to bypass the configured gateway-first chain. A real bound paid production call has not yet proved the exact OpenAI endpoint, requested model, standard service tier, terminal settlement, refusal behavior, or current CAD price rows. The proposed model policy and a provider multiplier of 1.0 therefore remain ineligible for approval until that runtime witness passes. The gateway inventory remains relevant only to unbound engineering traffic. No secret value was inspected."
     },
     "directChannelActivationGate": {
       "status": "not_implemented",
@@ -345,21 +345,30 @@
       "LLM_GATEWAY_MODEL",
       "DEVELOP_AGENT_MODEL"
     ],
-    "defaultCommercialRequestedModel": "gpt-4o-mini",
+    "defaultCommercialRequestedModel": "gpt-5.6-terra",
     "defaultCommercialRequestedModelLifecycle": {
-      "status": "deprecated_in_current_official_model_catalog",
+      "status": "supported_current_default_previous_gpt4o_mini_deprecated",
       "source": "https://developers.openai.com/api/docs/models/gpt-4o-mini",
       "observedAt": "2026-11-01"
     },
     "releaseCandidateDefaultCommercialModel": "gpt-5.6-terra",
     "releaseCandidateDefaultModelMigration": {
-      "status": "implemented_in_pr_not_deployed",
+      "status": "deployed_to_canonical_production",
       "changes": [
         "shared commercially priced default",
         "Develop evidence agent default",
         "asset onboarding enrichment default"
       ],
-      "productionProofRequired": true
+      "productionProofRequired": false,
+      "deploymentEvidence": {
+        "mergeCommit": "f709231aaa5f1a5d3f1f6c373d6269cf70feb90d",
+        "canonicalProjectRef": "pjvoswbwomesuwhygpby",
+        "observedAt": "2026-11-01T07:49:00Z",
+        "consumerCount": 9,
+        "allConsumersActive": true,
+        "updatedAtRange": ["2026-11-01T07:47:51Z", "2026-11-01T07:48:13Z"],
+        "observationMethod": "Supabase Management API names, versions, statuses and update timestamps; no secret values or function source were inspected."
+      }
     },
     "defaultGatewayRequestedAlias": "stigg/fast",
     "requestedAndGatewayModelIdentityMatch": false,
