@@ -132,6 +132,9 @@ begin
 end;
 $$;
 
+revoke all on function private.invalidate_marketplace_capacity_on_policy_reconfiguration()
+  from public, anon, authenticated, service_role;
+
 drop trigger if exists invalidate_marketplace_capacity_on_policy_reconfiguration
   on private.ai_commercial_plan_policies;
 create trigger invalidate_marketplace_capacity_on_policy_reconfiguration
@@ -160,6 +163,9 @@ begin
   return new;
 end;
 $$;
+
+revoke all on function private.require_marketplace_capacity_before_policy_approval()
+  from public, anon, authenticated, service_role;
 
 drop trigger if exists require_marketplace_capacity_before_policy_approval
   on private.ai_commercial_plan_policies;
@@ -293,6 +299,9 @@ begin
 end;
 $$;
 
+revoke all on function private.enforce_marketplace_subscription_capacity()
+  from public, anon, authenticated, service_role;
+
 drop trigger if exists enforce_marketplace_subscription_capacity
   on public.billing_subscriptions;
 create trigger enforce_marketplace_subscription_capacity
@@ -335,6 +344,9 @@ begin
 end;
 $$;
 
+revoke all on function private.enforce_marketplace_site_capacity()
+  from public, anon, authenticated, service_role;
+
 drop trigger if exists enforce_marketplace_site_capacity on public.sites;
 create trigger enforce_marketplace_site_capacity
 before insert or update of organization_id on public.sites
@@ -376,6 +388,9 @@ begin
   return new;
 end;
 $$;
+
+revoke all on function private.enforce_marketplace_named_user_capacity()
+  from public, anon, authenticated, service_role;
 
 drop trigger if exists enforce_marketplace_named_user_capacity
   on public.user_profiles;
