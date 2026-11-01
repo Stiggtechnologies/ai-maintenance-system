@@ -18,6 +18,14 @@
     ],
     "status": "blocked"
   },
+  "azureProductLineQueue": {
+    "record": "marketplace/azure-product-line-queue.json",
+    "primary": "azure_hosted_syncai_saas",
+    "primaryStatus": "in_progress_blocked_on_azure_subscription_and_data_plane_cutover",
+    "enterpriseSpinOff": "syncai_managed_application",
+    "enterpriseSpinOffStatus": "queued_discovery_after_primary_saas_foundation",
+    "portfolioRule": "The Managed Application does not delay the primary SaaS cutover without qualified buyer or funded-contract evidence."
+  },
   "statusVocabulary": [
     "verified",
     "draft",
@@ -660,6 +668,7 @@
     "docs/marketplace/commercial-offer-decision-2026-11-01.md",
     "marketplace/ai-unit-economics.json",
     "marketplace/commercial-offer-decision.json",
+    "marketplace/azure-product-line-queue.json",
     "docs/marketplace/partner-center-fields.md",
     "docs/marketplace/supplemental-content.md",
     "docs/marketplace/supporting-document-source.md",

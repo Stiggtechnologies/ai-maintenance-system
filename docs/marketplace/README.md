@@ -66,6 +66,10 @@ candidate sequence and release gates are controlled in
   and [`../../marketplace/commercial-offer-decision.json`](../../marketplace/commercial-offer-decision.json)
   — controlled flat-rate Microsoft plan architecture, exact preview economics,
   value qualification, scale geometry, and public-activation gates.
+- [`../../marketplace/azure-product-line-queue.json`](../../marketplace/azure-product-line-queue.json)
+  — durable P0 Azure-hosted SaaS and P1 customer-tenant Managed Application
+  queue, with distinct offer paths, dependencies, entry criteria and evidence
+  gates.
 - [`../../marketplace/ai-unit-economics.json`](../../marketplace/ai-unit-economics.json)
   — machine-readable audit of the implemented AI-cost substrate, missing
   commercial bindings, Marketplace pricing-model compatibility, and release
