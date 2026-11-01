@@ -573,13 +573,14 @@
       "status": "complete",
       "evidenceScope": "Partner Center form completeness; external routes and artifact quality were not revalidated in this observation."
     },
-    "privacyPolicyUrl": "https://app.syncai.ca/privacy",
-    "partnerCenterPrivacyPolicyUrl": "saved_in_partner_center_not_reinspected",
+    "privacyPolicyUrl": "https://syncai.ca/privacy",
+    "partnerCenterPrivacyPolicyUrl": "https://syncai.ca/privacy",
     "privacyPolicyBrowserWitness": {
       "observedAt": "2026-11-01",
       "signedOut": true,
       "directPathLoad": true,
       "renderedHeading": "Privacy Policy",
+      "matchesPartnerCenterSavedValue": true,
       "status": "verified"
     },
     "termsUrl": "https://app.syncai.ca/terms",
@@ -590,7 +591,15 @@
       "renderedHeading": "Terms of Service",
       "status": "verified"
     },
-    "termsOrContract": "legal_approval_required",
+    "termsOrContract": "microsoft_standard_contract_selected_legal_approval_required",
+    "contractSelection": {
+      "observedAt": "2026-11-01",
+      "microsoftStandardContractSelected": true,
+      "universalAmendmentObserved": false,
+      "customAmendmentObserved": false,
+      "legalOwnerApprovalRecorded": false,
+      "status": "selection_verified_approval_blocked"
+    },
     "supportEmail": "support@syncai.ca",
     "engineeringContact": "owner_decision_required",
     "marketingPdf": "partner_center_listing_complete_asset_not_reinspected",
@@ -659,7 +668,7 @@
     {
       "id": "PC-004",
       "owner": "Legal/privacy owner",
-      "action": "The directly addressable HTTPS privacy policy and public Terms of Service were rendered in fresh signed-out browser sessions on 2026-11-01. Reinspect the exact privacy URL saved in Partner Center, then obtain named legal approval for the Microsoft Standard Contract or approved EULA/amendment posture. Public route availability is not legal approval.",
+      "action": "The exact Partner Center privacy URL, https://syncai.ca/privacy, rendered a dedicated Privacy Policy in a fresh signed-out browser session on 2026-11-01. Partner Center has the Microsoft Standard Contract selected. Obtain named legal approval for that selection and an explicit decision on universal or customer-specific amendments. Route and selection evidence are not legal approval.",
       "status": "blocked"
     },
     {

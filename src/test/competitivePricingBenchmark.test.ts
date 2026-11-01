@@ -184,9 +184,18 @@ const manifest = JSON.parse(
     submitOrPublishEnabled: boolean;
   };
   listing: {
+    contractSelection: {
+      customAmendmentObserved: boolean;
+      legalOwnerApprovalRecorded: boolean;
+      microsoftStandardContractSelected: boolean;
+      observedAt: string;
+      status: string;
+      universalAmendmentObserved: boolean;
+    };
     partnerCenterPrivacyPolicyUrl: string;
     privacyPolicyBrowserWitness: {
       directPathLoad: boolean;
+      matchesPartnerCenterSavedValue: boolean;
       observedAt: string;
       renderedHeading: string;
       signedOut: boolean;
@@ -605,13 +614,14 @@ describe("competitive pricing benchmark", () => {
 
   it("records direct signed-out policy routes without inventing legal approval", () => {
     expect(manifest.listing).toMatchObject({
-      privacyPolicyUrl: "https://app.syncai.ca/privacy",
-      partnerCenterPrivacyPolicyUrl: "saved_in_partner_center_not_reinspected",
+      privacyPolicyUrl: "https://syncai.ca/privacy",
+      partnerCenterPrivacyPolicyUrl: "https://syncai.ca/privacy",
       privacyPolicyBrowserWitness: {
         observedAt: "2026-11-01",
         signedOut: true,
         directPathLoad: true,
         renderedHeading: "Privacy Policy",
+        matchesPartnerCenterSavedValue: true,
         status: "verified",
       },
       termsUrl: "https://app.syncai.ca/terms",
@@ -622,14 +632,23 @@ describe("competitive pricing benchmark", () => {
         renderedHeading: "Terms of Service",
         status: "verified",
       },
-      termsOrContract: "legal_approval_required",
+      termsOrContract:
+        "microsoft_standard_contract_selected_legal_approval_required",
+      contractSelection: {
+        observedAt: "2026-11-01",
+        microsoftStandardContractSelected: true,
+        universalAmendmentObserved: false,
+        customAmendmentObserved: false,
+        legalOwnerApprovalRecorded: false,
+        status: "selection_verified_approval_blocked",
+      },
     });
     const legalAction = manifest.blockingActions.find(
       ({ id }) => id === "PC-004",
     );
     expect(legalAction).toMatchObject({ status: "blocked" });
     expect(legalAction?.action).toMatch(
-      /public route availability is not legal approval/i,
+      /route and selection evidence are not legal approval/i,
     );
   });
 

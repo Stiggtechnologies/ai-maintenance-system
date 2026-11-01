@@ -73,15 +73,15 @@ Length: 90 characters.
 
 ### Contacts and URLs
 
-| Partner Center field        | Value                                                                                                            | Status                                                                                                                            |
-| --------------------------- | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
-| Support contact email       | `support@syncai.ca`                                                                                              | Repository-backed; owner must confirm monitored response process                                                                  |
-| Engineering contact email   | `[OWNER DECISION: named monitored engineering contact]`                                                          | Blocked                                                                                                                           |
-| Privacy policy URL          | `https://app.syncai.ca/privacy`                                                                                  | Direct policy render browser-witnessed signed out on 2026-11-01; reinspect the exact saved Partner Center value before submission |
-| Terms URL / EULA            | `[OWNER ACTION: select Microsoft Standard Contract or publish approved terms and amendments]`                    | Blocked; obtain legal approval                                                                                                    |
-| Support URL, if requested   | `[OWNER ACTION: publish support page, or confirm Partner Center accepts the support contact fields without one]` | Blocked                                                                                                                           |
-| Useful link — product       | `https://syncai.ca`                                                                                              | Owner must verify current content is consistent with the claims register                                                          |
-| Useful link — documentation | `[OWNER ACTION: publish reviewed customer documentation]`                                                        | Blocked                                                                                                                           |
+| Partner Center field        | Value                                                                                                            | Status                                                                                                     |
+| --------------------------- | ---------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Support contact email       | `support@syncai.ca`                                                                                              | Repository-backed; owner must confirm monitored response process                                           |
+| Engineering contact email   | `[OWNER DECISION: named monitored engineering contact]`                                                          | Blocked                                                                                                    |
+| Privacy policy URL          | `https://syncai.ca/privacy`                                                                                      | Exact saved Partner Center value directly rendered a dedicated policy signed out on 2026-11-01             |
+| Terms URL / EULA            | `Microsoft Standard Contract selected`                                                                           | Saved selection observed on 2026-11-01; blocked on named legal approval and an explicit amendment decision |
+| Support URL, if requested   | `[OWNER ACTION: publish support page, or confirm Partner Center accepts the support contact fields without one]` | Blocked                                                                                                    |
+| Useful link — product       | `https://syncai.ca`                                                                                              | Owner must verify current content is consistent with the claims register                                   |
+| Useful link — documentation | `[OWNER ACTION: publish reviewed customer documentation]`                                                        | Blocked                                                                                                    |
 
 ## Technical configuration
 
