@@ -504,9 +504,10 @@ describe("competitive pricing benchmark", () => {
       ({ id }) => id === "PC-009",
     );
     expect(payoutAction).toMatchObject({ status: "blocked" });
-    expect(payoutAction?.action).toMatch(/Tax is Complete/);
-    expect(payoutAction?.action).toMatch(/Pending Microsoft validation/);
-    expect(payoutAction?.action).toMatch(/verification is Not started/);
+    expect(payoutAction?.action).toMatch(/tax profile Complete/i);
+    expect(payoutAction?.action).toMatch(/payment profile Action required/i);
+    expect(payoutAction?.action).toMatch(/verification Not started/i);
+    expect(payoutAction?.action).toMatch(/bank profile needs to be updated/i);
   });
 
   it("records the live offer inventory without promoting any draft to a product", () => {
