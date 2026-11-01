@@ -637,7 +637,7 @@
     {
       "id": "PC-003",
       "owner": "Product and engineering owners",
-      "action": "The AI commercial-cost control implementation from PR #634 is present on current main, but production deployment and approved policy values remain unproven. The current marketplace-readiness branch also adds database-level site and named-user entitlement enforcement; it is not yet reviewed, merged, deployed, or configured. Complete those steps, then prove the production runtime enforces every approved plan boundary.",
+      "action": "The AI commercial-cost controls and database-level site and named-user entitlement enforcement are present on current main and deployed to the canonical SyncAI production project. Production exposes both entitlement RPCs and denies anonymous execution. Exact offer-and-plan policy rows remain absent, unapproved, and unconfigured. After the Partner Center drafts and production client secret are verified, stage the exact draft policies through the fail-closed transaction, obtain named independent approval, and prove every runtime boundary with a real preview subscription.",
       "status": "blocked"
     },
     {

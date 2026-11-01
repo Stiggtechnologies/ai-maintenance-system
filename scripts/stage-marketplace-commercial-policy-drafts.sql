@@ -20,7 +20,7 @@
 \if :{?target_project_ref}
 \else
   \echo 'Refusing: target_project_ref is required.'
-  \quit 2
+  select 1 / 0 as prerequisite_refusal;
 \endif
 
 select :'target_project_ref' = 'pjvoswbwomesuwhygpby'
@@ -30,31 +30,48 @@ select :'target_project_ref' = 'pjvoswbwomesuwhygpby'
 \if :target_project_ref_is_canonical
 \else
   \echo 'Refusing: target_project_ref is not the canonical SyncAI production project.'
-  \quit 3
+  select 1 / 0 as prerequisite_refusal;
+\endif
+
+-- target_project_ref is an operator assertion, not connection evidence. Verify
+-- psql's actual connection identity as well. Direct Supabase connections carry
+-- the project ref in HOST; pooler connections carry it in USER.
+select position(
+    lower(:'target_project_ref') in lower(coalesce(:'HOST', ''))
+  ) > 0
+  or position(
+    lower(:'target_project_ref') in lower(coalesce(:'USER', ''))
+  ) > 0 as actual_connection_is_canonical
+\gset
+
+\if :actual_connection_is_canonical
+\else
+  \echo 'Refusing: the actual psql connection is not the canonical SyncAI production project.'
+  select 1 / 0 as prerequisite_refusal;
 \endif
 
 \if :{?partner_center_drafts_verified}
 \else
   \echo 'Refusing: partner_center_drafts_verified is required.'
-  \quit 4
+  select 1 / 0 as prerequisite_refusal;
 \endif
 
 \if :partner_center_drafts_verified
 \else
   \echo 'Refusing: Partner Center plan drafts have not been verified.'
-  \quit 5
+  select 1 / 0 as prerequisite_refusal;
 \endif
 
 \if :{?marketplace_client_secret_present}
 \else
   \echo 'Refusing: marketplace_client_secret_present is required.'
-  \quit 6
+  select 1 / 0 as prerequisite_refusal;
 \endif
 
 \if :marketplace_client_secret_present
 \else
   \echo 'Refusing: AZURE_MARKETPLACE_CLIENT_SECRET is not present in production.'
-  \quit 7
+  select 1 / 0 as prerequisite_refusal;
 \endif
 
 \if :{?commit_drafts}
@@ -69,7 +86,7 @@ select lower(:'commit_drafts') in ('true', 'false')
 \if :commit_drafts_is_boolean
 \else
   \echo 'Refusing: commit_drafts must be true or false.'
-  \quit 8
+  select 1 / 0 as prerequisite_refusal;
 \endif
 
 begin;

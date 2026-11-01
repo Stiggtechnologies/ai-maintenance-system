@@ -90,9 +90,13 @@ limits. Both calls must return `status = draft`.
 The fail-closed transaction in
 `scripts/stage-marketplace-commercial-policy-drafts.sql` performs these calls,
 capacity updates and evaluations. It defaults to rollback, pins the canonical
-project reference, requires explicit confirmation of the Partner Center drafts
+project reference, verifies that the actual `psql` host or pooler user resolves
+to that project, requires explicit confirmation of the Partner Center drafts
 and production client secret, and refuses to overwrite an approved/retired
-policy or run while a matching Marketplace subscription is active.
+policy or run while a matching Marketplace subscription is active. An
+operator-supplied project label is not connection proof: the script must reject
+the currently linked `stigg-os-prod` database even if the canonical project ref
+is supplied as a variable.
 
 Then call `public.evaluate_ai_commercial_plan_policy` for every exact
 offer/plan pair. Stop and roll back the transaction unless every result returns

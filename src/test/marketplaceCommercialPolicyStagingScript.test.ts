@@ -12,6 +12,16 @@ describe("Marketplace commercial-policy draft staging script", () => {
     expect(stagingSql).toContain("\\set ON_ERROR_STOP on");
     expect(stagingSql).toContain("pjvoswbwomesuwhygpby");
     expect(stagingSql).toContain("target_project_ref");
+    expect(stagingSql).toContain("actual_connection_is_canonical");
+    expect(stagingSql).toContain("coalesce(:'HOST', '')");
+    expect(stagingSql).toContain("coalesce(:'USER', '')");
+    expect(stagingSql).toContain(
+      "the actual psql connection is not the canonical SyncAI production project",
+    );
+    expect(stagingSql).not.toMatch(/\\quit\s+\d+/);
+    expect(
+      normalized.match(/select 1 \/ 0 as prerequisite_refusal/g),
+    ).toHaveLength(8);
     expect(stagingSql).toContain("commit_drafts");
     expect(normalized).toContain("rollback;");
     expect(normalized).toContain("commit;");

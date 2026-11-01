@@ -603,9 +603,12 @@ describe("competitive pricing benchmark", () => {
     );
     expect(productAction).toMatchObject({ status: "blocked" });
     expect(productAction?.action).toMatch(
-      /not yet reviewed, merged, deployed, or configured/i,
+      /present on current main and deployed to the canonical SyncAI production project/i,
     );
-    expect(productAction?.action).toMatch(/policy values remain unproven/i);
+    expect(productAction?.action).toMatch(
+      /policy rows remain absent, unapproved, and unconfigured/i,
+    );
+    expect(productAction?.action).toMatch(/real preview subscription/i);
   });
 
   it("records an expansion path capable of reaching enterprise ACV", () => {
