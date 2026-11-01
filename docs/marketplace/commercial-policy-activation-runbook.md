@@ -82,10 +82,17 @@ migration ledger is historically divergent, do not treat `supabase db push` or
 the ledger alone as proof.
 
 For each plan, call `public.configure_ai_commercial_plan_policy` with the exact
-offer ID, plan inputs above, the three-model candidate set, null meter fields,
+offer ID, plan inputs above, the two-model candidate set, null meter fields,
 and a note identifying this controlled decision record. Immediately call
 `public.configure_commercial_plan_capacity` with the matching site and named-user
 limits. Both calls must return `status = draft`.
+
+The fail-closed transaction in
+`scripts/stage-marketplace-commercial-policy-drafts.sql` performs these calls,
+capacity updates and evaluations. It defaults to rollback, pins the canonical
+project reference, requires explicit confirmation of the Partner Center drafts
+and production client secret, and refuses to overwrite an approved/retired
+policy or run while a matching Marketplace subscription is active.
 
 Then call `public.evaluate_ai_commercial_plan_policy` for every exact
 offer/plan pair. Stop and roll back the transaction unless every result returns
