@@ -87,6 +87,35 @@
     ],
     "status": "verified"
   },
+  "reviewAndSubmit": {
+    "observedAt": "2026-11-01",
+    "submitOfferEnabled": false,
+    "publishEnabled": false,
+    "completeSections": [
+      "offer_setup",
+      "properties",
+      "offer_listing",
+      "preview_audience",
+      "technical_configuration",
+      "csp_reseller_audience",
+      "supplemental_content"
+    ],
+    "incompleteSections": [
+      "plan_overview",
+      "starter",
+      "professional",
+      "enterprise"
+    ],
+    "observedPlanSummary": {
+      "planCount": 3,
+      "pricingModel": "per_user",
+      "markets": 141,
+      "autoActivation": false,
+      "audience": "public"
+    },
+    "interpretation": "The review table exposes no incomplete non-plan section. Each plan pricing page separately reports that the account is not publish eligible because of payout, payout hold, or tax. The saved plans also remain on the superseded per-user configuration, so account eligibility and the controlled flat-rate draft changes are both required before submission.",
+    "status": "blocked"
+  },
   "technicalConfiguration": {
     "status": "blocked",
     "partnerCenterPageStatus": {

@@ -242,6 +242,22 @@ const manifest = JSON.parse(
       verifiedImplementationCommit: string;
     };
   };
+  reviewAndSubmit: {
+    completeSections: string[];
+    incompleteSections: string[];
+    interpretation: string;
+    observedAt: string;
+    observedPlanSummary: {
+      audience: string;
+      autoActivation: boolean;
+      markets: number;
+      planCount: number;
+      pricingModel: string;
+    };
+    publishEnabled: boolean;
+    status: string;
+    submitOfferEnabled: boolean;
+  };
   supplementalContent: {
     commercialConsequence: string;
     draftSaveAuthorized: boolean;
@@ -594,6 +610,43 @@ describe("competitive pricing benchmark", () => {
         ({ type }) => type === "professional_service",
       ),
     ).toHaveLength(3);
+  });
+
+  it("records the exact Review and submit table without inventing a non-plan error", () => {
+    expect(manifest.reviewAndSubmit).toMatchObject({
+      observedAt: "2026-11-01",
+      submitOfferEnabled: false,
+      publishEnabled: false,
+      completeSections: [
+        "offer_setup",
+        "properties",
+        "offer_listing",
+        "preview_audience",
+        "technical_configuration",
+        "csp_reseller_audience",
+        "supplemental_content",
+      ],
+      incompleteSections: [
+        "plan_overview",
+        "starter",
+        "professional",
+        "enterprise",
+      ],
+      observedPlanSummary: {
+        planCount: 3,
+        pricingModel: "per_user",
+        markets: 141,
+        autoActivation: false,
+        audience: "public",
+      },
+      status: "blocked",
+    });
+    expect(manifest.reviewAndSubmit.interpretation).toMatch(
+      /no incomplete non-plan section/i,
+    );
+    expect(manifest.reviewAndSubmit.interpretation).toMatch(
+      /controlled flat-rate draft changes are both required/i,
+    );
   });
 
   it("records the authorized non-Azure draft without claiming certification", () => {
