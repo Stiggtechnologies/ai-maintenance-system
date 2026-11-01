@@ -234,6 +234,10 @@ begin
   if policy->>'status'<>'draft'
      or coalesce((policy->'evaluation'->>'allowed')::boolean,false) is not true then
     raise exception 'inventory commercial policy fixture failed margin evaluation: %',policy; end if;
+  policy:=public.configure_commercial_plan_capacity(
+    'azure_marketplace','sc02-inventory-fixture','enterprise_pilot',10,1000);
+  if policy->>'status'<>'draft' then
+    raise exception 'inventory commercial capacity fixture was not configured: %',policy; end if;
   policy:=public.approve_ai_commercial_plan_policy(
     'azure_marketplace','sc02-inventory-fixture','enterprise_pilot',actor_id);
   if coalesce((policy->>'approved')::boolean,false) is not true then

@@ -3,50 +3,53 @@
 -- sites and user_profiles records; they do not create a second tenant, user or
 -- subscription model.
 --
--- No plan row is seeded. A service operator must configure a draft against the
--- exact Microsoft offer and plan identities, then a named auth user must be
--- recorded when the policy is approved. Marketplace activation fails closed
--- until that approval exists.
+-- Capacity belongs to the existing AI commercial policy. This avoids a second
+-- plan registry, a second approval state, or the possibility that inference
+-- economics and buyer-visible capacity are approved independently.
+--
+-- No plan row is seeded. A service operator first configures the canonical AI
+-- policy, then adds site/member capacity while it is still draft, and finally
+-- uses the existing named-owner approval door. Marketplace activation fails
+-- closed unless one approved row contains both cost and capacity boundaries.
 
-create table if not exists private.commercial_plan_entitlements (
-  billing_source text not null,
-  offer_id text not null default '',
-  plan_id text not null,
-  max_sites integer not null,
-  max_named_users integer not null,
-  status text not null default 'draft',
-  approved_by uuid references auth.users(id) on delete restrict,
-  approved_at timestamptz,
-  note text,
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
-  primary key (billing_source, offer_id, plan_id),
-  check (btrim(billing_source) <> '' and btrim(plan_id) <> ''),
-  check (billing_source <> 'azure_marketplace' or btrim(offer_id) <> ''),
-  check (max_sites > 0 and max_named_users > 0),
-  check (status in ('draft', 'approved', 'retired')),
-  check (
-    (status = 'approved' and approved_by is not null and approved_at is not null)
-    or (status <> 'approved' and approved_by is null and approved_at is null)
-  )
-);
+alter table private.ai_commercial_plan_policies
+  add column if not exists max_sites integer,
+  add column if not exists max_named_users integer;
 
-alter table private.commercial_plan_entitlements enable row level security;
-revoke all on table private.commercial_plan_entitlements
-  from public, anon, authenticated, service_role;
+do $constraints$
+begin
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'private.ai_commercial_plan_policies'::regclass
+      and conname = 'ai_commercial_plan_policies_max_sites_ck'
+  ) then
+    alter table private.ai_commercial_plan_policies
+      add constraint ai_commercial_plan_policies_max_sites_ck
+      check (max_sites is null or max_sites > 0);
+  end if;
+  if not exists (
+    select 1 from pg_constraint
+    where conrelid = 'private.ai_commercial_plan_policies'::regclass
+      and conname = 'ai_commercial_plan_policies_max_named_users_ck'
+  ) then
+    alter table private.ai_commercial_plan_policies
+      add constraint ai_commercial_plan_policies_max_named_users_ck
+      check (max_named_users is null or max_named_users > 0);
+  end if;
+end
+$constraints$;
 
-comment on table private.commercial_plan_entitlements is
-  'Owner-controlled site and named-user boundaries for one canonical billing '
-  'plan. No row is seeded and Marketplace activation fails closed until the '
-  'exact offer and plan policy is approved.';
+comment on column private.ai_commercial_plan_policies.max_sites is
+  'Maximum sites for this approved commercial policy. Required before an Azure Marketplace policy can be approved.';
+comment on column private.ai_commercial_plan_policies.max_named_users is
+  'Maximum named workspace members for this approved commercial policy. Required before an Azure Marketplace policy can be approved.';
 
-create or replace function public.configure_commercial_plan_entitlement(
+create or replace function public.configure_commercial_plan_capacity(
   p_billing_source text,
   p_offer_id text,
   p_plan_id text,
   p_max_sites integer,
-  p_max_named_users integer,
-  p_note text default null
+  p_max_named_users integer
 ) returns jsonb
 language plpgsql
 security definer
@@ -64,21 +67,18 @@ begin
     raise exception 'Commercial plan entitlement inputs are invalid';
   end if;
 
-  insert into private.commercial_plan_entitlements (
-    billing_source, offer_id, plan_id, max_sites, max_named_users,
-    status, approved_by, approved_at, note, updated_at
-  ) values (
-    v_source, v_offer, v_plan, p_max_sites, p_max_named_users,
-    'draft', null, null, nullif(btrim(coalesce(p_note, '')), ''), now()
-  )
-  on conflict (billing_source, offer_id, plan_id) do update set
-    max_sites = excluded.max_sites,
-    max_named_users = excluded.max_named_users,
-    status = 'draft',
-    approved_by = null,
-    approved_at = null,
-    note = excluded.note,
-    updated_at = now();
+  update private.ai_commercial_plan_policies
+  set max_sites = p_max_sites,
+      max_named_users = p_max_named_users,
+      updated_at = now()
+  where billing_source = v_source
+    and offer_id = v_offer
+    and plan_id = v_plan
+    and status = 'draft';
+
+  if not found then
+    raise exception 'Draft AI commercial policy must exist before capacity is configured';
+  end if;
 
   return jsonb_build_object(
     'billingSource', v_source,
@@ -91,70 +91,40 @@ begin
 end;
 $$;
 
-revoke all on function public.configure_commercial_plan_entitlement(
-  text, text, text, integer, integer, text
+revoke all on function public.configure_commercial_plan_capacity(
+  text, text, text, integer, integer
 ) from public, anon, authenticated;
-grant execute on function public.configure_commercial_plan_entitlement(
-  text, text, text, integer, integer, text
+grant execute on function public.configure_commercial_plan_capacity(
+  text, text, text, integer, integer
 ) to service_role;
 
-create or replace function public.approve_commercial_plan_entitlement(
-  p_billing_source text,
-  p_offer_id text,
-  p_plan_id text,
-  p_approved_by uuid
-) returns jsonb
+create or replace function private.require_marketplace_capacity_before_policy_approval()
+returns trigger
 language plpgsql
 security definer
 set search_path = public, pg_temp
 as $$
-declare
-  v_policy private.commercial_plan_entitlements%rowtype;
 begin
-  if p_approved_by is null or not exists (
-    select 1 from auth.users where id = p_approved_by
-  ) then
-    raise exception 'A named approval authority is required';
+  if new.billing_source = 'azure_marketplace'
+    and new.status = 'approved'
+    and (coalesce(new.max_sites, 0) <= 0
+      or coalesce(new.max_named_users, 0) <= 0) then
+    raise exception 'Marketplace AI commercial policy approval blocked: site and named-user capacity are required';
   end if;
-
-  update private.commercial_plan_entitlements
-  set status = 'approved',
-      approved_by = p_approved_by,
-      approved_at = now(),
-      updated_at = now()
-  where billing_source = btrim(coalesce(p_billing_source, ''))
-    and offer_id = btrim(coalesce(p_offer_id, ''))
-    and plan_id = btrim(coalesce(p_plan_id, ''))
-    and status = 'draft'
-  returning * into v_policy;
-
-  if not found then
-    raise exception 'Draft commercial plan entitlement not found';
-  end if;
-
-  return jsonb_build_object(
-    'billingSource', v_policy.billing_source,
-    'offerId', v_policy.offer_id,
-    'planId', v_policy.plan_id,
-    'maxSites', v_policy.max_sites,
-    'maxNamedUsers', v_policy.max_named_users,
-    'status', v_policy.status,
-    'approvedBy', v_policy.approved_by,
-    'approvedAt', v_policy.approved_at
-  );
+  return new;
 end;
 $$;
 
-revoke all on function public.approve_commercial_plan_entitlement(
-  text, text, text, uuid
-) from public, anon, authenticated;
-grant execute on function public.approve_commercial_plan_entitlement(
-  text, text, text, uuid
-) to service_role;
+drop trigger if exists require_marketplace_capacity_before_policy_approval
+  on private.ai_commercial_plan_policies;
+create trigger require_marketplace_capacity_before_policy_approval
+before insert or update of status, max_sites, max_named_users
+on private.ai_commercial_plan_policies
+for each row execute function private.require_marketplace_capacity_before_policy_approval();
 
 create or replace function private.active_marketplace_commercial_policy(
   p_organization_id uuid
-) returns setof private.commercial_plan_entitlements
+) returns setof private.ai_commercial_plan_policies
 language plpgsql
 stable
 security definer
@@ -180,11 +150,13 @@ begin
 
   select count(*) into v_policies
   from public.billing_subscriptions s
-  join private.commercial_plan_entitlements p
+  join private.ai_commercial_plan_policies p
     on p.billing_source = s.billing_source
    and p.offer_id = s.marketplace_offer_id
    and p.plan_id = coalesce(s.marketplace_plan_id, s.plan)
-   and p.status = 'approved'
+    and p.status = 'approved'
+    and p.max_sites is not null
+    and p.max_named_users is not null
   where s.organization_id = p_organization_id
     and s.billing_source = 'azure_marketplace'
     and s.status = 'active'
@@ -197,11 +169,13 @@ begin
   return query
   select p.*
   from public.billing_subscriptions s
-  join private.commercial_plan_entitlements p
+  join private.ai_commercial_plan_policies p
     on p.billing_source = s.billing_source
    and p.offer_id = s.marketplace_offer_id
    and p.plan_id = coalesce(s.marketplace_plan_id, s.plan)
    and p.status = 'approved'
+   and p.max_sites is not null
+   and p.max_named_users is not null
   where s.organization_id = p_organization_id
     and s.billing_source = 'azure_marketplace'
     and s.status = 'active'
@@ -219,7 +193,7 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
-  v_policy private.commercial_plan_entitlements%rowtype;
+  v_policy private.ai_commercial_plan_policies%rowtype;
   v_other_active_subscriptions integer;
   v_sites integer;
   v_users integer;
@@ -245,11 +219,13 @@ begin
   end if;
 
   select * into v_policy
-  from private.commercial_plan_entitlements p
+  from private.ai_commercial_plan_policies p
   where p.billing_source = 'azure_marketplace'
     and p.offer_id = btrim(coalesce(new.marketplace_offer_id, ''))
     and p.plan_id = btrim(coalesce(new.marketplace_plan_id, new.plan, ''))
-    and p.status = 'approved';
+    and p.status = 'approved'
+    and p.max_sites is not null
+    and p.max_named_users is not null;
 
   if not found then
     raise exception 'Marketplace activation blocked: approved commercial plan entitlement is absent';
@@ -286,7 +262,7 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
-  v_policy private.commercial_plan_entitlements%rowtype;
+  v_policy private.ai_commercial_plan_policies%rowtype;
   v_count integer;
 begin
   if tg_op = 'UPDATE'
@@ -325,7 +301,7 @@ security definer
 set search_path = public, pg_temp
 as $$
 declare
-  v_policy private.commercial_plan_entitlements%rowtype;
+  v_policy private.ai_commercial_plan_policies%rowtype;
   v_count integer;
 begin
   if new.organization_id is null then
@@ -371,7 +347,7 @@ as $$
 declare
   v_org uuid;
   v_subscription public.billing_subscriptions%rowtype;
-  v_policy private.commercial_plan_entitlements%rowtype;
+  v_policy private.ai_commercial_plan_policies%rowtype;
   v_sites integer;
   v_users integer;
 begin
@@ -397,11 +373,13 @@ begin
   end if;
 
   select * into v_policy
-  from private.commercial_plan_entitlements
+  from private.ai_commercial_plan_policies
   where billing_source = v_subscription.billing_source
     and offer_id = v_subscription.marketplace_offer_id
     and plan_id = coalesce(v_subscription.marketplace_plan_id, v_subscription.plan)
-    and status = 'approved';
+    and status = 'approved'
+    and max_sites is not null
+    and max_named_users is not null;
   if not found then
     return jsonb_build_object(
       'enforced', true,

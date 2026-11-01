@@ -32,16 +32,22 @@ const decision = JSON.parse(
 };
 
 describe("Marketplace commercial entitlement controls", () => {
-  it("keeps policy private and requires an explicit named approval", () => {
+  it("extends the existing private AI policy instead of creating a second registry", () => {
     expect(migration).toContain(
+      "alter table private.ai_commercial_plan_policies",
+    );
+    expect(migration).toContain(
+      "create or replace function public.configure_commercial_plan_capacity",
+    );
+    expect(migration).not.toContain(
       "create table if not exists private.commercial_plan_entitlements",
     );
     expect(migration).toContain(
-      "revoke all on table private.commercial_plan_entitlements",
+      "marketplace ai commercial policy approval blocked: site and named-user capacity are required",
     );
-    expect(migration).toContain("status in ('draft', 'approved', 'retired')");
-    expect(migration).toContain("approved_by uuid references auth.users");
-    expect(migration).toContain("a named approval authority is required");
+    expect(migration).toContain(
+      "draft ai commercial policy must exist before capacity is configured",
+    );
   });
 
   it("fails Marketplace activation closed on absent or exceeded limits", () => {
