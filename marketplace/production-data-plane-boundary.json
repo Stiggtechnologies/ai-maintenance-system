@@ -34,6 +34,10 @@
     {
       "scope": "canonical Supabase runtime",
       "observation": "The pjvoswbwomesuwhygpby project responded at marketplace-fulfillment, marketplace-webhook and marketplace-metering. PostgREST resolved both get_current_commercial_plan_limits and configure_commercial_plan_capacity; anonymous calls were refused with PostgreSQL code 42501."
+    },
+    {
+      "scope": "paid direct-model deployment",
+      "observation": "After merge commit f709231aaa5f1a5d3f1f6c373d6269cf70feb90d, all nine production functions that import the commercial-usage boundary were active on pjvoswbwomesuwhygpby with update timestamps from 2026-11-01T07:47:51Z through 2026-11-01T07:48:13Z. This proves deployment of the direct-model boundary and gpt-5.6-terra default, but not execution by a real bound paid subscription."
     }
   ],
   "noncanonicalProjectObserved": {
@@ -46,14 +50,16 @@
   "releaseConsequences": {
     "canonicalTargetAmbiguityResolved": true,
     "entitlementMigrationPresentOnCanonicalTarget": true,
+    "commercialDefaultModelMigrationDeployed": true,
     "commercialPoliciesConfiguredOrApproved": false,
-    "paidDirectModelRouteDeploymentProven": false,
+    "paidDirectModelRouteDeploymentProven": true,
+    "boundPaidDirectModelRuntimeWitnessProven": false,
     "authenticatedMarketplaceLifecycleProven": false,
     "publicActivationAllowed": false
   },
   "doesNotProve": [
     "that the exact Marketplace offer and plan policies are configured or approved",
-    "that the paid direct-model route is deployed to every production AI function",
+    "that a real bound paid request used the direct-model route and settled terminal token usage",
     "that a Microsoft preview purchase has activated successfully",
     "that the noncanonical project can be retired safely"
   ]

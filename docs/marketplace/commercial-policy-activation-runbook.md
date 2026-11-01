@@ -46,10 +46,12 @@ Partner Center resources and must never be substituted into fulfillment policy.
 3. Every proposed allowed model has a current CAD price in
    `private.llm_prices`, is available on the direct production route, and stays
    inside the standard-rate request envelope.
-4. The release-candidate migration from deprecated `gpt-4o-mini` to
-   `gpt-5.6-terra` has completed through the protected production deployment.
-   Do not approve a policy while any paid runtime still defaults to
-   `gpt-4o-mini`, and do not include that deprecated model in the allowlist.
+4. Preserve the post-merge production witness for commit
+   `f709231aaa5f1a5d3f1f6c373d6269cf70feb90d`: all nine commercial-boundary
+   consumers were active on the canonical project with update timestamps from
+   `2026-11-01T07:47:51Z` through `2026-11-01T07:48:13Z`. The paid default is
+   now `gpt-5.6-terra`; do not reintroduce deprecated `gpt-4o-mini` into the
+   allowlist.
 5. The operator has the immutable UUID of an existing `admin` or `ai_admin`
    user who accepts named commercial approval. A display name or email is not
    a substitute, and a synthetic identity is prohibited.

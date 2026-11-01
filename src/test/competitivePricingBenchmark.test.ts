@@ -372,7 +372,7 @@ describe("competitive pricing benchmark", () => {
         "LLM_GATEWAY_MODEL",
         "DEVELOP_AGENT_MODEL",
       ],
-      defaultCommercialRequestedModel: "gpt-4o-mini",
+      defaultCommercialRequestedModel: "gpt-5.6-terra",
       defaultGatewayRequestedAlias: "stigg/fast",
       requestedAndGatewayModelIdentityMatch: false,
       proposedAllowedModels: ["gpt-5.6-terra", "gpt-5.6-luna"],
@@ -387,7 +387,7 @@ describe("competitive pricing benchmark", () => {
     expect(
       unitEconomics.observedProductionConfiguration
         .defaultCommercialRequestedModelLifecycle.status,
-    ).toBe("deprecated_in_current_official_model_catalog");
+    ).toBe("supported_current_default_previous_gpt4o_mini_deprecated");
     expect(
       unitEconomics.observedProductionConfiguration
         .releaseCandidateDefaultCommercialModel,
@@ -395,7 +395,7 @@ describe("competitive pricing benchmark", () => {
     expect(
       unitEconomics.observedProductionConfiguration
         .releaseCandidateDefaultModelMigration.status,
-    ).toBe("implemented_in_pr_not_deployed");
+    ).toBe("deployed_to_canonical_production");
     expect(unitEconomics.pending.providerAndPricingTierEvidence).toMatchObject({
       status:
         "bound_paid_direct_route_deployed_runtime_and_current_price_witness_pending",

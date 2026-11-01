@@ -98,6 +98,14 @@ describe("Marketplace commercial-policy activation runbook", () => {
       productionBoundary.noncanonicalProjectObserved.productionUseAuthorized,
     ).toBe(false);
     expect(
+      productionBoundary.releaseConsequences
+        .paidDirectModelRouteDeploymentProven,
+    ).toBe(true);
+    expect(
+      productionBoundary.releaseConsequences
+        .boundPaidDirectModelRuntimeWitnessProven,
+    ).toBe(false);
+    expect(
       manifest.technicalConfiguration.commercialEntitlementEnforcement
         .productionVerification.projectRef,
     ).toBe("pjvoswbwomesuwhygpby");
@@ -170,7 +178,7 @@ describe("Marketplace commercial-policy activation runbook", () => {
     expect(
       unitEconomics.observedProductionConfiguration.proposedAllowedModels,
     ).toEqual(["gpt-5.6-terra", "gpt-5.6-luna"]);
-    expect(manifest.bindingConstraint.secondaryReleaseGates).toContain(
+    expect(manifest.bindingConstraint.secondaryReleaseGates).not.toContain(
       "deprecated_default_commercial_model_not_replaced_in_production",
     );
     expect(decision.releaseGates).toContain(
