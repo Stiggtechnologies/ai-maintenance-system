@@ -1,0 +1,60 @@
+{
+  "schemaVersion": "1.0",
+  "artifact": "syncai-production-data-plane-boundary",
+  "observedAt": "2026-11-01",
+  "status": "canonical_production_target_verified",
+  "canonicalProduction": {
+    "applicationDomain": "https://app.syncai.ca",
+    "vercelProject": "syncai-github",
+    "supabaseProjectName": "SyncAI",
+    "supabaseProjectRef": "pjvoswbwomesuwhygpby",
+    "deploymentWorkflow": ".github/workflows/deploy-migrations.yml",
+    "marketplaceLandingPage": "https://app.syncai.ca/marketplace/activate",
+    "marketplaceWebhook": "https://app.syncai.ca/api/marketplace/webhook",
+    "marketplaceWebhookUpstream": "https://pjvoswbwomesuwhygpby.supabase.co/functions/v1/marketplace-webhook",
+    "status": "verified"
+  },
+  "evidence": [
+    {
+      "scope": "Vercel production environment",
+      "observation": "The syncai-github production project exposes a VITE_SUPABASE_URL whose host project reference is pjvoswbwomesuwhygpby. Only the host reference and environment-variable names were inspected; no secret value is recorded here."
+    },
+    {
+      "scope": "deployment workflow",
+      "observation": ".github/workflows/deploy-migrations.yml sets SUPABASE_PROJECT_ID to pjvoswbwomesuwhygpby and deploys Marketplace migrations and Edge Functions there after protected changes land on main."
+    },
+    {
+      "scope": "application routing",
+      "observation": "The browser Marketplace fulfillment client calls the configured Supabase project directly, while the same-origin Vercel webhook proxy derives its upstream from SUPABASE_URL or VITE_SUPABASE_URL."
+    },
+    {
+      "scope": "live routes",
+      "observation": "GET https://app.syncai.ca/marketplace/activate returned HTTP 200 and GET https://app.syncai.ca/api/marketplace/webhook returned the expected HTTP 405 refusal on 2026-11-01."
+    },
+    {
+      "scope": "canonical Supabase runtime",
+      "observation": "The pjvoswbwomesuwhygpby project responded at marketplace-fulfillment, marketplace-webhook and marketplace-metering. PostgREST resolved both get_current_commercial_plan_limits and configure_commercial_plan_capacity; anonymous calls were refused with PostgreSQL code 42501."
+    }
+  ],
+  "noncanonicalProjectObserved": {
+    "projectName": "stigg-os-prod",
+    "projectRef": "snlevbkyjipucmkpkqka",
+    "classification": "duplicate_or_legacy_not_buyer_facing",
+    "productionUseAuthorized": false,
+    "rule": "Do not configure Marketplace policies, secrets, subscriptions or production witnesses on this project. Retain it unchanged until its unrelated workloads and retirement impact are separately inventoried."
+  },
+  "releaseConsequences": {
+    "canonicalTargetAmbiguityResolved": true,
+    "entitlementMigrationPresentOnCanonicalTarget": true,
+    "commercialPoliciesConfiguredOrApproved": false,
+    "paidDirectModelRouteDeploymentProven": false,
+    "authenticatedMarketplaceLifecycleProven": false,
+    "publicActivationAllowed": false
+  },
+  "doesNotProve": [
+    "that the exact Marketplace offer and plan policies are configured or approved",
+    "that the paid direct-model route is deployed to every production AI function",
+    "that a Microsoft preview purchase has activated successfully",
+    "that the noncanonical project can be retired safely"
+  ]
+}

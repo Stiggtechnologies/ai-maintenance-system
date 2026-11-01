@@ -22,7 +22,7 @@ import {
 type LlmFetch = Parameters<typeof callWithResilience>[0];
 
 /** Canonical priced fallback used by provider-chain callers with no override. */
-export const DEFAULT_COMMERCIALLY_PRICED_MODEL = "gpt-4o-mini";
+export const DEFAULT_COMMERCIALLY_PRICED_MODEL = "gpt-5.6-terra";
 
 /**
  * One paid request must stay inside the short-context price envelope shared by

@@ -209,7 +209,7 @@
       "releaseRule": "Every approved policy must state a provider cost multiplier of at least 1. A multiplier of exactly 1 is valid only for a verified standard-rate direct route with prompts bounded below premium context tiers; otherwise the multiplier must come from a separately approved gateway/provider-tier cost schedule. Opaque gateway economics cannot be treated as the model list price."
     },
     "paidCommercialProviderRoute": {
-      "status": "implemented_not_reviewed_merged_or_deployed",
+      "status": "implemented_merged_deployed_runtime_witness_pending",
       "source": "supabase/functions/_shared/llm-commercial-usage.ts",
       "commercialBindingSignal": "nonempty commercialPlanId returned by the atomic quota reservation",
       "requiredProviderName": "openai-direct",
@@ -224,7 +224,7 @@
       "crossModelSafetyFallbackAllowedForBoundPaidPlan": false,
       "noExactDirectRouteBehavior": "release_reservation_refuse_provider_contact",
       "standardRateEnvelope": {
-        "status": "implemented_not_reviewed_merged_or_deployed",
+        "status": "implemented_merged_deployed_runtime_witness_pending",
         "maximumOutputTokens": 8192,
         "maximumUtf8BytePlusOutputAndFramingUpperBound": 100000,
         "framingTokenAllowance": 1024,
@@ -322,8 +322,8 @@
       "status": "not_evidenced"
     },
     "providerAndPricingTierEvidence": {
-      "status": "gateway_first_route_not_release_executable_for_proposed_model_policy",
-      "reason": "A 2026-10-06 names-only inventory of the live SyncAI project shows LLM_BASE_URL, LLM_API_KEY, and OPENAI_API_KEY configured, with neither LLM_GATEWAY_MODEL nor DEVELOP_AGENT_MODEL present. The shipped defaults therefore reserve against gpt-4o-mini but send stigg/fast to the gateway. The shared provider chain leads with stigg-gateway and falls back to direct OpenAI. The gateway repository maps the default stigg/fast request to a Claude primary and Claude, GPT, and Gemini fallbacks, while the proposed policy allows only three canonical GPT models. SyncAI settles the provider-returned concrete model and refuses fuzzy alias pricing, so an unpriced or unapproved gateway result is recorded as a policy violation and freezes later commercial-period spend. The exact deployed gateway revision, returned model identity, CAD-normalized price schedule, fixed infrastructure allocation, and approved provider multiplier are not evidenced. A production multiplier of 1.0 and the proposed model policy are not release-eligible. No secret value was inspected."
+      "status": "bound_paid_direct_route_deployed_runtime_and_current_price_witness_pending",
+      "reason": "The protected 2026-11-01 deployment run packaged the exact direct-model boundary into every production function that imports the commercial-usage helper on canonical project pjvoswbwomesuwhygpby. Bound paid traffic is designed to bypass the configured gateway-first chain. The current production defaults still include deprecated gpt-4o-mini; this release candidate migrates all commercial defaults to gpt-5.6-terra and removes gpt-4o-mini from the proposed plan allowlist, but that migration is not production evidence until the protected post-merge deployment succeeds. A real bound paid production call has not yet proved the exact OpenAI endpoint, requested model, standard service tier, terminal settlement, refusal behavior, or current CAD price rows. The proposed model policy and a provider multiplier of 1.0 therefore remain ineligible for approval until deployment and the witness pass. The gateway inventory remains relevant only to unbound engineering traffic. No secret value was inspected."
     },
     "directChannelActivationGate": {
       "status": "not_implemented",
@@ -336,7 +336,7 @@
   },
   "observedProductionConfiguration": {
     "observedAt": "2026-11-01",
-    "scope": "live SyncAI Supabase secret-name inventory only",
+    "scope": "live SyncAI Supabase secret-name inventory plus protected deployment metadata; no secret value or bound paid production call was inspected",
     "secretValuesInspected": false,
     "gatewayConfigurationNamesPresent": ["LLM_BASE_URL", "LLM_API_KEY"],
     "directProviderConfigurationNamePresent": "OPENAI_API_KEY",
@@ -346,6 +346,21 @@
       "DEVELOP_AGENT_MODEL"
     ],
     "defaultCommercialRequestedModel": "gpt-4o-mini",
+    "defaultCommercialRequestedModelLifecycle": {
+      "status": "deprecated_in_current_official_model_catalog",
+      "source": "https://developers.openai.com/api/docs/models/gpt-4o-mini",
+      "observedAt": "2026-11-01"
+    },
+    "releaseCandidateDefaultCommercialModel": "gpt-5.6-terra",
+    "releaseCandidateDefaultModelMigration": {
+      "status": "implemented_in_pr_not_deployed",
+      "changes": [
+        "shared commercially priced default",
+        "Develop evidence agent default",
+        "asset onboarding enrichment default"
+      ],
+      "productionProofRequired": true
+    },
     "defaultGatewayRequestedAlias": "stigg/fast",
     "requestedAndGatewayModelIdentityMatch": false,
     "sharedProviderChainOrderWhenConfigured": [
@@ -366,11 +381,22 @@
       "responseModelContract": "gateway documentation states response.model contains the concrete model used after fallback; SyncAI settles data.model rather than the requested alias",
       "exactDeployedMappingEvidenced": false
     },
-    "proposedAllowedModels": ["gpt-5.6-terra", "gpt-5.6-luna", "gpt-4o-mini"],
+    "proposedAllowedModels": ["gpt-5.6-terra", "gpt-5.6-luna"],
     "allConfiguredGatewayOutcomesPricedAndApproved": false,
     "currentRouteCompatibleWithProposedPolicy": false,
     "releaseCandidatePinsBoundPaidPlansToExactDirectModel": true,
-    "releaseCandidateDeployed": false,
+    "releaseCandidateDeployed": true,
+    "releaseCandidateRuntimeWitnessed": false,
+    "releaseCandidateDeploymentEvidence": {
+      "canonicalProjectRef": "pjvoswbwomesuwhygpby",
+      "workflow": "Deploy migrations",
+      "workflowRunId": "41283398055",
+      "workflowRunUrl": "https://github.com/Stiggtechnologies/ai-maintenance-system/actions/runs/41283398055",
+      "deployedHead": "4afc6fd6bd067e462677a02ddae3a08f4bdba4b5",
+      "result": "success",
+      "evidence": "The protected workflow linked the canonical project and completed Deploy approved Edge Functions successfully. That deployment packaged every function importing llm-commercial-usage.ts from a main commit containing the paid direct-model boundary.",
+      "doesNotProve": "A bound paid production request used the exact direct provider, requested model and standard service tier or exercised the refusal behavior."
+    },
     "gatewayCostScheduleEvidenced": false,
     "providerCostMultiplierOneReleaseEligible": false
   },

@@ -84,29 +84,24 @@ approved cost schedule for gateway markup and premium processing. An opaque
 gateway alias cannot inherit the public model list price merely because it
 returns the same model name.
 
-The three proposed OpenAI USD rates were reverified on 7 October 2026 and are
-unchanged. The CAD snapshot was refreshed from the Bank of Canada's latest
-available business-day USD/CAD observation, 1.4226 on 6 October. That moves the
-worst proposed standard output rate from the stale C$16.6668 to C$17.0712 per
-million tokens. Historical usage retains its settled price snapshot; new plan
-evaluation and settlement use the current table. A newer price observation is
-never downgraded by the refresh migration.
+The OpenAI USD rates were reverified again on 1 November 2026 and remain USD
+2.00/12.00 for GPT-5.6 Terra and USD 0.20/1.20 for GPT-5.6 Luna. The latest
+available Bank of Canada USD/CAD observation was 1.3960 on 30 October, below the
+1.4226 conversion already stored for plan evaluation. The release therefore
+keeps the higher conservative CAD rates rather than lowering the cost reserve.
+Historical usage retains its settled price snapshot. GPT-4o Mini remains in the
+price table for historical settlement, but its official model page now marks it
+deprecated and it is no longer a proposed commercial-plan model.
 
-The current policy candidate is therefore **not release-executable on the
-observed gateway-first route**. The local gateway configuration requests
-`stigg/fast`, maps it to `claude-haiku-4-5-20251001`, and can fall back across
-Claude, GPT, and Gemini models. Gateway documentation says the concrete model
-lands in `response.model`; SyncAI settles that exact returned identity. The
-candidate allowlist contains only `gpt-5.6-terra`, `gpt-5.6-luna`, and
-`gpt-4o-mini`, so most configured gateway outcomes are intentionally unknown or
-unapproved. A names-only production recheck found neither `LLM_GATEWAY_MODEL`
-nor `DEVELOP_AGENT_MODEL`, so the shipped defaults reserve against
-`gpt-4o-mini` but request `stigg/fast` from the gateway. No secret value was
-read. This is safe failure behavior, not a sellable configuration. The
-exact deployed gateway revision is still unverified. Before paid activation,
-either pin customer-paid calls to the verified direct GPT route or approve and
-price every reachable gateway primary and fallback, including CAD conversion,
-gateway infrastructure allocation, and a deployed response-identity witness.
+The local gateway configuration still requests `stigg/fast`, maps it to a
+Claude primary, and can fall back across Claude, GPT, and Gemini models. That
+chain is retained only for unbound engineering traffic. The paid policy
+candidate allows `gpt-5.6-terra` and `gpt-5.6-luna`; any gateway outcome is
+therefore intentionally outside the commercial route. The production defaults
+still include deprecated `gpt-4o-mini`, so this release candidate migrates the
+shared, Develop evidence and onboarding paid defaults to `gpt-5.6-terra`.
+Production deployment of that migration and the subsequent paid runtime witness
+remain release gates. No secret value was read.
 
 The release candidate now implements the first path for bound paid plans. Once
 the atomic reservation returns a nonempty commercial plan ID, the shared caller
@@ -114,20 +109,19 @@ removes the gateway and every cross-model fallback, retaining only
 `openai-direct` at `https://api.openai.com` when its configured model exactly
 matches the policy-approved requested model. If no exact direct route exists,
 it releases the reservation and contacts no provider. Unbound engineering
-traffic retains the resilient gateway chain. This closes the source-level
-alias mismatch without claiming that the change is reviewed, merged, deployed,
-or proven in production.
+traffic retains the resilient gateway chain. Protected deployment run
+`41283398055` proves this boundary reached the canonical project; a real bound
+paid call has not yet proved the endpoint, model, standard tier and settlement
+behavior.
 
 The same shared boundary now excludes premium long-context pricing at source
-for a bound paid call. Official OpenAI model documentation retrieved 6 October
-2026 states that GPT-5.6 Terra and Luna enter long-context pricing above 272,000
-input tokens, while GPT-4o Mini has a 128,000-token context window and a
-16,384-token maximum output. The release candidate caps paid output at 8,192
-tokens and refuses any request whose UTF-8 prompt bytes plus output ceiling and
-a 1,024-token framing allowance exceed 100,000. UTF-8 bytes are a conservative
-upper bound on BPE input tokens, and the remaining 28,000-token gap protects
-the smallest proposed context window. An over-limit call releases its
-reservation and contacts no provider. This makes the prompt envelope explicit;
+for a bound paid call. Official OpenAI model documentation confirms GPT-5.6
+Terra and Luna enter long-context pricing above 272,000 input tokens. The
+release candidate caps paid output at 8,192 tokens and refuses any request whose
+UTF-8 prompt bytes plus output ceiling and a 1,024-token framing allowance
+exceed 100,000. UTF-8 bytes are a conservative upper bound on BPE input tokens,
+so this remains well below the premium threshold. An over-limit call releases
+its reservation and contacts no provider. This makes the prompt envelope explicit;
 it does not by itself prove the deployed runtime uses the intended endpoint.
 
 Official OpenAI API documentation also says an omitted `service_tier` defaults

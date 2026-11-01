@@ -50,7 +50,7 @@ const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
 const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const LLM_BASE_URL = Deno.env.get("LLM_BASE_URL") ?? "";
-const MODEL = Deno.env.get("DEVELOP_AGENT_MODEL") ?? "gpt-4o-mini";
+const MODEL = Deno.env.get("DEVELOP_AGENT_MODEL") ?? "gpt-5.6-terra";
 const ALLOWED_ORIGIN =
   Deno.env.get("ALLOWED_ORIGIN") ?? "https://app.syncai.ca";
 

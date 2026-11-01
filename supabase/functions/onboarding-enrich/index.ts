@@ -20,7 +20,7 @@ const LLM_API_KEY =
   Deno.env.get("OPENAI_API_KEY") ??
   Deno.env.get("LLM_API_KEY") ??
   "";
-const LLM_MODEL = Deno.env.get("ONBOARD_LLM_MODEL") ?? "gpt-4o-mini";
+const LLM_MODEL = Deno.env.get("ONBOARD_LLM_MODEL") ?? "gpt-5.6-terra";
 const ENRICH_SHARED_SECRET = Deno.env.get("ENRICH_SHARED_SECRET") ?? "";
 
 const ASSET_BATCH = 1;

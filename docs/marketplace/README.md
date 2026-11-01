@@ -44,18 +44,18 @@ candidate sequence and release gates are controlled in
 
 ## Current publication posture
 
-| Area                    | Status                                               | What can be done now                                                                             | Remaining authority or evidence                                                                                                                               |
-| ----------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Starter plan            | Controlled description saved in Partner Center draft | Preserve the saved description and observed per-user pricing                                     | Account is not publish eligible; commercial boundary and runtime enforcement still require validation                                                         |
-| Professional plan       | Controlled description saved in Partner Center draft | Preserve the saved description and observed per-user pricing                                     | Same account gate; no legacy `PRO` claims or unproved tier limits may be introduced                                                                           |
-| Enterprise plan         | Controlled description saved in Partner Center draft | Preserve the saved description and observed per-user pricing                                     | Same account gate; Enterprise does not imply SSO, private hosting, certifications or an SLA                                                                   |
-| Technical configuration | URLs and production upstream verified                | Keep the saved `app.syncai.ca` activation and webhook values                                     | Configure the missing `AZURE_MARKETPLACE_CLIENT_SECRET`; the other four required identifiers are present, and authenticated preview remains separate          |
-| CSP resale              | **Any partner** saved as a draft channel experiment  | Build the minimum enablement, support, pricing, and escalation controls                          | Publisher support obligations remain; narrow to specific partners if the controls cannot be staffed before release                                            |
-| Supplemental content    | No scenario saved                                    | Preserve the truthful current answer, **not hosted in Azure**, without submitting the paid offer | The protected Azure environment exists but has zero secrets; bootstrap, deploy and evidence the Azure edition or deliberately choose a listing-only path      |
-| Tax and payout profile  | Tax profile complete; CAD payment profile exists     | Update the bank profile, assign it to Azure Marketplace, and complete verification                | Payment profile is **Action required**, verification is **Not started**, and Microsoft says the existing bank profile needs to be updated                     |
-| Offer listing           | Capability-audited copy and caption saved in draft   | Preserve the governed condition-monitoring and reliability wording                               | Privacy/terms and collateral controls remain; listing is not public                                                                                           |
-| Preview/certification   | Checklist ready                                      | Configure preview audience and execute the checklist                                             | Requires Partner Center access, two real preview purchases and Microsoft-side evidence                                                                        |
-| Publish control         | Disabled                                             | Close every validation item, then request action-time publish approval                           | Microsoft account eligibility and incomplete required sections currently prevent submission                                                                   |
+| Area                    | Status                                               | What can be done now                                                                             | Remaining authority or evidence                                                                                                                          |
+| ----------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Starter plan            | Controlled description saved in Partner Center draft | Preserve the saved description and observed per-user pricing                                     | Account is not publish eligible; commercial boundary and runtime enforcement still require validation                                                    |
+| Professional plan       | Controlled description saved in Partner Center draft | Preserve the saved description and observed per-user pricing                                     | Same account gate; no legacy `PRO` claims or unproved tier limits may be introduced                                                                      |
+| Enterprise plan         | Controlled description saved in Partner Center draft | Preserve the saved description and observed per-user pricing                                     | Same account gate; Enterprise does not imply SSO, private hosting, certifications or an SLA                                                              |
+| Technical configuration | URLs and production upstream verified                | Keep the saved `app.syncai.ca` activation and webhook values                                     | Configure the missing `AZURE_MARKETPLACE_CLIENT_SECRET`; the other four required identifiers are present, and authenticated preview remains separate     |
+| CSP resale              | **Any partner** saved as a draft channel experiment  | Build the minimum enablement, support, pricing, and escalation controls                          | Publisher support obligations remain; narrow to specific partners if the controls cannot be staffed before release                                       |
+| Supplemental content    | No scenario saved                                    | Preserve the truthful current answer, **not hosted in Azure**, without submitting the paid offer | The protected Azure environment exists but has zero secrets; bootstrap, deploy and evidence the Azure edition or deliberately choose a listing-only path |
+| Tax and payout profile  | Tax profile complete; CAD payment profile exists     | Update the bank profile, assign it to Azure Marketplace, and complete verification               | Payment profile is **Action required**, verification is **Not started**, and Microsoft says the existing bank profile needs to be updated                |
+| Offer listing           | Capability-audited copy and caption saved in draft   | Preserve the governed condition-monitoring and reliability wording                               | Privacy/terms and collateral controls remain; listing is not public                                                                                      |
+| Preview/certification   | Checklist ready                                      | Configure preview audience and execute the checklist                                             | Requires Partner Center access, two real preview purchases and Microsoft-side evidence                                                                   |
+| Publish control         | Disabled                                             | Close every validation item, then request action-time publish approval                           | Microsoft account eligibility and incomplete required sections currently prevent submission                                                              |
 
 ## Copy-ready artifacts
 
@@ -70,10 +70,18 @@ candidate sequence and release gates are controlled in
   — durable P0 Azure-hosted SaaS and P1 customer-tenant Managed Application
   queue, with distinct offer paths, dependencies, entry criteria and evidence
   gates.
+- [`../../marketplace/production-data-plane-boundary.json`](../../marketplace/production-data-plane-boundary.json)
+  — verified buyer-facing application, Vercel and Supabase production boundary;
+  it prevents Marketplace configuration from drifting onto the duplicate legacy
+  project.
 - [`../../marketplace/ai-unit-economics.json`](../../marketplace/ai-unit-economics.json)
   — machine-readable audit of the implemented AI-cost substrate, missing
   commercial bindings, Marketplace pricing-model compatibility, and release
   gates.
+- [`commercial-policy-activation-runbook.md`](commercial-policy-activation-runbook.md)
+  — exact production sequence for witnessing the deployed paid direct-model
+  route, configuring the three Marketplace policies and capacities, obtaining
+  named approval, and preserving fail-closed activation.
 - [`partner-center-fields.md`](partner-center-fields.md) — exact offer and plan
   copy, URLs, CSP posture, and Partner Center field map.
 - [`supplemental-content.md`](supplemental-content.md) — controlled answers and
