@@ -164,9 +164,11 @@ secret value.
    or “complete.” User submission state and Partner Center's tax/payout status
    are separate evidence fields.
 7. The Azure Marketplace payment/tax assignment was submitted on 2026-10-06.
-   Partner Center now shows tax **Complete**, the CAD payment profile **Pending
-   Microsoft validation**, and verification **Not started**. Do not reinterpret
-   submission as validation; Microsoft says processing can take up to 48 hours.
+   On 2026-11-01 Partner Center showed tax **Complete**, the CAD payment profile
+   **Action required**, and verification **Not started**. The selected payment
+   profile explicitly says its bank profile needs to be updated. Complete that
+   update and reassignment; the previous 48-hour processing window has elapsed,
+   so passive waiting is not progress.
 8. Do not publish while the live SyncAI Supabase project lacks
    `AZURE_MARKETPLACE_CLIENT_SECRET`. The verified client ID, tenant ID,
    publisher ID, and offer ID were configured on 2026-10-06; an authenticated
