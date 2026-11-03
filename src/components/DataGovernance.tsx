@@ -1,6 +1,6 @@
 /**
  * DataGovernance — whether the register can say what is what
- * (capability register E12.03–E12.06, E12.09, E12.11–E12.13).
+ * (capability register E12.03–E12.09, E12.11–E12.13).
  *
  * The identity line goes first because it bounds everything else. An asset
  * whose only identifier is a free-text name cannot be joined on, and no
@@ -26,6 +26,7 @@ import {
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
 import { DataStewardAgentWorkbench } from "./DataStewardAgentWorkbench";
 import { TimeSynchronizationAssurance } from "./TimeSynchronizationAssurance";
+import { DataLineagePanel } from "./DataLineagePanel";
 
 interface Posture {
   assets_total: number;
@@ -54,6 +55,7 @@ export function DataGovernance() {
     <div className="space-y-6">
       <DataGovernanceReadout />
       <TimeSynchronizationAssurance />
+      <DataLineagePanel />
     </div>
   );
 }

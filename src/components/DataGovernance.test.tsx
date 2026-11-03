@@ -23,6 +23,9 @@ vi.mock("./AuthProvider", () => ({
 vi.mock("./DataStewardAgentWorkbench", () => ({
   DataStewardAgentWorkbench: () => null,
 }));
+vi.mock("./DataLineagePanel", () => ({
+  DataLineagePanel: () => null,
+}));
 vi.mock("../services/timeSynchronization", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("../services/timeSynchronization")>();
