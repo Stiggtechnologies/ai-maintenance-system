@@ -845,7 +845,7 @@ record-scoped._
 | A1.02 | Asset engine: assets, configuration, condition, dependencies, degradation, lifecycle                                                  | 🟡     |
 | A1.03 | Work engine: plan, prioritize, schedule, execute, verify                                                                              | 🟡     |
 | A1.04 | Assurance engine: safety, integrity, quality, environment, cyber, regulation, decision authority                                      | 🟡     |
-| A1.05 | Value engine: lifecycle cost, risk, performance, resilience, capital allocation                                                       | 🟡     |
+| A1.05 | Value engine: lifecycle cost, risk, performance, resilience, capital allocation                                                       | ✅ `/develop/portfolio` mounts `LongHorizonValuePlan`, which calls get_long_horizon_value_plan, record_long_horizon_plan and adopt_long_horizon_plan over canonical `long_horizon_plans` (`supabase/migrations/20271108140000_long_horizon_value_plan.sql`). A named engineering, planning, maintenance, executive or administrator human with a verified factor and an AAL2 session records a horizon of at least two years inside the existing planning window, one ISO currency, and either recorded capital only or an explicitly stated annual maintenance assumption. `describeLongHorizonYear` keeps a missing year from being read as zero. The composition reads lifecycle cost from asset_economics and lifecycle_evaluations without multiplying an annual USD figure across the horizon or converting it; open governed risks without inventing a score or summing mixed or incomplete value-at-risk; production_records as observed history, never a forecast, and never across mixed units; resilience as threat_scenarios and climate_resilience_assessments counts with no rating; and capital allocation only from currency-matched capital_plan_items. budget_lines stay unlabelled counts because that table records no currency. A different executive, administrator or maintenance manager adopts the draft, freezing the composition in calculation_runs and audit_events. The plan authorizes no expenditure, sanction, work, risk acceptance or return to service. |
 | A1.06 | Common evidence and governance layer beneath all engines                                                                              | 🟡     |
 | A1.07 | Final mission: federated decision/coordination system translating missions into asset requirements with complete human accountability | 🟡     |
 
@@ -853,8 +853,8 @@ record-scoped._
 
 ## Register statistics
 
-Atomic items tracked: **468** — counted programmatically from the tables
+Atomic items tracked: **469** — counted programmatically from the tables
 themselves (an earlier hand-stated figure of 307 under-counted; the enumeration
-never changed, only the count of it). Current tally: ✅ 393 · 🟡 76 · ❌ 0. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main. U22.01 closed by the evidence-backed organizational maturity workflow and governed runtime acceptance smoke.)_
+never changed, only the count of it). Current tally: ✅ 394 · 🟡 75 · ❌ 0. _(2026-08-07: reconciled after parallel merges — C7.01/03/04/11 reliability engine, C4.13–17 + C6.22 closed-loop tail, C3.01–12 taxonomy, C5.04 scheduler all verified present on main. U22.01 closed by the evidence-backed organizational maturity workflow and governed runtime acceptance smoke.)_
 Every ❌ and 🟡 is an open obligation of the program. No item may be removed;
 items may only change status with linked evidence in the PR that changes them.

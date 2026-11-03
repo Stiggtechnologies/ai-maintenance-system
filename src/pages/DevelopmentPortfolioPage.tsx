@@ -8,6 +8,7 @@ import {
   LoadingState,
 } from "../components/ui/AsyncStates";
 import { EnterprisePortfolioOptimizationPanel } from "../components/EnterprisePortfolioOptimizationPanel";
+import { LongHorizonValuePlan } from "../components/LongHorizonValuePlan";
 import { ProjectAssurancePanel } from "../components/ProjectAssurancePanel";
 import { ProgramPortfolioPanel } from "../components/develop/ProgramPortfolioPanel";
 import { ScopeCreepDetectionPanel } from "../components/develop/ScopeCreepDetectionPanel";
@@ -65,7 +66,10 @@ export function DevelopmentPortfolioPage() {
   if (error) return <ErrorState message={error} onRetry={refetch} />;
   if (!data || data.rows.length === 0)
     return (
-      <EmptyState message="No development cases are visible to your organization." />
+      <main className="space-y-5 p-6">
+        <LongHorizonValuePlan />
+        <EmptyState message="No development cases are visible to your organization." />
+      </main>
     );
 
   return (
@@ -86,6 +90,8 @@ export function DevelopmentPortfolioPage() {
           and benefits—each from its canonical case record.
         </p>
       </header>
+
+      <LongHorizonValuePlan />
 
       <SyncPmoWorkspacePanel rows={data.rows} />
 
