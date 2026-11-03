@@ -23,15 +23,32 @@ import {
   type AssetOption,
 } from "../services/reliabilityCallers";
 
+interface CostGap {
+  asset?: string | null;
+  assetId?: string;
+  posture?: string;
+}
+
 interface CostPerUnit {
   available: boolean;
   value: number | null;
   unit: string | null;
   units_produced: number | null;
-  maintenance_cost_usd: number;
+  maintenance_cost_usd: number | null;
   cost_coverage: string;
-  missing_inputs: string[];
+  missing_inputs: Array<string | CostGap>;
   basis: string;
+  excluded_assets?: number;
+}
+
+function gapLabel(gap: string | CostGap): string {
+  if (typeof gap === "string") return gap;
+  const name = gap.asset || gap.assetId || "unnamed asset";
+  if (gap.posture === "stale_cost")
+    return `${name}: economics review is past due`;
+  if (gap.posture === "unresolved_asset")
+    return `${name}: asset is outside this organization`;
+  return `${name}: no current asset-specific maintenance cost`;
 }
 
 interface Payload {
@@ -55,6 +72,8 @@ export function OperatingContext() {
   }, []);
   const assets = useAsyncData<AssetOption[]>(listAssetsForContext, []);
   const [assetId, setAssetId] = useState("");
+  const [publishing, setPublishing] = useState(false);
+  const [publication, setPublication] = useState<string | null>(null);
 
   if (loading) return <LoadingState label="Loading operating context" />;
   if (error) return <ErrorState message={error} onRetry={refetch} />;
@@ -151,11 +170,69 @@ export function OperatingContext() {
             </p>
           </>
         ) : (
-          <p className="mt-1.5 flex items-start gap-1.5 text-sm text-slate-400">
-            <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-            <span>{c?.basis}</span>
-          </p>
+          <div className="mt-1.5 space-y-1 text-sm text-slate-400">
+            <p className="flex items-start gap-1.5">
+              <CircleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              <span>{c?.basis}</span>
+            </p>
+            {(c?.missing_inputs ?? []).length > 0 ? (
+              <ul className="list-disc pl-5 text-xs text-slate-500">
+                {c?.missing_inputs.map((gap, index) => (
+                  <li key={`${gapLabel(gap)}-${index}`}>{gapLabel(gap)}</li>
+                ))}
+              </ul>
+            ) : null}
+          </div>
         )}
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            className="rounded-lg border border-white/15 px-3 py-1.5 text-xs text-slate-200 disabled:opacity-50"
+            disabled={publishing}
+            onClick={() => {
+              setPublishing(true);
+              setPublication(null);
+              void (async () => {
+                try {
+                  const { data: receipt, error: publishError } =
+                    await supabase.rpc("publish_maintenance_cost_per_unit", {
+                      p_window_days: 365,
+                    });
+                  if (publishError) {
+                    setPublication(publishError.message);
+                    return;
+                  }
+                  const body = receipt as {
+                    published?: boolean;
+                    basis?: string;
+                    figure?: { basis?: string };
+                  };
+                  setPublication(
+                    body.published
+                      ? "Published to the financial KPI record as not assessed. The figure authorizes no expenditure, work, risk acceptance or return to service."
+                      : (body.figure?.basis ??
+                          body.basis ??
+                          "Publication refused."),
+                  );
+                } finally {
+                  setPublishing(false);
+                }
+              })();
+            }}
+          >
+            {publishing ? "Publishing cost per unit" : "Publish cost per unit"}
+          </button>
+          <p className="text-xs text-slate-500">
+            A named executive, maintenance manager or administrator publishes
+            the same figure. An unavailable result is audited and not stored as
+            a number.
+          </p>
+        </div>
+        {publication ? (
+          <p className="mt-2 text-sm text-slate-300" role="status">
+            {publication}
+          </p>
+        ) : null}
       </div>
 
       <div
