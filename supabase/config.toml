@@ -486,5 +486,10 @@ verify_jwt = false
 [functions.azure-iot-operations-ingest]
 verify_jwt = false
 
+# Ignition tag reads are a signed-in, user-triggered GET. JWT stays on.
+# Production deploy allowlisting is intentionally unchanged in this change.
+[functions.ignition-scada-read-pull]
+verify_jwt = true
+
 [functions.sap-s4-write-execute]
 verify_jwt = true
