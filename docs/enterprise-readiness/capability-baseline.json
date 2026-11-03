@@ -164,8 +164,8 @@
   "C2.12": {
     "status": "🟡",
     "evidence": true,
-    "citations": 9,
-    "backticked": 3
+    "citations": 16,
+    "backticked": 10
   },
   "C2.13": {
     "status": "🟡",
@@ -206,8 +206,8 @@
   "C2.19": {
     "status": "🟡",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 7,
+    "backticked": 7
   },
   "C3.01": {
     "status": "✅",
@@ -1376,8 +1376,8 @@
   "E6.13": {
     "status": "✅",
     "evidence": true,
-    "citations": 4,
-    "backticked": 4
+    "citations": 7,
+    "backticked": 7
   },
   "E6.14": {
     "status": "✅",
