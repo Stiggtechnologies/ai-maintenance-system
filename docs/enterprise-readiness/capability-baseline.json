@@ -1824,10 +1824,10 @@
     "backticked": 1
   },
   "E12.10": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 8,
+    "backticked": 8
   },
   "E12.11": {
     "status": "✅",
