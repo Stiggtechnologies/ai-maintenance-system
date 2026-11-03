@@ -11,6 +11,7 @@
  * it is a scheduling input.
  */
 import { RecoveryContextPanel } from "../components/RecoveryContextPanel";
+import { ScheduleFreezeReceipt } from "../components/ScheduleFreezeReceipt";
 import { SchedulerPanel } from "../components/SchedulerPanel";
 import { WorkforceReadiness } from "../components/WorkforceReadiness";
 
@@ -27,6 +28,7 @@ export function SchedulingPage() {
       </div>
       <RecoveryContextPanel surface="scheduling" />
       <SchedulerPanel />
+      <ScheduleFreezeReceipt />
       <WorkforceReadiness />
     </div>
   );
