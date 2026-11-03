@@ -1070,6 +1070,25 @@ describe("the reachability judges", () => {
     );
   });
 
+  it("recognizes whole-system KPI optimization as customer-reachable", () => {
+    for (const name of [
+      "get_system_kpi_optimization_workspace",
+      "propose_system_kpi_optimization",
+      "decide_system_kpi_optimization",
+    ]) {
+      const verdict = judge({
+        id: "C8.25",
+        raw: name,
+        name,
+        kind: "sql-function",
+      });
+      expect(verdict.ok, verdict.detail).toBe(true);
+      expect(verdict.detail).toMatch(
+        /invoked from src\/services\/systemKpiOptimizationService\.ts/,
+      );
+    }
+  });
+
   it("recognizes recommendation contract posture as customer-reachable", () => {
     const verdict = judge({
       id: "C8.21",
