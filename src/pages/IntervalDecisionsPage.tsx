@@ -10,6 +10,7 @@
  */
 import { IntervalOptimization } from "../components/IntervalOptimization";
 import { AssetStrategyAgentWorkbench } from "../components/AssetStrategyAgentWorkbench";
+import { PmPolicyOptimization } from "../components/PmPolicyOptimization";
 
 export function IntervalDecisionsPage() {
   return (
@@ -24,6 +25,7 @@ export function IntervalDecisionsPage() {
         </p>
       </div>
       <AssetStrategyAgentWorkbench />
+      <PmPolicyOptimization />
       <IntervalOptimization />
     </div>
   );
