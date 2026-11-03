@@ -485,3 +485,6 @@ verify_jwt = false
 # before the service-role RPC can resolve a connector or write any row.
 [functions.azure-iot-operations-ingest]
 verify_jwt = false
+
+[functions.sap-s4-write-execute]
+verify_jwt = true

@@ -209,6 +209,12 @@
     "citations": 1,
     "backticked": 1
   },
+  "C2.20": {
+    "status": "🟡",
+    "evidence": true,
+    "citations": 13,
+    "backticked": 13
+  },
   "C3.01": {
     "status": "✅",
     "evidence": true,
@@ -1376,8 +1382,8 @@
   "E6.13": {
     "status": "✅",
     "evidence": true,
-    "citations": 4,
-    "backticked": 4
+    "citations": 7,
+    "backticked": 7
   },
   "E6.14": {
     "status": "✅",
