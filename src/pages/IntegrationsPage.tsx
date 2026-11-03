@@ -19,6 +19,7 @@ import { CmmsReadConnectorSetup } from "../components/CmmsReadConnectorSetup";
 import { P6ScheduleReadConnectorSetup } from "../components/P6ScheduleReadConnectorSetup";
 import { SapS4InventoryReadConnectorSetup } from "../components/SapS4InventoryReadConnectorSetup";
 import { SapS4FinancialReadConnectorSetup } from "../components/SapS4FinancialReadConnectorSetup";
+import { IgnitionScadaReadConnectorSetup } from "../components/IgnitionScadaReadConnectorSetup";
 import { BentlySystem1ConnectorSetup } from "../components/BentlySystem1ConnectorSetup";
 import { P6ScheduleRevisionReview } from "../components/P6ScheduleRevisionReview";
 
@@ -101,7 +102,8 @@ export function IntegrationsPage() {
     {
       type: "Ignition",
       label: "Ignition SCADA",
-      description: "Real-time process data",
+      description:
+        "Read-only tag values via WebDev. Mock-tested, not live-certified.",
     },
     {
       type: "OPC-UA",
@@ -228,8 +230,11 @@ export function IntegrationsPage() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {connectorTypes.map((ct) => {
-                const isConnected = connectors.some(
-                  (c) => c.connector_type === ct.type,
+                const isConnected = connectors.some((c) =>
+                  ct.type === "Ignition"
+                    ? c.connector_type === "scada_read" ||
+                      c.connector_type === "Ignition"
+                    : c.connector_type === ct.type,
                 );
                 return (
                   <div
@@ -245,7 +250,19 @@ export function IntegrationsPage() {
                       )}
                     </div>
                     <p className="text-xs text-slate-400">{ct.description}</p>
-                    <button className="mt-3 text-xs text-signal-cyan hover:text-signal-cyan font-medium flex items-center gap-1">
+                    <button
+                      type="button"
+                      className="mt-3 text-xs text-signal-cyan hover:text-signal-cyan font-medium flex items-center gap-1"
+                      onClick={() => {
+                        if (ct.type !== "Ignition") return;
+                        document
+                          .getElementById("ignition-scada-read-setup")
+                          ?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "start",
+                          });
+                      }}
+                    >
                       {isConnected ? "Manage" : "Connect"}{" "}
                       <ExternalLink size={10} />
                     </button>
@@ -354,6 +371,7 @@ export function IntegrationsPage() {
       <P6ScheduleReadConnectorSetup onConfigured={loadData} />
       <SapS4InventoryReadConnectorSetup onConfigured={loadData} />
       <SapS4FinancialReadConnectorSetup onConfigured={loadData} />
+      <IgnitionScadaReadConnectorSetup onConfigured={loadData} />
       <BentlySystem1ConnectorSetup onConfigured={loadData} />
       <RecoverySignalConnectorSetup onConfigured={loadData} />
       <ConnectorHealth />
