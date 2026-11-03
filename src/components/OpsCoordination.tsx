@@ -16,16 +16,19 @@
  * tenant, asset, work order, outcome, punch items, human provenance and
  * separation of duties; the list rendered here grants no authority.
  *
- * Production loss is measured against the rate each asset actually
- * demonstrated while running, never nameplate. Nameplate overstates loss
- * systematically, and an overstated loss is a number that will not survive
- * the meeting where it matters.
+ * Production loss attributable to equipment counts only downtime whose latest
+ * named-human classification is equipment failure. Overlapping intervals are
+ * unioned per asset and multiplied by the rate that asset demonstrated while
+ * running. Other categories, unclassified downtime, mixed units and nameplate
+ * capacity stay out of the total. Recording a receipt writes an audit event
+ * and grants no work, risk, spend or return-to-service authority.
  */
 import { HandCoins, ArrowLeftRight, Hourglass } from "lucide-react";
 import { useState } from "react";
 import { useAsyncData } from "../hooks/useAsyncData";
 import {
   getOpsCoordination,
+  recordEquipmentProductionLossReceipt,
   returnEquipmentToOperations,
   verifyAndAcceptEquipment,
   type EquipmentRelease,
@@ -103,6 +106,24 @@ export function OpsCoordination() {
   const awaiting = releases.filter((r) => r.awaiting_acceptance).length;
   const loss = data?.production_loss;
   const lossRows = loss?.by_asset ?? [];
+  const totals = loss?.totals_by_unit ?? [];
+  const exclusions = loss?.exclusions ?? [];
+
+  const recordLossReceipt = async () => {
+    setBusy(true);
+    try {
+      const receipt = await recordEquipmentProductionLossReceipt(
+        loss?.window_days ?? 90,
+      );
+      setFlash(
+        `Measurement receipt ${String(receipt.audit_event_id ?? "")} recorded. It does not release work, accept risk, or return equipment to service.`,
+      );
+    } catch (err) {
+      setFlash(err instanceof Error ? err.message : "That did not work.");
+    } finally {
+      setBusy(false);
+    }
+  };
 
   return (
     <section aria-labelledby="ops-heading" className="space-y-4">
@@ -253,6 +274,74 @@ export function OpsCoordination() {
         <p className="mt-1 max-w-3xl text-xs leading-relaxed text-slate-400">
           {loss?.basis}
         </p>
+        {loss?.decision_boundary && (
+          <p className="mt-1 max-w-3xl text-xs leading-relaxed text-slate-500">
+            {loss.decision_boundary}
+          </p>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-white/6 bg-overlook-deep/40 p-4">
+        <h4 className="text-sm font-medium text-slate-200">Enterprise total</h4>
+        {totals.length === 0 ? (
+          <p className="mt-2 text-sm text-slate-400">
+            No equipment-attributable total is available for this window.
+          </p>
+        ) : (
+          <ul className="mt-2 space-y-1">
+            {totals.map((total) => (
+              <li
+                key={total.unit_of_measure}
+                className="font-mono text-sm text-amber-200 tabular-nums"
+              >
+                {total.units_lost.toLocaleString()} {total.unit_of_measure}{" "}
+                <span className="text-slate-400">
+                  across {total.assets}{" "}
+                  {total.assets === 1 ? "asset" : "assets"} ({total.down_hours}{" "}
+                  h)
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+        {totals.length > 1 && (
+          <p className="mt-2 text-xs text-slate-400">
+            These units are not added together.
+          </p>
+        )}
+        {(loss?.not_measurable_equipment_hours ?? 0) > 0 && (
+          <p className="mt-2 text-xs text-slate-400">
+            {loss?.not_measurable_equipment_hours} equipment-failure hours have
+            no single demonstrated rate and are excluded.
+          </p>
+        )}
+        {(loss?.mixed_unit_assets ?? 0) > 0 && (
+          <p className="mt-2 text-xs text-slate-400">
+            {loss?.mixed_unit_assets}{" "}
+            {loss?.mixed_unit_assets === 1 ? "asset has" : "assets have"}{" "}
+            mixed production units and {loss?.mixed_unit_assets === 1 ? "is" : "are"}{" "}
+            excluded.
+          </p>
+        )}
+        {exclusions.length > 0 && (
+          <ul className="mt-3 space-y-1 text-xs text-slate-400">
+            {exclusions.map((item) => (
+              <li key={item.classification}>
+                Excluded {item.classification.split("_").join(" ")}:{" "}
+                {item.down_hours} h across {item.events}{" "}
+                {item.events === 1 ? "event" : "events"}
+              </li>
+            ))}
+          </ul>
+        )}
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => void recordLossReceipt()}
+          className="mt-3 rounded-lg border border-white/10 px-2.5 py-1.5 text-xs text-slate-300 disabled:opacity-50"
+        >
+          Record measurement receipt
+        </button>
       </div>
 
       {lossRows.length > 0 && (
