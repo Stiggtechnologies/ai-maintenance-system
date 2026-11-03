@@ -1164,10 +1164,10 @@
     "backticked": 5
   },
   "E4.04": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 8,
-    "backticked": 7
+    "citations": 11,
+    "backticked": 10
   },
   "E4.05": {
     "status": "✅",

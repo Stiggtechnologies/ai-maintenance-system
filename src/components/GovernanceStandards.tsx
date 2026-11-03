@@ -9,8 +9,9 @@
  * compensating controls, and all of them expire. A permanent exception is a
  * standard nobody updated.
  *
- * Risk acceptances work the same way and are bound to the delegation ladder —
- * an acceptance above your own risk ceiling is refused, and an active
+ * Risk acceptances work the same way and are bound to the delegation ladder.
+ * An acceptance is refused when no adopted authority limit covers the role,
+ * an acceptance above that role's risk ceiling is refused, and an active
  * acceptance is what legitimately lets an approval past that ceiling.
  */
 import { useState } from "react";
@@ -292,9 +293,10 @@ export function GovernanceStandards() {
           </span>
         </h3>
         <p className="mt-1 text-xs text-slate-400">
-          Who may accept what residual risk comes from the delegation ladder. An
-          active acceptance is what legitimately carries an approval past a risk
-          ceiling — and every one of them expires.
+          Who may accept what residual risk comes from an adopted delegation.
+          With no adopted authority limit covering your role, the acceptance is
+          refused. An active acceptance is what legitimately carries an approval
+          past a risk ceiling — and every one of them expires.
         </p>
       </div>
 
@@ -598,10 +600,13 @@ export function GovernanceStandards() {
                 compensatingControls: controls,
                 expiresAt: new Date(expiresAt).toISOString(),
               });
+              if (!result.ceiling_checked) {
+                throw new Error(
+                  "no adopted authority limit covers this risk acceptance for your role",
+                );
+              }
               setFlash(
-                result.ceiling_checked
-                  ? `Acceptance recorded. The delegation ladder ceiling was checked.`
-                  : `Acceptance recorded. No adopted authority-limit row bound a ceiling for your role — this is not a blank cheque, and E4.03 still requires an adopted delegation instrument.`,
+                "Acceptance recorded. The delegation ladder ceiling was checked.",
               );
               setAccepting(null);
               refetch();
@@ -616,7 +621,8 @@ export function GovernanceStandards() {
         >
           <p className="text-sm text-slate-300">
             Accepting residual risk is a named-human act with an expiry. It is
-            not an approval of work and it is not an AI recommendation.
+            refused unless an adopted delegation covers your role. It is not an
+            approval of work and it is not an AI recommendation.
           </p>
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-slate-400">

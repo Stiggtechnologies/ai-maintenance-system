@@ -267,11 +267,12 @@ describe("variance and accept-risk writers", () => {
       data: {
         acceptance_id: "ra1",
         expires_at: "2027-03-01T00:00:00Z",
-        ceiling_checked: false,
+        ceiling_checked: true,
+        authority_limit_id: "lim1",
       },
       error: null,
     });
-    await acceptRisk({
+    const result = await acceptRisk({
       subjectType: "standard",
       subjectId: "s1",
       riskLevel: "Medium",
@@ -288,6 +289,32 @@ describe("variance and accept-risk writers", () => {
         "Weekly visual plus vibration route on this class.",
       p_expires_at: "2027-03-01T00:00:00Z",
     });
+    expect(result.authority_limit_id).toBe("lim1");
+    expect(result.ceiling_checked).toBe(true);
+  });
+
+  it("refuses a six-argument acceptance that reports no covering ceiling", async () => {
+    rpc.mockResolvedValue({
+      data: {
+        acceptance_id: "ra1",
+        expires_at: "2027-03-01T00:00:00Z",
+        ceiling_checked: false,
+      },
+      error: null,
+    });
+    await expect(
+      acceptRisk({
+        subjectType: "standard",
+        subjectId: "s1",
+        riskLevel: "Medium",
+        rationale: "Residual leak risk is tolerable with weekly visual checks.",
+        compensatingControls:
+          "Weekly visual plus vibration route on this class.",
+        expiresAt: "2027-03-01T00:00:00Z",
+      }),
+    ).rejects.toThrow(
+      /no adopted authority limit covers this risk acceptance/,
+    );
   });
 
   it("calls link_alert_to_work with the alert and work order", async () => {

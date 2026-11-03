@@ -137,14 +137,18 @@ describe("GovernanceStandards write paths", () => {
     );
   });
 
-  it("records residual risk through acceptRisk and hides the act from ai_admin", async () => {
+  it("records residual risk through acceptRisk only when a ceiling was checked", async () => {
     acceptRisk.mockResolvedValue({
       acceptance_id: "ra1",
       expires_at: "2027-03-01T00:00:00Z",
-      ceiling_checked: false,
+      ceiling_checked: true,
+      authority_limit_id: "lim1",
     });
     render(<GovernanceStandards />);
     fireEvent.click(await screen.findByText("Accept residual risk"));
+    expect(
+      screen.getByText(/refused unless an adopted delegation covers your role/),
+    ).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Risk acceptance rationale"), {
       target: {
         value: "Residual leak risk is tolerable with weekly visual checks.",
@@ -173,9 +177,47 @@ describe("GovernanceStandards write paths", () => {
         expiresAt: new Date("2027-03-01").toISOString(),
       }),
     );
+    expect(
+      await screen.findByText(
+        "Acceptance recorded. The delegation ladder ceiling was checked.",
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByTestId("governance-honesty")).toHaveTextContent(
       /not an approval of work/,
     );
+  });
+
+  it("shows the refusal when no adopted authority limit covers the act", async () => {
+    acceptRisk.mockRejectedValue(
+      new Error(
+        "no adopted authority limit covers this risk acceptance for your role",
+      ),
+    );
+    render(<GovernanceStandards />);
+    fireEvent.click(await screen.findByText("Accept residual risk"));
+    fireEvent.change(screen.getByLabelText("Risk acceptance rationale"), {
+      target: {
+        value: "Residual leak risk is tolerable with weekly visual checks.",
+      },
+    });
+    fireEvent.change(
+      screen.getByLabelText("Risk acceptance compensating controls"),
+      {
+        target: {
+          value: "Weekly visual plus vibration route on this class.",
+        },
+      },
+    );
+    fireEvent.change(screen.getByLabelText("Risk acceptance expiry"), {
+      target: { value: "2027-03-01" },
+    });
+    fireEvent.click(screen.getByText("Record acceptance"));
+    expect(
+      await screen.findByText(
+        /no adopted authority limit covers this risk acceptance/,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/Acceptance recorded/)).not.toBeInTheDocument();
   });
 
   it("hides accept-risk for the AI-operator identity", async () => {

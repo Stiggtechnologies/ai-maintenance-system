@@ -19,6 +19,9 @@
  *   - a taxonomy proposal is a draft and does not replace adopted truth;
  *   - the AI-operator identity is not offered P-F adopt, taxonomy adopt,
  *     variance decide, or accept-risk. Propose may remain as a draft-only act.
+ *   - a risk acceptance whose payload says the ceiling was not checked is
+ *     refused here as well as in the database. Absence of a covering
+ *     adopted authority limit is not a recorded acceptance.
  */
 import { supabase } from "../lib/supabase";
 
@@ -406,6 +409,7 @@ export interface AcceptRiskResult {
   acceptance_id: string;
   expires_at: string;
   ceiling_checked: boolean;
+  authority_limit_id?: string;
 }
 
 export async function acceptRisk(input: {
@@ -426,7 +430,7 @@ export async function acceptRisk(input: {
       "state the compensating controls that make the residual risk tolerable",
     );
   }
-  return callRpc<AcceptRiskResult>("accept_risk", {
+  const result = await callRpc<AcceptRiskResult>("accept_risk", {
     p_subject_type: input.subjectType,
     p_subject_id: input.subjectId,
     p_risk_level: input.riskLevel,
@@ -434,4 +438,10 @@ export async function acceptRisk(input: {
     p_compensating_controls: input.compensatingControls.trim(),
     p_expires_at: input.expiresAt,
   });
+  if (result.ceiling_checked !== true) {
+    throw new Error(
+      "no adopted authority limit covers this risk acceptance for your role",
+    );
+  }
+  return result;
 }
