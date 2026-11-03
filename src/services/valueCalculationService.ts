@@ -4,6 +4,7 @@ import type {
   OptionComparison,
   PrioritisationResult,
 } from "../lib/value";
+import type { BusinessCaseSensitivity } from "../lib/value/sensitivity";
 
 export interface ValuePosture {
   cases_total: number;
@@ -44,6 +45,7 @@ export interface ValueCalculationPayload {
   posture: ValuePosture | null;
   businessCase: ValueBusinessCase | null;
   comparison: OptionComparison | null;
+  sensitivity: BusinessCaseSensitivity;
   planYear: number | null;
   plan: ValuePlanItem[];
   prioritisation: {
@@ -58,6 +60,7 @@ export interface ValueCalculationPayload {
   lineage: {
     optionComparisonRunId: string;
     capitalPlanRunId: string;
+    sensitivityRunId: string;
   };
   governance: {
     advisory: true;

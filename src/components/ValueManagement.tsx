@@ -87,8 +87,10 @@ export function ValueManagement() {
         </h2>
         <p className="mt-1 max-w-3xl text-sm text-slate-300">
           Options with different lives cannot be compared on NPV, and a capital
-          list ordered by benefit is not a prioritisation. Every result below is
-          server-computed from tenant records and written to immutable lineage.
+          list ordered by benefit is not a prioritisation. Sensitivity states
+          the recorded discount rate at which that ranking reverses. Every
+          result below is server-computed from tenant records and written to
+          immutable lineage. It does not approve a case or authorize spending.
         </p>
       </div>
 
@@ -174,6 +176,82 @@ export function ValueManagement() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {data?.sensitivity && (
+        <div className="rounded-xl border border-white/6 p-4">
+          <h3 className="text-sm font-semibold text-white">
+            Discount-rate sensitivity
+          </h3>
+          <p className="mt-1 text-xs text-slate-500">
+            Recorded rate{" "}
+            {data.sensitivity.baseValue == null
+              ? "not usable"
+              : `${(data.sensitivity.baseValue * 100).toFixed(2)}%`}
+            {data.sensitivity.discountRateSource
+              ? ` · ${data.sensitivity.discountRateSource}`
+              : ""}
+            {data.lineage.sensitivityRunId
+              ? ` · run ${data.lineage.sensitivityRunId.slice(0, 8)}`
+              : ""}
+          </p>
+          <p className="mt-2 text-xs leading-relaxed text-slate-400">
+            {data.sensitivity.decision ??
+              "No ranking was available to test for a reversal."}
+          </p>
+          <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-3">
+            <div>
+              <dt className="text-xs uppercase tracking-wide text-slate-500">
+                Break-even
+              </dt>
+              <dd className="font-mono text-slate-200 tabular-nums">
+                {data.sensitivity.breakEven == null
+                  ? "none in the stored domain"
+                  : `${(data.sensitivity.breakEven * 100).toFixed(2)}%`}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase tracking-wide text-slate-500">
+                Headroom
+              </dt>
+              <dd className="font-mono text-slate-200 tabular-nums">
+                {data.sensitivity.headroomPct == null
+                  ? "not stated"
+                  : `${(data.sensitivity.headroomPct * 100).toFixed(0)}%`}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs uppercase tracking-wide text-slate-500">
+                Basis
+              </dt>
+              <dd className="text-slate-200">
+                {data.sensitivity.basis === "equivalent_annual"
+                  ? "equivalent annual"
+                  : data.sensitivity.basis === "npv"
+                    ? "NPV"
+                    : "not ranked"}
+              </dd>
+            </div>
+          </dl>
+          <p
+            role="status"
+            className={`mt-3 text-xs leading-relaxed ${data.sensitivity.refusal ? "text-amber-200" : "text-slate-300"}`}
+          >
+            {data.sensitivity.reason}
+          </p>
+          {data.sensitivity.sampledLeadLow != null &&
+            data.sensitivity.sampledLeadHigh != null && (
+              <p className="mt-3 text-xs leading-relaxed text-slate-300">
+                On the sampled rates, {data.sensitivity.baseBest} leads from{" "}
+                {(data.sensitivity.sampledLeadLow * 100).toFixed(2)}% through{" "}
+                {(data.sensitivity.sampledLeadHigh * 100).toFixed(2)}%. Those
+                bounds are sample points, not solved break-evens.
+              </p>
+            )}
+          <p className="mt-3 text-xs leading-relaxed text-slate-400">
+            {data.sensitivity.uncertainty}
+          </p>
         </div>
       )}
 

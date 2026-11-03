@@ -11,6 +11,7 @@ import {
   prioritiseUnderBudget,
   type CashFlow,
 } from "../../../src/lib/value/index.ts";
+import { analyseBusinessCaseSensitivity } from "../../../src/lib/value/sensitivity.ts";
 import { selectWeibullMethod } from "../../../src/lib/reliability/method-selection.ts";
 import {
   analyseModellingStudio,
@@ -1215,7 +1216,10 @@ Deno.serve(async (request) => {
   async function recordRun(input: {
     subjectType: "organization" | "business_case" | "capital_plan_year";
     subjectRef: string;
-    key: "business_case_option_comparison" | "capital_plan_prioritisation";
+    key:
+      | "business_case_option_comparison"
+      | "capital_plan_prioritisation"
+      | "business_case_sensitivity";
     method: string;
     inputs: Record<string, unknown>;
     inputRefs: { table: string; id: string }[];
@@ -1380,6 +1384,62 @@ Deno.serve(async (request) => {
       refusals: comparisonRefusals,
     });
 
+    // E9.11. The browser supplies neither the rate, the flows, nor the
+    // break-even. SAP is not called; recorded business-case rows are the
+    // only cash-flow evidence this action reads.
+    const sensitivity = analyseBusinessCaseSensitivity(
+      businessCase
+        ? {
+            options: optionRows.map((row) => ({
+              label: row.label,
+              lifePeriods: Number(row.life_periods),
+              cashFlows: Array.isArray(row.cash_flows)
+                ? (row.cash_flows as CashFlow[])
+                : [],
+            })),
+            discountRate: discountRate ?? Number.NaN,
+            discountRateSource: businessCase.discount_rate_source,
+          }
+        : {
+            options: [],
+            discountRate: 0,
+            discountRateSource: null,
+          },
+    );
+    if (!businessCase) {
+      sensitivity.reason = "No business case is recorded for this organization.";
+      sensitivity.refusal = sensitivity.reason;
+    }
+    const sensitivityRunId = await recordRun({
+      subjectType: businessCase ? "business_case" : "organization",
+      subjectRef: businessCase ? String(businessCase.id) : organizationId,
+      key: "business_case_sensitivity",
+      method:
+        "Locate the stored-domain discount rate at which the recorded option ranking reverses, using bisection on the shared value kernel. Withhold a single break-even when the margin is not single-crossing. Read no SAP actuals and invent no uncertainty interval.",
+      inputs: {
+        businessCaseId: businessCase?.id ?? null,
+        caseRef: businessCase?.case_ref ?? null,
+        discountRate,
+        discountRateSource: businessCase?.discount_rate_source ?? null,
+        searchLow: sensitivity.searchLow,
+        searchHigh: sensitivity.searchHigh,
+        sapActualsUsed: false,
+        optionCount: optionRows.length,
+        options: optionRows.map((row) => ({
+          id: row.id,
+          label: row.label,
+          lifePeriods: row.life_periods,
+          cashFlows: row.cash_flows,
+        })),
+      },
+      inputRefs: [
+        ...(businessCase ? [inputRef("business_cases", businessCase.id)] : []),
+        ...optionRows.map((row) => inputRef("business_case_options", row.id)),
+      ],
+      outputs: sensitivity as unknown as Record<string, unknown>,
+      refusals: sensitivity.refusal ? [sensitivity.refusal] : [],
+    });
+
     const planRefusals: string[] = [];
     const plan = planRows.map((row) => {
       const cost = finiteNumber(row.cost);
@@ -1519,6 +1579,7 @@ Deno.serve(async (request) => {
           }
         : null,
       comparison,
+      sensitivity,
       planYear: planYear ?? null,
       plan: plan.map((item) => ({
         id: item.id,
@@ -1552,6 +1613,7 @@ Deno.serve(async (request) => {
       lineage: {
         optionComparisonRunId: optionRunId,
         capitalPlanRunId: planRunId,
+        sensitivityRunId,
       },
       governance: {
         advisory: true,

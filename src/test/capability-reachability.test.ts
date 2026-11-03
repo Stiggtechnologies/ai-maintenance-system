@@ -177,7 +177,12 @@ const FLOORS: Record<string, Floors> = {
     // `createProjectFramework` and `addFrameworkStage`, which are shared
     // symbols. Re-derived to sit AT the live numbers — a tightening on three
     // counts, with the ceiling unchanged.
-    rowsWithAnEnforceableCitation: 157,
+    // 157/236/56/184 -> 257/747/211/183 on 2026-11-03 (E9.11). The floors had
+    // drifted below main. Re-derived to the live summary after `findBreakEven`
+    // gained a customer-reachable caller and E9.11 returned to ✅. That new
+    // promise is checkable, so the unenforced ceiling did not rise. No
+    // exemption and no floor lowered.
+    rowsWithAnEnforceableCitation: 257,
     // 215 -> 206 on 2026-08-26. This drop is NOT the gate losing reach: it is the
     // gate WINNING. 74 rows were demoted from ✅ this same commit because their
     // cited symbol or table has no customer-reachable path, and a demoted row's
@@ -187,9 +192,10 @@ const FLOORS: Record<string, Floors> = {
     // It may only be lowered again with the same kind of reason stated here. A
     // silent decrease means the parser stopped understanding evidence it used to
     // understand, which is precisely the failure this number exists to catch.
-    citationsEnforced: 236,
-    claimedRowsEnforced: 56,
-    claimedRowsUnenforced: 184,
+    // 236 -> 747 on 2026-11-03, same re-derive as the row floor above.
+    citationsEnforced: 747,
+    claimedRowsEnforced: 211,
+    claimedRowsUnenforced: 183,
   },
   // Derived 2026-08-28, the commit that first ran this gate against the
   // D-family register, and derived AFTER the seven honest demotions it forced —
