@@ -17,6 +17,7 @@ import { useState } from "react";
 import { Coins, Info, ArrowDownWideNarrow } from "lucide-react";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { runValueCalculations } from "../services/valueCalculationService";
+import { MaintenanceBudgetForecast } from "./MaintenanceBudgetForecast";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
 
 const money = (x: number) =>
@@ -284,6 +285,8 @@ export function ValueManagement() {
           {data.governance.note}
         </p>
       )}
+
+      <MaintenanceBudgetForecast />
     </section>
   );
 }

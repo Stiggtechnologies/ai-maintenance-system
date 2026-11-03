@@ -1578,10 +1578,10 @@
     "backticked": 1
   },
   "E9.04": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 6,
+    "backticked": 6
   },
   "E9.05": {
     "status": "✅",
