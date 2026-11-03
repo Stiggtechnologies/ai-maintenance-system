@@ -290,4 +290,54 @@ describe("what the operator is told before uploading is per entity type", () => 
     fireEvent.click(screen.getByText("Work orders"));
     expect(screen.queryByRole("button", { name: /^Import 2 row/ })).toBeNull();
   });
+
+  it("copies a source response class after a work-order import and leaves priority alone", async () => {
+    rpc.mockImplementation((fn: string) => {
+      if (fn === "begin_manual_import") {
+        return Promise.resolve({ data: { run_id: "run-wo" }, error: null });
+      }
+      if (fn === "apply_imported_work_order_response_class") {
+        return Promise.resolve({
+          data: { applied: 1, blank: 0, invalid: 0, conflicts: 0, unmatched: 0 },
+          error: null,
+        });
+      }
+      return Promise.resolve(ok({ read: 1, accepted: 1 }));
+    });
+    render(<ContractImport initialEntity="work_order" />);
+    await upload(
+      [
+        "asset_name,asset_id,wo_number,title,status,priority,work_type,created_at,completed_at,failure_mode,downtime_hours,response_class",
+        "Pump P-1,,WO-1,Seal leak,completed,high,corrective,2026-05-02T06:00:00Z,2026-05-02T14:00:00Z,Seal,2,emergency",
+      ].join("\n"),
+    );
+    fireEvent.click(screen.getByRole("button", { name: /^Import 1 row/ }));
+    expect(
+      await screen.findByTestId("import-response-class-note"),
+    ).toHaveTextContent(/copied from the file/);
+    const ingest = rpc.mock.calls.find((call) => call[0] === "ingest_rows");
+    const payload = ingest?.[1].p_rows[0] as Record<string, unknown>;
+    expect(payload.response_class).toBe("emergency");
+    expect(payload.priority).toBe("high");
+    expect(rpc.mock.calls.map((call) => call[0])).toContain(
+      "apply_imported_work_order_response_class",
+    );
+  });
+
+  it("refuses an unknown response class before the file is sent", async () => {
+    rpc.mockResolvedValue({ data: {}, error: null });
+    render(<ContractImport initialEntity="work_order" />);
+    const input = document.querySelector(
+      'input[type="file"]',
+    ) as HTMLInputElement;
+    const text = [
+      "asset_name,wo_number,title,priority,response_class",
+      "Pump P-1,WO-2,Seal leak,critical,breakdown",
+    ].join("\n");
+    const file = new File([text], "upload.csv", { type: "text/csv" });
+    Object.defineProperty(file, "text", { value: () => Promise.resolve(text) });
+    fireEvent.change(input, { target: { files: [file] } });
+    expect(await screen.findByText(/response_class is "breakdown"/)).toBeTruthy();
+    expect(rpc).not.toHaveBeenCalled();
+  });
 });

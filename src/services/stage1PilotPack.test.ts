@@ -13,8 +13,11 @@ vi.mock("../lib/supabase", () => ({
 
 import {
   adoptAuthorityLimit,
+  applyImportedWorkOrderResponseClass,
+  describeImportedResponseClass,
   getKpiNamedOwners,
   getStage1ImportStatus,
+  getStage1MeasuredPilotProof,
   nameKpiOwner,
   stateAuthorityCeiling,
 } from "./stage1PilotPack";
@@ -112,6 +115,84 @@ describe("stage1PilotPack service", () => {
     const r = await getKpiNamedOwners();
     expect(r.owners[0]?.named_accountable).toBeNull();
     expect(rpc).toHaveBeenCalledWith("get_kpi_named_owners");
+  });
+
+  it("drops a proxy emergency value unless the arm is measured", async () => {
+    rpc.mockResolvedValue({
+      data: {
+        historical_fleet_studies_used: false,
+        authority: "read only",
+        population: { work_orders: 4 },
+        emergency_work: {
+          status: "not_measurable",
+          value: 80,
+          basis: "classified population is empty",
+          classified: 0,
+          work_orders: 4,
+        },
+        repeat_failures: { status: "not_measurable", value: 0, basis: "uncoded" },
+        availability: { status: "not_measurable", value: 100, basis: "no states" },
+        backlog_quality: {
+          status: "partial",
+          open_work_orders: 2,
+          planning_complete: 1,
+          planning_complete_pct: 50,
+          materials_status: "not_measurable",
+          materials_ready: 100,
+          materials_ready_pct: 100,
+          materials_with_demand: 0,
+          basis: "materials stay unmeasured",
+        },
+        production_loss: {
+          status: "measured",
+          sum_refused: true,
+          units_lost: 999,
+          unit_of_measure: "t",
+          assets_measurable: 2,
+          by_asset: [],
+          basis: "mixed units",
+        },
+      },
+      error: null,
+    });
+    const proof = await getStage1MeasuredPilotProof();
+    expect(rpc).toHaveBeenCalledWith("get_stage1_measured_pilot_proof", {
+      p_window_days: null,
+    });
+    expect(proof.historical_fleet_studies_used).toBe(false);
+    expect(proof.emergency_work.value).toBeNull();
+    expect(proof.repeat_failures.value).toBeNull();
+    expect(proof.availability.value).toBeNull();
+    expect(proof.backlog_quality.planning_complete_pct).toBe(50);
+    expect(proof.backlog_quality.materials_ready_pct).toBeNull();
+    expect(proof.production_loss.units_lost).toBeNull();
+    expect(proof.production_loss.sum_refused).toBe(true);
+  });
+
+  it("refuses a readout that is not marked as this tenant", async () => {
+    rpc.mockResolvedValue({
+      data: { historical_fleet_studies_used: true, emergency_work: {} },
+      error: null,
+    });
+    await expect(getStage1MeasuredPilotProof()).rejects.toThrow(
+      /this tenant's live rows/,
+    );
+  });
+
+  it("copies response class through the import run and describes blanks honestly", async () => {
+    rpc.mockResolvedValue({
+      data: { applied: 2, blank: 3, invalid: 0, conflicts: 0, unmatched: 0 },
+      error: null,
+    });
+    const result = await applyImportedWorkOrderResponseClass("run-1");
+    expect(rpc).toHaveBeenCalledWith(
+      "apply_imported_work_order_response_class",
+      { p_run_id: "run-1" },
+    );
+    expect(describeImportedResponseClass(result)).toMatch(/copied from the file/);
+    expect(describeImportedResponseClass(result)).toMatch(
+      /Blank classes stay unclassified/,
+    );
   });
 });
 

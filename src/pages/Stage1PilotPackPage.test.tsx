@@ -5,6 +5,7 @@ describe("Stage1PilotPackPage", () => {
   it("mounts the three live-ops surfaces and the runbook", () => {
     const src = readFileSync("src/pages/Stage1PilotPackPage.tsx", "utf8");
     expect(src).toContain("Stage1ImportLivePath");
+    expect(src).toContain("Stage1MeasuredPilotProof");
     expect(src).toContain("AccountabilityCascade");
     expect(src).toContain("Stage1KpiOwners");
     expect(src).toContain("Stage1OperatorRunbook");

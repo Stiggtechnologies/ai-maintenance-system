@@ -42,6 +42,10 @@ import {
   Upload,
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
+import {
+  applyImportedWorkOrderResponseClass,
+  describeImportedResponseClass,
+} from "../services/stage1PilotPack";
 import { parseCSV } from "../lib/fleet-import";
 import { parseP6Xer, type P6XerResourceAssignment } from "../lib/p6-xer";
 import {
@@ -97,6 +101,7 @@ export function ContractImport({
   const [completedScheduleRunId, setCompletedScheduleRunId] = useState<
     string | null
   >(null);
+  const [classNote, setClassNote] = useState<string | null>(null);
 
   const entity = INGEST_ENTITIES[entityKey];
 
@@ -116,6 +121,7 @@ export function ContractImport({
     setSummary(null);
     setRejects([]);
     setMsg(null);
+    setClassNote(null);
     setSourceName("Manual upload");
     setXerWarnings([]);
     setXerAssignments([]);
@@ -239,6 +245,18 @@ export function ContractImport({
         p_status: totals.rejected > 0 ? "partial" : "success",
       });
       finished = true;
+      if (entity.key === "work_order" && totals.accepted > 0) {
+        try {
+          const classified = await applyImportedWorkOrderResponseClass(runId);
+          setClassNote(describeImportedResponseClass(classified));
+        } catch (classErr) {
+          setClassNote(
+            classErr instanceof Error
+              ? classErr.message
+              : "Response classes were not copied from the file.",
+          );
+        }
+      }
       if (entity.key === "schedule_activity") {
         setCompletedScheduleRunId(runId);
       }
@@ -523,6 +541,14 @@ export function ContractImport({
             <span className="block pt-1 text-slate-500">
               This run finished as “partial”, so the connector's watermark did
               not advance. Fix the rows below and upload them again.
+            </span>
+          )}
+          {classNote && (
+            <span
+              className="block pt-1 text-slate-400"
+              data-testid="import-response-class-note"
+            >
+              {classNote}
             </span>
           )}
         </div>

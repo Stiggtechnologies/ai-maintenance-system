@@ -322,6 +322,12 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
           min: 0,
           note: "hours the asset was down",
         },
+        {
+          name: "response_class",
+          kind: "text",
+          oneOf: ["emergency", "urgent", "scheduled"],
+          note: "optional source dispatch class. Blank stays unclassified. Priority stays priority.",
+        },
       ],
       externalIdFrom: "wo_number",
       dedupe: "one work order per wo_number, per upload connector",
@@ -329,9 +335,9 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
       reuploadSentence:
         "A re-upload is counted as DUPLICATE and skipped. A work order is an event; correcting one means loading it under a new number.",
       caution:
-        "Name an asset only if you can match it: a work order naming an asset this product cannot resolve is REFUSED, because every per-asset reliability figure is computed from work orders and one with no asset is a downtime hour nobody can attribute. Leaving both asset columns blank is allowed.",
+        "Name an asset only if you can match it: a work order naming an asset this product cannot resolve is REFUSED, because every per-asset reliability figure is computed from work orders and one with no asset is a downtime hour nobody can attribute. Leaving both asset columns blank is allowed. response_class is copied only when the file already says emergency, urgent, or scheduled. A blank cell stays unclassified.",
       outcome:
-        "Work-order history drives failure-rate, MTBF and downtime analysis.",
+        "Work-order history drives failure-rate, MTBF and downtime analysis. A source response class on an accepted row is copied onto that work order; a blank class stays unclassified.",
       templateRows: [
         [
           "Conveyor C-22",
@@ -345,6 +351,7 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
           "2026-05-02T14:30:00Z",
           "Bearing seizure",
           "8.5",
+          "",
         ],
         [
           "Compressor K-05",
@@ -358,6 +365,7 @@ export const INGEST_ENTITIES: Readonly<Record<IngestEntityKey, IngestEntity>> =
           "2026-06-01T10:00:00Z",
           "",
           "0",
+          "",
         ],
       ],
     },
