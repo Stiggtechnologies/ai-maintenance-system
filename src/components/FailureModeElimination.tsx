@@ -1,7 +1,11 @@
 import { ShieldCheck, TimerReset, TriangleAlert } from "lucide-react";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { supabase } from "../lib/supabase";
+import { DefectEliminationGovernance } from "./DefectEliminationGovernance";
 import { EmptyState, ErrorState, LoadingState } from "./ui/AsyncStates";
+
+const UNCODED_VERIFICATION_CAVEAT =
+  "a raw source label is not treated as a failure mechanism";
 
 interface EliminationMetric {
   available: boolean;
@@ -31,81 +35,104 @@ export function FailureModeElimination() {
     [],
   );
 
-  if (loading)
-    return <LoadingState label="Measuring failure-mode elimination" />;
-  if (error) return <ErrorState message={error} onRetry={refetch} />;
+  if (loading) {
+    return (
+      <>
+        <LoadingState label="Measuring failure-mode elimination" />
+        <DefectEliminationGovernance />
+      </>
+    );
+  }
+  if (error) {
+    return (
+      <>
+        <ErrorState message={error} onRetry={refetch} />
+        <DefectEliminationGovernance />
+      </>
+    );
+  }
   if (!data?.available) {
     return (
-      <section aria-labelledby="elimination-heading" className="space-y-3">
-        <h2
-          id="elimination-heading"
-          className="text-lg font-semibold text-white"
-        >
-          Failure-Mode Elimination
-        </h2>
-        <EmptyState message="No coded asset–mechanism target has entered corrective-action verification yet. Code the failure mechanism and start its verification before an elimination rate can be measured." />
-        {(data?.uncodedVerificationsExcluded ?? 0) > 0 && (
-          <p className="text-xs text-signal-gold">
-            {data?.uncodedVerificationsExcluded} uncoded verification(s)
-            excluded — a raw source label is not treated as a failure mechanism.
-          </p>
-        )}
-      </section>
+      <>
+        <section aria-labelledby="elimination-heading" className="space-y-3">
+          <h2
+            id="elimination-heading"
+            className="text-lg font-semibold text-white"
+          >
+            Failure-Mode Elimination
+          </h2>
+          <EmptyState message="No coded asset–mechanism target has entered corrective-action verification yet. Code the failure mechanism and start its verification before an elimination rate can be measured." />
+          {(data?.uncodedVerificationsExcluded ?? 0) > 0 && (
+            <p className="text-xs text-signal-gold">
+              {data?.uncodedVerificationsExcluded} uncoded verification(s)
+              excluded — {UNCODED_VERIFICATION_CAVEAT}.
+            </p>
+          )}
+        </section>
+        <DefectEliminationGovernance />
+      </>
     );
   }
 
   return (
-    <section
-      aria-labelledby="elimination-heading"
-      className="rounded-xl border border-white/6 bg-overlook-deep/40 p-4"
-    >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2
-            id="elimination-heading"
-            className="flex items-center gap-2 text-lg font-semibold text-white"
-          >
-            <ShieldCheck className="h-5 w-5 text-teal-300" aria-hidden />
-            Failure-Mode Elimination
-          </h2>
-          <p className="mt-1 max-w-3xl text-sm text-slate-300">{data.basis}</p>
-        </div>
-        <div className="text-right">
-          <div className="text-3xl font-semibold tabular-nums text-teal-300">
-            {data.eliminationRatePct}%
+    <>
+      <section
+        aria-labelledby="elimination-heading"
+        className="rounded-xl border border-white/6 bg-overlook-deep/40 p-4"
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2
+              id="elimination-heading"
+              className="flex items-center gap-2 text-lg font-semibold text-white"
+            >
+              <ShieldCheck className="h-5 w-5 text-teal-300" aria-hidden />
+              Failure-Mode Elimination
+            </h2>
+            <p className="mt-1 max-w-3xl text-sm text-slate-300">
+              {data.basis}
+            </p>
           </div>
-          <div className="text-xs text-slate-500">
-            verified elimination rate
+          <div className="text-right">
+            <div className="text-3xl font-semibold tabular-nums text-teal-300">
+              {data.eliminationRatePct}%
+            </div>
+            <div className="text-xs text-slate-500">
+              verified elimination rate
+            </div>
           </div>
         </div>
-      </div>
-      <div className="mt-4 grid gap-2 sm:grid-cols-3">
-        <div className="rounded-lg border border-teal-500/20 bg-teal-500/5 p-3">
-          <div className="text-xl font-semibold text-teal-300">
-            {data.eliminatedAssetMechanisms}
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+          <div className="rounded-lg border border-teal-500/20 bg-teal-500/5 p-3">
+            <div className="text-xl font-semibold text-teal-300">
+              {data.eliminatedAssetMechanisms}
+            </div>
+            <div className="text-xs text-slate-400">eliminated</div>
           </div>
-          <div className="text-xs text-slate-400">eliminated</div>
-        </div>
-        <div className="rounded-lg border border-signal-cyan/20 bg-signal-cyan/5 p-3">
-          <div className="flex items-center gap-1.5 text-xl font-semibold text-signal-cyan">
-            <TimerReset className="h-4 w-4" aria-hidden />{" "}
-            {data.observingAssetMechanisms}
+          <div className="rounded-lg border border-signal-cyan/20 bg-signal-cyan/5 p-3">
+            <div className="flex items-center gap-1.5 text-xl font-semibold text-signal-cyan">
+              <TimerReset className="h-4 w-4" aria-hidden />{" "}
+              {data.observingAssetMechanisms}
+            </div>
+            <div className="text-xs text-slate-400">still observing</div>
           </div>
-          <div className="text-xs text-slate-400">still observing</div>
-        </div>
-        <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3">
-          <div className="flex items-center gap-1.5 text-xl font-semibold text-red-300">
-            <TriangleAlert className="h-4 w-4" aria-hidden />{" "}
-            {data.recurrentAssetMechanisms}
+          <div className="rounded-lg border border-red-500/20 bg-red-500/5 p-3">
+            <div className="flex items-center gap-1.5 text-xl font-semibold text-red-300">
+              <TriangleAlert className="h-4 w-4" aria-hidden />{" "}
+              {data.recurrentAssetMechanisms}
+            </div>
+            <div className="text-xs text-slate-400">
+              recurrent or ineffective
+            </div>
           </div>
-          <div className="text-xs text-slate-400">recurrent or ineffective</div>
         </div>
-      </div>
-      <p className="mt-3 text-xs text-slate-500">
-        Denominator: {data.targetedAssetMechanisms} {data.unit}.
-        {data.uncodedVerificationsExcluded > 0 &&
-          ` ${data.uncodedVerificationsExcluded} uncoded verification(s) excluded.`}
-      </p>
-    </section>
+        <p className="mt-3 text-xs text-slate-500">
+          Denominator: {data.targetedAssetMechanisms} {data.unit}.
+          {data.uncodedVerificationsExcluded > 0 &&
+            ` ${data.uncodedVerificationsExcluded} uncoded verification(s) excluded.`}
+        </p>
+      </section>
+      <DefectEliminationGovernance />
+    </>
   );
 }
