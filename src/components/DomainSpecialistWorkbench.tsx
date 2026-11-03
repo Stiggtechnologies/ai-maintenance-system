@@ -9,6 +9,7 @@ import {
   type DomainSpecialistResult,
 } from "../lib/domain-specialists";
 
+import { FailureContextDifferentiation } from "./FailureContextDifferentiation";
 import {
   getDomainSpecialistRuns,
   previewDomainSpecialist,
@@ -472,6 +473,7 @@ export function DomainSpecialistWorkbench({ risks }: { risks: RiskRecord[] }) {
           </section>
         </div>
       </div>
+      <FailureContextDifferentiation />
     </div>
   );
 }
