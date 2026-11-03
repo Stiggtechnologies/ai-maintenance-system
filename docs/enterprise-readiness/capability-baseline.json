@@ -588,7 +588,7 @@
     "backticked": 0
   },
   "C6.11": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
     "citations": 7,
     "backticked": 7
@@ -612,10 +612,10 @@
     "backticked": 6
   },
   "C6.15": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 5,
-    "backticked": 5
+    "citations": 6,
+    "backticked": 6
   },
   "C6.16": {
     "status": "✅",
@@ -810,10 +810,10 @@
     "backticked": 8
   },
   "C8.08": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 9,
-    "backticked": 9
+    "citations": 10,
+    "backticked": 10
   },
   "C8.09": {
     "status": "🟡",

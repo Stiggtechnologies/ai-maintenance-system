@@ -4,14 +4,14 @@
  *
  * Generation is auto-permitted by the decision-rights matrix (and consults it
  * live, server-side); releasing — the act that freezes the week — is reserved
- * for planner/manager authority. Options are deterministic: three strategies
- * greedily leveled against stated daily capacity.
+ * for planner/manager authority. Options are placed inside the C8.08
+ * constraints: safety and approval blockers, unassessable or short materials,
+ * outage commitments, unavailable production windows and recorded labour
+ * capacity. A missing daily bound is not treated as a 24-hour crew.
  *
- * Release now passes through a feasibility check (C8.08). HARD constraints —
- * an un-cleared safety gate, an outstanding approval — refuse the release and
- * cannot be acknowledged away. SOFT constraints — material shortages, labour
- * over-commitment — are shown and require the planner to release with explicit
- * acknowledgement, so a known shortage is never waved through silently.
+ * Release still passes through evaluate_schedule_feasibility. HARD constraints
+ * refuse the release and cannot be acknowledged away. Remaining soft findings
+ * require explicit acknowledgement.
  */
 import { useState } from "react";
 import {
@@ -35,6 +35,14 @@ interface ScheduleItem {
   day: number;
 }
 
+interface ConstraintPosture {
+  capacity_basis?: string;
+  placed?: number;
+  production_not_assessable?: number;
+  deferred_counts?: Record<string, number>;
+  authority?: string;
+}
+
 interface ScheduleOption {
   id: string;
   week_start: string;
@@ -45,13 +53,24 @@ interface ScheduleOption {
   capacity_hours: number;
   status: "draft" | "released" | "discarded";
   released_at: string | null;
+  constraint_posture?: ConstraintPosture | null;
+}
+
+function deferredSummary(
+  counts: Record<string, number> | undefined,
+): string | null {
+  const parts = Object.entries(counts ?? {}).filter(([, count]) => count > 0);
+  if (parts.length === 0) return null;
+  return parts
+    .map(([reason, count]) => `${count} ${reason.replace(/_/g, " ")}`)
+    .join("; ");
 }
 
 async function getOptions(): Promise<ScheduleOption[]> {
   const { data, error } = await supabase
     .from("schedule_options")
     .select(
-      "id, week_start, label, strategy, items, total_hours, capacity_hours, status, released_at",
+      "id, week_start, label, strategy, items, total_hours, capacity_hours, status, released_at, constraint_posture",
     )
     .neq("status", "discarded")
     .order("week_start", { ascending: false })
@@ -78,11 +97,7 @@ interface Feasibility {
 // Freeze authority matches release_schedule_option. The AI-operator identity
 // is refused by name on that SECURITY DEFINER door (#630) and is not offered
 // the control here.
-const RELEASE_ROLES = new Set([
-  "planner",
-  "maintenance_manager",
-  "admin",
-]);
+const RELEASE_ROLES = new Set(["planner", "maintenance_manager", "admin"]);
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 
 export function SchedulerPanel() {
@@ -124,10 +139,11 @@ export function SchedulerPanel() {
             Weekly Schedule Options
           </h2>
           <p className="mt-1 text-sm text-slate-300">
-            Deterministic candidates from the open backlog — generation is
-            auto-permitted by the decision-rights matrix (consulted live);
-            releasing freezes the week and requires planner or manager
-            authority.
+            Drafts from the open backlog after safety, approval, material,
+            outage, production-window and recorded labour constraints.
+            Generation is auto-permitted; releasing freezes the week and
+            requires planner or manager authority. The AI-operator identity
+            cannot freeze the week.
           </p>
         </div>
         <button
@@ -185,9 +201,31 @@ export function SchedulerPanel() {
                 Week of {o.week_start} · {o.strategy}
               </p>
               <p className="mt-1 font-mono text-xs text-slate-400">
-                {Number(o.total_hours).toFixed(1)} h scheduled ·{" "}
-                {Number(o.capacity_hours).toFixed(0)} h/day capacity
+                {Number(o.total_hours).toFixed(1)} h scheduled
+                {o.constraint_posture?.capacity_basis
+                  ? ""
+                  : ` · ${Number(o.capacity_hours).toFixed(0)} h/day capacity`}
               </p>
+              {o.constraint_posture?.capacity_basis && (
+                <p className="mt-1 text-xs text-slate-500">
+                  {o.constraint_posture.capacity_basis}
+                </p>
+              )}
+              {deferredSummary(o.constraint_posture?.deferred_counts) && (
+                <p className="mt-1 text-xs text-amber-200/80">
+                  Deferred:{" "}
+                  {deferredSummary(o.constraint_posture?.deferred_counts)}
+                </p>
+              )}
+              {(o.constraint_posture?.production_not_assessable ?? 0) > 0 && (
+                <p className="mt-1 text-xs text-slate-500">
+                  {o.constraint_posture?.production_not_assessable} placed job
+                  {(o.constraint_posture?.production_not_assessable ?? 0) === 1
+                    ? ""
+                    : "s"}{" "}
+                  have no full-week production clearance.
+                </p>
+              )}
               <ul className="mt-3 space-y-1.5">
                 {o.items.slice(0, 6).map((it) => (
                   <li

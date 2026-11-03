@@ -38,7 +38,8 @@ const RESULT = {
       unit_of_measure: null,
       expected_unplanned_hours: null,
       expected_units_at_risk: null,
-      refusal: "Operating-state coverage is below 25%; extrapolation is refused.",
+      refusal:
+        "Operating-state coverage is below 25%; extrapolation is refused.",
       basis: "Observed evidence only.",
     },
   ],
@@ -90,7 +91,10 @@ beforeEach(() => {
   vi.clearAllMocks();
   rpc.mockImplementation(async (name: string) => {
     if (name === "generate_maintenance_optimization_run") {
-      return { data: { run_id: "run-2", status: "draft", result: RESULT }, error: null };
+      return {
+        data: { run_id: "run-2", status: "draft", result: RESULT },
+        error: null,
+      };
     }
     return {
       data: {
@@ -111,21 +115,77 @@ describe("MaintenanceOptimization", () => {
     expect(screen.getByText(/extrapolation is refused/i)).toBeInTheDocument();
     expect(screen.getAllByText(/WO-44 · Inspect seal system/i)).toHaveLength(2);
     expect(screen.getByText(/Risk 78/i)).toBeInTheDocument();
-    expect(screen.getByText(/adding work remains human-controlled/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/adding work remains human-controlled/i),
+    ).toBeInTheDocument();
   });
 
   it("regenerates through the governed RPC and reloads the persisted run", async () => {
     render(<MaintenanceOptimization />);
-    fireEvent.click(await screen.findByRole("button", { name: /Regenerate planning run/i }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: /Regenerate planning run/i }),
+    );
     await waitFor(() =>
-      expect(rpc).toHaveBeenCalledWith("generate_maintenance_optimization_run", {
-        p_history_days: 180,
-        p_horizon_days: 90,
-        p_limit: 50,
+      expect(rpc).toHaveBeenCalledWith(
+        "generate_maintenance_optimization_run",
+        {
+          p_history_days: 180,
+          p_horizon_days: 90,
+          p_limit: 50,
+        },
+      ),
+    );
+    await waitFor(() =>
+      expect(
+        rpc.mock.calls.filter(
+          ([name]) => name === "get_latest_maintenance_optimization_run",
+        ),
+      ).toHaveLength(2),
+    );
+  });
+
+  it("reads a constrained outage proposal without treating it as a release", async () => {
+    rpc.mockImplementation(async (name: string) => {
+      if (name === "propose_constrained_outage_schedule") {
+        return {
+          data: {
+            authority:
+              "Proposal only. This does not add work, freeze scope, release execution, or approve a production interruption.",
+            sequenceBasis: "Existing activities in recorded predecessor order.",
+            sequenceClaimed: true,
+            labourState: "assessed",
+            candidates: [],
+            excludedCount: 3,
+          },
+          error: null,
+        };
+      }
+      return {
+        data: {
+          run_id: "run-1",
+          status: "draft",
+          generated_at: "2026-09-12T12:00:00Z",
+          result: RESULT,
+        },
+        error: null,
+      };
+    });
+
+    render(<MaintenanceOptimization />);
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: /Propose constrained sequence/i,
       }),
     );
-    await waitFor(() =>
-      expect(rpc.mock.calls.filter(([name]) => name === "get_latest_maintenance_optimization_run")).toHaveLength(2),
-    );
+    expect(
+      await screen.findByText(
+        /does not add work, freeze scope, release execution/i,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/recorded predecessor order/i)).toBeInTheDocument();
+    expect(screen.getByText(/3 excluded/i)).toBeInTheDocument();
+    expect(rpc).toHaveBeenCalledWith("propose_constrained_outage_schedule", {
+      p_window_id: "o1",
+    });
   });
 });
