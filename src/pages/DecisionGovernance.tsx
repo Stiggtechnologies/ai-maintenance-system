@@ -34,6 +34,7 @@ import { EnterpriseMethodFederation } from "../components/EnterpriseMethodFedera
 import { LayeredCapabilityPacks } from "../components/LayeredCapabilityPacks";
 import { MissionOutcomeModels } from "../components/MissionOutcomeModels";
 import { ModelRisk } from "../components/ModelRisk";
+import { NetworkSeparationPanel } from "../components/NetworkSeparationPanel";
 import { GovernanceAgentPanel } from "../components/GovernanceAgentPanel";
 import { HopSystemConditionsPanel } from "../components/HopSystemConditionsPanel";
 import { ExpenditureApprovalPanel } from "../components/ExpenditureApprovalPanel";
@@ -675,6 +676,7 @@ export function DecisionGovernance() {
           </div>
         </div>
       )}
+      <NetworkSeparationPanel />
       <ModelRisk />
     </div>
   );

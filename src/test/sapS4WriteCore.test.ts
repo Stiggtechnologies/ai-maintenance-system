@@ -118,6 +118,29 @@ describe("SAP S/4HANA write approval and transport", () => {
     ).toEqual({ ok: true, status: "rejected" });
   });
 
+  it("does not call SAP when zone separation refuses the claim", async () => {
+    const { fetchImpl, calls } = fetchMock();
+    const complete = vi.fn();
+    const result = await runSapWriteExecution({
+      claim: async () => ({
+        call_sap: false,
+        error: "control_zone_write_refused",
+        request_id: "00000000-0000-4000-8000-000000000010",
+        status_at_claim: "approved",
+      }),
+      complete,
+      fetchImpl,
+      accessToken: "z".repeat(40),
+      allowedHosts: hosts,
+    });
+    expect(result.sapCalled).toBe(false);
+    expect(result.httpCalls).toBe(0);
+    expect(result.mutatingCalls).toBe(0);
+    expect(result.error).toBe("control_zone_write_refused");
+    expect(calls).toEqual([]);
+    expect(complete).not.toHaveBeenCalled();
+  });
+
   it("does not call SAP for an unapproved request", async () => {
     const { fetchImpl, calls } = fetchMock();
     const pending = await executeApprovedSapWrite({
