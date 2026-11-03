@@ -1,6 +1,7 @@
 /**
  * Per-asset duty reader — get_operating_context + get_operating_regime
- * (C2.04, E3.02). Shared by /executive OperatingContext and /assets/:id.
+ * (C2.04, E3.02) and the retained start/stop/load/cycle/excursion reading
+ * (E3.03). Shared by /executive OperatingContext and /assets/:id.
  *
  * Does not invent a running state, a utilisation figure without coverage,
  * or a duty class when load_pct is missing.
@@ -16,6 +17,7 @@ import {
   type OperatingRegimeResult,
   type ProcessEventContextResult,
 } from "../services/reliabilityCallers";
+import { OperatingDutyPanel } from "./OperatingDutyPanel";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
 
 export function AssetOperatingDuty({ assetId }: { assetId: string }) {
@@ -178,6 +180,8 @@ export function AssetOperatingDuty({ assetId }: { assetId: string }) {
           These are source-system process events, not predictive condition alerts. SyncAI does not acknowledge, suppress or reset them.
         </p>
       </div>
+
+      <OperatingDutyPanel assetId={assetId} windowDays={windowDays} />
     </div>
   );
 }
