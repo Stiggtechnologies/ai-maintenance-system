@@ -30,6 +30,7 @@ import { TaxonomyGovernance } from "../components/TaxonomyGovernance";
 import { SafetyGatekeeperPanel } from "../components/SafetyGatekeeperPanel";
 import { ControlAssurance } from "../components/ControlAssurance";
 import { GovernanceStandards } from "../components/GovernanceStandards";
+import { RegulatoryEvidencePacks } from "../components/RegulatoryEvidencePacks";
 import { EnterpriseMethodFederation } from "../components/EnterpriseMethodFederation";
 import { LayeredCapabilityPacks } from "../components/LayeredCapabilityPacks";
 import { MissionOutcomeModels } from "../components/MissionOutcomeModels";
@@ -419,6 +420,8 @@ export function DecisionGovernance() {
       <MissionOutcomeModels />
 
       <GovernanceStandards />
+
+      <RegulatoryEvidencePacks />
 
       <ControlAssurance />
 
