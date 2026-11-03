@@ -1,4 +1,4 @@
--- C2.22 — governed read-only OPC-UA adapter.
+-- C2.23 — governed read-only OPC-UA adapter.
 --
 -- One connector names one opc.tcp endpoint, one security mode/policy, one
 -- authentication mode and an explicit node list. The Deno edge function does
@@ -57,7 +57,8 @@ revoke all on function public.opc_ua_node_list_valid(jsonb)
 
 -- The original inline check is connectors_system_kind_check. Replace it with
 -- the same list plus opc_ua so this profile can be stored. iot stays because
--- 20271103140000 adds it and this migration runs later.
+-- 20271103140000 adds it and this migration runs later. 20271103150000
+-- (Ignition, C2.22) does not add a system_kind; it stays historian.
 alter table public.connectors
   drop constraint if exists connectors_system_kind_check;
 alter table public.connectors
@@ -194,7 +195,7 @@ begin
     v_org, btrim(p_key), btrim(p_name), 'opc_ua_read', 'opc_ua',
     'opc_ua_binary_read', v_endpoint, p_expected_interval_minutes, v_ref,
     'Bounded OPC-UA Binary Read of administrator-approved nodes. No Write, Call or source write-back.',
-    'C2.22', case when p_enabled then 'active' else 'configured' end, p_enabled,
+    'C2.23', case when p_enabled then 'active' else 'configured' end, p_enabled,
     'read_only', false, 'none', null, 1, p_security_mode, p_security_policy,
     p_auth_mode, p_node_ids
   )
@@ -208,7 +209,7 @@ begin
     expected_interval_minutes = excluded.expected_interval_minutes,
     credential_binding_ref = excluded.credential_binding_ref,
     contract_note = excluded.contract_note,
-    register_ref = 'C2.22',
+    register_ref = 'C2.23',
     status = excluded.status,
     enabled = excluded.enabled,
     direction = 'read_only',
@@ -280,7 +281,7 @@ begin
     and connector_type = 'opc_ua_read'
     and system_kind = 'opc_ua'
     and connector_profile = 'opc_ua_binary_read'
-    and register_ref = 'C2.22';
+    and register_ref = 'C2.23';
   if not found then
     return jsonb_build_object('error', 'governed OPC-UA source not found');
   end if;
@@ -343,7 +344,7 @@ begin
     and connector_type = 'opc_ua_read'
     and system_kind = 'opc_ua'
     and connector_profile = 'opc_ua_binary_read'
-    and register_ref = 'C2.22'
+    and register_ref = 'C2.23'
     and enabled
     and direction = 'read_only'
     and not write_enabled
@@ -477,7 +478,7 @@ begin
     and c.connector_type = 'opc_ua_read'
     and c.system_kind = 'opc_ua'
     and c.connector_profile = 'opc_ua_binary_read'
-    and c.register_ref = 'C2.22'
+    and c.register_ref = 'C2.23'
     and c.enabled
     and c.direction = 'read_only'
     and not c.write_enabled;
@@ -606,7 +607,7 @@ begin
       and c.connector_type = 'opc_ua_read'
       and c.system_kind = 'opc_ua'
       and c.connector_profile = 'opc_ua_binary_read'
-      and c.register_ref = 'C2.22'
+      and c.register_ref = 'C2.23'
   ) then
     if tg_op = 'INSERT'
        and coalesce(current_setting('app.opc_ua_transport', true), '') <> 'granted' then
@@ -660,7 +661,7 @@ begin
     and c.connector_type = 'opc_ua_read'
     and c.system_kind = 'opc_ua'
     and c.connector_profile = 'opc_ua_binary_read'
-    and c.register_ref = 'C2.22';
+    and c.register_ref = 'C2.23';
   if not found then
     return jsonb_build_object('error', 'running governed OPC-UA run not found');
   end if;
