@@ -490,3 +490,6 @@ verify_jwt = false
 # Production deploy allowlisting is intentionally unchanged in this change.
 [functions.ignition-scada-read-pull]
 verify_jwt = true
+
+[functions.sap-s4-write-execute]
+verify_jwt = true

@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 const root = process.cwd();
 const read = (file: string) => fs.readFileSync(path.join(root, file), "utf8");
 const migration = read(
-  "supabase/migrations/20271028100000_ignition_scada_read_adapter.sql",
+  "supabase/migrations/20271103150000_ignition_scada_read_adapter.sql",
 );
 const edge = read("supabase/functions/ignition-scada-read-pull/index.ts");
 const shared = read("supabase/functions/_shared/ignition-scada-read.ts");
@@ -13,7 +13,7 @@ const page = read("src/pages/IntegrationsPage.tsx");
 const service = read("src/services/ignitionScadaRead.ts");
 const docs = read("docs/ignition-scada-read-adapter.md");
 
-describe("C2.20 Ignition SCADA read contract", () => {
+describe("C2.21 Ignition SCADA read contract", () => {
   it("reuses the canonical connector, run, staging and watermark planes", () => {
     for (const token of [
       "public.connectors",
@@ -27,7 +27,7 @@ describe("C2.20 Ignition SCADA read contract", () => {
     expect(migration).toContain("connector_type = 'scada_read'");
     expect(migration).toContain("system_kind = 'historian'");
     expect(migration).toContain("connector_profile = 'ignition_tag_read'");
-    expect(migration).toContain("register_ref = 'C2.20'");
+    expect(migration).toContain("register_ref = 'C2.21'");
   });
 
   it("is service-attested, tenant-bound and permanently read-only", () => {
