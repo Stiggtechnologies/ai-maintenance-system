@@ -12,12 +12,13 @@ import {
   type ProductionLossPayload,
 } from "../services/productionLossService";
 import { ErrorState, LoadingState } from "./ui/AsyncStates";
+import { ProductionConstraintBottlenecks } from "./ProductionConstraintBottlenecks";
 
 const labelFor = (value: string) =>
   DOWNTIME_CLASSIFICATIONS.find(([key]) => key === value)?.[1] ??
   (value === "unclassified" ? "Unclassified" : value.replaceAll("_", " "));
 
-export function ProductionLossReconciliation() {
+function ProductionLossBody() {
   const { data, loading, error, refetch } = useAsyncData<ProductionLossPayload>(
     () => getProductionLossReconciliation(90),
     [],
@@ -477,5 +478,14 @@ export function ProductionLossReconciliation() {
         {data.authority}
       </p>
     </section>
+  );
+}
+
+export function ProductionLossReconciliation() {
+  return (
+    <div className="space-y-6">
+      <ProductionLossBody />
+      <ProductionConstraintBottlenecks />
+    </div>
   );
 }
