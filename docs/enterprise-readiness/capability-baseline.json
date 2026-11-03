@@ -1188,10 +1188,10 @@
     "backticked": 1
   },
   "E4.07": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 0
+    "citations": 15,
+    "backticked": 15
   },
   "E4.08": {
     "status": "🟡",

@@ -7,6 +7,7 @@ import {
   Factory,
   Wrench,
   TrendingUp,
+  ShieldAlert,
   Settings,
   ArrowRight,
   Clock,
@@ -279,6 +280,13 @@ const allResults: SearchResult[] = [
     path: "/governance",
     category: "Performance & Governance",
     icon: TrendingUp,
+  },
+  {
+    id: "escalations",
+    label: "Escalation paths",
+    path: "/escalations",
+    category: "Performance & Governance",
+    icon: ShieldAlert,
   },
   {
     id: "te",
