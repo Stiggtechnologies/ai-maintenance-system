@@ -7,6 +7,17 @@ const getDevelopmentPortfolio = vi.fn();
 vi.mock("../services/developmentPortfolioService", () => ({
   getDevelopmentPortfolio: () => getDevelopmentPortfolio(),
 }));
+vi.mock("../services/longHorizonValuePlanService", () => ({
+  getLongHorizonValuePlan: () =>
+    Promise.resolve({
+      plans: [],
+      selected: null,
+      decisionBoundary:
+        "This plan composes recorded evidence and authorizes no expenditure.",
+    }),
+  recordLongHorizonPlan: vi.fn(),
+  adoptLongHorizonPlan: vi.fn(),
+}));
 
 import { DevelopmentPortfolioPage } from "./DevelopmentPortfolioPage";
 
