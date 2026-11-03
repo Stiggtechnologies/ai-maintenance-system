@@ -1,4 +1,4 @@
--- C2.21 — governed Ignition SCADA tag read.
+-- C2.22 — governed Ignition SCADA tag read.
 --
 -- One connector binds one published Ignition WebDev resource and an explicit
 -- tag-path list. The adapter issues HTTP GET only. Qualified values are
@@ -20,7 +20,7 @@ alter table public.connectors
     or (
       system_kind = 'historian'
       and connector_profile = 'ignition_tag_read'
-      and register_ref = 'C2.21'
+      and register_ref = 'C2.22'
       and direction = 'read_only'
       and not write_enabled
       and pagination_mode = 'none'
@@ -145,7 +145,7 @@ begin
     v_org, btrim(p_key), btrim(p_name), 'scada_read', 'historian',
     'ignition_tag_read', v_endpoint, p_expected_interval_minutes, v_ref,
     'Bounded Ignition WebDev GET for approved tag paths. No tag write, alarm acknowledgement, or limit change.',
-    'C2.21', case when p_enabled then 'active' else 'configured' end, p_enabled,
+    'C2.22', case when p_enabled then 'active' else 'configured' end, p_enabled,
     'read_only', false, 'none', null, 1, v_paths
   )
   on conflict (organization_id, connector_key) where connector_key is not null
@@ -158,7 +158,7 @@ begin
     expected_interval_minutes = excluded.expected_interval_minutes,
     credential_binding_ref = excluded.credential_binding_ref,
     contract_note = excluded.contract_note,
-    register_ref = 'C2.21',
+    register_ref = 'C2.22',
     status = excluded.status,
     enabled = excluded.enabled,
     direction = 'read_only',
@@ -226,7 +226,7 @@ begin
     and connector_type = 'scada_read'
     and system_kind = 'historian'
     and connector_profile = 'ignition_tag_read'
-    and register_ref = 'C2.21';
+    and register_ref = 'C2.22';
   if not found then
     return jsonb_build_object('error', 'governed Ignition source not found');
   end if;
@@ -287,7 +287,7 @@ begin
     and connector_type = 'scada_read'
     and system_kind = 'historian'
     and connector_profile = 'ignition_tag_read'
-    and register_ref = 'C2.21'
+    and register_ref = 'C2.22'
     and enabled
     and direction = 'read_only'
     and not write_enabled
@@ -423,7 +423,7 @@ begin
     and c.connector_type = 'scada_read'
     and c.system_kind = 'historian'
     and c.connector_profile = 'ignition_tag_read'
-    and c.register_ref = 'C2.21'
+    and c.register_ref = 'C2.22'
     and c.enabled
     and c.direction = 'read_only'
     and not c.write_enabled;
@@ -567,7 +567,7 @@ begin
       and c.connector_type = 'scada_read'
       and c.system_kind = 'historian'
       and c.connector_profile = 'ignition_tag_read'
-      and c.register_ref = 'C2.21'
+      and c.register_ref = 'C2.22'
   ) then
     if tg_op = 'INSERT'
        and coalesce(current_setting('app.ignition_scada_transport', true), '') <> 'granted' then
@@ -621,7 +621,7 @@ begin
     and c.connector_type = 'scada_read'
     and c.system_kind = 'historian'
     and c.connector_profile = 'ignition_tag_read'
-    and c.register_ref = 'C2.21';
+    and c.register_ref = 'C2.22';
   if not found then
     return jsonb_build_object('error', 'running governed Ignition run not found');
   end if;

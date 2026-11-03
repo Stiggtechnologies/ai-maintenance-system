@@ -13,7 +13,7 @@ const page = read("src/pages/IntegrationsPage.tsx");
 const service = read("src/services/ignitionScadaRead.ts");
 const docs = read("docs/ignition-scada-read-adapter.md");
 
-describe("C2.21 Ignition SCADA read contract", () => {
+describe("C2.22 Ignition SCADA read contract", () => {
   it("reuses the canonical connector, run, staging and watermark planes", () => {
     for (const token of [
       "public.connectors",
@@ -27,7 +27,7 @@ describe("C2.21 Ignition SCADA read contract", () => {
     expect(migration).toContain("connector_type = 'scada_read'");
     expect(migration).toContain("system_kind = 'historian'");
     expect(migration).toContain("connector_profile = 'ignition_tag_read'");
-    expect(migration).toContain("register_ref = 'C2.21'");
+    expect(migration).toContain("register_ref = 'C2.22'");
   });
 
   it("is service-attested, tenant-bound and permanently read-only", () => {

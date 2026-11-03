@@ -20,6 +20,7 @@ import { P6ScheduleReadConnectorSetup } from "../components/P6ScheduleReadConnec
 import { SapS4InventoryReadConnectorSetup } from "../components/SapS4InventoryReadConnectorSetup";
 import { SapS4FinancialReadConnectorSetup } from "../components/SapS4FinancialReadConnectorSetup";
 import { SapS4WriteConnectorSetup } from "../components/SapS4WriteConnectorSetup";
+import { MqttReadConnectorSetup } from "../components/MqttReadConnectorSetup";
 import { IgnitionScadaReadConnectorSetup } from "../components/IgnitionScadaReadConnectorSetup";
 import { BentlySystem1ConnectorSetup } from "../components/BentlySystem1ConnectorSetup";
 import { P6ScheduleRevisionReview } from "../components/P6ScheduleRevisionReview";
@@ -104,7 +105,7 @@ export function IntegrationsPage() {
       type: "Ignition",
       label: "Ignition SCADA",
       description:
-        "Read-only tag values via WebDev. Mock-tested, not live-certified.",
+        "C2.22 read-only tag values via WebDev. Mock-tested, not live-certified.",
     },
     {
       type: "OPC-UA",
@@ -112,7 +113,11 @@ export function IntegrationsPage() {
       description: "Industrial communication protocol",
     },
     { type: "REST", label: "REST API", description: "Custom REST endpoint" },
-    { type: "MQTT", label: "MQTT", description: "IoT message broker" },
+    {
+      type: "MQTT",
+      label: "MQTT",
+      description: "Read-only TLS WebSocket subscribe",
+    },
     { type: "CSV", label: "CSV Import", description: "Bulk data import" },
     {
       type: "Historian",
@@ -231,12 +236,18 @@ export function IntegrationsPage() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {connectorTypes.map((ct) => {
-                const isConnected = connectors.some((c) =>
-                  ct.type === "Ignition"
-                    ? c.connector_type === "scada_read" ||
+                const isConnected = connectors.some((c) => {
+                  if (ct.type === "MQTT") {
+                    return c.connector_type === "mqtt_read";
+                  }
+                  if (ct.type === "Ignition") {
+                    return (
+                      c.connector_type === "scada_read" ||
                       c.connector_type === "Ignition"
-                    : c.connector_type === ct.type,
-                );
+                    );
+                  }
+                  return c.connector_type === ct.type;
+                });
                 return (
                   <div
                     key={ct.type}
@@ -251,22 +262,32 @@ export function IntegrationsPage() {
                       )}
                     </div>
                     <p className="text-xs text-slate-400">{ct.description}</p>
-                    <button
-                      type="button"
-                      className="mt-3 text-xs text-signal-cyan hover:text-signal-cyan font-medium flex items-center gap-1"
-                      onClick={() => {
-                        if (ct.type !== "Ignition") return;
-                        document
-                          .getElementById("ignition-scada-read-setup")
-                          ?.scrollIntoView({
-                            behavior: "smooth",
-                            block: "start",
-                          });
-                      }}
-                    >
-                      {isConnected ? "Manage" : "Connect"}{" "}
-                      <ExternalLink size={10} />
-                    </button>
+                    {ct.type === "MQTT" ? (
+                      <a
+                        href="#mqtt-read-setup"
+                        className="mt-3 text-xs text-signal-cyan hover:text-signal-cyan font-medium flex items-center gap-1"
+                      >
+                        {isConnected ? "Manage" : "Connect"}{" "}
+                        <ExternalLink size={10} />
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        className="mt-3 text-xs text-signal-cyan hover:text-signal-cyan font-medium flex items-center gap-1"
+                        onClick={() => {
+                          if (ct.type !== "Ignition") return;
+                          document
+                            .getElementById("ignition-scada-read-setup")
+                            ?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "start",
+                            });
+                        }}
+                      >
+                        {isConnected ? "Manage" : "Connect"}{" "}
+                        <ExternalLink size={10} />
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -373,6 +394,7 @@ export function IntegrationsPage() {
       <SapS4InventoryReadConnectorSetup onConfigured={loadData} />
       <SapS4FinancialReadConnectorSetup onConfigured={loadData} />
       <SapS4WriteConnectorSetup onConfigured={loadData} />
+      <MqttReadConnectorSetup onConfigured={loadData} />
       <IgnitionScadaReadConnectorSetup onConfigured={loadData} />
       <BentlySystem1ConnectorSetup onConfigured={loadData} />
       <RecoverySignalConnectorSetup onConfigured={loadData} />

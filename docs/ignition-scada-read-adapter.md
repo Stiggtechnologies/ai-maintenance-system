@@ -127,4 +127,4 @@ Use a non-production Ignition gateway and an approved tag list. Witness:
 5. Gateway audit evidence shows no tag write from SyncAI.
 6. A foreign tenant cannot read the connector, run, staging or watermark.
 
-Only that evidence can move C2.21 past yellow.
+Only that evidence can move C2.22 past yellow.

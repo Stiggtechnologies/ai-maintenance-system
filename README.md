@@ -75,7 +75,14 @@ validated, or certified:
 - a clean-deployment, end-to-end governed RAG service and persistent knowledge
   graph;
 - production SAP, Maximo, PI/historian, SCADA, OPC-UA, MQTT, ERP, or PLM
-  connectors;
+  connectors. A bounded read-only MQTT subscribe adapter is in the
+  repository (`docs/mqtt-read-adapter.md`). It is tested against an
+  in-process mock broker only, it is not on the Edge Function deployment
+  allowlist, and it is not a certified live-broker connector. A bounded
+  read-only Ignition SCADA tag read (C2.22) is in the repository
+  (`docs/ignition-scada-read-adapter.md`). It is tested against a mock
+  gateway only, it is not on the Edge Function deployment allowlist, and
+  it is not certified against a live Ignition server;
 - SAP S/4HANA write-back is built and tested against mocked SAP responses
   only (`docs/sap-s4-write-back.md`). It is not certified against a customer
   SAP tenant and is not on the production Edge deploy allowlist;
