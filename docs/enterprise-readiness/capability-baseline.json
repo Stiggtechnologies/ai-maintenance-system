@@ -1110,10 +1110,10 @@
     "backticked": 6
   },
   "E3.03": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 2,
-    "backticked": 0
+    "citations": 11,
+    "backticked": 10
   },
   "E3.04": {
     "status": "🟡",
