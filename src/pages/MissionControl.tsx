@@ -50,9 +50,12 @@ import {
   getScenarios,
   approveRecommendation,
   signEngineeringReview,
+  classifyEngineeringChange,
+  listEngineeringApprovalRules,
   setRecommendationStatus,
   createWorkOrderFromRecommendation,
   submitChallengeFeedback,
+  type EngineeringApprovalRule,
   type RecommendationAction,
 } from "../services/operatingLoopService";
 import type { RecommendationRow, ScenarioRow } from "../types/operating";
@@ -288,6 +291,9 @@ function RecommendationCard({
   onChallenge,
   onCreateWO,
   onSign,
+  engineeringRules,
+  canClassify,
+  onClassify,
 }: {
   rec: RecommendationRow;
   busy: boolean;
@@ -307,8 +313,20 @@ function RecommendationCard({
   onChallenge: (r: RecommendationRow) => void;
   onCreateWO: (r: RecommendationRow) => void;
   onSign: (r: RecommendationRow, note: string) => void;
+  engineeringRules: EngineeringApprovalRule[];
+  canClassify: boolean;
+  onClassify: (
+    r: RecommendationRow,
+    changeClass: string,
+    basis: string,
+  ) => void;
 }) {
   const [signNote, setSignNote] = useState("");
+  const [classChoice, setClassChoice] = useState("");
+  const [classBasis, setClassBasis] = useState("");
+  const chosenRule = engineeringRules.find(
+    (rule) => rule.change_class === classChoice,
+  );
   const level = alertLevels[rec.urgency] ?? alertLevels.advisory;
   const autonomous = (rec.approval_required ?? "")
     .toLowerCase()
@@ -377,15 +395,12 @@ function RecommendationCard({
           </div>
           <EngineeringModelTracePanel recommendationId={rec.id} />
           {/*
-            E4.06. A recommendation carrying an engineering change class cannot
-            be approved until the named discipline has signed — enforced by
-            enforce_authority_limit(). Until 20261005090100 the signature was
-            three ordinary columns under a `for all to authenticated` policy,
-            so it could be written by the party it was meant to constrain, and
-            sign_engineering_review() had no callers at all. This is that
-            function's caller: the only way those columns can now be written.
+            E4.06. classify_recommendation_change is the only client path that
+            assigns change_class. Once a class is set, approval is refused
+            until sign_engineering_review records the named discipline's basis.
+            Classification does not sign and does not approve.
           */}
-          {rec.change_class && (
+          {rec.change_class ? (
             <div className="mt-3 rounded-lg border border-amber-500/20 bg-amber-500/5 p-3">
               <p className="text-xs text-amber-300">
                 <HardHat className="mr-1 inline h-3 w-3" aria-hidden />
@@ -424,6 +439,73 @@ function RecommendationCard({
                     </div>
                   )}
                 </>
+              )}
+            </div>
+          ) : (
+            <div className="mt-3 rounded-lg border border-white/8 bg-white/2 p-3">
+              <p className="text-xs text-slate-300">
+                <HardHat className="mr-1 inline h-3 w-3" aria-hidden />
+                No engineering change class is recorded. Approval does not
+                require an engineering signature until a named human classifies
+                this recommendation against an existing rule.
+              </p>
+              {canClassify && engineeringRules.length > 0 ? (
+                <div className="mt-2 space-y-2">
+                  <label className="block text-xs text-slate-400">
+                    Engineering change class
+                    <select
+                      aria-label="Engineering change class"
+                      value={classChoice}
+                      onChange={(e) => setClassChoice(e.target.value)}
+                      className="mt-1 w-full rounded-lg border border-white/8 bg-white/4 px-2.5 py-1.5 text-xs text-slate-200"
+                    >
+                      <option value="">Select a class</option>
+                      {engineeringRules.map((rule) => (
+                        <option
+                          key={rule.change_class}
+                          value={rule.change_class}
+                        >
+                          {rule.title} ({rule.required_role.replace(/_/g, " ")})
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  {chosenRule && (
+                    <p className="text-xs leading-relaxed text-slate-500">
+                      {chosenRule.basis} Classification records the class. It
+                      does not sign it and it does not approve the
+                      recommendation.
+                    </p>
+                  )}
+                  <div className="flex gap-2">
+                    <input
+                      aria-label="Why this engineering class applies"
+                      value={classBasis}
+                      onChange={(e) => setClassBasis(e.target.value)}
+                      placeholder="Why this class applies (20 characters minimum)"
+                      className="min-w-0 flex-1 rounded-lg border border-white/8 bg-white/4 px-2.5 py-1.5 text-xs text-slate-200 placeholder:text-slate-600"
+                    />
+                    <button
+                      type="button"
+                      disabled={
+                        busy ||
+                        classChoice === "" ||
+                        classBasis.trim().length < 20
+                      }
+                      onClick={() => onClassify(rec, classChoice, classBasis)}
+                      className="flex items-center gap-1.5 rounded-lg border border-amber-500/30 bg-amber-500/20 px-3 py-1.5 text-xs font-medium text-amber-300 hover:bg-amber-500/30 disabled:opacity-50"
+                    >
+                      <HardHat className="h-3 w-3" /> Classify engineering
+                      change
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-1 text-xs text-slate-500">
+                  {canClassify
+                    ? "No engineering approval rule names your role, so this recommendation cannot be classified from here."
+                    : "The discipline named by the rule records the class. This role cannot classify it."}
+                </p>
               )}
             </div>
           )}
@@ -557,6 +639,9 @@ const VERIFICATION_PLAN_ROLES = new Set([
   "planner",
 ]);
 
+/** The disciplines the seeded engineering rules name, plus admin. ai_admin is absent on purpose. */
+const ENGINEERING_CLASSIFY_ROLES = new Set(["admin", "reliability_engineer"]);
+
 const ROLE_LABEL: Record<string, string> = {
   executive: "Executive",
   maintenance_manager: "Maintenance Manager",
@@ -574,6 +659,11 @@ export function MissionControl() {
     profile !== null && EVIDENCE_GOVERNANCE_ROLES.has(role);
   const canPlanVerification =
     profile !== null && VERIFICATION_PLAN_ROLES.has(role);
+  const canClassify = profile !== null && ENGINEERING_CLASSIFY_ROLES.has(role);
+  const engineeringRuleState = useAsyncData(listEngineeringApprovalRules, []);
+  const engineeringRules = (
+    Array.isArray(engineeringRuleState.data) ? engineeringRuleState.data : []
+  ).filter((rule) => role === "admin" || rule.required_role === role);
   const { missionSignals } = useOnboardingOperatingLoop();
   const { data, loading, error, refetch } = useAsyncData(
     () => getMissionControl(),
@@ -674,6 +764,28 @@ export function MissionControl() {
       } catch (e) {
         // The server's own refusal sentence — wrong discipline, or no basis.
         flash(e instanceof Error ? e.message : "Sign-off failed.");
+      } finally {
+        setBusyId(null);
+      }
+    },
+    [flash, refetch],
+  );
+
+  const handleClassifyEngineering = useCallback(
+    async (rec: RecommendationRow, changeClass: string, basis: string) => {
+      setBusyId(rec.id);
+      try {
+        const result = await classifyEngineeringChange(
+          rec.id,
+          changeClass,
+          basis,
+        );
+        flash(
+          `Classified ${rec.title} as ${result.changeClass}. The ${result.requiredRole.replace(/_/g, " ")} must still record a signature before approval.`,
+        );
+        refetch();
+      } catch (e) {
+        flash(e instanceof Error ? e.message : "Classification failed.");
       } finally {
         setBusyId(null);
       }
@@ -885,6 +997,9 @@ export function MissionControl() {
                     onApprove={handleApprove}
                     onAction={handleAction}
                     onSign={handleSignEngineering}
+                    engineeringRules={engineeringRules}
+                    canClassify={canClassify}
+                    onClassify={handleClassifyEngineering}
                     onEvidence={setEvidenceRec}
                     onAssumptions={setAssumptionRec}
                     onFailureBasis={setFailureBasisRec}

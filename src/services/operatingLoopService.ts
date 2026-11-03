@@ -945,6 +945,73 @@ export async function signEngineeringReview(
   };
 }
 
+export interface EngineeringApprovalRule {
+  change_class: string;
+  title: string;
+  required_role: string;
+  basis: string;
+}
+
+/**
+ * The engineering approval rules already returned by get_governance_standards.
+ * Classification must choose one of these; it does not invent a class.
+ */
+export async function listEngineeringApprovalRules(): Promise<
+  EngineeringApprovalRule[]
+> {
+  const { data, error } = await supabase.rpc("get_governance_standards");
+  if (error) fail("Could not load engineering approval rules", error);
+  const payload = data as {
+    engineering_rules?: EngineeringApprovalRule[];
+  } | null;
+  return payload?.engineering_rules ?? [];
+}
+
+/**
+ * Assign the engineering change class on a recommendation (register E4.06).
+ *
+ * This is the only client path that writes `recommendations.change_class`.
+ * The provenance trigger neutralises a direct write. The RPC refuses an
+ * unknown or superseded class, a caller who does not hold the rule's
+ * discipline, the AI-operator identity, a short basis, and a recommendation
+ * that is already approved. It does not sign or approve.
+ */
+export async function classifyEngineeringChange(
+  recommendationId: string,
+  changeClass: string,
+  basis: string,
+): Promise<{
+  changeClass: string;
+  requiredRole: string;
+  classifiedByRole: string;
+  ruleStatus: string;
+}> {
+  const { data, error } = await supabase.rpc("classify_recommendation_change", {
+    p_recommendation_id: recommendationId,
+    p_change_class: changeClass,
+    p_basis: basis,
+  });
+  if (error) fail("Could not classify the engineering change", error);
+  const result = data as {
+    error?: string;
+    change_class?: string;
+    required_role?: string;
+    classified_by_role?: string;
+    rule_status?: string;
+  } | null;
+  if (!result || result.error || !result.change_class) {
+    throw new Error(
+      result?.error ?? "Engineering change class was not recorded.",
+    );
+  }
+  return {
+    changeClass: result.change_class,
+    requiredRole: result.required_role ?? "",
+    classifiedByRole: result.classified_by_role ?? "",
+    ruleStatus: result.rule_status ?? "",
+  };
+}
+
 /** Create a draft work order directly from a recommendation (without approving it). */
 export async function createWorkOrderFromRecommendation(
   rec: RecommendationRow,

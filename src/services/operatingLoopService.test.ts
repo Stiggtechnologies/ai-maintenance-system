@@ -59,6 +59,8 @@ vi.mock("../lib/supabase", () => {
 
 import {
   approveRecommendation,
+  classifyEngineeringChange,
+  listEngineeringApprovalRules,
   clearOrgContextCache,
   getAssets,
   getMissionControl,
@@ -323,7 +325,8 @@ describe("recommendation verification planning", () => {
     obligationId: null,
     recommendationStatus: "pending",
     method: "Compare post-repair vibration against the accepted baseline.",
-    acceptanceCriteria: "Overall vibration remains below 3.0 mm/s for 72 hours.",
+    acceptanceCriteria:
+      "Overall vibration remains below 3.0 mm/s for 72 hours.",
     intendedOutcome: "Seal reliability is restored without repeat leakage.",
     dueDate: "2027-01-31",
     dueDateAssumed: false,
@@ -370,9 +373,9 @@ describe("recommendation verification planning", () => {
   it("loads the canonical plan instead of reconstructing it in the client", async () => {
     state.result = { data: [completePlan], error: null };
 
-    await expect(
-      getRecommendationVerificationPlan("rec-1"),
-    ).resolves.toEqual(completePlan);
+    await expect(getRecommendationVerificationPlan("rec-1")).resolves.toEqual(
+      completePlan,
+    );
     expect(state.rpcCalls).toEqual([
       {
         name: "get_recommendation_verification_plan",
@@ -485,9 +488,9 @@ describe("getOpenObligationIdForRecommendation", () => {
     state.byTable = {
       verification_obligations: { data: { id: "obl-bound" }, error: null },
     };
-    await expect(
-      getOpenObligationIdForRecommendation("rec-1"),
-    ).resolves.toBe("obl-bound");
+    await expect(getOpenObligationIdForRecommendation("rec-1")).resolves.toBe(
+      "obl-bound",
+    );
   });
 
   it("returns null when the recommendation has no open obligation", async () => {
@@ -500,7 +503,9 @@ describe("getOpenObligationIdForRecommendation", () => {
   });
 
   it("does not query on a blank recommendation id", async () => {
-    await expect(getOpenObligationIdForRecommendation("  ")).resolves.toBeNull();
+    await expect(
+      getOpenObligationIdForRecommendation("  "),
+    ).resolves.toBeNull();
     expect(vi.mocked(supabase.from)).not.toHaveBeenCalledWith(
       "verification_obligations",
     );
@@ -551,5 +556,102 @@ describe("approveRecommendation — approval is not achievement", () => {
     await expect(approveRecommendation(rec)).rejects.toThrow(
       /Could not approve recommendation/,
     );
+  });
+});
+
+describe("classifyEngineeringChange — class assignment is not approval", () => {
+  beforeEach(() => {
+    state.result = { data: null, error: null };
+    state.rpcCalls = [];
+    state.inserts = [];
+  });
+
+  it("calls the governed classifier and returns the rule it bound", async () => {
+    state.result = {
+      data: {
+        change_class: "pm_interval_change",
+        required_role: "reliability_engineer",
+        classified_by_role: "reliability_engineer",
+        rule_status: "draft",
+      },
+      error: null,
+    };
+    await expect(
+      classifyEngineeringChange(
+        "rec-1",
+        "pm_interval_change",
+        "The recommendation changes the inspection interval.",
+      ),
+    ).resolves.toEqual({
+      changeClass: "pm_interval_change",
+      requiredRole: "reliability_engineer",
+      classifiedByRole: "reliability_engineer",
+      ruleStatus: "draft",
+    });
+    expect(state.rpcCalls).toContainEqual({
+      name: "classify_recommendation_change",
+      args: {
+        p_recommendation_id: "rec-1",
+        p_change_class: "pm_interval_change",
+        p_basis: "The recommendation changes the inspection interval.",
+      },
+    });
+    expect(state.inserts).toEqual([]);
+  });
+
+  it("surfaces the server refusal for the wrong discipline", async () => {
+    state.result = {
+      data: {
+        error:
+          "Change to a preventive-maintenance interval is classified by the reliability_engineer role",
+      },
+      error: null,
+    };
+    await expect(
+      classifyEngineeringChange(
+        "rec-1",
+        "pm_interval_change",
+        "A long enough basis for the class.",
+      ),
+    ).rejects.toThrow(/classified by the reliability_engineer role/);
+  });
+
+  it("rejects a response that names no class", async () => {
+    state.result = { data: { unchanged: true }, error: null };
+    await expect(
+      classifyEngineeringChange(
+        "rec-1",
+        "pm_interval_change",
+        "A long enough basis for the class.",
+      ),
+    ).rejects.toThrow(/was not recorded/);
+  });
+
+  it("reads rules from the existing governance payload", async () => {
+    state.result = {
+      data: {
+        engineering_rules: [
+          {
+            change_class: "material_substitution",
+            title: "Substitution of a specified material or component",
+            required_role: "reliability_engineer",
+            basis: "Proposed: substitutions change failure behaviour.",
+          },
+        ],
+      },
+      error: null,
+    };
+    await expect(listEngineeringApprovalRules()).resolves.toEqual([
+      {
+        change_class: "material_substitution",
+        title: "Substitution of a specified material or component",
+        required_role: "reliability_engineer",
+        basis: "Proposed: substitutions change failure behaviour.",
+      },
+    ]);
+    expect(state.rpcCalls).toContainEqual({
+      name: "get_governance_standards",
+      args: undefined,
+    });
   });
 });

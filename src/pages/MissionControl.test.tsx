@@ -1,4 +1,10 @@
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MissionControlData } from "../services/operatingLoopService";
 import type { RecommendationRow } from "../types/operating";
@@ -8,9 +14,31 @@ const state = vi.hoisted(() => ({
   loading: false,
   error: null,
   refetch: vi.fn(),
+  role: "reliability_engineer",
+  rules: [] as Array<{
+    change_class: string;
+    title: string;
+    required_role: string;
+    basis: string;
+  }>,
 }));
 
-vi.mock("../hooks/useAsyncData", () => ({ useAsyncData: () => state }));
+const classifyEngineeringChange = vi.hoisted(() => vi.fn());
+
+vi.mock("../hooks/useAsyncData", () => ({
+  useAsyncData: (loader: () => Promise<unknown>) => {
+    if (loader.toString().includes("listEngineeringApprovalRules")) {
+      return {
+        data: state.rules,
+        loading: false,
+        error: null,
+        refetch: state.refetch,
+        isEmpty: state.rules.length === 0,
+      };
+    }
+    return state;
+  },
+}));
 vi.mock("../hooks/useRealtimeRefetch", () => ({
   useRealtimeRefetch: () => ({ live: false }),
 }));
@@ -19,10 +47,16 @@ vi.mock("../hooks/useOnboardingOperatingLoop", () => ({
 }));
 vi.mock("../components/AuthProvider", () => ({
   useAuth: () => ({
-    profile: { role: "reliability_engineer" },
+    profile: { role: state.role },
     user: { id: "engineer-1" },
   }),
 }));
+vi.mock("../services/operatingLoopService", async () => {
+  const actual = await vi.importActual<
+    typeof import("../services/operatingLoopService")
+  >("../services/operatingLoopService");
+  return { ...actual, classifyEngineeringChange };
+});
 vi.mock("../components/EngineeringModelTracePanel", () => ({
   EngineeringModelTracePanel: () => null,
 }));
@@ -82,6 +116,9 @@ const recommendation = (id: string): RecommendationRow => ({
 describe("MissionControl recommendation refresh", () => {
   beforeEach(() => {
     state.loading = false;
+    state.role = "reliability_engineer";
+    state.rules = [];
+    classifyEngineeringChange.mockReset();
     state.refetch.mockReset();
     state.data = {
       readinessScore: 75,
@@ -115,20 +152,16 @@ describe("MissionControl recommendation refresh", () => {
     rerender(<MissionControl />);
     fireEvent.click(screen.getByRole("button", { name: "Close plan" }));
 
-    expect(
-      screen.getByRole("button", { name: "Assumptions" }),
-    ).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Assumptions" })).toBeTruthy();
     expect(
       screen.getByRole("button", { name: "Verification plan" }),
     ).toBeTruthy();
     // The untouched second card remains collapsed; refresh must not expand all cards.
-    expect(
-      screen.getAllByRole("button", { name: "Assumptions" }),
-    ).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Assumptions" })).toHaveLength(
+      1,
+    );
     fireEvent.click(screen.getByText("Inspect C-22"));
-    expect(
-      screen.queryByRole("button", { name: "Assumptions" }),
-    ).toBeNull();
+    expect(screen.queryByRole("button", { name: "Assumptions" })).toBeNull();
   });
 
   it("preserves independent expansion choices across realtime refreshes", () => {
@@ -139,17 +172,96 @@ describe("MissionControl recommendation refresh", () => {
     rerender(<MissionControl />);
     state.loading = false;
     rerender(<MissionControl />);
-    expect(
-      screen.getAllByRole("button", { name: "Assumptions" }),
-    ).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Assumptions" })).toHaveLength(
+      2,
+    );
     fireEvent.click(screen.getByText("Inspect P-101"));
-    expect(
-      screen.getAllByRole("button", { name: "Assumptions" }),
-    ).toHaveLength(1);
+    expect(screen.getAllByRole("button", { name: "Assumptions" })).toHaveLength(
+      1,
+    );
     expect(
       within(
         screen.getByText("Inspect C-22").closest(".rounded-xl")!,
       ).getByRole("button", { name: "Assumptions" }),
     ).toBeTruthy();
+  });
+
+  it("lets a reliability engineer classify an unclassified recommendation", async () => {
+    state.rules = [
+      {
+        change_class: "pm_interval_change",
+        title: "Change to a preventive-maintenance interval",
+        required_role: "reliability_engineer",
+        basis:
+          "Proposed: an interval change must be reasoned from failure history.",
+      },
+    ];
+    classifyEngineeringChange.mockResolvedValue({
+      changeClass: "pm_interval_change",
+      requiredRole: "reliability_engineer",
+      classifiedByRole: "reliability_engineer",
+      ruleStatus: "draft",
+    });
+    render(<MissionControl />);
+    fireEvent.click(screen.getByText("Inspect C-22"));
+    fireEvent.change(screen.getByLabelText("Engineering change class"), {
+      target: { value: "pm_interval_change" },
+    });
+    fireEvent.change(
+      screen.getByLabelText("Why this engineering class applies"),
+      {
+        target: {
+          value: "The recommendation changes the pump inspection interval.",
+        },
+      },
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Classify engineering change" }),
+    );
+    await waitFor(() => {
+      expect(classifyEngineeringChange).toHaveBeenCalledWith(
+        "C-22",
+        "pm_interval_change",
+        "The recommendation changes the pump inspection interval.",
+      );
+    });
+  });
+
+  it("does not offer classification to a role the rules do not name", () => {
+    state.role = "technician";
+    state.rules = [
+      {
+        change_class: "pm_interval_change",
+        title: "Change to a preventive-maintenance interval",
+        required_role: "reliability_engineer",
+        basis:
+          "Proposed: an interval change must be reasoned from failure history.",
+      },
+    ];
+    render(<MissionControl />);
+    fireEvent.click(screen.getByText("Inspect C-22"));
+    expect(screen.queryByLabelText("Engineering change class")).toBeNull();
+    expect(screen.getByText(/This role cannot classify it/)).toBeTruthy();
+  });
+
+  it("shows the signature act once a class is already recorded", () => {
+    state.data = {
+      ...state.data!,
+      topRecommendations: [
+        {
+          ...recommendation("C-22"),
+          change_class: "repair_vs_replace",
+        },
+      ],
+    };
+    render(<MissionControl />);
+    fireEvent.click(screen.getByText("Inspect C-22"));
+    expect(screen.getByText("repair_vs_replace")).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "Record sign-off" }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Classify engineering change" }),
+    ).toBeNull();
   });
 });

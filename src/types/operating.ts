@@ -76,10 +76,10 @@ export interface RecommendationRow {
   created_at: string;
   updated_at: string;
   /**
-   * Engineering approval (E4.06). Written ONLY by sign_engineering_review();
-   * migration 20261005090100 refuses a direct write of these three columns,
-   * so they are read-only to every client. Optional because the columns were
-   * added after the base row and most recommendations carry no change class.
+   * Engineering approval (E4.06). `change_class` is written only by
+   * classify_recommendation_change(); the signature columns are written only
+   * by sign_engineering_review(). Direct client writes are refused. Optional
+   * because a recommendation is unclassified until a named human assigns a rule.
    */
   change_class?: string | null;
   engineering_signed_by?: string | null;
