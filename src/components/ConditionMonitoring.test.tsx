@@ -475,4 +475,106 @@ describe("ConditionMonitoring adopt path", () => {
       await screen.findByText(/not work authorization/i),
     ).toBeInTheDocument();
   });
+
+  it("records a governed observation and does not treat it as work authorization", async () => {
+    rpc.mockImplementation(async (name: unknown) => {
+      if (name === "get_plant_historian_status") {
+        return { data: UNCONFIGURED_HISTORIAN, error: null };
+      }
+      if (name === "record_condition_observation") {
+        return {
+          data: {
+            recorded: true,
+            alert_id: "al-new",
+            severity: "warning",
+            mayAuthorizeWork: false,
+          },
+          error: null,
+        };
+      }
+      return {
+        data: {
+          coverage: {
+            assets: 1,
+            monitored_assets: 1,
+            coverage_pct: 100,
+            critical_assets: 0,
+            critical_monitored: 0,
+            critical_coverage_pct: null,
+            readings: 0,
+            basis: "No non-DEMO good reading exists yet.",
+          },
+          active_alerts: [],
+          observation_points: [
+            {
+              id: "s1",
+              name: "Drive-end vibration",
+              asset_id: "a1",
+              asset: "P-101",
+              unit: "mm/s",
+              warning_limit: 2,
+              alarm_limit: 4,
+              limit_direction: "above",
+              registry_status: "active",
+            },
+          ],
+          warning_lead_time: {
+            available: false,
+            value: null,
+            unit: "hours",
+            sample: 0,
+            basis:
+              "Qualifying readings exist, but no alert is linked to a later same-asset work order.",
+            open_backlog: {
+              available: false,
+              count: null,
+              mean_age_hours: null,
+              basis:
+                "Withheld. There is no qualifying reading, so an empty backlog is not reported as zero.",
+            },
+          },
+          pm_task_effectiveness: {
+            available: false,
+            pm_completed: 0,
+            finding_rate_pct: null,
+            missed_rate_pct: null,
+            basis: "No completed PMs.",
+          },
+          pf_note: "P-F intervals are declared engineering reference data.",
+        },
+        error: null,
+      };
+    });
+    render(<ConditionMonitoring />);
+    fireEvent.change(await screen.findByLabelText("Observation sensor"), {
+      target: { value: "s1" },
+    });
+    fireEvent.change(screen.getByLabelText("Observation value"), {
+      target: { value: "4.2" },
+    });
+    fireEvent.change(screen.getByLabelText("Observation time"), {
+      target: { value: "2026-08-01T06:00" },
+    });
+    fireEvent.change(screen.getByLabelText("Observation basis"), {
+      target: {
+        value: "Drive-end vibration crossed the configured warning.",
+      },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Record observation" }));
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith(
+        "record_condition_observation",
+        expect.objectContaining({
+          p_sensor_id: "s1",
+          p_value: 4.2,
+          p_quality: "good",
+          p_basis: "Drive-end vibration crossed the configured warning.",
+        }),
+      ),
+    );
+    expect(
+      await screen.findByText(/not work authorization/i),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/empty backlog is not reported as zero/i)).toBeInTheDocument();
+  });
 });

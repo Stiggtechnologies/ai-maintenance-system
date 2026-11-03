@@ -684,10 +684,10 @@
     "backticked": 3
   },
   "C6.24": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 5,
-    "backticked": 4
+    "citations": 10,
+    "backticked": 10
   },
   "C6.25": {
     "status": "✅",

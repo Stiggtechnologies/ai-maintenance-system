@@ -24,6 +24,21 @@ import { supabase } from "../lib/supabase";
 
 export const PF_ADOPT_ROLES = ["reliability_engineer", "admin"] as const;
 
+export const CONDITION_OBSERVATION_ROLES = [
+  "reliability_engineer",
+  "maintenance_manager",
+  "admin",
+] as const;
+
+export function canRecordConditionObservation(
+  role: string | null | undefined,
+): boolean {
+  return (
+    role != null &&
+    (CONDITION_OBSERVATION_ROLES as readonly string[]).includes(role)
+  );
+}
+
 export const TAXONOMY_ADOPT_ROLES = [
   "admin",
   "reliability_engineer",
@@ -281,6 +296,51 @@ export async function linkAlertToWork(
     p_alert_id: alertId,
     p_work_order_id: workOrderId,
   });
+}
+
+export interface RecordConditionObservationInput {
+  sensorId: string;
+  value: number;
+  takenAt: string;
+  quality: "good" | "suspect" | "bad" | "substituted";
+  basis: string;
+}
+
+export interface RecordConditionObservationResult {
+  recorded?: boolean;
+  severity?: string | null;
+  alert_id?: string | null;
+  mayAuthorizeWork: false;
+}
+
+export async function recordConditionObservation(
+  input: RecordConditionObservationInput,
+): Promise<RecordConditionObservationResult> {
+  if (!Number.isFinite(input.value)) {
+    throw new Error("the reading must be a finite number");
+  }
+  if (input.basis.trim().length < 20) {
+    throw new Error(
+      "state what was observed and why this reading is evidence (20 characters minimum)",
+    );
+  }
+  const taken = new Date(input.takenAt);
+  if (Number.isNaN(taken.getTime())) {
+    throw new Error("the observation time is required");
+  }
+  if (taken.getTime() > Date.now() + 5 * 60 * 1000) {
+    throw new Error("an observation time in the future is refused");
+  }
+  return callRpc<RecordConditionObservationResult>(
+    "record_condition_observation",
+    {
+      p_sensor_id: input.sensorId,
+      p_value: input.value,
+      p_taken_at: taken.toISOString(),
+      p_quality: input.quality,
+      p_basis: input.basis.trim(),
+    },
+  );
 }
 
 export interface ObservedPfRow {

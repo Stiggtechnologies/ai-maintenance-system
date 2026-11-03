@@ -12,6 +12,7 @@ import {
   canAdoptTaxonomy,
   canDecideVariance,
   canProposeTaxonomy,
+  canRecordConditionObservation,
   decideStandardVariance,
   deriveObservedPf,
   getOperatingContext,
@@ -19,6 +20,7 @@ import {
   getProcessEventContext,
   linkAlertToWork,
   listOpenWorkOrders,
+  recordConditionObservation,
   proposeTaxonomyRevision,
   requestStandardVariance,
   suggestedWindowDays,
@@ -288,6 +290,58 @@ describe("variance and accept-risk writers", () => {
         "Weekly visual plus vibration route on this class.",
       p_expires_at: "2027-03-01T00:00:00Z",
     });
+  });
+
+  it("refuses an AI operator and a future observation before calling the database", async () => {
+    expect(canRecordConditionObservation("ai_admin")).toBe(false);
+    expect(canRecordConditionObservation("reliability_engineer")).toBe(true);
+    await expect(
+      recordConditionObservation({
+        sensorId: "s1",
+        value: Number.NaN,
+        takenAt: "2026-08-01T06:00:00Z",
+        quality: "good",
+        basis: "Drive-end vibration crossed the configured warning.",
+      }),
+    ).rejects.toThrow(/finite number/);
+    await expect(
+      recordConditionObservation({
+        sensorId: "s1",
+        value: 4.2,
+        takenAt: "2999-01-01T00:00:00Z",
+        quality: "good",
+        basis: "Drive-end vibration crossed the configured warning.",
+      }),
+    ).rejects.toThrow(/future/);
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("records a governed observation without authorizing work", async () => {
+    rpc.mockResolvedValue({
+      data: {
+        recorded: true,
+        alert_id: "al1",
+        severity: "warning",
+        mayAuthorizeWork: false,
+      },
+      error: null,
+    });
+    const result = await recordConditionObservation({
+      sensorId: "s1",
+      value: 4.2,
+      takenAt: "2026-08-01T06:00:00Z",
+      quality: "good",
+      basis: "Drive-end vibration crossed the configured warning.",
+    });
+    expect(rpc).toHaveBeenCalledWith("record_condition_observation", {
+      p_sensor_id: "s1",
+      p_value: 4.2,
+      p_taken_at: "2026-08-01T06:00:00.000Z",
+      p_quality: "good",
+      p_basis: "Drive-end vibration crossed the configured warning.",
+    });
+    expect(result.mayAuthorizeWork).toBe(false);
+    expect(result.alert_id).toBe("al1");
   });
 
   it("calls link_alert_to_work with the alert and work order", async () => {
