@@ -19,6 +19,7 @@ import { CmmsReadConnectorSetup } from "../components/CmmsReadConnectorSetup";
 import { P6ScheduleReadConnectorSetup } from "../components/P6ScheduleReadConnectorSetup";
 import { SapS4InventoryReadConnectorSetup } from "../components/SapS4InventoryReadConnectorSetup";
 import { SapS4FinancialReadConnectorSetup } from "../components/SapS4FinancialReadConnectorSetup";
+import { MqttReadConnectorSetup } from "../components/MqttReadConnectorSetup";
 import { BentlySystem1ConnectorSetup } from "../components/BentlySystem1ConnectorSetup";
 import { P6ScheduleRevisionReview } from "../components/P6ScheduleRevisionReview";
 
@@ -109,7 +110,11 @@ export function IntegrationsPage() {
       description: "Industrial communication protocol",
     },
     { type: "REST", label: "REST API", description: "Custom REST endpoint" },
-    { type: "MQTT", label: "MQTT", description: "IoT message broker" },
+    {
+      type: "MQTT",
+      label: "MQTT",
+      description: "Read-only TLS WebSocket subscribe",
+    },
     { type: "CSV", label: "CSV Import", description: "Bulk data import" },
     {
       type: "Historian",
@@ -228,8 +233,10 @@ export function IntegrationsPage() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {connectorTypes.map((ct) => {
-                const isConnected = connectors.some(
-                  (c) => c.connector_type === ct.type,
+                const isConnected = connectors.some((c) =>
+                  ct.type === "MQTT"
+                    ? c.connector_type === "mqtt_read"
+                    : c.connector_type === ct.type,
                 );
                 return (
                   <div
@@ -245,10 +252,20 @@ export function IntegrationsPage() {
                       )}
                     </div>
                     <p className="text-xs text-slate-400">{ct.description}</p>
-                    <button className="mt-3 text-xs text-signal-cyan hover:text-signal-cyan font-medium flex items-center gap-1">
-                      {isConnected ? "Manage" : "Connect"}{" "}
-                      <ExternalLink size={10} />
-                    </button>
+                    {ct.type === "MQTT" ? (
+                      <a
+                        href="#mqtt-read-setup"
+                        className="mt-3 text-xs text-signal-cyan hover:text-signal-cyan font-medium flex items-center gap-1"
+                      >
+                        {isConnected ? "Manage" : "Connect"}{" "}
+                        <ExternalLink size={10} />
+                      </a>
+                    ) : (
+                      <button className="mt-3 text-xs text-signal-cyan hover:text-signal-cyan font-medium flex items-center gap-1">
+                        {isConnected ? "Manage" : "Connect"}{" "}
+                        <ExternalLink size={10} />
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -354,6 +371,7 @@ export function IntegrationsPage() {
       <P6ScheduleReadConnectorSetup onConfigured={loadData} />
       <SapS4InventoryReadConnectorSetup onConfigured={loadData} />
       <SapS4FinancialReadConnectorSetup onConfigured={loadData} />
+      <MqttReadConnectorSetup onConfigured={loadData} />
       <BentlySystem1ConnectorSetup onConfigured={loadData} />
       <RecoverySignalConnectorSetup onConfigured={loadData} />
       <ConnectorHealth />

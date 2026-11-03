@@ -75,7 +75,10 @@ validated, or certified:
 - a clean-deployment, end-to-end governed RAG service and persistent knowledge
   graph;
 - production SAP, Maximo, PI/historian, SCADA, OPC-UA, MQTT, ERP, or PLM
-  connectors;
+  connectors. A bounded read-only MQTT subscribe adapter is in the
+  repository (`docs/mqtt-read-adapter.md`). It is tested against an
+  in-process mock broker only, it is not on the Edge Function deployment
+  allowlist, and it is not a certified live-broker connector;
 - supported private-cloud, on-premises, sovereign, edge, or air-gapped
   deployment;
 - unrestricted autonomous execution against operational control or command
