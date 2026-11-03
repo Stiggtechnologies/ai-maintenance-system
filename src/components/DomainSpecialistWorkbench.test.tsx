@@ -8,6 +8,13 @@ import {
 } from "../services/domainSpecialistService";
 import { DomainSpecialistWorkbench } from "./DomainSpecialistWorkbench";
 
+vi.mock("../services/failureContextRiskModelService", () => ({
+  listFailureContextAssets: vi.fn().mockResolvedValue([]),
+  listFailureContextBindings: vi.fn().mockResolvedValue([]),
+  recordFailureContextBinding: vi.fn(),
+  differentiateFailureContexts: vi.fn(),
+}));
+
 vi.mock("../services/domainSpecialistService", async (importOriginal) => {
   const actual =
     await importOriginal<
