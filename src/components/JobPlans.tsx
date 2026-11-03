@@ -11,9 +11,10 @@
  *     plan whose completion cannot be verified is a to-do list;
  *   * only an ADOPTED plan can be applied to real work.
  *
- * Planning accuracy shows absolute error AND bias, never one average. A job
- * estimated at 4 h that took 8 and one estimated at 8 h that took 4 average to
- * zero variance — perfect-looking planning, two wrecked shifts.
+ * Planning accuracy shows absolute error AND bias. One job 50% over plan and
+ * another 50% under can show zero bias while both missed the plan. The
+ * percentage counts only sealed receipts: adopted-plan hours against
+ * named-human task actuals after governed closeout.
  *
  * Authoring, adoption and application are product acts on this surface.
  * Saving a draft is not authorization. Revising an adopted plan writes the
@@ -326,13 +327,24 @@ export function JobPlans() {
             </div>
             <p className="mt-1 text-xs text-slate-400">{a.bias_reading}</p>
             <p className="mt-1 text-xs leading-relaxed text-slate-500">
-              Error and bias are shown separately on purpose: a job estimated at
-              4 h that took 8, and one estimated at 8 h that took 4, average to
-              zero variance — perfect-looking planning and two wrecked shifts.
+              Absolute error and bias stay separate. One job 50% over plan and
+              another 50% under can show zero bias while both missed the plan.
+              The ±10% figure is the existing planning band, not an engineering
+              limit.
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-slate-500">
+              Excluded: {a.excluded_open_with_plan ?? 0} open with a plan,{" "}
+              {a.excluded_closed_unsealed ?? 0} closed without a seal,{" "}
+              {a.excluded_client_completed ?? 0} completed without governed
+              closeout, {a.excluded_closed_without_plan ?? 0} closed without a
+              plan.
             </p>
           </>
         ) : (
           <p className="mt-1.5 text-sm text-slate-400">{a?.basis}</p>
+        )}
+        {a?.available && (
+          <p className="mt-1 text-xs leading-relaxed text-slate-500">{a.basis}</p>
         )}
       </div>
 

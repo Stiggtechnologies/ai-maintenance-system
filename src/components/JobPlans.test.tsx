@@ -121,6 +121,36 @@ beforeEach(() => {
 });
 
 describe("JobPlans authoring surface", () => {
+  it("shows sealed planning accuracy and the work kept out of the percentage", async () => {
+    getPlanningAccuracy.mockResolvedValue({
+      available: true,
+      sample: 2,
+      mean_absolute_error_pct: 50,
+      bias_pct: 0,
+      within_10_pct: 0,
+      bias_reading: "No systematic lean in the estimates.",
+      excluded_open_with_plan: 3,
+      excluded_closed_unsealed: 1,
+      excluded_client_completed: 4,
+      excluded_closed_without_plan: 2,
+      basis:
+        "Mean absolute percentage error and signed bias of named-human task actuals against the applied job plan, over 2 sealed completed work orders in this tenant.",
+    });
+    renderPage();
+    expect(await screen.findByText("50")).toBeInTheDocument();
+    expect(screen.getByText(/within ±10%/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/No systematic lean in the estimates/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/3 open with a plan/)).toBeInTheDocument();
+    expect(screen.getByText(/1 closed without a seal/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/4 completed without governed/),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/2 closed without a plan/)).toBeInTheDocument();
+    expect(screen.getByText(/over 2 sealed completed work orders/)).toBeInTheDocument();
+  });
+
   it("runs the governed Planning agent, shows its gaps, and opens its draft for human review", async () => {
     runPlanningAgent.mockResolvedValue({
       run_id: "run-12345678",

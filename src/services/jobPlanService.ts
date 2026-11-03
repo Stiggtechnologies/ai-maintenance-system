@@ -66,6 +66,10 @@ export interface PlanningAccuracy {
   bias_pct: number | null;
   within_10_pct: number | null;
   bias_reading: string | null;
+  excluded_open_with_plan?: number;
+  excluded_closed_unsealed?: number;
+  excluded_client_completed?: number;
+  excluded_closed_without_plan?: number;
   basis: string;
 }
 
