@@ -135,8 +135,12 @@
       ],
       "testFile": "src/lib/bok-decision-kernels.test.ts",
       "registerRows": ["C8.09"],
-      "customerReachable": false,
-      "nextStep": "Use compareLifeCycleOptions in the lifecycle repair/replace evaluation once the finance owner records a governed discount rate (asset economics, PR #612)."
+      "customerReachable": true,
+      "nextStep": "Cash flows remain the supplied asset-economics snapshot plus the deferral consequence at one governed real rate. A sensitivity band and SAP actuals are not invented or fetched.",
+      "consumers": [
+        "src/lib/lifecycle/discounted-evaluation.ts",
+        "src/components/LifecycleDecisions.tsx"
+      ]
     },
     {
       "id": "BOK-08",

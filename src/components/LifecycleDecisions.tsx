@@ -3,10 +3,10 @@
  * (capability register C8.09, C2.10).
  *
  * The failure model comes from the validated Weibull engine in
- * src/lib/reliability; the option arithmetic from src/lib/lifecycle, which has
- * its own thirteen tests. The database supplies inputs and stores results, so
- * there is exactly one implementation of the mathematics rather than a SQL
- * copy that can drift from the tested one.
+ * src/lib/reliability. Ranking uses the discounted life-cycle-cost kernel
+ * through buildDiscountedLifecycleComparison. The database supplies the
+ * governed discount rate and the asset economics, then stores the frozen
+ * inputs. It does not keep a second copy of the arithmetic.
  *
  * An option that cannot be priced is shown as unpriced with its missing inputs
  * named, and is never ranked. Uncertainty travels with every verdict, because
@@ -14,19 +14,16 @@
  * a finding — and a recommendation without its uncertainty invites a decision
  * the evidence cannot support.
  */
-import { useState } from "react";
+import { useState, type FormEvent } from "react";
 import { Scale3d, TriangleAlert, CircleHelp } from "lucide-react";
 import { useAsyncData } from "../hooks/useAsyncData";
 import { supabase } from "../lib/supabase";
 import { weibullMLE } from "../lib/reliability";
+import { deferralRisk, type AssetEconomics } from "../lib/lifecycle";
 import {
-  deferralRisk,
-  compareOptions,
-  assessUncertainty,
-  recommendOption,
-  type AssetEconomics,
-  type OptionCost,
-} from "../lib/lifecycle";
+  buildDiscountedLifecycleComparison,
+  type DiscountedOptionView,
+} from "../lib/lifecycle/discounted-evaluation";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
 import { useAuth } from "./AuthProvider";
 
@@ -40,7 +37,19 @@ interface Evaluation {
   evaluated_at: string;
   decision: string | null;
   decision_note: string | null;
-  options: OptionCost[];
+  options: DiscountedOptionView[];
+}
+
+interface DiscountPolicyView {
+  assumptionId: string | null;
+  rateText: string | null;
+  owner: string | null;
+  basis: string | null;
+  effectiveFrom: string | null;
+  reviewDue: string | null;
+  refusal: string | null;
+  error?: string;
+  operative?: boolean;
 }
 
 interface Position {
@@ -49,6 +58,7 @@ interface Position {
   economics_coverage_pct: number | null;
   evaluations: Evaluation[];
   note: string;
+  discountPolicy?: DiscountPolicyView | null;
 }
 
 interface Inputs {
@@ -60,6 +70,7 @@ interface Inputs {
   economics: AssetEconomics;
   missing_inputs: string[];
   sufficient_for_failure_model: boolean;
+  criticality: string | null;
   note: string;
   error?: string;
 }
@@ -73,6 +84,13 @@ const UNCERTAINTY_STYLE: Record<string, string> = {
 const money = (v: number | null) =>
   v == null ? "unpriced" : `$${Math.round(v).toLocaleString()}/yr`;
 
+const statedNumber = (raw: string, label: string): number | null => {
+  if (raw.trim() === "") return null;
+  const value = Number(raw);
+  if (!Number.isFinite(value)) throw new Error(`${label} is not a number.`);
+  return value;
+};
+
 const LIFECYCLE_DECISION_ROLES = new Set([
   "maintenance_manager",
   "reliability_engineer",
@@ -85,6 +103,8 @@ const HIGH_UNCERTAINTY_ACCEPTANCE_ROLES = new Set([
   "executive",
   "admin",
 ]);
+
+const DISCOUNT_POLICY_ROLES = new Set(["executive", "admin"]);
 
 type LifecycleDecision = "accepted" | "rejected" | "deferred_decision";
 
@@ -107,6 +127,15 @@ export function LifecycleDecisions() {
   const [decisionMessages, setDecisionMessages] = useState<
     Record<string, string>
   >({});
+  const [redesignCost, setRedesignCost] = useState("");
+  const [redesignReduction, setRedesignReduction] = useState("");
+  const [policyRate, setPolicyRate] = useState("");
+  const [policyOwner, setPolicyOwner] = useState("");
+  const [policyBasis, setPolicyBasis] = useState("");
+  const [policyEffective, setPolicyEffective] = useState("");
+  const [policyReview, setPolicyReview] = useState("");
+  const [policyMessage, setPolicyMessage] = useState<string | null>(null);
+  const [recordingPolicy, setRecordingPolicy] = useState(false);
   const { data, loading, error, refetch } = useAsyncData<Position>(async () => {
     const { data: r, error: e } = await supabase.rpc(
       "get_lifecycle_position",
@@ -159,35 +188,150 @@ export function LifecycleDecisions() {
       return;
     }
 
+    let redesignCostUsd: number | null;
+    let redesignMaintenanceReductionPct: number | null;
+    try {
+      redesignCostUsd = statedNumber(redesignCost, "Redesign cost");
+      redesignMaintenanceReductionPct = statedNumber(
+        redesignReduction,
+        "Expected maintenance reduction",
+      );
+    } catch (invalid) {
+      setRunning(false);
+      setPreview(
+        invalid instanceof Error
+          ? invalid.message
+          : "Redesign inputs are not usable.",
+      );
+      return;
+    }
+
+    const { data: policyRaw, error: policyError } = await supabase.rpc(
+      "get_lifecycle_discount_policy",
+      {},
+    );
+    if (policyError) {
+      setRunning(false);
+      setPreview(policyError.message);
+      return;
+    }
+    const policy = policyRaw as DiscountPolicyView | null;
+    if (policy?.error) {
+      setRunning(false);
+      setPreview(policy.error);
+      return;
+    }
+
     const risk = deferralRisk(
       fit,
       inputs.hours_since_last_failure,
       30,
       inputs.economics,
     );
-    const options = compareOptions(inputs.economics, risk, null, null);
-    const uncertainty = assessUncertainty(fit, options);
-    const verdict = recommendOption(options, uncertainty);
-
-    await supabase.rpc("record_lifecycle_evaluation", {
-      p_asset_id: worst,
-      p_inputs: {
-        ...inputs,
-        weibull: { beta: fit.beta, eta: fit.eta, failures: fit.failures },
-        deferral_probability_30d: risk.probability,
-      },
-      p_options: options,
-      p_recommended: verdict.recommended,
-      p_uncertainty_level: uncertainty.level,
-      p_uncertainty_reasons: uncertainty.reasons,
-      p_rationale: verdict.rationale,
+    const usablePolicy =
+      policy &&
+      policy.refusal == null &&
+      policy.rateText != null &&
+      policy.owner != null &&
+      policy.basis != null
+        ? {
+            rate: Number(policy.rateText),
+            owner: policy.owner,
+            basis: policy.basis,
+          }
+        : null;
+    const verdict = buildDiscountedLifecycleComparison({
+      economics: inputs.economics,
+      risk,
+      redesignCostUsd,
+      redesignMaintenanceReductionPct,
+      policy: usablePolicy,
+      fit,
     });
+    const consequence = `Conditional failure probability over 30 days is ${(risk.probability * 100).toFixed(1)}%. Asset criticality: ${inputs.criticality ?? "not recorded"}.`;
 
+    const { data: recorded, error: recordError } = await supabase.rpc(
+      "record_lifecycle_evaluation",
+      {
+        p_asset_id: worst,
+        p_inputs: {
+          ...inputs,
+          weibull: { beta: fit.beta, eta: fit.eta, failures: fit.failures },
+          deferral_probability_30d: risk.probability,
+          discountPolicy:
+            usablePolicy && policy
+              ? {
+                  assumptionId: policy.assumptionId,
+                  rateText: policy.rateText,
+                  owner: policy.owner,
+                  basis: policy.basis,
+                }
+              : { refusal: policy?.refusal ?? verdict.refusal },
+          discounted: {
+            preferred: verdict.recommended,
+            refusal: verdict.refusal,
+            reason: verdict.comparison?.reason ?? null,
+          },
+        },
+        p_options: verdict.options,
+        p_recommended: verdict.recommended,
+        p_uncertainty_level: verdict.uncertainty.level,
+        p_uncertainty_reasons: verdict.uncertainty.reasons,
+        p_rationale: `${verdict.rationale} ${consequence}`,
+      },
+    );
     setRunning(false);
+    if (recordError) {
+      setPreview(recordError.message);
+      return;
+    }
+    const recordedBody = recorded as { error?: string } | null;
+    if (recordedBody?.error) {
+      setPreview(recordedBody.error);
+      return;
+    }
     setPreview(
-      `${inputs.asset_name}: β=${fit.beta.toFixed(2)}, ${(risk.probability * 100).toFixed(1)}% chance of failure in 30 days. ${verdict.rationale}`,
+      `${inputs.asset_name}: β=${fit.beta.toFixed(2)}, ${(risk.probability * 100).toFixed(1)}% chance of failure in 30 days. ${verdict.rationale} ${consequence}`,
     );
     refetch();
+  }
+
+  async function recordDiscountPolicy(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setRecordingPolicy(true);
+    setPolicyMessage(null);
+    try {
+      const rate = statedNumber(policyRate, "Discount rate");
+      if (rate == null)
+        throw new Error("Record the discount rate as a decimal.");
+      const { data: raw, error: rpcError } = await supabase.rpc(
+        "record_lifecycle_discount_policy",
+        {
+          p_rate: rate,
+          p_owner: policyOwner.trim(),
+          p_basis: policyBasis.trim(),
+          p_effective_from: policyEffective,
+          p_review_due: policyReview,
+        },
+      );
+      if (rpcError) throw new Error(rpcError.message);
+      const result = raw as DiscountPolicyView | null;
+      if (result?.error) throw new Error(result.error);
+      setPolicyMessage(
+        result?.operative === false
+          ? "Discount policy recorded. It is not operative until its effective date."
+          : "Discount policy recorded. It does not itself approve a repair, replacement, redesign, or deferral.",
+      );
+      refetch();
+    } catch (policyError) {
+      setPolicyMessage(
+        policyError instanceof Error
+          ? policyError.message
+          : "The discount policy was not recorded.",
+      );
+    } finally {
+      setRecordingPolicy(false);
+    }
   }
 
   async function decideEvaluation(
@@ -245,6 +389,9 @@ export function LifecycleDecisions() {
   if (error) return <ErrorState message={error} onRetry={refetch} />;
 
   const evals = data?.evaluations ?? [];
+  const policy = data?.discountPolicy;
+  const policyReady =
+    policy != null && policy.refusal == null && policy.rateText != null;
 
   return (
     <section aria-labelledby="lifecycle-heading" className="space-y-4">
@@ -262,13 +409,150 @@ export function LifecycleDecisions() {
           </h2>
           <p className="mt-1 max-w-3xl text-sm text-slate-300">{data?.note}</p>
         </div>
-        <button
-          onClick={evaluateWorstActor}
-          disabled={running}
-          className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-200 hover:bg-white/10 disabled:opacity-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-signal-cyan"
-        >
-          {running ? "Analysing…" : "Evaluate worst actor"}
-        </button>
+        <div className="flex flex-col gap-2">
+          <div className="flex flex-wrap gap-2">
+            <label className="text-xs text-slate-400" htmlFor="redesign-cost">
+              Redesign cost (USD)
+              <input
+                id="redesign-cost"
+                value={redesignCost}
+                onChange={(event) => setRedesignCost(event.target.value)}
+                inputMode="decimal"
+                className="mt-1 block w-36 rounded-lg border border-white/10 bg-slate-950 px-2 py-1 text-sm text-white"
+              />
+            </label>
+            <label
+              className="text-xs text-slate-400"
+              htmlFor="redesign-reduction"
+            >
+              Expected maintenance reduction (%)
+              <input
+                id="redesign-reduction"
+                value={redesignReduction}
+                onChange={(event) => setRedesignReduction(event.target.value)}
+                inputMode="decimal"
+                className="mt-1 block w-36 rounded-lg border border-white/10 bg-slate-950 px-2 py-1 text-sm text-white"
+              />
+            </label>
+          </div>
+          <button
+            onClick={evaluateWorstActor}
+            disabled={running}
+            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-200 hover:bg-white/10 disabled:opacity-50 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-signal-cyan"
+          >
+            {running ? "Analysing…" : "Evaluate worst actor"}
+          </button>
+        </div>
+      </div>
+
+      <div className="rounded-xl border border-white/6 bg-white/2 p-4 text-sm text-slate-300">
+        <p className="font-medium text-slate-100">Governed discount rate</p>
+        {policyReady ? (
+          <p className="mt-1 text-xs leading-relaxed text-slate-400">
+            {(Number(policy.rateText) * 100).toFixed(2)}% set by {policy.owner}.{" "}
+            {policy.basis} Review due {policy.reviewDue}. The comparison uses
+            this single rate and does not invent a sensitivity band.
+          </p>
+        ) : (
+          <p className="mt-1 text-xs leading-relaxed text-slate-400">
+            {policy?.refusal ??
+              "No governed real discount rate is loaded for this tenant. Repair, replace, redesign and defer are not ranked until an executive or administrator records one."}
+          </p>
+        )}
+        {DISCOUNT_POLICY_ROLES.has(profile?.role ?? "") ? (
+          <form
+            className="mt-3 grid gap-2 sm:grid-cols-2"
+            onSubmit={(event) => void recordDiscountPolicy(event)}
+          >
+            <label className="text-xs text-slate-400" htmlFor="discount-rate">
+              Rate (decimal)
+              <input
+                id="discount-rate"
+                required
+                value={policyRate}
+                onChange={(event) => setPolicyRate(event.target.value)}
+                inputMode="decimal"
+                className="mt-1 block w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-1 text-sm text-white"
+              />
+            </label>
+            <label className="text-xs text-slate-400" htmlFor="discount-owner">
+              Finance owner
+              <input
+                id="discount-owner"
+                required
+                minLength={3}
+                value={policyOwner}
+                onChange={(event) => setPolicyOwner(event.target.value)}
+                className="mt-1 block w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-1 text-sm text-white"
+              />
+            </label>
+            <label
+              className="text-xs text-slate-400 sm:col-span-2"
+              htmlFor="discount-basis"
+            >
+              Basis
+              <textarea
+                id="discount-basis"
+                required
+                minLength={15}
+                rows={2}
+                value={policyBasis}
+                onChange={(event) => setPolicyBasis(event.target.value)}
+                className="mt-1 block w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-1 text-sm text-white"
+              />
+            </label>
+            <label
+              className="text-xs text-slate-400"
+              htmlFor="discount-effective"
+            >
+              Effective from
+              <input
+                id="discount-effective"
+                required
+                type="date"
+                value={policyEffective}
+                onChange={(event) => setPolicyEffective(event.target.value)}
+                className="mt-1 block w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-1 text-sm text-white"
+              />
+            </label>
+            <label className="text-xs text-slate-400" htmlFor="discount-review">
+              Review due
+              <input
+                id="discount-review"
+                required
+                type="date"
+                value={policyReview}
+                onChange={(event) => setPolicyReview(event.target.value)}
+                className="mt-1 block w-full rounded-lg border border-white/10 bg-slate-950 px-2 py-1 text-sm text-white"
+              />
+            </label>
+            <div className="sm:col-span-2">
+              <button
+                type="submit"
+                disabled={recordingPolicy}
+                className="rounded-lg border border-signal-cyan/30 px-3 py-1.5 text-xs font-semibold text-signal-cyan disabled:opacity-50"
+              >
+                {recordingPolicy ? "Recording…" : "Record discount policy"}
+              </button>
+              <p className="mt-2 text-xs text-slate-500">
+                Requires a verified second factor and an AAL2 session. Recording
+                the rate does not approve work, spend, or a return to service,
+                and this screen does not call an external finance system.
+              </p>
+              {policyMessage && (
+                <p aria-live="polite" className="mt-2 text-xs text-slate-300">
+                  {policyMessage}
+                </p>
+              )}
+            </div>
+          </form>
+        ) : (
+          <p className="mt-2 text-xs text-slate-500">
+            An executive or administrator records the rate. Other roles can
+            evaluate and, where authorized, decide against the rate already in
+            force.
+          </p>
+        )}
       </div>
 
       {preview && (
@@ -339,6 +623,9 @@ export function LifecycleDecisions() {
                       className={`font-mono tabular-nums ${o.annualCostUsd == null ? "text-slate-600" : "text-slate-300"}`}
                     >
                       {money(o.annualCostUsd)}
+                      {o.npv != null
+                        ? ` · NPV ${money(o.npv).replace("/yr", "")}`
+                        : ""}
                     </span>
                   </li>
                 ))}
@@ -472,10 +759,7 @@ export function LifecycleDecisions() {
                       </p>
                     )}
                   {decisionMessages[e.id] && (
-                    <p
-                      aria-live="polite"
-                      className="text-xs text-slate-300"
-                    >
+                    <p aria-live="polite" className="text-xs text-slate-300">
                       {decisionMessages[e.id]}
                     </p>
                   )}

@@ -27,8 +27,8 @@ export function LifecycleDecisionsPage() {
           Repair / Replace / Retire
         </h1>
         <p className="text-sm text-slate-400 mt-0.5">
-          Economic end-of-life evaluations recorded with their inputs and
-          decided by a human
+          Discounted repair, replace, redesign and defer evaluations, recorded
+          with their inputs and decided by a human
         </p>
       </div>
       <AssetEconomicsAdministration
