@@ -22,6 +22,7 @@ import { SapS4FinancialReadConnectorSetup } from "../components/SapS4FinancialRe
 import { SapS4WriteConnectorSetup } from "../components/SapS4WriteConnectorSetup";
 import { MqttReadConnectorSetup } from "../components/MqttReadConnectorSetup";
 import { IgnitionScadaReadConnectorSetup } from "../components/IgnitionScadaReadConnectorSetup";
+import { OpcUaReadConnectorSetup } from "../components/OpcUaReadConnectorSetup";
 import { BentlySystem1ConnectorSetup } from "../components/BentlySystem1ConnectorSetup";
 import { P6ScheduleRevisionReview } from "../components/P6ScheduleRevisionReview";
 
@@ -110,7 +111,9 @@ export function IntegrationsPage() {
     {
       type: "OPC-UA",
       label: "OPC-UA",
-      description: "Industrial communication protocol",
+      description:
+        "Read-only node values. Tested against a mock server; not certified live.",
+      setupId: "opc-ua-read-setup",
     },
     { type: "REST", label: "REST API", description: "Custom REST endpoint" },
     {
@@ -262,7 +265,21 @@ export function IntegrationsPage() {
                       )}
                     </div>
                     <p className="text-xs text-slate-400">{ct.description}</p>
-                    {ct.type === "MQTT" ? (
+                    {"setupId" in ct && ct.setupId ? (
+                      <button
+                        type="button"
+                        className="mt-3 text-xs text-signal-cyan hover:text-signal-cyan font-medium flex items-center gap-1"
+                        onClick={() => {
+                          document.getElementById(ct.setupId)?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "start",
+                          });
+                        }}
+                      >
+                        {isConnected ? "Manage" : "Connect"}{" "}
+                        <ExternalLink size={10} />
+                      </button>
+                    ) : ct.type === "MQTT" ? (
                       <a
                         href="#mqtt-read-setup"
                         className="mt-3 text-xs text-signal-cyan hover:text-signal-cyan font-medium flex items-center gap-1"
@@ -396,6 +413,7 @@ export function IntegrationsPage() {
       <SapS4WriteConnectorSetup onConfigured={loadData} />
       <MqttReadConnectorSetup onConfigured={loadData} />
       <IgnitionScadaReadConnectorSetup onConfigured={loadData} />
+      <OpcUaReadConnectorSetup onConfigured={loadData} />
       <BentlySystem1ConnectorSetup onConfigured={loadData} />
       <RecoverySignalConnectorSetup onConfigured={loadData} />
       <ConnectorHealth />
