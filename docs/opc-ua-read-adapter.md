@@ -2,7 +2,7 @@
 
 **Status:** built and tested against the in-repo mock OPC-UA server. Not
 certified against a live OPC-UA server. Not deployed. Capability-register item
-C2.20 stays partial until the live acceptance evidence below exists.
+C2.21 stays partial until the live acceptance evidence below exists.
 
 ## Why the edge function does not speak OPC-UA binary
 
@@ -126,7 +126,7 @@ evidence for all of the following:
 
 Attach the server product and version, endpoint host, security mode actually
 negotiated, witness identities, timestamps, run ids and the page hash to the
-acceptance record. Only then may C2.20 move to green.
+acceptance record. Only then may C2.21 move to green.
 
 ## References
 

@@ -1,4 +1,4 @@
--- C2.20 — governed read-only OPC-UA adapter.
+-- C2.21 — governed read-only OPC-UA adapter.
 --
 -- One connector names one opc.tcp endpoint, one security mode/policy, one
 -- authentication mode and an explicit node list. The Deno edge function does
@@ -193,7 +193,7 @@ begin
     v_org, btrim(p_key), btrim(p_name), 'opc_ua_read', 'opc_ua',
     'opc_ua_binary_read', v_endpoint, p_expected_interval_minutes, v_ref,
     'Bounded OPC-UA Binary Read of administrator-approved nodes. No Write, Call or source write-back.',
-    'C2.20', case when p_enabled then 'active' else 'configured' end, p_enabled,
+    'C2.21', case when p_enabled then 'active' else 'configured' end, p_enabled,
     'read_only', false, 'none', null, 1, p_security_mode, p_security_policy,
     p_auth_mode, p_node_ids
   )
@@ -207,7 +207,7 @@ begin
     expected_interval_minutes = excluded.expected_interval_minutes,
     credential_binding_ref = excluded.credential_binding_ref,
     contract_note = excluded.contract_note,
-    register_ref = 'C2.20',
+    register_ref = 'C2.21',
     status = excluded.status,
     enabled = excluded.enabled,
     direction = 'read_only',
@@ -279,7 +279,7 @@ begin
     and connector_type = 'opc_ua_read'
     and system_kind = 'opc_ua'
     and connector_profile = 'opc_ua_binary_read'
-    and register_ref = 'C2.20';
+    and register_ref = 'C2.21';
   if not found then
     return jsonb_build_object('error', 'governed OPC-UA source not found');
   end if;
@@ -342,7 +342,7 @@ begin
     and connector_type = 'opc_ua_read'
     and system_kind = 'opc_ua'
     and connector_profile = 'opc_ua_binary_read'
-    and register_ref = 'C2.20'
+    and register_ref = 'C2.21'
     and enabled
     and direction = 'read_only'
     and not write_enabled
@@ -476,7 +476,7 @@ begin
     and c.connector_type = 'opc_ua_read'
     and c.system_kind = 'opc_ua'
     and c.connector_profile = 'opc_ua_binary_read'
-    and c.register_ref = 'C2.20'
+    and c.register_ref = 'C2.21'
     and c.enabled
     and c.direction = 'read_only'
     and not c.write_enabled;
@@ -605,7 +605,7 @@ begin
       and c.connector_type = 'opc_ua_read'
       and c.system_kind = 'opc_ua'
       and c.connector_profile = 'opc_ua_binary_read'
-      and c.register_ref = 'C2.20'
+      and c.register_ref = 'C2.21'
   ) then
     if tg_op = 'INSERT'
        and coalesce(current_setting('app.opc_ua_transport', true), '') <> 'granted' then
@@ -659,7 +659,7 @@ begin
     and c.connector_type = 'opc_ua_read'
     and c.system_kind = 'opc_ua'
     and c.connector_profile = 'opc_ua_binary_read'
-    and c.register_ref = 'C2.20';
+    and c.register_ref = 'C2.21';
   if not found then
     return jsonb_build_object('error', 'running governed OPC-UA run not found');
   end if;
