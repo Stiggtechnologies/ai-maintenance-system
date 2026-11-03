@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { dataResidencyDenial } from "../_shared/data-residency-guard.ts";
 import { getDocument } from "npm:pdfjs-dist@4.10.38/legacy/build/pdf.mjs";
 import {
   buildIntakeChunks,
@@ -159,6 +160,14 @@ Deno.serve(async (req: Request) => {
       "kb intake requires the admin or reliability_engineer role",
       403,
     );
+  }
+  const residencyReason = await dataResidencyDenial(
+    supabase,
+    "processing",
+    "kb-document-intake",
+  );
+  if (residencyReason) {
+    return errorResponse(residencyReason, 403);
   }
 
   let body: Record<string, unknown>;

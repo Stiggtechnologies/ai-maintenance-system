@@ -21,6 +21,7 @@
  */
 import { supabase } from "../lib/supabase";
 import { parseCSV, profileColumns } from "../lib/fleet-import";
+import { assertDataResidency } from "./dataResidencyService";
 
 /** The intake pack's datasets. Keys match the categories already persisted. */
 export type DatasetKey =
@@ -562,6 +563,7 @@ export async function uploadSource(
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]+/g, "-").slice(0, 140);
   const path = `${organizationId}/${assessmentId}/${crypto.randomUUID()}-${safeName}`;
 
+  await assertDataResidency("storage", "ria-source-files");
   const { error: uploadError } = await supabase.storage
     .from("ria-source-files")
     .upload(path, file, { upsert: false, contentType: file.type || undefined });

@@ -62,9 +62,37 @@ function insertReturning(data: unknown, error: unknown = null) {
 beforeEach(() => {
   vi.clearAllMocks();
   getUser.mockResolvedValue({ data: { user: { id: "user-1" } } });
-  rpc.mockResolvedValue({ data: { ok: true }, error: null });
+  rpc.mockImplementation(async (name: string) => {
+    if (name === "authorize_data_residency") {
+      return {
+        data: { allowed: true, reason: "current_binding_matches" },
+        error: null,
+      };
+    }
+    return { data: { ok: true }, error: null };
+  });
   upload.mockResolvedValue({ data: { path: "p" }, error: null });
   remove.mockResolvedValue({ data: [{}], error: null });
+});
+
+describe("uploadSource: residency refusal happens before the object is stored", () => {
+  const file = new File(["a,b\n1,2\n"], "export.csv", { type: "text/csv" });
+
+  it("does not upload when the tenant region refuses the bucket", async () => {
+    rpc.mockImplementation(async (name: string) => {
+      if (name === "authorize_data_residency") {
+        return {
+          data: { allowed: false, reason: "residency_undeclared" },
+          error: null,
+        };
+      }
+      return { data: { ok: true }, error: null };
+    });
+    await expect(
+      uploadSource(ORG, ASSESSMENT, "work_orders", file),
+    ).rejects.toThrow(/residency/i);
+    expect(upload).not.toHaveBeenCalled();
+  });
 });
 
 describe("uploadSource: a refused metadata insert is not a success", () => {

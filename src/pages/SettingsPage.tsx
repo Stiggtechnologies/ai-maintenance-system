@@ -13,6 +13,7 @@ import {
 import { MfaManager } from "../components/MfaManager";
 import { OrganizationMfaPolicyPanel } from "../components/OrganizationMfaPolicyPanel";
 import { OrganizationGovernanceWorkspace } from "../components/OrganizationGovernanceWorkspace";
+import { DataResidencyPanel } from "../components/DataResidencyPanel";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../components/AuthProvider";
 import { getCurrentSecurityPosture } from "../services/securityPolicyService";
@@ -395,6 +396,7 @@ function OrganizationTab({ profile }: { profile: any }) {
       </div>
 
       <OrganizationGovernanceWorkspace />
+      <DataResidencyPanel />
     </div>
   );
 }

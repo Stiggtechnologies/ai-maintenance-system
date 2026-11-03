@@ -5,6 +5,7 @@
 // control surface in this function.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { dataResidencyDenial } from "../_shared/data-residency-guard.ts";
 import {
   azureIotIngressStatus,
   parseAzureIotIngressBindings,
@@ -82,6 +83,21 @@ Deno.serve(async (request) => {
     const client = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+    const residencyReason = await dataResidencyDenial(
+      client,
+      "connector",
+      binding.connectorKey,
+      {
+        organizationId: binding.organizationId,
+        serviceLabel: "azure-iot-operations-ingest",
+      },
+    );
+    if (residencyReason) {
+      return json(
+        { error: residencyReason, code: "data_residency_denied" },
+        403,
+      );
+    }
     if (envelope.deadLetter) {
       phase = "rpc_transport";
       const refused = await client.rpc("refuse_azure_iot_operations_delivery", {

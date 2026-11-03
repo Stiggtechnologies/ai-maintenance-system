@@ -6,6 +6,7 @@
 // bindings to canonical sensors and promotes through the existing condition
 // reading writer. It has no OPC write, alarm acknowledgement or control path.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { dataResidencyDenial } from "../_shared/data-residency-guard.ts";
 import {
   mapSystem1Readings,
   readSystem1GatewayPage,
@@ -258,6 +259,14 @@ Deno.serve(async (request) => {
     typeof body.connector_key === "string" ? body.connector_key.trim() : "";
   const dryRun = body.dry_run !== false;
   if (!connectorKey) return json({ error: "connector_key is required" }, 400);
+  const residencyReason = await dataResidencyDenial(
+    userClient,
+    "connector",
+    connectorKey,
+  );
+  if (residencyReason) {
+    return json({ error: residencyReason, code: "data_residency_denied" }, 403);
+  }
 
   const serviceClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
     auth: { persistSession: false },

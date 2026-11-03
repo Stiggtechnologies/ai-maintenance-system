@@ -12,6 +12,7 @@
 // source.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { dataResidencyDenial } from "../_shared/data-residency-guard.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -302,6 +303,14 @@ Deno.serve(async (request) => {
     typeof body.connector_key === "string" ? body.connector_key.trim() : "";
   const dryRun = body.dry_run !== false;
   if (!connectorKey) return json({ error: "connector_key is required" }, 400);
+  const residencyReason = await dataResidencyDenial(
+    client,
+    "connector",
+    connectorKey,
+  );
+  if (residencyReason) {
+    return json({ error: residencyReason, code: "data_residency_denied" }, 403);
+  }
 
   let runId: string | null = null;
   try {

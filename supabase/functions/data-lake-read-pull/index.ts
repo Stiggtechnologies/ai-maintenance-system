@@ -6,6 +6,7 @@
 // downloaded, parsed, hashed and included in a retained manifest before the
 // service-only run-attestation RPC opens the canonical connector run.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { dataResidencyDenial } from "../_shared/data-residency-guard.ts";
 import {
   applyDataLakeMapping,
   encodeObjectPath,
@@ -357,6 +358,17 @@ Deno.serve(async (request) => {
         "Commit requires an active source, a named-human-approved mapping and a named human operator.",
       );
     const root = filesystemUrl(String(source.filesystem_url ?? ""));
+    const residencyReason = await dataResidencyDenial(
+      userClient,
+      "storage",
+      root.hostname,
+    );
+    if (residencyReason) {
+      return json(
+        { error: residencyReason, code: "data_residency_denied" },
+        403,
+      );
+    }
     const binding = String(source.credential_binding_ref ?? "");
     const prefix = String(source.object_prefix ?? "");
     const format = String(source.object_format ?? "") as DataLakeFormat;

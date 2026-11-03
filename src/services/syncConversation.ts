@@ -1,4 +1,5 @@
 import { supabase } from "../lib/supabase";
+import { assertDataResidency } from "./dataResidencyService";
 import {
   buildSyncAttachmentObjectPath,
   sha256File,
@@ -48,7 +49,8 @@ export interface SyncAttachment {
   mimeType: string | null;
   sizeBytes: number;
   objectPath: string;
-  extractionStatus: "pending" | "extracting" | "ready" | "unsupported" | "failed";
+  extractionStatus:
+    "pending" | "extracting" | "ready" | "unsupported" | "failed";
   createdAt: string;
 }
 
@@ -104,7 +106,8 @@ export async function listSyncConversations(options?: {
     .limit(Math.min(100, Math.max(1, options?.limit ?? 40)));
   if (!options?.includeArchived) query = query.eq("status", "active");
   const search = options?.search?.trim();
-  if (search) query = query.ilike("title", `%${search.replace(/[\\%_]/g, "\\$&")}%`);
+  if (search)
+    query = query.ilike("title", `%${search.replace(/[\\%_]/g, "\\$&")}%`);
   const { data, error } = await query;
   if (error) throw error;
   return (data ?? []).map((row) => mapSummary(row as Record<string, unknown>));
@@ -175,11 +178,15 @@ export async function createSyncConversation(
     p_mode: mode,
   });
   if (error) throw error;
-  if (typeof data !== "string") throw new Error("Sync conversation was not created.");
+  if (typeof data !== "string")
+    throw new Error("Sync conversation was not created.");
   return data;
 }
 
-export async function renameSyncConversation(id: string, title: string): Promise<void> {
+export async function renameSyncConversation(
+  id: string,
+  title: string,
+): Promise<void> {
   const { error } = await supabase.rpc("rename_sync_conversation", {
     p_workspace_id: id,
     p_title: title,
@@ -223,12 +230,16 @@ function mapAttachment(row: Record<string, unknown>): SyncAttachment {
     mimeType: row.mime_type ? String(row.mime_type) : null,
     sizeBytes: Number(row.size_bytes ?? 0),
     objectPath: String(row.object_path),
-    extractionStatus: String(row.extraction_status ?? "pending") as SyncAttachment["extractionStatus"],
+    extractionStatus: String(
+      row.extraction_status ?? "pending",
+    ) as SyncAttachment["extractionStatus"],
     createdAt: String(row.created_at ?? ""),
   };
 }
 
-export async function listSyncAttachments(workspaceId: string): Promise<SyncAttachment[]> {
+export async function listSyncAttachments(
+  workspaceId: string,
+): Promise<SyncAttachment[]> {
   const { data, error } = await supabase
     .from("cowork_attachments")
     .select(
@@ -238,10 +249,15 @@ export async function listSyncAttachments(workspaceId: string): Promise<SyncAtta
     .is("deleted_at", null)
     .order("created_at", { ascending: true });
   if (error) throw error;
-  return (data ?? []).map((row) => mapAttachment(row as Record<string, unknown>));
+  return (data ?? []).map((row) =>
+    mapAttachment(row as Record<string, unknown>),
+  );
 }
 
-async function currentIdentity(): Promise<{ userId: string; organizationId: string }> {
+async function currentIdentity(): Promise<{
+  userId: string;
+  organizationId: string;
+}> {
   const {
     data: { user },
     error: userError,
@@ -271,6 +287,7 @@ export async function uploadSyncAttachment(
     workspaceId,
     fileName: file.name,
   });
+  await assertDataResidency("storage", "sync-attachments");
   const { error: uploadError } = await supabase.storage
     .from("sync-attachments")
     .upload(objectPath, file, {
@@ -298,7 +315,8 @@ export async function uploadSyncAttachment(
         "id, workspace_id, file_name, mime_type, size_bytes, object_path, extraction_status, created_at",
       )
       .single();
-    if (error || !data) throw error ?? new Error("Attachment metadata was not created.");
+    if (error || !data)
+      throw error ?? new Error("Attachment metadata was not created.");
     return mapAttachment(data as unknown as Record<string, unknown>);
   } catch (error) {
     await supabase.storage.from("sync-attachments").remove([objectPath]);
@@ -306,7 +324,9 @@ export async function uploadSyncAttachment(
   }
 }
 
-export async function removeSyncAttachment(attachment: SyncAttachment): Promise<void> {
+export async function removeSyncAttachment(
+  attachment: SyncAttachment,
+): Promise<void> {
   const { error: storageError } = await supabase.storage
     .from("sync-attachments")
     .remove([attachment.objectPath]);

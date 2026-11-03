@@ -8,6 +8,7 @@
  */
 import QRCode from "qrcode";
 import { supabase } from "../lib/supabase";
+import { assertDataResidency } from "./dataResidencyService";
 
 export interface ReportFailureInput {
   assetId: string;
@@ -37,6 +38,7 @@ export async function reportFailure(
 
   if (input.photo) {
     const path = `${input.assetId}/${d.id}/${Date.now()}-${input.photo.name.replace(/[^\w.-]/g, "_")}`;
+    await assertDataResidency("storage", "failure-evidence");
     const { error: upErr } = await supabase.storage
       .from("failure-evidence")
       .upload(path, input.photo, {

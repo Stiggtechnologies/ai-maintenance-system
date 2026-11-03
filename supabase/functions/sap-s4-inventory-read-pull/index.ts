@@ -3,6 +3,7 @@
 // service-attested canonical connector run and never sends a request to SAP
 // that can mutate inventory.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { dataResidencyDenial } from "../_shared/data-residency-guard.ts";
 import {
   mapSapMaterialStock,
   normalizeSapInventoryPullRequest,
@@ -216,6 +217,15 @@ Deno.serve(async (request) => {
       { error: error instanceof Error ? error.message : "invalid_request" },
       400,
     );
+  }
+
+  const residencyReason = await dataResidencyDenial(
+    userClient,
+    "connector",
+    connectorKey,
+  );
+  if (residencyReason) {
+    return json({ error: residencyReason, code: "data_residency_denied" }, 403);
   }
 
   const serviceClient = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {

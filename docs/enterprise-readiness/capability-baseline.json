@@ -1842,10 +1842,10 @@
     "backticked": 2
   },
   "E12.14": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 9,
+    "backticked": 9
   },
   "U1.01": {
     "status": "✅",

@@ -3,6 +3,7 @@
 // tenant-owned and administrator-approved. This function never writes to a
 // source CMMS and never opens a canonical run until transport is complete.
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { dataResidencyDenial } from "../_shared/data-residency-guard.ts";
 
 const url = Deno.env.get("SUPABASE_URL") ?? "";
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
@@ -212,6 +213,13 @@ Deno.serve(async (request) => {
     typeof body.connector_key === "string" ? body.connector_key.trim() : "";
   const dryRun = body.dry_run !== false;
   if (!key) return reply({ error: "connector_key is required" }, 400);
+  const residencyReason = await dataResidencyDenial(client, "connector", key);
+  if (residencyReason) {
+    return reply(
+      { error: residencyReason, code: "data_residency_denied" },
+      403,
+    );
+  }
 
   let runId: string | null = null;
   try {

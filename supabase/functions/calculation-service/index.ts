@@ -5,6 +5,7 @@
 // ONE immutable calculation_runs ledger, including refusals.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { dataResidencyDenial } from "../_shared/data-residency-guard.ts";
 import {
   cashFlowsDefect,
   compareOptions,
@@ -230,6 +231,14 @@ Deno.serve(async (request) => {
   }
   const organizationId = profile.organization_id;
   const actorId = userData.user.id;
+  const residencyReason = await dataResidencyDenial(
+    userClient,
+    "processing",
+    "calculation-service",
+  );
+  if (residencyReason) {
+    return json({ error: residencyReason, code: "data_residency_denied" }, 403);
+  }
 
   if (body.action === "reliability_survival") {
     if (body.scenario !== undefined && body.activeScenario !== undefined)
