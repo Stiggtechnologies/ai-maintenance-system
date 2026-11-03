@@ -1218,10 +1218,10 @@
     "backticked": 0
   },
   "E5.02": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 13,
+    "backticked": 12
   },
   "E5.03": {
     "status": "🟡",

@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { MfaManager } from "../components/MfaManager";
 import { OrganizationMfaPolicyPanel } from "../components/OrganizationMfaPolicyPanel";
+import { RolePermissionGrantsPanel } from "../components/RolePermissionGrantsPanel";
 import { OrganizationGovernanceWorkspace } from "../components/OrganizationGovernanceWorkspace";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../components/AuthProvider";
@@ -181,6 +182,7 @@ function SecuritySettings() {
         onAssuranceChange={refreshPosture}
       />
       <OrganizationMfaPolicyPanel />
+      <RolePermissionGrantsPanel />
     </div>
   );
 }
