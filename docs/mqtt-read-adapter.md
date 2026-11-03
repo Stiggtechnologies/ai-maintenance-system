@@ -3,7 +3,7 @@
 **Status:** built and tested against an in-process mock broker only. Not
 certified against a live broker. Not on the Edge Function deployment
 allowlist, so this pull request does not deploy it. Capability-register item
-C2.20 stays partial until the live acceptance evidence below exists.
+C2.21 stays partial until the live acceptance evidence below exists.
 
 ## Transport
 
@@ -97,4 +97,4 @@ Use a non-production broker and retain evidence for all of the following:
 5. A foreign tenant cannot read the connector, run, staging, or watermark.
 
 Attach the broker, host, topic filters, witness identities, timestamps, and
-run IDs to the acceptance record. Only then may C2.20 move to green.
+run IDs to the acceptance record. Only then may C2.21 move to green.

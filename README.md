@@ -79,6 +79,9 @@ validated, or certified:
   repository (`docs/mqtt-read-adapter.md`). It is tested against an
   in-process mock broker only, it is not on the Edge Function deployment
   allowlist, and it is not a certified live-broker connector;
+- SAP S/4HANA write-back is built and tested against mocked SAP responses
+  only (`docs/sap-s4-write-back.md`). It is not certified against a customer
+  SAP tenant and is not on the production Edge deploy allowlist;
 - supported private-cloud, on-premises, sovereign, edge, or air-gapped
   deployment;
 - unrestricted autonomous execution against operational control or command

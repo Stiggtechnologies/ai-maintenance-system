@@ -1,4 +1,4 @@
-// Governed read-only MQTT subscribe for C2.20. This function connects to one
+// Governed read-only MQTT subscribe for C2.21. This function connects to one
 // allowlisted broker over TLS WebSockets (mqtt.js 5.16.1), subscribes to the
 // administrator's topic filters, collects a bounded window, and disconnects.
 // It never publishes, never sets a last will, and never promotes a payload

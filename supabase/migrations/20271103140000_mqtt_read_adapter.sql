@@ -1,4 +1,4 @@
--- C2.20 — governed read-only MQTT subscribe adapter.
+-- C2.21 — governed read-only MQTT subscribe adapter.
 --
 -- One connector listens to one allowlisted TLS WebSocket broker for a bounded
 -- window and retains the messages as staging evidence. Payloads are not
@@ -232,7 +232,7 @@ begin
     v_org,btrim(p_key),btrim(p_name),'mqtt_read','iot',
     'mqtt_wss_subscribe',v_endpoint,p_expected_interval_minutes,v_ref,
     'Bounded MQTT subscribe over TLS WebSockets. No publish, no last will, and no promotion into condition readings or engineering limits. Tested against mocks only until a live broker is certified.',
-    'C2.20',case when p_enabled then 'active' else 'configured' end,p_enabled,
+    'C2.21',case when p_enabled then 'active' else 'configured' end,p_enabled,
     'read_only',false,'none',null,1,p_topic_filters,p_window_seconds,
     p_max_messages,p_subscribe_qos
   )
@@ -242,7 +242,7 @@ begin
     connector_profile='mqtt_wss_subscribe',endpoint_hint=excluded.endpoint_hint,
     expected_interval_minutes=excluded.expected_interval_minutes,
     credential_binding_ref=excluded.credential_binding_ref,
-    contract_note=excluded.contract_note,register_ref='C2.20',
+    contract_note=excluded.contract_note,register_ref='C2.21',
     status=excluded.status,enabled=excluded.enabled,direction='read_only',
     write_enabled=false,pagination_mode='none',pagination_next_path=null,
     pagination_max_pages=1,mqtt_topic_filters=excluded.mqtt_topic_filters,
@@ -299,7 +299,7 @@ begin
   select * into v_connector from public.connectors
   where organization_id=v_org and connector_key=btrim(p_connector_key)
     and connector_type='mqtt_read' and system_kind='iot'
-    and connector_profile='mqtt_wss_subscribe' and register_ref='C2.20';
+    and connector_profile='mqtt_wss_subscribe' and register_ref='C2.21';
   if not found then return jsonb_build_object('error','governed MQTT source not found'); end if;
   return jsonb_build_object(
     'organization_id',v_org,'connector_key',v_connector.connector_key,
@@ -352,7 +352,7 @@ begin
   select * into v_connector from public.connectors
   where organization_id=p_organization_id and connector_key=btrim(p_connector_key)
     and connector_type='mqtt_read' and system_kind='iot'
-    and connector_profile='mqtt_wss_subscribe' and register_ref='C2.20'
+    and connector_profile='mqtt_wss_subscribe' and register_ref='C2.21'
     and enabled and direction='read_only' and not write_enabled
   for update;
   if not found then return jsonb_build_object('error','active governed MQTT source not found'); end if;
@@ -464,7 +464,7 @@ begin
     and r.triggered_by=p_triggered_by and r.status='running'
     and r.entity_type='mqtt_message' and r.records_read=0
     and c.connector_type='mqtt_read' and c.system_kind='iot'
-    and c.connector_profile='mqtt_wss_subscribe' and c.register_ref='C2.20'
+    and c.connector_profile='mqtt_wss_subscribe' and c.register_ref='C2.21'
     and c.enabled and c.direction='read_only' and not c.write_enabled;
   if not found then return jsonb_build_object('error','running attested MQTT listen not found'); end if;
   select * into v_connector from public.connectors c
@@ -568,7 +568,7 @@ as $$
 begin
   if exists(select 1 from public.connectors c where c.id=new.connector_id
     and c.connector_type='mqtt_read' and c.system_kind='iot'
-    and c.connector_profile='mqtt_wss_subscribe' and c.register_ref='C2.20') then
+    and c.connector_profile='mqtt_wss_subscribe' and c.register_ref='C2.21') then
     if tg_op='INSERT'
        and coalesce(current_setting('app.mqtt_read_transport',true),'')<>'granted' then
       raise exception 'governed MQTT runs require service-attested subscribe evidence';
@@ -615,7 +615,7 @@ begin
     on c.id=r.connector_id and c.organization_id=r.organization_id
   where r.id=p_run_id and r.organization_id=p_organization_id and r.status='running'
     and c.connector_type='mqtt_read' and c.system_kind='iot'
-    and c.connector_profile='mqtt_wss_subscribe' and c.register_ref='C2.20';
+    and c.connector_profile='mqtt_wss_subscribe' and c.register_ref='C2.21';
   if not found then return jsonb_build_object('error','running governed MQTT listen not found'); end if;
   v_expected:=(v_run.transport_cursor_to->>'message_count')::int;
   if p_status in ('success','partial') and v_run.records_read<>v_expected then

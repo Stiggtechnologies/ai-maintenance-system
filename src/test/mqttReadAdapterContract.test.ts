@@ -51,7 +51,7 @@ class ContractMockBroker {
   }
 }
 
-describe("C2.20 MQTT read contract", () => {
+describe("C2.21 MQTT read contract", () => {
   it("reuses the canonical connector, run, staging and watermark planes", () => {
     for (const token of [
       "public.connectors",
@@ -66,7 +66,7 @@ describe("C2.20 MQTT read contract", () => {
     expect(migration).not.toMatch(/create table/i);
     expect(migration).not.toContain("condition_readings");
     expect(migration).toContain("connector_type='mqtt_read'");
-    expect(migration).toContain("register_ref='C2.20'");
+    expect(migration).toContain("register_ref='C2.21'");
     expect(migration).toContain("entity_type='mqtt_message'");
   });
 

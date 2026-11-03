@@ -1,4 +1,4 @@
-// Read-only MQTT subscribe window for C2.20.
+// Read-only MQTT subscribe window for C2.21.
 //
 // Supabase Edge runs on Deno and has WebSocket, not raw TCP. The pull function
 // therefore uses mqtt.js (mqtt@5.16.1) over TLS WebSockets (`wss://`). This
