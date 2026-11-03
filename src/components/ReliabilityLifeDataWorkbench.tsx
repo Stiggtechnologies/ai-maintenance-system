@@ -13,6 +13,7 @@ import {
   recordComponentLifeEvent,
   runReliabilityLifeDataAgent,
   LifeEventIdentityCollisionError,
+  PhysicalLifeIdentityConflictError,
   type LifeDataRunReceipt,
 } from "../services/reliabilityLifeDataService";
 import { ErrorState, LoadingState } from "./ui/AsyncStates";
@@ -44,6 +45,7 @@ export function ReliabilityLifeDataWorkbench() {
   const [workOrderRef, setWorkOrderRef] = useState("");
   const [sourceReference, setSourceReference] = useState("manual field entry");
   const [evidenceBasis, setEvidenceBasis] = useState("");
+  const [physicalLifeRef, setPhysicalLifeRef] = useState("");
   const [showCapture, setShowCapture] = useState(false);
   const [showSurvival, setShowSurvival] = useState(false);
   const [busy, setBusy] = useState<"capture" | "run" | null>(null);
@@ -114,7 +116,7 @@ export function ReliabilityLifeDataWorkbench() {
     setNotice(null);
     const captureScope = component.trim().toLowerCase();
     try {
-      const eventId = await recordComponentLifeEvent({
+      const receipt = await recordComponentLifeEvent({
         assetId,
         component: component.trim(),
         hoursAtChangeOut: Number(hours),
@@ -125,15 +127,19 @@ export function ReliabilityLifeDataWorkbench() {
         workOrderRef,
         sourceReference,
         evidenceBasis,
+        physicalLifeRef,
       });
       setNotice({
         kind: "success",
-        text: `Life event ${eventId} recorded. Run the agent to create a new dated reading.`,
+        text: receipt.idempotent
+          ? `Life event ${receipt.eventId} already recorded for this physical life. Source facts matched, so no second life was created.`
+          : `Life event ${receipt.eventId} recorded. Run the agent to create a new dated reading.`,
       });
       setHours("");
       setSymptom("");
       setWorkOrderRef("");
       setEvidenceBasis("");
+      setPhysicalLifeRef("");
       setReceipt(null);
       refetch();
     } catch (captureError) {
@@ -141,6 +147,9 @@ export function ReliabilityLifeDataWorkbench() {
         setIdentityGaps((previous) => new Set(previous).add(captureScope));
         setReceipt(null);
         setShowSurvival(false);
+      }
+      if (captureError instanceof PhysicalLifeIdentityConflictError) {
+        setReceipt(null);
       }
       setNotice({
         kind: "error",
@@ -447,6 +456,15 @@ export function ReliabilityLifeDataWorkbench() {
                 className="mt-1 w-full rounded-lg border border-white/10 bg-[#0b1620] px-3 py-2 text-sm text-white"
               />
             </label>
+            <label className="text-xs text-slate-400 md:col-span-2">
+              Physical life identity
+              <input
+                value={physicalLifeRef}
+                onChange={(event) => setPhysicalLifeRef(event.target.value)}
+                placeholder="Leave blank only for the legacy exposure key"
+                className="mt-1 w-full rounded-lg border border-white/10 bg-[#0b1620] px-3 py-2 text-sm text-white"
+              />
+            </label>
             <label className="text-xs text-slate-400">
               Symptom / removal observation
               <input
@@ -470,8 +488,10 @@ export function ReliabilityLifeDataWorkbench() {
           </label>
           <div className="mt-4 flex items-center justify-between gap-3">
             <p className="text-xs text-slate-500">
-              Recording evidence does not run the model or change maintenance
-              policy.
+              A physical life identity distinguishes another life that shares
+              this exposure. The same identity with the same facts is a retry.
+              Different facts are refused. Recording evidence does not run the
+              model or change maintenance policy.
             </p>
             <button
               type="submit"

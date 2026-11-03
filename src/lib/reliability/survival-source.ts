@@ -52,6 +52,8 @@ export interface SurvivalSourceEvent {
   approvalCurrent: boolean;
   sourceEvidence?: unknown;
   approvalId?: string | null;
+  /** Captured physical-life identity. Null is the legacy exposure key. */
+  physicalLifeRef?: string | null;
 }
 
 /** An actual still-installed canonical component, not a fabricated removal. */
@@ -682,6 +684,20 @@ export function prepareSurvivalSource(
     ) {
       gaps.push(
         `${label}: installation identity, actual service boundary, exposure or censoring classification is incomplete.`,
+      );
+      continue;
+    }
+    if (
+      event.kind === "completed" &&
+      event.physicalLifeRef != null &&
+      (typeof event.physicalLifeRef !== "string" ||
+        event.physicalLifeRef !== event.physicalLifeRef.trim() ||
+        event.physicalLifeRef.length < 2 ||
+        event.physicalLifeRef.length > 160 ||
+        event.physicalLifeRef !== (overlay.lifeRef ?? "").trim())
+    ) {
+      gaps.push(
+        `${label}: reviewed life reference does not match the physical life identity captured with the event.`,
       );
       continue;
     }
