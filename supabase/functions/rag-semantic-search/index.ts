@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { requireCaller, tenantForbidden } from '../_shared/edge-request-guards.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || 'https://app.syncai.ca',
@@ -37,12 +38,13 @@ Deno.serve(async (req: Request) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const openaiKey = Deno.env.get('OPENAI_API_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const auth = await requireCaller(req, supabase, corsHeaders);
+    if (!auth.ok) return auth.response;
 
     const body = await req.json();
     const {
       query,
       tenant_id,
-      user_id,
       match_threshold = 0.7,
       match_count = 5,
       document_types,
@@ -51,6 +53,13 @@ Deno.serve(async (req: Request) => {
 
     if (!query || !tenant_id) {
       throw new Error('Missing query or tenant_id');
+    }
+
+    if (tenantForbidden(tenant_id, auth.caller.organizationId)) {
+      return new Response(
+        JSON.stringify({ error: 'tenant_forbidden' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
     }
 
     const startTime = Date.now();
@@ -87,7 +96,7 @@ Deno.serve(async (req: Request) => {
     // Log search for analytics
     await supabase.from('rag_search_logs').insert({
       tenant_id,
-      user_id,
+      user_id: auth.caller.userId,
       query_text: query,
       query_embedding: JSON.stringify(queryEmbedding),
       retrieved_chunk_ids: filteredResults.map((r: any) => r.chunk_id),

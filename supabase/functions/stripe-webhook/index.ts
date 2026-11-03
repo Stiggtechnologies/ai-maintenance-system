@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { verifyStripeSignature } from '../_shared/edge-request-guards.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || 'https://app.syncai.ca',
@@ -20,6 +21,10 @@ Deno.serve(async (req: Request) => {
     }
 
     const body = await req.text();
+    const signatureOk = await verifyStripeSignature(body, signature, webhookSecret);
+    if (!signatureOk) {
+      throw new Error('Invalid Stripe signature');
+    }
     const event = JSON.parse(body);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -36,8 +41,8 @@ Deno.serve(async (req: Request) => {
         const planCode = metadata?.plan_code;
 
         if (!tenantId || !planCode) {
-          console.warn('Missing tenant_id or plan_code in checkout metadata');
-          break;
+          // Non-2xx so Stripe retries instead of dropping a paid checkout.
+          throw new Error('Missing tenant_id or plan_code in checkout metadata');
         }
 
         // Get the subscription to find item IDs
@@ -75,8 +80,8 @@ Deno.serve(async (req: Request) => {
           .single();
 
         if (!plan) {
-          console.error('Plan not found:', planCode);
-          break;
+          // Non-2xx so Stripe retries an unknown plan instead of acknowledging it.
+          throw new Error(`Plan not found: ${planCode}`);
         }
 
         // Create or update subscription

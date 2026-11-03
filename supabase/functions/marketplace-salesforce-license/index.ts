@@ -32,6 +32,7 @@ const corsHeaders = {
 
 interface LicenseEventBody {
   action: "license_event";
+  event_id?: string;
   license_id: string;
   organization_id: string;
   package_version_id: string;
@@ -80,8 +81,20 @@ Deno.serve(async (req: Request) => {
     const newStatus = STATUS_MAP[body.status];
     const action = ACTION_MAP[body.status];
 
-    // 1. Idempotent log
-    const eventId = `${body.license_id}_${Date.now()}_${crypto.randomUUID().slice(0, 8)}`;
+    // Idempotency key is the Salesforce event id when the caller sends one,
+    // otherwise the stable license-event identity. A clock or random suffix
+    // made every retry look like a new event.
+    const eventId = licenseEventId(body);
+    const { data: existing, error: existingError } = await supabase
+      .from("salesforce_license_events")
+      .select("event_id")
+      .eq("event_id", eventId)
+      .maybeSingle();
+    if (existingError) return json({ ok: false, error: `Event log failed: ${existingError.message}` }, 500);
+    if (existing) {
+      return json({ ok: true, idempotent: true, license_id: body.license_id, event_id: eventId });
+    }
+
     const { error: logErr } = await supabase.from("salesforce_license_events").insert({
       sf_license_id: body.license_id,
       event_id: eventId,
@@ -91,7 +104,12 @@ Deno.serve(async (req: Request) => {
       status: "pending",
       payload: body as unknown as Record<string, unknown>,
     });
-    if (logErr) return json({ ok: false, error: `Event log failed: ${logErr.message}` }, 500);
+    if (logErr) {
+      if (logErr.message.includes("duplicate") || logErr.code === "23505") {
+        return json({ ok: true, idempotent: true, license_id: body.license_id, event_id: eventId });
+      }
+      return json({ ok: false, error: `Event log failed: ${logErr.message}` }, 500);
+    }
 
     // 2. Upsert subscription via RPC
     const { data: subId, error: rpcErr } = await supabase.rpc("upsert_salesforce_license_subscription", {
@@ -129,6 +147,19 @@ Deno.serve(async (req: Request) => {
     return json({ ok: false, error: String((err as Error)?.message ?? err) }, 500);
   }
 });
+
+function licenseEventId(body: LicenseEventBody): string {
+  const explicit = typeof body.event_id === "string" ? body.event_id.trim() : "";
+  if (explicit) return explicit;
+  return [
+    body.license_id,
+    body.organization_id,
+    body.package_version_id,
+    body.status,
+    String(body.seats),
+    body.expires_at ?? "",
+  ].join("|");
+}
 
 function validate(body: LicenseEventBody): { error?: string } {
   if (!body || typeof body !== "object") return { error: "Missing JSON body" };

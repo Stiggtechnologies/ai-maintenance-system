@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { fileUrlAllowed, requireCaller } from "../_shared/edge-request-guards.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get('ALLOWED_ORIGIN') || 'https://app.syncai.ca',
@@ -130,6 +131,13 @@ Deno.serve(async (req: Request) => {
 
     const apiKey = Deno.env.get("OPENAI_API_KEY");
 
+    if (fileUrl && !fileUrlAllowed(fileUrl, Deno.env.get("DOCUMENT_URL_ALLOWLIST"))) {
+      return new Response(
+        JSON.stringify({ error: "fileUrl is not allowed" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     if (!apiKey) {
       return new Response(
         JSON.stringify({ error: "OpenAI API key not configured" }),
@@ -139,6 +147,16 @@ Deno.serve(async (req: Request) => {
         }
       );
     }
+
+    if (action === 'process_and_chunk' && !document_id) {
+      return new Response(
+        JSON.stringify({ error: "document_id is required for chunking" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const auth = await requireCaller(req, supabase, corsHeaders);
+    if (!auth.ok) return auth.response;
 
     if (action === 'process_and_chunk') {
       if (!document_id) {
@@ -152,12 +170,20 @@ Deno.serve(async (req: Request) => {
         .from('knowledge_base_documents')
         .select('*')
         .eq('id', document_id)
+        .eq('tenant_id', auth.caller.organizationId)
         .single();
 
       if (!doc) {
         return new Response(
           JSON.stringify({ error: "Document not found" }),
           { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (doc.tenant_id !== auth.caller.organizationId) {
+        return new Response(
+          JSON.stringify({ error: "tenant_forbidden" }),
+          { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } },
         );
       }
 
@@ -231,7 +257,7 @@ Deno.serve(async (req: Request) => {
           file_path: fileUrl,
           file_type: fileType || 'text/plain',
           file_size: documentText.length,
-          uploaded_by: user_id,
+          uploaded_by: auth.caller.userId,
           analysis_result: { analysis, query: userQuery },
           agent_type: agentType || 'DocumentAnalysis'
         });

@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { functionRoutePath, requireCaller, tenantForbidden } from '../_shared/edge-request-guards.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || 'https://app.syncai.ca',
@@ -32,16 +33,23 @@ Deno.serve(async (req: Request) => {
 
   try {
     const url = new URL(req.url);
-    const path = url.pathname.replace('/billing-api', '');
+    const path = functionRoutePath(url.pathname, 'billing-api');
     
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const authHeader = req.headers.get('Authorization');
-    if (!authHeader) {
-      throw new Error('Missing authorization header');
-    }
+    const auth = await requireCaller(req, supabase, corsHeaders);
+    if (!auth.ok) return auth.response;
+    const caller = auth.caller;
+
+    const forbidTenant = (requested: unknown) => {
+      if (!tenantForbidden(requested, caller.organizationId)) return null;
+      return new Response(
+        JSON.stringify({ error: 'tenant_forbidden' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    };
 
     // GET /plans - List available plans
     if (req.method === 'GET' && path === '/plans') {
@@ -62,8 +70,11 @@ Deno.serve(async (req: Request) => {
     if (req.method === 'POST' && path === '/subscriptions') {
       const body = await req.json();
       const { tenant_id, plan_code, start_date } = body;
+      const forbidden = forbidTenant(tenant_id);
+      if (forbidden) return forbidden;
+      const tenantId = caller.organizationId;
 
-      if (!tenant_id || !plan_code) {
+      if (!plan_code) {
         throw new Error('Missing required fields: tenant_id, plan_code');
       }
 
@@ -84,7 +95,7 @@ Deno.serve(async (req: Request) => {
       const { data: subscription, error: subError } = await supabase
         .from('billing_subscriptions')
         .insert({
-          tenant_id,
+          tenant_id: tenantId,
           plan_id: plan.id,
           status: 'active',
           current_period_start: periodStart.toISOString(),
@@ -133,6 +144,7 @@ Deno.serve(async (req: Request) => {
           limits:subscription_limits(*)
         `)
         .eq('id', subscriptionId)
+        .eq('tenant_id', caller.organizationId)
         .single();
 
       if (error) throw error;
@@ -146,8 +158,11 @@ Deno.serve(async (req: Request) => {
     if (req.method === 'POST' && path === '/usage/track') {
       const body = await req.json();
       const { tenant_id, subscription_id, site_id, asset_id, event_type, units, meta } = body;
+      const forbidden = forbidTenant(tenant_id);
+      if (forbidden) return forbidden;
+      const tenantId = caller.organizationId;
 
-      if (!tenant_id || !subscription_id || !event_type) {
+      if (!subscription_id || !event_type) {
         throw new Error('Missing required fields: tenant_id, subscription_id, event_type');
       }
 
@@ -158,7 +173,7 @@ Deno.serve(async (req: Request) => {
       const { error: usageError } = await supabase
         .from('usage_events')
         .insert({
-          tenant_id,
+          tenant_id: tenantId,
           subscription_id,
           site_id,
           asset_id,
@@ -265,7 +280,8 @@ Deno.serve(async (req: Request) => {
       let query = supabase
         .from('usage_events')
         .select('event_type, units, credits_consumed, occurred_at')
-        .eq('subscription_id', subscriptionId);
+        .eq('subscription_id', subscriptionId)
+        .eq('tenant_id', caller.organizationId);
 
       if (period) {
         const startDate = new Date(`${period}-01`);
@@ -314,6 +330,7 @@ Deno.serve(async (req: Request) => {
         .from('v_billable_overage')
         .select('*')
         .eq('subscription_id', subscriptionId)
+        .eq('tenant_id', caller.organizationId)
         .order('month', { ascending: false })
         .limit(6);
 

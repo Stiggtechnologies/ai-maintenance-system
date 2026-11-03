@@ -20,6 +20,7 @@
  * Schema dependency: 20260513000000_aws_salesforce_marketplace_integration.sql
  */
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { hmacSha256Hex, timingSafeEqual } from "../_shared/edge-request-guards.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get("ALLOWED_ORIGIN") || "https://app.syncai.ca",
@@ -45,12 +46,33 @@ const STATUS_MAP: Record<WebhookBody["event"]["action"], string> = {
   "subscribe-fail": "aws_expired",
 };
 
+async function awsWebhookAuthorized(req: Request, rawBody: string): Promise<boolean> {
+  const secret = Deno.env.get("AWS_MARKETPLACE_WEBHOOK_SECRET") ?? "";
+  if (!secret) return false;
+  const header = req.headers.get("Authorization") ?? "";
+  const provided = header.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : header.trim();
+  if (provided && timingSafeEqual(provided, secret)) return true;
+  const signature = req.headers.get("x-aws-marketplace-signature") ?? "";
+  if (!signature) return false;
+  const expected = await hmacSha256Hex(secret, rawBody);
+  return timingSafeEqual(signature, expected);
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { status: 200, headers: corsHeaders });
   if (req.method !== "POST") return json({ ok: false, error: "Method not allowed" }, 405);
 
   try {
-    const body = (await req.json().catch(() => ({}))) as WebhookBody;
+    const rawBody = await req.text();
+    if (!(await awsWebhookAuthorized(req, rawBody))) {
+      return json({ ok: false, error: "Unauthorized" }, 401);
+    }
+    let body = {} as WebhookBody;
+    try {
+      body = rawBody ? (JSON.parse(rawBody) as WebhookBody) : ({} as WebhookBody);
+    } catch {
+      body = {} as WebhookBody;
+    }
     if (!body?.message_id) return json({ ok: false, error: "message_id is required (idempotency key)" }, 400);
     if (!body.event?.action || !body.event["customer-identifier"]) {
       return json({ ok: false, error: "event.action and event['customer-identifier'] are required" }, 400);

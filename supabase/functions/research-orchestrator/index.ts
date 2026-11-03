@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { requireCaller } from "../_shared/edge-request-guards.ts";
 
 // ---------------------------------------------------------------------------
 // Research Orchestrator — autoresearch-inspired loop for SyncAI
@@ -920,15 +921,16 @@ Deno.serve(async (req: Request) => {
   }
 
   try {
-    // Verify authorization
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
+    const authHeader = req.headers.get("Authorization") ?? "";
+    if (!authHeader.startsWith("Bearer ") || !authHeader.slice("Bearer ".length).trim()) {
       return jsonResponse({ error: "Missing Authorization header" }, 401);
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const auth = await requireCaller(req, supabase, corsHeaders);
+    if (!auth.ok) return auth.response;
 
     const { action, data } = await req.json();
 
