@@ -17,7 +17,7 @@ const service = read("src/services/opcUaRead.ts");
 const boundary = read("config/edge-function-boundary.json");
 const workflow = read(".github/workflows/deploy-migrations.yml");
 
-describe("C2.21 OPC-UA read contract", () => {
+describe("C2.22 OPC-UA read contract", () => {
   it("reuses the canonical connector, run, staging and watermark planes", () => {
     for (const token of [
       "public.connectors",
@@ -29,7 +29,7 @@ describe("C2.21 OPC-UA read contract", () => {
     }
     expect(migration).not.toMatch(/create table/i);
     expect(migration).toContain("connector_type = 'opc_ua_read'");
-    expect(migration).toContain("register_ref = 'C2.21'");
+    expect(migration).toContain("register_ref = 'C2.22'");
     expect(migration).toContain("'opc_ua'");
   });
 

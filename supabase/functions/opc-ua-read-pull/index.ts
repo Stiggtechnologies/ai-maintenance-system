@@ -1,4 +1,4 @@
-// Governed OPC-UA read for C2.21.
+// Governed OPC-UA read for C2.22.
 //
 // Supabase Edge Functions run on Deno. Their supported outbound API is fetch.
 // OPC UA Binary needs a TCP session to opc.tcp, which this runtime does not
