@@ -459,4 +459,42 @@ test "$(psqlc "select count(*) from calculation_runs where id='$REFUSAL_ID' and 
 test "$(psqlc "select has_function_privilege('authenticated','public.survival_evidence_snapshot_internal(uuid,uuid,uuid,jsonb)','EXECUTE');")" = 'f'
 test "$(psqlc "select has_function_privilege('authenticated','public.record_survival_calculation(uuid,uuid,text,jsonb,jsonb,jsonb,jsonb)','EXECUTE');")" = 'f'
 
-echo 'Survival covariate smoke passed: canonical_cohort=true censoring_preserved=true independent_exact_review=true aal2_required=true ai_refused=true tenant_wall=true exact_asset_and_timestamp=true optimistic_version=true direct_metadata_forgery_refused=true source_facts_frozen=true quarantine_refused=true claim_purpose_preserved=true draft_source_refused=true superseded_source_refused=true stale_evidence_refused=true retained_fit=true retained_refusal=true history_rls=true legacy_population_reconciled=true duplicate_life_refused=true legacy_same_exposure_life_ingestion=false mfa_enrollment_verified=false predictive_qualification=false operational_authority=false'
+# Explicit physical-life identity. This cohort is separate from the twelve-life
+# fit above. A null identity still collides; a named identity may share exposure;
+# an exact retry writes an audit replay and no second row; different facts and
+# another tenant do not.
+IDENTITY_COMPONENT="CI physical life $(uuid)"
+IDENTITY_A=$(rpc "$AUTHOR_TOKEN" record_component_life_event "{\"p_asset_id\":\"$ASSET\",\"p_component\":\"$IDENTITY_COMPONENT\",\"p_hours_at_change_out\":50,\"p_event_kind\":\"failure\",\"p_event_date\":\"2026-09-01\",\"p_source_file\":\"CI synthetic identity source\",\"p_source_basis\":\"Synthetic physical-life identity witness, not customer data.\",\"p_physical_life_ref\":\"synthetic-life-a\"}")
+noerr "$IDENTITY_A"; IDENTITY_A_ID=$(field "$IDENTITY_A" event_id)
+test "$(field "$IDENTITY_A" idempotent)" = 'False'
+IDENTITY_B=$(rpc "$AUTHOR_TOKEN" record_component_life_event "{\"p_asset_id\":\"$ASSET\",\"p_component\":\"$IDENTITY_COMPONENT\",\"p_hours_at_change_out\":50,\"p_event_kind\":\"failure\",\"p_event_date\":\"2026-09-02\",\"p_work_order_ref\":\"A second synthetic physical life\",\"p_source_file\":\"CI synthetic second identity source\",\"p_source_basis\":\"Different synthetic physical life with the same removal exposure.\",\"p_physical_life_ref\":\"synthetic-life-b\"}")
+noerr "$IDENTITY_B"
+test "$(field "$IDENTITY_B" event_id)" != "$IDENTITY_A_ID"
+test "$(psqlc "select count(*) from component_life_events where organization_id='$ORG' and component='$IDENTITY_COMPONENT' and hours_at_change_out=50;")" = '2'
+# Identified rows are not in the legacy exposure key. A second unidentified
+# life at a new exposure still refuses a duplicate that also has no identity.
+LEGACY_ONLY=$(rpc "$AUTHOR_TOKEN" record_component_life_event "{\"p_asset_id\":\"$ASSET\",\"p_component\":\"$IDENTITY_COMPONENT\",\"p_hours_at_change_out\":77,\"p_event_kind\":\"scheduled\",\"p_event_date\":\"2026-09-01\",\"p_source_file\":\"CI synthetic legacy identity\",\"p_source_basis\":\"Synthetic legacy exposure identity without a physical-life reference.\"}")
+noerr "$LEGACY_ONLY"
+LEGACY_AGAIN=$(rpc "$AUTHOR_TOKEN" record_component_life_event "{\"p_asset_id\":\"$ASSET\",\"p_component\":\"$IDENTITY_COMPONENT\",\"p_hours_at_change_out\":77,\"p_event_kind\":\"scheduled\",\"p_event_date\":\"2026-09-04\",\"p_source_file\":\"CI synthetic other legacy source\",\"p_source_basis\":\"A second unidentified life must not overwrite or duplicate the legacy key.\"}")
+BODY="$LEGACY_AGAIN" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert x.get("error")=="this component life event is already recorded" and not x.get("event_id"),x'
+BEFORE_REPLAY=$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='component_life_event';")
+REPLAY=$(rpc "$AUTHOR_TOKEN" record_component_life_event "{\"p_asset_id\":\"$ASSET\",\"p_component\":\"$IDENTITY_COMPONENT\",\"p_hours_at_change_out\":50,\"p_event_kind\":\"failure\",\"p_event_date\":\"2026-09-01\",\"p_source_file\":\"CI synthetic identity source\",\"p_source_basis\":\"Synthetic physical-life identity witness, not customer data.\",\"p_physical_life_ref\":\"synthetic-life-a\"}")
+noerr "$REPLAY"
+test "$(field "$REPLAY" event_id)" = "$IDENTITY_A_ID"
+test "$(field "$REPLAY" idempotent)" = 'True'
+test "$(psqlc "select count(*) from component_life_events where organization_id='$ORG' and physical_life_ref='synthetic-life-a';")" = '1'
+test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='component_life_event';")" = "$((BEFORE_REPLAY + 1))"
+CONFLICT=$(rpc "$AUTHOR_TOKEN" record_component_life_event "{\"p_asset_id\":\"$ASSET\",\"p_component\":\"$IDENTITY_COMPONENT\",\"p_hours_at_change_out\":51,\"p_event_kind\":\"failure\",\"p_event_date\":\"2026-09-01\",\"p_source_file\":\"CI synthetic identity source\",\"p_source_basis\":\"Synthetic physical-life identity witness, not customer data.\",\"p_physical_life_ref\":\"synthetic-life-a\"}")
+BODY="$CONFLICT" python3 -c 'import json,os; x=json.loads(os.environ["BODY"]); assert x.get("error")=="this physical life is already recorded with different source facts" and not x.get("event_id"),x'
+test "$(psqlc "select hours_at_change_out from component_life_events where id=$(field "$IDENTITY_A" event_id);")" = '50'
+denied "$(rpc "$AI_TOKEN" record_component_life_event "{\"p_asset_id\":\"$ASSET\",\"p_component\":\"$IDENTITY_COMPONENT\",\"p_hours_at_change_out\":60,\"p_event_kind\":\"failure\",\"p_event_date\":\"2026-09-01\",\"p_source_file\":\"CI synthetic identity source\",\"p_source_basis\":\"Synthetic physical-life identity witness, not customer data.\",\"p_physical_life_ref\":\"synthetic-life-ai\"}")"
+denied "$(rpc "$FOREIGN_TOKEN" record_component_life_event "{\"p_asset_id\":\"$ASSET\",\"p_component\":\"$IDENTITY_COMPONENT\",\"p_hours_at_change_out\":50,\"p_event_kind\":\"failure\",\"p_event_date\":\"2026-09-01\",\"p_source_file\":\"CI synthetic identity source\",\"p_source_basis\":\"Synthetic physical-life identity witness, not customer data.\",\"p_physical_life_ref\":\"synthetic-life-a\"}")"
+FOREIGN_ASSET=$(psqlc "insert into assets(organization_id,name,asset_tag) values('$FOREIGN_ORG','Synthetic foreign asset','FOREIGN-LIFE') returning id;")
+FOREIGN_SAME_REF=$(rpc "$FOREIGN_TOKEN" record_component_life_event "{\"p_asset_id\":\"$FOREIGN_ASSET\",\"p_component\":\"$IDENTITY_COMPONENT\",\"p_hours_at_change_out\":50,\"p_event_kind\":\"failure\",\"p_event_date\":\"2026-09-01\",\"p_source_file\":\"CI synthetic foreign identity\",\"p_source_basis\":\"Foreign tenant may reuse the text of a physical-life identity.\",\"p_physical_life_ref\":\"synthetic-life-a\"}")
+noerr "$FOREIGN_SAME_REF"
+test "$(psqlc "select organization_id from component_life_events where id=$(field "$FOREIGN_SAME_REF" event_id);")" = "$FOREIGN_ORG"
+sql_must_fail "update component_life_events set physical_life_ref='synthetic-life-changed' where id=$IDENTITY_A_ID;" >/dev/null
+test "$(psqlc "select physical_life_ref from component_life_events where id=$IDENTITY_A_ID;")" = 'synthetic-life-a'
+sql_must_fail "update component_life_events set survival_overlay=jsonb_build_object('mode','include','lifeRef','synthetic-life-other') where id=$IDENTITY_A_ID;" >/dev/null
+
+echo 'Survival covariate smoke passed: canonical_cohort=true censoring_preserved=true independent_exact_review=true aal2_required=true ai_refused=true tenant_wall=true exact_asset_and_timestamp=true optimistic_version=true direct_metadata_forgery_refused=true source_facts_frozen=true quarantine_refused=true claim_purpose_preserved=true draft_source_refused=true superseded_source_refused=true stale_evidence_refused=true retained_fit=true retained_refusal=true history_rls=true legacy_population_reconciled=true duplicate_life_refused=true legacy_same_exposure_life_ingestion=false physical_life_identity_ingestion=true same_source_retry_idempotent=true duplicate_physical_life_refused=true mfa_enrollment_verified=false predictive_qualification=false operational_authority=false'

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ReliabilityLifeDataWorkbench } from "./ReliabilityLifeDataWorkbench";
 import {
   LifeEventIdentityCollisionError,
+  PhysicalLifeIdentityConflictError,
   loadReliabilityLifeData,
   recordComponentLifeEvent,
   runReliabilityLifeDataAgent,
@@ -119,7 +120,10 @@ describe("known missing-life capture remains visible and is not treated as a com
     fill("Operating hours at removal", "1300");
     fill("Work-order reference", "another-synthetic-life");
     fill("Source reference", "Another independent synthetic source");
-    vi.mocked(recordComponentLifeEvent).mockResolvedValue(43);
+    vi.mocked(recordComponentLifeEvent).mockResolvedValue({
+      eventId: 43,
+      idempotent: false,
+    });
     fireEvent.click(screen.getByRole("button", { name: "Record life event" }));
     await screen.findByText(/Life event 43 recorded/);
     expect(run).toBeDisabled();
@@ -147,13 +151,36 @@ describe("known missing-life capture remains visible and is not treated as a com
     );
   });
 
+  it("sends an explicit physical-life identity and does not pause analysis when only the facts conflict", async () => {
+    vi.mocked(recordComponentLifeEvent).mockRejectedValue(
+      new PhysicalLifeIdentityConflictError(),
+    );
+    await openCapture();
+    fill("Physical life identity", "synthetic-life-2");
+    fireEvent.click(screen.getByRole("button", { name: "Record life event" }));
+    await screen.findByText(/different source facts/);
+    expect(
+      screen.queryByText(
+        /This component has an unresolved physical-life capture/,
+      ),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Run governed analysis" }),
+    ).toBeEnabled();
+    expect(recordComponentLifeEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ physicalLifeRef: "synthetic-life-2" }),
+    );
+  });
+
   it("binds a delayed capture collision to its original component, not the component selected while waiting", async () => {
     let rejectCapture!: (error: Error) => void;
     vi.mocked(recordComponentLifeEvent).mockImplementation(
       () =>
-        new Promise<number>((_resolve, reject) => {
-          rejectCapture = reject;
-        }),
+        new Promise<{ eventId: number; idempotent: boolean }>(
+          (_resolve, reject) => {
+            rejectCapture = reject;
+          },
+        ),
     );
     await openCapture();
     fireEvent.click(screen.getByRole("button", { name: "Record life event" }));

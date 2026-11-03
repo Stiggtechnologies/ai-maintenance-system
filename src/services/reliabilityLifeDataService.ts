@@ -47,6 +47,8 @@ export interface LifeEventInput {
   workOrderRef?: string;
   sourceReference: string;
   evidenceBasis: string;
+  /** Null keeps the legacy exposure identity. A value names one physical life. */
+  physicalLifeRef?: string | null;
 }
 
 /** The legacy key cannot distinguish an exact retry from a different life.
@@ -62,6 +64,44 @@ export class LifeEventIdentityCollisionError extends Error {
     );
     this.name = "LifeEventIdentityCollisionError";
   }
+}
+
+/** The captured identity already exists and the submitted facts do not match it. */
+export class PhysicalLifeIdentityConflictError extends Error {
+  readonly code = "physical_life_identity_conflict";
+
+  constructor() {
+    super(
+      "This physical life is already recorded with different source facts. The existing life was not changed and no second life was created. Do not alter measured hours, dates or asset identity to force a match.",
+    );
+    this.name = "PhysicalLifeIdentityConflictError";
+  }
+}
+
+export interface LifeEventCaptureReceipt {
+  eventId: number;
+  idempotent: boolean;
+}
+
+export function normalizePhysicalLifeRef(
+  value: string | null | undefined,
+): string | null {
+  if (value == null) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (
+    trimmed.length < 2 ||
+    trimmed.length > 160 ||
+    [...trimmed].some((character) => {
+      const code = character.charCodeAt(0);
+      return code < 32 || code === 127;
+    })
+  ) {
+    throw new Error(
+      "Physical life identity must contain 2–160 characters and no control characters.",
+    );
+  }
+  return trimmed;
 }
 
 export interface LifeDataRunReceipt {
@@ -129,9 +169,10 @@ export async function loadReliabilityLifeData(): Promise<ReliabilityLifeDataWork
 
 export async function recordComponentLifeEvent(
   input: LifeEventInput,
-): Promise<number> {
+): Promise<LifeEventCaptureReceipt> {
   if (!Number.isFinite(input.hoursAtChangeOut) || input.hoursAtChangeOut <= 0)
     throw new Error("Operating hours must be a positive number.");
+  const physicalLifeRef = normalizePhysicalLifeRef(input.physicalLifeRef);
   const { data, error } = await supabase.rpc("record_component_life_event", {
     p_asset_id: input.assetId,
     p_component: input.component,
@@ -143,15 +184,25 @@ export async function recordComponentLifeEvent(
     p_work_order_ref: input.workOrderRef ?? null,
     p_source_file: input.sourceReference,
     p_source_basis: input.evidenceBasis,
+    p_physical_life_ref: physicalLifeRef,
   });
   if (error) throw new Error(error.message);
-  const result = data as { error?: string; event_id?: number } | null;
+  const result = data as {
+    error?: string;
+    event_id?: number;
+    idempotent?: boolean;
+  } | null;
   if (result?.error === "this component life event is already recorded")
     throw new LifeEventIdentityCollisionError();
+  if (
+    result?.error ===
+    "this physical life is already recorded with different source facts"
+  )
+    throw new PhysicalLifeIdentityConflictError();
   if (result?.error) throw new Error(result.error);
   if (!result?.event_id)
     throw new Error("No life-event identity was returned.");
-  return result.event_id;
+  return { eventId: result.event_id, idempotent: result.idempotent === true };
 }
 
 export async function runReliabilityLifeDataAgent(
