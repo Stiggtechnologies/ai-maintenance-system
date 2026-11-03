@@ -35,26 +35,41 @@ vi.mock("../services/reliabilityCallers", async () => {
 
 beforeEach(() => {
   vi.clearAllMocks();
-  rpc.mockResolvedValue({
-    data: {
-      assets: 2,
-      assets_with_state_records: 1,
-      state_records: 12,
-      production_records: 0,
-      process_events: 0,
-      cost_per_unit: {
-        available: false,
-        value: null,
-        unit: null,
-        units_produced: null,
-        maintenance_cost_usd: 0,
-        cost_coverage: "",
-        missing_inputs: [],
-        basis: "No production records in the window.",
+  rpc.mockImplementation((fn: string) => {
+    if (fn === "publish_maintenance_cost_per_unit") {
+      return Promise.resolve({
+        data: {
+          published: false,
+          figure: {
+            basis:
+              "Not computable: production volume not recorded. A cost-per-unit figure built on a partial denominator understates it, which is the direction that flatters.",
+          },
+        },
+        error: null,
+      });
+    }
+    return Promise.resolve({
+      data: {
+        assets: 2,
+        assets_with_state_records: 1,
+        state_records: 12,
+        production_records: 0,
+        process_events: 0,
+        cost_per_unit: {
+          available: false,
+          value: null,
+          unit: null,
+          units_produced: null,
+          maintenance_cost_usd: null,
+          cost_coverage: "0 production records",
+          missing_inputs: ["production volume"],
+          basis:
+            "Not computable: production volume not recorded. A cost-per-unit figure built on a partial denominator understates it, which is the direction that flatters.",
+        },
+        note: "Counts are not a duty profile.",
       },
-      note: "Counts are not a duty profile.",
-    },
-    error: null,
+      error: null,
+    });
   });
   listAssetsForContext.mockResolvedValue([
     { id: "a1", name: "Pump P-101", asset_tag: "P-101" },
@@ -84,15 +99,17 @@ beforeEach(() => {
     records_total: 1,
     data_span_from: "2026-08-01T14:02:11Z",
     data_span_to: "2026-08-01T14:02:11Z",
-    events: [{
-      id: 1,
-      event_type: "trip",
-      severity: "critical",
-      tag: "P101-TRIP",
-      description: "Low suction trip",
-      occurred_at: "2026-08-01T14:02:11Z",
-      source_system: "manual_upload",
-    }],
+    events: [
+      {
+        id: 1,
+        event_type: "trip",
+        severity: "critical",
+        tag: "P101-TRIP",
+        description: "Low suction trip",
+        occurred_at: "2026-08-01T14:02:11Z",
+        source_system: "manual_upload",
+      },
+    ],
     basis: "1 process event falls inside the requested window.",
   });
 });
@@ -134,6 +151,25 @@ describe("OperatingContext per-asset readers", () => {
     );
     expect(screen.getByTestId("operating-context-reader")).toHaveTextContent(
       /Silence is not uptime/,
+    );
+  });
+
+  it("shows the unavailable cost basis and audits a refused publication", async () => {
+    render(<OperatingContext />);
+    expect(
+      await screen.findByText(/partial denominator understates it/),
+    ).toBeInTheDocument();
+    expect(screen.getByText("production volume")).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Publish cost per unit" }),
+    );
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith("publish_maintenance_cost_per_unit", {
+        p_window_days: 365,
+      }),
+    );
+    expect(await screen.findByRole("status")).toHaveTextContent(
+      /production volume not recorded/,
     );
   });
 });
