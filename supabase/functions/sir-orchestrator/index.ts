@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { guardOrchestratorAction } from '../_shared/agent-company-membership.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || 'https://app.syncai.ca',
@@ -39,44 +40,61 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const { action, data } = await req.json();
+    const guard = await guardOrchestratorAction(
+      supabase,
+      req.headers.get('Authorization'),
+      action,
+      data,
+      {
+        sessionTable: 'sir_sessions',
+        runTable: 'sir_orchestration_runs',
+      },
+    );
+    if (!guard.ok) {
+      return new Response(JSON.stringify(guard.body), {
+        status: guard.status,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      });
+    }
+    const acted = guard.enforced ? guard.data : data;
 
     switch (action) {
       case 'create_agent':
-        return await createAgent(supabase, data);
+        return await createAgent(supabase, acted);
       case 'create_session':
-        return await createSession(supabase, data);
+        return await createSession(supabase, acted);
       case 'add_message':
-        return await addMessage(supabase, data);
+        return await addMessage(supabase, acted);
       case 'spawn_agent':
-        return await spawnAgent(supabase, data);
+        return await spawnAgent(supabase, acted);
       case 'complete_run':
-        return await completeRun(supabase, data);
+        return await completeRun(supabase, acted);
       case 'register_tool':
-        return await registerTool(supabase, data);
+        return await registerTool(supabase, acted);
       case 'log_tool_call':
-        return await logToolCall(supabase, data);
+        return await logToolCall(supabase, acted);
       case 'add_memory':
-        return await addMemory(supabase, data, openaiKey);
+        return await addMemory(supabase, acted, openaiKey);
       case 'search_memory':
-        return await searchMemory(supabase, data, openaiKey);
+        return await searchMemory(supabase, acted, openaiKey);
       case 'schedule_event':
-        return await scheduleEvent(supabase, data);
+        return await scheduleEvent(supabase, acted);
       case 'record_event_run':
-        return await recordEventRun(supabase, data);
+        return await recordEventRun(supabase, acted);
       case 'notify':
-        return await queueNotification(supabase, data);
+        return await queueNotification(supabase, acted);
       case 'register_skill':
-        return await registerSkill(supabase, data);
+        return await registerSkill(supabase, acted);
       case 'run_skill':
-        return await runSkill(supabase, data);
+        return await runSkill(supabase, acted);
       case 'enqueue':
-        return await enqueueTask(supabase, data);
+        return await enqueueTask(supabase, acted);
       case 'dequeue':
-        return await dequeueTask(supabase, data);
+        return await dequeueTask(supabase, acted);
       case 'log_error':
-        return await logError(supabase, data);
+        return await logError(supabase, acted);
       case 'log_cost':
-        return await logCost(supabase, data);
+        return await logCost(supabase, acted);
       default:
         return new Response(
           JSON.stringify({ error: 'Unknown action' }),
@@ -86,7 +104,7 @@ Deno.serve(async (req: Request) => {
   } catch (error) {
     console.error('SIR orchestrator error:', error);
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'Unknown error' }),
+      JSON.stringify({ error: 'Internal server error' }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
