@@ -4,8 +4,10 @@
 
 **2026-10-06 — CONTROLLED POLICY TEMPLATE, NOT AN APPROVED RECOVERY COMMITMENT.**
 Production backup configuration, objectives and successful recovery are not
-established by this document or by the local database drill. See the
-[E5.13 acceptance and drill runbook](../../enterprise-readiness/database-restore-drill.md).
+established by this document or by the local database drill. The bracketed
+hours below are blanks for a human to replace. They are not platform defaults.
+A tenant states its own objectives in Settings → Security. See the
+[E5.13 drill runbook](../../enterprise-readiness/database-restore-drill.md).
 
 ## 1. Objectives
 

@@ -3,7 +3,7 @@
  *
  * Three product acts, each on an existing canonical door:
  *   1. import plans + WO history (ContractImport + CMMS read #366)
- *   2. adopt DoA limits (adopt_authority_limit / state_authority_ceiling)
+ *   2. adopt DoA limits (state_general_delegation / adopt_authority_limit)
  *   3. name KPI owners (raci_assignments overlay on the ISO 55000 catalog)
  *
  * Clone the method, not the pilot. No invented plant data. No demo default.

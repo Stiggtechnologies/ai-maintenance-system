@@ -1146,10 +1146,10 @@
     "backticked": 0
   },
   "E4.03": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 7,
-    "backticked": 5
+    "citations": 10,
+    "backticked": 10
   },
   "E4.04": {
     "status": "🟡",
@@ -1278,10 +1278,10 @@
     "backticked": 0
   },
   "E5.13": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 13,
+    "backticked": 12
   },
   "E5.14": {
     "status": "🟡",

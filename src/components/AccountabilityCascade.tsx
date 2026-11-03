@@ -9,10 +9,10 @@
  *   2. "What were we told, and when?" A live dashboard is not a governance
  *      record — it changes after the meeting.
  *
- * Authority limits ship as DRAFTS. Only ADOPTED limits are enforced by the
- * database trigger, so a placeholder ceiling can never silently block a real
- * approval — and the panel says so rather than implying the numbers are the
- * organization's own delegation instrument.
+ * The general ladder has no platform amount. A named human states commitment,
+ * risk and downtime; a different named human adopts. Only ADOPTED limits are
+ * enforced. An unstated draft blocks nothing, and the panel says "Not stated"
+ * rather than showing a placeholder figure.
  */
 import { useState } from "react";
 import { Scale, FileCheck2, Lock, TriangleAlert } from "lucide-react";
@@ -21,7 +21,10 @@ import { supabase } from "../lib/supabase";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
 import {
   adoptAuthorityLimit,
-  stateAuthorityCeiling,
+  stateGeneralDelegation,
+  type GeneralCommitment,
+  type GeneralDowntime,
+  type GeneralRisk,
 } from "../services/stage1PilotPack";
 
 interface Limit {
@@ -29,8 +32,13 @@ interface Limit {
   role_key: string;
   tier_label: string;
   max_commitment_usd: number | null;
+  max_commitment_currency: string | null;
   max_risk_level: string | null;
   max_production_downtime_hours: number | null;
+  commitment_stated: boolean;
+  risk_stated: boolean;
+  downtime_stated: boolean;
+  ceilings_stated_by: string | null;
   escalates_to_role: string | null;
   basis: string;
   status: "draft" | "adopted";
@@ -51,17 +59,22 @@ interface Pack {
 
 interface Cascade {
   role: string;
+  viewer_id: string | null;
   limits: Limit[];
   enforcement_note: string;
   packs: Pack[];
 }
 
-const money = (v: number | null) =>
-  v === null
-    ? "No ceiling"
-    : v === 0
-      ? "No spend authority"
-      : `$${v.toLocaleString()}`;
+const money = (limit: Limit) => {
+  if (!limit.commitment_stated && limit.status !== "adopted")
+    return "Not stated";
+  if (limit.max_commitment_usd === null) return "Unlimited — stated";
+  const currency = limit.max_commitment_currency ?? "";
+  if (limit.max_commitment_usd === 0) {
+    return currency ? `No spend authority (${currency})` : "No spend authority";
+  }
+  return `${currency} ${limit.max_commitment_usd.toLocaleString()}`.trim();
+};
 
 const GOV_LABEL: Record<string, string> = {
   recommendations_raised: "Recommendations raised",
@@ -77,8 +90,13 @@ export function AccountabilityCascade() {
   const [msg, setMsg] = useState<string | null>(null);
   const [limitId, setLimitId] = useState("");
   const [instrument, setInstrument] = useState("");
-  const [ceiling, setCeiling] = useState("");
-  const [currency, setCurrency] = useState("USD");
+  const [commitmentMode, setCommitmentMode] = useState("");
+  const [amount, setAmount] = useState("");
+  const [currency, setCurrency] = useState("");
+  const [riskMode, setRiskMode] = useState("");
+  const [riskLevel, setRiskLevel] = useState("");
+  const [downtimeMode, setDowntimeMode] = useState("");
+  const [downtimeHours, setDowntimeHours] = useState("");
   const { data, loading, error, refetch } = useAsyncData<Cascade>(async () => {
     const { data: r, error: e } = await supabase.rpc(
       "get_accountability_cascade",
@@ -120,18 +138,50 @@ export function AccountabilityCascade() {
   const selected = drafts.find((l) => l.id === limitId) ?? null;
   const canAdopt = ["executive", "admin"].includes(data?.role ?? "");
 
+  const commitmentReady =
+    commitmentMode === "unlimited" ||
+    (commitmentMode === "none" && currency.length === 3) ||
+    (commitmentMode === "amount" &&
+      amount.trim() !== "" &&
+      currency.length === 3);
+  const riskReady =
+    riskMode === "unlimited" || (riskMode === "ceiling" && riskLevel !== "");
+  const downtimeReady =
+    downtimeMode === "unlimited" ||
+    (downtimeMode === "hours" && downtimeHours.trim() !== "");
+  const samePerson =
+    selected?.ceilings_stated_by != null &&
+    selected.ceilings_stated_by === data?.viewer_id;
+
   async function stateCeiling() {
-    if (!selected) return;
+    if (!selected || !commitmentReady || !riskReady || !downtimeReady) return;
+    const commitment: GeneralCommitment =
+      commitmentMode === "unlimited"
+        ? { mode: "unlimited" }
+        : commitmentMode === "none"
+          ? { mode: "none", currency }
+          : { mode: "amount", amount: amount.trim(), currency };
+    const risk: GeneralRisk =
+      riskMode === "unlimited"
+        ? { mode: "unlimited" }
+        : { mode: "ceiling", level: riskLevel };
+    const downtime: GeneralDowntime =
+      downtimeMode === "unlimited"
+        ? { mode: "unlimited" }
+        : { mode: "hours", hours: downtimeHours.trim() };
     setBusy(true);
     setMsg(null);
     try {
-      await stateAuthorityCeiling({
+      await stateGeneralDelegation({
         limitId: selected.id,
-        maxCommitment: ceiling,
-        currency,
         basis: instrument,
+        commitment,
+        risk,
+        downtime,
       });
-      setMsg(`Stated ceiling on ${selected.tier_label}. Adopt to enforce it.`);
+      setMsg(
+        `Stated ${selected.tier_label}. A different named human adopts it before it is enforced.`,
+      );
       refetch();
     } catch (e) {
       setMsg(e instanceof Error ? e.message : "Could not state the ceiling");
@@ -223,15 +273,19 @@ export function AccountabilityCascade() {
                   </p>
                 </td>
                 <td className="px-4 py-2.5 font-mono text-slate-300 tabular-nums">
-                  {money(l.max_commitment_usd)}
+                  {money(l)}
                 </td>
                 <td className="px-4 py-2.5 text-slate-300">
-                  {l.max_risk_level ?? "—"}
+                  {!l.risk_stated && l.status !== "adopted"
+                    ? "Not stated"
+                    : (l.max_risk_level ?? "Unlimited — stated")}
                 </td>
                 <td className="px-4 py-2.5 font-mono text-slate-300 tabular-nums">
-                  {l.max_production_downtime_hours === null
-                    ? "—"
-                    : `${l.max_production_downtime_hours} h`}
+                  {!l.downtime_stated && l.status !== "adopted"
+                    ? "Not stated"
+                    : l.max_production_downtime_hours === null
+                      ? "Unlimited — stated"
+                      : `${l.max_production_downtime_hours} h`}
                 </td>
                 <td className="px-4 py-2.5 text-slate-400">
                   {l.escalates_to_role?.replace(/_/g, " ") ?? "Reserved matter"}
@@ -255,12 +309,16 @@ export function AccountabilityCascade() {
         </table>
       </div>
 
-      {adopted === 0 && (
+      {limits.some(
+        (l) =>
+          l.status === "draft" &&
+          (!l.commitment_stated || !l.risk_stated || !l.downtime_stated),
+      ) && (
         <p className="rounded-xl border border-amber-500/25 bg-amber-500/5 p-3 text-xs leading-relaxed text-amber-200/90">
-          Every ceiling above is a <strong>proposal</strong>, not your approved
-          delegation of authority — the amounts are placeholders drawn from the
-          decision-rights tiers. Nothing is enforced until an executive replaces
-          them with the figures from your delegation instrument and adopts them.
+          Unstated layers have no commitment, risk or downtime ceiling. The
+          platform does not supply one. A named human states every dimension
+          from your delegation instrument, and a different named human adopts
+          it. Nothing is enforced until then.
         </p>
       )}
 
@@ -269,16 +327,16 @@ export function AccountabilityCascade() {
         className="rounded-xl border border-white/8 bg-black/20 p-4"
       >
         <h3 className="text-sm font-semibold text-white">
-          Adopt a delegation limit
+          State and adopt a delegation limit
         </h3>
         <p className="mt-1 text-xs leading-relaxed text-slate-400">
-          Adopting a ceiling is itself an act of authority. AI cannot adopt.
-          Seeded amounts are placeholders until a named human states the
-          customer&apos;s instrument and adopts. Adopt does not invent a figure.
+          AI cannot state or adopt. Every dimension is required: leaving a field
+          blank does not keep a previous figure and does not invent one. The
+          person who states the ceiling cannot be the person who adopts it.
         </p>
         {!canAdopt ? (
           <p className="mt-3 text-xs text-amber-200/90">
-            An executive or administrator must adopt. Your role (
+            An executive or administrator must state and adopt. Your role (
             {data?.role ?? "unknown"}) can read the ladder, not install it.
           </p>
         ) : drafts.length === 0 ? (
@@ -306,35 +364,112 @@ export function AccountabilityCascade() {
               </select>
             </label>
             <label className="block text-xs text-slate-400">
-              Instrument note (10+ characters to adopt)
+              Delegation instrument (20+ characters)
               <input
                 data-testid="stage1-doa-note"
                 className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-slate-100"
                 value={instrument}
                 onChange={(e) => setInstrument(e.target.value)}
-                placeholder="Delegation instrument this limit comes from"
+                placeholder="Name the instrument this limit comes from"
               />
             </label>
             <label className="block text-xs text-slate-400">
-              Optional restated ceiling
-              <input
-                data-testid="stage1-doa-ceiling"
+              Commitment
+              <select
+                data-testid="stage1-doa-commitment-mode"
                 className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-slate-100"
-                value={ceiling}
-                onChange={(e) => setCeiling(e.target.value)}
-                placeholder="Amount from the instrument — leave blank to keep draft"
-              />
+                value={commitmentMode}
+                onChange={(e) => setCommitmentMode(e.target.value)}
+              >
+                <option value="">Choose…</option>
+                <option value="amount">Stated amount</option>
+                <option value="none">No spend authority</option>
+                <option value="unlimited">Unlimited — stated</option>
+              </select>
             </label>
+            {commitmentMode === "amount" && (
+              <label className="block text-xs text-slate-400">
+                Amount
+                <input
+                  data-testid="stage1-doa-ceiling"
+                  className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-slate-100"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="Amount from the instrument"
+                />
+              </label>
+            )}
+            {(commitmentMode === "amount" || commitmentMode === "none") && (
+              <label className="block text-xs text-slate-400">
+                Currency
+                <input
+                  data-testid="stage1-doa-currency"
+                  className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-slate-100"
+                  value={currency}
+                  onChange={(e) => setCurrency(e.target.value.toUpperCase())}
+                  maxLength={3}
+                  placeholder="ISO code"
+                />
+              </label>
+            )}
             <label className="block text-xs text-slate-400">
-              Currency
-              <input
-                data-testid="stage1-doa-currency"
+              Risk ceiling
+              <select
+                data-testid="stage1-doa-risk-mode"
                 className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-slate-100"
-                value={currency}
-                onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-                maxLength={3}
-              />
+                value={riskMode}
+                onChange={(e) => setRiskMode(e.target.value)}
+              >
+                <option value="">Choose…</option>
+                <option value="ceiling">Stated level</option>
+                <option value="unlimited">Unlimited — stated</option>
+              </select>
             </label>
+            {riskMode === "ceiling" && (
+              <label className="block text-xs text-slate-400">
+                Risk level
+                <select
+                  data-testid="stage1-doa-risk-level"
+                  className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-slate-100"
+                  value={riskLevel}
+                  onChange={(e) => setRiskLevel(e.target.value)}
+                >
+                  <option value="">Choose…</option>
+                  {["Low", "Medium", "High", "Critical"].map((level) => (
+                    <option key={level} value={level}>
+                      {level}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+            <label className="block text-xs text-slate-400">
+              Downtime
+              <select
+                data-testid="stage1-doa-downtime-mode"
+                className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-slate-100"
+                value={downtimeMode}
+                onChange={(e) => setDowntimeMode(e.target.value)}
+              >
+                <option value="">Choose…</option>
+                <option value="hours">Stated hours</option>
+                <option value="unlimited">Unlimited — stated</option>
+              </select>
+            </label>
+            {downtimeMode === "hours" && (
+              <label className="block text-xs text-slate-400">
+                Hours
+                <input
+                  data-testid="stage1-doa-downtime-hours"
+                  className="mt-1 w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-slate-100"
+                  value={downtimeHours}
+                  onChange={(e) => setDowntimeHours(e.target.value)}
+                  inputMode="decimal"
+                  placeholder="Hours from the instrument"
+                />
+              </label>
+            )}
           </div>
         )}
         {canAdopt && drafts.length > 0 && (
@@ -345,8 +480,9 @@ export function AccountabilityCascade() {
               disabled={
                 busy ||
                 !selected ||
-                ceiling.trim() === "" ||
-                currency.length !== 3 ||
+                !commitmentReady ||
+                !riskReady ||
+                !downtimeReady ||
                 instrument.trim().length < 20
               }
               className="rounded-lg border border-white/15 px-3 py-1.5 text-sm text-slate-200 disabled:opacity-40"
@@ -357,13 +493,27 @@ export function AccountabilityCascade() {
             <button
               type="button"
               data-testid="stage1-doa-adopt-btn"
-              disabled={busy || !selected || instrument.trim().length < 10}
+              disabled={
+                busy ||
+                !selected ||
+                !selected.commitment_stated ||
+                !selected.risk_stated ||
+                !selected.downtime_stated ||
+                samePerson ||
+                instrument.trim().length < 10
+              }
               className="rounded-lg bg-teal-500/90 px-3 py-1.5 text-sm font-semibold text-slate-950 disabled:opacity-40"
               onClick={() => void adoptLimit()}
             >
               Adopt limit
             </button>
           </div>
+        )}
+        {samePerson && (
+          <p className="mt-2 text-xs text-amber-200/90">
+            You stated this ceiling. A different named administrator or
+            executive has to adopt it.
+          </p>
         )}
       </div>
 

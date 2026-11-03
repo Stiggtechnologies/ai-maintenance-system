@@ -322,7 +322,18 @@ metadata-capture mechanism, not the E5.13 acceptance requirements below.
 The projected fields follow the provider's
 [backup-list Management API schema](https://supabase.com/docs/reference/api/v1-list-all-backups).
 
-## Remaining E5.13 acceptance requirements
+## Remaining production-qualification requirements
+
+**2026-11-03 — the product register records a narrower claim than this list.**
+E5.13 in the capability register is the tenant-operable loop: a named human
+states RPO and RTO with no platform default, a different named human adopts
+them, and a restore verification is recomputed from measured loss, measured
+duration and explicit checks. The local database drill below is the tested
+backup/restore procedure for that record. The seven items here remain outside
+that claim. Do not read the register row as proof of hosted production
+recovery.
+
+## Production qualification still required
 
 1. Named recovery owner and approved production recovery objectives, dependency
    inventory, incident authority, customer communications and return-to-service

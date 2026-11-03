@@ -601,7 +601,7 @@ export function GovernanceStandards() {
               setFlash(
                 result.ceiling_checked
                   ? `Acceptance recorded. The delegation ladder ceiling was checked.`
-                  : `Acceptance recorded. No adopted authority-limit row bound a ceiling for your role — this is not a blank cheque, and E4.03 still requires an adopted delegation instrument.`,
+                  : `Acceptance recorded. No adopted authority-limit row bound a ceiling for your role — this is not a blank cheque. A named human must state this tenant's ceilings and a different named human must adopt them before a ceiling applies.`,
               );
               setAccepting(null);
               refetch();

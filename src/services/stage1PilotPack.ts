@@ -90,6 +90,37 @@ export async function adoptAuthorityLimit(input: {
   return unwrap(data, error);
 }
 
+export type GeneralCommitment =
+  | { mode: "amount"; amount: string; currency: string }
+  | { mode: "none"; currency: string }
+  | { mode: "unlimited" };
+
+export type GeneralRisk =
+  { mode: "ceiling"; level: string } | { mode: "unlimited" };
+
+export type GeneralDowntime =
+  { mode: "hours"; hours: string } | { mode: "unlimited" };
+
+/** States every general-ladder dimension. The server supplies no amount, currency, risk level or downtime. */
+export async function stateGeneralDelegation(input: {
+  limitId: string;
+  basis: string;
+  commitment: GeneralCommitment;
+  risk: GeneralRisk;
+  downtime: GeneralDowntime;
+}): Promise<{ limit_id: string; next: string }> {
+  const { data, error } = await supabase.rpc("state_general_delegation", {
+    p_id: input.limitId,
+    p_instrument: {
+      basis: input.basis,
+      commitment: input.commitment,
+      risk: input.risk,
+      downtime: input.downtime,
+    },
+  });
+  return unwrap(data, error);
+}
+
 export async function stateAuthorityCeiling(input: {
   limitId: string;
   maxCommitment: string;

@@ -17,6 +17,7 @@ import {
   getStage1ImportStatus,
   nameKpiOwner,
   stateAuthorityCeiling,
+  stateGeneralDelegation,
 } from "./stage1PilotPack";
 
 function countQuery(n: number) {
@@ -83,6 +84,28 @@ describe("stage1PilotPack service", () => {
         basis: "Customer DoA instrument §4.2 restated",
       },
     });
+
+    rpc.mockResolvedValue({
+      data: { limit_id: "lim-1", next: "adopt_authority_limit" },
+      error: null,
+    });
+    await stateGeneralDelegation({
+      limitId: "lim-1",
+      basis: "Customer DoA instrument section 4",
+      commitment: { mode: "amount", amount: "1500", currency: "CAD" },
+      risk: { mode: "ceiling", level: "Medium" },
+      downtime: { mode: "hours", hours: "6" },
+    });
+    expect(rpc).toHaveBeenCalledWith("state_general_delegation", {
+      p_id: "lim-1",
+      p_instrument: {
+        basis: "Customer DoA instrument section 4",
+        commitment: { mode: "amount", amount: "1500", currency: "CAD" },
+        risk: { mode: "ceiling", level: "Medium" },
+        downtime: { mode: "hours", hours: "6" },
+      },
+    });
+    expect(JSON.stringify(rpc.mock.calls.at(-1))).not.toContain('"USD"');
   });
 
   it("reports honest empty import counts", async () => {
@@ -122,7 +145,7 @@ describe("stage1PilotPack callers are mounted", () => {
       "utf8",
     );
     expect(src).toContain("adoptAuthorityLimit");
-    expect(src).toContain("stateAuthorityCeiling");
+    expect(src).toContain("stateGeneralDelegation");
     expect(src).toContain("stage1-doa-adopt");
   });
 
