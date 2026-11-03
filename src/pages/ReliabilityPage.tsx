@@ -26,6 +26,7 @@ import { GovernedRcmWorkbench } from "../components/GovernedRcmWorkbench";
 import { ConditionMonitoring } from "../components/ConditionMonitoring";
 import { MonitoringCoverageGaps } from "../components/MonitoringCoverageGaps";
 import { FailureCoding } from "../components/FailureCoding";
+import { SystemKpiOptimizationPanel } from "../components/SystemKpiOptimizationPanel";
 import { useNavigate } from "react-router-dom";
 import { TriangleAlert as AlertTriangle, Activity, Layers } from "lucide-react";
 import { useOnboardingOperatingLoop } from "../hooks/useOnboardingOperatingLoop";
@@ -48,6 +49,8 @@ export function Reliability() {
           AI-powered reliability engineering department
         </p>
       </div>
+
+      <SystemKpiOptimizationPanel />
 
       <ReliabilityLifeDataWorkbench />
       <AssetFoundationWorkbench />
