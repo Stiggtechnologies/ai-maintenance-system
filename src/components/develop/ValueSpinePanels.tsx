@@ -115,6 +115,30 @@ function money(value: number | null | undefined, currency = "USD"): string {
   return `${new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value)} ${currency}`;
 }
 
+/** Undiscounted sum of recorded negative flows. Unreadable flows stay unnamed. */
+function costFlowLabel(
+  flows: { amount: number }[] | null | undefined,
+  currency: string,
+): string {
+  if (!Array.isArray(flows) || flows.length === 0) return "no flows";
+  let cost = 0;
+  let sawCost = false;
+  for (const flow of flows) {
+    if (
+      flow == null ||
+      typeof flow.amount !== "number" ||
+      !Number.isFinite(flow.amount)
+    ) {
+      return "unreadable";
+    }
+    if (flow.amount < 0) {
+      cost += flow.amount;
+      sawCost = true;
+    }
+  }
+  return sawCost ? money(cost, currency) : "no cost flows";
+}
+
 // ---------------------------------------------------------------------------
 // §44 Objective — the case's anchor in the ONE objective store (D11.15).
 // ---------------------------------------------------------------------------
@@ -129,9 +153,8 @@ export function ObjectiveSection({ workspace }: { workspace: CaseWorkspace }) {
       {objective == null ? (
         <p className="text-xs text-slate-500">
           No objective anchors this case. Set one at creation, or adopt an
-          objective in the Risk Operating System and re-create the case
-          against it — risks, benefits and the success contract all anchor
-          there.
+          objective in the Risk Operating System and re-create the case against
+          it — risks, benefits and the success contract all anchor there.
         </p>
       ) : (
         <div className="space-y-2 text-sm">
@@ -219,9 +242,11 @@ export function SuccessContractSection({
   }, [workspace.id]);
 
   const covered = new Set((contract?.outcomes ?? []).map((o) => o.dimension));
-  const isRamDimension = ["reliability", "availability", "maintainability"].includes(
-    dimension,
-  );
+  const isRamDimension = [
+    "reliability",
+    "availability",
+    "maintainability",
+  ].includes(dimension);
 
   const run = async (fn: () => Promise<unknown>) => {
     setBusy(true);
@@ -246,15 +271,13 @@ export function SuccessContractSection({
       {contract == null ? (
         <div className="space-y-2">
           <p className="text-xs text-slate-500">
-            No success contract exists on this case. Design-and-later gates
-            will refuse to pass until one is recorded — that is the D1.02
-            invariant, not a warning.
+            No success contract exists on this case. Design-and-later gates will
+            refuse to pass until one is recorded — that is the D1.02 invariant,
+            not a warning.
           </p>
           {canPlan && (
             <button
-              onClick={() =>
-                void run(() => draftSuccessContract(workspace.id))
-              }
+              onClick={() => void run(() => draftSuccessContract(workspace.id))}
               disabled={busy}
               className="rounded-lg border border-white/10 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-white/5 disabled:opacity-50"
             >
@@ -478,7 +501,9 @@ export function BusinessCaseSection({
   onChanged: () => void;
 }) {
   const [model, setModel] = useState<CaseFinanceModel | null>(null);
-  const [comparison, setComparison] = useState<CaseOptionComparison | null>(null);
+  const [comparison, setComparison] = useState<CaseOptionComparison | null>(
+    null,
+  );
   const [operationalDisruption, setOperationalDisruption] =
     useState<CaseOperationalDisruption | null>(null);
   const [trajectory, setTrajectory] = useState<CaseValueTrajectory | null>(
@@ -600,14 +625,32 @@ export function BusinessCaseSection({
       ) : !model.available ? (
         <div className="space-y-2">
           <p className="text-xs text-slate-400">{model.reason}</p>
-          {canPlan && <NewBusinessCaseForm workspace={workspace} run={run} busy={busy} />}
+          {canPlan && (
+            <NewBusinessCaseForm workspace={workspace} run={run} busy={busy} />
+          )}
         </div>
       ) : (
         <div className="space-y-4">
           <BusinessCaseHeader model={model} />
-          <HypothesisBlock model={model} run={run} busy={busy} canPlan={canPlan} />
-          <ViabilityBlock model={model} run={run} busy={busy} canReview={canReview} />
-          <OptionsBlock model={model} kernelRows={kernelRows} run={run} busy={busy} canPlan={canPlan} />
+          <HypothesisBlock
+            model={model}
+            run={run}
+            busy={busy}
+            canPlan={canPlan}
+          />
+          <ViabilityBlock
+            model={model}
+            run={run}
+            busy={busy}
+            canReview={canReview}
+          />
+          <OptionsBlock
+            model={model}
+            kernelRows={kernelRows}
+            run={run}
+            busy={busy}
+            canPlan={canPlan}
+          />
           <FinanceDimensionsBlock model={model} />
           <ExecutionEconomicsBlock model={model} />
           <ConceptSelectionPanel
@@ -666,15 +709,53 @@ function NewBusinessCaseForm({
   const [rateSource, setRateSource] = useState("");
   return (
     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-      <input value={caseRef} onChange={(e) => setCaseRef(e.target.value)} placeholder="Case reference (unique)" className={inputClass} />
-      <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Business case title" className={inputClass} />
-      <select value={driver} onChange={(e) => setDriver(e.target.value)} className={inputClass}>
-        {["safety", "regulatory", "reliability", "capacity", "cost_reduction", "obsolescence", "environmental"].map((d) => (
-          <option key={d} value={d}>{d.replaceAll("_", " ")}</option>
+      <input
+        value={caseRef}
+        onChange={(e) => setCaseRef(e.target.value)}
+        placeholder="Case reference (unique)"
+        className={inputClass}
+      />
+      <input
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        placeholder="Business case title"
+        className={inputClass}
+      />
+      <select
+        value={driver}
+        onChange={(e) => setDriver(e.target.value)}
+        className={inputClass}
+      >
+        {[
+          "safety",
+          "regulatory",
+          "reliability",
+          "capacity",
+          "cost_reduction",
+          "obsolescence",
+          "environmental",
+        ].map((d) => (
+          <option key={d} value={d}>
+            {d.replaceAll("_", " ")}
+          </option>
         ))}
       </select>
-      <input type="number" step="any" min="0" max="0.99" value={rate} onChange={(e) => setRate(e.target.value)} placeholder="Discount rate (fraction, e.g. 0.08)" className={inputClass} />
-      <input value={rateSource} onChange={(e) => setRateSource(e.target.value)} placeholder="Discount rate SOURCE (required — a rate nobody owns is refused)" className={`${inputClass} sm:col-span-2`} />
+      <input
+        type="number"
+        step="any"
+        min="0"
+        max="0.99"
+        value={rate}
+        onChange={(e) => setRate(e.target.value)}
+        placeholder="Discount rate (fraction, e.g. 0.08)"
+        className={inputClass}
+      />
+      <input
+        value={rateSource}
+        onChange={(e) => setRateSource(e.target.value)}
+        placeholder="Discount rate SOURCE (required — a rate nobody owns is refused)"
+        className={`${inputClass} sm:col-span-2`}
+      />
       <button
         onClick={() =>
           void run(() =>
@@ -760,12 +841,48 @@ function HypothesisBlock({
         Value hypothesis (spend → effect → value, all-or-refuse)
       </p>
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-        <input type="number" step="any" value={spend} onChange={(e) => setSpend(e.target.value)} placeholder={`Spend (${currency})`} className={inputClass} />
-        <input type="number" step="any" value={valuePerYear} onChange={(e) => setValuePerYear(e.target.value)} placeholder={`Value per year (${currency})`} className={inputClass} />
-        <input value={effect} onChange={(e) => setEffect(e.target.value)} placeholder="Effect — what the spend eliminates or creates" className={`${inputClass} sm:col-span-2`} />
-        <input type="number" step="any" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder="Effect quantity (optional)" className={inputClass} />
-        <input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="Effect unit (h/year, t/day…)" className={inputClass} />
-        <input value={basis} onChange={(e) => setBasis(e.target.value)} placeholder="Basis — where spend, effect and value come from (20 characters minimum)" className={`${inputClass} sm:col-span-2`} />
+        <input
+          type="number"
+          step="any"
+          value={spend}
+          onChange={(e) => setSpend(e.target.value)}
+          placeholder={`Spend (${currency})`}
+          className={inputClass}
+        />
+        <input
+          type="number"
+          step="any"
+          value={valuePerYear}
+          onChange={(e) => setValuePerYear(e.target.value)}
+          placeholder={`Value per year (${currency})`}
+          className={inputClass}
+        />
+        <input
+          value={effect}
+          onChange={(e) => setEffect(e.target.value)}
+          placeholder="Effect — what the spend eliminates or creates"
+          className={`${inputClass} sm:col-span-2`}
+        />
+        <input
+          type="number"
+          step="any"
+          value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+          placeholder="Effect quantity (optional)"
+          className={inputClass}
+        />
+        <input
+          value={unit}
+          onChange={(e) => setUnit(e.target.value)}
+          placeholder="Effect unit (h/year, t/day…)"
+          className={inputClass}
+        />
+        <input
+          value={basis}
+          onChange={(e) => setBasis(e.target.value)}
+          placeholder="Basis — where spend, effect and value come from (20 characters minimum)"
+          className={`${inputClass} sm:col-span-2`}
+        />
       </div>
       <button
         onClick={() =>
@@ -821,8 +938,20 @@ function ViabilityBlock({
       )}
       {canReview && (
         <div className="flex gap-2">
-          <input type="number" step="any" value={floor} onChange={(e) => setFloor(e.target.value)} placeholder={`Floor (${currency})`} className={inputClass} />
-          <input value={basis} onChange={(e) => setBasis(e.target.value)} placeholder="Basis — why viability ends at this value (20 characters minimum)" className={inputClass} />
+          <input
+            type="number"
+            step="any"
+            value={floor}
+            onChange={(e) => setFloor(e.target.value)}
+            placeholder={`Floor (${currency})`}
+            className={inputClass}
+          />
+          <input
+            value={basis}
+            onChange={(e) => setBasis(e.target.value)}
+            placeholder="Basis — why viability ends at this value (20 characters minimum)"
+            className={inputClass}
+          />
           <button
             onClick={() =>
               void run(() =>
@@ -878,8 +1007,8 @@ function OptionsBlock({
   return (
     <div className="space-y-2">
       <p className="text-[11px] uppercase tracking-wide text-slate-500">
-        Options & the computed dimensions (NPV / IRR / payback — one kernel,
-        refusal-first)
+        Lifecycle cost — dated cash flows on the option (NPV / IRR / payback
+        stay on the one kernel, refusal-first)
       </p>
       {refusals.length > 0 && (
         <div className="space-y-1">
@@ -892,8 +1021,9 @@ function OptionsBlock({
       )}
       {(model.options ?? []).length === 0 ? (
         <p className="text-xs text-slate-500">
-          No options recorded. NPV, IRR and payback are computed from dated
-          cash flows or not at all.
+          No lifecycle-cost series recorded. Dated cash flows are written with
+          the option; NPV, IRR and payback are computed from those flows or not
+          at all.
         </p>
       ) : (
         <div className="overflow-x-auto">
@@ -901,6 +1031,12 @@ function OptionsBlock({
             <thead>
               <tr className="text-[11px] uppercase text-slate-500">
                 <th className="py-1 pr-3">Option</th>
+                <th
+                  className="py-1 pr-3"
+                  title="Undiscounted sum of recorded negative cash flows. This is the lifecycle-cost series, not a discounted comparison."
+                >
+                  Cost flows
+                </th>
                 <th className="py-1 pr-3">Capital (p0)</th>
                 <th className="py-1 pr-3">NPV</th>
                 <th className="py-1 pr-3">IRR</th>
@@ -930,19 +1066,29 @@ function OptionsBlock({
                       )}
                     </td>
                     <td className="py-1.5 pr-3">
-                      {k && k.capital != null ? money(k.capital, currency) : "—"}
+                      {costFlowLabel(option.cashFlows, currency)}
+                    </td>
+                    <td className="py-1.5 pr-3">
+                      {k && k.capital != null
+                        ? money(k.capital, currency)
+                        : "—"}
                     </td>
                     <td className="py-1.5 pr-3">
                       {k ? (
                         k.npv != null ? (
                           money(Math.round(k.npv), currency)
                         ) : (
-                          <span className="text-amber-300/80" title={k.defect ?? undefined}>
+                          <span
+                            className="text-amber-300/80"
+                            title={k.defect ?? undefined}
+                          >
                             refused: malformed flows
                           </span>
                         )
                       ) : (
-                        <span className="text-amber-300/80">inputs incomplete</span>
+                        <span className="text-amber-300/80">
+                          inputs incomplete
+                        </span>
                       )}
                     </td>
                     <td className="py-1.5 pr-3" title={k?.irr.reason}>
@@ -974,18 +1120,46 @@ function OptionsBlock({
       {canPlan &&
         (adding ? (
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Option label" className={inputClass} />
-            <input type="number" min="1" value={life} onChange={(e) => setLife(e.target.value)} placeholder="Life (periods)" className={inputClass} />
+            <input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Option label"
+              className={inputClass}
+            />
+            <input
+              type="number"
+              min="1"
+              value={life}
+              onChange={(e) => setLife(e.target.value)}
+              placeholder="Life (periods)"
+              className={inputClass}
+            />
             <input
               value={flows}
               onChange={(e) => setFlows(e.target.value)}
               placeholder="Dated cash flows: period:amount, comma-separated (0:-4500000, 1:1200000, …)"
               className={`${inputClass} sm:col-span-2`}
             />
-            <input type="number" step="any" value={contingency} onChange={(e) => setContingency(e.target.value)} placeholder="Contingency (optional)" className={inputClass} />
-            <input value={contingencyBasis} onChange={(e) => setContingencyBasis(e.target.value)} placeholder="Contingency basis (required with a value)" className={inputClass} />
+            <input
+              type="number"
+              step="any"
+              value={contingency}
+              onChange={(e) => setContingency(e.target.value)}
+              placeholder="Contingency (optional)"
+              className={inputClass}
+            />
+            <input
+              value={contingencyBasis}
+              onChange={(e) => setContingencyBasis(e.target.value)}
+              placeholder="Contingency basis (required with a value)"
+              className={inputClass}
+            />
             <label className="flex items-center gap-2 text-xs text-slate-400">
-              <input type="checkbox" checked={doNothing} onChange={(e) => setDoNothing(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={doNothing}
+                onChange={(e) => setDoNothing(e.target.checked)}
+              />
               This is the do-nothing option
             </label>
             <button
@@ -1087,12 +1261,8 @@ function EconomicAdjustmentForm({
                 model.businessCase?.currency ??
                 "USD",
             );
-            setEscalationKey(
-              option?.economicAdjustment?.escalation?.key ?? "",
-            );
-            setFxKey(
-              option?.economicAdjustment?.foreignExchange?.key ?? "",
-            );
+            setEscalationKey(option?.economicAdjustment?.escalation?.key ?? "");
+            setFxKey(option?.economicAdjustment?.foreignExchange?.key ?? "");
             setBasis(option?.economicAdjustment?.basis ?? "");
           }}
           className={inputClass}
@@ -1106,7 +1276,9 @@ function EconomicAdjustmentForm({
         </select>
         <input
           value={sourceCurrency}
-          onChange={(event) => setSourceCurrency(event.target.value.toUpperCase())}
+          onChange={(event) =>
+            setSourceCurrency(event.target.value.toUpperCase())
+          }
           maxLength={3}
           placeholder="Source currency (USD)"
           className={inputClass}
@@ -1247,12 +1419,13 @@ function ExecutionEconomicsBlock({ model }: { model: CaseFinanceModel }) {
           <p className="mt-1 text-slate-200">
             {eac?.value != null
               ? `EAC ${money(eac.value, earnedValue.currency ?? undefined)}`
-              : eac?.refusal ?? "EAC unavailable — no canonical metric returned."}
+              : (eac?.refusal ??
+                "EAC unavailable — no canonical metric returned.")}
           </p>
           <p className="text-[11px] text-slate-500">
             {cpi?.value != null
               ? `CPI ${cpi.value.toFixed(3)}`
-              : cpi?.refusal ?? "CPI unavailable."}
+              : (cpi?.refusal ?? "CPI unavailable.")}
           </p>
         </div>
         <div className="rounded-lg bg-white/[0.02] px-3 py-2">
@@ -1274,7 +1447,7 @@ function ExecutionEconomicsBlock({ model }: { model: CaseFinanceModel }) {
           <p className="mt-1 text-slate-200">
             {delta.available
               ? `${delta.dimensions?.length ?? 0} comparable dimension(s)`
-              : delta.reason ?? "No comparable sanction basis recorded."}
+              : (delta.reason ?? "No comparable sanction basis recorded.")}
           </p>
           <p className="text-[11px] text-slate-500">
             {(delta.notComparable ?? []).length} named non-comparable
@@ -1419,8 +1592,8 @@ function AssumptionsBlock({
   return (
     <div className="space-y-2">
       <p className="text-[11px] uppercase tracking-wide text-slate-500">
-        Viability envelope — threshold assumptions on the one assumption
-        family (D2.06), monitored where the numeric leg moves (D2.07)
+        Viability envelope — threshold assumptions on the one assumption family
+        (D2.06), monitored where the numeric leg moves (D2.07)
       </p>
       {workspace.caseAssumptions.length === 0 ? (
         <p className="text-xs text-slate-500">
@@ -1484,7 +1657,8 @@ function AssumptionsBlock({
                         {estimate && (
                           <>
                             {" "}
-                            · estimate {estimate.estimateRef ?? estimate.subjectId}
+                            · estimate{" "}
+                            {estimate.estimateRef ?? estimate.subjectId}
                           </>
                         )}
                         {link.scheduleActivityId != null && (
@@ -1515,24 +1689,63 @@ function AssumptionsBlock({
             </button>
           ) : (
             <div className="grid grid-cols-1 gap-2 rounded-lg border border-white/8 p-3 sm:grid-cols-2">
-              <input value={statement} onChange={(e) => setStatement(e.target.value)} placeholder="Assumption statement (10 characters minimum)" className={`${inputClass} sm:col-span-2`} />
-              <input value={trigger} onChange={(e) => setTrigger(e.target.value)} placeholder="Measurable review trigger (10 characters minimum)" className={`${inputClass} sm:col-span-2`} />
-              <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} className={inputClass}>
+              <input
+                value={statement}
+                onChange={(e) => setStatement(e.target.value)}
+                placeholder="Assumption statement (10 characters minimum)"
+                className={`${inputClass} sm:col-span-2`}
+              />
+              <input
+                value={trigger}
+                onChange={(e) => setTrigger(e.target.value)}
+                placeholder="Measurable review trigger (10 characters minimum)"
+                className={`${inputClass} sm:col-span-2`}
+              />
+              <select
+                value={ownerId}
+                onChange={(e) => setOwnerId(e.target.value)}
+                className={inputClass}
+              >
                 <option value="">Assumption owner (required)</option>
                 {members.map((m) => (
-                  <option key={m.id} value={m.id}>{m.full_name ?? m.email ?? m.id}</option>
+                  <option key={m.id} value={m.id}>
+                    {m.full_name ?? m.email ?? m.id}
+                  </option>
                 ))}
               </select>
               <div className="grid grid-cols-3 gap-2">
-                <input value={parameter} onChange={(e) => setParameter(e.target.value)} placeholder="Series key" className={inputClass} />
-                <select value={comparator} onChange={(e) => setComparator(e.target.value)} className={inputClass}>
+                <input
+                  value={parameter}
+                  onChange={(e) => setParameter(e.target.value)}
+                  placeholder="Series key"
+                  className={inputClass}
+                />
+                <select
+                  value={comparator}
+                  onChange={(e) => setComparator(e.target.value)}
+                  className={inputClass}
+                >
                   {[">=", "<=", ">", "<"].map((c) => (
-                    <option key={c} value={c}>{c}</option>
+                    <option key={c} value={c}>
+                      {c}
+                    </option>
                   ))}
                 </select>
-                <input type="number" step="any" value={threshold} onChange={(e) => setThreshold(e.target.value)} placeholder="Threshold" className={inputClass} />
+                <input
+                  type="number"
+                  step="any"
+                  value={threshold}
+                  onChange={(e) => setThreshold(e.target.value)}
+                  placeholder="Threshold"
+                  className={inputClass}
+                />
               </div>
-              <input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="Threshold unit (optional)" className={inputClass} />
+              <input
+                value={unit}
+                onChange={(e) => setUnit(e.target.value)}
+                placeholder="Threshold unit (optional)"
+                className={inputClass}
+              />
               <select
                 value={estimateId}
                 onChange={(e) => setEstimateId(e.target.value)}
@@ -1598,19 +1811,58 @@ function AssumptionsBlock({
           <div className="grid grid-cols-1 gap-2 rounded-lg border border-white/8 p-3 sm:grid-cols-3">
             <p className="text-[11px] uppercase tracking-wide text-slate-500 sm:col-span-3">
               Record a financial-assumption version (the numeric leg — every
-              write is a new dated version; recording runs the threshold
-              sweep)
+              write is a new dated version; recording runs the threshold sweep)
             </p>
-            <input value={faKey} onChange={(e) => setFaKey(e.target.value)} placeholder="Series key (production_gain_pct…)" className={inputClass} />
-            <input value={faLabel} onChange={(e) => setFaLabel(e.target.value)} placeholder="Label" className={inputClass} />
-            <input type="number" step="any" value={faValue} onChange={(e) => setFaValue(e.target.value)} placeholder="Value" className={inputClass} />
-            <input value={faUnit} onChange={(e) => setFaUnit(e.target.value)} placeholder="Unit (optional)" className={inputClass} />
-            <select value={faKind} onChange={(e) => setFaKind(e.target.value)} className={inputClass}>
-              {["general", "escalation", "fx", "commodity_price", "discount_rate", "funding"].map((k) => (
-                <option key={k} value={k}>{k.replaceAll("_", " ")}</option>
+            <input
+              value={faKey}
+              onChange={(e) => setFaKey(e.target.value)}
+              placeholder="Series key (production_gain_pct…)"
+              className={inputClass}
+            />
+            <input
+              value={faLabel}
+              onChange={(e) => setFaLabel(e.target.value)}
+              placeholder="Label"
+              className={inputClass}
+            />
+            <input
+              type="number"
+              step="any"
+              value={faValue}
+              onChange={(e) => setFaValue(e.target.value)}
+              placeholder="Value"
+              className={inputClass}
+            />
+            <input
+              value={faUnit}
+              onChange={(e) => setFaUnit(e.target.value)}
+              placeholder="Unit (optional)"
+              className={inputClass}
+            />
+            <select
+              value={faKind}
+              onChange={(e) => setFaKind(e.target.value)}
+              className={inputClass}
+            >
+              {[
+                "general",
+                "escalation",
+                "fx",
+                "commodity_price",
+                "discount_rate",
+                "funding",
+              ].map((k) => (
+                <option key={k} value={k}>
+                  {k.replaceAll("_", " ")}
+                </option>
               ))}
             </select>
-            <input value={faSource} onChange={(e) => setFaSource(e.target.value)} placeholder="SOURCE (required — no unsourced numbers)" className={inputClass} />
+            <input
+              value={faSource}
+              onChange={(e) => setFaSource(e.target.value)}
+              placeholder="SOURCE (required — no unsourced numbers)"
+              className={inputClass}
+            />
             <button
               onClick={() =>
                 void run(async () => {
@@ -1682,12 +1934,16 @@ function EvaluationBlock({
       </p>
       {!model.npvInputsComplete ? (
         <p className="text-xs text-amber-300">
-          Not recordable yet — the server refuses until the named inputs
-          exist. See the refusals above.
+          Not recordable yet — the server refuses until the named inputs exist.
+          See the refusals above.
         </p>
       ) : (
         <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-          <select value={optionId} onChange={(e) => setOptionId(e.target.value)} className={inputClass}>
+          <select
+            value={optionId}
+            onChange={(e) => setOptionId(e.target.value)}
+            className={inputClass}
+          >
             <option value="">Evaluated option</option>
             {computableRows.map((row) => (
               <option key={row.option.id} value={row.option.id}>
@@ -1695,12 +1951,25 @@ function EvaluationBlock({
               </option>
             ))}
           </select>
-          <select value={uncertainty} onChange={(e) => setUncertainty(e.target.value as "low" | "moderate" | "high")} className={inputClass}>
+          <select
+            value={uncertainty}
+            onChange={(e) =>
+              setUncertainty(e.target.value as "low" | "moderate" | "high")
+            }
+            className={inputClass}
+          >
             {["low", "moderate", "high"].map((u) => (
-              <option key={u} value={u}>uncertainty: {u}</option>
+              <option key={u} value={u}>
+                uncertainty: {u}
+              </option>
             ))}
           </select>
-          <input value={basis} onChange={(e) => setBasis(e.target.value)} placeholder="Basis — what this figure rests on (20 characters minimum)" className={`${inputClass} sm:col-span-2`} />
+          <input
+            value={basis}
+            onChange={(e) => setBasis(e.target.value)}
+            placeholder="Basis — what this figure rests on (20 characters minimum)"
+            className={`${inputClass} sm:col-span-2`}
+          />
           <button
             onClick={() =>
               void run(async () => {
@@ -1752,8 +2021,7 @@ function TrajectoryBlock({
       </p>
       {trajectory.gates.length === 0 ? (
         <p className="text-xs text-slate-500">
-          No framework governs this case, so there are no gates to plot
-          against.
+          No framework governs this case, so there are no gates to plot against.
         </p>
       ) : (
         <div className="space-y-1">
@@ -1784,8 +2052,8 @@ function TrajectoryBlock({
       {trajectory.evaluations.length > 0 && (
         <p className="text-[11px] text-slate-500">
           {trajectory.evaluations.length} evaluation(s) recorded;{" "}
-          {trajectory.evaluations.filter((e) => e.linkedToReview).length}{" "}
-          linked to gate reviews.
+          {trajectory.evaluations.filter((e) => e.linkedToReview).length} linked
+          to gate reviews.
           {trajectory.sanctionBaselineEvaluation
             ? ` Sanction baseline: ${money(trajectory.sanctionBaselineEvaluation.expectedValue)}.`
             : ""}
@@ -1816,9 +2084,7 @@ function DeltaBlock({ delta }: { delta: SinceSanctionDelta | null }) {
                 {dim.dimension.replaceAll("_", " ")}
               </span>
               <span
-                className={
-                  dim.delta < 0 ? "text-red-300" : "text-emerald-300"
-                }
+                className={dim.delta < 0 ? "text-red-300" : "text-emerald-300"}
               >
                 {money(dim.atSanction)} → {money(dim.current)} (
                 {dim.delta >= 0 ? "+" : ""}
@@ -1916,19 +2182,52 @@ export function BenefitsSection({
       {canPlan &&
         (adding ? (
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="Benefit label" className={inputClass} />
+            <input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="Benefit label"
+              className={inputClass}
+            />
             <div className="grid grid-cols-2 gap-2">
-              <input type="number" step="any" value={value} onChange={(e) => setValue(e.target.value)} placeholder="Expected value" className={inputClass} />
-              <input value={unit} onChange={(e) => setUnit(e.target.value)} placeholder="Unit" className={inputClass} />
+              <input
+                type="number"
+                step="any"
+                value={value}
+                onChange={(e) => setValue(e.target.value)}
+                placeholder="Expected value"
+                className={inputClass}
+              />
+              <input
+                value={unit}
+                onChange={(e) => setUnit(e.target.value)}
+                placeholder="Unit"
+                className={inputClass}
+              />
             </div>
-            <input type="date" value={expectedDate} onChange={(e) => setExpectedDate(e.target.value)} className={inputClass} />
-            <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} className={inputClass}>
+            <input
+              type="date"
+              value={expectedDate}
+              onChange={(e) => setExpectedDate(e.target.value)}
+              className={inputClass}
+            />
+            <select
+              value={ownerId}
+              onChange={(e) => setOwnerId(e.target.value)}
+              className={inputClass}
+            >
               <option value="">Benefit owner (mandatory)</option>
               {members.map((m) => (
-                <option key={m.id} value={m.id}>{m.full_name ?? m.email ?? m.id}</option>
+                <option key={m.id} value={m.id}>
+                  {m.full_name ?? m.email ?? m.id}
+                </option>
               ))}
             </select>
-            <input value={basis} onChange={(e) => setBasis(e.target.value)} placeholder="Basis — where the expected value comes from (10 characters minimum)" className={`${inputClass} sm:col-span-2`} />
+            <input
+              value={basis}
+              onChange={(e) => setBasis(e.target.value)}
+              placeholder="Basis — where the expected value comes from (10 characters minimum)"
+              className={`${inputClass} sm:col-span-2`}
+            />
             <button
               onClick={() => {
                 setBusy(true);
@@ -1957,7 +2256,9 @@ export function BenefitsSection({
               disabled={busy}
               className="rounded-lg bg-signal-cyan/10 border border-signal-cyan/30 px-3 py-1.5 text-xs font-semibold text-signal-cyan disabled:opacity-50 sm:col-span-2"
             >
-              {busy ? "Recording…" : "Record benefit (projected until verified)"}
+              {busy
+                ? "Recording…"
+                : "Record benefit (projected until verified)"}
             </button>
           </div>
         ) : (

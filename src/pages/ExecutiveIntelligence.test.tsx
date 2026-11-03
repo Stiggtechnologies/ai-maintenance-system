@@ -50,6 +50,9 @@ vi.mock("../components/AccountabilityCascade", () => ({
 vi.mock("../components/ValueManagement", () => ({
   ValueManagement: () => null,
 }));
+vi.mock("../components/ValueGovernancePanels", () => ({
+  ValueGovernancePanels: () => null,
+}));
 vi.mock("../components/EnvironmentalPerformance", () => ({
   EnvironmentalPerformance: () => null,
 }));

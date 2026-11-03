@@ -24,6 +24,7 @@ import { useAsyncData } from "../hooks/useAsyncData";
 import { useRealtimeRefetch } from "../hooks/useRealtimeRefetch";
 import { LiveBadge } from "../components/ui/LiveBadge";
 import { ValueManagement } from "../components/ValueManagement";
+import { ValueGovernancePanels } from "../components/ValueGovernancePanels";
 import { EnvironmentalPerformance } from "../components/EnvironmentalPerformance";
 import { EnterpriseHseEvents } from "../components/EnterpriseHseEvents";
 import { EnterpriseAssetLifecycleRisk } from "../components/EnterpriseAssetLifecycleRisk";
@@ -314,6 +315,7 @@ export function ExecutiveIntelligence() {
       <SegmentedReliability />
       <AccountabilityCascade />
       <ValueManagement />
+      <ValueGovernancePanels />
       <EnterpriseAssetLifecycleRisk />
       <EnterpriseHseEvents />
       {/* Environmental performance moved here when the fabricated /performance
