@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { functionRoutePath, requireCaller, tenantForbidden } from '../_shared/edge-request-guards.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || 'https://app.syncai.ca',
@@ -76,7 +77,7 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const url = new URL(req.url);
-    const path = url.pathname.replace('/rag-document-processor', '');
+    const path = functionRoutePath(url.pathname, 'rag-document-processor');
 
     // POST /process - Process and chunk a document
     if (req.method === 'POST' && path === '/process') {
@@ -85,6 +86,15 @@ Deno.serve(async (req: Request) => {
 
       if (!document_id || !tenant_id) {
         throw new Error('Missing document_id or tenant_id');
+      }
+
+      const auth = await requireCaller(req, supabase, corsHeaders);
+      if (!auth.ok) return auth.response;
+      if (tenantForbidden(tenant_id, auth.caller.organizationId)) {
+        return new Response(
+          JSON.stringify({ error: 'tenant_forbidden' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
       }
 
       // Get document
@@ -178,12 +188,20 @@ Deno.serve(async (req: Request) => {
     if (req.method === 'POST' && path === '/batch-process') {
       const body = await req.json();
       const { tenant_id, max_documents } = body;
+      const auth = await requireCaller(req, supabase, corsHeaders);
+      if (!auth.ok) return auth.response;
+      if (!tenant_id || tenantForbidden(tenant_id, auth.caller.organizationId)) {
+        return new Response(
+          JSON.stringify({ error: tenant_id ? 'tenant_forbidden' : 'Missing tenant_id' }),
+          { status: tenant_id ? 403 : 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
 
       // Get pending documents
       const { data: documents } = await supabase
         .from('knowledge_base_documents')
         .select('id, tenant_id')
-        .eq('tenant_id', tenant_id)
+        .eq('tenant_id', auth.caller.organizationId)
         .eq('processing_status', 'pending')
         .limit(max_documents || 10);
 
@@ -225,11 +243,27 @@ Deno.serve(async (req: Request) => {
     // GET /status/:document_id - Get processing status
     if (req.method === 'GET' && path.startsWith('/status/')) {
       const documentId = path.split('/')[2];
+      const tenantId = url.searchParams.get('tenant_id');
+      if (!tenantId) {
+        return new Response(
+          JSON.stringify({ error: 'tenant_id is required' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      const auth = await requireCaller(req, supabase, corsHeaders);
+      if (!auth.ok) return auth.response;
+      if (tenantForbidden(tenantId, auth.caller.organizationId)) {
+        return new Response(
+          JSON.stringify({ error: 'tenant_forbidden' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
 
       const { data: doc } = await supabase
         .from('knowledge_base_documents')
         .select('processing_status, chunk_count')
         .eq('id', documentId)
+        .eq('tenant_id', tenantId)
         .single();
 
       return new Response(

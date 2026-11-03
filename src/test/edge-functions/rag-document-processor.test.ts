@@ -59,13 +59,12 @@ describe("rag-document-processor edge function", () => {
     supabase.setFrom(() => ({ data: null, error: { message: "no row" } }));
     const response = await edge.invoke(
       edgeRequest("rag-document-processor", "/process", {
+        headers: { Authorization: "Bearer user-jwt" },
         body: { document_id: "doc-1", tenant_id: "tenant-b" },
       }),
     );
-    expect((await readJson(response)).error).toMatch(/Document not found/);
-    const lookup = supabase.calls[0];
-    expect(eqValue(lookup, "id")).toBe("doc-1");
-    expect(eqValue(lookup, "tenant_id")).toBe("tenant-b");
+    expect(response.status).toBe(403);
+    expect(supabase.calls.filter((call) => call.table === "knowledge_base_documents")).toHaveLength(0);
     expect(vi.mocked(fetch)).not.toHaveBeenCalled();
   });
 
@@ -83,6 +82,7 @@ describe("rag-document-processor edge function", () => {
     }));
     const response = await edge.invoke(
       edgeRequest("rag-document-processor", "/process", {
+        headers: { Authorization: "Bearer user-jwt" },
         body: { document_id: "doc-1", tenant_id: "tenant-1" },
       }),
     );
@@ -107,6 +107,7 @@ describe("rag-document-processor edge function", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("down", { status: 503 })));
     const response = await edge.invoke(
       edgeRequest("rag-document-processor", "/process", {
+        headers: { Authorization: "Bearer user-jwt" },
         body: { document_id: "doc-1", tenant_id: "tenant-1" },
       }),
     );
@@ -136,9 +137,10 @@ describe("rag-document-processor edge function", () => {
     expect(await readJson(response)).toEqual({
       results: [{ document_id: "doc-9", success: true, chunks_created: 2 }],
     });
-    expect(eqValue(supabase.calls[0], "tenant_id")).toBe("tenant-1");
-    expect(eqValue(supabase.calls[0], "processing_status")).toBe("pending");
-    expect(supabase.calls[0].rowLimit).toBe(3);
+    const pending = supabase.calls.find((call) => call.table === "knowledge_base_documents");
+    expect(eqValue(pending!, "tenant_id")).toBe("tenant-1");
+    expect(eqValue(pending!, "processing_status")).toBe("pending");
+    expect(pending?.rowLimit).toBe(3);
     expect(String(vi.mocked(fetch).mock.calls[0][0])).toBe(
       "https://example.supabase.co/functions/v1/rag-document-processor/process",
     );
@@ -147,10 +149,15 @@ describe("rag-document-processor edge function", () => {
   it("reads processing status on the path the function matches", async () => {
     supabase.setFrom(() => ({ data: { processing_status: "completed", chunk_count: 4 }, error: null }));
     const response = await edge.invoke(
-      edgeRequest("rag-document-processor", "/status/doc-1", { method: "GET" }),
+      edgeRequest("rag-document-processor", "/status/doc-1?tenant_id=tenant-1", {
+        method: "GET",
+        headers: { Authorization: "Bearer user-jwt" },
+      }),
     );
     expect(await readJson(response)).toEqual({ processing_status: "completed", chunk_count: 4 });
-    expect(eqValue(supabase.calls[0], "id")).toBe("doc-1");
+    const statusLookup = supabase.calls.find((call) => call.table === "knowledge_base_documents");
+    expect(eqValue(statusLookup!, "id")).toBe("doc-1");
+    expect(eqValue(statusLookup!, "tenant_id")).toBe("tenant-1");
   });
 
   // BUG: supabase/functions/rag-document-processor/index.ts:79 strips only the
@@ -158,7 +165,7 @@ describe("rag-document-processor edge function", () => {
   // /functions/v1/rag-document-processor/process (line 194), which does not
   // match path === "/process". Impact: batch processing reports a route miss
   // for every document when the function is invoked at its own URL.
-  it.fails("BUG: the self-call URL /functions/v1/rag-document-processor/process chunks the document", async () => {
+  it("BUG: the self-call URL /functions/v1/rag-document-processor/process chunks the document", async () => {
     supabase.setFrom((call) =>
       call.op === "select"
         ? { data: { id: "doc-1", tenant_id: "tenant-1", content: paragraph }, error: null }
@@ -168,6 +175,7 @@ describe("rag-document-processor edge function", () => {
     const response = await edge.invoke(
       edgeRequest("rag-document-processor", "/process", {
         root: "deployed",
+        headers: { Authorization: "Bearer user-jwt" },
         body: { document_id: "doc-1", tenant_id: "tenant-1" },
       }),
     );
@@ -178,7 +186,7 @@ describe("rag-document-processor edge function", () => {
   // BUG: supabase/functions/rag-document-processor/index.ts:226-233 loads a
   // document by id with no tenant predicate. Impact: a caller who knows a
   // document id can read its processing status and chunk count.
-  it.fails("BUG: status lookup without a tenant is rejected", async () => {
+  it("BUG: status lookup without a tenant is rejected", async () => {
     supabase.setFrom(() => ({ data: { processing_status: "completed", chunk_count: 4 }, error: null }));
     const response = await edge.invoke(
       edgeRequest("rag-document-processor", "/status/doc-1", { method: "GET" }),

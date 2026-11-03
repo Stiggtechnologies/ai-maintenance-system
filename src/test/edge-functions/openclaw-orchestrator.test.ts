@@ -38,8 +38,13 @@ describe("openclaw-orchestrator edge function", () => {
     vi.unstubAllGlobals();
   });
 
-  function post(body: unknown, headers?: Record<string, string>) {
-    return edge.invoke(edgeRequest("openclaw-orchestrator", "", { body, headers }));
+  function post(body: unknown, authorization: string | null = "Bearer user-jwt") {
+    return edge.invoke(
+      edgeRequest("openclaw-orchestrator", "", {
+        body,
+        headers: authorization ? { Authorization: authorization } : {},
+      }),
+    );
   }
 
   it("answers CORS preflight and rejects an unknown action", async () => {
@@ -128,7 +133,10 @@ describe("openclaw-orchestrator edge function", () => {
 
   it("returns 500 for a body that is not JSON", async () => {
     const response = await edge.invoke(
-      edgeRequest("openclaw-orchestrator", "", { body: "nope" }),
+      edgeRequest("openclaw-orchestrator", "", {
+        headers: { Authorization: "Bearer user-jwt" },
+        body: "nope",
+      }),
     );
     expect(response.status).toBe(500);
   });
@@ -137,11 +145,14 @@ describe("openclaw-orchestrator edge function", () => {
   // Authorization check and writes with the service role for the tenant_id in
   // the body. Impact: an anonymous caller can create agents, enqueue work, and
   // spend the embedding key for any tenant.
-  it.fails("BUG: create_agent without a bearer token is rejected", async () => {
-    const response = await post({
-      action: "create_agent",
-      data: { tenant_id: "tenant-victim", name: "Intruder", agent_type: "planner" },
-    });
+  it("BUG: create_agent without a bearer token is rejected", async () => {
+    const response = await post(
+      {
+        action: "create_agent",
+        data: { tenant_id: "tenant-victim", name: "Intruder", agent_type: "planner" },
+      },
+      null,
+    );
     expect(response.status).toBe(401);
     expect(supabase.calls.filter((call) => call.op === "insert")).toHaveLength(0);
   });

@@ -94,7 +94,8 @@ describe("edge-node-manager edge function", () => {
   it("records a heartbeat and refuses one that the database rejects", async () => {
     const ok = await call("heartbeat", { body: { node_id: "node-1", latency_ms: 12 } });
     expect(ok.status).toBe(200);
-    expect(supabase.calls[0].payload).toMatchObject({ node_id: "node-1", latency_ms: 12, active_jobs: 0 });
+    const heartbeat = supabase.calls.find((row) => row.op === "insert");
+    expect(heartbeat?.payload).toMatchObject({ node_id: "node-1", latency_ms: 12, active_jobs: 0 });
 
     supabase.reset();
     supabase.setFrom(() => ({ error: { message: "bad node" } }));
@@ -133,7 +134,8 @@ describe("edge-node-manager edge function", () => {
     const body = await readJson(response);
     expect(body.node.id).toBe("node-1");
     expect(body.queue_summary).toEqual({ queued: 2 });
-    expect(eqValue(supabase.calls[0], "id")).toBe("node-1");
+    const node = supabase.calls.find((row) => row.table === "edge_nodes");
+    expect(eqValue(node!, "id")).toBe("node-1");
   });
 
   it("decommissions a node and reads the stale-node RPCs", async () => {
@@ -160,7 +162,7 @@ describe("edge-node-manager edge function", () => {
   // BUG: supabase/functions/edge-node-manager/index.ts:34-41 treats any
   // Authorization value as authentication, then uses the service role.
   // Impact: a forged bearer can register, decommission, or mark nodes offline.
-  it.fails("BUG: a forged bearer token cannot register a node", async () => {
+  it("BUG: a forged bearer token cannot register a node", async () => {
     const response = await edge.invoke(
       edgeRequest("edge-node-manager", "?action=register", {
         method: "POST",

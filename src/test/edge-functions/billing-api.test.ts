@@ -44,7 +44,7 @@ describe("billing-api edge function", () => {
   it("rejects a request that has no Authorization header", async () => {
     const response = await edge.invoke(edgeRequest("billing-api", "/plans"));
     const body = await readJson(response);
-    expect(response.status).toBe(500);
+    expect(response.status).toBe(401);
     expect(body.error).toMatch(/authorization/i);
     expect(supabase.calls).toHaveLength(0);
   });
@@ -57,8 +57,9 @@ describe("billing-api edge function", () => {
     const response = await edge.invoke(authed("/plans", { method: "GET" }));
     expect(response.status).toBe(200);
     expect(await readJson(response)).toEqual({ plans: [{ code: "PRO", base_price_cad: 100 }] });
-    expect(supabase.calls[0]).toMatchObject({ table: "billing_plans", op: "select" });
-    expect(eqValue(supabase.calls[0], "is_active")).toBe(true);
+    const plans = supabase.calls.find((call) => call.table === "billing_plans");
+    expect(plans).toMatchObject({ table: "billing_plans", op: "select" });
+    expect(eqValue(plans!, "is_active")).toBe(true);
   });
 
   it("creates a subscription and seeds included credits for a known plan", async () => {
@@ -118,7 +119,9 @@ describe("billing-api edge function", () => {
     supabase.setFrom(() => ({ data: { id: "sub-1", plan: { code: "PRO" } }, error: null }));
     const response = await edge.invoke(authed("/subscriptions/sub-1", { method: "GET" }));
     expect(response.status).toBe(200);
-    expect(eqValue(supabase.calls[0], "id")).toBe("sub-1");
+    const loaded = supabase.calls.find((call) => call.table === "billing_subscriptions");
+    expect(eqValue(loaded!, "id")).toBe("sub-1");
+    expect(eqValue(loaded!, "tenant_id")).toBe("tenant-1");
   });
 
   it("burns LLM credits from token counts and raises a critical alert", async () => {
@@ -198,7 +201,7 @@ describe("billing-api edge function", () => {
     );
     expect(response.status).toBe(500);
     expect((await readJson(response)).error).toMatch(/Unknown event type/);
-    expect(supabase.calls).toHaveLength(0);
+    expect(supabase.calls.filter((call) => call.table === "usage_events")).toHaveLength(0);
   });
 
   it("summarises usage in a period by event type", async () => {
@@ -229,7 +232,9 @@ describe("billing-api edge function", () => {
     supabase.setFrom(() => ({ data: [{ month: "2026-03", credits: 4 }], error: null }));
     const response = await edge.invoke(authed("/overage?subscriptionId=sub-1", { method: "GET" }));
     expect(await readJson(response)).toEqual({ overage_history: [{ month: "2026-03", credits: 4 }] });
-    expect(supabase.calls[0].table).toBe("v_billable_overage");
+    expect(supabase.calls.find((call) => call.table === "v_billable_overage")?.table).toBe(
+      "v_billable_overage",
+    );
   });
 
   it("returns 404 for an unknown route", async () => {
@@ -240,7 +245,7 @@ describe("billing-api edge function", () => {
   // BUG: supabase/functions/billing-api/index.ts:35 only strips the function
   // name, so /functions/v1/billing-api/plans never equals /plans.
   // Impact: every billing route 404s behind the standard Supabase function URL.
-  it.fails("BUG: GET /functions/v1/billing-api/plans lists plans", async () => {
+  it("BUG: GET /functions/v1/billing-api/plans lists plans", async () => {
     supabase.setFrom(() => ({ data: [{ code: "PRO" }], error: null }));
     const response = await edge.invoke(
       edgeRequest("billing-api", "/plans", {
@@ -257,7 +262,7 @@ describe("billing-api edge function", () => {
   // value as enough and writes billing_subscriptions with the service role for
   // the tenant_id in the body. Impact: a caller authenticated for one tenant
   // can create a subscription and burn credits for another.
-  it.fails("BUG: subscription creation is refused when the body tenant is not the caller", async () => {
+  it("BUG: subscription creation is refused when the body tenant is not the caller", async () => {
     supabase.setFrom((call) => {
       if (call.table === "billing_plans") {
         return { data: { id: "plan-1", code: "PRO", included_assets: 1, included_credits: 1 }, error: null };

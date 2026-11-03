@@ -69,7 +69,10 @@ describe("research-orchestrator edge function", () => {
     supabase.setFrom(() => ({ data: [{ id: "prog-1", active: true }], error: null }));
     const response = await post({ action: "list_programs" });
     expect(await readJson(response)).toEqual({ programs: [{ id: "prog-1", active: true }] });
-    expect(supabase.calls[0]).toMatchObject({ table: "research_programs", op: "select" });
+    expect(supabase.calls.find((call) => call.table === "research_programs")).toMatchObject({
+      table: "research_programs",
+      op: "select",
+    });
   });
 
   it("requires a program id and a stored program before calling the model", async () => {
@@ -172,7 +175,7 @@ describe("research-orchestrator edge function", () => {
   // "Verify authorization" and then accepts any non-empty header before using
   // the service role. Impact: a forged bearer can propose variants and run
   // experiments on the platform OpenAI key.
-  it.fails("BUG: a forged bearer token cannot list or propose research programs", async () => {
+  it("BUG: a forged bearer token cannot list or propose research programs", async () => {
     supabase.setFrom(() => ({ data: [], error: null }));
     const response = await post({ action: "list_programs" }, "Bearer not-a-jwt");
     expect(response.status).toBe(401);

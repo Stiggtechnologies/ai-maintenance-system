@@ -50,6 +50,36 @@ export function createSupabaseDouble(initialFrom?: FromHandler) {
     data: { users: [] },
     error: null,
   });
+  let membership: {
+    id: string;
+    organization_id: string;
+    role: string;
+    email: string;
+    full_name: string;
+  } | null = {
+    id: "user-1",
+    organization_id: "tenant-1",
+    role: "admin",
+    email: "ada@example.com",
+    full_name: "Ada",
+  };
+  let authHandler = (token: string): {
+    data: { user: { id: string; email: string } | null };
+    error: { message: string } | null;
+  } => {
+    if (token === "user-jwt") {
+      return {
+        data: {
+          user: {
+            id: membership?.id ?? "user-1",
+            email: membership?.email ?? "ada@example.com",
+          },
+        },
+        error: null,
+      };
+    }
+    return { data: { user: null }, error: { message: "invalid jwt" } };
+  };
 
   class QueryBuilder {
     op: QueryCall["op"] = "select";
@@ -184,13 +214,29 @@ export function createSupabaseDouble(initialFrom?: FromHandler) {
       const call = this.toCall();
       calls.push(call);
       return Promise.resolve()
-        .then(() => fromHandler(call))
+        .then(() => {
+          if (call.table === "user_profiles" && call.op === "select") {
+            return membership
+              ? { data: { ...membership }, error: null }
+              : { data: null, error: null };
+          }
+          return fromHandler(call);
+        })
         .then(onFulfilled, onRejected);
     }
   }
 
+  function bearerFromOptions(options: unknown): string {
+    if (!options || typeof options !== "object") return "";
+    const headers = (options as { global?: { headers?: { Authorization?: string } } }).global
+      ?.headers;
+    const header = headers?.Authorization ?? "";
+    return header.startsWith("Bearer ") ? header.slice("Bearer ".length).trim() : "";
+  }
+
   function createClient(url: string, key: string, options?: unknown) {
     clients.push({ url, key, options });
+    const clientToken = bearerFromOptions(options);
     return {
       from(table: string) {
         return new QueryBuilder(table);
@@ -200,6 +246,10 @@ export function createSupabaseDouble(initialFrom?: FromHandler) {
         return Promise.resolve(rpcHandler(name, args));
       },
       auth: {
+        getUser(jwt?: string) {
+          const token = typeof jwt === "string" && jwt ? jwt : clientToken;
+          return Promise.resolve(authHandler(token));
+        },
         admin: {
           listUsers(args?: unknown) {
             return Promise.resolve(listUsers(args));
@@ -222,6 +272,12 @@ export function createSupabaseDouble(initialFrom?: FromHandler) {
     },
     setListUsers(fn: typeof listUsers) {
       listUsers = fn;
+    },
+    setMembership(profile: typeof membership) {
+      membership = profile;
+    },
+    setAuth(fn: typeof authHandler) {
+      authHandler = fn;
     },
     reset() {
       calls.length = 0;

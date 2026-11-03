@@ -70,7 +70,12 @@ describe("billing-invoice edge function", () => {
   });
 
   it("rejects a body without subscription_id", async () => {
-    const response = await edge.invoke(edgeRequest("billing-invoice", "", { body: {} }));
+    const response = await edge.invoke(
+      edgeRequest("billing-invoice", "", {
+        headers: { Authorization: "Bearer user-jwt" },
+        body: {},
+      }),
+    );
     expect(response.status).toBe(500);
     expect((await readJson(response)).error).toMatch(/subscription_id/);
     expect(supabase.calls.filter((call) => call.op === "insert")).toHaveLength(0);
@@ -83,7 +88,10 @@ describe("billing-invoice edge function", () => {
         : { error: null },
     );
     const response = await edge.invoke(
-      edgeRequest("billing-invoice", "", { body: { subscription_id: "missing" } }),
+      edgeRequest("billing-invoice", "", {
+        headers: { Authorization: "Bearer user-jwt" },
+        body: { subscription_id: "missing" },
+      }),
     );
     expect((await readJson(response)).error).toMatch(/Subscription not found/);
   });
@@ -93,7 +101,7 @@ describe("billing-invoice edge function", () => {
   // Impact: every invoice request throws ReferenceError, returns 500, and
   // never inserts billing_invoices. The Stripe call and the credit reset
   // below it are unreachable.
-  it.fails("BUG: invoice generation stores the priced open invoice", async () => {
+  it("BUG: invoice generation stores the priced open invoice", async () => {
     edge.env.STRIPE_SECRET_KEY = undefined;
     const response = await edge.invoke(
       edgeRequest("billing-invoice", "", {
@@ -124,7 +132,7 @@ describe("billing-invoice edge function", () => {
   // BUG: same ReferenceError at billing-invoice/index.ts:100. The Stripe
   // itemisation below it never runs. Impact: a configured Stripe customer
   // still gets HTTP 500 and no hosted invoice.
-  it.fails("BUG: a configured Stripe customer gets itemised and finalised", async () => {
+  it("BUG: a configured Stripe customer gets itemised and finalised", async () => {
     const urls: string[] = [];
     vi.stubGlobal(
       "fetch",
@@ -137,7 +145,10 @@ describe("billing-invoice edge function", () => {
       }),
     );
     const response = await edge.invoke(
-      edgeRequest("billing-invoice", "", { body: { subscription_id: "sub-1" } }),
+      edgeRequest("billing-invoice", "", {
+        headers: { Authorization: "Bearer user-jwt" },
+        body: { subscription_id: "sub-1" },
+      }),
     );
     const body = await readJson(response);
     expect(body.stripe_invoice_id).toBe("in_1");
@@ -169,10 +180,13 @@ describe("billing-invoice edge function", () => {
   // asset_overage ReferenceError at line 100. Impact once the throw is fixed:
   // a Stripe outage still zeroes credits and moves the billing window, so the
   // uninvoiced usage is dropped.
-  it.fails("BUG: a Stripe invoice failure does not reset credits or advance the period", async () => {
+  it("BUG: a Stripe invoice failure does not reset credits or advance the period", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response("stripe down", { status: 503 })));
     const response = await edge.invoke(
-      edgeRequest("billing-invoice", "", { body: { subscription_id: "sub-1" } }),
+      edgeRequest("billing-invoice", "", {
+        headers: { Authorization: "Bearer user-jwt" },
+        body: { subscription_id: "sub-1" },
+      }),
     );
     const body = await readJson(response);
     expect(response.status).toBe(200);
@@ -190,10 +204,12 @@ describe("billing-invoice edge function", () => {
   // BUG: supabase/functions/billing-invoice/index.ts:9-21 has no auth check at
   // all. Impact: anyone who can invoke the function generates an invoice and
   // resets the subscription's remaining credits.
-  it.fails("BUG: invoice generation without a bearer token is rejected", async () => {
+  it("BUG: invoice generation without a bearer token is rejected", async () => {
     edge.env.STRIPE_SECRET_KEY = undefined;
     const response = await edge.invoke(
-      edgeRequest("billing-invoice", "", { body: { subscription_id: "sub-1" } }),
+      edgeRequest("billing-invoice", "", {
+        body: { subscription_id: "sub-1" },
+      }),
     );
     expect(response.status).toBe(401);
     expect(supabase.calls.filter((call) => call.op === "insert")).toHaveLength(0);

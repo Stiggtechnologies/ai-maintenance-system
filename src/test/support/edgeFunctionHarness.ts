@@ -6,6 +6,7 @@
  * removed, `Deno.serve` is captured, and `createClient` is supplied by the test.
  */
 import { readFileSync } from "node:fs";
+import path from "node:path";
 import ts from "typescript";
 import { vi } from "vitest";
 
@@ -27,13 +28,44 @@ export const edgeBaseEnv = {
   ALLOWED_ORIGIN: "https://app.syncai.ca",
 } as const;
 
+function resolveLocalImport(fromFile: string, spec: string): string {
+  const base = path.resolve(path.dirname(fromFile), spec);
+  return base.endsWith(".ts") ? base : `${base}.ts`;
+}
+
+/**
+ * Inline relative modules so a function can import `_shared` guards. npm/jsr
+ * imports are removed; the harness supplies `createClient` and `Deno`.
+ */
+function loadTranspileSource(filePath: string, seen = new Set<string>()): string {
+  const abs = path.resolve(filePath);
+  if (seen.has(abs)) return "";
+  seen.add(abs);
+  let source = readFileSync(abs, "utf8");
+  const prelude: string[] = [];
+  source = source.replace(
+    /^\s*import\s+(?:type\s+)?(?:[^'"\n]*?\s+from\s+)?["'](\.[^"']+)["'];?\s*$/gm,
+    (_full, spec: string) => {
+      prelude.push(loadTranspileSource(resolveLocalImport(abs, spec), seen));
+      return "";
+    },
+  );
+  source = source.replace(
+    /^\s*import\s+(?:type\s+)?(?:[^'"\n]+from\s+)?["'][^"']+["'];?\s*$/gm,
+    "",
+  );
+  source = source.replace(
+    /^\s*export\s+(?=type\s|interface\s|async\s+function|function|const|class|let|var)/gm,
+    "",
+  );
+  return `${prelude.join("\n")}\n${source}`;
+}
+
 function rewrite(source: string, id: string): string {
-  const withoutImports = source
-    .replace(/^\s*import\s+(?:type\s+)?(?:[^'"\n]+from\s+)?["'][^"']+["'];?\s*$/gm, "")
-    .replace(
-      /await import\(\s*["']npm:@supabase\/supabase-js@[^"']+["']\s*\)/g,
-      `({ createClient: (...args) => globalThis.__edgeSlots[${JSON.stringify(id)}].createClient(...args) })`,
-    );
+  const withoutDynamic = source.replace(
+    /await import\(\s*["']npm:@supabase\/supabase-js@[^"']+["']\s*\)/g,
+    `({ createClient: (...args) => globalThis.__edgeSlots[${JSON.stringify(id)}].createClient(...args) })`,
+  );
 
   return `
 const __edge = globalThis.__edgeSlots[${JSON.stringify(id)}];
@@ -42,7 +74,7 @@ const Deno = {
   serve: (handler) => { __edge.handler = handler; },
 };
 const createClient = (...args) => __edge.createClient(...args);
-${withoutImports}
+${withoutDynamic}
 `;
 }
 
@@ -79,7 +111,7 @@ export function loadEdgeFunction(
   const slots = ((globalThis as { __edgeSlots?: Record<string, EdgeSlot> }).__edgeSlots ??= {});
   slots[id] = slot;
 
-  const source = readFileSync(relativePath, "utf8");
+  const source = loadTranspileSource(relativePath);
   const rewritten = rewrite(source, id);
   const emitted = ts.transpileModule(rewritten, {
     compilerOptions: {

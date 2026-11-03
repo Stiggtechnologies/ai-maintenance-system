@@ -34,7 +34,12 @@ describe("rag-semantic-search edge function", () => {
   });
 
   function post(body: unknown) {
-    return edge.invoke(edgeRequest("rag-semantic-search", "", { body }));
+    return edge.invoke(
+      edgeRequest("rag-semantic-search", "", {
+        headers: { Authorization: "Bearer user-jwt" },
+        body,
+      }),
+    );
   }
 
   it("answers CORS preflight", async () => {
@@ -116,7 +121,7 @@ describe("rag-semantic-search edge function", () => {
   // BUG: supabase/functions/rag-semantic-search/index.ts:41-54 never checks the
   // caller and searches whatever tenant_id is in the body, using the service
   // role. Impact: a caller can retrieve and log another tenant's knowledge chunks.
-  it.fails("BUG: a search for a tenant the caller does not own is rejected", async () => {
+  it("BUG: a search for a tenant the caller does not own is rejected", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => jsonFetchResult({ data: [{ embedding: [0.1] }] })));
     supabase.setRpc(() => ({ data: [], error: null }));
     const response = await post({ query: "seal", tenant_id: "tenant-victim" });

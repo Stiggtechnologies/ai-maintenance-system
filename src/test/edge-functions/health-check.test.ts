@@ -37,9 +37,15 @@ describe("health-check edge function", () => {
     expect(supabase.clients).toHaveLength(0);
   });
 
+  function probe() {
+    return edge.invoke(
+      edgeRequest("health-check", "", { headers: { Authorization: "Bearer user-jwt" } }),
+    );
+  }
+
   it("reports healthy when the database, auth admin, and decision log all answer", async () => {
     supabase.setFrom(() => ({ data: [], error: null }));
-    const response = await edge.invoke(edgeRequest("health-check"));
+    const response = await probe();
     const body = await readJson(response);
     expect(response.status).toBe(200);
     expect(body.status).toBe("healthy");
@@ -59,7 +65,7 @@ describe("health-check edge function", () => {
       if (call.table === "assets") return { data: null, error: { message: "db down" } };
       return { data: [{ id: "decision-1" }], error: null };
     });
-    const response = await edge.invoke(edgeRequest("health-check"));
+    const response = await probe();
     const body = await readJson(response);
     expect(response.status).toBe(200);
     expect(body.status).toBe("degraded");
@@ -70,7 +76,7 @@ describe("health-check edge function", () => {
   it("returns 503 when every dependency is unhealthy", async () => {
     supabase.setFrom(() => ({ data: null, error: { message: "unavailable" } }));
     supabase.setListUsers(() => ({ data: null, error: { message: "auth down" } }));
-    const response = await edge.invoke(edgeRequest("health-check"));
+    const response = await probe();
     const body = await readJson(response);
     expect(response.status).toBe(503);
     expect(body.status).toBe("unhealthy");
@@ -80,7 +86,7 @@ describe("health-check edge function", () => {
     edge.createClient = () => {
       throw new Error("missing service role");
     };
-    const response = await edge.invoke(edgeRequest("health-check"));
+    const response = await probe();
     const body = await readJson(response);
     expect(response.status).toBe(503);
     expect(body.status).toBe("unhealthy");
@@ -91,7 +97,7 @@ describe("health-check edge function", () => {
     supabase.setListUsers(() => {
       throw new Error("admin api disabled");
     });
-    const response = await edge.invoke(edgeRequest("health-check"));
+    const response = await probe();
     const body = await readJson(response);
     expect(response.status).toBe(200);
     expect(body.status).toBe("degraded");
@@ -101,7 +107,7 @@ describe("health-check edge function", () => {
   // BUG: supabase/functions/health-check/index.ts:37 and :49 copy raw dependency
   // error text into the response, and the handler never checks Authorization.
   // Impact: an unauthenticated caller learns internal database and auth failures.
-  it.fails("BUG: dependency error strings are not returned to an unauthenticated caller", async () => {
+  it("BUG: dependency error strings are not returned to an unauthenticated caller", async () => {
     supabase.setFrom((call) =>
       call.table === "assets"
         ? { data: null, error: { message: "password authentication failed for user postgres" } }

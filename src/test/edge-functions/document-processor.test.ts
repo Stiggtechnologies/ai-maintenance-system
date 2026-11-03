@@ -33,7 +33,8 @@ describe("document-processor edge function", () => {
     vi.unstubAllGlobals();
   });
 
-  function post(body: unknown, headers?: Record<string, string>) {
+  function post(body: unknown, options?: { auth?: false }) {
+    const headers = options?.auth === false ? undefined : { Authorization: "Bearer user-jwt" };
     return edge.invoke(edgeRequest("document-processor", "", { body, headers }));
   }
 
@@ -149,7 +150,7 @@ describe("document-processor edge function", () => {
   // BUG: supabase/functions/document-processor/index.ts:22-25 fetches whatever
   // fileUrl the caller sends, with no allow-list. Impact: the function can be
   // used to read link-local or internal URLs from the server network.
-  it.fails("BUG: an analysis does not fetch a link-local fileUrl", async () => {
+  it("BUG: an analysis does not fetch a link-local fileUrl", async () => {
     const urls: string[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
       urls.push(String(input));
@@ -168,18 +169,33 @@ describe("document-processor edge function", () => {
   // BUG: supabase/functions/document-processor/index.ts:123 creates a service-role
   // client and never reads Authorization. Impact: an anonymous caller can spend
   // the OpenAI key and write document_uploads.
-  it.fails("BUG: document analysis without a bearer token is rejected", async () => {
+  it("BUG: document analysis without a bearer token is rejected", async () => {
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
       if (String(input).startsWith("https://files.")) return new Response("text", { status: 200 });
       return jsonFetchResult({ choices: [{ message: { content: "ok" } }] });
     }));
-    const response = await post({
-      fileUrl: "https://files.example.test/a.txt",
-      fileName: "a.txt",
-      fileType: "text/plain",
-    });
+    const response = await post(
+      {
+        fileUrl: "https://files.example.test/a.txt",
+        fileName: "a.txt",
+        fileType: "text/plain",
+      },
+      { auth: false },
+    );
     expect(response.status).toBe(401);
     expect(vi.mocked(fetch)).not.toHaveBeenCalled();
     expect(eqValue(supabase.calls[0] ?? { filters: [], table: "", op: "select", asSingle: false }, "id")).toBeUndefined();
+  });
+
+  it("does not fetch a host outside DOCUMENT_URL_ALLOWLIST", async () => {
+    edge.env.DOCUMENT_URL_ALLOWLIST = "files.example.test";
+    vi.stubGlobal("fetch", vi.fn(async () => new Response("secret", { status: 200 })));
+    const response = await post({
+      fileUrl: "https://evil.example/a.txt",
+      fileName: "a.txt",
+      fileType: "text/plain",
+    });
+    expect(response.status).toBe(400);
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled();
   });
 });

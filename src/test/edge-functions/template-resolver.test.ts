@@ -63,6 +63,13 @@ describe("template-resolver edge function", () => {
       return { data: null, error: null };
     });
     edge.createClient = supabase.createClient;
+    supabase.setMembership({
+      id: "user-1",
+      organization_id: "org-1",
+      role: "admin",
+      email: "ada@example.com",
+      full_name: "Ada",
+    });
   });
 
   afterEach(() => {
@@ -241,7 +248,7 @@ describe("template-resolver edge function", () => {
   // Authorization value as authentication and then uses the service role.
   // Impact: a forged bearer can resolve templates and write draft deployments
   // for any organization id in the body.
-  it.fails("BUG: a forged bearer token cannot create a deployment draft", async () => {
+  it("BUG: a forged bearer token cannot create a deployment draft", async () => {
     const response = await post(
       {
         action: "create_deployment_draft",

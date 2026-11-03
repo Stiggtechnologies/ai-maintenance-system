@@ -68,7 +68,10 @@ describe("stripe-checkout edge function", () => {
 
   it("rejects checkout without a tenant or plan", async () => {
     const response = await edge.invoke(
-      edgeRequest("stripe-checkout", "/checkout", { body: { plan_code: "PRO" } }),
+      edgeRequest("stripe-checkout", "/checkout", {
+        headers: { Authorization: "Bearer user-jwt" },
+        body: {},
+      }),
     );
     const body = await readJson(response);
     expect(response.status).toBe(500);
@@ -79,6 +82,7 @@ describe("stripe-checkout edge function", () => {
   it("rejects an unknown plan code before calling Stripe", async () => {
     const response = await edge.invoke(
       edgeRequest("stripe-checkout", "/checkout", {
+        headers: { Authorization: "Bearer user-jwt" },
         body: { tenant_id: "tenant-1", plan_code: "FREE" },
       }),
     );
@@ -134,7 +138,8 @@ describe("stripe-checkout edge function", () => {
     });
     const response = await edge.invoke(
       edgeRequest("stripe-checkout", "/checkout", {
-        body: { tenant_id: "tenant-9", plan_code: "STARTER" },
+        headers: { Authorization: "Bearer user-jwt" },
+        body: { tenant_id: "tenant-1", plan_code: "STARTER" },
       }),
     );
     expect(response.status).toBe(200);
@@ -151,6 +156,7 @@ describe("stripe-checkout edge function", () => {
     stubStripe(() => new Response("card_declined", { status: 402 }));
     const response = await edge.invoke(
       edgeRequest("stripe-checkout", "/checkout", {
+        headers: { Authorization: "Bearer user-jwt" },
         body: { tenant_id: "tenant-1", plan_code: "ENTERPRISE" },
       }),
     );
@@ -167,16 +173,39 @@ describe("stripe-checkout edge function", () => {
       return jsonFetchResult({ url: "https://billing.stripe.test/portal" });
     });
     const response = await edge.invoke(
-      edgeRequest("stripe-checkout", "/portal", { body: { tenant_id: "tenant-1" } }),
+      edgeRequest("stripe-checkout", "/portal", {
+        headers: { Authorization: "Bearer user-jwt" },
+        body: { tenant_id: "tenant-1" },
+      }),
     );
     expect(await readJson(response)).toEqual({ url: "https://billing.stripe.test/portal" });
     const params = new URLSearchParams(String(vi.mocked(fetch).mock.calls[0][1]?.body));
     expect(params.get("return_url")).toBe("https://app.syncai.ca/app/billing");
   });
 
-  it("rejects a portal request without a tenant", async () => {
-    const response = await edge.invoke(edgeRequest("stripe-checkout", "/portal", { body: {} }));
-    expect((await readJson(response)).error).toMatch(/tenant_id/);
+  it("opens the portal for the caller when the body omits tenant_id", async () => {
+    supabase.setFrom(() => ({ data: { stripe_customer_id: "cus_existing" }, error: null }));
+    stubStripe(() => jsonFetchResult({ url: "https://billing.stripe.test/portal" }));
+    const response = await edge.invoke(
+      edgeRequest("stripe-checkout", "/portal", {
+        headers: { Authorization: "Bearer user-jwt" },
+        body: {},
+      }),
+    );
+    expect(response.status).toBe(200);
+    const params = new URLSearchParams(String(vi.mocked(fetch).mock.calls[0][1]?.body));
+    expect(params.get("customer")).toBe("cus_existing");
+  });
+
+  it("refuses a portal for a tenant the caller does not belong to", async () => {
+    stubStripe(() => jsonFetchResult({ url: "https://billing.stripe.test/portal" }));
+    const response = await edge.invoke(
+      edgeRequest("stripe-checkout", "/portal", {
+        headers: { Authorization: "Bearer user-jwt" },
+        body: { tenant_id: "tenant-victim" },
+      }),
+    );
+    expect(response.status).toBe(403);
     expect(vi.mocked(fetch)).not.toHaveBeenCalled();
   });
 
@@ -187,6 +216,7 @@ describe("stripe-checkout edge function", () => {
     });
     const response = await edge.invoke(
       edgeRequest("stripe-checkout", "/usage/report", {
+        headers: { Authorization: "Bearer user-jwt" },
         body: { subscription_item_id: "si_credits", quantity: 3, timestamp: 1700000000, action: "increment" },
       }),
     );
@@ -199,7 +229,10 @@ describe("stripe-checkout edge function", () => {
 
   it("rejects a usage report that omits the item or quantity", async () => {
     const response = await edge.invoke(
-      edgeRequest("stripe-checkout", "/usage/report", { body: { quantity: 1 } }),
+      edgeRequest("stripe-checkout", "/usage/report", {
+        headers: { Authorization: "Bearer user-jwt" },
+        body: { quantity: 1 },
+      }),
     );
     expect(response.status).toBe(500);
     expect(vi.mocked(fetch)).not.toHaveBeenCalled();
@@ -210,7 +243,7 @@ describe("stripe-checkout edge function", () => {
   // (src/components/billing/BillingOverview.tsx:69), which becomes
   // /functions/v1/portal and misses every route. Impact: portal, checkout, and
   // usage reporting 404 when invoked the way the app invokes them.
-  it.fails("BUG: the deployed /functions/v1/stripe-checkout/portal path opens the portal", async () => {
+  it("BUG: the deployed /functions/v1/stripe-checkout/portal path opens the portal", async () => {
     supabase.setFrom(() => ({ data: { stripe_customer_id: "cus_existing" }, error: null }));
     stubStripe(() => jsonFetchResult({ url: "https://billing.stripe.test/portal" }));
     const response = await edge.invoke(
@@ -228,7 +261,7 @@ describe("stripe-checkout edge function", () => {
   // Authorization and posts to Stripe with the service secret for whatever
   // tenant_id is in the body. Impact: a caller can open checkout, the customer
   // portal, or usage records for any tenant and any subscription item.
-  it.fails("BUG: checkout without a bearer token is rejected before Stripe is called", async () => {
+  it("BUG: checkout without a bearer token is rejected before Stripe is called", async () => {
     supabase.setFrom(() => ({ data: { stripe_customer_id: "cus_existing" }, error: null }));
     stubStripe(() => jsonFetchResult({ id: "cs_1", url: "https://checkout.stripe.test/cs_1" }));
     const response = await edge.invoke(

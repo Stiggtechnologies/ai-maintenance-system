@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { requireCaller } from "../_shared/edge-request-guards.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get('ALLOWED_ORIGIN') || 'https://app.syncai.ca',
@@ -17,12 +18,22 @@ Deno.serve(async (req: Request) => {
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
+    const auth = await requireCaller(req, supabase, corsHeaders);
+    if (!auth.ok) return auth.response;
+
     const { user_id, task_type, task_complexity, data_sensitivity, messages, max_cost } = await req.json();
 
     if (!user_id) {
       return new Response(
         JSON.stringify({ error: 'user_id is required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (user_id !== auth.caller.userId) {
+      return new Response(
+        JSON.stringify({ error: 'tenant_forbidden' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 

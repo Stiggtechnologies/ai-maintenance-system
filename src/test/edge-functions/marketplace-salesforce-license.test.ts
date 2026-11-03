@@ -8,7 +8,7 @@ import {
   readJson,
   type LoadedEdgeFunction,
 } from "../support/edgeFunctionHarness";
-import { createSupabaseDouble, type SupabaseDouble } from "../support/supabaseQueryMock";
+import { createSupabaseDouble, eqValue, type SupabaseDouble } from "../support/supabaseQueryMock";
 
 const license = {
   action: "license_event",
@@ -34,6 +34,19 @@ describe("marketplace-salesforce-license edge function", () => {
   beforeEach(() => {
     installNoNetworkFetch();
     supabase = createSupabaseDouble();
+    const events: Record<string, unknown>[] = [];
+    supabase.setFrom((call) => {
+      if (call.table !== "salesforce_license_events") return { error: null };
+      if (call.op === "select") {
+        const eventId = eqValue(call, "event_id");
+        return { data: events.find((row) => row.event_id === eventId) ?? null, error: null };
+      }
+      if (call.op === "insert") {
+        events.push(call.payload as Record<string, unknown>);
+        return { error: null };
+      }
+      return { error: null };
+    });
     supabase.setRpc(() => ({ data: "sub-sf", error: null }));
     edge.createClient = supabase.createClient;
     edge.env.SF_LMA_SHARED_SECRET = "sf-shared-test";
@@ -152,10 +165,17 @@ describe("marketplace-salesforce-license edge function", () => {
   // eventId from Date.now() and a random suffix, despite the "Idempotent log"
   // comment. Impact: Salesforce retries insert another license event and call
   // the upsert RPC again instead of returning the original result.
-  it.fails("BUG: replaying the same license event does not insert a second log row", async () => {
+  it("BUG: replaying the same license event does not insert a second log row", async () => {
     await post(license);
     await post(license);
     expect(supabase.calls.filter((call) => call.op === "insert")).toHaveLength(1);
     expect(supabase.rpcCalls).toHaveLength(1);
+  });
+
+  it("records a different license status as its own event", async () => {
+    await post(license);
+    await post({ ...license, status: "Suspended" });
+    expect(supabase.calls.filter((call) => call.op === "insert")).toHaveLength(2);
+    expect(supabase.rpcCalls).toHaveLength(2);
   });
 });

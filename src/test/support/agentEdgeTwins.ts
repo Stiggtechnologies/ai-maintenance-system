@@ -115,7 +115,7 @@ export function describeAgentHealth(options: {
 
     // The handler comments say "Verify authentication" and then accepts any
     // non-empty header before using the service role (index.ts:14-26).
-    it.fails("BUG: a forged bearer token is not treated as authenticated", async () => {
+    it("BUG: a forged bearer token is not treated as authenticated", async () => {
       const response = await ctx.edge.invoke(
         edgeRequest(options.name, "", {
           method: "GET",
@@ -127,7 +127,7 @@ export function describeAgentHealth(options: {
     });
 
     // index.ts:40 hard-codes status "ok" after a dependency check has failed.
-    it.fails("BUG: the overall status is not ok when the database probe fails", async () => {
+    it("BUG: the overall status is not ok when the database probe fails", async () => {
       ctx.supabase.setFrom((call) =>
         call.table === options.agents
           ? { data: null, error: { message: "connection refused" } }
@@ -256,7 +256,7 @@ export function describeAgentNotifier(options: {
 
     // index.ts:53-67 still writes status "sent" when no endpoint_url exists.
     // Impact: the notification is dropped and will not be retried.
-    it.fails("BUG: a notification with no active endpoint is not marked sent", async () => {
+    it("BUG: a notification with no active endpoint is not marked sent", async () => {
       ctx.supabase.setFrom((call) =>
         call.op === "select" && call.table === options.notifications
           ? { data: [{ id: "n-3", channel: "email", target: "none", message: "x" }], error: null }
@@ -272,7 +272,7 @@ export function describeAgentNotifier(options: {
       expect((await readJson(response)).results[0].status).not.toBe("sent");
     });
 
-    it.fails("BUG: a forged bearer token is not treated as authenticated", async () => {
+    it("BUG: a forged bearer token is not treated as authenticated", async () => {
       const response = await ctx.edge.invoke(
         edgeRequest(options.name, "", {
           method: "POST",
@@ -287,7 +287,7 @@ export function describeAgentNotifier(options: {
     // index.ts:53-67 ignores the HTTP status. A 500 from the endpoint still
     // updates the row to sent. Impact: failed deliveries are reported as sent
     // and will not be retried.
-    it.fails("BUG: an endpoint HTTP error is recorded as a failed notification", async () => {
+    it("BUG: an endpoint HTTP error is recorded as a failed notification", async () => {
       ctx.supabase.setFrom((call) => {
         if (call.table === options.notifications && call.op === "select") {
           return { data: [{ id: "n-4", channel: "slack", target: "ops", message: "x" }], error: null };
@@ -406,7 +406,7 @@ export function describeAgentQueue(options: { name: string; path: string; queue:
       expect((retry?.payload as { next_run_at: string }).next_run_at).toBeTruthy();
     });
 
-    it.fails("BUG: a forged bearer token is not treated as authenticated", async () => {
+    it("BUG: a forged bearer token is not treated as authenticated", async () => {
       const response = await ctx.edge.invoke(
         edgeRequest(options.name, "", {
           method: "POST",

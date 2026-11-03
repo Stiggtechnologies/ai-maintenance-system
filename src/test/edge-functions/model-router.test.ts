@@ -35,8 +35,13 @@ describe("model-router edge function", () => {
     vi.unstubAllGlobals();
   });
 
-  function post(body: unknown, headers?: Record<string, string>) {
-    return edge.invoke(edgeRequest("model-router", "", { body, headers }));
+  function post(body: unknown, authorization: string | null = "Bearer user-jwt") {
+    return edge.invoke(
+      edgeRequest("model-router", "", {
+        body,
+        headers: authorization ? { Authorization: authorization } : {},
+      }),
+    );
   }
 
   it("answers CORS preflight without selecting a model", async () => {
@@ -179,7 +184,7 @@ describe("model-router edge function", () => {
   // body and calls the provider with the server key. There is no Authorization
   // check. Impact: an anonymous caller can spend the LLM budget and write
   // runtime_sessions for any user id.
-  it.fails("BUG: a route without a bearer token is rejected before the provider is called", async () => {
+  it("BUG: a route without a bearer token is rejected before the provider is called", async () => {
     supabase.setRpc(() => ({
       data: [{ model_name: "gpt-4o-mini", model_provider: "openai", selection_reason: "cost" }],
       error: null,
@@ -188,8 +193,22 @@ describe("model-router edge function", () => {
       choices: [{ message: { content: "hi" } }],
       usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 },
     })));
-    const response = await post({ user_id: "user-victim", messages: [{ role: "user", content: "hi" }] });
+    const response = await post(
+      { user_id: "user-victim", messages: [{ role: "user", content: "hi" }] },
+      null,
+    );
     expect(response.status).toBe(401);
+    expect(vi.mocked(fetch)).not.toHaveBeenCalled();
+    expect(supabase.rpcCalls).toHaveLength(0);
+  });
+
+  it("does not route as a user id that is not the caller", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => jsonFetchResult({ choices: [{ message: { content: "hi" } }] })));
+    const response = await post({
+      user_id: "user-victim",
+      messages: [{ role: "user", content: "hi" }],
+    });
+    expect(response.status).toBe(403);
     expect(vi.mocked(fetch)).not.toHaveBeenCalled();
     expect(supabase.rpcCalls).toHaveLength(0);
   });

@@ -35,14 +35,20 @@ describe("marketplace-aws-webhook edge function", () => {
     edge.createClient = supabase.createClient;
     edge.env.SUPABASE_URL = edgeBaseEnv.SUPABASE_URL;
     edge.env.SUPABASE_SERVICE_ROLE_KEY = edgeBaseEnv.SUPABASE_SERVICE_ROLE_KEY;
+    edge.env.AWS_MARKETPLACE_WEBHOOK_SECRET = webhookSecret;
   });
 
   afterEach(() => {
     vi.unstubAllGlobals();
   });
 
-  function post(body: unknown, method = "POST") {
-    return edge.invoke(edgeRequest("marketplace-aws-webhook", "", { method, body }));
+  const webhookSecret = "aws-webhook-test";
+
+  function post(body: unknown, options?: { auth?: false; signature?: string }) {
+    const headers: Record<string, string> = {};
+    if (options?.auth !== false) headers.Authorization = `Bearer ${webhookSecret}`;
+    if (options?.signature) headers["x-aws-marketplace-signature"] = options.signature;
+    return edge.invoke(edgeRequest("marketplace-aws-webhook", "", { method: "POST", body, headers }));
   }
 
   it("answers CORS preflight", async () => {
@@ -145,9 +151,24 @@ describe("marketplace-aws-webhook edge function", () => {
   // POST. There is no SNS signature, shared secret, or tenant check before
   // billing_subscriptions is updated. Impact: an anonymous caller can set a
   // customer's AWS subscription to active or cancelled.
-  it.fails("BUG: a lifecycle event without a shared secret or signature is rejected", async () => {
-    const response = await post(event);
+  it("BUG: a lifecycle event without a shared secret or signature is rejected", async () => {
+    const response = await post(event, { auth: false });
     expect(response.status).toBe(401);
     expect(supabase.calls.filter((call) => call.table === "billing_subscriptions")).toHaveLength(0);
+  });
+
+  it("accepts an HMAC of the raw body when the shared secret is not sent as a bearer", async () => {
+    const { createHmac } = await import("node:crypto");
+    const raw = JSON.stringify(event);
+    const signature = createHmac("sha256", webhookSecret).update(raw).digest("hex");
+    const response = await edge.invoke(
+      edgeRequest("marketplace-aws-webhook", "", {
+        method: "POST",
+        body: raw,
+        headers: { "x-aws-marketplace-signature": signature },
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect((await readJson(response)).new_status).toBe("aws_subscribed");
   });
 });
