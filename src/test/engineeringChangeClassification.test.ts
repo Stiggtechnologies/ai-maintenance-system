@@ -17,7 +17,7 @@ import {
 } from "./support/migrationPolicies";
 
 const MIGRATION =
-  "20271105152000_recommendation_engineering_classification.sql";
+  "20271106160000_recommendation_engineering_classification.sql";
 
 const chain = migrationFiles().map((file) => ({
   file,
