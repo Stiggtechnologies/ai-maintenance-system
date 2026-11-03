@@ -816,7 +816,28 @@ try {
   const settled = await Promise.allSettled([abandoned]);
   assert.equal(settled[0].status,"rejected");
   await failureHolder.close();
-  assert.equal((await probe.query(`begin; select id from public.assets where id='${priorAsset}' for update nowait; rollback`)).at(-1),priorAsset);
+  // psql exiting is not the same instant Postgres rolls the backend back.
+  // Retry only lock_not_available, and still fail if the asset stays locked.
+  assert.equal((await probe.query(`begin;
+    do $cleanup$
+    declare v_attempt int := 0;
+    begin
+      loop
+        v_attempt := v_attempt + 1;
+        begin
+          perform 1 from public.assets where id='${priorAsset}' for update nowait;
+          exit;
+        exception when lock_not_available then
+          if v_attempt >= 30 then
+            raise exception 'interrupted asset lock was not released' using errcode='55P03';
+          end if;
+          perform pg_sleep(0.1);
+        end;
+      end loop;
+    end
+    $cleanup$;
+    select id from public.assets where id='${priorAsset}' for update nowait;
+    rollback`)).at(-1),priorAsset);
   assert.deepEqual(await state(),beforeFailure);
   console.log(`U2.08 ${phase} PASS ${new Date().toISOString()}`);
   console.log("U2.08 bounded native matrix completed; full document/source/quarantine/supersession/primary-obligation positive standing and real browser qualification remain PENDING");
