@@ -4,10 +4,10 @@ This inventory is generated deterministically from `package-lock.json` by
 `scripts/compliance/generate-license-inventory.mjs`. It is technical
 diligence evidence, not a legal opinion.
 
-- Lockfile SHA-256: `094c0411154bfb49f7f425bcf89a82cc79935015e6d87fedae65ee355554c201`
-- Package instances: **406**
+- Lockfile SHA-256: `787ffc6beec26697a36043aea1538f495b37d4b0a8a4eb6a8288dc3f35af6f59`
+- Package instances: **407**
 - Direct production dependencies: **14**
-- Direct development dependencies: **27**
+- Direct development dependencies: **28**
 - Prohibited-license matches: **0**
 - Missing license metadata: **0**
 - Machine-readable inventory: `open-source-inventory.json`
@@ -25,7 +25,7 @@ patents, trademarks, or customer distribution obligations.
 | License | Package instances | Baseline treatment |
 | --- | ---: | --- |
 | 0BSD | 1 | Permitted by automated baseline |
-| Apache-2.0 | 26 | Permitted by automated baseline |
+| Apache-2.0 | 27 | Permitted by automated baseline |
 | BlueOak-1.0.0 | 2 | Permitted by automated baseline |
 | BSD-2-Clause | 10 | Permitted by automated baseline |
 | BSD-3-Clause | 4 | Permitted by automated baseline |
@@ -41,6 +41,7 @@ patents, trademarks, or customer distribution obligations.
 
 | Package | Version | Scope | License |
 | --- | --- | --- | --- |
+| @electric-sql/pglite | 0.5.15 | development | Apache-2.0 |
 | @eslint/js | 10.0.1 | development | MIT |
 | @fontsource-variable/inter | 5.3.0 | production | OFL-1.1 |
 | @fontsource-variable/jetbrains-mono | 5.3.0 | production | OFL-1.1 |
