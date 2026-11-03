@@ -1632,10 +1632,10 @@
     "backticked": 0
   },
   "E9.11": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 1,
-    "backticked": 1
+    "citations": 8,
+    "backticked": 6
   },
   "E9.12": {
     "status": "✅",

@@ -46,6 +46,7 @@ test "$INVALID_BUDGET" = '400'
 grep -q 'budget_must_be_finite_nonnegative_and_bounded' /tmp/value-invalid-budget.txt
 
 BEFORE=$(psqlc "select count(*) from calculation_runs where organization_id='$ORG' and calculation_key in ('business_case_option_comparison','capital_plan_prioritisation');")
+SENS_BEFORE=$(psqlc "select count(*) from calculation_runs where organization_id='$ORG' and calculation_key='business_case_sensitivity';")
 APPROVALS_BEFORE=$(psqlc "select count(*) from approvals where organization_id='$ORG';")
 
 RESPONSE=$(curl -sS -w '\n%{http_code}' -X POST \
@@ -53,7 +54,7 @@ RESPONSE=$(curl -sS -w '\n%{http_code}' -X POST \
   -H "apikey: $ANON_KEY" \
   -H "authorization: Bearer $AUTHOR" \
   -H 'content-type: application/json' \
-  -d '{"action":"value_management","budget":3000000}')
+  -d '{"action":"value_management","budget":3000000,"discountRate":0.5,"breakEven":0.01,"cashFlows":[{"period":0,"amount":1}]}')
 STATUS=${RESPONSE##*$'\n'}
 BODY=${RESPONSE%$'\n'*}
 test "$STATUS" = '200'
@@ -73,16 +74,32 @@ assert x['governance'] == {
   'humanApprovalRequired': True,
   'note': 'These calculations support a decision; they do not approve a business case or authorize capital spending.'
 }, x
-ids = [x['lineage']['optionComparisonRunId'], x['lineage']['capitalPlanRunId']]
+s = x['sensitivity']
+assert s['parameter'] == 'discount_rate', s
+assert s['status'] == 'refused', s
+assert s['basis'] == 'equivalent_annual', s
+assert s['baseBest'] == 'Refurbish', s
+assert s['baseAlternative'] == 'Replace', s
+assert s['breakEven'] is None, s
+assert abs(s['baseValue'] - 0.08) < 1e-9, s
+assert s['sapActualsUsed'] is False, s
+assert 'not a confidence interval' in s['uncertainty'], s
+assert 'SAP actuals are not read' in s['uncertainty'], s
+assert 'changes sign 2 times' in s['refusal'], s
+ids = [x['lineage']['optionComparisonRunId'], x['lineage']['capitalPlanRunId'], x['lineage']['sensitivityRunId']]
 assert all(re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}', i) for i in ids), ids
 print('|'.join(ids))
 PY
 )
 OPTION_RUN=${RUNS%%|*}
-PLAN_RUN=${RUNS##*|}
+PLAN_RUN=${RUNS#*|}
+PLAN_RUN=${PLAN_RUN%%|*}
+SENS_RUN=${RUNS##*|}
 
 AFTER=$(psqlc "select count(*) from calculation_runs where organization_id='$ORG' and calculation_key in ('business_case_option_comparison','capital_plan_prioritisation');")
 test "$AFTER" -eq $((BEFORE + 2))
+SENS_AFTER=$(psqlc "select count(*) from calculation_runs where organization_id='$ORG' and calculation_key='business_case_sensitivity';")
+test "$SENS_AFTER" -eq $((SENS_BEFORE + 1))
 test "$(psqlc "select count(*) from approvals where organization_id='$ORG';")" = "$APPROVALS_BEFORE"
 
 RECORDED=$(psqlc "select string_agg(calculation_key||':'||code_version||':'||subject_type||':'||status||':'||jsonb_array_length(input_refs),',' order by calculation_key) from calculation_runs where id in ('$OPTION_RUN','$PLAN_RUN') and organization_id='$ORG' and computed_by='$ACTOR';")
@@ -90,6 +107,11 @@ case "$RECORDED" in
   *business_case_option_comparison:value-management/1/2026-12-26:business_case:computed:4*capital_plan_prioritisation:value-management/1/2026-12-26:capital_plan_year:computed:4*) ;;
   *) echo "unexpected recorded lineage: $RECORDED"; exit 1 ;;
 esac
+
+SENS_RECORDED=$(psqlc "select calculation_key||':'||code_version||':'||subject_type||':'||status from calculation_runs where id='$SENS_RUN' and organization_id='$ORG' and computed_by='$ACTOR';")
+test "$SENS_RECORDED" = "business_case_sensitivity:value-sensitivity/1/2026-11-03:business_case:computed_with_refusals"
+AUDIT=$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='calculation_run' and event_data->>'calculation_run_id'='$SENS_RUN' and event_data->>'calculation_key'='business_case_sensitivity';")
+test "$AUDIT" = "1"
 
 # A signed-in browser cannot mint a run by calling the trusted recorder. The
 # function is absent from the authenticated API surface even when its subject
