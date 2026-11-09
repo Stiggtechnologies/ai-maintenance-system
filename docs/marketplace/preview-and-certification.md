@@ -13,12 +13,16 @@ publishing while a blocking item remains open.**
 - [ ] Confirm no value was copied from archived pricing, a legacy migration,
       legacy Stripe provisioning, or the separate fixed-fee assessment.
 - [ ] Obtain legal approval for the contract/EULA approach and any amendments.
+      Partner Center currently has the Microsoft Standard Contract selected;
+      that saved selection was observed on 2026-11-01 but is not legal approval.
 - [ ] Record user-submitted tax information separately from Partner Center's
       current tax validation/assignment and payout-profile statuses.
 - [ ] Verify the commercial marketplace account, tax profile and payout profile
       are accepted for the selected markets; do not infer this from submission.
-- [ ] Publish a stable, directly addressable HTTPS privacy policy and witness it
-      in a fresh signed-out browser session.
+- [x] Reinspect the exact Partner Center privacy field and witness its saved
+      `https://syncai.ca/privacy` value rendering a dedicated Privacy Policy in
+      a fresh signed-out browser session on 2026-11-01. This proves route
+      availability only; it does not replace legal approval.
 - [ ] Confirm support and engineering contacts are named and monitored.
 - [ ] Produce, review, visually inspect and upload at least one accessible
       marketing PDF.

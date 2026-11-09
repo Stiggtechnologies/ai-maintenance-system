@@ -43,9 +43,22 @@
   "noncanonicalProjectObserved": {
     "projectName": "stigg-os-prod",
     "projectRef": "snlevbkyjipucmkpkqka",
-    "classification": "duplicate_or_legacy_not_buyer_facing",
+    "classification": "active_separate_stigg_security_operations_not_buyer_facing",
+    "projectStatus": "ACTIVE_HEALTHY",
+    "region": "ca-central-1",
     "productionUseAuthorized": false,
-    "rule": "Do not configure Marketplace policies, secrets, subscriptions or production witnesses on this project. Retain it unchanged until its unrelated workloads and retirement impact are separately inventoried."
+    "disposition": "logically_quarantined_from_syncai_marketplace",
+    "operationalInventory": {
+      "observedAt": "2026-11-01",
+      "activeEdgeFunctions": 39,
+      "edgeFunctionsWithoutJwtVerification": 15,
+      "publicTables": 115,
+      "authUsers": 9,
+      "storageObjects": 3589,
+      "activeScheduledJobs": 9,
+      "evidenceScope": "Read-only Supabase control-plane inventory plus database metadata and aggregate counts; no user, object, secret or workload payload was inspected."
+    },
+    "rule": "This is an active separate Stigg Security operations system, not a duplicate SyncAI target. Do not configure SyncAI Marketplace policies, secrets, subscriptions or production witnesses on it. Do not rename, migrate, pause or retire it without a separate owner-approved dependency and impact plan."
   },
   "releaseConsequences": {
     "canonicalTargetAmbiguityResolved": true,
@@ -61,6 +74,7 @@
     "that the exact Marketplace offer and plan policies are configured or approved",
     "that a real bound paid request used the direct-model route and settled terminal token usage",
     "that a Microsoft preview purchase has activated successfully",
-    "that the noncanonical project can be retired safely"
+    "that every external domain, connector or client depending on the separate Stigg Security operations project has been identified",
+    "that the separate Stigg Security operations project can be changed or retired without an owner-approved dependency and impact plan"
   ]
 }

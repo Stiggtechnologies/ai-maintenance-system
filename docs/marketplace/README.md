@@ -44,18 +44,19 @@ candidate sequence and release gates are controlled in
 
 ## Current publication posture
 
-| Area                    | Status                                               | What can be done now                                                                             | Remaining authority or evidence                                                                                                                          |
-| ----------------------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Starter plan            | Controlled description saved in Partner Center draft | Preserve the saved description and observed per-user pricing                                     | Account is not publish eligible; commercial boundary and runtime enforcement still require validation                                                    |
-| Professional plan       | Controlled description saved in Partner Center draft | Preserve the saved description and observed per-user pricing                                     | Same account gate; no legacy `PRO` claims or unproved tier limits may be introduced                                                                      |
-| Enterprise plan         | Controlled description saved in Partner Center draft | Preserve the saved description and observed per-user pricing                                     | Same account gate; Enterprise does not imply SSO, private hosting, certifications or an SLA                                                              |
-| Technical configuration | URLs and production upstream verified                | Keep the saved `app.syncai.ca` activation and webhook values                                     | Configure the missing `AZURE_MARKETPLACE_CLIENT_SECRET`; the other four required identifiers are present, and authenticated preview remains separate     |
-| CSP resale              | **Any partner** saved as a draft channel experiment  | Build the minimum enablement, support, pricing, and escalation controls                          | Publisher support obligations remain; narrow to specific partners if the controls cannot be staffed before release                                       |
-| Supplemental content    | No scenario saved                                    | Preserve the truthful current answer, **not hosted in Azure**, without submitting the paid offer | The protected Azure environment exists but has zero secrets; bootstrap, deploy and evidence the Azure edition or deliberately choose a listing-only path |
-| Tax and payout profile  | Tax profile complete; CAD payment profile exists     | Update the bank profile, assign it to Azure Marketplace, and complete verification               | Payment profile is **Action required**, verification is **Not started**, and Microsoft says the existing bank profile needs to be updated                |
-| Offer listing           | Capability-audited copy and caption saved in draft   | Preserve the governed condition-monitoring and reliability wording                               | Privacy/terms and collateral controls remain; listing is not public                                                                                      |
-| Preview/certification   | Checklist ready                                      | Configure preview audience and execute the checklist                                             | Requires Partner Center access, two real preview purchases and Microsoft-side evidence                                                                   |
-| Publish control         | Disabled                                             | Close every validation item, then request action-time publish approval                           | Microsoft account eligibility and incomplete required sections currently prevent submission                                                              |
+| Area                    | Status                                                                               | What can be done now                                                                                             | Remaining authority or evidence                                                                                                                                                  |
+| ----------------------- | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Starter plan            | Controlled description saved in Partner Center draft                                 | Preserve the saved description and observed per-user pricing                                                     | Account is not publish eligible; commercial boundary and runtime enforcement still require validation                                                                            |
+| Professional plan       | Controlled description saved in Partner Center draft                                 | Preserve the saved description and observed per-user pricing                                                     | Same account gate; no legacy `PRO` claims or unproved tier limits may be introduced                                                                                              |
+| Enterprise plan         | Controlled description saved in Partner Center draft                                 | Preserve the saved description and observed per-user pricing                                                     | Same account gate; Enterprise does not imply SSO, private hosting, certifications or an SLA                                                                                      |
+| Technical configuration | URLs and production upstream verified                                                | Keep the saved `app.syncai.ca` values; configure the publisher credential through the controlled deployment path | Runtime lacks `AZURE_MARKETPLACE_CLIENT_SECRET`; all five Marketplace inputs are absent from repository-scoped GitHub deployment secrets; authenticated preview remains separate |
+| CSP resale              | **Any partner** saved as a draft channel experiment                                  | Build the minimum enablement, support, pricing, and escalation controls                                          | Publisher support obligations remain; narrow to specific partners if the controls cannot be staffed before release                                                               |
+| Supplemental content    | Truthful **SaaS solution is not hosted in Azure** scenario saved                     | Preserve the saved draft without submitting the paid offer                                                       | Azure-hosted SaaS remains the queued primary architecture; current form completeness is not Azure certification or MACC eligibility                                              |
+| Tax and payout profile  | Tax profile complete; CAD payment profile exists                                     | Update the bank profile, assign it to Azure Marketplace, and complete verification                               | Payment profile is **Action required**, verification is **Not started**, and Microsoft says the existing bank profile needs to be updated                                        |
+| Offer listing           | Capability-audited copy, required logos, and one captioned screenshot saved in draft | Preserve the governed condition-monitoring and reliability wording; improve conversion assets separately         | Exact privacy route is verified; legal approval remains open; no supplemental marketing PDF was observed; listing is not public                                                  |
+| Review and submit       | All non-plan sections Complete; Submit offer and Publish disabled                    | Clear account payout eligibility, then replace and verify the three controlled flat-rate plan drafts             | Plan overview plus Starter, Professional, and Enterprise are the only Incomplete rows; all still show the superseded per-user model                                              |
+| Preview/certification   | Checklist ready                                                                      | Configure preview audience and execute the checklist                                                             | Requires Partner Center access, two real preview purchases and Microsoft-side evidence                                                                                           |
+| Publish control         | Disabled                                                                             | Close every validation item, then request action-time publish approval                                           | Microsoft account eligibility and incomplete required sections currently prevent submission                                                                                      |
 
 ## Copy-ready artifacts
 
@@ -152,11 +153,11 @@ secret value.
    SAP/Maximo/historian connectivity, private/on-premises deployment,
    autonomous control execution, Marketplace certification, MACC eligibility,
    or co-sell readiness.
-4. `https://app.syncai.ca/privacy`, `/terms`, and `/security` return the SPA
-   shell but are not dedicated path-addressable document routes in the current
-   application. They are not approved Partner Center URLs until a browser
-   witness proves the requested document loads directly in a fresh signed-out
-   session.
+4. Partner Center's exact saved `https://syncai.ca/privacy` value and the public
+   terms route were browser-witnessed in fresh signed-out sessions on
+   2026-11-01. The Properties page has the Microsoft Standard Contract selected.
+   These observations close route and saved-selection uncertainty only; obtain
+   named legal approval and an amendment decision before submission.
 5. Keep the Publish button blocked until the manifest has no `blocked` item and
    Partner Center reports every required section complete. A green repository
    check cannot replace Microsoft certification.
@@ -164,9 +165,11 @@ secret value.
    or “complete.” User submission state and Partner Center's tax/payout status
    are separate evidence fields.
 7. The Azure Marketplace payment/tax assignment was submitted on 2026-10-06.
-   Partner Center now shows tax **Complete**, the CAD payment profile **Pending
-   Microsoft validation**, and verification **Not started**. Do not reinterpret
-   submission as validation; Microsoft says processing can take up to 48 hours.
+   On 2026-11-01 Partner Center showed tax **Complete**, the CAD payment profile
+   **Action required**, and verification **Not started**. The selected payment
+   profile explicitly says its bank profile needs to be updated. Complete that
+   update and reassignment; the previous 48-hour processing window has elapsed,
+   so passive waiting is not progress.
 8. Do not publish while the live SyncAI Supabase project lacks
    `AZURE_MARKETPLACE_CLIENT_SECRET`. The verified client ID, tenant ID,
    publisher ID, and offer ID were configured on 2026-10-06; an authenticated
