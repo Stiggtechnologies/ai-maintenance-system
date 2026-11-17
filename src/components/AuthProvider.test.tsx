@@ -87,6 +87,34 @@ describe("AuthProvider session observation", () => {
     expect(screen.getByText("ready:none:none")).toBeTruthy();
   });
 
+  it("keeps the sign-in audit when a token refresh supersedes the profile read", async () => {
+    mount();
+    act(() => {
+      emit("SIGNED_IN", session);
+      emit("TOKEN_REFRESHED", session);
+      expect(mocks.audit).not.toHaveBeenCalled();
+      expect(mocks.readProfile).not.toHaveBeenCalled();
+    });
+    expect(
+      await screen.findByText("ready:signed-in-user:Signed In User"),
+    ).toBeTruthy();
+    expect(mocks.audit).toHaveBeenCalledExactlyOnceWith("sign_in", "Signed in");
+    expect(mocks.readProfile).toHaveBeenCalledOnce();
+  });
+
+  it("discards an audit pending for a session that signs out before the timer runs", async () => {
+    mount();
+    act(() => {
+      emit("SIGNED_IN", session);
+      emit("SIGNED_OUT", null);
+    });
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    expect(screen.getByText("ready:none:none")).toBeTruthy();
+    expect(mocks.audit).not.toHaveBeenCalled();
+  });
+
   it("settles a signed-out initial session and unsubscribes on unmount", () => {
     const view = mount();
     act(() => {

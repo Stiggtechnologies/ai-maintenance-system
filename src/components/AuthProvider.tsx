@@ -39,6 +39,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let revision = 0;
     let pendingProfile: ReturnType<typeof setTimeout> | undefined;
+    let pendingSignInAudit: ReturnType<typeof setTimeout> | undefined;
+    let observedUserId: string | undefined;
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, newSession) => {
@@ -48,6 +50,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(newSession?.user ?? null);
 
       const userId = newSession?.user?.id;
+      if (userId !== observedUserId) {
+        clearTimeout(pendingSignInAudit);
+        pendingSignInAudit = undefined;
+        observedUserId = userId;
+      }
       if (!userId) {
         setProfile(null);
         setLoading(false);
@@ -57,10 +64,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       // Profile and audit requests can reenter Auth through the Supabase
       // client. Start them after Auth finishes notifying its subscribers.
-      pendingProfile = setTimeout(() => {
-        if (event === "SIGNED_IN") {
+      // A same-user refresh replaces the profile read but keeps the audit.
+      if (event === "SIGNED_IN" && pendingSignInAudit === undefined) {
+        pendingSignInAudit = setTimeout(() => {
+          pendingSignInAudit = undefined;
           void recordSecurityEvent("sign_in", "Signed in");
-        }
+        }, 0);
+      }
+      pendingProfile = setTimeout(() => {
         void (async () => {
           try {
             const { data, error } = await supabase
@@ -83,6 +94,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => {
       revision++;
       clearTimeout(pendingProfile);
+      clearTimeout(pendingSignInAudit);
       subscription.unsubscribe();
     };
   }, []);
