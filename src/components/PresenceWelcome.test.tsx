@@ -1,3 +1,4 @@
+import type { useSyncRealtimeVoice } from "../hooks/useSyncRealtimeVoice";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { KpiDashboard, KpiRow } from "../services/kpiService";
@@ -127,6 +128,34 @@ beforeEach(() => {
 });
 
 describe("PresenceWelcome", () => {
+  it("canonical welcome never mounts legacy speech, vault, KPI or booth runtime", () => {
+    const start = vi.fn().mockResolvedValue(undefined);
+    const canonical = {
+      userId: "qa-user",
+      organizationId: "qa-org",
+      fullName: "Alex Example",
+      enabled: true,
+      voice: {
+        state: "idle",
+        status: "Ready",
+        welcomeOnly: false,
+        start,
+        stopWelcome: vi.fn(),
+      } as unknown as ReturnType<typeof useSyncRealtimeVoice>,
+      onOpen: vi.fn(),
+    };
+    render(<PresenceWelcome showMeetingBooth={false} canonical={canonical} />);
+    expect(screen.getByTestId("sync-assistant-welcome")).toBeInTheDocument();
+    expect(screen.queryByTestId("presence-welcome")).toBeNull();
+    expect(screen.queryByTestId("presence-booth")).toBeNull();
+    expect(speak).not.toHaveBeenCalled();
+    expect(loadVault).not.toHaveBeenCalled();
+    expect(loadDashboard).not.toHaveBeenCalled();
+    expect(start).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Play welcome" }));
+    expect(start).toHaveBeenCalledOnce();
+  });
+
   it("speaks the named Reliability Engineer welcome once per session", async () => {
     const expected = buildSpokenWelcome("Orville");
     const { unmount } = render(<PresenceWelcome />);

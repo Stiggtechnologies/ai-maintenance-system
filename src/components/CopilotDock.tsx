@@ -1,3 +1,7 @@
+import { profileOrganizationId } from "../lib/presence/vault";
+import { createPortal } from "react-dom";
+import { useSyncRealtimeVoice } from "../hooks/useSyncRealtimeVoice";
+import { PresenceWelcome } from "./PresenceWelcome";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Bot,
@@ -82,6 +86,7 @@ interface ChatMessage {
 }
 
 interface CopilotDockProps {
+  welcomeHost?: HTMLElement | null;
   currentPath?: string;
   onNavigate?: (path: string) => void;
 }
@@ -198,8 +203,10 @@ function shellClass(viewMode: ViewMode, showHistory: boolean): string {
 export function CopilotDock({
   currentPath = typeof window !== "undefined" ? window.location.pathname : "/",
   onNavigate,
+  welcomeHost,
 }: CopilotDockProps) {
-  const { profile } = useAuth();
+  const { user, profile: loadedProfile, loading: authLoading } = useAuth();
+  const profile = loadedProfile?.id === user?.id ? loadedProfile : null;
   const persona = getRolePersona(profile?.role as string);
   const syncGlobal = useFeatureFlag("sync_global_shell");
   const voiceInput = useFeatureFlag("sync_voice_input");
@@ -214,6 +221,7 @@ export function CopilotDock({
     cancel: cancelStream,
   } = useSyncStream();
   const speech = useSpeechOutput();
+  const stopSpeech = speech.stop;
 
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -242,6 +250,15 @@ export function CopilotDock({
   const activeAgentMessageRef = useRef<string | null>(null);
   const processedEventCountRef = useRef(0);
   const lastQuestionRef = useRef("");
+  const stopWelcomeRef = useRef<() => void>(() => undefined);
+  const stopVoiceRef = useRef<() => void>(() => undefined);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const syncEnabled = syncGlobal.enabled;
   const sending = legacySending || startingSync || streamStatus === "streaming";
@@ -513,7 +530,16 @@ export function CopilotDock({
       const {
         data: { session },
       } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error("Your session has expired.");
+      if (
+        !mountedRef.current ||
+        !session?.access_token ||
+        session.user.id !== user?.id ||
+        !profileOrganizationId(profile)
+      ) {
+        throw new Error(
+          "Your session has expired or changed. Start a new request.",
+        );
+      }
       activeAgentMessageRef.current = agentMessageId;
       processedEventCountRef.current = 0;
       await startStream(
@@ -530,7 +556,7 @@ export function CopilotDock({
         onEvent,
       );
     },
-    [startStream],
+    [startStream, user?.id, profile],
   );
 
   const askLegacy = useCallback(
@@ -600,6 +626,7 @@ export function CopilotDock({
       appendUser = true,
       requestContext?: { route?: string; pageSnapshot?: string },
     ): Promise<SyncVoiceQueryResult> => {
+      stopWelcomeRef.current();
       const question = rawQuestion.trim();
       if (!question) return { ok: false, error: "A question is required." };
       if (sending) {
@@ -883,23 +910,27 @@ export function CopilotDock({
 
   const newConversation = useCallback(() => {
     if (sending) return;
+    stopVoiceRef.current();
+    stopSpeech();
     setConversationId(null);
     setConversationStatus("active");
     setMessages([]);
     setPendingAttachments([]);
     setInput("");
-  }, [sending]);
+  }, [sending, stopSpeech]);
 
   const selectConversation = useCallback(
     async (id: string) => {
       if (sending) return;
+      stopVoiceRef.current();
+      stopSpeech();
       try {
         await applySnapshot(id);
       } catch {
         setAttachmentError("The selected conversation could not be loaded.");
       }
     },
-    [applySnapshot, sending],
+    [applySnapshot, sending, stopSpeech],
   );
 
   const mutateConversation = useCallback(
@@ -921,6 +952,7 @@ export function CopilotDock({
   );
 
   const startDictation = () => {
+    voice.stop();
     speech.stop();
     dictation.start();
   };
@@ -928,18 +960,78 @@ export function CopilotDock({
   const currentArchived =
     conversationId != null && conversationStatus !== "active";
 
-  const handleRealtimeActiveChange = (active: boolean) => {
-    setVoiceConversationActive(active);
-    if (active) {
-      speech.stop();
-      dictation.stop();
-    }
-  };
+  const realtimeEnabled =
+    !authLoading &&
+    Boolean(user?.id && profileOrganizationId(profile)) &&
+    !syncGlobal.loading &&
+    !voiceInput.loading &&
+    !voiceOutput.loading &&
+    syncEnabled &&
+    voiceInput.enabled &&
+    voiceOutput.enabled;
+  const voice = useSyncRealtimeVoice({
+    context: {
+      route: currentPath,
+      pageTitle: typeof document !== "undefined" ? document.title : "SyncAI",
+      mode,
+      entity: deriveEntityContext(currentPath),
+    },
+    disabled: !realtimeEnabled || sending || currentArchived,
+    onAskSync: (question) => ask(question),
+    onNavigate: (path) => {
+      if (onNavigate) onNavigate(path);
+      else window.location.assign(path);
+    },
+    onInspectPage: async (path, label) => {
+      const pageSnapshot = await waitForSyncPageSnapshot();
+      return ask(
+        `Tell me what is on the ${label} page that just opened, what needs attention, and what I can safely do here. Do not execute or approve anything.`,
+        false,
+        { route: path, pageSnapshot },
+      );
+    },
+    onActiveChange: (active) => {
+      setVoiceConversationActive(active);
+      if (active) {
+        speech.stop();
+        dictation.stop();
+      }
+    },
+  });
+  stopWelcomeRef.current = voice.stopWelcome;
+  stopVoiceRef.current = voice.stop;
+  const stopVoice = voice.stop;
+  useEffect(() => {
+    if (!realtimeEnabled) stopVoice();
+  }, [realtimeEnabled, stopVoice]);
 
   return (
     <>
+      <audio ref={voice.audioRef} autoPlay className="hidden" />
+      {welcomeHost &&
+        createPortal(
+          <PresenceWelcome
+            showMeetingBooth={false}
+            canonical={{
+              userId: user?.id ?? "",
+              organizationId: profileOrganizationId(profile) ?? "",
+              fullName: profile?.full_name,
+              enabled: realtimeEnabled,
+              voice,
+              onOpen: () => setOpen(true),
+            }}
+          />,
+          welcomeHost,
+        )}
       <button
-        onClick={() => setOpen((value) => !value)}
+        onClick={() => {
+          if (open) {
+            voice.stop();
+            speech.stop();
+            dictation.stop();
+          }
+          setOpen(!open);
+        }}
         aria-label={
           open ? "Close Sync" : `Open ${syncEnabled ? "Sync" : persona.title}`
         }
@@ -1094,31 +1186,8 @@ export function CopilotDock({
 
             {syncEnabled && voiceInput.enabled && voiceOutput.enabled ? (
               <SyncRealtimeVoicePanel
-                context={{
-                  route: currentPath,
-                  pageTitle:
-                    typeof document !== "undefined" ? document.title : "SyncAI",
-                  mode,
-                  entity: deriveEntityContext(currentPath),
-                }}
-                disabled={sending || currentArchived}
-                onAskSync={(question) => ask(question)}
-                onNavigate={(path) => {
-                  if (onNavigate) onNavigate(path);
-                  else window.location.assign(path);
-                }}
-                onInspectPage={async (path, label) => {
-                  const pageSnapshot = await waitForSyncPageSnapshot();
-                  return ask(
-                    `Tell me what is on the ${label} page that just opened, what needs attention, and what I can safely do here. Do not execute or approve anything.`,
-                    false,
-                    {
-                      route: path,
-                      pageSnapshot,
-                    },
-                  );
-                }}
-                onActiveChange={handleRealtimeActiveChange}
+                voice={voice}
+                disabled={!realtimeEnabled || sending || currentArchived}
               />
             ) : null}
 

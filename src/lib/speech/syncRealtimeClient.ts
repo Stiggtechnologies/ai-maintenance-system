@@ -67,6 +67,7 @@ export class SyncRealtimeError extends Error {
 export async function requestSyncRealtimeSession(
   sdp: string,
   context: SyncRealtimeContext,
+  signal?: AbortSignal,
 ): Promise<SyncRealtimeSessionResponse> {
   const { data, error } = await supabase.auth.getSession();
   const token = error ? null : data.session?.access_token;
@@ -83,7 +84,12 @@ export async function requestSyncRealtimeSession(
         "Content-Type": "application/json",
       },
       body: JSON.stringify({ sdp, context }),
-      signal: AbortSignal.timeout(SYNC_REALTIME_TIMEOUT_MS),
+      signal: signal
+        ? AbortSignal.any([
+            signal,
+            AbortSignal.timeout(SYNC_REALTIME_TIMEOUT_MS),
+          ])
+        : AbortSignal.timeout(SYNC_REALTIME_TIMEOUT_MS),
     },
   );
   const payload = (await response.json().catch(() => ({}))) as {

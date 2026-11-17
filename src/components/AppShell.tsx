@@ -1,3 +1,4 @@
+import { profileOrganizationId } from "../lib/presence/vault";
 import { useState, useEffect, useRef } from "react";
 import { useMediaQuery } from "../lib/useMediaQuery";
 import { trackUiEvent } from "../services/uiEvents";
@@ -43,7 +44,6 @@ import { motion, AnimatePresence } from "framer-motion";
 import { BrandWordmark } from "./BrandWordmark";
 import { CommandSearch } from "./CommandSearch";
 import { CopilotDock } from "./CopilotDock";
-import { PresenceWelcome } from "./PresenceWelcome";
 import { useAuth } from "./AuthProvider";
 import { isNavItemVisible } from "../lib/roleNavigation";
 import { OperatingSiteScopeContext } from "./sync-context/OperatingSiteScope";
@@ -302,6 +302,7 @@ const navGroups: NavGroup[] = [
 
 export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
   const { user, profile } = useAuth();
+  const [welcomeHost, setWelcomeHost] = useState<HTMLDivElement | null>(null);
   const profileOrg =
     profile &&
     "organization_id" in profile &&
@@ -889,7 +890,7 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
           </div>
         </header>
 
-        <PresenceWelcome showMeetingBooth={false} />
+        <div id="sync-assistant-welcome" ref={setWelcomeHost} />
 
         {/* Page Content */}
         <main
@@ -986,7 +987,12 @@ export function AppShell({ children, currentPath, onNavigate }: AppShellProps) {
       </nav>
 
       {/* Command Search */}
-      <CopilotDock currentPath={currentPath} onNavigate={onNavigate} />
+      <CopilotDock
+        key={`${user?.id ?? "signed-out"}:${(profile?.id === user?.id ? profileOrganizationId(profile) : "") ?? ""}`}
+        currentPath={currentPath}
+        onNavigate={onNavigate}
+        welcomeHost={welcomeHost}
+      />
       <CommandSearch
         open={commandSearchOpen}
         role={appRole}
