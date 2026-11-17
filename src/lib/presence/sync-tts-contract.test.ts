@@ -43,6 +43,33 @@ describe("sync-tts deploy and honesty contract", () => {
     expect(core).not.toMatch(/backtalk|fullstack-agent|kokoro/i);
   });
 
+  it("meters speech before the provider call and does not touch commercial plan policy", () => {
+    const fn = read("supabase/functions/sync-tts/index.ts");
+    const core = read("supabase/functions/_shared/sync-tts-core.ts");
+    const meteredAt = fn.indexOf("await runMeteredSyncTts");
+    expect(meteredAt).toBeGreaterThan(-1);
+    expect(fn.indexOf("tts_usage_unavailable")).toBeLessThan(meteredAt);
+    expect(fn.indexOf("organization_required")).toBeLessThan(meteredAt);
+    expect(fn.lastIndexOf("synthesizeOpenAiSpeech")).toBeGreaterThan(meteredAt);
+    expect(fn).toContain('from("user_profiles")');
+    expect(fn).toContain("SUPABASE_SERVICE_ROLE_KEY");
+    expect(core.indexOf('input.rpc("reserve_sync_tts_usage"')).toBeLessThan(
+      core.indexOf("input.synthesize("),
+    );
+    expect(core.indexOf("input.synthesize(")).toBeLessThan(
+      core.indexOf('input.rpc("settle_sync_tts_usage"'),
+    );
+    expect(core).toContain("tts_usage_record_failed");
+    expect(core).toContain("user_rate_limit_exceeded");
+    expect(core).toContain("org_daily_character_quota_exceeded");
+    for (const source of [fn, core]) {
+      expect(source).not.toContain("configure_ai_commercial_plan_policy");
+      expect(source).not.toContain("approve_ai_commercial_plan_policy");
+      expect(source).not.toContain("check_llm_commercial_quota");
+      expect(source).not.toContain("check_llm_quota");
+    }
+  });
+
   it("wires Meet Sync presence through useSpeechOutput without claiming premium when fallback", () => {
     const welcome = read("src/components/PresenceWelcome.tsx");
     const booth = read("src/components/PresenceBoothConversation.tsx");

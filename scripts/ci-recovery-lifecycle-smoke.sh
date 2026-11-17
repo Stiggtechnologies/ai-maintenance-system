@@ -15,6 +15,7 @@ WO1='9b000000-0000-0000-0000-000000000001'
 WO2='9b000000-0000-0000-0000-000000000002'
 SCHED='9c000000-0000-0000-0000-000000000001'
 MANAGER_UID='00000000-0000-0000-0000-000000000003'
+TECH_UID='00000000-0000-0000-0000-000000000005'
 
 json_field() {
   local field="$1"
@@ -26,8 +27,8 @@ assert_no_error() {
   BODY="$body" python3 - <<'PY'
 import json, os, sys
 body=json.loads(os.environ['BODY'])
-if isinstance(body, dict) and body.get('error'):
-    print('unexpected Recovery error:', body['error'])
+if isinstance(body, dict) and (body.get('error') or body.get('message') or body.get('code')):
+    print('unexpected Recovery error:', body)
     sys.exit(1)
 PY
 }
@@ -211,6 +212,8 @@ PY
 # Operations records the physical isolation. Both WOs share this asset release.
 ER=$(rpc "$OPS" release_equipment "{\"p_asset_id\":\"$ASSET\",\"p_work_order_id\":null,\"p_isolation_confirmed\":true,\"p_isolation_note\":\"CI operations isolation confirmed before maintenance starts\"}")
 assert_no_error "$ER"
+RELEASE_ID=$(printf '%s' "$ER" | json_field releaseId)
+test -n "$RELEASE_ID"
 
 # The first start MUST still fail while its canonical material demand is short.
 START_BLOCKED=$(rpc "$TECH" start_restoration_work "{\"p_event_work_id\":\"$EW1\"}")
@@ -232,6 +235,8 @@ assert_no_error "$C1"; assert_no_error "$C2"
 
 RET=$(rpc "$TECH" return_equipment "{\"p_asset_id\":\"$ASSET\",\"p_note\":\"Maintenance complete; guards restored and equipment offered back to operations\"}")
 assert_no_error "$RET"
+RETURNED_RELEASE_ID=$(printf '%s' "$RET" | json_field releaseId)
+test "$RETURNED_RELEASE_ID" = "$RELEASE_ID"
 
 HANDOVER_CTX=$(rpc "$MANAGER" get_recovery_platform_context "{\"p_surface\":\"handover\",\"p_work_order_id\":null,\"p_asset_id\":\"$ASSET\"}")
 assert_no_error "$HANDOVER_CTX"
@@ -247,7 +252,28 @@ PY
 CLOSE_BLOCKED=$(rpc "$MANAGER" close_restoration_event "{\"p_event_id\":\"$EVENT\",\"p_note\":\"Attempting RTS before operations acceptance should be refused\"}")
 assert_error_contains "$CLOSE_BLOCKED" 'handover has not been accepted'
 
-ACC=$(rpc "$OPS" accept_equipment "{\"p_asset_id\":\"$ASSET\",\"p_note\":\"Operations functional check complete and equipment accepted for service\"}")
+# Return to service is no longer a free-text door. Bind the exact release to a
+# canonical independently released RTS test and verified same-asset evidence.
+RTS_EVIDENCE=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAtc "
+insert into evidence_items(organization_id,asset_id,source_system,evidence_type,description,
+  data_quality,verification_status,verified_by,verified_at,verification_method)
+values('$ORG','$ASSET','recovery-lifecycle-smoke','return_to_service_test',
+  'Signed functional check, guard restoration and protection restoration record',
+  'high','verified','$MANAGER_UID',now(),'Independent maintenance-manager evidence review')
+returning id;")
+RTS_TEST=$(PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAtc "
+insert into acceptance_tests(organization_id,test_ref,test_stage,scheduled_on,performed_on,outcome,
+  punch_items_raised,punch_items_open,witnessed_by_owner,asset_id,acceptance_criteria,
+  test_procedure_reference,tested_samples,passed_samples,evidence_item_id,performed_by,
+  release_status,released_by,released_at,release_note)
+values('$ORG','RTS-'||'$RELEASE_ID','return_to_service',current_date,current_date,'pass',
+  0,0,true,'$ASSET','All approved functional, guarding and protection-restoration criteria pass',
+  'CI-RTS-PROCEDURE',1,1,'$RTS_EVIDENCE','$TECH_UID','released','$MANAGER_UID',now(),
+  'Independent review confirmed pass evidence and zero open punch items')
+returning id;")
+test -n "$RTS_EVIDENCE"; test -n "$RTS_TEST"
+
+ACC=$(rpc "$OPS" verify_and_accept_equipment "{\"p_release_id\":\"$RELEASE_ID\",\"p_acceptance_test_id\":$RTS_TEST,\"p_note\":\"Operations reviewed the independently released test and confirmed the asset condition\"}")
 assert_no_error "$ACC"
 CLOSE=$(rpc "$MANAGER" close_restoration_event "{\"p_event_id\":\"$EVENT\",\"p_note\":\"Operations acceptance recorded; governed restoration event closed\"}")
 assert_no_error "$CLOSE"

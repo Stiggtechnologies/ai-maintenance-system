@@ -103,7 +103,7 @@ export async function getServiceContractReferences(): Promise<ServiceContractRef
   ] = await Promise.all([
     supabase.from("assets").select("id,name").order("name"),
     supabase
-      .from("asset_service_levels")
+      .from("current_asset_service_level_references")
       .select("asset_id,service_name")
       .order("service_name"),
     supabase

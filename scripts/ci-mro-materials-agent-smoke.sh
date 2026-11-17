@@ -19,6 +19,7 @@ DEMAND='c1080000-0000-4000-8000-000000000012'
 BOM='c1080000-0000-4000-8000-000000000013'
 COMPONENT='c1080000-0000-4000-8000-000000000014'
 SUBSTITUTION='c1080000-0000-4000-8000-000000000015'
+DELIVERY_EVIDENCE='c1080000-0000-4000-8000-000000000016'
 OWNER='00000000-0000-0000-0000-000000000003'
 SOURCE='c108-agent-smoke-inventory'
 
@@ -42,7 +43,8 @@ rpc() {
 
 ENGINEER=$(token demo@syncai.ca 'Demo123!@#')
 TECHNICIAN=$(token technician@syncai.ca 'Tech123!@#')
-test -n "$ENGINEER" && test -n "$TECHNICIAN"
+ADMIN=$(token admin@syncai.ca 'Admin123!@#')
+test -n "$ENGINEER" && test -n "$TECHNICIAN" && test -n "$ADMIN"
 
 PROFILE=$(psqlc "select p.id from public.agent_control_profiles p join public.ai_agents a on a.id=p.agent_id where a.organization_id='$ORG' and a.key='inventory_management' and p.status='adopted'")
 test -n "$PROFILE"
@@ -178,15 +180,38 @@ psqlc "
     approved_for_this_material=true,quoted_lead_time_days=30,
     lifecycle_status='last_time_buy',last_time_buy_date=current_date+120,
     end_of_support_date=current_date+365;
-  insert into public.supplier_deliveries(
-    organization_id,supplier_id,material_id,ordered_on,promised_on,
-    received_on,quantity,quality_outcome,note)
-  select '$ORG',$SUPPLIER,'$MATERIAL',current_date-90,current_date-60,
-    current_date-62,1,'accepted','C1.08 delivery fixture.'
-  where not exists(select 1 from public.supplier_deliveries
-    where organization_id='$ORG' and supplier_id=$SUPPLIER
-      and material_id='$MATERIAL' and note='C1.08 delivery fixture.');
 "
+
+# Supplier-commercial governance made delivery evidence a named-human act.
+# This older specialist smoke must walk the canonical writer, not seed around
+# the new guard with postgres authority.
+psqlc "
+  insert into public.evidence_items(
+    id,organization_id,source_system,evidence_type,description,
+    evidence_class,source_reference)
+  values('$DELIVERY_EVIDENCE','$ORG','$SOURCE','receiving_inspection',
+    'C1.08 verified supplier delivery and receiving inspection fixture.',
+    'INSPECTED','C108-DELIVERY-1')
+  on conflict(id) do nothing;
+" >/dev/null
+VERIFIED=$(rpc "$ADMIN" verify_evidence_item \
+  "{\"p_evidence_id\":\"$DELIVERY_EVIDENCE\",\"p_method\":\"Independent receiving-record review\",\"p_outcome\":\"verified\",\"p_note\":\"The receipt date, quantity and inspection outcome were reconciled to the retained source record.\"}")
+VERIFIED="$VERIFIED" python3 - <<'PY'
+import json,os
+value=json.loads(os.environ['VERIFIED'])
+assert not (isinstance(value,dict) and value.get('error')), value
+PY
+ORDERED_ON=$(psqlc 'select current_date-90')
+PROMISED_ON=$(psqlc 'select current_date-60')
+RECEIVED_ON=$(psqlc 'select current_date-62')
+DELIVERY=$(rpc "$ENGINEER" record_supplier_delivery \
+  "{\"p_payload\":{\"deliveryReference\":\"C108-DELIVERY-1\",\"supplierId\":\"$SUPPLIER\",\"materialId\":\"$MATERIAL\",\"evidenceItemId\":\"$DELIVERY_EVIDENCE\",\"orderedOn\":\"$ORDERED_ON\",\"promisedOn\":\"$PROMISED_ON\",\"receivedOn\":\"$RECEIVED_ON\",\"quantity\":\"1\",\"qualityOutcome\":\"accepted\",\"note\":\"C1.08 delivery fixture.\",\"basis\":\"Verified receiving evidence for the MRO specialist delivery-performance fixture.\"}}")
+DELIVERY="$DELIVERY" python3 - <<'PY'
+import json,os
+value=json.loads(os.environ['DELIVERY'])
+assert value.get('answered') is True, value
+assert value.get('deliveryReference')=='C108-DELIVERY-1', value
+PY
 
 TEMPLATE=$(psqlc "select id from public.materials where organization_id='$ORG' and is_template order by material_code limit 1")
 test -n "$TEMPLATE"

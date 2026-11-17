@@ -1,6 +1,6 @@
 # SyncAI professional services and Forward-Deployed Engineering
 
-**Controlled Partner Center source — 2026-10-03. None of the offers in this
+**Controlled Partner Center source — 2026-10-05. None of the offers in this
 document is represented as published, Microsoft-certified, purchased, delivered
 or eligible for a customer commitment benefit.** The machine-readable control
 record is
@@ -15,7 +15,7 @@ transactable professional-service offers alongside it:
 | ------------------------------------ | ------------------ | ----------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
 | Reliability Intelligence Assessment  | Assessment         | Establish what the available evidence proves, identify material gaps and prioritize a governed 90-day action plan | Customer records proceed, change, hold or stop for a proof of concept                                |
 | Industrial Decision Proof of Concept | Proof of concept   | Prove SyncAI on a bounded decision, fleet or site against agreed evidence, controls and acceptance criteria       | Customer records proceed, change, hold or stop for production deployment                             |
-| SyncAI Implementation and Scale      | Implementation     | Operationalize approved data, governed workflows and customer ownership in production                             | Customer records proceed, change, hold or stop for the next fleet, site, network or enterprise scope |
+| SyncAI Forward-Deployed Engineering  | Implementation     | Operationalize approved data, governed workflows and customer ownership in production                             | Customer records proceed, change, hold or stop for the next fleet, site, network or enterprise scope |
 
 These are not subscription tiers and do not replace the SaaS offer. Microsoft
 requires a professional service supporting third-party software to reference
@@ -64,9 +64,9 @@ obligations.
 
 ## Forward-Deployed Engineering
 
-Forward-Deployed Engineering (FDE) is the principal delivery workstream inside
-**SyncAI Implementation and Scale**. It is not a fourth adoption rung, a new
-authority model, or open-ended staff augmentation.
+**SyncAI Forward-Deployed Engineering** is the Marketplace-facing name of the
+Implementation offer. FDE is not a fourth adoption rung, a new authority model,
+or open-ended staff augmentation.
 
 A bounded FDE engagement places named SyncAI practitioners alongside the
 customer's product, reliability, maintenance, engineering, data and security
@@ -146,7 +146,7 @@ that the customer has authorized and that the product needs to operate.
 - The proof does not authorize production write-back or automatically expand a
   subscription.
 
-### SyncAI Implementation and Scale
+### SyncAI Forward-Deployed Engineering
 
 - Begins only after an approved production Expansion Decision and signed scope,
   acceptance plan, owner map, data/environment authorization and release
@@ -160,9 +160,10 @@ that the customer has authorized and that the product needs to operate.
 
 ## Partner Center operator map
 
-Create three separate **Professional service** offers. Use the exact listing
-copy, proposed IDs, keywords, plan templates and controlled statuses in the
-machine-readable record. Before submission:
+The three separate **Professional service** offers now exist as incomplete
+Partner Center drafts. Complete them using the exact listing copy, proposed IDs,
+keywords, plan templates and controlled statuses in the machine-readable
+record. Before submission:
 
 1. Record the published SyncAI SaaS Marketplace listing URL on each offer's
    Properties page.
@@ -192,7 +193,7 @@ Those are distinct evidence gates.
 | PS-001 | Supporting SyncAI SaaS listing is not yet published                                                                                                 | Direct Microsoft Marketplace listing URL and Partner Center publication state      |
 | PS-002 | Offer/plan markets, durations, template prices, terms and tax treatment require approval                                                            | Dated commercial/legal/tax decision record                                         |
 | PS-003 | The rendered PDF still needs accessibility tagging and brand/legal/claims approval; compliant logo and promotional images are not approved/uploaded | Accessibility, brand and claims review records plus Partner Center upload evidence |
-| PS-004 | Three professional-service offers are not submitted/published                                                                                       | Partner Center validation and Microsoft publication evidence per offer             |
+| PS-004 | Three professional-service drafts exist but remain incomplete and are not submitted or published                                                     | Partner Center validation and Microsoft publication evidence per offer             |
 | PS-005 | No customer-specific private-offer purchase or completed service has been witnessed                                                                 | Redacted acceptance, purchase, fulfillment and customer acceptance records         |
 
 ## Official sources

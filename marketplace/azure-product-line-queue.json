@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "asOf": "2026-11-01",
+  "owner": "SyncAI AI Operating CEO",
+  "purpose": "Keep the Azure commercial product line explicit, sequenced and evidence-gated without rewriting current production facts.",
+  "portfolioRule": "The Azure-hosted SaaS is the primary commercial architecture. The Managed Application is a distinct enterprise spin-off and must not delay the primary SaaS cutover unless a contracted buyer requires customer-tenant deployment.",
+  "products": [
+    {
+      "id": "azure_hosted_syncai_saas",
+      "displayName": "Azure-hosted SyncAI SaaS",
+      "role": "primary_commercial_version",
+      "priority": "P0",
+      "queueStatus": "in_progress_blocked_on_azure_subscription_and_data_plane_cutover",
+      "marketplacePath": "retain_and_update_the_existing_marketplace_saas_offer",
+      "customerDeploymentBoundary": "publisher_managed_multitenant_azure_environment",
+      "targetArchitecture": [
+        "Azure Container Apps",
+        "Azure Container Registry",
+        "Azure Database for PostgreSQL Flexible Server",
+        "Azure Blob Storage",
+        "Azure Key Vault",
+        "Application Insights and Log Analytics",
+        "Microsoft Entra ID",
+        "Azure OpenAI",
+        "managed identities"
+      ],
+      "implementedEvidence": [
+        "infra/azure",
+        ".github/workflows/azure-edition-infrastructure.yml",
+        ".github/workflows/deploy-azure-edition.yml",
+        "docs/azure-marketplace.md",
+        "supabase/functions/_shared/azure-openai-provider.ts",
+        "supabase/functions/_shared/azure-managed-identity.ts"
+      ],
+      "remainingGates": [
+        "obtain_or_assign_the_authorized_azure_subscription_and_scoped_resource_group",
+        "deploy_and_prove_the_existing_container_apps_identity_key_vault_observability_and_azure_openai_foundation",
+        "design_and_rehearse_the_supabase_postgresql_to_azure_database_for_postgresql_migration",
+        "move_object_and_document_storage_to_azure_blob_storage_with_tenant_and_retention_controls",
+        "prove_backup_restore_disaster_recovery_performance_security_and_cost_boundaries",
+        "execute_a_controlled_production_cutover_with_rollback_and_no_customer_evidence_loss",
+        "update_marketplace_architecture_evidence_and_complete_two_real_preview_purchases",
+        "obtain_microsoft_certification_before_any_azure_hosted_or_macc_claim"
+      ],
+      "releaseEvidenceRequired": [
+        "deployed_resource_inventory",
+        "immutable_image_and_health_witness",
+        "entra_buyer_tenant_sign_in_witness",
+        "database_and_blob_migration_reconciliation",
+        "backup_and_restore_drill",
+        "azure_openai_managed_identity_probe",
+        "customer_correlated_azure_consumption_evidence",
+        "marketplace_preview_purchase_and_lifecycle_witness"
+      ]
+    },
+    {
+      "id": "syncai_managed_application",
+      "displayName": "SyncAI Managed Application",
+      "role": "enterprise_customer_tenant_spin_off",
+      "priority": "P1",
+      "queueStatus": "queued_discovery_after_primary_saas_foundation",
+      "marketplacePath": "separate_azure_managed_application_offer_and_certification_path",
+      "customerDeploymentBoundary": "customer_azure_tenant_managed_resource_group",
+      "reuses": [
+        "governed_decision_case_workflows",
+        "azure_container_images",
+        "managed_identity_and_key_vault_patterns",
+        "azure_openai_provider",
+        "commercial_cost_and_capacity_policy",
+        "marketplace_attribution_and_buyer_journey"
+      ],
+      "discoveryGates": [
+        "validate_demand_with_enterprises_that_require_data_and_compute_in_their_own_tenant",
+        "choose_single_tenant_or_hybrid_control_plane_and_define_the_support_boundary",
+        "design_the_managed_application_package_managed_resource_group_and_publisher_access_model",
+        "define_customer_owned_postgresql_blob_key_vault_observability_and_azure_openai_dependencies",
+        "define_install_upgrade_backup_export_offboarding_and_break_glass_operations",
+        "model_azure_consumption_support_burden_marketplace_fees_and_gross_margin",
+        "complete_security_privacy_legal_and_microsoft_managed_application_certification_review"
+      ],
+      "entryCriteria": [
+        "primary_azure_saas_foundation_is_production_proven",
+        "at_least_three_qualified_enterprise_accounts_request_customer_tenant_deployment_or_one_contract_funds_it",
+        "support_and_upgrade_model_preserves_target_gross_margin",
+        "product_does_not_fragment_the_canonical_decision_approval_and_audit_model"
+      ],
+      "releaseEvidenceRequired": [
+        "clean_customer_tenant_install",
+        "least_privilege_publisher_access",
+        "upgrade_and_rollback_witness",
+        "tenant_isolation_and_data_residency_witness",
+        "customer_owned_backup_restore_and_export_witness",
+        "marketplace_purchase_deployment_uninstall_and_billing_witness"
+      ]
+    }
+  ],
+  "nextPortfolioReview": {
+    "trigger": "primary_saas_subscription_is_available_or_a_qualified_enterprise_requires_customer_tenant_deployment",
+    "decision": "revalidate_priority_scope_economics_and_offer_type_from_current_microsoft_rules_and_buyer_evidence"
+  }
+}

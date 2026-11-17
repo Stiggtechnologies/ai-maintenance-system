@@ -148,9 +148,11 @@ describe("sync-develop register", () => {
     expect(DEVELOP_SOURCE).toContain(expected);
   });
 
-  it("keeps the tally honest — a ✅ majority would mean the Develop program is done", () => {
-    const done = developRows.filter((r) => r.status === "✅").length;
-    expect(done).toBeLessThan(developRows.length);
+  it("records the controlled closure of every enumerated Develop obligation", () => {
+    // D11.29 was the final open item. Keep closure executable: any newly
+    // appended obligation must either ship green or deliberately reopen this
+    // assertion instead of leaving a 234/234 headline that no longer applies.
+    expect(developRows.filter((r) => r.status !== "✅")).toEqual([]);
   });
 });
 

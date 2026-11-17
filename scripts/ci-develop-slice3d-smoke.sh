@@ -630,14 +630,25 @@ if [ -n "$COND" ]; then
   grep -qi 'cannot be closed by the AI-operator identity' <<<"$OUT"
 fi
 
-# THE LIFECYCLE DECISION — the one RPC in the codebase that listed ai_admin on
-# the PERMISSIVE side of a decision (accepting a HIGH-uncertainty evaluation).
+# THE LIFECYCLE DECISION — AI is refused absolutely, and the now-reachable RPC
+# must also refuse ordinary human roles that do not hold the bounded lifecycle
+# decision authority. The client role check is guidance; this transcript proves
+# the database is the authority.
 ASSET=$(psqlc "select id from assets where organization_id='$ORG' limit 1")
 if [ -n "$ASSET" ]; then
   LCE=$(psqlc "insert into lifecycle_evaluations (organization_id, asset_id, recommended, uncertainty_level, rationale, inputs, options)
-               values ('$ORG','$ASSET','replace','high','SMOKE3D transcript fixture: a high-uncertainty evaluation.','{}'::jsonb,'[]'::jsonb) returning id" | head -1)
+               values ('$ORG','$ASSET','replace','moderate','SMOKE3D transcript fixture: a governed lifecycle evaluation.','{}'::jsonb,'[]'::jsonb) returning id" | head -1)
   R=$(rpc "$AIBOT" decide_lifecycle_evaluation "{\"p_id\":\"$LCE\",\"p_decision\":\"accepted\",\"p_note\":\"The AI operator accepting a high-uncertainty recommendation.\"}")
   expect_err "$R" '§70 human determination'
+  R=$(rpc "$PLANNER" decide_lifecycle_evaluation "{\"p_id\":\"$LCE\",\"p_decision\":\"accepted\",\"p_note\":\"Planner attempting to approve a major lifecycle determination.\"}")
+  expect_err "$R" 'require maintenance management, reliability engineering or executive authority'
+  R=$(rpc "$TECH" decide_lifecycle_evaluation "{\"p_id\":\"$LCE\",\"p_decision\":\"rejected\",\"p_note\":\"Technician attempting to reject a major lifecycle determination.\"}")
+  expect_err "$R" 'require maintenance management, reliability engineering or executive authority'
+  R=$(rpc "$MANAGER" decide_lifecycle_evaluation "{\"p_id\":\"$LCE\",\"p_decision\":\"accepted\",\"p_note\":\"Maintenance management accepts the recorded recommendation and its stated uncertainty.\"}")
+  noerr "$R"
+  test "$(jqp "$R" "x.get('decision')")" = 'accepted'
+  test "$(psqlc "select count(*) from lifecycle_evaluations where id='$LCE' and decision='accepted' and decided_by='$MANAGER_ID' and length(decision_note)>=10")" = '1'
+  test "$(psqlc "select count(*) from audit_events where organization_id='$ORG' and entity_type='lifecycle_decision' and event_data->>'evaluation_id'='$LCE' and event_data->>'decision'='accepted'")" = '1'
   OUT=$(sql_must_fail "begin; set local role service_role;
   update lifecycle_evaluations set decision='accepted', decided_by='$AIBOT_ID', decided_at=now() where id='$LCE';
   rollback;")

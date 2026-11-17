@@ -69,6 +69,50 @@ describe("sync-tts client", () => {
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
+  it("keeps a speech-quota refusal distinct from an outage", async () => {
+    getSession.mockResolvedValue({
+      data: { session: { access_token: "jwt-user" } },
+      error: null,
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 429,
+        headers: new Headers({ "Content-Type": "application/json" }),
+        json: async () => ({
+          error: "org_daily_character_quota_exceeded",
+          message:
+            "This organization's daily speech character allowance is used up.",
+        }),
+      }),
+    );
+    await expect(requestSyncTtsAudio("Welcome.")).rejects.toMatchObject({
+      code: "org_daily_character_quota_exceeded",
+      status: 429,
+    });
+  });
+
+  it("does not describe a usage-recording failure as a missing speech key", async () => {
+    getSession.mockResolvedValue({
+      data: { session: { access_token: "jwt-user" } },
+      error: null,
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 503,
+        headers: new Headers({ "Content-Type": "application/json" }),
+        json: async () => ({ error: "tts_usage_unavailable" }),
+      }),
+    );
+    await expect(requestSyncTtsAudio("Welcome.")).rejects.toMatchObject({
+      code: "tts_usage_unavailable",
+      status: 503,
+    });
+  });
+
   it("maps a missing-key 503 to cloud_tts_unconfigured", async () => {
     getSession.mockResolvedValue({
       data: { session: { access_token: "jwt-user" } },

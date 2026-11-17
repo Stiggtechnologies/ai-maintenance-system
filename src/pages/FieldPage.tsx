@@ -2,9 +2,24 @@
  * Field — same conversation primitive as Decision Workspace.
  * First paint is the composer. Camera and QR attach to this turn.
  * A filed report is a user turn, not a landing list or /assets hop.
+ *
+ * Hands-free mode (/field?mode=hands-free) is the same page for head-worn
+ * devices and gloved use: every tool is a large button with a visible text
+ * label (RealWear voice control taps a button by saying its label), voice
+ * dictation fills the report, and short spoken commands send, clear or set
+ * the report type. Every send ends with a SyncAI turn saying whether a
+ * notification was filed, and why not when it was not.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Camera, Paperclip, QrCode, Send, X as XIcon } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
+import { Camera, Mic, Paperclip, QrCode, Send, X as XIcon } from "lucide-react";
+import { useDictation } from "../hooks/useDictation";
+import {
+  fieldFilingOutcome,
+  filedMessage,
+  parseFieldVoice,
+  type FieldNotificationType,
+} from "../lib/field/handsFree";
 import {
   listRecentFieldReports,
   type FieldReport,
@@ -38,7 +53,18 @@ function timestamp(value: string) {
   }).format(new Date(value));
 }
 
+const NOTIFICATION_TYPES: FieldNotificationType[] = [
+  "fault",
+  "observation",
+  "safety",
+];
+
 export function FieldPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const handsFree = searchParams.get("mode") === "hands-free";
+  const [notificationType, setNotificationType] =
+    useState<FieldNotificationType>("observation");
+  const [voiceSend, setVoiceSend] = useState(false);
   const [turns, setTurns] = useState<FieldTurn[]>([]);
   const [composer, setComposer] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
@@ -110,25 +136,77 @@ export function FieldPage() {
     setPhoto(null);
     setAssetChip(null);
 
-    if (sentAsset && /^[0-9a-f-]{16,}$/i.test(sentAsset) && text) {
+    const outcome = fieldFilingOutcome({ asset: sentAsset, text });
+    let status: string;
+    if (!outcome.fileable) {
+      status = outcome.reason;
+    } else {
       try {
-        await reportFailure({
-          assetId: sentAsset,
+        const result = await reportFailure({
+          assetId: sentAsset as string,
           description: text,
-          notificationType: "observation",
+          notificationType,
           photo: sentPhoto ?? undefined,
         });
+        status = filedMessage({
+          notificationId: result.notificationId,
+          type: notificationType,
+          withPhoto: Boolean(result.photoPath),
+        });
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Report was not filed");
+        const message = e instanceof Error ? e.message : "Report was not filed";
+        setError(message);
+        status = `Not filed: ${message}`;
       }
     }
+    setTurns((current) => [
+      ...current,
+      {
+        id: `field-status-${Date.now()}`,
+        role: "system",
+        text: status,
+        createdAt: new Date().toISOString(),
+      },
+    ]);
     setSending(false);
   };
 
+  const dictation = useDictation((spoken) => {
+    const action = parseFieldVoice(spoken);
+    if (action.kind === "send") setVoiceSend(true);
+    else if (action.kind === "clear") {
+      setComposer("");
+      setPhoto(null);
+      setAssetChip(null);
+    } else if (action.kind === "set-type") setNotificationType(action.value);
+    else
+      setComposer((current) =>
+        current.trim() ? `${current.trim()} ${action.text}` : action.text,
+      );
+  });
+
+  useEffect(() => {
+    if (!voiceSend) return;
+    setVoiceSend(false);
+    void send();
+    // send reads the latest composer state on this render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [voiceSend]);
+
+  const toggleMode = () => {
+    const next = new URLSearchParams(searchParams);
+    if (handsFree) next.delete("mode");
+    else next.set("mode", "hands-free");
+    setSearchParams(next, { replace: true });
+  };
+
+  const showTools = handsFree || turns.length > 0;
+
   return (
     <div
-      className="decision-workspace field-workspace"
+      className={`decision-workspace field-workspace${handsFree ? " is-hands-free" : ""}`}
       data-layout="chat-first"
+      data-mode={handsFree ? "hands-free" : "standard"}
     >
       <header className="dw-topbar">
         <div className="dw-topbar-side" />
@@ -137,7 +215,16 @@ export function FieldPage() {
             <span className="dw-case-name">Field observation</span>
           )}
         </div>
-        <div className="dw-topbar-side is-end" />
+        <div className="dw-topbar-side is-end">
+          <button
+            type="button"
+            className="field-mode-toggle"
+            onClick={toggleMode}
+            aria-pressed={handsFree}
+          >
+            {handsFree ? "Standard view" : "Hands-free"}
+          </button>
+        </div>
       </header>
       <div className="dw-layout">
         <main className="dw-main">
@@ -219,6 +306,70 @@ export function FieldPage() {
                 {error}
               </div>
             )}
+            {handsFree && (
+              <div
+                className="field-handsfree-bar"
+                role="toolbar"
+                aria-label="Hands-free tools"
+              >
+                <button
+                  type="button"
+                  className={dictation.listening ? "is-live" : undefined}
+                  disabled={!dictation.supported}
+                  onClick={() =>
+                    dictation.listening ? dictation.stop() : dictation.start()
+                  }
+                >
+                  <Mic size={20} />
+                  {dictation.supported
+                    ? dictation.listening
+                      ? "Stop listening"
+                      : "Speak"
+                    : "Voice not available in this browser"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => photoRef.current?.click()}
+                >
+                  <Camera size={20} />
+                  Take photo
+                </button>
+                <button type="button" onClick={() => setQrOpen((v) => !v)}>
+                  <QrCode size={20} />
+                  Enter asset
+                </button>
+                {NOTIFICATION_TYPES.map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    aria-pressed={notificationType === type}
+                    onClick={() => setNotificationType(type)}
+                  >
+                    {type[0].toUpperCase() + type.slice(1)}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  className="is-primary"
+                  disabled={(!composer.trim() && !photo && !assetChip) || sending}
+                  onClick={() => void send()}
+                >
+                  <Send size={20} />
+                  Send report
+                </button>
+                {dictation.error && (
+                  <p className="field-handsfree-note" role="status">
+                    {dictation.error}
+                  </p>
+                )}
+                {dictation.listening && (
+                  <p className="field-handsfree-note">
+                    Listening. Say what you see, or say “send report”, “clear”,
+                    “fault”, “observation” or “safety”.
+                  </p>
+                )}
+              </div>
+            )}
             {qrOpen && (
               <div className="dw-qr-tool">
                 <input
@@ -233,7 +384,7 @@ export function FieldPage() {
               </div>
             )}
             <div className="dw-composer">
-              {turns.length > 0 && (
+              {showTools && (
                 <>
                   <input
                     ref={photoRef}

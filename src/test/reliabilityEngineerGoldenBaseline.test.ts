@@ -73,7 +73,7 @@ describe("RE-2026.08 golden baseline", () => {
     });
 
     expect(suite.baselineId).toBe("RE-2026.08");
-    expect(RELIABILITY_PROMPT_VERSION).toBe("syncai-reliability-engineer-v4");
+    expect(RELIABILITY_PROMPT_VERSION).toBe("syncai-reliability-engineer-v5");
     expect(prompt).toContain("ANSWER THE USER'S SPECIFIC QUESTION");
     expect(prompt).toContain("Separate verified facts");
     expect(prompt).toContain(

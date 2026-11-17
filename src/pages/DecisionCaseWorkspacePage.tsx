@@ -166,6 +166,17 @@ function getContext(params: URLSearchParams): DecisionJourneyContext {
   };
 }
 
+function getPublicEntryAttribution(
+  params: URLSearchParams,
+): Record<string, string> {
+  const attribution: Record<string, string> = {};
+  for (const key of ["entry", "source", "campaign", "variant"] as const) {
+    const value = params.get(key)?.trim().slice(0, 120);
+    if (value) attribution[key] = value;
+  }
+  return attribution;
+}
+
 function storageForMode(publicMode: boolean): Storage {
   return publicMode ? window.sessionStorage : window.localStorage;
 }
@@ -269,6 +280,10 @@ export function DecisionCaseWorkspacePage({
   const location = useLocation();
   const signInHref = `/signin?returnTo=${encodeURIComponent(`${location.pathname}${location.search}`)}`;
   const context = useMemo(() => getContext(params), [params]);
+  const publicEntryAttribution = useMemo(
+    () => getPublicEntryAttribution(params),
+    [params],
+  );
   const auth = useOptionalAuth();
   const journeyTheme = usePublicJourneyTheme();
   const orgSession = Boolean(auth?.user);
@@ -344,7 +359,9 @@ export function DecisionCaseWorkspacePage({
       (routedPublicIntent || (caseId && isSeedDecisionCaseId(caseId))),
     ),
   );
+  const persistedCaseSnapshot = useRef("");
   const suppressRoutedIntent = useRef(false);
+  const trackedPublicEntry = useRef("");
   const active =
     cases.find((item) => item.id === selectedId) ??
     cases.find((item) => !isSeedDecisionCaseId(item.id)) ??
@@ -354,6 +371,21 @@ export function DecisionCaseWorkspacePage({
   const composerScope = askBinding.bound
     ? classifyDecisionQuestionScope(active, composer)
     : "provisional_new_subject";
+
+  useEffect(() => {
+    if (!publicMode) return;
+    const fingerprint = JSON.stringify({
+      intent: routedPublicIntent?.id ?? "open-ask",
+      ...publicEntryAttribution,
+    });
+    if (trackedPublicEntry.current === fingerprint) return;
+    trackedPublicEntry.current = fingerprint;
+    trackDecisionWorkspaceEvent("public_entry_viewed", {
+      intent: routedPublicIntent?.id ?? "open-ask",
+      industry,
+      ...publicEntryAttribution,
+    });
+  }, [industry, publicEntryAttribution, publicMode, routedPublicIntent?.id]);
 
   const updateCase = (change: (current: DecisionCase) => DecisionCase) => {
     setCases((current) =>
@@ -422,6 +454,7 @@ export function DecisionCaseWorkspacePage({
     void loadPersistedDecisionCase(activeId)
       .then((saved) => {
         if (!cancelled && saved) {
+          persistedCaseSnapshot.current = JSON.stringify(saved);
           setCases((current) =>
             current.map((item) => (item.id === saved.id ? saved : item)),
           );
@@ -434,9 +467,20 @@ export function DecisionCaseWorkspacePage({
   }, [activeId, publicMode]);
   useEffect(() => {
     if (publicMode || !isPersistedDecisionCase(active.id)) return;
+    const snapshot = JSON.stringify(active);
+    if (snapshot === persistedCaseSnapshot.current) return;
     const timer = window.setTimeout(() => {
-      void savePersistedDecisionCase(active).catch(() =>
-        setNotice("Changes are safe on this device; cloud sync is pending."),
+      void savePersistedDecisionCase(active).then(
+        (saved) => {
+          persistedCaseSnapshot.current = JSON.stringify(saved);
+          setCases((current) =>
+            current.map((item) => (item.id === saved.id ? saved : item)),
+          );
+        },
+        () =>
+          setNotice(
+            "Cloud sync did not complete. Reload the canonical case before retrying.",
+          ),
       );
     }, 700);
     return () => window.clearTimeout(timer);
@@ -624,6 +668,7 @@ export function DecisionCaseWorkspacePage({
     trackDecisionWorkspaceEvent("public_capability_opened", {
       intent: intent.id,
       module: intent.module,
+      ...publicEntryAttribution,
     });
   };
 
@@ -663,6 +708,7 @@ export function DecisionCaseWorkspacePage({
     if (!publicMode) {
       try {
         const persisted = await createPersistedDecisionCase(next, context);
+        persistedCaseSnapshot.current = JSON.stringify(persisted);
         setCases((current) =>
           current.map((item) => (item.id === next.id ? persisted : item)),
         );
@@ -755,6 +801,15 @@ export function DecisionCaseWorkspacePage({
       publicMode ? ASK_PLACEHOLDER : "Ask a reliability question…",
     );
     setReplying(true);
+    if (publicMode) {
+      trackDecisionWorkspaceEvent("public_question_submitted", {
+        intent: publicIntent?.id ?? routedPublicIntent?.id ?? "open-ask",
+        industry,
+        hasAttachment: Boolean(attachment),
+        hasPhoto: Boolean(photo),
+        ...publicEntryAttribution,
+      });
+    }
     try {
       const response = await askDecisionCase(requestCase, text, {
         publicMode,
@@ -868,6 +923,8 @@ export function DecisionCaseWorkspacePage({
       trackDecisionWorkspaceEvent("industry_value_proof_completed", {
         industry,
         caseNumber: active.caseNumber,
+        intent: publicIntent?.id ?? routedPublicIntent?.id ?? "open-ask",
+        ...publicEntryAttribution,
       });
     }
     updateCase((current) => ({
@@ -2652,7 +2709,7 @@ function UsageModal({
               <Sparkles size={18} />
               <strong>Start your first decision</strong>
               <small>
-                Use your own question and evidence in the guided evaluation.
+                Use your own question and evidence in the self-serve evaluation.
               </small>
               <em>Recommended next step</em>
             </a>

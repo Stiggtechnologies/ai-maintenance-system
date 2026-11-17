@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 1,
+  "asOf": "2026-10-06",
+  "channel": "salesforce_appexchange",
+  "status": "portal_entry_draft_only",
+  "submissionAuthorized": false,
+  "publicationAuthorized": false,
+  "transactionReady": false,
+  "installableAppReady": false,
+  "sourceOfTruth": {
+    "productEntries": "src/lib/product-entry-paths.ts",
+    "claims": "docs/enterprise-readiness/claims-and-evidence-register.md",
+    "channelReadiness": "marketplace/channel-readiness.json"
+  },
+  "recommendedFirstSurface": {
+    "type": "consulting_service_visibility_listing",
+    "rationale": "The repository supports a bounded Reliability Intelligence Assessment and customer-specific integration work, but does not evidence a Salesforce package. A gated consulting-service listing can test discovery without representing an installable app.",
+    "commercialBoundary": "This surface is a lead and qualification path, not AppExchange software checkout, package installation, entitlement, or proof of Salesforce partner approval.",
+    "eligibilityGate": "Confirm the correct Salesforce consulting-partner relationship and obtain Manage Listings permission before entering or saving the draft."
+  },
+  "listing": {
+    "title": "SyncAI Industrial Reliability Decision Services",
+    "tagline": "Turn asset, maintenance, and operating evidence into governed reliability decisions and bounded implementation plans.",
+    "description": "SyncAI works with industrial asset teams to frame an urgent reliability question, map the available evidence, produce a bounded recommendation, retain human engineering authority, and define how the result will be verified. Engagements can begin with a fixed-scope Reliability Intelligence Assessment and progress only through named customer go, change, hold, or stop decisions. The underlying SyncAI workspace supports condition monitoring, FRACAS and failure analysis, asset onboarding, maintenance decisions, recovery coordination, and auditable decision cases. Salesforce integration is customer-specific and subject to solution design, permissions, testing, and acceptance; this listing does not represent an installable Salesforce package or an approved production connector. No savings, uptime, failure-avoidance, accuracy, certification, or ROI result is guaranteed.",
+    "learnMoreMode": "gated_in_publishing_console",
+    "learnMoreUrl": "https://syncai.ca/reliability-assessment",
+    "supportEmail": "support@syncai.ca",
+    "expertiseCategories": {
+      "status": "owner_select_from_current_portal_taxonomy",
+      "rule": "Select only categories supported by the bounded assessment and customer-specific implementation scope."
+    },
+    "assets": {
+      "tile224x164Png": null,
+      "icon60x60Png": null,
+      "screenshots700x467": [],
+      "action": "Approve channel-compliant, non-confidential assets after claims and accessibility review."
+    }
+  },
+  "acquisitionExperiments": [
+    {
+      "entry": "failure-investigation",
+      "priority": "primary",
+      "headline": "Build a defensible plan to reduce recurring unplanned downtime",
+      "buyerQuestion": "Why does this asset keep stopping, and what should we do next?",
+      "claimsBoundary": "SyncAI does not guarantee downtime elimination or claim a root cause that the supplied evidence cannot establish.",
+      "attributedDestination": "https://app.syncai.ca/solutions/failure-investigation?source=salesforce-appexchange&campaign=service-listing&variant=failure-investigation"
+    },
+    {
+      "entry": "recovery-coordination",
+      "priority": "primary",
+      "headline": "Remove hidden blockers from downtime recovery decisions",
+      "buyerQuestion": "How do we return this asset to stable service without hidden blockers or unsafe shortcuts?",
+      "claimsBoundary": "SyncAI cannot self-release work, clear isolations, accept return to service, or invent missing duration and readiness evidence.",
+      "attributedDestination": "https://app.syncai.ca/solutions/recovery-coordination?source=salesforce-appexchange&campaign=service-listing&variant=recovery-coordination"
+    },
+    {
+      "entry": "maintenance-cost-reduction",
+      "priority": "secondary",
+      "headline": "Prioritize maintenance-cost opportunities with evidence and approval gates",
+      "buyerQuestion": "Which maintenance work is avoidable, mistimed, or failing to prevent downtime?",
+      "claimsBoundary": "No interval is adopted automatically; accountable engineering authority retains the decision.",
+      "attributedDestination": "https://app.syncai.ca/solutions/maintenance-cost-reduction?source=salesforce-appexchange&campaign=service-listing&variant=maintenance-cost-reduction"
+    }
+  ],
+  "futureManagedPackage": {
+    "status": "not_ready",
+    "listingCopyAuthorized": false,
+    "requiredBeforeDraftingAsAnApp": [
+      "Salesforce DX package source and architecture review",
+      "Released package version connected to the publisher account",
+      "Least-privilege permission and data-flow design",
+      "Production backend schema and authenticated license or entitlement integration",
+      "Security review submission and approval",
+      "Installation, upgrade, uninstall, license-event, and tenant-isolation witnesses",
+      "Owner-approved pricing, support, terms, privacy, and customer-success lifecycle"
+    ]
+  },
+  "releaseGates": [
+    "Correct Salesforce partner relationship and Manage Listings permission",
+    "Lead routing, response ownership, privacy notice, terms, and support process",
+    "Approved gated Learn More configuration",
+    "Claims-reviewed tile, icon, screenshots, and listing copy",
+    "Portal preview and lead-delivery witness",
+    "Separate owner authorization before launching the service listing"
+  ]
+}

@@ -1,0 +1,631 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+
+const unitEconomics = JSON.parse(
+  readFileSync("marketplace/ai-unit-economics.json", "utf8"),
+) as {
+  commercialCompatibility: {
+    automaticMeteredOverageAtLaunch: boolean;
+    currentDraftCompatibleWithImplementedMeter: boolean;
+    futureMeteringCompatibilityPreserved: boolean;
+    microsoftMeteringSupportedForPerUser: boolean;
+    partnerCenterMutationAuthorized: boolean;
+    selectedCoreSaasArchitecture: string;
+  };
+  economicsModel: {
+    commercialAllowanceApproved: boolean;
+    currentGranularity: string;
+    perDecisionCostAvailable: boolean;
+    perDecisionCostCoverage: string;
+  };
+  implemented: {
+    commercialPlanPolicy: {
+      seededCommercialValues: boolean;
+      status: string;
+    };
+    commercialPlanToQuotaBinding: {
+      azureMarketplaceActivationFailsClosedWithoutApprovedPolicy: boolean;
+      directFlatRatePoliciesBindExistingActiveSubscriptionsWhenApproved: boolean;
+      directPerUserQuantityBackedBinding: string;
+      directSubscriptionActivationFailsClosedWithoutApprovedPolicy: boolean;
+      flatRateAllowanceIgnoresMarketplaceSeatQuantity: boolean;
+      perUserActivationFailsClosedWithoutQuantity: boolean;
+      perUserAllowanceScalesWithAuthoritativeMarketplaceQuantity: boolean;
+      status: string;
+    };
+    grossMarginReleaseGate: {
+      isTotalCompanyGrossMarginModel: boolean;
+      status: string;
+    };
+    organizationQuota: {
+      defaultCapsAreCommercialEntitlements: boolean;
+      defaultMaxCallsPerUtcDay: number;
+      defaultMaxTokensPerUtcDay: number;
+    };
+    paidCommercialProviderRoute: {
+      commercialBindingSignal: string;
+      crossModelSafetyFallbackAllowedForBoundPaidPlan: boolean;
+      externalGatewayAllowedForBoundPaidPlan: boolean;
+      gpt56ImplicitCacheWritesAllowed: boolean;
+      gpt56PromptCacheMode: string;
+      noExactDirectRouteBehavior: string;
+      nonStandardObservedTierBehavior: string;
+      requiredProviderBaseUrl: string;
+      requiredProviderName: string;
+      requiredObservedResponseServiceTier: string;
+      requiredRequestServiceTier: string;
+      requiresExactRequestedModel: boolean;
+      source: string;
+      status: string;
+      standardRateEnvelope: {
+        framingTokenAllowance: number;
+        gpt4oMiniContextWindowTokens: number;
+        gpt56TerraAndLunaLongContextInputThresholdTokens: number;
+        maximumOutputTokens: number;
+        maximumUtf8BytePlusOutputAndFramingUpperBound: number;
+        overLimitBehavior: string;
+        reservationUsesSameConservativeUpperBound: boolean;
+        sourceEvidence: string[];
+        status: string;
+      };
+      unboundEngineeringTrafficRetainsGatewayResilience: boolean;
+    };
+    protectedReliabilityEngineerCommercialBoundary: {
+      databaseRefusal: string;
+      paidPackageReleaseBlocked: boolean;
+      paidProviderContactAllowed: boolean;
+      qualificationBaselinePreserved: boolean;
+      runtime: string;
+      status: string;
+    };
+    paidRealtime: {
+      status: string;
+      unmeasuredPaidUsageAllowed: boolean;
+    };
+    productionCogsReporting: { status: string };
+  };
+  observedProductionConfiguration: {
+    allConfiguredGatewayOutcomesPricedAndApproved: boolean;
+    currentFirstProviderClass: string;
+    currentRouteCompatibleWithProposedPolicy: boolean;
+    defaultCommercialRequestedModel: string;
+    defaultCommercialRequestedModelLifecycle: { status: string };
+    releaseCandidateDefaultCommercialModel: string;
+    releaseCandidateDefaultModelMigration: { status: string };
+    defaultGatewayRequestedAlias: string;
+    directProviderConfigurationNamePresent: string;
+    gatewayModelEvidence: {
+      configuredContextWindowFallbacks: string[];
+      configuredFallbacks: string[];
+      configuredPrimary: string;
+      exactDeployedMappingEvidenced: boolean;
+      requestedAlias: string;
+      responseModelContract: string;
+      scope: string;
+    };
+    gatewayConfigurationNamesPresent: string[];
+    gatewayCostScheduleEvidenced: boolean;
+    modelOverrideConfigurationNamesChecked: string[];
+    modelOverrideConfigurationNamesPresent: string[];
+    proposedAllowedModels: string[];
+    providerCostMultiplierOneReleaseEligible: boolean;
+    releaseCandidateDeployed: boolean;
+    releaseCandidateRuntimeWitnessed: boolean;
+    releaseCandidateDeploymentEvidence: {
+      canonicalProjectRef: string;
+      deployedHead: string;
+      result: string;
+      workflowRunId: string;
+    };
+    releaseCandidatePinsBoundPaidPlansToExactDirectModel: boolean;
+    requestedAndGatewayModelIdentityMatch: boolean;
+    secretValuesInspected: boolean;
+    sharedProviderChainOrderWhenConfigured: string[];
+  };
+  pending: {
+    approvedCommercialPolicy: { status: string };
+    directChannelActivationGate: { status: string };
+    productionMeasurementEvidence: { status: string };
+    providerAndPricingTierEvidence: { reason: string; status: string };
+    realtimeUsageSettlement: { status: string };
+  };
+};
+
+const enrichmentRunbook = readFileSync("docs/llm-enrichment.md", "utf8");
+
+const manifest = JSON.parse(
+  readFileSync("marketplace/partner-center-manifest.json", "utf8"),
+) as {
+  blockingActions: Array<{
+    action: string;
+    id: string;
+    status: string;
+  }>;
+  commercialBenchmark: {
+    benchmarkRoles: Record<string, string[]>;
+    expansionPlanningBands: Array<{
+      maximumArrUsd: number | null;
+      minimumArrUsd: number;
+      stage: string;
+    }>;
+    ownerApprovalRecorded: boolean;
+    operatingCeoDecisionRecorded: boolean;
+    positioning: {
+      customerPromise: string;
+      entryProduct: string;
+      outcomeGuaranteed: boolean;
+    };
+    pricingExperiments: Array<{
+      defaultEngineeringQuotaMayBeUsedAsAllowance?: boolean;
+      id: string;
+      microsoftMeteredOverageSupported?: boolean;
+      partnerCenterMutationAuthorized?: boolean;
+      partnerCenterDraftMutationAuthorized?: boolean;
+      partnerCenterPublicationAuthorizedByEvidence?: boolean;
+      priceUsd?: number;
+      monthlyUsdPerUser?: number;
+      pricingModel?: string;
+      pricingModelChangeBeforePublicationRequired?: boolean;
+      basePriceApprovedByOperatingCeo?: boolean;
+      includedAllowanceApprovedByOperatingCeo?: boolean;
+      automaticMeteredOverageAtLaunch?: boolean;
+    }>;
+    status: string;
+  };
+  offerInventory: {
+    draftCount: number;
+    offers: Array<{
+      canonicalRecurringPath: boolean;
+      partnerCenterName: string;
+      status: string;
+      type: string;
+    }>;
+    publishedCount: number;
+    submitOrPublishEnabled: boolean;
+  };
+  plans: Array<{
+    autoActivation: boolean;
+    name: string;
+    observedPricing: {
+      markets: number;
+      ownerApprovalRecorded: boolean;
+    };
+    partnerCenterPageStatus: string;
+  }>;
+  previewAndCertification: {
+    acceptedMeteringWitness: string;
+    authenticatedLifecycleWitness: string;
+    realPreviewPurchasesObserved: number;
+    repositoryHarness: string;
+    repositoryHarnessEvidence: {
+      githubActionsRun: string;
+      productionOrRealPurchaseEvidence: boolean;
+      pullRequest: string;
+      verifiedImplementationCommit: string;
+    };
+  };
+  supplementalContent: {
+    commercialConsequence: string;
+    draftSaveAuthorized: boolean;
+    partnerCenterDraftSavedAt: string | null;
+    portalOptionLabel: string;
+    selectedScenario: string | null;
+    status: string;
+    truthfulCurrentScenario: string;
+  };
+  taxAndPayout: {
+    azureMarketplaceAssignment: {
+      paymentCurrency: string;
+      paymentProfileStatus: string;
+      submittedAt: string;
+      taxProfileStatus: string;
+      verificationStatus: string;
+    };
+    partnerCenterPayoutProfile: string;
+    partnerCenterTaxValidationOrAssignment: string;
+    publisherSubmission: string;
+    status: string;
+  };
+};
+
+const benchmark = readFileSync(
+  "docs/marketplace/competitive-pricing-benchmark.md",
+  "utf8",
+);
+
+describe("competitive pricing benchmark", () => {
+  it("positions the outcome separately from the entry product and rejects a guarantee", () => {
+    expect(manifest.commercialBenchmark.positioning).toEqual({
+      customerPromise: "Unplanned Downtime Reduction",
+      entryProduct: "SyncAI Failure Investigation Agent",
+      platform: "SyncAI governed reliability decision platform",
+      outcomeGuaranteed: false,
+    });
+    expect(benchmark).toMatch(/not being sold as a repository/i);
+    expect(benchmark).toMatch(/Not guaranteed/);
+  });
+
+  it("uses direct reliability benchmarks and keeps CMMS products adjacent", () => {
+    expect(
+      manifest.commercialBenchmark.benchmarkRoles.directFailureInvestigation,
+    ).toContain("Causelink");
+    expect(
+      manifest.commercialBenchmark.benchmarkRoles.enterpriseReliabilityAndApm,
+    ).toContain("IBM Maximo Application Suite");
+    expect(
+      manifest.commercialBenchmark.benchmarkRoles
+        .downtimeOutcomeAndMachineHealth,
+    ).toEqual(
+      expect.arrayContaining([
+        "C3 AI Reliability",
+        "Siemens Senseye",
+        "Augury",
+      ]),
+    );
+    expect(
+      manifest.commercialBenchmark.benchmarkRoles.adjacentCmmsOnly,
+    ).toEqual(expect.arrayContaining(["MaintainX", "UpKeep", "Fiix"]));
+  });
+
+  it("records the controlled core decision while keeping publication blocked", () => {
+    expect(manifest.commercialBenchmark.status).toBe(
+      "controlled_decision_public_activation_blocked",
+    );
+    expect(manifest.commercialBenchmark.ownerApprovalRecorded).toBe(false);
+    expect(manifest.commercialBenchmark.operatingCeoDecisionRecorded).toBe(
+      true,
+    );
+    expect(manifest.commercialBenchmark.pricingExperiments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "software_led_failure_investigation",
+          monthlyUsdPerUser: 99,
+          defaultEngineeringQuotaMayBeUsedAsAllowance: false,
+          microsoftMeteredOverageSupported: false,
+          partnerCenterMutationAuthorized: false,
+        }),
+        expect.objectContaining({
+          id: "outcome_led_downtime_reduction_proof",
+          priceUsd: 35000,
+          partnerCenterMutationAuthorized: false,
+        }),
+        expect.objectContaining({
+          id: "core_saas_flat_rate_hard_stop_launch",
+          pricingModel: "flat_rate",
+          basePriceApprovedByOperatingCeo: true,
+          includedAllowanceApprovedByOperatingCeo: true,
+          automaticMeteredOverageAtLaunch: false,
+          pricingModelChangeBeforePublicationRequired: true,
+          partnerCenterDraftMutationAuthorized: true,
+          partnerCenterPublicationAuthorizedByEvidence: false,
+        }),
+      ]),
+    );
+  });
+
+  it("reuses the implemented guardrails without mislabeling abuse caps as entitlements", () => {
+    expect(unitEconomics.implemented.organizationQuota).toMatchObject({
+      defaultMaxCallsPerUtcDay: 5184,
+      defaultMaxTokensPerUtcDay: 22000000,
+      defaultCapsAreCommercialEntitlements: false,
+    });
+    expect(unitEconomics.economicsModel).toMatchObject({
+      currentGranularity: "model_call_with_supported_cost_object_rollup",
+      perDecisionCostAvailable: true,
+      commercialAllowanceApproved: false,
+    });
+    expect(unitEconomics.economicsModel.perDecisionCostCoverage).toMatch(
+      /supported runtime paths only/i,
+    );
+  });
+
+  it("separates implemented controls from unapproved commercial configuration", () => {
+    expect(unitEconomics.implemented.commercialPlanPolicy).toMatchObject({
+      status: "implemented_not_configured",
+      seededCommercialValues: false,
+    });
+    expect(
+      unitEconomics.implemented.commercialPlanToQuotaBinding,
+    ).toMatchObject({
+      status: "implemented_for_azure_marketplace",
+      azureMarketplaceActivationFailsClosedWithoutApprovedPolicy: true,
+      perUserAllowanceScalesWithAuthoritativeMarketplaceQuantity: true,
+      perUserActivationFailsClosedWithoutQuantity: true,
+      flatRateAllowanceIgnoresMarketplaceSeatQuantity: true,
+      directSubscriptionActivationFailsClosedWithoutApprovedPolicy: false,
+      directFlatRatePoliciesBindExistingActiveSubscriptionsWhenApproved: true,
+      directPerUserQuantityBackedBinding: "not_implemented",
+    });
+    expect(unitEconomics.implemented.productionCogsReporting.status).toBe(
+      "implemented_no_production_distribution_evidenced",
+    );
+    expect(unitEconomics.implemented.grossMarginReleaseGate).toMatchObject({
+      status: "implemented_not_configured",
+      isTotalCompanyGrossMarginModel: false,
+    });
+    expect(unitEconomics.pending).toMatchObject({
+      approvedCommercialPolicy: { status: "not_evidenced" },
+      productionMeasurementEvidence: { status: "not_evidenced" },
+      directChannelActivationGate: { status: "not_implemented" },
+      realtimeUsageSettlement: { status: "not_implemented" },
+    });
+    expect(unitEconomics.implemented.paidRealtime).toEqual(
+      expect.objectContaining({
+        status: "commercially_blocked",
+        unmeasuredPaidUsageAllowed: false,
+      }),
+    );
+  });
+
+  it("keeps the proposed model policy unapproved until the deployed paid route is witnessed", () => {
+    expect(unitEconomics.observedProductionConfiguration).toMatchObject({
+      secretValuesInspected: false,
+      gatewayConfigurationNamesPresent: ["LLM_BASE_URL", "LLM_API_KEY"],
+      directProviderConfigurationNamePresent: "OPENAI_API_KEY",
+      sharedProviderChainOrderWhenConfigured: [
+        "stigg-gateway",
+        "openai-direct",
+      ],
+      currentFirstProviderClass: "external_gateway",
+      modelOverrideConfigurationNamesPresent: [],
+      modelOverrideConfigurationNamesChecked: [
+        "LLM_GATEWAY_MODEL",
+        "DEVELOP_AGENT_MODEL",
+      ],
+      defaultCommercialRequestedModel: "gpt-5.6-terra",
+      defaultGatewayRequestedAlias: "stigg/fast",
+      requestedAndGatewayModelIdentityMatch: false,
+      proposedAllowedModels: ["gpt-5.6-terra", "gpt-5.6-luna"],
+      allConfiguredGatewayOutcomesPricedAndApproved: false,
+      currentRouteCompatibleWithProposedPolicy: false,
+      releaseCandidatePinsBoundPaidPlansToExactDirectModel: true,
+      releaseCandidateDeployed: true,
+      releaseCandidateRuntimeWitnessed: false,
+      gatewayCostScheduleEvidenced: false,
+      providerCostMultiplierOneReleaseEligible: false,
+    });
+    expect(
+      unitEconomics.observedProductionConfiguration
+        .defaultCommercialRequestedModelLifecycle.status,
+    ).toBe("supported_current_default_previous_gpt4o_mini_deprecated");
+    expect(
+      unitEconomics.observedProductionConfiguration
+        .releaseCandidateDefaultCommercialModel,
+    ).toBe("gpt-5.6-terra");
+    expect(
+      unitEconomics.observedProductionConfiguration
+        .releaseCandidateDefaultModelMigration.status,
+    ).toBe("deployed_to_canonical_production");
+    expect(unitEconomics.pending.providerAndPricingTierEvidence).toMatchObject({
+      status:
+        "bound_paid_direct_route_deployed_runtime_and_current_price_witness_pending",
+    });
+    expect(unitEconomics.pending.providerAndPricingTierEvidence.reason).toMatch(
+      /proposed model policy and a provider multiplier of 1\.0 therefore remain ineligible/i,
+    );
+    expect(
+      unitEconomics.observedProductionConfiguration.gatewayModelEvidence,
+    ).toMatchObject({
+      requestedAlias: "stigg/fast",
+      configuredPrimary: "claude-haiku-4-5-20251001",
+      configuredFallbacks: [
+        "claude-sonnet-5",
+        "gpt-5.6-luna",
+        "gemini-2.5-flash",
+      ],
+      configuredContextWindowFallbacks: ["claude-sonnet-5", "gemini-2.5-pro"],
+      exactDeployedMappingEvidenced: false,
+    });
+    expect(
+      unitEconomics.observedProductionConfiguration.gatewayModelEvidence
+        .responseModelContract,
+    ).toMatch(/concrete model used after fallback/i);
+  });
+
+  it("pins bound paid traffic to the exact direct model without claiming a runtime witness", () => {
+    expect(unitEconomics.implemented.paidCommercialProviderRoute).toEqual({
+      status: "implemented_merged_deployed_runtime_witness_pending",
+      source: "supabase/functions/_shared/llm-commercial-usage.ts",
+      commercialBindingSignal:
+        "nonempty commercialPlanId returned by the atomic quota reservation",
+      requiredProviderName: "openai-direct",
+      requiredProviderBaseUrl: "https://api.openai.com",
+      requiresExactRequestedModel: true,
+      requiredRequestServiceTier: "default",
+      requiredObservedResponseServiceTier: "default",
+      nonStandardObservedTierBehavior:
+        "withhold_output_settle_actual_model_and_tokens_as_unknown_price_pricing_mode_breach_freeze_later_paid_calls",
+      gpt56PromptCacheMode: "explicit_without_breakpoints",
+      gpt56ImplicitCacheWritesAllowed: false,
+      externalGatewayAllowedForBoundPaidPlan: false,
+      crossModelSafetyFallbackAllowedForBoundPaidPlan: false,
+      noExactDirectRouteBehavior: "release_reservation_refuse_provider_contact",
+      standardRateEnvelope: {
+        status: "implemented_merged_deployed_runtime_witness_pending",
+        maximumOutputTokens: 8192,
+        maximumUtf8BytePlusOutputAndFramingUpperBound: 100000,
+        framingTokenAllowance: 1024,
+        reservationUsesSameConservativeUpperBound: true,
+        gpt4oMiniContextWindowTokens: 128000,
+        gpt56TerraAndLunaLongContextInputThresholdTokens: 272000,
+        overLimitBehavior: "release_reservation_refuse_provider_contact",
+        sourceEvidence: [
+          "https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create",
+          "https://developers.openai.com/api/docs/guides/prompt-caching",
+          "https://developers.openai.com/api/docs/models/gpt-4o-mini",
+          "https://developers.openai.com/api/docs/models/gpt-5.6-terra",
+          "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+        ],
+      },
+      unboundEngineeringTrafficRetainsGatewayResilience: true,
+    });
+    expect(
+      unitEconomics.implemented.protectedReliabilityEngineerCommercialBoundary,
+    ).toMatchObject({
+      status:
+        "commercially_blocked_pending_separately_reviewed_qualification_change",
+      runtime: "ai-agent-processor",
+      paidProviderContactAllowed: false,
+      databaseRefusal: "commercial_runtime_boundary_unavailable",
+      qualificationBaselinePreserved: true,
+      paidPackageReleaseBlocked: true,
+    });
+  });
+
+  it("does not preserve the stale claim that the public gateway is undeployed or priced", () => {
+    expect(enrichmentRunbook).not.toMatch(
+      /stigg-ai-gateway\.fly\.dev` does not exist/i,
+    );
+    expect(enrichmentRunbook).toMatch(/returns HTTP 401 without credentials/i);
+    expect(enrichmentRunbook).toMatch(
+      /no gateway\s+invoice or pricing schedule is evidenced/i,
+    );
+    expect(enrichmentRunbook).toMatch(
+      /production cost multiplier of 1\.0 remains ineligible/i,
+    );
+  });
+
+  it("rejects the current per-user draft as compatible with automatic Marketplace overage", () => {
+    expect(
+      unitEconomics.commercialCompatibility
+        .microsoftMeteringSupportedForPerUser,
+    ).toBe(false);
+    expect(
+      unitEconomics.commercialCompatibility
+        .currentDraftCompatibleWithImplementedMeter,
+    ).toBe(false);
+    expect(
+      unitEconomics.commercialCompatibility.selectedCoreSaasArchitecture,
+    ).toBe("flat_rate_base_with_hard_stop_allowance_at_launch");
+    expect(
+      unitEconomics.commercialCompatibility.automaticMeteredOverageAtLaunch,
+    ).toBe(false);
+    expect(
+      unitEconomics.commercialCompatibility
+        .futureMeteringCompatibilityPreserved,
+    ).toBe(true);
+    expect(
+      unitEconomics.commercialCompatibility.partnerCenterMutationAuthorized,
+    ).toBe(false);
+  });
+
+  it("keeps Partner Center payout state internally consistent", () => {
+    expect(manifest.taxAndPayout).toMatchObject({
+      publisherSubmission: "payment_profile_action_required",
+      partnerCenterTaxValidationOrAssignment: "complete",
+      partnerCenterPayoutProfile: "existing_cad_profile_requires_update",
+      status: "blocked",
+      azureMarketplaceAssignment: {
+        submittedAt: "2026-10-06",
+        taxProfileStatus: "complete",
+        paymentProfileStatus: "action_required",
+        paymentCurrency: "CAD",
+        verificationStatus: "not_started",
+      },
+    });
+
+    const payoutAction = manifest.blockingActions.find(
+      ({ id }) => id === "PC-009",
+    );
+    expect(payoutAction).toMatchObject({ status: "blocked" });
+    expect(payoutAction?.action).toMatch(/tax profile Complete/i);
+    expect(payoutAction?.action).toMatch(/payment profile Action required/i);
+    expect(payoutAction?.action).toMatch(/verification Not started/i);
+    expect(payoutAction?.action).toMatch(/bank profile needs to be updated/i);
+  });
+
+  it("records the live offer inventory without promoting any draft to a product", () => {
+    expect(manifest.offerInventory).toMatchObject({
+      draftCount: 4,
+      publishedCount: 0,
+      submitOrPublishEnabled: false,
+    });
+    expect(
+      manifest.offerInventory.offers.filter(
+        ({ canonicalRecurringPath }) => canonicalRecurringPath,
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        partnerCenterName: "SyncAI Predictive Maintenance",
+        type: "saas",
+        status: "draft",
+      }),
+    ]);
+    expect(
+      manifest.offerInventory.offers.filter(
+        ({ type }) => type === "professional_service",
+      ),
+    ).toHaveLength(3);
+  });
+
+  it("records the authorized non-Azure draft without claiming certification", () => {
+    expect(manifest.supplementalContent).toMatchObject({
+      selectedScenario: "not_hosted_in_azure",
+      truthfulCurrentScenario: "not_hosted_in_azure",
+      portalOptionLabel: "SaaS solution is not hosted in Azure",
+      draftSaveAuthorized: true,
+      partnerCenterDraftSavedAt: "2026-11-01",
+      status: "verified",
+    });
+    expect(manifest.supplementalContent.commercialConsequence).toMatch(
+      /do not claim Azure platforming, MACC eligibility, certification, or purchase eligibility/i,
+    );
+    expect(manifest.plans).toHaveLength(3);
+    for (const plan of manifest.plans) {
+      expect(plan.partnerCenterPageStatus).toBe(
+        "incomplete_account_publish_eligibility",
+      );
+      expect(plan.autoActivation).toBe(false);
+      expect(plan.observedPricing).toMatchObject({
+        markets: 141,
+        ownerApprovalRecorded: false,
+      });
+    }
+  });
+
+  it("separates green repository proof from production and purchase evidence", () => {
+    expect(manifest.previewAndCertification).toMatchObject({
+      repositoryHarness: "implemented_and_ci_verified",
+      realPreviewPurchasesObserved: 0,
+      authenticatedLifecycleWitness: "blocked",
+      acceptedMeteringWitness: "blocked",
+      repositoryHarnessEvidence: {
+        pullRequest:
+          "https://github.com/Stiggtechnologies/ai-maintenance-system/pull/634",
+        verifiedImplementationCommit: "7072c3d2",
+        githubActionsRun: "37524709308",
+        productionOrRealPurchaseEvidence: false,
+      },
+    });
+
+    const productAction = manifest.blockingActions.find(
+      ({ id }) => id === "PC-003",
+    );
+    expect(productAction).toMatchObject({ status: "blocked" });
+    expect(productAction?.action).toMatch(
+      /not yet reviewed, merged, deployed, or configured/i,
+    );
+    expect(productAction?.action).toMatch(/policy values remain unproven/i);
+  });
+
+  it("records an expansion path capable of reaching enterprise ACV", () => {
+    expect(manifest.commercialBenchmark.expansionPlanningBands).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          stage: "production_site",
+          minimumArrUsd: 60000,
+        }),
+        expect.objectContaining({
+          stage: "multi_site_or_network",
+          minimumArrUsd: 150000,
+        }),
+        expect.objectContaining({
+          stage: "enterprise_standard",
+          minimumArrUsd: 300000,
+          maximumArrUsd: null,
+        }),
+      ]),
+    );
+    expect(benchmark).toMatch(/route to US\$100M ARR is expansion/i);
+  });
+});

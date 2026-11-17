@@ -10,9 +10,11 @@ import { useAsyncData } from "../hooks/useAsyncData";
 import {
   getOperatingContext,
   getOperatingRegime,
+  getProcessEventContext,
   suggestedWindowDays,
   type OperatingContextResult,
   type OperatingRegimeResult,
+  type ProcessEventContextResult,
 } from "../services/reliabilityCallers";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
 
@@ -26,8 +28,12 @@ export function AssetOperatingDuty({ assetId }: { assetId: string }) {
     () => getOperatingRegime(assetId),
     [assetId],
   );
+  const events = useAsyncData<ProcessEventContextResult>(
+    () => getProcessEventContext(assetId, windowDays),
+    [assetId, windowDays],
+  );
 
-  if (context.loading || regime.loading) {
+  if (context.loading || regime.loading || events.loading) {
     return <LoadingState label="Loading asset operating context" />;
   }
   if (context.error) {
@@ -137,6 +143,41 @@ export function AssetOperatingDuty({ assetId }: { assetId: string }) {
         . {c.starts_in_window} start{c.starts_in_window === 1 ? "" : "s"} in
         window.
       </p>
+
+      <div className="border-t border-white/6 pt-3" data-testid="process-event-context">
+        <p className="text-xs uppercase tracking-wide text-slate-400">
+          Process alarms, trips and events
+        </p>
+        {events.error ? (
+          <ErrorState message={events.error} onRetry={events.refetch} />
+        ) : events.data?.events.length ? (
+          <div className="mt-2 space-y-2">
+            {events.data.events.map((event) => (
+              <div key={event.id} className="rounded-lg border border-white/6 bg-white/2 p-2.5 text-sm">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span className="font-medium capitalize text-slate-200">
+                    {event.event_type}{event.severity ? ` · ${event.severity}` : " · severity unknown"}
+                  </span>
+                  <time className="font-mono text-xs text-slate-500" dateTime={event.occurred_at}>
+                    {new Date(event.occurred_at).toLocaleString()}
+                  </time>
+                </div>
+                <p className="mt-1 text-slate-300">
+                  {[event.tag, event.description].filter(Boolean).join(" — ")}
+                </p>
+              </div>
+            ))}
+            <p className="text-xs text-slate-500">{events.data.basis}</p>
+          </div>
+        ) : (
+          <p className="mt-2 rounded-lg border border-white/6 bg-white/2 p-3 text-sm text-slate-400">
+            {events.data?.basis ?? "No process-event evidence is available."}
+          </p>
+        )}
+        <p className="mt-2 text-xs text-slate-500">
+          These are source-system process events, not predictive condition alerts. SyncAI does not acknowledge, suppress or reset them.
+        </p>
+      </div>
     </div>
   );
 }

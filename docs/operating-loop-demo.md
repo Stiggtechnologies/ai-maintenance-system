@@ -68,12 +68,19 @@ Org: **Fort McMurray Oil Sands Demo** · Site: Fort McMurray Site A.
    - `decisions` row logged (human actor, rationale, autonomy mode)
    - `approvals` row resolved/created
    - `work_orders` row created — **safety-critical lands in `approval` state,
-     never auto-executed**
+     never auto-executed** — together with a separate C5.17 request owned by
+     the maintenance manager
    - `value_metrics` row added (risk exposure reduced, parsed from impact)
    - `learning_events` row added (`recommendation_accepted`)
-6. See the change propagate: **Work Action Board** (new WO), **Decision
-   Governance** (logged decision), **Value Realization** (new metric), **Learning
-   Loop** (new event), and Mission Control readiness recomputes.
+6. See the change propagate: **Work Action Board** (new WO; safety work links to
+   Decision Governance rather than offering a direct approval), **Decision
+   Governance** (logged recommendation decision plus the pending maintenance
+   change request), **Value Realization** (new metric), **Learning Loop** (new
+   event), and Mission Control readiness recomputes.
+7. Sign in as `manager@syncai.ca` / `Manager123!@#`, open **Decision
+   Governance**, record a substantive decision basis, and approve the C5.17
+   request. Separation of duties prevents the requester from approving their
+   own safety-critical work; only this second decision schedules the work.
 
 Other recommendation actions: **Challenge**, **Modify**, **Dismiss**, **Escalate**,
 **Create Work Order** (each writes a decision/learning trail via

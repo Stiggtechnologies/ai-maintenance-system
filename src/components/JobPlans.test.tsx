@@ -400,6 +400,7 @@ describe("JobPlans authoring surface", () => {
       materials_requested: 1,
       permits_required: 1,
       safety_flagged: true,
+      schedule_approval_required: true,
     });
     renderPage();
     expect(await screen.findByText("Replace pump seal")).toBeInTheDocument();
@@ -413,7 +414,7 @@ describe("JobPlans authoring surface", () => {
     await waitFor(() =>
       expect(applyJobPlan).toHaveBeenCalledWith("wo1", "JP-SEAL"),
     );
-    expect(await screen.findByText(/safety-flagged/)).toBeInTheDocument();
+    expect(await screen.findByText(/parked in approval/)).toBeInTheDocument();
   });
 
   it("revises an adopted plan through upsert_job_plan as a new draft version", async () => {

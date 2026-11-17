@@ -800,6 +800,256 @@ export const transformerDna: SharedComponentDnaProfile = {
   governance: governed,
 };
 
+
+// ---------------------------------------------------------------------------
+// Critical power and cooling components (data centres, hospitals, utilities,
+// process control rooms). Manufacturer-neutral; no limits or intervals are
+// stated here. Thresholds come only from an approved source.
+// ---------------------------------------------------------------------------
+
+export const stationaryBatteryDna: SharedComponentDnaProfile = {
+  schemaVersion: "0.2.0",
+  code: "COMP-DNA-BATTERY-STATIONARY",
+  name: "Stationary battery string component DNA",
+  category: "battery",
+  description:
+    "Reusable governed profile for stationary battery strings (lead-acid or lithium-ion) that carry critical load through a utility outage. Tests recommend; they do not authorize removing a string from service.",
+  functions: [
+    "store energy",
+    "carry critical load during ride-through",
+    "support transfer to standby generation",
+  ],
+  telemetryConcepts: [
+    "string_voltage",
+    "cell_voltage",
+    "cell_internal_resistance",
+    "cell_temperature",
+    "float_current",
+    "discharge_event",
+  ],
+  detectableIndicators: [
+    "rising cell internal resistance",
+    "cell voltage spread",
+    "elevated or uneven cell temperature",
+    "reduced runtime on discharge",
+    "swelling, leakage or corrosion at terminals",
+  ],
+  maintenanceStrategyCodes: ["MS-CONDITION-BASED", "MS-PROTECTIVE-TASK"],
+  failureReferences: [
+    {
+      code: "BATTERY-CAPACITY-LOSS",
+      mechanismCode: "electrochemical",
+      description:
+        "Ageing, sulfation, dry-out or cell imbalance reduces deliverable capacity and runtime.",
+      detectionMethodCodes: ["internal_resistance_trend", "cell_voltage_spread"],
+      verificationMethodCodes: ["capacity_discharge_test", "qualified_battery_assessment"],
+    },
+    {
+      code: "BATTERY-THERMAL-STRESS",
+      mechanismCode: "thermal",
+      description:
+        "Elevated temperature, high float current or a failing cell accelerates degradation and can lead to thermal runaway.",
+      detectionMethodCodes: ["cell_temperature", "float_current_trend", "thermal_imaging"],
+      verificationMethodCodes: ["qualified_battery_assessment", "room_ventilation_check"],
+    },
+    {
+      code: "BATTERY-CONNECTION-RESISTANCE",
+      mechanismCode: "electrical",
+      description:
+        "Loose or corroded inter-cell connections add resistance and heat under discharge.",
+      detectionMethodCodes: ["connection_resistance", "thermal_imaging"],
+      verificationMethodCodes: ["connection_resistance_test", "deenergized_torque_check"],
+    },
+  ],
+  evidence: [],
+  governance: governed,
+};
+
+export const reciprocatingEngineDna: SharedComponentDnaProfile = {
+  schemaVersion: "0.2.0",
+  code: "COMP-DNA-ENGINE-RECIPROCATING",
+  name: "Reciprocating engine component DNA",
+  category: "engine",
+  description:
+    "Reusable governed profile for diesel or gas reciprocating engines that drive standby generators, pumps and compressors. Recommendations never start, stop or load an engine.",
+  functions: [
+    "convert fuel energy to shaft power",
+    "start on demand",
+    "carry load for the required duration",
+  ],
+  telemetryConcepts: [
+    "engine_speed",
+    "coolant_temperature",
+    "lube_oil_pressure",
+    "exhaust_temperature",
+    "start_attempts",
+    "fuel_level",
+    "run_hours",
+  ],
+  detectableIndicators: [
+    "slow or failed start",
+    "abnormal exhaust temperature spread",
+    "low lube oil pressure",
+    "coolant loss or overheating",
+    "wet stacking or unburnt fuel at exhaust",
+  ],
+  maintenanceStrategyCodes: ["MS-PROTECTIVE-TASK", "MS-CONDITION-BASED"],
+  failureReferences: [
+    {
+      code: "ENGINE-FAIL-TO-START",
+      mechanismCode: "functional",
+      description:
+        "Starting system, fuel, air or control faults prevent the engine starting when demanded.",
+      detectionMethodCodes: ["start_attempt_record", "starting_battery_test"],
+      verificationMethodCodes: ["witnessed_start_test", "qualified_engine_assessment"],
+    },
+    {
+      code: "ENGINE-LIGHT-LOAD-DEGRADATION",
+      mechanismCode: "combustion",
+      description:
+        "Extended light-load running leaves unburnt fuel and carbon (wet stacking), reducing capability under real load.",
+      detectionMethodCodes: ["exhaust_temperature", "run_load_history"],
+      verificationMethodCodes: ["load_bank_test", "qualified_engine_assessment"],
+    },
+    {
+      code: "ENGINE-COOLING-LOSS",
+      mechanismCode: "thermal",
+      description:
+        "Coolant loss, radiator fouling or pump failure causes overheating and protective shutdown under load.",
+      detectionMethodCodes: ["coolant_temperature", "coolant_level"],
+      verificationMethodCodes: ["cooling_system_inspection", "load_bank_test"],
+    },
+    {
+      code: "ENGINE-FUEL-DEGRADATION",
+      mechanismCode: "contamination",
+      description:
+        "Stored fuel degrades or is contaminated by water and microbial growth, blocking filters and injectors.",
+      detectionMethodCodes: ["fuel_sample", "filter_differential_pressure"],
+      verificationMethodCodes: ["fuel_quality_analysis", "filter_inspection"],
+    },
+  ],
+  evidence: [],
+  governance: governed,
+};
+
+export const powerConverterDna: SharedComponentDnaProfile = {
+  schemaVersion: "0.2.0",
+  code: "COMP-DNA-POWER-CONVERTER",
+  name: "Static power converter component DNA",
+  category: "power_converter",
+  description:
+    "Reusable governed profile for rectifier, inverter and static-bypass power electronics in UPS and similar systems. Recommendations never transfer load or change operating mode.",
+  functions: [
+    "convert AC to DC and DC to AC",
+    "regulate output voltage and frequency",
+    "transfer load to bypass on fault",
+  ],
+  telemetryConcepts: [
+    "input_voltage",
+    "output_voltage",
+    "output_frequency",
+    "load_percent",
+    "heatsink_temperature",
+    "dc_bus_voltage",
+    "alarm_code",
+    "bypass_status",
+  ],
+  detectableIndicators: [
+    "rising heatsink or module temperature",
+    "unexpected transfers to bypass",
+    "DC bus ripple or capacitor alarms",
+    "cooling fan alarms",
+  ],
+  maintenanceStrategyCodes: ["MS-CONDITION-BASED", "MS-PROTECTIVE-TASK"],
+  failureReferences: [
+    {
+      code: "CONVERTER-CAPACITOR-AGEING",
+      mechanismCode: "electrical",
+      description:
+        "Electrolytic and AC filter capacitors age with temperature and time, raising ripple and stressing power semiconductors.",
+      detectionMethodCodes: ["dc_bus_ripple", "capacitor_alarm", "heatsink_temperature"],
+      verificationMethodCodes: ["qualified_power_electronics_assessment", "capacitor_test"],
+    },
+    {
+      code: "CONVERTER-COOLING-FAN",
+      mechanismCode: "thermal",
+      description:
+        "Fan bearing wear or blocked filters reduce cooling and push power modules toward thermal shutdown.",
+      detectionMethodCodes: ["fan_status", "heatsink_temperature", "filter_differential_pressure"],
+      verificationMethodCodes: ["fan_inspection", "airflow_test"],
+    },
+    {
+      code: "CONVERTER-POWER-STAGE",
+      mechanismCode: "electrical",
+      description:
+        "Semiconductor or gate-drive failure forces transfer to bypass and leaves load unprotected.",
+      detectionMethodCodes: ["alarm_code", "bypass_status"],
+      verificationMethodCodes: ["qualified_power_electronics_assessment"],
+    },
+  ],
+  evidence: [],
+  governance: governed,
+};
+
+export const refrigerationCircuitDna: SharedComponentDnaProfile = {
+  schemaVersion: "0.2.0",
+  code: "COMP-DNA-REFRIGERATION-CIRCUIT",
+  name: "Vapour-compression refrigeration circuit component DNA",
+  category: "refrigeration_circuit",
+  description:
+    "Reusable governed profile for vapour-compression refrigeration circuits in chillers and direct-expansion cooling units. Recommendations never change setpoints or stage equipment.",
+  functions: [
+    "remove heat from the chilled-water or air side",
+    "reject heat to the condenser",
+    "maintain refrigerant charge and oil return",
+  ],
+  telemetryConcepts: [
+    "suction_pressure",
+    "discharge_pressure",
+    "superheat",
+    "subcooling",
+    "compressor_current",
+    "evaporator_approach",
+    "condenser_approach",
+    "oil_pressure",
+  ],
+  detectableIndicators: [
+    "rising condenser or evaporator approach temperature",
+    "abnormal superheat or subcooling",
+    "refrigerant leak alarm",
+    "compressor oil pressure or temperature alarms",
+  ],
+  maintenanceStrategyCodes: ["MS-CONDITION-BASED"],
+  failureReferences: [
+    {
+      code: "REFRIG-HEAT-EXCHANGER-FOUL",
+      mechanismCode: "fouling",
+      description:
+        "Scale or biological fouling on condenser or evaporator tubes raises approach temperature and reduces capacity.",
+      detectionMethodCodes: ["approach_temperature_trend", "water_side_pressure_drop"],
+      verificationMethodCodes: ["tube_inspection", "water_treatment_review"],
+    },
+    {
+      code: "REFRIG-CHARGE-LOSS",
+      mechanismCode: "leakage",
+      description:
+        "Refrigerant leakage reduces capacity and can damage the compressor.",
+      detectionMethodCodes: ["leak_detector", "superheat_subcooling_trend"],
+      verificationMethodCodes: ["qualified_refrigeration_assessment", "leak_test"],
+    },
+    {
+      code: "REFRIG-COMPRESSOR-DEGRADE",
+      mechanismCode: "mechanical",
+      description:
+        "Bearing, oil or mechanical wear in the compressor raises current and vibration ahead of failure.",
+      detectionMethodCodes: ["compressor_current", "vibration", "oil_analysis"],
+      verificationMethodCodes: ["qualified_refrigeration_assessment", "oil_sample"],
+    },
+  ],
+  evidence: [],
+  governance: governed,
+};
+
 export const sharedComponentDnaLibrary: SharedComponentDnaProfile[] = [
   rollingElementBearingDna,
   flexibleCouplingDna,
@@ -816,6 +1066,10 @@ export const sharedComponentDnaLibrary: SharedComponentDnaProfile[] = [
   switchgearDna,
   variableFrequencyDriveDna,
   transformerDna,
+  stationaryBatteryDna,
+  reciprocatingEngineDna,
+  powerConverterDna,
+  refrigerationCircuitDna,
 ];
 
 export const sharedComponentDependencyGraph: ComponentDependencyEdge[] = [

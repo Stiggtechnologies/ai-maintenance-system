@@ -28,6 +28,7 @@ import {
   type DependencyGraph,
 } from "../lib/interdependency";
 import { LoadingState, ErrorState } from "./ui/AsyncStates";
+import { ServiceLevelGovernancePanel } from "./ServiceLevelGovernancePanel";
 
 interface Coverage {
   total_assets: number;
@@ -156,6 +157,8 @@ export function AssetInterdependency() {
           </div>
         </div>
       )}
+
+      <ServiceLevelGovernancePanel onChanged={refetch} />
 
       {/* The headline: redundancy that a shared cause defeats. */}
       <div className="rounded-xl border border-white/6 p-4">

@@ -111,11 +111,11 @@ origin`, re-read open PR titles, and timestamp migrations later than every open 
 | --- | --- | --- |
 | Gate passed | `advance_lifecycle_stage` refuses without recorded human review; `assessGate` mandatory-block; restrictive RLS denies agent-role writes to `stage_gate_reviews`; negative test per `externalRoleWriteGate.test.ts` | Live pattern; case scope S1 |
 | Risk accepted | `accept_risk` role+ceiling checks + `enforce_extended_risk_acceptance_authority` trigger | **Live** |
-| Regulation satisfied | Regulatory chain objects (S3) ship with definer-RPC-only status transitions requiring Engineering Authority + Compliance roles | S3 |
+| Regulation satisfied | Live — regulatory approval and condition-propagation chain uses definer-RPC-only status transitions and human attribution (`20261122090100` / `20261122090200`) | Live |
 | Safety barrier adequate | `trg_enforce_safety_gate` + hazard_barriers attestation | **Live** |
 | Project sanctioned | New `sanction` action_type on `authority_limits`; BEFORE-trigger rejects case status change outside the authority-checked RPC | S1 |
 | Equipment safe to start | `start_restoration_work` + `equipment_releases` + monotonic energy-state triggers; commissioning READY_FOR_ENERGIZATION consults the same canonical records | **Live**; commissioning binding S8 |
-| Contract legally compliant | Human attestation field, definer-RPC only; no computed or LLM path exists or will | S6 |
+| Contract legally compliant | Live — immutable, definer-RPC-only human attestation with same-case VERIFIED DOCUMENTED evidence, MFA/AAL2, tenant isolation, supersession and AI/direct-write refusal (`20270101340000`) | Live |
 
 ## What we are deliberately NOT building (yet, or ever)
 

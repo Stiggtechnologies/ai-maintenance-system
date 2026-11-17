@@ -6,6 +6,70 @@ import {
   type ContextSourceAdapter,
   type SyncContextSnapshot,
 } from "../lib/sync-context/contracts";
+import {
+  parseSyncContextOperatingPicture,
+  type SyncContextOperatingPicture,
+} from "../lib/sync-context/operating-picture";
+import {
+  parseSyncContextSourceInventory,
+  type SyncContextSourceInventory,
+} from "../lib/sync-context/source-inventory";
+
+/** Organization metadata only. Never substitutes for a scoped operating read. */
+export async function getSyncContextSourceInventory(): Promise<SyncContextSourceInventory> {
+  const { data, error } = await supabase.rpc("get_sync_context_source_inventory");
+  if (error) throw new Error("Sync Context source inventory is temporarily unavailable.");
+  checked(data);
+  return parseSyncContextSourceInventory(data);
+}
+
+export interface SyncContextOperatingScope {
+  siteId?: string | null;
+  objectLimit?: number;
+  eventLimit?: number;
+}
+
+/** No legacy fallback, client-side scope inference, direct table read or mutation. */
+export async function getSyncContextOperatingPicture(
+  input: SyncContextOperatingScope = {},
+): Promise<SyncContextOperatingPicture> {
+  const siteId =
+    input.siteId === undefined || input.siteId === null ? null : input.siteId;
+  const objectLimit = input.objectLimit === undefined ? 250 : input.objectLimit;
+  const eventLimit = input.eventLimit === undefined ? 250 : input.eventLimit;
+  if (
+    (siteId !== null &&
+      (typeof siteId !== "string" ||
+        !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          siteId,
+        ))) ||
+    !Number.isSafeInteger(objectLimit) ||
+    objectLimit < 1 ||
+    objectLimit > 500 ||
+    !Number.isSafeInteger(eventLimit) ||
+    eventLimit < 0 ||
+    eventLimit > 500
+  )
+    throw new Error("Malformed Sync Context operating scope.");
+  const { data, error } = await supabase.rpc(
+    "get_sync_context_operating_picture",
+    {
+      p_site_id: siteId,
+      p_object_limit: objectLimit,
+      p_event_limit: eventLimit,
+    },
+  );
+  if (error) throw new Error("Sync Context is temporarily unavailable.");
+  checked(data);
+  const picture = parseSyncContextOperatingPicture(data);
+  if (
+    picture.scope.siteId?.toLowerCase() !== siteId?.toLowerCase() ||
+    picture.scope.objectLimit !== objectLimit ||
+    picture.scope.eventLimit !== eventLimit
+  )
+    throw new Error("Sync Context returned a different operating scope.");
+  return picture;
+}
 
 export async function getSyncContextSnapshot(): Promise<SyncContextSnapshot> {
   const { data, error } = await supabase.rpc("get_sync_context_snapshot");

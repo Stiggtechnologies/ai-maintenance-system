@@ -459,6 +459,9 @@ verify_jwt = true
 [functions.sync-realtime-session]
 verify_jwt = true
 
+[functions.decision-case-invite]
+verify_jwt = true
+
 # Microsoft purchase resolution is a public SaaS landing flow and modern
 # publishable keys are not JWTs. This reviewed exception rate-limits resolution
 # server-side; activation/status independently verify the Supabase user and
@@ -476,3 +479,17 @@ verify_jwt = true
 # publisher tenant and Microsoft caller before any service-role persistence.
 [functions.marketplace-webhook]
 verify_jwt = false
+
+# Azure Event Hubs relays do not carry Supabase user JWTs. This one reviewed
+# exception authenticates the exact timestamped body with a tenant-bound HMAC
+# before the service-role RPC can resolve a connector or write any row.
+[functions.azure-iot-operations-ingest]
+verify_jwt = false
+
+# Ignition tag reads are a signed-in, user-triggered GET. JWT stays on.
+# Production deploy allowlisting is intentionally unchanged in this change.
+[functions.ignition-scada-read-pull]
+verify_jwt = true
+
+[functions.sap-s4-write-execute]
+verify_jwt = true

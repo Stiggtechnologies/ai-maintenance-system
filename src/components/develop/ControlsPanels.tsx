@@ -71,6 +71,7 @@ import {
   type CalculationRun,
   type CaseControls,
   type CostReconciliation,
+  type ScheduleLogicEdge,
   type ScopeGrowth,
 } from "../../lib/develop/controls";
 import {
@@ -995,6 +996,20 @@ function TraceabilitySection({
 
 /* ──────────────────────── schedule activities (D5.28) ────────────────── */
 
+function scheduleLogicLabel(edges: ScheduleLogicEdge[]): string {
+  if (edges.length === 0) return "—";
+  return edges
+    .map((edge) => {
+      const type = edge.linkType ?? "type unstated";
+      const lag =
+        edge.lagHours == null
+          ? "lag unstated"
+          : `${edge.lagHours >= 0 ? "+" : ""}${edge.lagHours}h`;
+      return `${edge.activityKey} · ${type} · ${lag}`;
+    })
+    .join("; ");
+}
+
 function ScheduleActivitySection({
   caseId,
   controls,
@@ -1042,12 +1057,14 @@ function ScheduleActivitySection({
         </p>
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[720px] text-xs">
+          <table className="w-full min-w-[1040px] text-xs">
             <thead className="text-[11px] uppercase text-slate-500">
               <tr>
                 <th className="px-1.5 py-1 text-left">Activity</th>
                 <th className="px-1.5 py-1 text-left">Origin</th>
                 <th className="px-1.5 py-1 text-right">Hours</th>
+                <th className="px-1.5 py-1 text-left">Predecessors</th>
+                <th className="px-1.5 py-1 text-left">Successors</th>
                 <th className="px-1.5 py-1 text-left">P6 WBS path</th>
                 <th className="px-1.5 py-1 text-left">Resolved WBS</th>
               </tr>
@@ -1068,6 +1085,12 @@ function ScheduleActivitySection({
                   </td>
                   <td className="px-1.5 py-1 text-right text-slate-300">
                     {a.durationHours ?? "—"}
+                  </td>
+                  <td className="max-w-[240px] px-1.5 py-1 font-mono text-[11px] text-slate-400">
+                    {scheduleLogicLabel(a.predecessors)}
+                  </td>
+                  <td className="max-w-[240px] px-1.5 py-1 font-mono text-[11px] text-slate-400">
+                    {scheduleLogicLabel(a.successors)}
                   </td>
                   <td className="px-1.5 py-1 font-mono text-slate-500">
                     {a.wbsPath ?? "—"}

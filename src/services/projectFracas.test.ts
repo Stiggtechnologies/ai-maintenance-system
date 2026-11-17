@@ -54,8 +54,36 @@ describe("project closure service receipts", () => {
         content: "Changed",
         changeSummary: "Review added",
         basis: "Evidence",
+        safetyCritical: false,
       }),
     ).resolves.toMatchObject({ status: "draft" });
+  });
+  it("routes a declared safety-critical project revision through its governed door", async () => {
+    rpc.mockResolvedValue({
+      data: {
+        revisionId: 2,
+        approvalId: "a",
+        status: "draft",
+        safetyCritical: true,
+        requiredAuthority: "admin",
+      },
+      error: null,
+    });
+    await expect(
+      requestProjectStandardRevision({
+        verificationId: "v",
+        previousId: 1,
+        language: "en",
+        content: "Changed",
+        changeSummary: "Safety sequence changed",
+        basis: "Approved evidence",
+        safetyCritical: true,
+      }),
+    ).resolves.toMatchObject({ safetyCritical: true, requiredAuthority: "admin" });
+    expect(rpc).toHaveBeenCalledWith(
+      "request_safety_critical_project_standard_revision",
+      expect.objectContaining({ p_previous_id: 1 }),
+    );
   });
   it("refuses a decision response for another revision", async () => {
     rpc.mockResolvedValue({

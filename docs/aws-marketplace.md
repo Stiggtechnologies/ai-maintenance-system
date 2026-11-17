@@ -1,5 +1,16 @@
 # AWS Marketplace SaaS Listing
 
+**2026-10-06 — DESIGN SCAFFOLDING, NOT A PUBLISHED OR TRANSACTABLE
+LISTING.** The public marketing and activation routes respond, but the AWS
+Marketplace Edge Functions are not deployed on the live SyncAI Supabase
+project, the required AWS secrets are absent, and the referenced database
+migration is archived rather than active. AWS's current buyer onboarding sends
+`x-amzn-marketplace-token` to the registration URL as an HTTP `POST`; the
+checked-in SPA reads a query parameter and therefore is not a conforming buyer
+handoff. Do not describe this channel as available until the seller account,
+product, POST registration endpoint, lifecycle integration, production schema,
+and preview purchase are verified.
+
 How SyncAI is structured on AWS Marketplace, how purchases flow from
 the listing into a working tenant, and how lifecycle events are kept
 in sync.
@@ -9,21 +20,35 @@ This is the AWS counterpart of [`azure-marketplace.md`](./azure-marketplace.md)
 
 ## Offer summary
 
-- **Listing type:** SaaS Listing (not SaaS Contract or AMI)
-- **Pricing model:** Per-seat, monthly recurring, billed via AWS invoice
-- **Plans:** Starter · Professional · Enterprise (private offer). Per-seat
-  prices are under commercial review and are set in AWS Marketplace at
-  listing time; no price is committed in this document.
-- **EDP eligible:** Yes — purchase counts toward Enterprise Discount Program commits
+- **Product type:** SaaS product draft. This is not an AMI and does not deploy
+  software into the buyer's AWS account.
+- **Offer and pricing model:** Under commercial review and subject to an owner
+  decision before the initial limited listing. AWS SaaS subscription, contract,
+  and contract-with-usage models have different billing and integration
+  contracts, and AWS does not permit the pricing model to be changed after the
+  product is published to limited visibility. The repository does not prove an
+  approved model or dimension.
+- **Plans:** Starter, Professional, and Enterprise names exist in the Microsoft
+  draft, but no AWS plans, dimensions, prices, or private offers have been
+  created or approved. Do not transpose the Microsoft per-user observations
+  into AWS.
+- **EDP eligibility:** Not evidenced. Do not claim eligibility before AWS
+  confirms the published product's program treatment.
 
-## Activation flow
+Portal-ready, non-submittable metadata and acquisition variants are controlled
+in [`marketplace/aws-listing-draft.json`](../marketplace/aws-listing-draft.json).
+They reduce data-entry time after seller access is available; they do not
+select the irreversible pricing model or establish listing readiness.
+
+## Intended activation flow
 
 ```
 1. Buyer subscribes via AWS Marketplace product page
-2. AWS redirects to:
-       https://app.syncai.ca/marketplace/aws/signup
-       ?x-amzn-marketplace-token=<token>
-3. AwsMarketplaceSignup page calls marketplace-aws-resolve Edge Function
+2. AWS sends an HTTP `POST` to the seller registration URL with the form field
+   `x-amzn-marketplace-token=<token>`.
+3. A server-side registration handler exchanges the token and then hands the
+   buyer to the bounded account-setup UI. That server-side handler is not
+   implemented in the current production route.
 4. Edge Function:
        a. SigV4-signs a POST to:
           https://metering.marketplace.<region>.amazonaws.com/customer
@@ -102,7 +127,11 @@ with the standard `Authorization` header. The signer is reusable — for
 Metering or Entitlement calls, change `service` and `X-Amz-Target` in
 `sigV4SignRequest`.
 
-## Tables (added by `20260513000000_aws_salesforce_marketplace_integration.sql`)
+## Proposed tables (archived migration only)
+
+The referenced migration lives under `supabase/_legacy_migrations/`; it is not
+part of the active migration chain and its columns/RPCs must not be assumed to
+exist in production.
 
 | Object                                    | Purpose                                                                   |
 | ----------------------------------------- | ------------------------------------------------------------------------- |
@@ -126,10 +155,11 @@ Metering or Entitlement calls, change `service` and `X-Amz-Target` in
 
 ## Related
 
-- Migration: [`supabase/migrations/20260513000000_aws_salesforce_marketplace_integration.sql`](../supabase/migrations/20260513000000_aws_salesforce_marketplace_integration.sql)
+- Archived migration: [`supabase/_legacy_migrations/20260513000000_aws_salesforce_marketplace_integration.sql`](../supabase/_legacy_migrations/20260513000000_aws_salesforce_marketplace_integration.sql)
 - Resolve Edge Function: [`supabase/functions/marketplace-aws-resolve/index.ts`](../supabase/functions/marketplace-aws-resolve/index.ts)
 - Webhook Edge Function: [`supabase/functions/marketplace-aws-webhook/index.ts`](../supabase/functions/marketplace-aws-webhook/index.ts)
 - Activation UI: [`src/pages/AwsMarketplaceSignup.tsx`](../src/pages/AwsMarketplaceSignup.tsx)
 - Client lib: [`src/lib/aws-marketplace.ts`](../src/lib/aws-marketplace.ts)
-- Marketing landing: `StiggSyncAIwebsite2.0/app/aws/page.tsx` (already deployed at syncai.ca/aws)
+- Marketing landing: `https://syncai.ca/aws` responds, but is not an AWS
+  Marketplace listing or purchase surface.
 - Microsoft (companion): [`docs/azure-marketplace.md`](./azure-marketplace.md)

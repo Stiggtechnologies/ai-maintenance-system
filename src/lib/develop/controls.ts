@@ -206,6 +206,15 @@ export interface ScheduleActivityRow {
   /** The resolved element, or null — an activity with no authorized scope. */
   wbsCode: string | null;
   schedule: string;
+  /** Both views derive from the one shutdown_task_dependencies edge set. */
+  predecessors: ScheduleLogicEdge[];
+  successors: ScheduleLogicEdge[];
+}
+
+export interface ScheduleLogicEdge {
+  activityKey: string;
+  linkType: string | null;
+  lagHours: number | null;
 }
 
 export interface ChainLinkState {

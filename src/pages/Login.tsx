@@ -3,7 +3,8 @@ import { AuthShell } from "../components/AuthShell";
 import { PasswordField } from "../components/PasswordField";
 import { ArrowUpRight, LockKeyhole } from "lucide-react";
 import { signIn } from "../lib/auth";
-import { readDecisionCaseHandoff } from "../lib/decision-case";
+import { readFirstDecisionDraft } from "../lib/onboarding/first-decision-handoff";
+import type { SelfServeNavInput } from "../lib/onboarding/self-serve-nav";
 import { supabase } from "../lib/supabase";
 import { motion } from "framer-motion";
 
@@ -24,8 +25,10 @@ interface LoginProps {
 }
 
 export function Login({ onSuccess, onTabChange }: LoginProps) {
-  const handoff = readDecisionCaseHandoff(window.sessionStorage);
-  const journey = handoff?.decisionCase ?? null;
+  const journey = readFirstDecisionDraft(
+    window.sessionStorage,
+    window.location.search,
+  );
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -171,9 +174,19 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
   const recoveryPasswordsMatch =
     confirmNewPassword.length > 0 && newPassword === confirmNewPassword;
 
+  const selfServeGate: SelfServeNavInput | undefined = journey
+    ? {
+        decisionCaseSaved: false,
+        draftOpen: true,
+        continueHref: "#signin-form",
+        continueLabel: "Sign in to save",
+        askHref: "/get-started",
+      }
+    : undefined;
+
   return (
-    <AuthShell journey={journey}>
-      <div>
+    <AuthShell journey={journey} selfServeGate={selfServeGate}>
+      <div id="signin-form">
         <div className="mb-7">
           <span className="text-signal-cyan flex items-center gap-2 text-xs font-semibold tracking-[0.16em] uppercase">
             <LockKeyhole size={14} /> Secure workspace
@@ -387,7 +400,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
               {loading ? "Authenticating…" : "Access SyncAI"}
             </motion.button>
 
-            <div className="border-overlook-rule border-t pt-4 text-xs leading-relaxed text-overlook-haze">
+            <div className="border-overlook-rule text-industrial-text border-t pt-4 text-sm leading-relaxed">
               Identity and approval authority are verified before governed
               actions can be released. Enrolled accounts must complete MFA.
             </div>
@@ -405,7 +418,7 @@ export function Login({ onSuccess, onTabChange }: LoginProps) {
         )}
 
         <div className="mt-7 pt-5 border-t border-industrial-border">
-          <div className="flex justify-center gap-4 text-xs text-industrial-muted">
+          <div className="text-industrial-text flex justify-center gap-4 text-sm">
             <button
               onClick={() => onTabChange("security")}
               className="hover:text-industrial-text transition-colors"

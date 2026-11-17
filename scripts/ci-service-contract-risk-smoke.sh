@@ -4,22 +4,32 @@ set -euo pipefail
 # and swallow the real error (that is why CI showed only supabase status stderr).
 trap 'echo "U13 service-contract risk smoke FAILED at line $LINENO"' ERR
 
+# Only the declared synthetic local stack may receive these fixture writes.
+if test "${GITHUB_ACTIONS:-}" != true && test "${SYNCAI_U208_PRIVATE_FIXTURE:-}" != 1; then
+  echo 'U13 fixture requires CI or explicit private local-fixture opt-in'; exit 1
+fi
+unset PGHOSTADDR PGSERVICE PGSERVICEFILE PGPASSFILE
+export PGOPTIONS='-c application_name=syncai_u13_service_fixture -c statement_timeout=15000'
+http(){ curl --noproxy '*' --proto '=http' --max-redirs 0 --connect-timeout 5 --max-time 20 "$@"; }
+
 psqlc() {
-  PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "$1"
+  PGPASSWORD=postgres psql -X -h 127.0.0.1 -p 54322 -U postgres -d postgres -qAt -v ON_ERROR_STOP=1 -c "$1"
 }
 
 eval "$(supabase status -o env | grep -E '^(ANON_KEY|API_URL)=')"
 : "${API_URL:?}" "${ANON_KEY:?}"
+test "$API_URL" = http://127.0.0.1:54321 || { echo 'U13 fixture requires the fixed local API'; exit 1; }
 echo "U13 smoke: supabase env loaded api=${API_URL}"
 
 ORG='11111111-1111-1111-1111-111111111111'
 OTHER_ORG='99999999-9999-9999-9999-999999999913'
 FOREIGN_ASSET='98130000-0000-0000-0000-000000000002'
 EVIDENCE='98130000-0000-0000-0000-000000000021'
+SERVICE_CAPTURE='98130000-0000-0000-0000-000000000022'
 RECOMMENDATION='98130000-0000-0000-0000-000000000031'
 
-token(){ curl -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}" | python3 -c "import json,sys;print(json.load(sys.stdin).get('access_token',''))"; }
-rpc(){ curl -sS -w '\n%{http_code}' -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "authorization: Bearer $1" -H 'content-type: application/json' -d "$3"; }
+token(){ http -sS "$API_URL/auth/v1/token?grant_type=password" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d "{\"email\":\"$1\",\"password\":\"$2\"}" | python3 -c "import json,sys;print(json.load(sys.stdin).get('access_token',''))"; }
+rpc(){ http -sS -w '\n%{http_code}' -X POST "$API_URL/rest/v1/rpc/$2" -H "apikey: $ANON_KEY" -H "authorization: Bearer $1" -H 'content-type: application/json' -d "$3"; }
 body(){ printf '%s' "${1%$'\n'*}"; }
 status(){ printf '%s' "${1##*$'\n'}"; }
 ok(){
@@ -47,6 +57,9 @@ test -n "$AUTHOR" || { echo 'demo author authentication failed'; exit 1; }
 test -n "$MANAGER" || { echo 'maintenance manager authentication failed'; exit 1; }
 test -n "$ADMIN" || { echo 'administrator authentication failed'; exit 1; }
 echo 'U13 smoke: authentication passed'
+MANAGER_ID=$(psqlc "select id from user_profiles where email='manager@syncai.ca' and organization_id='$ORG'")
+ADMIN_ID=$(psqlc "select id from user_profiles where email='admin@syncai.ca' and organization_id='$ORG'")
+test -n "$MANAGER_ID" && test -n "$ADMIN_ID" && test "$MANAGER_ID" != "$ADMIN_ID"
 
 ASSET=$(psqlc "select id from assets where organization_id='$ORG' order by created_at limit 1")
 test -n "$ASSET" || { echo 'demo organization has no asset'; exit 1; }
@@ -54,7 +67,26 @@ AUDIT_BEFORE=$(psqlc "select count(*) from audit_events where organization_id='$
 
 psqlc "insert into organizations(id,name,industry,org_level) values('$OTHER_ORG','U13 foreign','transportation','enterprise') on conflict(id) do nothing"
 psqlc "insert into assets(id,organization_id,name) values('$FOREIGN_ASSET','$OTHER_ORG','Foreign service asset') on conflict(id) do nothing"
-psqlc "insert into asset_service_levels(asset_id,organization_id,service_name,beneficiary,tolerable_downtime_hours,consequence_class,restoration_rank,notes) values('$ASSET','$ORG','Process water availability','Operating plant',4,'production',1,'Contracted availability basis for U13 acceptance.') on conflict(asset_id) do update set service_name=excluded.service_name"
+# Optional U13 context is a governed operational service, NOT its contractual
+# target source. Capture starts risk-unlinked per canonical authenticated RLS.
+# The distinct DOCUMENTED agreement below remains the U13 normative fixture.
+SERVICE_CAPTURE_RESULT=$(http -sS -w '\n%{http_code}' -X POST "$API_URL/rest/v1/evidence_items" -H "apikey: $ANON_KEY" -H "authorization: Bearer $MANAGER" -H 'content-type: application/json' -H 'Prefer: return=representation' -d "{\"id\":\"$SERVICE_CAPTURE\",\"organization_id\":\"$ORG\",\"asset_id\":\"$ASSET\",\"source_system\":\"synthetic-u13-field-inspection\",\"source_reference\":\"synthetic-u13-controlled-isolation-01\",\"evidence_type\":\"field_inspection\",\"signal_kind\":\"inspection\",\"description\":\"Declared synthetic U13 fixture inspection: isolation interrupts simulated process-water delivery. No customer observation or normative tolerance is asserted.\",\"evidence_class\":\"INSPECTED\",\"provenance\":{\"synthetic\":true,\"captured_by\":\"$MANAGER_ID\",\"capture_method\":\"controlled fixture isolation observation\"}}")
+test "$(status "$SERVICE_CAPTURE_RESULT")" = 201
+BODY="$(body "$SERVICE_CAPTURE_RESULT")" CAPTURE="$SERVICE_CAPTURE" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert len(x)==1 and x[0]['id']==os.environ['CAPTURE'] and x[0]['verification_status']=='unverified' and x[0]['risk_id'] is None and x[0]['document_id'] is None"
+SERVICE_EVIDENCE_VERIFY=$(rpc "$ADMIN" verify_evidence_item "{\"p_evidence_id\":\"$SERVICE_CAPTURE\",\"p_method\":\"Independent declared synthetic operational fixture inspection review\",\"p_outcome\":\"verified\",\"p_note\":\"Capture actor and asset applicability checked; downtime tolerance and restoration rank remain unknown.\"}")
+ok "$SERVICE_EVIDENCE_VERIFY"
+SERVICE_VERSION=$(psqlc "select coalesce((select version from asset_service_levels where asset_id='$ASSET' and organization_id='$ORG'),0)")
+[[ "$SERVICE_VERSION" =~ ^[0-9]+$ ]]
+SERVICE_COMMAND=$(python3 -c 'import uuid;print(uuid.uuid4())')
+SERVICE_RECORD=$(rpc "$MANAGER" record_asset_service_level "{\"p_asset_id\":\"$ASSET\",\"p_service_name\":\"Process water delivery\",\"p_beneficiary\":\"Operating plant\",\"p_tolerable_downtime_hours\":null,\"p_consequence_class\":\"production\",\"p_restoration_rank\":null,\"p_notes\":\"Synthetic isolation interrupts water delivery; no normative limit or restoration priority is established.\",\"p_basis\":\"Independently reviewed declared synthetic operational inspection; separate contract evidence supplies U13 normative targets.\",\"p_evidence_item_id\":\"$SERVICE_CAPTURE\",\"p_expected_version\":$SERVICE_VERSION,\"p_command_id\":\"$SERVICE_COMMAND\",\"p_observed_actor_id\":\"$MANAGER_ID\",\"p_observed_organization_id\":\"$ORG\"}")
+ok "$SERVICE_RECORD"
+BODY="$(body "$SERVICE_RECORD")" VERSION="$SERVICE_VERSION" ASSET="$ASSET" COMMAND="$SERVICE_COMMAND" ACTOR="$MANAGER_ID" ORG="$ORG" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x['outcome']=='committed' and x['operation']=='record' and x['status']=='draft' and x['version']==int(os.environ['VERSION'])+1 and x['asset_id']==os.environ['ASSET'] and x['command_id']==os.environ['COMMAND'] and x['actor_id']==os.environ['ACTOR'] and x['organization_id']==os.environ['ORG'] and x['request']['p_tolerable_downtime_hours'] is None and x['request']['p_restoration_rank'] is None"
+SERVICE_VERSION=$((SERVICE_VERSION + 1))
+SERVICE_REVIEW_COMMAND=$(python3 -c 'import uuid;print(uuid.uuid4())')
+SERVICE_VERIFY=$(rpc "$ADMIN" verify_asset_service_level "{\"p_asset_id\":\"$ASSET\",\"p_expected_version\":$SERVICE_VERSION,\"p_review_note\":\"Independent synthetic operational review confirms service consequence only and preserves unknown downtime tolerance and restoration priority.\",\"p_command_id\":\"$SERVICE_REVIEW_COMMAND\",\"p_observed_actor_id\":\"$ADMIN_ID\",\"p_observed_organization_id\":\"$ORG\"}")
+ok "$SERVICE_VERIFY"
+BODY="$(body "$SERVICE_VERIFY")" VERSION="$SERVICE_VERSION" ASSET="$ASSET" COMMAND="$SERVICE_REVIEW_COMMAND" ACTOR="$ADMIN_ID" ORG="$ORG" python3 -c "import json,os;x=json.loads(os.environ['BODY']);assert x['outcome']=='committed' and x['operation']=='verify' and x['status']=='verified' and x['version']==int(os.environ['VERSION'])+1 and x['asset_id']==os.environ['ASSET'] and x['command_id']==os.environ['COMMAND'] and x['actor_id']==os.environ['ACTOR'] and x['organization_id']==os.environ['ORG']"
+test "$(psqlc "select count(*) from asset_service_levels where asset_id='$ASSET' and organization_id='$ORG' and status='verified' and recorded_by='$MANAGER_ID' and reviewed_by='$ADMIN_ID' and tolerable_downtime_hours is null and restoration_rank is null and evidence_item_id='$SERVICE_CAPTURE'")" = 1
 SUPPLIER=$(psqlc "insert into suppliers(organization_id,supplier_code,name,supplier_kind,approved_vendor) values('$ORG','U13-OEM','U13 Service OEM','service_contractor',true) on conflict (organization_id,supplier_code) do update set name=excluded.name returning id")
 CONTRACT=$(psqlc "insert into contract_packages(organization_id,package_code,title,scope_of_work,acceptance_criteria,site_conditions_stated,awarded_supplier_id,awarded_value) values('$ORG','U13-SLA','Availability service agreement','Maintain process-water service.','Monthly measured availability.',true,$SUPPLIER,250000) on conflict (organization_id,package_code) do update set awarded_supplier_id=excluded.awarded_supplier_id,awarded_value=excluded.awarded_value returning id")
 WARRANTY=$(psqlc "insert into warranty_terms(organization_id,asset_id,supplier_id,starts_on,ends_on,covers,exclusions,claim_window_days) values('$ORG','$ASSET',$SUPPLIER,'2026-01-01','2028-12-31','Covered failures under service agreement.','Unauthorized modifications.',30) returning id")
@@ -70,7 +102,7 @@ AUTHORITY_BEFORE=$(psqlc "select (select count(*) from approvals where organizat
 
 VERIFY_EVIDENCE=$(rpc "$ADMIN" verify_evidence_item "{\"p_evidence_id\":\"$EVIDENCE\",\"p_method\":\"Independent CI review of executed service agreement\",\"p_outcome\":\"verified\",\"p_note\":\"Source and monthly availability schedule confirmed.\"}")
 ok "$VERIFY_EVIDENCE"
-NOAUTH=$(curl -sS -o /dev/null -w '%{http_code}' -X POST "$API_URL/rest/v1/rpc/get_service_contract_risk_workspace" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d '{}')
+NOAUTH=$(http -sS -o /dev/null -w '%{http_code}' -X POST "$API_URL/rest/v1/rpc/get_service_contract_risk_workspace" -H "apikey: $ANON_KEY" -H 'content-type: application/json' -d '{}')
 echo "U13 smoke: anonymous workspace HTTP ${NOAUTH}"
 test "$NOAUTH" = 401
 echo 'U13 smoke: evidence verified and anonymous boundary passed'

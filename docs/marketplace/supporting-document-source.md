@@ -12,6 +12,11 @@ where inputs support them, and AI-assisted analysis in a governed workspace.
 
 Teams can use SyncAI to:
 
+- assess vibration, oil-analysis, thermography, motor-current, and
+  process-condition evidence with its operating context;
+- run governed censored life-data and selected deterministic reliability and
+  physics-of-failure calculations when the required evidence and approved
+  limits exist;
 - investigate equipment issues and evidence gaps;
 - structure reliability, failure, inspection, and engineering cases;
 - distinguish supported findings, hypotheses, and missing evidence;
@@ -33,6 +38,12 @@ asset context, enabled workflows, integration boundaries, evidence and
 approval responsibilities, support model, retention, and acceptance criteria.
 The team then validates the experience against customer-approved cases before
 expanding scope.
+
+SyncAI can begin with customer-provided exports. Read-only CMMS connector
+patterns cover generic HTTPS JSON, SAP PM, IBM Maximo, and Oracle EAM for
+scoped validation. Production CMMS and historian connections remain dependent
+on the customer environment, approved access, mapping, deployment
+configuration, and acceptance testing.
 
 ## Important boundaries
 

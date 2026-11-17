@@ -1,5 +1,57 @@
 # Time-synchronization assurance
 
+**2026-10-07 — first follow-up candidate passes hosted gates; final-head/production pending.**
+Core run `37687633903` on `e0420aac` completed successfully at `21:30:07Z`:
+**8,035 tests in 524 files**, lint/typecheck/build, migration ordering,
+**16 browser scenarios** including both clock-assurance cases, and the full
+migration-chain/authentication smoke suite. The existing clock native smoke at
+`21:29:21Z` passed configuration/observation serialization, exact intent
+replays, rollback retries, post-wait authority and historical contract checks;
+canonical evidence approval and operational authority remain explicitly false.
+
+Two independent agent reviews found no bounded architecture/security/domain
+blocker and reproduced the local **167 tests in five files**. A requested
+test-only cleanup changes the new revision-zero/null-protocol fixture state
+from `disabled` to canonical `unconfigured`; it was independently re-reviewed
+with the same cohort passing. These are agent review receipts, not GitHub
+account approvals. The final candidate includes that cleanup and this dated
+receipt, so fresh exact-head gates, applicable non-author merge and live
+verification are still required. PR #649 is not deployed; no register status,
+collector integration or clock-evidence eligibility is promoted.
+
+**2026-10-07 — clock-panel reachability follow-up; hosted qualification pending.**
+Current-main composition CI `37684254587` exposed an independent read-lifecycle
+defect: a Data Governance upstream response error prevented its clock child
+from mounting after reload. The exact failed identity/sensor endpoint was not
+retained, so an authentication, database or harmless-flake cause is not claimed.
+Artifact `11511250748` and its screenshot/error context establish the missing
+panel and visible parent error. A retry then correctly refused the unchanged
+contract committed by the first attempt; that server guard is preserved.
+
+The follow-up makes the existing identity/sensor readout and exactly one
+unchanged clock panel stable siblings. Parent loading/error remains visible and
+does not fabricate identity/sensor success; each RPC refusal now names its read
+category. Parent retry/recovery cannot unmount the clock or discard a locked
+unresolved intent. The clock retains its own read refusals, context cancellation
+and administrator-only configuration. Outer MFA/authentication, shared async
+hook, server RPCs, RLS, canonical evidence, receipts and applied migrations are
+unchanged. This does not establish cross-session intent recovery or repair the
+unidentified upstream service response.
+
+Disposable CI fixtures now provide separate enabled/disabled sources for each
+configured browser attempt (0 and 1). Tests require one exact matching source,
+revision zero and no prior configured instant before capture. No retained
+contract is deleted, reset, upserted or recoded; no response is substituted and
+no retry count/timeout is increased. Actual hosted browser/fixture execution,
+independent review, protected merge and production verification remain required.
+Local component/source/service/governance coverage passes **167 tests in five
+files**; six parent-lifecycle tests failed before implementation, and three
+named-refusal checks plus the attempt-source contract failed before their
+repairs. TypeScript, scoped lint, register ratchets and production build pass;
+Playwright discovery finds the two existing scenarios, not executed acceptance.
+No register status or clock-evidence eligibility is promoted. Rollback is the
+frontend/test follow-up only; no customer-data or applied-history rollback.
+
 **2026-10-06 — DRAFT, NOT PRODUCTION-QUALIFIED.** This workstream provides
 administrator-recorded clock contracts and immutable numerical observations.
 Canonical evidence approval, real collector integration, downstream enforcement
@@ -40,7 +92,7 @@ in different tenants are independent. A receipt replay can be historical:
 `configuration_revision` is the original receipt's revision and
 `current_configuration_revision` is the connector's current revision. Neither
 is evidence approval. The earlier seven-argument non-idempotent development
-overload is removed by this unapplied draft migration.
+overload was removed by the governed time-synchronization migration.
 
 A different key with all inputs identical to the current contract is refused
 without mutation. Re-entering an unchanged contract after a browser reload

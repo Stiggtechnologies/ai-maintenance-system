@@ -15,6 +15,25 @@ vi.mock("../services/operatingLoopService", () => ({
   getIntegrations: vi.fn(async () => []),
 }));
 
+vi.mock("../hooks/useSpeechOutput", () => ({
+  useSpeechOutput: () => ({
+    speak: vi.fn(),
+    stop: vi.fn(),
+    speaking: false,
+    supported: true,
+    engine: "browser",
+  }),
+}));
+
+vi.mock("../hooks/useFeatureFlag", () => ({
+  useFeatureFlag: () => ({
+    enabled: false,
+    loading: false,
+    error: null,
+    refetch: () => undefined,
+  }),
+}));
+
 function renderPage() {
   return render(
     <MemoryRouter>

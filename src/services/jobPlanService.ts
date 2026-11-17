@@ -225,6 +225,7 @@ export interface ApplyJobPlanResult {
   materials_requested: number;
   permits_required: number;
   safety_flagged: boolean;
+  schedule_approval_required?: boolean;
 }
 
 interface RpcErrorShape {

@@ -1,0 +1,482 @@
+{
+  "schemaVersion": 7,
+  "asOf": "2026-11-01",
+  "scope": "AI inference cost controls and Microsoft Marketplace commercial compatibility",
+  "finding": "commercial_cost_controls_and_marketplace_capacity_enforcement_deployed_production_plan_policies_not_configured_or_approved_protected_reliability_surface_release_blocked",
+  "sustainabilityAssessment": {
+    "verdict": "not_proven_sustainable_for_public_release",
+    "summary": "The proposed hard-stop AI allowances are mathematically inside a 75% modeled variable gross-margin floor, but complete customer cost-to-serve has not been measured. Starter is structurally underpriced at one seat if it receives human onboarding, security review, support, or customer-success work.",
+    "externalInputs": {
+      "verifiedAt": "2026-11-01",
+      "microsoftMarketplaceServiceFeeRatio": 0.03,
+      "usdCadRate": 1.396,
+      "usdCadObservationDate": "2026-10-30",
+      "gpt56TerraUsdPerMillionTokens": {
+        "input": 2,
+        "cachedInput": 0.2,
+        "output": 12
+      },
+      "gpt56LunaUsdPerMillionTokens": {
+        "input": 0.2,
+        "cachedInput": 0.02,
+        "output": 1.2
+      }
+    },
+    "stressTestAssumptions": {
+      "status": "planning_assumptions_not_entitlements_or_approved_policy",
+      "allowanceMode": "hard_stop",
+      "maximumModelCallsPerDecision": 5,
+      "maximumTokensPerDecision": 500000,
+      "providerCostMultiplier": 1.1,
+      "totalNonInferenceVariableCostReserveRatio": 0.15,
+      "minimumGrossMarginRatio": 0.75,
+      "actualNonInferenceCostMeasured": false
+    },
+    "annualTermPriceFloorStressTest": [
+      {
+        "plan": "Starter",
+        "annualTermMonthlyUsdPerUser": 89,
+        "includedDecisionsPerUserMonth": 1,
+        "minimumUsers": 1,
+        "minimumAnnualContractValueUsd": 1068,
+        "modeledRevenueCadPerUserMonth": 124.244,
+        "modeledNonInferenceReserveCadPerUserMonth": 18.6366,
+        "modeledMaximumInferenceCostCadPerUserMonth": 9.2136,
+        "modeledGrossMarginRatio": 0.775842697,
+        "headroomToMinimumMarginCadPerUserMonth": 3.2108,
+        "sustainabilityRisk": "one_seat_contract_cannot_absorb_material_human_service_cost"
+      },
+      {
+        "plan": "Professional",
+        "annualTermMonthlyUsdPerUser": 179,
+        "includedDecisionsPerUserMonth": 2,
+        "minimumUsers": 3,
+        "minimumAnnualContractValueUsd": 6444,
+        "modeledRevenueCadPerUserMonth": 249.884,
+        "modeledNonInferenceReserveCadPerUserMonth": 37.4826,
+        "modeledMaximumInferenceCostCadPerUserMonth": 18.4272,
+        "modeledGrossMarginRatio": 0.776256983,
+        "headroomToMinimumMarginCadPerUserMonth": 6.5612,
+        "sustainabilityRisk": "support_and_customer_success_cost_unmeasured"
+      },
+      {
+        "plan": "Enterprise",
+        "annualTermMonthlyUsdPerUser": 299,
+        "includedDecisionsPerUserMonth": 4,
+        "minimumUsers": 10,
+        "minimumAnnualContractValueUsd": 35880,
+        "modeledRevenueCadPerUserMonth": 417.404,
+        "modeledNonInferenceReserveCadPerUserMonth": 62.6106,
+        "modeledMaximumInferenceCostCadPerUserMonth": 36.8544,
+        "modeledGrossMarginRatio": 0.761705686,
+        "headroomToMinimumMarginCadPerUserMonth": 4.886,
+        "sustainabilityRisk": "only_1.17_percentage_points_above_the_75_percent_floor"
+      }
+    ],
+    "releaseDecision": {
+      "currentPricesMayRemainDraftExperiments": true,
+      "currentPerUserPricesMayBePublished": false,
+      "selectedCoreOfferArchitecture": "flat_rate_site_and_outcome_pricing",
+      "selectedCommercialDecisionRecord": "marketplace/commercial-offer-decision.json",
+      "publicActivationAuthorized": false,
+      "requiredBeforePublicActivation": [
+        "enforce_the_exact_hard_stop_allowance",
+        "measure_p50_and_p95_inference_cost_per_completed_decision",
+        "measure_hosting_storage_observability_support_and_customer_success_cost",
+        "complete_two_real_preview_purchases",
+        "prove_gross_margin_at_or_above_75_percent_with_measured_costs",
+        "set_a_minimum_order_or_setup_fee_for_any_human_serviced_entry_plan"
+      ],
+      "recommendedRoleInScaleModel": "Use the narrow per-user plan only as an acquisition wedge. Durable ARR must expand into the existing USD 60000 to 100000 production-site band and higher multi-site or enterprise contracts."
+    }
+  },
+  "implemented": {
+    "usageLedger": {
+      "status": "implemented",
+      "source": "private.llm_usage",
+      "attribution": [
+        "organization_id",
+        "fn",
+        "model",
+        "requested_model",
+        "priced_model",
+        "billing_subscription_id",
+        "cost_object_type",
+        "cost_object_id"
+      ],
+      "priceSnapshot": [
+        "input_cad_per_mtok",
+        "output_cad_per_mtok",
+        "price_effective_date",
+        "inference_cost_cad",
+        "cost_status",
+        "commercial_allowed_models_snapshot",
+        "model_policy_status",
+        "service_tier",
+        "pricing_mode_status"
+      ],
+      "storesPromptOrCompletionText": false,
+      "unattributedCallsReported": true
+    },
+    "modelPriceTable": {
+      "status": "implemented",
+      "source": "private.llm_prices",
+      "currency": "CAD",
+      "unit": "per_million_tokens",
+      "latestRefreshMigration": "supabase/migrations/20270105110400_llm_price_refresh_20261007.sql",
+      "officialUsdRatesReverifiedAt": "2026-10-07",
+      "fx": {
+        "rate": 1.4226,
+        "observationDate": "2026-10-06"
+      },
+      "ratesCadPerMillionTokens": {
+        "gpt-5.6-terra": {
+          "input": 2.8452,
+          "output": 17.0712
+        },
+        "gpt-5.6-luna": {
+          "input": 0.28452,
+          "output": 1.70712
+        },
+        "gpt-4o-mini": {
+          "input": 0.21339,
+          "output": 0.85356
+        }
+      },
+      "requiresPeriodicRefresh": true,
+      "unknownPriceTreatedAsFree": false
+    },
+    "actualModelBoundary": {
+      "status": "implemented",
+      "requestedModelRetained": true,
+      "actualProviderModelRetained": true,
+      "approvedModelSetSnapshottedAtReservation": true,
+      "datedDeploymentNormalization": "exact_canonical_model_plus_yyyy_mm_dd_suffix_only",
+      "fuzzyGatewayAliasAllowed": false,
+      "unapprovedActualModelCostRetained": true,
+      "unapprovedActualModelFreezesLaterCommercialPeriodSpend": true,
+      "paidCallWithoutReservationFreezesLaterCommercialPeriodSpend": true
+    },
+    "organizationQuota": {
+      "status": "implemented",
+      "gate": "check_llm_commercial_quota",
+      "underlyingAtomicReservation": "check_llm_quota",
+      "settlement": "record_llm_usage",
+      "failureRelease": "release_llm_reservation",
+      "atomicReservation": true,
+      "failsClosed": true,
+      "defaultMaxCallsPerUtcDay": 5184,
+      "defaultMaxTokensPerUtcDay": 22000000,
+      "defaultCapsAreCommercialEntitlements": false,
+      "defaultCapsPurpose": "abuse_protection_with_engineering_headroom"
+    },
+    "deployedDevelopAgentBoundary": {
+      "status": "implemented_hosted_verified",
+      "sharedBoundary": "supabase/functions/_shared/llm-commercial-usage.ts",
+      "verifiedHead": "9b1031779ffda2c270df7febe0a695c8eca0e69b",
+      "verifiedRun": "https://github.com/Stiggtechnologies/ai-maintenance-system/actions/runs/37536901041",
+      "coveredFunctions": [
+        "develop-evidence-agent",
+        "develop-change-impact-agent",
+        "develop-contract-strategy-agent",
+        "develop-gate-agent",
+        "develop-methodology-agent",
+        "develop-requirements-agent",
+        "develop-risk-agent"
+      ],
+      "reservationBeforeProviderSpend": true,
+      "actualUsageSettlementBeforeOutputConsumption": true,
+      "providerFailureReleasesReservation": true,
+      "settlementFailureDiscardsOutputAndRetainsReservation": true,
+      "promptOrCompletionTextStoredByBoundary": false
+    },
+    "pricingModeBoundary": {
+      "status": "implemented_hosted_verified_not_configured",
+      "verifiedHead": "5a1eccc143bb622530e2289b218e378c614d525e",
+      "verifiedRun": "37539451597",
+      "verifiedResult": "success",
+      "standardRateModelPricesImplemented": true,
+      "planPolicyProviderCostMultiplierRequired": true,
+      "minimumProviderCostMultiplier": 1,
+      "grossMarginGateAppliesProviderCostMultiplierToBaseAndOverage": true,
+      "explicitPremiumCacheWriteRequestedBySharedProvider": false,
+      "regionalProcessingEndpointRequestedBySharedProvider": false,
+      "longContextPremiumTierExplicitlyModeled": false,
+      "longContextPremiumTierTechnicallyExcludedByPaidEnvelope": true,
+      "gpt56ImplicitCacheWriteTechnicallyExcludedForBoundPaidTraffic": true,
+      "externalGatewayMarkupExplicitlyModeled": false,
+      "externalGatewayOrPremiumTierCanBeStressPriced": true,
+      "releaseRule": "Every approved policy must state a provider cost multiplier of at least 1. A multiplier of exactly 1 is valid only for a verified standard-rate direct route with prompts bounded below premium context tiers; otherwise the multiplier must come from a separately approved gateway/provider-tier cost schedule. Opaque gateway economics cannot be treated as the model list price."
+    },
+    "paidCommercialProviderRoute": {
+      "status": "implemented_merged_deployed_runtime_witness_pending",
+      "source": "supabase/functions/_shared/llm-commercial-usage.ts",
+      "commercialBindingSignal": "nonempty commercialPlanId returned by the atomic quota reservation",
+      "requiredProviderName": "openai-direct",
+      "requiredProviderBaseUrl": "https://api.openai.com",
+      "requiresExactRequestedModel": true,
+      "requiredRequestServiceTier": "default",
+      "requiredObservedResponseServiceTier": "default",
+      "nonStandardObservedTierBehavior": "withhold_output_settle_actual_model_and_tokens_as_unknown_price_pricing_mode_breach_freeze_later_paid_calls",
+      "gpt56PromptCacheMode": "explicit_without_breakpoints",
+      "gpt56ImplicitCacheWritesAllowed": false,
+      "externalGatewayAllowedForBoundPaidPlan": false,
+      "crossModelSafetyFallbackAllowedForBoundPaidPlan": false,
+      "noExactDirectRouteBehavior": "release_reservation_refuse_provider_contact",
+      "standardRateEnvelope": {
+        "status": "implemented_merged_deployed_runtime_witness_pending",
+        "maximumOutputTokens": 8192,
+        "maximumUtf8BytePlusOutputAndFramingUpperBound": 100000,
+        "framingTokenAllowance": 1024,
+        "reservationUsesSameConservativeUpperBound": true,
+        "gpt4oMiniContextWindowTokens": 128000,
+        "gpt56TerraAndLunaLongContextInputThresholdTokens": 272000,
+        "overLimitBehavior": "release_reservation_refuse_provider_contact",
+        "sourceEvidence": [
+          "https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create",
+          "https://developers.openai.com/api/docs/guides/prompt-caching",
+          "https://developers.openai.com/api/docs/models/gpt-4o-mini",
+          "https://developers.openai.com/api/docs/models/gpt-5.6-terra",
+          "https://developers.openai.com/api/docs/models/gpt-5.6-luna"
+        ]
+      },
+      "unboundEngineeringTrafficRetainsGatewayResilience": true
+    },
+    "protectedReliabilityEngineerCommercialBoundary": {
+      "status": "commercially_blocked_pending_separately_reviewed_qualification_change",
+      "runtime": "ai-agent-processor",
+      "reason": "The protected Reliability Engineer surface still owns a legacy provider and fail-soft telemetry path rather than the shared commercial reservation, exact-route, pricing-mode-witness, and settlement boundary.",
+      "paidProviderContactAllowed": false,
+      "databaseRefusal": "commercial_runtime_boundary_unavailable",
+      "qualificationBaselinePreserved": true,
+      "paidPackageReleaseBlocked": true
+    },
+    "commercialPlanPolicy": {
+      "status": "implemented_not_configured",
+      "source": "private.ai_commercial_plan_policies",
+      "seededCommercialValues": false,
+      "requiresNamedAdministrativeApprover": true,
+      "perUserAutomaticMeteredOverageAllowed": false,
+      "hardStopUnpricedOverageAllowed": false,
+      "requestedModelEnforcement": true,
+      "actualSettledModelEnforcement": true
+    },
+    "commercialPlanToQuotaBinding": {
+      "status": "implemented_for_azure_marketplace",
+      "source": "apply_ai_commercial_plan_allowance",
+      "azureMarketplaceActivationFailsClosedWithoutApprovedPolicy": true,
+      "perUserAllowanceScalesWithAuthoritativeMarketplaceQuantity": true,
+      "perUserActivationFailsClosedWithoutQuantity": true,
+      "flatRateAllowanceIgnoresMarketplaceSeatQuantity": true,
+      "directSubscriptionActivationFailsClosedWithoutApprovedPolicy": false,
+      "directFlatRatePoliciesBindExistingActiveSubscriptionsWhenApproved": true,
+      "directPerUserQuantityBackedBinding": "not_implemented"
+    },
+    "grossMarginReleaseGate": {
+      "status": "implemented_not_configured",
+      "source": "evaluate_ai_commercial_plan_policy",
+      "basis": "worst-priced allowed model multiplied by an explicit provider/pricing-tier cost factor, plus explicitly supplied non-inference variable cost",
+      "appliesToBaseAllowance": true,
+      "appliesToMeteredOverageUnit": true,
+      "standardRateOnlyUntilProviderAndTierGateSatisfied": true,
+      "isTotalCompanyGrossMarginModel": false
+    },
+    "productionCogsReporting": {
+      "status": "implemented_no_production_distribution_evidenced",
+      "source": "get_ai_unit_economics",
+      "measures": [
+        "settled_calls",
+        "total_tokens",
+        "known_inference_cost_cad",
+        "unknown_price_calls",
+        "unpriced_calls",
+        "model_policy_violation_calls",
+        "pricing_mode_violation_calls",
+        "unattributed_calls",
+        "attributed_decisions",
+        "priced_attributed_decisions",
+        "average_cost_per_decision_cad",
+        "p50_cost_per_decision_cad",
+        "p95_cost_per_decision_cad"
+      ]
+    },
+    "marketplaceUsageAggregation": {
+      "status": "implemented_not_configured_or_live_certified",
+      "sourceMetric": "llm_total_tokens",
+      "supportsIncludedQuantity": true,
+      "idempotentHourlyEvents": true,
+      "liveAcceptedMeterEventEvidenced": false
+    },
+    "paidRealtime": {
+      "status": "commercially_blocked",
+      "reason": "WebRTC negotiation currently lacks terminal provider usage settlement",
+      "unmeasuredPaidUsageAllowed": false
+    }
+  },
+  "pending": {
+    "approvedCommercialPolicy": {
+      "status": "not_evidenced",
+      "reason": "No price, included allowance, maximum allowance, allowed model set, non-inference variable cost, or margin threshold was invented or approved."
+    },
+    "productionMeasurementEvidence": {
+      "status": "not_evidenced"
+    },
+    "providerAndPricingTierEvidence": {
+      "status": "bound_paid_direct_route_deployed_runtime_and_current_price_witness_pending",
+      "reason": "The protected 2026-11-01 deployment run packaged the exact direct-model boundary into every production function that imports the commercial-usage helper on canonical project pjvoswbwomesuwhygpby. The post-merge deployment for f709231aaa5f1a5d3f1f6c373d6269cf70feb90d then advanced all nine commercial-boundary consumers and migrated the paid default to gpt-5.6-terra; deprecated gpt-4o-mini is excluded from the proposed plan allowlist. Bound paid traffic is designed to bypass the configured gateway-first chain. A real bound paid production call has not yet proved the exact OpenAI endpoint, requested model, standard service tier, terminal settlement, refusal behavior, or current CAD price rows. The proposed model policy and a provider multiplier of 1.0 therefore remain ineligible for approval until that runtime witness passes. The gateway inventory remains relevant only to unbound engineering traffic. No secret value was inspected."
+    },
+    "directChannelActivationGate": {
+      "status": "not_implemented",
+      "reason": "Direct-plan activation remains outside the automatic fail-closed subscription trigger to avoid retroactively interrupting unaudited legacy direct plans."
+    },
+    "realtimeUsageSettlement": {
+      "status": "not_implemented",
+      "reason": "Paid realtime remains blocked until terminal provider usage can be settled to the canonical ledger."
+    }
+  },
+  "observedProductionConfiguration": {
+    "observedAt": "2026-11-01",
+    "scope": "live SyncAI Supabase secret-name inventory plus protected deployment metadata; no secret value or bound paid production call was inspected",
+    "secretValuesInspected": false,
+    "gatewayConfigurationNamesPresent": ["LLM_BASE_URL", "LLM_API_KEY"],
+    "directProviderConfigurationNamePresent": "OPENAI_API_KEY",
+    "modelOverrideConfigurationNamesPresent": [],
+    "modelOverrideConfigurationNamesChecked": [
+      "LLM_GATEWAY_MODEL",
+      "DEVELOP_AGENT_MODEL"
+    ],
+    "defaultCommercialRequestedModel": "gpt-5.6-terra",
+    "defaultCommercialRequestedModelLifecycle": {
+      "status": "supported_current_default_previous_gpt4o_mini_deprecated",
+      "source": "https://developers.openai.com/api/docs/models/gpt-4o-mini",
+      "observedAt": "2026-11-01"
+    },
+    "releaseCandidateDefaultCommercialModel": "gpt-5.6-terra",
+    "releaseCandidateDefaultModelMigration": {
+      "status": "deployed_to_canonical_production",
+      "changes": [
+        "shared commercially priced default",
+        "Develop evidence agent default",
+        "asset onboarding enrichment default"
+      ],
+      "productionProofRequired": false,
+      "deploymentEvidence": {
+        "mergeCommit": "f709231aaa5f1a5d3f1f6c373d6269cf70feb90d",
+        "canonicalProjectRef": "pjvoswbwomesuwhygpby",
+        "observedAt": "2026-11-01T07:49:00Z",
+        "consumerCount": 9,
+        "allConsumersActive": true,
+        "updatedAtRange": ["2026-11-01T07:47:51Z", "2026-11-01T07:48:13Z"],
+        "observationMethod": "Supabase Management API names, versions, statuses and update timestamps; no secret values or function source were inspected."
+      }
+    },
+    "defaultGatewayRequestedAlias": "stigg/fast",
+    "requestedAndGatewayModelIdentityMatch": false,
+    "sharedProviderChainOrderWhenConfigured": [
+      "stigg-gateway",
+      "openai-direct"
+    ],
+    "currentFirstProviderClass": "external_gateway",
+    "gatewayModelEvidence": {
+      "scope": "local stigg-ai-gateway repository configuration; exact deployed revision not verified",
+      "requestedAlias": "stigg/fast",
+      "configuredPrimary": "claude-haiku-4-5-20251001",
+      "configuredFallbacks": [
+        "claude-sonnet-5",
+        "gpt-5.6-luna",
+        "gemini-2.5-flash"
+      ],
+      "configuredContextWindowFallbacks": ["claude-sonnet-5", "gemini-2.5-pro"],
+      "responseModelContract": "gateway documentation states response.model contains the concrete model used after fallback; SyncAI settles data.model rather than the requested alias",
+      "exactDeployedMappingEvidenced": false
+    },
+    "proposedAllowedModels": ["gpt-5.6-terra", "gpt-5.6-luna"],
+    "allConfiguredGatewayOutcomesPricedAndApproved": false,
+    "currentRouteCompatibleWithProposedPolicy": false,
+    "releaseCandidatePinsBoundPaidPlansToExactDirectModel": true,
+    "releaseCandidateDeployed": true,
+    "releaseCandidateRuntimeWitnessed": false,
+    "releaseCandidateDeploymentEvidence": {
+      "canonicalProjectRef": "pjvoswbwomesuwhygpby",
+      "workflow": "Deploy migrations",
+      "workflowRunId": "41283398055",
+      "workflowRunUrl": "https://github.com/Stiggtechnologies/ai-maintenance-system/actions/runs/41283398055",
+      "deployedHead": "4afc6fd6bd067e462677a02ddae3a08f4bdba4b5",
+      "result": "success",
+      "evidence": "The protected workflow linked the canonical project and completed Deploy approved Edge Functions successfully. That deployment packaged every function importing llm-commercial-usage.ts from a main commit containing the paid direct-model boundary.",
+      "doesNotProve": "A bound paid production request used the exact direct provider, requested model and standard service tier or exercised the refusal behavior."
+    },
+    "gatewayCostScheduleEvidenced": false,
+    "providerCostMultiplierOneReleaseEligible": false
+  },
+  "commercialCompatibility": {
+    "observedMicrosoftDraftPricingModel": "per_user",
+    "microsoftMeteringSupportedForPerUser": false,
+    "microsoftMeteringSupportedForFlatRate": true,
+    "allPlansInOfferMustSharePricingModel": true,
+    "currentDraftCompatibleWithImplementedMeter": false,
+    "selectedCoreSaasArchitecture": "flat_rate_base_with_hard_stop_allowance_at_launch",
+    "futureMeteringCompatibilityPreserved": true,
+    "automaticMeteredOverageAtLaunch": false,
+    "selectedCommercialDecisionRecord": "marketplace/commercial-offer-decision.json",
+    "recommendedNarrowAgentArchitecture": "per_user_with_hard_bundled_allowance_and_no_automatic_metered_overage",
+    "pricingModelChangeBeforePublicationRequiredForCoreMetering": true,
+    "partnerCenterMutationAuthorized": false
+  },
+  "economicsModel": {
+    "canonicalFormula": "input_tokens * input_cad_per_mtok / 1000000 + completion_tokens * output_cad_per_mtok / 1000000",
+    "currentGranularity": "model_call_with_supported_cost_object_rollup",
+    "perDecisionCostAvailable": true,
+    "perDecisionCostCoverage": "supported runtime paths only: governed decision-capable paid runtimes, including the deployed Develop evidence, change-impact, contract-strategy, gate, and requirements agents; risk, methodology, recommendation enrichment, and asset onboarding carry their own canonical work subjects. The protected Reliability Engineer ai-agent-processor is refused before paid provider contact pending a separately reviewed qualification change; it is not falsely counted as covered. Any remaining unattributed call stays explicit and inside the hard token ceiling.",
+    "rawTokenMeterIsModelCostWeighted": false,
+    "warning": "Equal token quantities can have materially different inference cost under different model routes.",
+    "pricingModeWarning": "The margin evaluator applies an explicit policy-level provider cost multiplier to standard model rates. The release candidate technically excludes long-context pricing for bound paid calls with an 8,192-token output ceiling and a 100,000-token conservative UTF-8-byte-plus-output-and-framing upper bound. It explicitly requests service_tier=default, requires the response to report default, and disables GPT-5.6 implicit cache writes with explicit mode and no breakpoints. A value of 1 still requires deployment proof of that route; regional-processing, any non-default processing tier, explicit cache writes, or external-gateway adjustments require a sourced multiplier or technical exclusion from the paid route.",
+    "gatewayModelWarning": "The live observed gateway-first route is not executable for the proposed GPT allowlist. The release candidate now pins a bound paid plan to the exact requested model on openai-direct and refuses provider contact when that route is unavailable; it preserves gateway resilience for unbound engineering traffic. This source control is not reviewed, merged, deployed, or production-proven. A gateway-based paid policy would still need every reachable primary and fallback priced and approved, USD rates normalized to CAD, gateway infrastructure allocated, and deployed response identity proved.",
+    "commercialAllowanceApproved": false,
+    "overagePriceApproved": false,
+    "grossMarginThresholdApproved": false
+  },
+  "requiredReleaseGates": [
+    "approved_offer_wide_pricing_model",
+    "approved_commercial_unit_and_included_allowance",
+    "approved_allowed_model_set_and_price_refresh_process",
+    "verified_standard_rate_provider_route_or_approved_provider_tier_cost_schedule",
+    "verified_deployed_gateway_model_identity_and_complete_primary_fallback_allowlist_or_direct_route_pin",
+    "deployed_and_verified_prompt_ceiling_below_any_premium_context_tier",
+    "approved_non_inference_variable_cost_input",
+    "approved_gross_margin_threshold",
+    "measured_production_cost_distribution",
+    "protected_marketplace_meter_certification_if_metered",
+    "live_accepted_metering_event_if_metered",
+    "paid_realtime_usage_settlement_before_realtime_enablement",
+    "protected_reliability_engineer_shared_boundary_and_qualification_before_paid_enablement"
+  ],
+  "sources": {
+    "repository": [
+      "marketplace/commercial-offer-decision.json",
+      "supabase/migrations/20260916000000_llm_cost_guardrails.sql",
+      "supabase/migrations/20261229100000_azure_marketplace_metering.sql",
+      "supabase/migrations/20261230110000_azure_marketplace_metering_clock_consistency.sql",
+      "supabase/migrations/20270105110300_ai_commercial_cost_controls.sql",
+      "supabase/functions/_shared/llm-commercial-usage.ts",
+      "src/test/llmCommercialUsage.test.ts",
+      "src/test/llmCostGuardrails.test.ts",
+      "src/test/azureMarketplaceMetering.test.ts",
+      "src/test/aiCommercialCostControls.test.ts"
+    ],
+    "microsoft": [
+      "https://learn.microsoft.com/en-us/partner-center/marketplace-offers/saas-metered-billing",
+      "https://learn.microsoft.com/en-us/partner-center/marketplace-offers/plan-saas-offer",
+      "https://learn.microsoft.com/en-us/partner-center/marketplace-offers/payout-faq"
+    ],
+    "openai": [
+      "https://developers.openai.com/api/docs/pricing",
+      "https://developers.openai.com/api/docs/models/gpt-5.6-terra",
+      "https://developers.openai.com/api/docs/models/gpt-5.6-luna",
+      "https://developers.openai.com/api/docs/models/gpt-4o-mini"
+    ],
+    "bankOfCanada": [
+      "https://www.bankofcanada.ca/rates/exchange/daily-exchange-rates-lookup/?dF=2026-10-24&dT=2026-10-31&lP=lookup_daily_exchange_rates_2017.php&rangeType=dates&rangeValue=&sR=2009-03-06&se=FXUSDCAD"
+    ]
+  }
+}

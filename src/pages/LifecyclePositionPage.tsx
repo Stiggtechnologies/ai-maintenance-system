@@ -14,6 +14,7 @@
 import { useNavigate } from "react-router-dom";
 import { DraftingCompass } from "lucide-react";
 import { LifecycleStages } from "../components/LifecycleStages";
+import { AssetLifecycleGateWorkspace } from "../components/AssetLifecycleGateWorkspace";
 
 export function LifecyclePositionPage() {
   const navigate = useNavigate();
@@ -29,6 +30,7 @@ export function LifecyclePositionPage() {
         </p>
       </div>
       <LifecycleStages />
+      <AssetLifecycleGateWorkspace />
       <button
         onClick={() => navigate("/design")}
         className="flex w-full items-start gap-3 rounded-xl border border-white/6 bg-[#0D1520] p-4 text-left hover:bg-white/4 transition-colors"

@@ -15,7 +15,14 @@ export type EngineeringEntityType =
   | "root_cause_analysis"
   | "recommendation"
   | "risk"
-  | "verified_case";
+  | "verified_case"
+  // System topology (facility reference models)
+  | "system"
+  | "subsystem"
+  | "equipment_unit"
+  | "function"
+  | "functional_failure"
+  | "redundancy_group";
 
 export type EngineeringRelationshipType =
   | "contains"
@@ -32,7 +39,26 @@ export type EngineeringRelationshipType =
   | "resulted_in"
   | "resolved_by"
   | "similar_to"
-  | "supersedes";
+  | "supersedes"
+  // System topology: functions, design intent and redundancy membership.
+  // Design-intent edges are not verified redundancy ratings.
+  | "performs"
+  | "has_functional_failure"
+  | "causes"
+  | "modelled_by"
+  | "member_of"
+  | "provides_redundancy_for"
+  | "supplies_power_to"
+  | "cools"
+  | "rejects_heat_to"
+  | "backs_up"
+  | "depends_on"
+  | "protects"
+  | "controls"
+  | "monitors"
+  | "supplies_fuel_to"
+  | "supplies_water_to"
+  | "houses";
 
 export type KnowledgeAuthorityLevel =
   | "customer_approved"

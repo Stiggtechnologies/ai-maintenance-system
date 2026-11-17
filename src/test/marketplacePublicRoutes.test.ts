@@ -62,19 +62,14 @@ describe("Marketplace app-domain routes", () => {
     });
     expect(manifest.technicalConfiguration.landingPage).toMatchObject({
       controlledReplacement: "https://app.syncai.ca/marketplace/activate",
-      implementationMergeCommit:
-        "a0c4186efd1d449fbd80d67d5150d63f18684875",
+      implementationMergeCommit: "a0c4186efd1d449fbd80d67d5150d63f18684875",
       replacementProbe: { httpStatus: 200 },
     });
     expect(manifest.technicalConfiguration.connectionWebhook).toMatchObject({
-      controlledReplacement:
-        "https://app.syncai.ca/api/marketplace/webhook",
-      implementationMergeCommit:
-        "a0c4186efd1d449fbd80d67d5150d63f18684875",
-      unconfirmedHistoricalDirectCandidate: {
-        permittedAsFallback: false,
-        status: "blocked",
-      },
+      controlledReplacement: "https://app.syncai.ca/api/marketplace/webhook",
+      implementationMergeCommit: "a0c4186efd1d449fbd80d67d5150d63f18684875",
+      productionUpstream:
+        "https://pjvoswbwomesuwhygpby.supabase.co/functions/v1/marketplace-webhook",
       replacementProbe: {
         get: { httpStatus: 405, allow: "POST" },
         unsignedJsonPost: {
@@ -83,8 +78,18 @@ describe("Marketplace app-domain routes", () => {
         },
       },
       productionProjectConfirmation: {
-        requiredBeforePartnerCenterUpdate: true,
-        authoritativeEvidence: "blocked",
+        requiredBeforePartnerCenterUpdate: false,
+        requiredBeforePublication: true,
+        status: "verified",
+      },
+      runtimeSecrets: {
+        presentOnLiveProject: [
+          "AZURE_MARKETPLACE_CLIENT_ID",
+          "AZURE_MARKETPLACE_TENANT_ID",
+          "AZURE_MARKETPLACE_PUBLISHER_ID",
+          "AZURE_MARKETPLACE_OFFER_ID",
+        ],
+        missingOnLiveProject: ["AZURE_MARKETPLACE_CLIENT_SECRET"],
         status: "blocked",
       },
       authenticatedUpstreamLifecycleWitness: "blocked",
@@ -92,12 +97,13 @@ describe("Marketplace app-domain routes", () => {
     });
     expect(manifest.blockingActions).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: "PC-000", status: "blocked" }),
+        expect.objectContaining({ id: "PC-000", status: "verified" }),
         expect.objectContaining({
           id: "PC-001",
           dependsOn: ["PC-000"],
-          status: "blocked",
+          status: "verified",
         }),
+        expect.objectContaining({ id: "PC-010", status: "blocked" }),
       ]),
     );
     expect(manifest.claims).toMatchObject({
@@ -261,5 +267,26 @@ describe("Marketplace app-domain routes", () => {
     expect(proxy).not.toMatch(/localStorage|sessionStorage/);
     expect(proxy).not.toMatch(/CLIENT_SECRET|SERVICE_ROLE|PUBLISHABLE_KEY/);
     expect(proxy).not.toMatch(/console\.(?:log|info|warn|error)/);
+  });
+});
+
+describe("app-owned policy navigation", () => {
+  it.each(["privacy", "terms", "security"])(
+    "routes %s to existing app policy content",
+    (path) => {
+      const app = read("src/App.tsx");
+      const component = path[0].toUpperCase() + path.slice(1);
+      expect(app).toMatch(
+        new RegExp(`path="/${path}"[\\s\\S]{0,170}<${component} onNavigate`),
+      );
+      expect(read("src/components/public-ask/PublicAskEmpty.tsx")).toContain(
+        `href="/${path}"`,
+      );
+    },
+  );
+  it("uses direct policy paths from sign-in while preserving other auth views", () => {
+    expect(read("src/App.tsx")).toContain(
+      '["privacy", "terms", "security"].includes(page)',
+    );
   });
 });

@@ -16,6 +16,7 @@ import {
   type RecoveryControlSnapshot,
   type RecoveryEventDetail,
 } from "../services/syncRecoveryService";
+import { RecoveryFieldEvidenceCapture } from "./RecoveryFieldEvidenceCapture";
 
 export type RecoveryAdvancedView = "control" | "optimize" | "learn";
 
@@ -603,31 +604,13 @@ export function RecoveryControlCenter({
                   Require verified zero
                 </button>
               )}
-              <button
-                type="button"
-                disabled={
-                  fieldDisabled ||
-                  !selectedWorkId ||
-                  fieldBasis.trim().length < 10
-                }
-                onClick={() =>
-                  void run(
-                    () =>
-                      recoveryActions.addFieldEvidence({
-                        eventId: detail.event.id,
-                        eventWorkId: selectedWorkId,
-                        kind: "note",
-                        note: fieldBasis,
-                        clientCommandId: crypto.randomUUID(),
-                      }),
-                    "Idempotent field evidence added to the shift handoff.",
-                  )
-                }
-                className="rounded-lg border border-industrial-border px-3 py-2 text-sm text-slate-200 disabled:opacity-40"
-              >
-                Add field note
-              </button>
             </div>
+            <RecoveryFieldEvidenceCapture
+              eventId={detail.event.id}
+              eventWorkId={selectedWorkId}
+              disabled={fieldDisabled}
+              onSaved={load}
+            />
           </section>
 
           <section className={cardClass}>

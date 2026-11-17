@@ -62,14 +62,20 @@ publishing while a blocking item remains open.**
 
 ## 3. CSP and supplemental content
 
-- [ ] Select **No partners in the CSP program** for initial publication.
-- [ ] Enter the controlled Supplemental content narrative.
-- [ ] Supply the production Azure subscription ID from owner-controlled
-      evidence.
-- [ ] Attach the deployed Azure resource, identity, health, architecture, and
-      consumption witnesses listed in `supplemental-content.md`.
-- [ ] Confirm the narrative names non-Azure dependencies and does not claim an
-      Azure-primary state before consumption evidence supports it.
+- [ ] Preserve **Any partner in the CSP program** only if the release owner has
+      verified minimum partner enablement, support, pricing, and escalation
+      controls; otherwise narrow the audience deliberately before publication.
+- [ ] Do not select fully or partially hosted in Azure while the authoritative
+      production application and data plane remain on Vercel and Supabase.
+- [ ] If the transactable path is retained, deploy the Azure edition and attach
+      the resource, identity, health, architecture, and commensurate-consumption
+      witnesses listed in `supplemental-content.md` before saving an Azure-hosted
+      scenario.
+- [ ] If the release owner deliberately chooses listing-only, record that
+      commercial decision, save the truthful **not hosted in Azure** answer, and
+      verify the independent contact or transaction path before publication.
+- [ ] Do not claim an Azure-primary state before production and consumption
+      evidence supports it.
 
 ## 4. Preview audience
 

@@ -23,7 +23,11 @@ export type SharedComponentCategory =
   | "cooling_system"
   | "switchgear"
   | "vfd"
-  | "transformer";
+  | "transformer"
+  | "battery"
+  | "engine"
+  | "power_converter"
+  | "refrigeration_circuit";
 
 export const requiredSharedComponentCategories: readonly SharedComponentCategory[] =
   [
@@ -40,6 +44,10 @@ export const requiredSharedComponentCategories: readonly SharedComponentCategory
     "switchgear",
     "vfd",
     "transformer",
+    "battery",
+    "engine",
+    "power_converter",
+    "refrigeration_circuit",
   ];
 
 export type ComponentDependencyRelationship =

@@ -11,9 +11,11 @@ import {
   Sparkles,
 } from "lucide-react";
 import { MfaManager } from "../components/MfaManager";
+import { OrganizationMfaPolicyPanel } from "../components/OrganizationMfaPolicyPanel";
 import { OrganizationGovernanceWorkspace } from "../components/OrganizationGovernanceWorkspace";
 import { supabase } from "../lib/supabase";
 import { useAuth } from "../components/AuthProvider";
+import { getCurrentSecurityPosture } from "../services/securityPolicyService";
 import {
   announceSyncFeatureFlagsChanged,
   SYNC_FEATURE_FLAGS,
@@ -135,24 +137,50 @@ export function SettingsPage() {
       </div>
 
       {activeTab === "profile" && <ProfileTab user={user} profile={profile} />}
-      {activeTab === "security" && (
-        <div className="space-y-3">
-          <div>
-            <h2 className="text-lg font-semibold text-industrial-text">
-              Account security
-            </h2>
-            <p className="text-sm text-slate-400">
-              Protect your account with multi-factor authentication.
-            </p>
-          </div>
-          <MfaManager />
-        </div>
-      )}
+      {activeTab === "security" && <SecuritySettings />}
       {activeTab === "organization" && <OrganizationTab profile={profile} />}
       {activeTab === "notifications" && (
         <NotificationsTab user={user} profile={profile} />
       )}
       {activeTab === "sync" && canManageSync && <SyncRolloutTab />}
+    </div>
+  );
+}
+
+function SecuritySettings() {
+  const [policyRequiresMfa, setPolicyRequiresMfa] = useState(false);
+
+  const refreshPosture = async () => {
+    try {
+      const posture = await getCurrentSecurityPosture();
+      setPolicyRequiresMfa(posture.required);
+    } catch {
+      // The database remains authoritative. If posture cannot be read, factor
+      // removal still cannot grant tenant access because app_current_org fails
+      // closed for an in-scope AAL1/no-factor session.
+      setPolicyRequiresMfa(true);
+    }
+  };
+
+  useEffect(() => {
+    void refreshPosture();
+  }, []);
+
+  return (
+    <div className="space-y-5">
+      <div>
+        <h2 className="text-lg font-semibold text-industrial-text">
+          Account security
+        </h2>
+        <p className="text-sm text-slate-400">
+          Protect your account and govern organization-wide assurance.
+        </p>
+      </div>
+      <MfaManager
+        protectLastFactor={policyRequiresMfa}
+        onAssuranceChange={refreshPosture}
+      />
+      <OrganizationMfaPolicyPanel />
     </div>
   );
 }

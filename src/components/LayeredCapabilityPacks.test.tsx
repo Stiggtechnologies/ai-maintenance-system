@@ -293,6 +293,50 @@ describe("LayeredCapabilityPacks", () => {
     );
   });
 
+  it("prefills the Alberta life-safety template as undetermined, advisory drafts", async () => {
+    render(<LayeredCapabilityPacks />);
+    await screen.findByText("SyncAI governed core");
+    fireEvent.change(screen.getByLabelText("Pack layer"), {
+      target: { value: "jurisdiction" },
+    });
+    fireEvent.click(
+      screen.getByText("Start from Alberta housing life-safety template"),
+    );
+    expect(screen.getByLabelText("Jurisdiction")).toHaveValue("Alberta");
+    expect(screen.getByLabelText("Requirement key 1")).toHaveValue(
+      "smoke_alarm_operational",
+    );
+    expect(screen.getByLabelText("Requirement key 8")).toHaveValue(
+      "rental_unit_minimum_standards",
+    );
+    expect(screen.getByLabelText("Requirement obligation 3")).toHaveValue(
+      "advisory",
+    );
+    fireEvent.change(screen.getByLabelText("Layer evidence basis"), {
+      target: {
+        value: "Template loaded for review against held Alberta code copies.",
+      },
+    });
+    fireEvent.click(screen.getByText("Save controlled draft"));
+    await waitFor(() =>
+      expect(authorLayer).toHaveBeenCalledWith(
+        expect.objectContaining({
+          layerKind: "jurisdiction",
+          jurisdiction: "Alberta",
+          configuration: expect.objectContaining({
+            jurisdiction_requirements: expect.arrayContaining([
+              expect.objectContaining({
+                key: "fire_alarm_inspection_testing",
+                applicability: "undetermined",
+                obligation: "advisory",
+              }),
+            ]),
+          }),
+        }),
+      ),
+    );
+  });
+
   it("shows the exact changed value and requires review before adoption", async () => {
     render(<LayeredCapabilityPacks />);
     await screen.findByText("North Plant local pack");

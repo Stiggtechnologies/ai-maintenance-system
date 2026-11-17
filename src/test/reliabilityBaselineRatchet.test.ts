@@ -767,6 +767,29 @@ describe("the frozen floor names its own blocker (H5)", () => {
       scripts: Record<string, string>;
     };
     expect(pkg.scripts["reliability:dryrun"]).toContain("--dry-run");
+    const wrapper = readRepoFile("scripts/reliability-dryrun.mjs");
+    expect(wrapper).toContain(
+      "Cannot capture RE-2026\\.08 reference after protected path changed",
+    );
+    expect(wrapper).toContain(
+      "capture dry-run failed for an unexpected reason",
+    );
+    expect(wrapper).toContain(
+      "protected-surface capture refusal still wrote a scratch reference",
+    );
+  });
+
+  it("retries only explicitly transient live-provider failures", () => {
+    const workflow = readRepoFile(
+      ".github/workflows/reliability-qualification.yml",
+    );
+    expect(workflow).toContain("for ATTEMPT in 1 2 3");
+    expect(workflow).toContain(
+      "HTTP (408|409|425|429|5[0-9][0-9])|fetch failed|ECONNRESET|ETIMEDOUT|UND_ERR_",
+    );
+    expect(workflow).toContain("if ! grep -Eq");
+    expect(workflow).toContain('exit "$STATUS"');
+    expect(workflow).toContain("no partial report is accepted or committed");
   });
 
   it("manifest and cases stay where both enforcement layers look for them", () => {
@@ -1231,6 +1254,20 @@ describe("the honest path is walkable (H5)", () => {
     expect(workflow).toContain("contents: write");
     expect(workflow).toContain("github-actions[bot]");
     expect(workflow).toContain("git push origin");
+  });
+
+  it("lets a live evidence-producer run finish before applying the floor to its report", () => {
+    const workflow = readRepoFile(
+      ".github/workflows/reliability-qualification.yml",
+    );
+    expect(workflow).toContain(
+      "if: github.event_name != 'workflow_dispatch' || inputs.mode == 'dry-run'",
+    );
+    // Pull requests and pushes still enter the deterministic-floor job; only
+    // a live candidate/reference dispatch defers the gate to the report push.
+    expect(workflow).toContain("pull_request:");
+    expect(workflow).toContain("push:");
+    expect(workflow).toContain("mode:");
   });
 
   it("names the blocker precisely, including what the fallback cannot do", () => {

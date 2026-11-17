@@ -7,6 +7,7 @@
  * pills. This module decides whether those seeds may become the active case
  * or enter the ask context pack.
  */
+import { withDraftImportKey } from "./decision-case-import-key";
 import {
   createDraftDecisionCase,
   createSeedDecisionCases,
@@ -114,12 +115,12 @@ export function createHonestEmptyDecisionCase(
   industry: DecisionIndustryId = "oil-gas",
 ): DecisionCase {
   const draft = createDraftDecisionCase(role, industry);
-  return {
+  return withDraftImportKey({
     ...draft,
     organization: "",
     site: "",
     industry,
-  };
+  });
 }
 
 export function pickInitialSelectedCaseId(

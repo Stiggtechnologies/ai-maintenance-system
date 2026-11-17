@@ -4,7 +4,7 @@ const rpc = vi.hoisted(() => vi.fn());
 const from = vi.hoisted(() => vi.fn());
 vi.mock("../lib/supabase", () => ({ supabase: { rpc, from } }));
 beforeEach(() => rpc.mockReset());
-const input = { observationId: "observation", content: "New procedure", changeSummary: "Sequence changed", basis: "Execution evidence" };
+const input = { observationId: "observation", content: "New procedure", changeSummary: "Sequence changed", basis: "Execution evidence", safetyCritical: false };
 function readQuery(result: object) {
   const query = { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(),
     gt: vi.fn().mockReturnThis(), order: vi.fn().mockReturnThis(), limit: vi.fn().mockReturnThis(),
@@ -21,7 +21,7 @@ it("filters revision history by the exact observation while preserving paginatio
   expect(query.select.mock.calls[0][0]).toContain("procedure_translations_standard_work_id_fkey(id,");
 });
 it("reads the immutable procedure identity rather than a latest-version substitute", async () => {
-  const data = { id: 3, language_code: "en", content: "Observed version" };
+  const data = { id: 3, language_code: "en", content: "Observed version", standard: { safety_critical: false, engineering_change_class: null } };
   const query = readQuery({ data, error: null });
   await expect(getObservedProcedure(3)).resolves.toEqual(data);
   expect(from).toHaveBeenCalledWith("procedure_translations");
@@ -39,8 +39,17 @@ it("surfaces read failures for both source and history", async () => {
 });
 it("requests a draft from the exact observation without selecting an arbitrary predecessor", async () => {
   rpc.mockResolvedValue({ data: { revisionId: 3, approvalId: "approval", status: "draft" }, error: null });
-  await expect(requestLearningStandardRevision(input)).resolves.toEqual({ revisionId: 3, approvalId: "approval", status: "draft" });
+  await expect(requestLearningStandardRevision(input)).resolves.toEqual({ revisionId: 3, approvalId: "approval", status: "draft", safetyCritical: false, requiredAuthority: null });
   expect(rpc).toHaveBeenCalledWith("request_learning_standard_revision", { p_observation_id: "observation", p_content: input.content, p_change_summary: input.changeSummary, p_basis: input.basis });
+});
+it("routes declared safety-critical alterations to the designated-authority door", async () => {
+  rpc.mockResolvedValue({ data: { revisionId: 3, approvalId: "approval", status: "draft", safetyCritical: true, requiredAuthority: "admin" }, error: null });
+  await expect(requestLearningStandardRevision({ ...input, safetyCritical: true })).resolves.toMatchObject({ safetyCritical: true, requiredAuthority: "admin" });
+  expect(rpc).toHaveBeenCalledWith("request_safety_critical_learning_standard_revision", { p_observation_id: "observation", p_content: input.content, p_change_summary: input.changeSummary, p_basis: input.basis });
+});
+it("refuses a safety receipt that omits its designated authority", async () => {
+  rpc.mockResolvedValue({ data: { revisionId: 3, approvalId: "approval", status: "draft", safetyCritical: true }, error: null });
+  await expect(requestLearningStandardRevision({ ...input, safetyCritical: true })).rejects.toThrow("Invalid learning revision receipt");
 });
 it.each([null, {}, { revisionId: -1, approvalId: "a", status: "draft" }, { revisionId: 3, approvalId: "", status: "draft" }, { revisionId: 3, approvalId: "a", status: "approved" }])("refuses invalid request receipt %j", async data => {
   rpc.mockResolvedValue({ data, error: null });

@@ -14,10 +14,20 @@ import { platformService } from "../services/platform";
 import { DataGovernance } from "../components/DataGovernance";
 import { RecoverySignalConnectorSetup } from "../components/RecoverySignalConnectorSetup";
 import { PlantHistorianConnectorSetup } from "../components/PlantHistorianConnectorSetup";
+import { AzureIotOperationsConnectorSetup } from "../components/AzureIotOperationsConnectorSetup";
 import { CmmsReadConnectorSetup } from "../components/CmmsReadConnectorSetup";
+import { P6ScheduleReadConnectorSetup } from "../components/P6ScheduleReadConnectorSetup";
+import { SapS4InventoryReadConnectorSetup } from "../components/SapS4InventoryReadConnectorSetup";
+import { SapS4FinancialReadConnectorSetup } from "../components/SapS4FinancialReadConnectorSetup";
+import { SapS4WriteConnectorSetup } from "../components/SapS4WriteConnectorSetup";
+import { MqttReadConnectorSetup } from "../components/MqttReadConnectorSetup";
+import { IgnitionScadaReadConnectorSetup } from "../components/IgnitionScadaReadConnectorSetup";
+import { BentlySystem1ConnectorSetup } from "../components/BentlySystem1ConnectorSetup";
+import { P6ScheduleRevisionReview } from "../components/P6ScheduleRevisionReview";
 
 interface Connector {
   id: string;
+  connector_key: string | null;
   connector_type: string;
   name: string;
   status: string;
@@ -44,6 +54,7 @@ export function IntegrationsPage() {
   const [activeTab, setActiveTab] = useState<"connectors" | "history">(
     "connectors",
   );
+  const [reviewRunId, setReviewRunId] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -93,7 +104,8 @@ export function IntegrationsPage() {
     {
       type: "Ignition",
       label: "Ignition SCADA",
-      description: "Real-time process data",
+      description:
+        "C2.22 read-only tag values via WebDev. Mock-tested, not live-certified.",
     },
     {
       type: "OPC-UA",
@@ -101,7 +113,11 @@ export function IntegrationsPage() {
       description: "Industrial communication protocol",
     },
     { type: "REST", label: "REST API", description: "Custom REST endpoint" },
-    { type: "MQTT", label: "MQTT", description: "IoT message broker" },
+    {
+      type: "MQTT",
+      label: "MQTT",
+      description: "Read-only TLS WebSocket subscribe",
+    },
     { type: "CSV", label: "CSV Import", description: "Bulk data import" },
     {
       type: "Historian",
@@ -186,6 +202,7 @@ export function IntegrationsPage() {
                   </div>
                   <div className="text-xs text-slate-400 mb-3">
                     Type: {conn.connector_type}
+                    {conn.connector_key ? ` • Key: ${conn.connector_key}` : ""}
                   </div>
                   {conn.last_success_at && (
                     <div className="text-xs text-green-600">
@@ -219,9 +236,18 @@ export function IntegrationsPage() {
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
               {connectorTypes.map((ct) => {
-                const isConnected = connectors.some(
-                  (c) => c.connector_type === ct.type,
-                );
+                const isConnected = connectors.some((c) => {
+                  if (ct.type === "MQTT") {
+                    return c.connector_type === "mqtt_read";
+                  }
+                  if (ct.type === "Ignition") {
+                    return (
+                      c.connector_type === "scada_read" ||
+                      c.connector_type === "Ignition"
+                    );
+                  }
+                  return c.connector_type === ct.type;
+                });
                 return (
                   <div
                     key={ct.type}
@@ -236,10 +262,32 @@ export function IntegrationsPage() {
                       )}
                     </div>
                     <p className="text-xs text-slate-400">{ct.description}</p>
-                    <button className="mt-3 text-xs text-signal-cyan hover:text-signal-cyan font-medium flex items-center gap-1">
-                      {isConnected ? "Manage" : "Connect"}{" "}
-                      <ExternalLink size={10} />
-                    </button>
+                    {ct.type === "MQTT" ? (
+                      <a
+                        href="#mqtt-read-setup"
+                        className="mt-3 text-xs text-signal-cyan hover:text-signal-cyan font-medium flex items-center gap-1"
+                      >
+                        {isConnected ? "Manage" : "Connect"}{" "}
+                        <ExternalLink size={10} />
+                      </a>
+                    ) : (
+                      <button
+                        type="button"
+                        className="mt-3 text-xs text-signal-cyan hover:text-signal-cyan font-medium flex items-center gap-1"
+                        onClick={() => {
+                          if (ct.type !== "Ignition") return;
+                          document
+                            .getElementById("ignition-scada-read-setup")
+                            ?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "start",
+                            });
+                        }}
+                      >
+                        {isConnected ? "Manage" : "Connect"}{" "}
+                        <ExternalLink size={10} />
+                      </button>
+                    )}
                   </div>
                 );
               })}
@@ -267,6 +315,7 @@ export function IntegrationsPage() {
                   <th className="pb-2">Records</th>
                   <th className="pb-2">Started</th>
                   <th className="pb-2">Duration</th>
+                  <th className="pb-2">Action</th>
                 </tr>
               </thead>
               <tbody>
@@ -292,7 +341,7 @@ export function IntegrationsPage() {
                       </td>
                       <td className="py-3">
                         <span
-                          className={`text-xs px-2 py-1 rounded-full ${run.status === "success" ? "bg-green-500/100/10 text-green-300" : run.status === "failure" ? "bg-red-500/10 text-red-300" : "bg-amber-500/10 text-amber-300"}`}
+                          className={`text-xs px-2 py-1 rounded-full ${run.status === "success" ? "bg-green-500/10 text-green-300" : run.status === "failure" ? "bg-red-500/10 text-red-300" : "bg-amber-500/10 text-amber-300"}`}
                         >
                           {run.status}
                         </span>
@@ -306,17 +355,48 @@ export function IntegrationsPage() {
                       <td className="py-3 text-sm text-slate-400">
                         {duration ? `${duration}s` : "-"}
                       </td>
+                      <td className="py-3 text-sm">
+                        {connector?.connector_type === "scheduling_read" &&
+                        run.status === "success" ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setReviewRunId((current) =>
+                                current === run.id ? null : run.id,
+                              )
+                            }
+                            className="text-xs font-medium text-signal-cyan hover:text-signal-cyan-soft"
+                          >
+                            {reviewRunId === run.id
+                              ? "Close P6 review"
+                              : "Review P6 changes"}
+                          </button>
+                        ) : (
+                          <span className="text-slate-500">—</span>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           )}
+          {reviewRunId && (
+            <P6ScheduleRevisionReview runId={reviewRunId} showNoChanges />
+          )}
         </div>
       )}
 
       <PlantHistorianConnectorSetup onConfigured={loadData} />
+      <AzureIotOperationsConnectorSetup onConfigured={loadData} />
       <CmmsReadConnectorSetup onConfigured={loadData} />
+      <P6ScheduleReadConnectorSetup onConfigured={loadData} />
+      <SapS4InventoryReadConnectorSetup onConfigured={loadData} />
+      <SapS4FinancialReadConnectorSetup onConfigured={loadData} />
+      <SapS4WriteConnectorSetup onConfigured={loadData} />
+      <MqttReadConnectorSetup onConfigured={loadData} />
+      <IgnitionScadaReadConnectorSetup onConfigured={loadData} />
+      <BentlySystem1ConnectorSetup onConfigured={loadData} />
       <RecoverySignalConnectorSetup onConfigured={loadData} />
       <ConnectorHealth />
       <DataGovernance />

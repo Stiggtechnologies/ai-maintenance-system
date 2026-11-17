@@ -1,8 +1,32 @@
 {
-  "schemaVersion": "1.0",
+  "schemaVersion": "1.1",
   "artifact": "syncai-partner-center-publication",
-  "asOf": "2026-10-03",
+  "asOf": "2026-11-01",
   "overallStatus": "blocked",
+  "bindingConstraint": {
+    "primary": "partner_center_account_publish_eligibility",
+    "observedAt": "2026-11-01",
+    "authoritativeEvidence": "The live Starter pricing and availability page reports: This account is not publish eligible due to either an invalid payout, payout on hold, or invalid tax. The payout assignment page shows the tax profile Complete, payment profile Action required, verification Not started, and the selected CAD bank profile reports that it needs to be updated. The Review and submit page disables Submit offer and Publish.",
+    "consequence": "No Microsoft buyer can purchase the offer until Partner Center clears the account eligibility gate.",
+    "nextAction": "Update the existing CAD bank profile through Microsoft's payment profile editor, return to Partner Center, assign it to Azure Marketplace, and complete the verification prompts. If Microsoft still refuses the profile after completion, open a support case because the previously stated 48-hour validation window has elapsed.",
+    "secondaryReleaseGates": [
+      "production_missing_AZURE_MARKETPLACE_CLIENT_SECRET",
+      "commercial_plan_policy_not_approved_or_configured",
+      "site_and_named_user_entitlement_policy_not_configured_or_approved",
+      "paid_commercial_direct_model_route_runtime_witness_not_completed",
+      "two_real_preview_purchases_not_completed",
+      "authenticated_marketplace_lifecycle_witness_not_completed"
+    ],
+    "status": "blocked"
+  },
+  "azureProductLineQueue": {
+    "record": "marketplace/azure-product-line-queue.json",
+    "primary": "azure_hosted_syncai_saas",
+    "primaryStatus": "in_progress_blocked_on_azure_subscription_and_data_plane_cutover",
+    "enterpriseSpinOff": "syncai_managed_application",
+    "enterpriseSpinOffStatus": "queued_discovery_after_primary_saas_foundation",
+    "portfolioRule": "The Managed Application does not delay the primary SaaS cutover without qualified buyer or funded-contract evidence."
+  },
   "statusVocabulary": [
     "verified",
     "draft",
@@ -14,12 +38,64 @@
     "published": false,
     "microsoftCertified": false,
     "transactableBuyerProven": false,
+    "azurePortalPurchaseEligibilityProven": false,
     "primarilyPlatformedOnAzureProven": false,
     "maccEligible": false,
     "coSellReady": false
   },
+  "offerInventory": {
+    "observedAt": "2026-11-01",
+    "draftCount": 4,
+    "publishedCount": 0,
+    "submitOrPublishEnabled": false,
+    "offers": [
+      {
+        "partnerCenterName": "SyncAI Predictive Maintenance",
+        "offerId": "syncai-predictive-maintenance",
+        "partnerCenterResourceId": "771d0f8e-11f8-4ac3-9325-7ee01ce6fe6b",
+        "type": "saas",
+        "status": "draft",
+        "publicListingName": "SyncAI Industrial Engineering Intelligence",
+        "canonicalRecurringPath": true
+      },
+      {
+        "partnerCenterName": "Reliability Intelligence Assessment",
+        "offerId": "syncai-reliability-intelligence-assessment",
+        "partnerCenterResourceId": "82535999-46d1-4810-8bbb-b2650b9a4e3a",
+        "type": "professional_service",
+        "status": "draft",
+        "observedMarkets": 0,
+        "observedPrice": null,
+        "canonicalRecurringPath": false
+      },
+      {
+        "partnerCenterName": "Industrial Decision Proof of Concept",
+        "offerId": "syncai-industrial-decision-proof-of-concept",
+        "partnerCenterResourceId": "6c1a18a9-d71b-4207-aea0-a1c73042691c",
+        "type": "professional_service",
+        "status": "draft",
+        "canonicalRecurringPath": false
+      },
+      {
+        "partnerCenterName": "SyncAI Implementation and Scale",
+        "offerId": "syncai-implementation-and-scale",
+        "partnerCenterResourceId": "12c6243a-ab61-4e59-8bcc-9d8d6135fd3b",
+        "type": "professional_service",
+        "status": "draft",
+        "canonicalRecurringPath": false
+      }
+    ],
+    "status": "verified"
+  },
   "technicalConfiguration": {
     "status": "blocked",
+    "partnerCenterPageStatus": {
+      "observedAt": "2026-11-01",
+      "status": "complete",
+      "landingPage": "https://app.syncai.ca/marketplace/activate",
+      "connectionWebhook": "https://app.syncai.ca/api/marketplace/webhook",
+      "evidenceScope": "Partner Center form completeness only; this does not prove the authenticated production lifecycle."
+    },
     "deploymentEvidence": {
       "mergeCommit": "a0c4186efd1d449fbd80d67d5150d63f18684875",
       "mergeCommitUrl": "https://github.com/Stiggtechnologies/ai-maintenance-system/commit/a0c4186efd1d449fbd80d67d5150d63f18684875",
@@ -51,11 +127,21 @@
           "result": "success"
         }
       ],
-      "statusEvidenceScope": "The Vercel status contexts are immutable successful deployment records attached to merge commit a0c4186efd1d449fbd80d67d5150d63f18684875. They do not prove that app.syncai.ca aliases any listed deployment or source commit.",
-      "customDomainAliasToMergeCommit": "blocked"
+      "statusEvidenceScope": "The Vercel status contexts are immutable successful deployment records attached to merge commit a0c4186efd1d449fbd80d67d5150d63f18684875. Separate 2026-10-06 production inventory proves that app.syncai.ca is the production URL of the syncai-github project and identifies its configured Supabase upstream; an exact custom-domain-to-source-commit witness remains unavailable.",
+      "customDomainAliasToMergeCommit": "blocked",
+      "productionAliasEvidence": {
+        "observedAt": "2026-10-06",
+        "vercelProject": "syncai-github",
+        "productionUrl": "https://app.syncai.ca",
+        "supabaseProjectRef": "pjvoswbwomesuwhygpby",
+        "supabaseProjectName": "SyncAI",
+        "supabaseProjectStatus": "ACTIVE_HEALTHY",
+        "status": "verified"
+      }
     },
     "landingPage": {
-      "configuredUrl": "https://syncai.ca/marketplace/activate",
+      "configuredUrl": "https://app.syncai.ca/marketplace/activate",
+      "previousConfiguredUrl": "https://syncai.ca/marketplace/activate",
       "configuredUrlProbe": {
         "date": "2026-10-03",
         "method": "GET",
@@ -70,21 +156,19 @@
         "httpStatus": 200,
         "browserWitness": "Marketplace activation UI rendered the bounded no-token state"
       },
-      "status": "external_action_required"
+      "partnerCenterDraftSavedAt": "2026-10-06",
+      "status": "verified"
     },
     "connectionWebhook": {
-      "configuredUrl": "https://syncai.ca/api/marketplace/webhook",
+      "configuredUrl": "https://app.syncai.ca/api/marketplace/webhook",
+      "previousConfiguredUrl": "https://syncai.ca/api/marketplace/webhook",
       "configuredUrlProbe": {
         "date": "2026-10-03",
         "method": "GET",
         "httpStatus": 404
       },
       "controlledReplacement": "https://app.syncai.ca/api/marketplace/webhook",
-      "unconfirmedHistoricalDirectCandidate": {
-        "url": "https://pjvoswbwomesuwhygpby.supabase.co/functions/v1/marketplace-webhook",
-        "permittedAsFallback": false,
-        "status": "blocked"
-      },
+      "productionUpstream": "https://pjvoswbwomesuwhygpby.supabase.co/functions/v1/marketplace-webhook",
       "implementationMergeCommit": "a0c4186efd1d449fbd80d67d5150d63f18684875",
       "replacementProbe": {
         "date": "2026-10-03",
@@ -102,11 +186,37 @@
         ]
       },
       "productionProjectConfirmation": {
-        "requiredBeforePartnerCenterUpdate": true,
-        "intendedSupabaseProject": "owner_decision_required",
-        "authoritativeEvidence": "blocked",
+        "requiredBeforePartnerCenterUpdate": false,
+        "requiredBeforePublication": true,
+        "intendedSupabaseProject": "pjvoswbwomesuwhygpby",
+        "authoritativeEvidence": "Vercel production environment witness plus Supabase project inventory",
+        "status": "verified"
+      },
+      "deployedFunctions": [
+        "marketplace-fulfillment",
+        "marketplace-webhook",
+        "marketplace-metering"
+      ],
+      "runtimeSecrets": {
+        "required": [
+          "AZURE_MARKETPLACE_CLIENT_ID",
+          "AZURE_MARKETPLACE_CLIENT_SECRET",
+          "AZURE_MARKETPLACE_TENANT_ID",
+          "AZURE_MARKETPLACE_PUBLISHER_ID",
+          "AZURE_MARKETPLACE_OFFER_ID"
+        ],
+        "presentOnLiveProject": [
+          "AZURE_MARKETPLACE_CLIENT_ID",
+          "AZURE_MARKETPLACE_TENANT_ID",
+          "AZURE_MARKETPLACE_PUBLISHER_ID",
+          "AZURE_MARKETPLACE_OFFER_ID"
+        ],
+        "missingOnLiveProject": ["AZURE_MARKETPLACE_CLIENT_SECRET"],
+        "configuredAt": "2026-11-01",
+        "observationMethod": "Supabase secret-name inventory; secret values were not inspected.",
         "status": "blocked"
       },
+      "partnerCenterDraftSavedAt": "2026-10-06",
       "authenticatedUpstreamLifecycleWitness": "blocked",
       "status": "blocked"
     },
@@ -114,49 +224,181 @@
       "controlledValue": false,
       "reason": "Current implementation requires manual activation by an administrator of an existing matching organization.",
       "status": "verified"
+    },
+    "commercialEntitlementEnforcement": {
+      "source": "supabase/migrations/20271027090000_marketplace_commercial_entitlements.sql",
+      "productionDataPlaneRecord": "marketplace/production-data-plane-boundary.json",
+      "enforces": [
+        "approved exact offer and plan policy before active Marketplace entitlement",
+        "maximum sites at activation and every later site write",
+        "maximum named users at activation and every later membership write",
+        "one unambiguous active Marketplace subscription per organization",
+        "tenant-scoped entitlement readback"
+      ],
+      "status": "deployed_to_production_not_configured",
+      "productionVerification": {
+        "verifiedAt": "2026-11-01",
+        "project": "SyncAI",
+        "projectRef": "pjvoswbwomesuwhygpby",
+        "witnesses": [
+          "PostgREST resolves public.get_current_commercial_plan_limits and denies anonymous execution with PostgreSQL code 42501",
+          "PostgREST resolves public.configure_commercial_plan_capacity and denies anonymous execution with PostgreSQL code 42501",
+          "marketplace-fulfillment, marketplace-webhook and marketplace-metering respond on the canonical project",
+          "app.syncai.ca, the syncai-github Vercel environment and the protected deployment workflow converge on this project"
+        ],
+        "doesNotProve": [
+          "exact Marketplace offer and plan policies are configured or approved",
+          "a Marketplace subscription is activated",
+          "preview purchase or certification is complete"
+        ]
+      }
+    },
+    "commercialPolicyReadinessAudit": {
+      "observedAt": "2026-11-01",
+      "projectRef": "pjvoswbwomesuwhygpby",
+      "secretValuesInspected": false,
+      "personalDetailsInspected": false,
+      "currentPriceRowsPresent": [
+        "gpt-5.6-terra",
+        "gpt-5.6-luna",
+        "gpt-4o-mini"
+      ],
+      "exactOfferPolicyCount": 0,
+      "namedAdministrativeOwnerCount": 2,
+      "activeAzureMarketplaceSubscriptionCount": 0,
+      "defaultCommercialModelReleaseCandidate": "gpt-5.6-terra",
+      "defaultCommercialModelDeploymentStatus": "deployed_to_canonical_production",
+      "defaultCommercialModelDeploymentEvidence": {
+        "mergeCommit": "f709231aaa5f1a5d3f1f6c373d6269cf70feb90d",
+        "consumerCount": 9,
+        "allConsumersActive": true,
+        "updatedAtRange": ["2026-11-01T07:47:51Z", "2026-11-01T07:48:13Z"]
+      },
+      "status": "verified"
     }
   },
   "plans": [
     {
       "name": "Starter",
       "proposedPlanId": "starter",
-      "listingCopy": "draft",
-      "featureBoundary": "owner_decision_required",
-      "price": "owner_decision_required",
-      "billingTerm": "owner_decision_required",
-      "markets": "owner_decision_required",
-      "quantitySemantics": "owner_decision_required",
-      "includedUsage": "owner_decision_required",
-      "metering": "owner_decision_required",
-      "supportLevel": "owner_decision_required",
+      "technicalPlanId": "starter",
+      "partnerCenterPlanResourceId": "792e22d3-8169-4cc5-a422-575799ff78ec",
+      "listingCopy": "verified",
+      "partnerCenterDraftSavedAt": "2026-10-06",
+      "partnerCenterPageStatus": "incomplete_account_publish_eligibility",
+      "autoActivation": false,
+      "observedPricing": {
+        "model": "per_user",
+        "minimumUsers": 1,
+        "maximumUsers": 5,
+        "monthlyUsdPerUser": 99,
+        "annualUsdPerUserPerMonth": 89,
+        "markets": 141,
+        "visibility": "public",
+        "ownerApprovalRecorded": false
+      },
+      "controlledCommercialDecision": {
+        "displayName": "Site Reliability",
+        "model": "flat_rate",
+        "visibility": "public",
+        "monthlyUsdOnOneYearTerm": 5000,
+        "annualContractValueUsd": 60000,
+        "includedSites": 1,
+        "includedNamedUsers": 25,
+        "includedGovernedAiDecisionsPerMonth": 20,
+        "allowanceMode": "hard_stop",
+        "record": "marketplace/commercial-offer-decision.json"
+      },
+      "featureBoundary": "one_site_up_to_25_named_users",
+      "price": "USD_5000_per_month_USD_60000_ACV",
+      "billingTerm": "one_year_monthly_equal_payments",
+      "markets": "all_141_current_draft_markets_subject_to_legal_tax_release_gate",
+      "quantitySemantics": "one_flat_rate_subscription_not_per_user",
+      "includedUsage": "20_governed_ai_decisions_100_model_calls_10000000_tokens_per_month",
+      "metering": "hard_stop_no_automatic_overage_at_launch",
+      "supportLevel": "standard_remote_product_support_services_separate",
       "status": "blocked"
     },
     {
       "name": "Professional",
       "proposedPlanId": "professional",
-      "listingCopy": "draft",
-      "featureBoundary": "owner_decision_required",
-      "price": "owner_decision_required",
-      "billingTerm": "owner_decision_required",
-      "markets": "owner_decision_required",
-      "quantitySemantics": "owner_decision_required",
-      "includedUsage": "owner_decision_required",
-      "metering": "owner_decision_required",
-      "supportLevel": "owner_decision_required",
+      "technicalPlanId": "professional",
+      "partnerCenterPlanResourceId": "c5fd0cf9-b83b-4203-9b21-df1970a17c10",
+      "listingCopy": "verified",
+      "partnerCenterDraftSavedAt": "2026-10-06",
+      "partnerCenterPageStatus": "incomplete_account_publish_eligibility",
+      "autoActivation": false,
+      "observedPricing": {
+        "model": "per_user",
+        "minimumUsers": 3,
+        "maximumUsers": 25,
+        "monthlyUsdPerUser": 199,
+        "annualUsdPerUserPerMonth": 179,
+        "markets": 141,
+        "visibility": "public",
+        "ownerApprovalRecorded": false
+      },
+      "controlledCommercialDecision": {
+        "displayName": "Reliability Network",
+        "model": "flat_rate",
+        "visibility": "private",
+        "monthlyUsdOnOneYearTerm": 15000,
+        "annualContractValueUsd": 180000,
+        "includedSites": 5,
+        "includedNamedUsers": 100,
+        "includedGovernedAiDecisionsPerMonth": 60,
+        "allowanceMode": "hard_stop",
+        "record": "marketplace/commercial-offer-decision.json"
+      },
+      "featureBoundary": "up_to_5_sites_and_100_named_users",
+      "price": "USD_15000_per_month_USD_180000_ACV",
+      "billingTerm": "one_year_monthly_equal_payments",
+      "markets": "private_offer_markets_subject_to_legal_tax_release_gate",
+      "quantitySemantics": "one_flat_rate_subscription_not_per_user",
+      "includedUsage": "60_governed_ai_decisions_300_model_calls_30000000_tokens_per_month",
+      "metering": "hard_stop_no_automatic_overage_at_launch",
+      "supportLevel": "enhanced_remote_product_support_services_separate",
       "status": "blocked"
     },
     {
       "name": "Enterprise",
       "proposedPlanId": "enterprise",
-      "listingCopy": "draft",
-      "featureBoundary": "owner_decision_required",
-      "price": "owner_decision_required",
-      "billingTerm": "owner_decision_required",
-      "markets": "owner_decision_required",
-      "quantitySemantics": "owner_decision_required",
-      "includedUsage": "owner_decision_required",
-      "metering": "owner_decision_required",
-      "supportLevel": "owner_decision_required",
+      "technicalPlanId": "enterprise",
+      "partnerCenterPlanResourceId": "7a494a0b-e89f-4211-8cf6-46c6d187b1ab",
+      "listingCopy": "verified",
+      "partnerCenterDraftSavedAt": "2026-10-06",
+      "partnerCenterPageStatus": "incomplete_account_publish_eligibility",
+      "autoActivation": false,
+      "observedPricing": {
+        "model": "per_user",
+        "minimumUsers": 10,
+        "maximumUsers": null,
+        "monthlyUsdPerUser": 349,
+        "annualUsdPerUserPerMonth": 299,
+        "markets": 141,
+        "visibility": "public",
+        "ownerApprovalRecorded": false
+      },
+      "controlledCommercialDecision": {
+        "displayName": "Enterprise Reliability",
+        "model": "flat_rate",
+        "visibility": "private",
+        "monthlyUsdOnOneYearTerm": 30000,
+        "annualContractValueUsd": 360000,
+        "includedSites": 15,
+        "includedNamedUsers": 250,
+        "includedGovernedAiDecisionsPerMonth": 120,
+        "allowanceMode": "hard_stop",
+        "record": "marketplace/commercial-offer-decision.json"
+      },
+      "featureBoundary": "up_to_15_sites_and_250_named_users",
+      "price": "USD_30000_per_month_USD_360000_ACV",
+      "billingTerm": "one_year_monthly_equal_payments",
+      "markets": "private_offer_markets_subject_to_legal_tax_release_gate",
+      "quantitySemantics": "one_flat_rate_subscription_not_per_user",
+      "includedUsage": "120_governed_ai_decisions_600_model_calls_60000000_tokens_per_month",
+      "metering": "hard_stop_no_automatic_overage_at_launch",
+      "supportLevel": "enterprise_remote_product_support_services_separate",
       "status": "blocked"
     }
   ],
@@ -165,47 +407,192 @@
     "disallowedMonthlyCadValues": [4000, 9000, 18000],
     "reason": "Repository history identifies these values and their limits as commercially unconfirmed and superseded."
   },
+  "commercialBenchmark": {
+    "asOf": "2026-11-01",
+    "positioning": {
+      "customerPromise": "Unplanned Downtime Reduction",
+      "entryProduct": "SyncAI Failure Investigation Agent",
+      "platform": "SyncAI governed reliability decision platform",
+      "outcomeGuaranteed": false
+    },
+    "benchmarkRoles": {
+      "directFailureInvestigation": ["Causelink", "Relyence FRACAS", "TapRooT"],
+      "enterpriseReliabilityAndApm": ["IBM Maximo Application Suite"],
+      "downtimeOutcomeAndMachineHealth": [
+        "C3 AI Reliability",
+        "Siemens Senseye",
+        "Augury"
+      ],
+      "adjacentCmmsOnly": ["MaintainX", "UpKeep", "Fiix"]
+    },
+    "pricingExperiments": [
+      {
+        "id": "software_led_failure_investigation",
+        "customerPromise": "Unplanned Downtime Reduction",
+        "product": "SyncAI Failure Investigation Agent",
+        "pricingModel": "per_user",
+        "monthlyUsdPerUser": 99,
+        "annualUsdPerUserPerMonth": 89,
+        "minimumUsers": 1,
+        "maximumUsers": 5,
+        "commercialUsageBoundary": "hard_bundled_allowance_required",
+        "defaultEngineeringQuotaMayBeUsedAsAllowance": false,
+        "microsoftMeteredOverageSupported": false,
+        "publicationRecommendation": "separate_narrow_agent_only_after_entitlement_enforcement_and_cost_validation",
+        "partnerCenterMutationAuthorized": false
+      },
+      {
+        "id": "outcome_led_downtime_reduction_proof",
+        "offer": "Unplanned Downtime Reduction Proof",
+        "pricingModel": "fixed_fee_professional_service",
+        "priceUsd": 35000,
+        "typicalDurationWeeks": {
+          "minimum": 6,
+          "maximum": 8
+        },
+        "partnerCenterMutationAuthorized": false
+      },
+      {
+        "id": "core_saas_flat_rate_hard_stop_launch",
+        "customerPromise": "Unplanned Downtime Reduction",
+        "product": "SyncAI governed reliability decision platform",
+        "pricingModel": "flat_rate",
+        "basePriceApprovedByOperatingCeo": true,
+        "includedAllowanceApprovedByOperatingCeo": true,
+        "overagePriceApproved": false,
+        "automaticMeteredOverageAtLaunch": false,
+        "publicLandPlanAnnualContractValueUsd": 60000,
+        "privateNetworkPlanAnnualContractValueUsd": 180000,
+        "privateEnterprisePlanAnnualContractValueUsd": 360000,
+        "pricingModelChangeBeforePublicationRequired": true,
+        "partnerCenterDraftMutationAuthorized": true,
+        "partnerCenterPublicationAuthorizedByEvidence": false
+      }
+    ],
+    "controlledDecision": {
+      "recordedAt": "2026-11-01",
+      "decisionAuthority": "SyncAI AI Operating CEO under the user-delegated operating mandate",
+      "coreOfferPricingModel": "flat_rate",
+      "publicOfferName": "SyncAI Unplanned Downtime Reduction",
+      "publicLandPlanAnnualContractValueUsd": 60000,
+      "privateNetworkPlanAnnualContractValueUsd": 180000,
+      "privateEnterprisePlanAnnualContractValueUsd": 360000,
+      "currentPerUserDraftMayBePublished": false,
+      "publicActivationAuthorizedByEvidence": false,
+      "controlRecord": "marketplace/commercial-offer-decision.json"
+    },
+    "expansionPlanningBands": [
+      {
+        "stage": "production_site",
+        "minimumArrUsd": 60000,
+        "maximumArrUsd": 100000
+      },
+      {
+        "stage": "multi_site_or_network",
+        "minimumArrUsd": 150000,
+        "maximumArrUsd": 300000
+      },
+      {
+        "stage": "enterprise_standard",
+        "minimumArrUsd": 300000,
+        "maximumArrUsd": null
+      }
+    ],
+    "ownerApprovalRecorded": false,
+    "operatingCeoDecisionRecorded": true,
+    "status": "controlled_decision_public_activation_blocked",
+    "controlRecord": "docs/marketplace/competitive-pricing-benchmark.md",
+    "aiUnitEconomicsRecord": "marketplace/ai-unit-economics.json"
+  },
   "cspResale": {
-    "recommendedInitialSelection": "no_partners",
-    "nextControlledSelection": "specific_partners",
-    "unrestrictedAnyPartnerApproved": false,
+    "selectedDraftAudience": "any_partner",
+    "selectionSavedAt": "2026-10-06",
+    "strategy": "broad_channel_experiment",
+    "fallbackIfControlsNotReady": "specific_partners",
+    "unrestrictedAnyPartnerApproved": true,
     "channelSupportEvidencePresent": false,
-    "status": "external_action_required"
+    "status": "draft"
   },
   "taxAndPayout": {
-    "publisherSubmission": "external_action_required",
-    "partnerCenterTaxValidationOrAssignment": "blocked",
-    "partnerCenterPayoutProfile": "blocked",
+    "publisherSubmission": "payment_profile_action_required",
+    "standaloneCanadianTaxProfile": "complete",
+    "partnerCenterTaxValidationOrAssignment": "complete",
+    "partnerCenterPayoutProfile": "existing_cad_profile_requires_update",
+    "azureMarketplaceAssignment": {
+      "submittedAt": "2026-10-06",
+      "taxProfileStatus": "complete",
+      "paymentProfileStatus": "action_required",
+      "paymentCurrency": "CAD",
+      "verificationStatus": "not_started",
+      "authoritativeMessage": "The bank profile needs to be updated."
+    },
+    "observedEligibilityMessage": "This account is not publish eligible due to either an invalid payout, payout on hold, or invalid tax.",
+    "observedAt": "2026-11-01",
+    "microsoftProcessingWindow": "up_to_48_hours_after_completion",
+    "processingWindowElapsed": true,
+    "currentAction": "Update the existing CAD bank profile in Microsoft's payment profile editor, assign it to Azure Marketplace, and complete verification. Open a Microsoft support case only if the completed profile remains ineligible; no further passive waiting is treated as progress.",
     "taxRemittedMarketSelection": "owner_decision_required",
     "submissionImpliesPartnerCenterCompletion": false,
     "status": "blocked"
   },
   "supplementalContent": {
-    "narrative": "draft",
-    "azureSubscriptionId": "owner_decision_required",
-    "deployedAzureResourceEvidence": "blocked",
-    "azureConsumptionEvidence": "blocked",
-    "architectureDiagram": "blocked",
+    "narrative": "live_form_saved",
+    "selectedScenario": "not_hosted_in_azure",
+    "selectedModel": "publisher_hosted_multitenant_saas_on_vercel_and_supabase",
+    "truthfulCurrentScenario": "not_hosted_in_azure",
+    "portalOptionLabel": "SaaS solution is not hosted in Azure",
+    "draftSaveAuthorized": true,
+    "partnerCenterDraftSavedAt": "2026-11-01",
+    "partnerCenterPageStatus": "complete_and_ready_for_publish",
+    "savedNarrative": "SyncAI is a publisher-hosted multitenant SaaS. The current production user interface is hosted on Vercel and the application data and serverless backend are hosted on Supabase. Customers acquire a Marketplace subscription, sign in with Microsoft Entra ID, and use SyncAI through app.syncai.ca. No software is deployed into the customer's Azure tenant. A future Azure edition is under development but is not part of this submission, and no Azure-hosting eligibility claim is made.",
+    "commercialConsequence": "The form is complete, but Microsoft certification has not validated the non-Azure architecture. Do not claim Azure platforming, MACC eligibility, certification, or purchase eligibility from form completeness alone.",
+    "azureSubscriptionId": "not_applicable_for_current_truthful_scenario",
+    "deployedAzureResourceEvidence": "not_present",
+    "azureConsumptionEvidence": "not_present",
+    "architectureDiagram": {
+      "filename": "syncai-saas-architecture-and-product-documentation.pdf",
+      "sha256": "24c6c73bcfb8ae3df339734abb3cd09f9702c3ad16ac9049990d818ee13ff36b",
+      "category": "Architectural diagram",
+      "uploadedAtUtc": "2026-11-01T06:13:45Z",
+      "status": "uploaded"
+    },
     "externalDependenciesDisclosed": true,
-    "status": "blocked"
+    "status": "verified"
   },
   "listing": {
-    "offerCopy": "draft",
-    "gettingStarted": "draft",
-    "keywords": "draft",
-    "privacyPolicyUrl": "blocked",
+    "partnerCenterOfferName": "SyncAI Predictive Maintenance",
+    "publicOfferName": "SyncAI Industrial Engineering Intelligence",
+    "offerId": "syncai-predictive-maintenance",
+    "partnerCenterResourceId": "771d0f8e-11f8-4ac3-9325-7ee01ce6fe6b",
+    "offerCopy": "verified",
+    "gettingStarted": "verified",
+    "keywords": "verified",
+    "partnerCenterDraftSavedAt": "2026-10-06",
+    "partnerCenterPageStatus": {
+      "observedAt": "2026-11-01",
+      "status": "complete",
+      "evidenceScope": "Partner Center form completeness; external routes and artifact quality were not revalidated in this observation."
+    },
+    "privacyPolicyUrl": "saved_in_partner_center_not_reinspected",
     "termsOrContract": "owner_decision_required",
     "supportEmail": "support@syncai.ca",
     "engineeringContact": "owner_decision_required",
-    "marketingPdf": "blocked",
-    "logo": "blocked",
-    "status": "blocked"
+    "marketingPdf": "partner_center_listing_complete_asset_not_reinspected",
+    "logo": "partner_center_listing_complete_asset_not_reinspected",
+    "status": "verified"
   },
   "previewAndCertification": {
     "previewAudience": "external_action_required",
     "realPreviewPurchasesRequired": 2,
     "realPreviewPurchasesObserved": 0,
-    "repositoryHarness": "implemented_not_run",
+    "repositoryHarness": "implemented_and_ci_verified",
+    "repositoryHarnessEvidence": {
+      "pullRequest": "https://github.com/Stiggtechnologies/ai-maintenance-system/pull/634",
+      "verifiedImplementationCommit": "7072c3d2",
+      "githubActionsRun": "37524709308",
+      "scope": "synthetic fresh-database migration, fulfillment, lifecycle, quantity-rebinding, entitlement, refusal, metering, preview-certification, and golden-path checks",
+      "productionOrRealPurchaseEvidence": false
+    },
     "authenticatedLifecycleWitness": "blocked",
     "acceptedMeteringWitness": "blocked",
     "partnerCenterCertification": "blocked",
@@ -216,7 +603,7 @@
     "offers": [
       "Reliability Intelligence Assessment",
       "Industrial Decision Proof of Concept",
-      "SyncAI Implementation and Scale"
+      "SyncAI Forward-Deployed Engineering"
     ],
     "forwardDeployedEngineering": "bounded_implementation_workstream",
     "supportingCollateral": {
@@ -225,32 +612,32 @@
     },
     "supportingSoftwareMarketplaceUrl": "blocked",
     "published": false,
-    "status": "draft"
+    "status": "created_drafts_incomplete"
   },
   "blockingActions": [
     {
       "id": "PC-000",
       "owner": "Production deployment owner",
-      "action": "Authoritatively confirm and record that the app.syncai.ca Vercel production proxy resolves to the intended production Supabase project. Public 405/401 probes and deployment status contexts are insufficient.",
-      "status": "blocked"
+      "action": "Authoritatively confirm and record that the app.syncai.ca Vercel production proxy resolves to the intended production Supabase project. Closed by the 2026-10-06 Vercel production-environment and Supabase project inventory witness.",
+      "status": "verified"
     },
     {
       "id": "PC-001",
       "owner": "Partner Center operator",
-      "action": "After PC-000 is verified, replace the two 404 Partner Center values with the controlled app.syncai.ca activation and webhook URLs, then save an export or screenshot.",
+      "action": "The controlled app.syncai.ca activation and webhook URLs were saved in Partner Center. Preserve the draft and close PC-000 plus authenticated lifecycle validation before publication.",
       "dependsOn": ["PC-000"],
-      "status": "blocked"
+      "status": "verified"
     },
     {
       "id": "PC-002",
       "owner": "Commercial owner",
-      "action": "Approve the feature boundary, pricing model, price, term, markets, quantities, metering and support terms for all three plans.",
-      "status": "blocked"
+      "action": "The operating CEO decision selects one flat-rate core SaaS offer: Site Reliability at USD 60000 ARR public, Reliability Network at USD 180000 ARR private, and Enterprise Reliability at USD 360000 ARR private, all with one-year monthly payments and hard AI stops. The Failure Investigation Agent remains a separate research offer. Public activation remains subject to the release gates in marketplace/commercial-offer-decision.json.",
+      "status": "verified"
     },
     {
       "id": "PC-003",
       "owner": "Product and engineering owners",
-      "action": "Prove the deployed runtime can enforce every approved plan and meter boundary.",
+      "action": "The AI commercial-cost control implementation from PR #634 is present on current main, but production deployment and approved policy values remain unproven. The current marketplace-readiness branch also adds database-level site and named-user entitlement enforcement; it is not yet reviewed, merged, deployed, or configured. Complete those steps, then prove the production runtime enforces every approved plan boundary.",
       "status": "blocked"
     },
     {
@@ -262,14 +649,14 @@
     {
       "id": "PC-005",
       "owner": "Azure subscription owner",
-      "action": "Supply production Azure subscription, resource, architecture and commensurate-consumption evidence for Supplemental content.",
-      "status": "blocked"
+      "action": "The truthful 'SaaS solution is not hosted in Azure' scenario, hosting narrative, and architecture document were saved on 2026-11-01. Treat an Azure-hosted SaaS or customer-tenant Managed Application as a separate controlled productization decision; do not rewrite current deployment facts.",
+      "status": "verified"
     },
     {
       "id": "PC-006",
       "owner": "Brand and claims owners",
-      "action": "Produce and approve the required accessible marketing PDF and logo.",
-      "status": "blocked"
+      "action": "Partner Center marks Offer listing Complete. Reinspect and improve the saved marketing PDF and logo as a conversion-quality workstream, not as the present submit-button blocker.",
+      "status": "verified"
     },
     {
       "id": "PC-007",
@@ -286,8 +673,41 @@
     {
       "id": "PC-009",
       "owner": "Partner Center account owner",
-      "action": "Verify Microsoft's current tax validation/assignment and payout-profile statuses separately from any publisher-submitted tax information.",
+      "action": "On 2026-11-01 Partner Center shows the Canadian tax profile Complete, the payment profile Action required, verification Not started, and the existing CAD bank profile needs to be updated. Complete that bank-profile update, return to the assignment, select it, and finish verification. If the completed profile remains ineligible, open a Microsoft support case and capture the exact result.",
       "status": "blocked"
+    },
+    {
+      "id": "PC-010",
+      "owner": "Marketplace identity and production secret owner",
+      "action": "Create a new client secret for the verified publisher application and configure AZURE_MARKETPLACE_CLIENT_SECRET on the live SyncAI Supabase project. A 2026-11-01 secret-name inventory confirms the verified client ID, tenant ID, publisher ID, and offer ID are present and the client secret remains absent. Then run the protected authenticated preview witness.",
+      "status": "blocked"
+    },
+    {
+      "id": "PC-011",
+      "owner": "Marketplace release owner",
+      "action": "Action-time authorization was obtained and the non-Azure Supplemental Content draft was saved on 2026-11-01. No submission or publication occurred.",
+      "status": "verified"
+    },
+    {
+      "id": "PC-012",
+      "owner": "Partner Center operator and Marketplace release owner",
+      "action": "After the payment profile is eligible, replace the current per-user draft configuration with the controlled flat-rate Site Reliability, Reliability Network, and Enterprise Reliability plans. Preserve the current drafts as observations, not authority. Do not submit until the production policy, preview, cost-to-serve, legal, and certification gates are green.",
+      "dependsOn": ["PC-002", "PC-009"],
+      "status": "blocked"
+    },
+    {
+      "id": "PC-013",
+      "owner": "Marketplace runtime and commercial policy release owner",
+      "action": "The protected Deploy migrations run 41283398055 deployed every function importing the merged paid-plan direct-model boundary to canonical project pjvoswbwomesuwhygpby. Configure the exact syncai-predictive-maintenance starter, professional and enterprise policies and capacities, evaluate the margin gate, and obtain controlled-preview approval from an existing named administrative user. Then complete a real preview purchase and capture the necessarily post-approval bound paid runtime witness proving exact direct provider, requested model, standard service tier, terminal settlement and refusal behavior. Do not publish before that witness passes. Follow docs/marketplace/commercial-policy-activation-runbook.md; refuse any other project target.",
+      "dependsOn": ["PC-002", "PC-012"],
+      "status": "blocked"
+    },
+    {
+      "id": "PC-014",
+      "owner": "Production architecture owner",
+      "action": "Inventory workloads on the noncanonical snlevbkyjipucmkpkqka project and decide whether to quarantine, rename or retire it. Do not move Marketplace production back to it and do not delete it without a separate impact review.",
+      "dependsOn": [],
+      "status": "external_action_required"
     }
   ],
   "sources": [
@@ -300,6 +720,9 @@
     "src/pages/MarketplaceSignup.tsx",
     "src/pages/Privacy.tsx",
     "src/pages/Terms.tsx",
+    "https://partner.microsoft.com/dashboard/v2/marketplace-offers/commercial-marketplace/offers/771d0f8e-11f8-4ac3-9325-7ee01ce6fe6b/submit",
+    "https://partner.microsoft.com/dashboard/v2/marketplace-offers/commercial-marketplace/offers/771d0f8e-11f8-4ac3-9325-7ee01ce6fe6b/plans/792e22d3-8169-4cc5-a422-575799ff78ec/availability",
+    "https://partner.microsoft.com/dashboard/v2/marketplace-offers/commercial-marketplace/offers/771d0f8e-11f8-4ac3-9325-7ee01ce6fe6b/resources/supplementalcontent",
     ".github/workflows/deploy-migrations.yml",
     ".github/workflows/azure-marketplace-preview-certification.yml",
     "scripts/azure-marketplace-preview-certification.ts",
@@ -307,6 +730,13 @@
   ],
   "documents": [
     "docs/marketplace/README.md",
+    "docs/marketplace/competitive-pricing-benchmark.md",
+    "docs/marketplace/commercial-offer-decision-2026-11-01.md",
+    "marketplace/ai-unit-economics.json",
+    "marketplace/commercial-offer-decision.json",
+    "marketplace/azure-product-line-queue.json",
+    "marketplace/production-data-plane-boundary.json",
+    "docs/marketplace/commercial-policy-activation-runbook.md",
     "docs/marketplace/partner-center-fields.md",
     "docs/marketplace/supplemental-content.md",
     "docs/marketplace/supporting-document-source.md",

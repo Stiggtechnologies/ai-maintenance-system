@@ -7,7 +7,7 @@
  * named plan fields one by one. Everything else about it — batching, the run
  * lifecycle, the summary, the rendered rejects — was already entity-agnostic.
  *
- * WHY IT CARRIES EIGHT TYPES NOW. begin_manual_import named three, and four
+ * WHY IT CARRIES TEN TYPES NOW. begin_manual_import named three, and four
  * more were fully validated and unreachable: condition_reading and
  * material_stock in ingest_batch, operating_state and production_record in
  * ingest_context_batch. The second function had never had a caller at all.
@@ -15,9 +15,11 @@
  * and this screen is what a customer walks through to reach it. The eighth,
  * schedule_activity (20261112090000), is the P6 import half of D5.28: same
  * door, same route table, a third validator — P6 stays system-of-record and
- * Sync never writes back.
+ * Sync never writes back. Procurement status is the ninth and governed
+ * cost/ERP actuals the tenth; both resolve existing governed objects and call
+ * their canonical writers rather than creating parallel stores.
  *
- * WHY THERE IS ONE SCREEN AND NOT SEVEN. The parts that differ between entity
+ * WHY THERE IS ONE SCREEN AND NOT TEN. The parts that differ between entity
  * types are DATA — required columns, the dedupe key, what a re-upload does —
  * and they live in src/lib/ingest-entities.ts beside the reasons a person needs
  * them. A second importer component would be a fourth CSV path in this product,
@@ -25,8 +27,8 @@
  * disagreed with the other two about what a re-upload means.
  *
  * WHAT IS SAID BEFORE THE UPLOAD, NOT AFTER. The shipped screen told everybody
- * "a re-upload updates rather than duplicates" — true of three of the seven
- * types, false of the other four, which skip a re-upload as a duplicate. Every
+ * "a re-upload updates rather than duplicates" — true of three of the ten
+ * types, false of the other seven, which skip a re-upload as a duplicate. Every
  * sentence about identity, de-duplication and prerequisites is now per entity
  * and shown before the file is sent, because none of it is guessable from a
  * reject reason.
@@ -41,6 +43,7 @@ import {
 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { parseCSV } from "../lib/fleet-import";
+import { parseP6Xer, type P6XerResourceAssignment } from "../lib/p6-xer";
 import {
   INGEST_ENTITIES,
   INGEST_ENTITY_ORDER,
@@ -52,6 +55,8 @@ import {
   type Blocker,
   type IngestEntityKey,
 } from "../lib/ingest-entities";
+import { P6ResourceDemandReview } from "./P6ResourceDemandReview";
+import { P6ScheduleRevisionReview } from "./P6ScheduleRevisionReview";
 
 interface Reject {
   external_id: string | null;
@@ -80,6 +85,18 @@ export function ContractImport({
   const [rejects, setRejects] = useState<Reject[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sourceName, setSourceName] = useState("Manual upload");
+  const [xerUtcOffset, setXerUtcOffset] = useState("");
+  const [xerCaseTitle, setXerCaseTitle] = useState("");
+  const [xerCaseId, setXerCaseId] = useState("");
+  const [xerScheduleName, setXerScheduleName] = useState("");
+  const [xerWarnings, setXerWarnings] = useState<string[]>([]);
+  const [xerAssignments, setXerAssignments] = useState<
+    P6XerResourceAssignment[]
+  >([]);
+  const [completedScheduleRunId, setCompletedScheduleRunId] = useState<
+    string | null
+  >(null);
 
   const entity = INGEST_ENTITIES[entityKey];
 
@@ -99,6 +116,10 @@ export function ContractImport({
     setSummary(null);
     setRejects([]);
     setMsg(null);
+    setSourceName("Manual upload");
+    setXerWarnings([]);
+    setXerAssignments([]);
+    setCompletedScheduleRunId(null);
   }
 
   function chooseEntity(key: IngestEntityKey) {
@@ -109,7 +130,34 @@ export function ContractImport({
   async function onFile(f: File) {
     clearFile();
     setFileName(f.name);
-    const all = parseCSV(await f.text());
+    const text = await f.text();
+    if (f.name.toLowerCase().endsWith(".xer")) {
+      if (entity.key !== "schedule_activity") {
+        setMsg("A P6 XER file can only be loaded as Schedule activities (P6).");
+        return;
+      }
+      try {
+        const parsed = parseP6Xer(text, {
+          developmentCaseId: xerCaseId,
+          caseTitle: xerCaseTitle,
+          utcOffset: xerUtcOffset,
+          scheduleName: xerScheduleName,
+        });
+        setHeaders(parsed.headers);
+        setRows(parsed.rows);
+        setXerWarnings(parsed.warnings);
+        setXerAssignments(parsed.resourceAssignments);
+        setSourceName(`Primavera P6 XER · ${f.name}`);
+      } catch (error) {
+        setMsg(
+          error instanceof Error
+            ? error.message
+            : "Could not read the P6 XER file.",
+        );
+      }
+      return;
+    }
+    const all = parseCSV(text);
     if (all.length < 2) {
       setMsg("The file needs a header row and at least one row of data.");
       return;
@@ -122,6 +170,7 @@ export function ContractImport({
         Object.fromEntries(lower.map((h, i) => [h, (r[i] ?? "").trim()])),
       ),
     );
+    setSourceName(`Manual CSV · ${f.name}`);
   }
 
   function downloadTemplate() {
@@ -142,7 +191,7 @@ export function ContractImport({
     try {
       const { data: begin, error: beginErr } = await supabase.rpc(
         "begin_manual_import",
-        { p_entity_type: entity.key, p_source_name: "Manual upload" },
+        { p_entity_type: entity.key, p_source_name: sourceName },
       );
       if (beginErr) throw new Error(beginErr.message);
       const started = begin as { run_id?: string; error?: string };
@@ -190,6 +239,9 @@ export function ContractImport({
         p_status: totals.rejected > 0 ? "partial" : "success",
       });
       finished = true;
+      if (entity.key === "schedule_activity") {
+        setCompletedScheduleRunId(runId);
+      }
 
       if (totals.rejected > 0) {
         const { data: rej } = await supabase.rpc("get_import_rejects", {
@@ -319,12 +371,53 @@ export function ContractImport({
         </button>
       </div>
 
+      {entity.key === "schedule_activity" && (
+        <div className="mt-3 rounded-lg border border-signal-cyan/15 bg-signal-cyan/[0.04] p-4">
+          <p className="text-xs font-medium text-slate-300">
+            Native Primavera P6 XER destination
+          </p>
+          <p className="mt-1 text-xs leading-relaxed text-slate-500">
+            XER does not reliably carry the destination SyncAI case or project
+            timezone. State both before choosing the file; SyncAI will not guess
+            either.
+          </p>
+          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-4">
+            <input
+              value={xerCaseTitle}
+              onChange={(event) => setXerCaseTitle(event.target.value)}
+              placeholder="Exact Development Case title"
+              className="rounded border border-white/10 bg-overlook-void px-3 py-2 text-xs text-slate-200"
+            />
+            <input
+              value={xerCaseId}
+              onChange={(event) => setXerCaseId(event.target.value)}
+              placeholder="Development Case UUID (preferred)"
+              className="rounded border border-white/10 bg-overlook-void px-3 py-2 text-xs text-slate-200"
+            />
+            <input
+              value={xerUtcOffset}
+              onChange={(event) => setXerUtcOffset(event.target.value)}
+              placeholder="Project UTC offset, e.g. -07:00"
+              className="rounded border border-white/10 bg-overlook-void px-3 py-2 text-xs text-slate-200"
+            />
+            <input
+              value={xerScheduleName}
+              onChange={(event) => setXerScheduleName(event.target.value)}
+              placeholder="Schedule name override (optional)"
+              className="rounded border border-white/10 bg-overlook-void px-3 py-2 text-xs text-slate-200"
+            />
+          </div>
+        </div>
+      )}
+
       <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-white/10 px-3 py-2 text-xs text-slate-300">
         <Upload className="h-3.5 w-3.5" />
-        Choose CSV
+        {entity.key === "schedule_activity"
+          ? "Choose CSV or P6 XER"
+          : "Choose CSV"}
         <input
           type="file"
-          accept=".csv"
+          accept={entity.key === "schedule_activity" ? ".csv,.xer" : ".csv"}
           className="hidden"
           onChange={(e) => e.target.files?.[0] && onFile(e.target.files[0])}
         />
@@ -338,6 +431,27 @@ export function ContractImport({
           <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" /> {msg}
         </p>
       )}
+
+      {xerWarnings.length > 0 && (
+        <div className="mt-3 space-y-1 rounded-lg border border-amber-400/15 bg-amber-400/[0.04] p-3">
+          {xerWarnings.map((warning) => (
+            <p
+              key={warning}
+              className="text-xs leading-relaxed text-amber-200/90"
+            >
+              {warning}
+            </p>
+          ))}
+        </div>
+      )}
+
+      <P6ResourceDemandReview
+        caseId={xerCaseId}
+        assignments={xerAssignments}
+        scheduleReady={Boolean(summary && summary.rejected === 0)}
+      />
+
+      <P6ScheduleRevisionReview runId={completedScheduleRunId} />
 
       {ignored.length > 0 && (
         <p className="mt-3 text-xs text-slate-500">

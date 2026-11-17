@@ -51,6 +51,25 @@ Until the directory exists, the UI accepts an explicit existing organization UUI
 
 The current standard RIA is described as **US$35,000 fixed fee, 6–8 weeks**. Activation requires a reference such as a signed SOW, PO, invoice, or payment reference. The feature deliberately says that this records commercial acceptance; it does not claim that SyncAI itself processed payment unless a real payment rail is later integrated.
 
+## Live buyer-path audit — 2026-10-06
+
+- `https://syncai.ca/reliability-assessment` returned HTTP 200 and exposes a
+  public **Request a 30-minute assessment call** form backed by
+  `POST /api/reliability-assessment`.
+- The public page is a contract-led inquiry path, not an instant checkout. A
+  buyer can start a purchase conversation today, but cannot pay or self-provision
+  there.
+- `https://app.syncai.ca/pilot/reliability` and
+  `https://app.syncai.ca/marketplace/activate` also returned HTTP 200.
+- The live `syncai-github` Vercel project and its production Supabase project do
+  not list Stripe configuration secret names. The checked-in Stripe provisioning
+  script still contains superseded commercial tiers and must not be run.
+
+Accordingly, the only currently supportable direct-sale representation is:
+**available for contract-led purchase by signed SOW, PO, invoice, or verified
+payment reference**. Do not label the direct channel “self-serve,” “instant
+checkout,” or “automatically provisioned.”
+
 ## Definition of done
 
 The slice is complete only when the invariant RPC is deployed and the path is proven end-to-end:

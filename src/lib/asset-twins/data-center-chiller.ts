@@ -1,0 +1,103 @@
+import { draftCriticalFacilityFailure as f } from "./critical-facility-failure";
+import {
+  centrifugalPumpComponentDna,
+  industrialAcMotorDna,
+  refrigerationCircuitDna,
+  variableFrequencyDriveDna,
+} from "./shared-component-dna-library";
+import type { AssetClassTemplate } from "./types";
+
+/** Manufacturer-neutral template for chillers and their chilled-water loop serving critical cooling. */
+export const dataCenterChillerTemplate: AssetClassTemplate = {
+  schemaVersion: "0.1.0",
+  code: "CRIT-CHILLER",
+  name: "Critical cooling chiller and chilled-water loop",
+  family: "critical_cooling",
+  description:
+    "Reusable engineering template for water- or air-cooled chillers and their pumps serving data halls and other critical spaces. No OEM limits; setpoints, staging and refrigerant work stay with qualified site staff.",
+  functions: [
+    "produce chilled water at the site's approved supply temperature",
+    "reject heat to the condenser or ambient",
+    "restart and restore cooling after a power event",
+  ],
+  operatingStates: ["off", "standby", "running", "free_cooling", "restarting", "maintenance", "locked_out"],
+  standards: ["ASHRAE 15", "AHRI 550/590", "ASHRAE TC 9.9", "ISO 55000"],
+  reviewState: "draft",
+  components: [
+    {
+      code: "CHL-REFRIGERATION",
+      name: "Compressor and refrigeration circuit",
+      sharedComponentDnaCodes: [refrigerationCircuitDna.code],
+      functions: ["compress refrigerant", "transfer heat"],
+      telemetryConcepts: ["suction_pressure", "discharge_pressure", "superheat", "subcooling", "compressor_current", "oil_pressure"],
+      inspectionZones: ["compressor", "evaporator", "condenser", "expansion device"],
+      failureModes: [
+        f("CHL-TUBE-FOULING", "CHL-REFRIGERATION", "Heat exchanger tube fouling",
+          "scale or biological fouling raises approach temperature and cuts capacity",
+          ["water treatment lapse", "scale", "biological growth"],
+          ["capacity loss", "high head pressure", "trip on hot days"],
+          ["approach_temperature_trend", "water_side_pressure_drop"],
+          ["tube_inspection", "water_treatment_review"], 4),
+        f("CHL-REFRIGERANT-LEAK", "CHL-REFRIGERATION", "Refrigerant charge loss",
+          "leakage reduces capacity and can damage the compressor",
+          ["joint leak", "vibration fatigue", "corrosion"],
+          ["capacity loss", "compressor damage", "environmental release"],
+          ["leak_detector", "superheat_subcooling_trend"],
+          ["leak_test", "qualified_refrigeration_assessment"], 4),
+        f("CHL-COMPRESSOR-WEAR", "CHL-REFRIGERATION", "Compressor mechanical degradation",
+          "bearing, oil or mechanical wear raises current and vibration before failure",
+          ["oil degradation", "liquid slugging", "bearing wear"],
+          ["loss of a chiller", "reduced redundancy"],
+          ["compressor_current", "vibration", "oil_analysis"],
+          ["oil_sample", "qualified_refrigeration_assessment"], 4),
+      ],
+    },
+    {
+      code: "CHL-DRIVE",
+      name: "Compressor motor and variable-speed drive",
+      sharedComponentDnaCodes: [industrialAcMotorDna.code, variableFrequencyDriveDna.code],
+      functions: ["drive the compressor", "control capacity"],
+      telemetryConcepts: ["phase_current", "drive_temperature", "drive_fault_code", "motor_winding_temperature"],
+      inspectionZones: ["motor terminals", "drive cabinet", "drive cooling"],
+      failureModes: [
+        f("CHL-DRIVE-FAULT", "CHL-DRIVE", "Drive or motor trip",
+          "drive thermal, power-stage or motor insulation faults stop the compressor",
+          ["drive cooling loss", "power quality event", "insulation ageing"],
+          ["chiller trip", "slow restart after power event"],
+          ["drive_fault_code", "drive_temperature", "phase_current"],
+          ["qualified_electrical_assessment", "insulation_resistance_test"], 4),
+      ],
+    },
+    {
+      code: "CHL-PUMPS",
+      name: "Chilled- and condenser-water pumps",
+      sharedComponentDnaCodes: [centrifugalPumpComponentDna.code],
+      functions: ["circulate chilled water", "circulate condenser water"],
+      telemetryConcepts: ["flow", "differential_pressure", "pump_vibration", "pump_current"],
+      inspectionZones: ["pump casings", "seals", "strainers", "check valves"],
+      failureModes: [
+        f("CHL-PUMP-FLOW-LOSS", "CHL-PUMPS", "Loss of water flow",
+          "pump wear, seal failure or blocked strainers reduce flow and trip the chiller on low flow",
+          ["impeller wear", "seal leak", "strainer blockage", "check valve failure"],
+          ["chiller trip", "hot spots in the data hall"],
+          ["flow", "differential_pressure", "pump_vibration"],
+          ["pump_inspection", "strainer_inspection"], 4),
+      ],
+    },
+    {
+      code: "CHL-CONTROLS",
+      name: "Chiller plant controls and restart",
+      functions: ["stage chillers", "restart after power loss"],
+      telemetryConcepts: ["chilled_water_supply_temperature", "plant_alarm", "restart_time"],
+      inspectionZones: ["plant controller", "sensors", "restart logic"],
+      failureModes: [
+        f("CHL-SLOW-RESTART", "CHL-CONTROLS", "Slow or failed restart after a power event",
+          "restart logic, sensor or controller faults delay cooling recovery after transfer to generator",
+          ["controller fault", "sensor failure", "untested restart sequence"],
+          ["data hall temperature rise", "IT load shed"],
+          ["restart_time", "plant_alarm", "event_log_review"],
+          ["witnessed_restart_test", "settings_review_against_approved_record"], 5),
+      ],
+    },
+  ],
+};

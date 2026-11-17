@@ -153,9 +153,13 @@ Until this runs, the trigger no-ops and leads stay `queued` — but **loudly**:
 `dispatch_lead_notification` raises a warning naming the lead and the missing
 config on every single insert, rather than returning silently.
 
-`deploy-migrations.yml` will do both wiring steps for you if the repository
-carries the secrets. They are no-ops with a `::warning::` in the Actions log
-otherwise, and both are idempotent:
+`deploy-migrations.yml` updates project secrets and the lead-notify target
+only when the repository supplies those inputs. When an input is absent, that
+run does not change configuration, does not inspect existing runtime or
+database state, and warns that configuration was unchanged. Absence of a
+GitHub secret is not evidence that mail transport is missing or that
+`private.lead_notify_config` is empty. When the inputs are present, both steps
+are idempotent:
 
 | Repository secret         | What the deploy does with it                                                                |
 | ------------------------- | ------------------------------------------------------------------------------------------- |

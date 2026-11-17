@@ -142,4 +142,10 @@ describe("governed MRO Materials Specialist execution", () => {
     expect(workflow).toContain("bash scripts/ci-mro-materials-agent-smoke.sh");
     expect(register).toMatch(/\| C1\.08 \|[^\n]+\| ✅[^\n]+/i);
   });
+
+  it("records the delivery fixture through verified evidence and the governed RPC", () => {
+    expect(smoke).toContain("verify_evidence_item");
+    expect(smoke).toContain("record_supplier_delivery");
+    expect(smoke).not.toMatch(/insert into public\.supplier_deliveries\s*\(/i);
+  });
 });

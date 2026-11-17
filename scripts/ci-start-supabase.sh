@@ -70,7 +70,7 @@ write_diagnostics() {
     tail -n 500 "$log_file" || true
     echo
     echo "===== Relevant Supabase startup errors ====="
-    grep -E -i 'postgres|error|failed|not found|container|image|health|exec|exit|already in use|bind host port' "$log_file" | tail -n 500 || true
+    grep -E -i 'migration|postgres|error|failed|fatal|panic|not found|container|image|health|exec|exit|already in use|bind host port' "$log_file" | tail -n 500 || true
     echo
     echo "===== Supabase status ====="
     supabase status || true
@@ -102,10 +102,15 @@ start_status=1
 while [ "$attempt" -le "$max_attempts" ]; do
   echo "=== supabase start attempt ${attempt}/${max_attempts} ===" | tee -a "$log_file"
   set +e
-  supabase start --debug 2>&1 | tee -a "$log_file"
-  start_status=${PIPESTATUS[0]}
+  # Keep the complete debug stream in the uploaded artifact, but do not mirror
+  # it live. The full migration chain can exceed GitHub's rendered log limit
+  # and hide the terminal error that write_diagnostics intentionally prints.
+  supabase start --debug >>"$log_file" 2>&1
+  start_status=$?
   set -e
   if [ "$start_status" -eq 0 ]; then
+    echo "Supabase local startup succeeded; showing the final debug records."
+    tail -n 80 "$log_file" || true
     exit 0
   fi
   if [ "$attempt" -lt "$max_attempts" ] && is_transient_start_failure "$log_file"; then

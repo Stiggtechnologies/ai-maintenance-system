@@ -96,8 +96,11 @@ describe("governed Reliability Engineer life-data execution", () => {
     );
   });
 
-  it("closes the censored life-data engine without overstating full role closure", () => {
+  it("keeps the life-data closure and the proven composite role closure distinct", () => {
     expect(register).toMatch(/\| C7\.01 \|[^\n]+\| ✅[^\n]+/i);
-    expect(register).toMatch(/\| C1\.03 \|[^\n]+\| 🟡[^\n]+/i);
+    expect(register).toMatch(/\| C1\.03 \|[^\n]+\| ✅[^\n]+/i);
+    expect(register).toContain(
+      "one governed Reliability Improvement Case now spans bad-actor ranking",
+    );
   });
 });

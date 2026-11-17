@@ -1,0 +1,13 @@
+{
+  "baselineId": "RE-2026.08",
+  "kind": "governed-sql",
+  "reviewer": "Migration-order restamp",
+  "reviewerRole": "Filename-only digest update; SQL body unchanged",
+  "reviewedAt": "2026-10-15T09:30:00Z",
+  "rationale": "supabase/migrations/20270101850000_kb_document_security.sql was renamed to supabase/migrations/20270105100800_kb_document_security.sql so the stack sorts after main's deployed head 20270104091000. The file body is byte-identical (sha256 c6d0302a3d5ff0a20fbcadfabf634166b1290633be1a3f63a9fc38e8952b2915). retrieve_kb_context, kb_document_classes and kb_claim_types are unchanged. Their governed-object digests moved only because computeDatabaseObjectDigests includes the migration filename. This record does not approve a change to retrieval behavior, claim-type standing, or tenancy. The 2026-10-01 SME approval remains the review of that SQL body.",
+  "databaseObjects": {
+    "retrieve_kb_context": "7db0e3df0d14046ce5d818ea61b2d9fb442d440cd21051aa17dc80b312c2bde6",
+    "kb_document_classes": "49d8a25d61d6ea0ba740435f135be75b6421f617fc7fa36330fb438c7c3b9a60",
+    "kb_claim_types": "5a0dcb3a34562e748b3c47e3ca08a823591b9169da04bbbf6e4996c7a3796c81"
+  }
+}

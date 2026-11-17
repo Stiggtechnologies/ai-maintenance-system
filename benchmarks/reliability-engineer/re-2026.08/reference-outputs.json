@@ -13,6 +13,7 @@
     "src/services/publicReliabilityAgent.ts": "b5524ec669269999d30a49d78f43efadcf99223f",
     "supabase/functions/_shared/decision-case-chat.ts": "3a3f58dfbaa0be5fdb1172582916f3f1d1c2a306",
     "supabase/functions/_shared/llm-provider.ts": "af46a71ba2511c9c7a1e06255001fd3a6eee974c",
+    "supabase/functions/_shared/data-egress-guard.ts": "71e997d153ee625789ac92fc5d6ecdc5ca52c0c0",
     "src/lib/reliability-agent-contract.ts": "ca959ad921986c6d82842b9160672eeff0b769e1",
     "src/lib/supabase-config.ts": "5bc91ebae1f9405c216eaccec1a58ff37ff3a4b4",
     "src/lib/decision-case.ts": "e182275a6806174094073bbe2450c4041d899c22",

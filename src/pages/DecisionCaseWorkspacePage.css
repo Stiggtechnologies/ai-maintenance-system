@@ -2902,3 +2902,58 @@
   background: #151e26;
   cursor: pointer;
 }
+
+/* Hands-free field mode (/field?mode=hands-free): head-worn devices and
+   gloved use. Large targets with visible text labels, because RealWear voice
+   control taps a control by saying its label. */
+.field-mode-toggle {
+  min-height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: #d5dde2;
+  background: #151e26;
+  cursor: pointer;
+}
+.field-workspace.is-hands-free .field-handsfree-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.field-workspace.is-hands-free .field-handsfree-bar button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 64px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: #e4eaee;
+  background: #151e26;
+  font-size: 18px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.field-workspace.is-hands-free .field-handsfree-bar button[aria-pressed="true"],
+.field-workspace.is-hands-free .field-handsfree-bar button.is-live {
+  border-color: #4fb3a9;
+  background: #17312f;
+}
+.field-workspace.is-hands-free .field-handsfree-bar button.is-primary {
+  background: #1f4f7a;
+}
+.field-workspace.is-hands-free .field-handsfree-bar button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.field-workspace.is-hands-free .field-handsfree-note {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: #b9c6cf;
+  font-size: 16px;
+}
+.field-workspace.is-hands-free .dw-message p {
+  font-size: 18px;
+}

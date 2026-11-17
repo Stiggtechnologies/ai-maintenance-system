@@ -62,10 +62,14 @@ import {
   clearOrgContextCache,
   getAssets,
   getMissionControl,
+  getRecommendationContractPosture,
+  getRecommendationVerificationPlan,
+  getVerificationPlanOwners,
   getPilotScorecard,
   getOpenObligationIdForRecommendation,
   getOpenVerifications,
   recordVerificationResult,
+  recordRecommendationVerificationPlan,
   verifyValueMetric,
 } from "./operatingLoopService";
 import { supabase } from "../lib/supabase";
@@ -150,6 +154,36 @@ describe("operatingLoopService", () => {
     expect(sc.pilot_day).toBe(5);
     expect(sc.value_verified_usd).toBe(1000);
   });
+
+  it("loads recommendation release posture from the canonical server gate", async () => {
+    state.result = {
+      data: [
+        {
+          register: "C8.21",
+          label: "Method for verifying effectiveness",
+          blocking: true,
+          populated: 2,
+          total: 5,
+          share: 0.4,
+          releasable_rows: 1,
+          blocked_rows: 4,
+        },
+      ],
+      error: null,
+    };
+
+    const posture = await getRecommendationContractPosture();
+
+    expect(state.rpcCalls).toContainEqual({
+      name: "get_recommendation_contract_posture",
+      args: undefined,
+    });
+    expect(posture[0]).toMatchObject({
+      register: "C8.21",
+      releasable_rows: 1,
+      blocked_rows: 4,
+    });
+  });
 });
 
 describe("recordVerificationResult", () => {
@@ -187,6 +221,7 @@ describe("recordVerificationResult", () => {
           // cites none, so an omitted argument can never be mistaken for an
           // evidence item the RPC failed to receive.
           p_evidence_id: null,
+          p_work_order_id: null,
         },
       },
     ]);
@@ -206,6 +241,25 @@ describe("recordVerificationResult", () => {
       "ev-1",
     );
     expect(state.rpcCalls[0]?.args.p_evidence_id).toBe("ev-1");
+    expect(state.rpcCalls[0]?.args.p_work_order_id).toBeNull();
+  });
+
+  it("passes a governed CMMS work order without also citing an evidence item", async () => {
+    state.result = {
+      data: [{ outcome: "recorded", learningEventId: null, detail: "ok" }],
+      error: null,
+    };
+    await recordVerificationResult(
+      "obl-10",
+      "achieved",
+      "completed inspection WO measured zero leakage after 72 hours",
+      null,
+      "wo-1",
+    );
+    expect(state.rpcCalls[0]?.args).toMatchObject({
+      p_evidence_id: null,
+      p_work_order_id: "wo-1",
+    });
   });
 
   it("returns the learning event id when not_achieved is recorded", async () => {
@@ -260,6 +314,128 @@ describe("recordVerificationResult", () => {
     await expect(
       recordVerificationResult("obl-1", "inconclusive", "gauge unreadable"),
     ).rejects.toThrow(/not in your organization/);
+  });
+});
+
+describe("recommendation verification planning", () => {
+  const completePlan = {
+    recommendationId: "rec-1",
+    obligationId: null,
+    recommendationStatus: "pending",
+    method: "Compare post-repair vibration against the accepted baseline.",
+    acceptanceCriteria: "Overall vibration remains below 3.0 mm/s for 72 hours.",
+    intendedOutcome: "Seal reliability is restored without repeat leakage.",
+    dueDate: "2027-01-31",
+    dueDateAssumed: false,
+    ownerId: "owner-1",
+    ownerName: "Riley Chen",
+    plannedBy: "planner-1",
+    plannedAt: "2027-01-02T12:00:00Z",
+    planComplete: true,
+    state: "recommendation",
+    legacyDebt: false,
+    operationalAuthorization: false,
+  } as const;
+
+  beforeEach(() => {
+    state.result = { data: [], error: null };
+    state.rpcCalls = [];
+    vi.mocked(supabase.rpc).mockClear();
+  });
+
+  it("loads only the tenant-scoped, server-approved owner candidates", async () => {
+    state.result = {
+      data: [
+        {
+          ownerId: "owner-1",
+          fullName: "Riley Chen",
+          role: "reliability_engineer",
+        },
+      ],
+      error: null,
+    };
+
+    await expect(getVerificationPlanOwners()).resolves.toEqual([
+      {
+        ownerId: "owner-1",
+        fullName: "Riley Chen",
+        role: "reliability_engineer",
+      },
+    ]);
+    expect(state.rpcCalls).toEqual([
+      { name: "get_verification_plan_owners", args: undefined },
+    ]);
+  });
+
+  it("loads the canonical plan instead of reconstructing it in the client", async () => {
+    state.result = { data: [completePlan], error: null };
+
+    await expect(
+      getRecommendationVerificationPlan("rec-1"),
+    ).resolves.toEqual(completePlan);
+    expect(state.rpcCalls).toEqual([
+      {
+        name: "get_recommendation_verification_plan",
+        args: { p_recommendation_id: "rec-1" },
+      },
+    ]);
+  });
+
+  it("records all explicit plan fields and reloads the server-authoritative snapshot", async () => {
+    state.result = { data: [completePlan], error: null };
+
+    await expect(
+      recordRecommendationVerificationPlan({
+        recommendationId: "rec-1",
+        method:
+          "  Compare post-repair vibration against the accepted baseline.  ",
+        acceptanceCriteria:
+          "  Overall vibration remains below 3.0 mm/s for 72 hours.  ",
+        intendedOutcome:
+          "  Seal reliability is restored without repeat leakage.  ",
+        dueDate: "2027-01-31",
+        ownerId: "owner-1",
+      }),
+    ).resolves.toEqual(completePlan);
+
+    expect(state.rpcCalls).toEqual([
+      {
+        name: "record_recommendation_verification_plan",
+        args: {
+          p_recommendation_id: "rec-1",
+          p_method:
+            "Compare post-repair vibration against the accepted baseline.",
+          p_acceptance_criteria:
+            "Overall vibration remains below 3.0 mm/s for 72 hours.",
+          p_intended_outcome:
+            "Seal reliability is restored without repeat leakage.",
+          p_due_date: "2027-01-31",
+          p_owner_id: "owner-1",
+        },
+      },
+      {
+        name: "get_recommendation_verification_plan",
+        args: { p_recommendation_id: "rec-1" },
+      },
+    ]);
+  });
+
+  it("surfaces an owner or tenant refusal from the planning wall", async () => {
+    state.result = {
+      data: null,
+      error: { message: "verification owner must belong to your organization" },
+    };
+
+    await expect(
+      recordRecommendationVerificationPlan({
+        recommendationId: "rec-1",
+        method: "Inspect after repair",
+        acceptanceCriteria: "No repeat leakage for 72 hours",
+        intendedOutcome: "Seal reliability restored",
+        dueDate: "2027-01-31",
+        ownerId: "cross-tenant-owner",
+      }),
+    ).rejects.toThrow(/must belong to your organization/);
   });
 });
 
@@ -333,42 +509,47 @@ describe("getOpenObligationIdForRecommendation", () => {
 
 describe("approveRecommendation — approval is not achievement", () => {
   beforeEach(() => {
-    state.result = { data: null, error: null };
-    state.byTable = {
-      user_profiles: {
-        data: { organization_id: "org-1", role: "reliability_engineer" },
-        error: null,
+    state.result = {
+      data: {
+        recommendationId: "rec-1",
+        workOrderId: "wo-1",
+        decisionId: "dec-1",
+        outcomeVerified: false,
       },
-      decisions: { data: { id: "dec-1" }, error: null },
-      approvals: { data: null, error: null },
-      work_orders: { data: { id: "wo-1" }, error: null },
+      error: null,
     };
-    state.inserts = [];
-    clearOrgContextCache();
   });
 
-  it("does not write recommendation_accepted as if the outcome happened", async () => {
-    await approveRecommendation(rec);
-    const learning = state.inserts.find(
-      (row) => row.table === "learning_events",
+  it("uses the atomic governed approval RPC", async () => {
+    await expect(approveRecommendation(rec)).resolves.toEqual({
+      recommendationId: "rec-1",
+      workOrderId: "wo-1",
+      decisionId: "dec-1",
+    });
+    expect(state.rpcCalls).toContainEqual({
+      name: "approve_operating_recommendation",
+      args: { p_recommendation_id: "rec-1" },
+    });
+    expect(state.inserts).toEqual([]);
+  });
+
+  it("surfaces a governed refusal returned by the RPC", async () => {
+    state.result = {
+      data: { error: "recommendation approval authority denied" },
+      error: null,
+    };
+    await expect(approveRecommendation(rec)).rejects.toThrow(
+      /approval authority denied/,
     );
-    expect(learning).toBeDefined();
-    expect(learning?.payload.event_type).toBe("recommendation_approved");
-    expect(learning?.payload.event_type).not.toBe("recommendation_accepted");
-    expect(learning?.payload.detail).toMatch(/Outcome is not verified/);
   });
 
-  it("logs the decision as open, not executed", async () => {
-    await approveRecommendation(rec);
-    const decision = state.inserts.find((row) => row.table === "decisions");
-    expect(decision?.payload.outcome_status).toBe("open");
-    expect(decision?.payload.approval_status).toBe("approved");
-  });
-
-  it("projects value from approval and does not mark it verified", async () => {
-    await approveRecommendation(rec);
-    const metric = state.inserts.find((row) => row.table === "value_metrics");
-    expect(metric?.payload.status).toBe("projected");
-    expect(metric?.payload.status).not.toBe("verified");
+  it("rejects a malformed success response", async () => {
+    state.result = {
+      data: { recommendationId: "another-recommendation" },
+      error: null,
+    };
+    await expect(approveRecommendation(rec)).rejects.toThrow(
+      /Could not approve recommendation/,
+    );
   });
 });

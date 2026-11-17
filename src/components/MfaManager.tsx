@@ -3,9 +3,10 @@
  * backed by Supabase GoTrue MFA (SOC 2 CC6 / ISO 27001 A.8.5).
  *
  * A user enrolls an authenticator app (TOTP), verifies a 6-digit code to
- * activate the factor, and can remove it. Enrolled users are challenged for
- * their code at sign-in (see MfaChallenge). Enrollment is opt-in per account;
- * organization-wide enforcement is an app/DB policy step layered on top.
+ * activate the factor, and can remove it when tenant policy permits. Enrolled
+ * users are challenged for their code at sign-in. Organization enforcement is
+ * resolved server-side by get_current_security_posture/app_current_org; this
+ * component never decides whether a user is authorized to enter the workspace.
  */
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -24,7 +25,15 @@ interface Factor {
   status: string;
 }
 
-export function MfaManager() {
+interface MfaManagerProps {
+  protectLastFactor?: boolean;
+  onAssuranceChange?: () => void | Promise<void>;
+}
+
+export function MfaManager({
+  protectLastFactor = false,
+  onAssuranceChange,
+}: MfaManagerProps = {}) {
   const [factors, setFactors] = useState<Factor[]>([]);
   const [loading, setLoading] = useState(true);
   const [enrolling, setEnrolling] = useState<{
@@ -106,6 +115,7 @@ export function MfaManager() {
         "notice",
       );
       await loadFactors();
+      await onAssuranceChange?.();
     } catch (e) {
       setError(
         e instanceof Error
@@ -118,6 +128,12 @@ export function MfaManager() {
   };
 
   const removeFactor = async (factorId: string) => {
+    if (protectLastFactor && verifiedFactors.length <= 1) {
+      setError(
+        "Your organization requires MFA for this account. Enroll a replacement factor before removing the last verified authenticator.",
+      );
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -130,6 +146,7 @@ export function MfaManager() {
         "warning",
       );
       await loadFactors();
+      await onAssuranceChange?.();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not remove the factor.");
     } finally {
@@ -206,7 +223,14 @@ export function MfaManager() {
                 </span>
                 <button
                   onClick={() => void removeFactor(f.id)}
-                  disabled={busy}
+                  disabled={
+                    busy || (protectLastFactor && verifiedFactors.length <= 1)
+                  }
+                  title={
+                    protectLastFactor && verifiedFactors.length <= 1
+                      ? "Tenant policy protects the last verified factor"
+                      : "Remove authenticator"
+                  }
                   className="inline-flex items-center gap-1.5 rounded-md border border-red-500/30 px-2.5 py-1 text-xs text-red-300 hover:bg-red-500/10 disabled:opacity-40 focus:outline-hidden focus-visible:ring-2 focus-visible:ring-red-300"
                 >
                   <Trash2 className="h-3.5 w-3.5" aria-hidden />
@@ -215,6 +239,12 @@ export function MfaManager() {
               </li>
             ))}
           </ul>
+        )}
+        {protectLastFactor && verifiedFactors.length === 1 && (
+          <p className="mt-3 text-xs text-amber-300">
+            Tenant policy protects the last verified factor. Enroll a
+            replacement before removing it.
+          </p>
         )}
 
         {/* Enrollment flow */}

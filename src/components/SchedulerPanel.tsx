@@ -75,11 +75,13 @@ interface Feasibility {
   checks: FeasibilityCheck[];
 }
 
+// Freeze authority matches release_schedule_option. The AI-operator identity
+// is refused by name on that SECURITY DEFINER door (#630) and is not offered
+// the control here.
 const RELEASE_ROLES = new Set([
   "planner",
   "maintenance_manager",
   "admin",
-  "ai_admin",
 ]);
 const DAYS = ["Mon", "Tue", "Wed", "Thu", "Fri"];
 
