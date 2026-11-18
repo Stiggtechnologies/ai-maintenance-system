@@ -1,4 +1,10 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import {
+  authorizeAgentForCaller,
+  authorizeRunAgent,
+  authorizeSessionAgent,
+  resolveCallerOrganization,
+} from "../_shared/agent-company-membership.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": Deno.env.get('ALLOWED_ORIGIN') || 'https://app.syncai.ca',
@@ -20,15 +26,15 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  const upgrade = req.headers.get("upgrade") || "";
-  if (upgrade.toLowerCase() === "websocket") {
-    return handleWebSocket(req);
-  }
-
   const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
   const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
   const { createClient } = await import('npm:@supabase/supabase-js@2');
   const supabase = createClient(supabaseUrl, supabaseKey);
+
+  const upgrade = req.headers.get("upgrade") || "";
+  if (upgrade.toLowerCase() === "websocket") {
+    return handleWebSocket(req, supabase, authHeader);
+  }
 
   try {
     const url = new URL(req.url);
@@ -51,11 +57,11 @@ Deno.serve(async (req: Request) => {
     }
 
     if (pathname.startsWith('/sessions')) {
-      return handleSessions(req, supabase);
+      return handleSessions(req, supabase, authHeader);
     }
 
     if (pathname.startsWith('/runs')) {
-      return handleRuns(req, supabase);
+      return handleRuns(req, supabase, authHeader);
     }
 
     if (pathname.startsWith('/jobs')) {
@@ -167,20 +173,31 @@ async function handleDoctor(supabase: any) {
   );
 }
 
-async function handleSessions(req: Request, supabase: any) {
+function agentAccessDenied(result: { status: number; body: { error: string } }): Response {
+  return new Response(JSON.stringify(result.body), {
+    status: result.status,
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json',
+      'Cache-Control': 'no-store',
+    },
+  });
+}
+
+async function handleSessions(req: Request, supabase: any, authHeader: string) {
   const url = new URL(req.url);
   const pathname = url.pathname;
 
   if (req.method === 'POST' && pathname === '/sessions') {
     const body = await req.json();
-    const { user_id, agent_id } = body;
+    const gate = await authorizeAgentForCaller(supabase, authHeader, body?.agent_id);
+    if (!gate.ok) return agentAccessDenied(gate);
 
-    // TODO: Validate agent_id belongs to user's tenant before creating session
     const { data, error } = await supabase
       .from('openclaw_sessions')
       .insert({
-        user_id,
-        agent_id,
+        user_id: gate.userId,
+        agent_id: gate.agentId,
         started_at: new Date().toISOString()
       })
       .select()
@@ -196,6 +213,8 @@ async function handleSessions(req: Request, supabase: any) {
 
   if (req.method === 'POST' && pathname.match(/\/sessions\/(.+)\/messages/)) {
     const sessionId = pathname.split('/')[2];
+    const gate = await authorizeSessionAgent(supabase, authHeader, sessionId, 'openclaw_sessions');
+    if (!gate.ok) return agentAccessDenied(gate);
     const body = await req.json();
 
     const { data, error } = await supabase
@@ -218,6 +237,8 @@ async function handleSessions(req: Request, supabase: any) {
 
   if (req.method === 'GET' && pathname.match(/\/sessions\/(.+)\/history/)) {
     const sessionId = pathname.split('/')[2];
+    const gate = await authorizeSessionAgent(supabase, authHeader, sessionId, 'openclaw_sessions');
+    if (!gate.ok) return agentAccessDenied(gate);
     const limit = parseInt(url.searchParams.get('limit') || '50');
 
     const { data, error } = await supabase
@@ -241,17 +262,28 @@ async function handleSessions(req: Request, supabase: any) {
   );
 }
 
-async function handleRuns(req: Request, supabase: any) {
+async function handleRuns(req: Request, supabase: any, authHeader: string) {
   const url = new URL(req.url);
   const pathname = url.pathname;
 
   if (req.method === 'POST' && pathname === '/runs') {
     const body = await req.json();
+    const gate = await authorizeAgentForCaller(supabase, authHeader, body?.agent_id);
+    if (!gate.ok) return agentAccessDenied(gate);
+    if (body?.session_id) {
+      const sessionGate = await authorizeSessionAgent(
+        supabase,
+        authHeader,
+        body.session_id,
+        'openclaw_sessions',
+      );
+      if (!sessionGate.ok) return agentAccessDenied(sessionGate);
+    }
 
     const { data, error } = await supabase
       .from('openclaw_orchestration_runs')
       .insert({
-        agent_id: body.agent_id,
+        agent_id: gate.agentId,
         session_id: body.session_id,
         status: 'queued',
         config: body.config || {}
@@ -269,6 +301,13 @@ async function handleRuns(req: Request, supabase: any) {
 
   if (req.method === 'GET' && pathname.match(/\/runs\/(.+)$/)) {
     const runId = pathname.split('/')[2];
+    const gate = await authorizeRunAgent(
+      supabase,
+      authHeader,
+      runId,
+      'openclaw_orchestration_runs',
+    );
+    if (!gate.ok) return agentAccessDenied(gate);
 
     const { data, error } = await supabase
       .from('openclaw_orchestration_runs')
@@ -286,6 +325,13 @@ async function handleRuns(req: Request, supabase: any) {
 
   if (req.method === 'GET' && pathname.match(/\/runs\/(.+)\/trace/)) {
     const runId = pathname.split('/')[2];
+    const gate = await authorizeRunAgent(
+      supabase,
+      authHeader,
+      runId,
+      'openclaw_orchestration_runs',
+    );
+    if (!gate.ok) return agentAccessDenied(gate);
 
     const { data: toolCalls } = await supabase
       .from('openclaw_tool_calls')
@@ -659,14 +705,26 @@ async function checkMigrations(supabase: any) {
   }
 }
 
-function handleWebSocket(req: Request): Response {
-  const { socket, response } = Deno.upgradeWebSocket(req);
+async function handleWebSocket(req: Request, supabase: any, authHeader: string): Promise<Response> {
+  const caller = await resolveCallerOrganization(supabase, authHeader);
+  if (!caller.ok) return agentAccessDenied(caller);
+
   const url = new URL(req.url);
   const sessionId = url.searchParams.get('session_id');
-  const userId = url.searchParams.get('user_id');
+  if (sessionId) {
+    const sessionGate = await authorizeSessionAgent(
+      supabase,
+      authHeader,
+      sessionId,
+      'openclaw_sessions',
+    );
+    if (!sessionGate.ok) return agentAccessDenied(sessionGate);
+  }
+
+  const { socket, response } = Deno.upgradeWebSocket(req);
 
   socket.onopen = () => {
-    console.log(`WebSocket connected: session=${sessionId}, user=${userId}`);
+    console.log(`WebSocket connected: session=${sessionId}, user=${caller.userId}`);
     socket.send(JSON.stringify({
       type: 'connected',
       session_id: sessionId,
@@ -679,11 +737,6 @@ function handleWebSocket(req: Request): Response {
       const message = JSON.parse(event.data);
       console.log('WebSocket message received:', message.type);
 
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const { createClient } = await import('npm:@supabase/supabase-js@2');
-      const supabase = createClient(supabaseUrl, supabaseKey);
-
       switch (message.type) {
         case 'ping':
           socket.send(JSON.stringify({
@@ -692,7 +745,17 @@ function handleWebSocket(req: Request): Response {
           }));
           break;
 
-        case 'subscribe_run':
+        case 'subscribe_run': {
+          const runGate = await authorizeRunAgent(
+            supabase,
+            authHeader,
+            message.run_id,
+            'openclaw_orchestration_runs',
+          );
+          if (!runGate.ok) {
+            socket.send(JSON.stringify({ type: 'error', error: 'forbidden' }));
+            break;
+          }
           const runId = message.run_id;
           const checkInterval = setInterval(async () => {
             const { data: run } = await supabase
@@ -713,6 +776,7 @@ function handleWebSocket(req: Request): Response {
             }
           }, 2000);
           break;
+        }
 
         case 'subscribe_jobs':
           socket.send(JSON.stringify({
@@ -721,24 +785,25 @@ function handleWebSocket(req: Request): Response {
           }));
           break;
 
-        case 'execute_run':
-          const { agent_id, config } = message;
+        case 'execute_run': {
+          const gate = await authorizeAgentForCaller(supabase, authHeader, message.agent_id);
+          if (!gate.ok) {
+            socket.send(JSON.stringify({ type: 'error', error: 'forbidden' }));
+            break;
+          }
           const { data: newRun, error } = await supabase
             .from('openclaw_orchestration_runs')
             .insert({
-              agent_id,
+              agent_id: gate.agentId,
               session_id: sessionId,
               status: 'queued',
-              config: config || {}
+              config: message.config || {}
             })
             .select()
             .single();
 
           if (error) {
-            socket.send(JSON.stringify({
-              type: 'error',
-              message: error.message
-            }));
+            socket.send(JSON.stringify({ type: 'error', error: 'agent_action_failed' }));
           } else {
             socket.send(JSON.stringify({
               type: 'run_created',
@@ -746,18 +811,19 @@ function handleWebSocket(req: Request): Response {
             }));
           }
           break;
+        }
 
         default:
           socket.send(JSON.stringify({
             type: 'error',
-            message: `Unknown message type: ${message.type}`
+            error: 'unknown_message'
           }));
       }
     } catch (error) {
       console.error('WebSocket message error:', error);
       socket.send(JSON.stringify({
         type: 'error',
-        message: error.message
+        error: 'agent_action_failed'
       }));
     }
   };
