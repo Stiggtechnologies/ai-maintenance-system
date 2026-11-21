@@ -330,10 +330,10 @@
     "backticked": 6
   },
   "C4.06": {
-    "status": "🟡",
+    "status": "✅",
     "evidence": true,
-    "citations": 3,
-    "backticked": 3
+    "citations": 10,
+    "backticked": 10
   },
   "C4.07": {
     "status": "✅",
