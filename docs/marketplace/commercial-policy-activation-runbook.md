@@ -15,9 +15,13 @@ entitlement registry or seed an approval.
 fulfillment client, the same-origin Marketplace webhook proxy, and the protected
 deployment workflow all converge on Supabase project
 `pjvoswbwomesuwhygpby`. The observed `stigg-os-prod` project
-(`snlevbkyjipucmkpkqka`) is not the buyer-facing Marketplace target. Never
-configure Marketplace secrets, policies, capacities, subscriptions or release
-witnesses there. The evidence and retirement boundary are recorded in
+(`snlevbkyjipucmkpkqka`) is an active, separate Stigg Security operations
+system, not the buyer-facing Marketplace target. Its read-only inventory found
+39 active Edge Functions, 115 public tables, nine active scheduled jobs, nine
+auth users and 3,589 stored objects. Never configure SyncAI Marketplace
+secrets, policies, capacities, subscriptions or release witnesses there. Do not
+rename, migrate, pause or retire it without a separate owner-approved dependency
+and impact plan. The evidence and logical-quarantine boundary are recorded in
 `marketplace/production-data-plane-boundary.json`.
 
 ## Authoritative identities
@@ -82,10 +86,21 @@ migration ledger is historically divergent, do not treat `supabase db push` or
 the ledger alone as proof.
 
 For each plan, call `public.configure_ai_commercial_plan_policy` with the exact
-offer ID, plan inputs above, the three-model candidate set, null meter fields,
+offer ID, plan inputs above, the two-model candidate set, null meter fields,
 and a note identifying this controlled decision record. Immediately call
 `public.configure_commercial_plan_capacity` with the matching site and named-user
 limits. Both calls must return `status = draft`.
+
+The fail-closed transaction in
+`scripts/stage-marketplace-commercial-policy-drafts.sql` performs these calls,
+capacity updates and evaluations. It defaults to rollback, pins the canonical
+project reference, verifies that the actual `psql` host or pooler user resolves
+to that project, requires explicit confirmation of the Partner Center drafts
+and production client secret, and refuses to overwrite an approved/retired
+policy or run while a matching Marketplace subscription is active. An
+operator-supplied project label is not connection proof: the script must reject
+the currently linked `stigg-os-prod` database even if the canonical project ref
+is supplied as a variable.
 
 Then call `public.evaluate_ai_commercial_plan_policy` for every exact
 offer/plan pair. Stop and roll back the transaction unless every result returns

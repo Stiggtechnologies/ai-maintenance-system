@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AlertTriangle, DatabaseZap, ShieldCheck } from "lucide-react";
 import {
   ENTERPRISE_OPERATING_MODES,
@@ -125,12 +125,21 @@ export function ResilienceConfigurationPanel({
   const [scenario, setScenario] = useState<ScenarioDraft>(emptyScenario);
   const [mode, setMode] = useState<ModeDraft>(emptyMode);
   const [busy, setBusy] = useState(false);
-  const [initialized, setInitialized] = useState(false);
+  const initialized = useRef(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
 
   const reload = useCallback(async () => {
     const next = await getResilienceConfigurationWorkspace();
+    if (!initialized.current) {
+      setMode(
+        modeDraft(
+          "normal",
+          next.modes.find((item) => item.mode === "normal"),
+        ),
+      );
+      initialized.current = true;
+    }
     setWorkspace(next);
   }, []);
 
@@ -139,17 +148,6 @@ export function ResilienceConfigurationPanel({
       setError(reason instanceof Error ? reason.message : String(reason)),
     );
   }, [reload]);
-
-  useEffect(() => {
-    if (!workspace || initialized) return;
-    setMode(
-      modeDraft(
-        "normal",
-        workspace.modes.find((item) => item.mode === "normal"),
-      ),
-    );
-    setInitialized(true);
-  }, [initialized, workspace]);
 
   async function run(action: () => Promise<void>) {
     setBusy(true);

@@ -55,6 +55,16 @@ describe("marketplace channel readiness", () => {
     }
   });
 
+  it("keeps the Microsoft SaaS blocker current without reopening saved supplemental content", () => {
+    const microsoft = byId.get("microsoft_saas");
+    expect(microsoft?.blockers.join(" ")).toMatch(
+      /all five Marketplace publisher inputs are absent/i,
+    );
+    expect(microsoft?.blockers.join(" ")).not.toMatch(
+      /No Supplemental content scenario is saved/i,
+    );
+  });
+
   it("treats Dynamics agent offers as a qualified native-package hypothesis, not a live listing", () => {
     const dynamics = byId.get("microsoft_dynamics_agents");
     expect(dynamics).toMatchObject({

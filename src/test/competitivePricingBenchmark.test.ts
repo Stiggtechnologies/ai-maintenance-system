@@ -183,6 +183,44 @@ const manifest = JSON.parse(
     publishedCount: number;
     submitOrPublishEnabled: boolean;
   };
+  listing: {
+    contractSelection: {
+      customAmendmentObserved: boolean;
+      legalOwnerApprovalRecorded: boolean;
+      microsoftStandardContractSelected: boolean;
+      observedAt: string;
+      status: string;
+      universalAmendmentObserved: boolean;
+    };
+    partnerCenterPrivacyPolicyUrl: string;
+    logo: string;
+    marketingPdf: string;
+    privacyPolicyBrowserWitness: {
+      directPathLoad: boolean;
+      matchesPartnerCenterSavedValue: boolean;
+      observedAt: string;
+      renderedHeading: string;
+      signedOut: boolean;
+      status: string;
+    };
+    privacyPolicyUrl: string;
+    screenshots: {
+      captionPresent: boolean;
+      observedCount: number;
+      requiredCountSatisfied: boolean;
+      status: string;
+      visualQualityApproved: boolean;
+    };
+    termsBrowserWitness: {
+      directPathLoad: boolean;
+      observedAt: string;
+      renderedHeading: string;
+      signedOut: boolean;
+      status: string;
+    };
+    termsOrContract: string;
+    termsUrl: string;
+  };
   plans: Array<{
     autoActivation: boolean;
     name: string;
@@ -204,6 +242,22 @@ const manifest = JSON.parse(
       verifiedImplementationCommit: string;
     };
   };
+  reviewAndSubmit: {
+    completeSections: string[];
+    incompleteSections: string[];
+    interpretation: string;
+    observedAt: string;
+    observedPlanSummary: {
+      audience: string;
+      autoActivation: boolean;
+      markets: number;
+      planCount: number;
+      pricingModel: string;
+    };
+    publishEnabled: boolean;
+    status: string;
+    submitOfferEnabled: boolean;
+  };
   supplementalContent: {
     commercialConsequence: string;
     draftSaveAuthorized: boolean;
@@ -212,6 +266,24 @@ const manifest = JSON.parse(
     selectedScenario: string | null;
     status: string;
     truthfulCurrentScenario: string;
+  };
+  technicalConfiguration: {
+    connectionWebhook: {
+      runtimeSecrets: {
+        githubDeploymentControl: {
+          missingMarketplaceSecretNames: string[];
+          observedAt: string;
+          presentMarketplaceSecretNames: string[];
+          secretScope: string;
+          secretValuesInspected: boolean;
+          status: string;
+          workflow: string;
+        };
+        missingOnLiveProject: string[];
+        presentOnLiveProject: string[];
+        status: string;
+      };
+    };
   };
   taxAndPayout: {
     azureMarketplaceAssignment: {
@@ -534,6 +606,44 @@ describe("competitive pricing benchmark", () => {
     expect(payoutAction?.action).toMatch(/bank profile needs to be updated/i);
   });
 
+  it("records both runtime and deployment-control Marketplace secret gaps", () => {
+    const runtime =
+      manifest.technicalConfiguration.connectionWebhook.runtimeSecrets;
+    expect(runtime).toMatchObject({
+      presentOnLiveProject: [
+        "AZURE_MARKETPLACE_CLIENT_ID",
+        "AZURE_MARKETPLACE_TENANT_ID",
+        "AZURE_MARKETPLACE_PUBLISHER_ID",
+        "AZURE_MARKETPLACE_OFFER_ID",
+      ],
+      missingOnLiveProject: ["AZURE_MARKETPLACE_CLIENT_SECRET"],
+      status: "blocked",
+      githubDeploymentControl: {
+        workflow: ".github/workflows/deploy-migrations.yml",
+        secretScope: "repository",
+        observedAt: "2026-11-01",
+        presentMarketplaceSecretNames: [],
+        missingMarketplaceSecretNames: [
+          "AZURE_MARKETPLACE_CLIENT_ID",
+          "AZURE_MARKETPLACE_CLIENT_SECRET",
+          "AZURE_MARKETPLACE_TENANT_ID",
+          "AZURE_MARKETPLACE_PUBLISHER_ID",
+          "AZURE_MARKETPLACE_OFFER_ID",
+        ],
+        secretValuesInspected: false,
+        status: "blocked",
+      },
+    });
+    const credentialAction = manifest.blockingActions.find(
+      ({ id }) => id === "PC-010",
+    );
+    expect(credentialAction).toMatchObject({ status: "blocked" });
+    expect(credentialAction?.action).toMatch(
+      /repository-scoped GitHub Actions secrets/i,
+    );
+    expect(credentialAction?.action).toMatch(/none of the five names/i);
+  });
+
   it("records the live offer inventory without promoting any draft to a product", () => {
     expect(manifest.offerInventory).toMatchObject({
       draftCount: 4,
@@ -556,6 +666,43 @@ describe("competitive pricing benchmark", () => {
         ({ type }) => type === "professional_service",
       ),
     ).toHaveLength(3);
+  });
+
+  it("records the exact Review and submit table without inventing a non-plan error", () => {
+    expect(manifest.reviewAndSubmit).toMatchObject({
+      observedAt: "2026-11-01",
+      submitOfferEnabled: false,
+      publishEnabled: false,
+      completeSections: [
+        "offer_setup",
+        "properties",
+        "offer_listing",
+        "preview_audience",
+        "technical_configuration",
+        "csp_reseller_audience",
+        "supplemental_content",
+      ],
+      incompleteSections: [
+        "plan_overview",
+        "starter",
+        "professional",
+        "enterprise",
+      ],
+      observedPlanSummary: {
+        planCount: 3,
+        pricingModel: "per_user",
+        markets: 141,
+        autoActivation: false,
+        audience: "public",
+      },
+      status: "blocked",
+    });
+    expect(manifest.reviewAndSubmit.interpretation).toMatch(
+      /no incomplete non-plan section/i,
+    );
+    expect(manifest.reviewAndSubmit.interpretation).toMatch(
+      /controlled flat-rate draft changes are both required/i,
+    );
   });
 
   it("records the authorized non-Azure draft without claiming certification", () => {
@@ -583,6 +730,62 @@ describe("competitive pricing benchmark", () => {
     }
   });
 
+  it("records direct signed-out policy routes without inventing legal approval", () => {
+    expect(manifest.listing).toMatchObject({
+      privacyPolicyUrl: "https://syncai.ca/privacy",
+      partnerCenterPrivacyPolicyUrl: "https://syncai.ca/privacy",
+      privacyPolicyBrowserWitness: {
+        observedAt: "2026-11-01",
+        signedOut: true,
+        directPathLoad: true,
+        renderedHeading: "Privacy Policy",
+        matchesPartnerCenterSavedValue: true,
+        status: "verified",
+      },
+      termsUrl: "https://app.syncai.ca/terms",
+      termsBrowserWitness: {
+        observedAt: "2026-11-01",
+        signedOut: true,
+        directPathLoad: true,
+        renderedHeading: "Terms of Service",
+        status: "verified",
+      },
+      termsOrContract:
+        "microsoft_standard_contract_selected_legal_approval_required",
+      contractSelection: {
+        observedAt: "2026-11-01",
+        microsoftStandardContractSelected: true,
+        universalAmendmentObserved: false,
+        customAmendmentObserved: false,
+        legalOwnerApprovalRecorded: false,
+        status: "selection_verified_approval_blocked",
+      },
+      marketingPdf: "not_observed_in_partner_center_listing_2026-11-01",
+      logo: "large_medium_small_present_not_quality_approved",
+      screenshots: {
+        observedCount: 1,
+        requiredCountSatisfied: true,
+        captionPresent: true,
+        visualQualityApproved: false,
+        status: "present_unapproved",
+      },
+    });
+    const legalAction = manifest.blockingActions.find(
+      ({ id }) => id === "PC-004",
+    );
+    expect(legalAction).toMatchObject({ status: "blocked" });
+    expect(legalAction?.action).toMatch(
+      /route and selection evidence are not legal approval/i,
+    );
+    const brandAction = manifest.blockingActions.find(
+      ({ id }) => id === "PC-006",
+    );
+    expect(brandAction).toMatchObject({ status: "verified" });
+    expect(brandAction?.action).toMatch(
+      /no supplemental marketing PDF was observed/i,
+    );
+  });
+
   it("separates green repository proof from production and purchase evidence", () => {
     expect(manifest.previewAndCertification).toMatchObject({
       repositoryHarness: "implemented_and_ci_verified",
@@ -603,9 +806,12 @@ describe("competitive pricing benchmark", () => {
     );
     expect(productAction).toMatchObject({ status: "blocked" });
     expect(productAction?.action).toMatch(
-      /not yet reviewed, merged, deployed, or configured/i,
+      /present on current main and deployed to the canonical SyncAI production project/i,
     );
-    expect(productAction?.action).toMatch(/policy values remain unproven/i);
+    expect(productAction?.action).toMatch(
+      /policy rows remain absent, unapproved, and unconfigured/i,
+    );
+    expect(productAction?.action).toMatch(/real preview subscription/i);
   });
 
   it("records an expansion path capable of reaching enterprise ACV", () => {

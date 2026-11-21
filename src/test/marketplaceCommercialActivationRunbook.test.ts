@@ -98,6 +98,25 @@ describe("Marketplace commercial-policy activation runbook", () => {
       productionBoundary.noncanonicalProjectObserved.productionUseAuthorized,
     ).toBe(false);
     expect(
+      productionBoundary.noncanonicalProjectObserved.classification,
+    ).toBe("active_separate_stigg_security_operations_not_buyer_facing");
+    expect(productionBoundary.noncanonicalProjectObserved.projectStatus).toBe(
+      "ACTIVE_HEALTHY",
+    );
+    expect(productionBoundary.noncanonicalProjectObserved.disposition).toBe(
+      "logically_quarantined_from_syncai_marketplace",
+    );
+    expect(
+      productionBoundary.noncanonicalProjectObserved.operationalInventory,
+    ).toMatchObject({
+      activeEdgeFunctions: 39,
+      edgeFunctionsWithoutJwtVerification: 15,
+      publicTables: 115,
+      authUsers: 9,
+      storageObjects: 3589,
+      activeScheduledJobs: 9,
+    });
+    expect(
       productionBoundary.releaseConsequences
         .paidDirectModelRouteDeploymentProven,
     ).toBe(true);
@@ -111,6 +130,8 @@ describe("Marketplace commercial-policy activation runbook", () => {
     ).toBe("pjvoswbwomesuwhygpby");
     expect(runbook).toContain("Never");
     expect(runbook).toContain("snlevbkyjipucmkpkqka");
+    expect(runbook).toContain("active, separate Stigg Security operations");
+    expect(runbook).toContain("owner-approved dependency");
   });
 
   it("requires one named owner and preserves fail-closed release evidence", () => {
