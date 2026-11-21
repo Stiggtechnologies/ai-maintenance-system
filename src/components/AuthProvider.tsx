@@ -37,54 +37,67 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const {
-          data: { session: currentSession },
-        } = await supabase.auth.getSession();
-        setSession(currentSession);
-        setUser(currentSession?.user ?? null);
+    let revision = 0;
+    let pendingProfile: ReturnType<typeof setTimeout> | undefined;
+    let pendingSignInAudit: ReturnType<typeof setTimeout> | undefined;
+    let observedUserId: string | undefined;
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event, newSession) => {
+      const currentRevision = ++revision;
+      clearTimeout(pendingProfile);
+      setSession(newSession);
+      setUser(newSession?.user ?? null);
 
-        if (currentSession?.user) {
-          await loadProfile(currentSession.user.id);
-        }
-      } catch (error) {
-        console.error("Auth session error:", error);
+      const userId = newSession?.user?.id;
+      if (userId !== observedUserId) {
+        clearTimeout(pendingSignInAudit);
+        pendingSignInAudit = undefined;
+        observedUserId = userId;
       }
+      if (!userId) {
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
+      setProfile((previous) => (previous?.id === userId ? previous : null));
 
-      setLoading(false);
-
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange(async (event, newSession) => {
-        setSession(newSession);
-        setUser(newSession?.user ?? null);
-
-        if (newSession?.user) {
-          await loadProfile(newSession.user.id);
-          if (event === "SIGNED_IN") {
-            void recordSecurityEvent("sign_in", "Signed in");
+      // Profile and audit requests can reenter Auth through the Supabase
+      // client. Start them after Auth finishes notifying its subscribers.
+      // A same-user refresh replaces the profile read but keeps the audit.
+      if (event === "SIGNED_IN" && pendingSignInAudit === undefined) {
+        pendingSignInAudit = setTimeout(() => {
+          pendingSignInAudit = undefined;
+          void recordSecurityEvent("sign_in", "Signed in");
+        }, 0);
+      }
+      pendingProfile = setTimeout(() => {
+        void (async () => {
+          try {
+            const { data, error } = await supabase
+              .from("user_profiles")
+              .select("*")
+              .eq("id", userId)
+              .maybeSingle();
+            if (error) throw error;
+            if (currentRevision === revision) setProfile(data);
+          } catch (error) {
+            if (currentRevision !== revision) return;
+            console.error("Auth profile error:", error);
+          } finally {
+            if (currentRevision === revision) setLoading(false);
           }
-        } else {
-          setProfile(null);
-        }
-      });
+        })();
+      }, 0);
+    });
 
-      return () => subscription.unsubscribe();
-    })();
+    return () => {
+      revision++;
+      clearTimeout(pendingProfile);
+      clearTimeout(pendingSignInAudit);
+      subscription.unsubscribe();
+    };
   }, []);
-
-  const loadProfile = async (userId: string) => {
-    const { data } = await supabase
-      .from("user_profiles")
-      .select("*")
-      .eq("id", userId)
-      .maybeSingle();
-
-    if (data) {
-      setProfile(data);
-    }
-  };
 
   const signIn = async (email: string, password: string) => {
     const { error: signInError } = await supabase.auth.signInWithPassword({
