@@ -78,9 +78,11 @@ describe("governed RCA / FRACAS agent execution", () => {
     expect(workflow).toContain("bash scripts/ci-fracas-rca-agent-smoke.sh");
   });
 
-  it("closes the role and full FRACAS loop without overstating the broader stage", () => {
+  it("closes the role and full FRACAS loop, and Stage 3 only when governance is cited", () => {
     expect(register).toMatch(/\| C1\.07 \|[^\n]+\| ✅[^\n]+/i);
     expect(register).toMatch(/\| C8\.05 \|[^\n]+\| ✅[^\n]+/i);
-    expect(register).toMatch(/\| C9\.03 \|[^\n]+\| 🟡[^\n]+/i);
+    expect(register).toMatch(
+      /\| C9\.03 \|[^\n]+\| ✅[^\n]*record_defect_elimination_governance[^\n]+/i,
+    );
   });
 });
