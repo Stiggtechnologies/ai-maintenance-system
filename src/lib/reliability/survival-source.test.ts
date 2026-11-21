@@ -278,4 +278,34 @@ describe("canonical survival source preparation", () => {
     expect(result.gaps).not.toEqual([]);
     expect(result.clusterBySubject.size).toBe(0);
   });
+  it("accepts a reviewed life reference that equals the captured physical-life identity", () => {
+    const rows = source();
+    rows[0].physicalLifeRef = "serial-123-life-1";
+    const result = prepareSurvivalSource(rows, [
+      { name: "temperature", unit: "degC" },
+    ]);
+    expect(result.gaps).toEqual([]);
+    expect(result.rows).toHaveLength(1);
+  });
+  it("refuses the whole population when the reviewed life reference differs from the captured identity", () => {
+    const rows = source();
+    rows[0].physicalLifeRef = "serial-123-life-2";
+    const result = prepareSurvivalSource(rows, [
+      { name: "temperature", unit: "degC" },
+    ]);
+    expect(result.rows).toEqual([]);
+    expect(result.gaps.join(" ")).toContain(
+      "does not match the physical life identity captured",
+    );
+  });
+  it("treats a trimmed reviewed reference as the same captured identity", () => {
+    const rows = source();
+    rows[0].physicalLifeRef = "serial-123-life-1";
+    rows[0].overlay!.lifeRef = " serial-123-life-1 ";
+    const result = prepareSurvivalSource(rows, [
+      { name: "temperature", unit: "degC" },
+    ]);
+    expect(result.gaps).toEqual([]);
+    expect(result.rows).toHaveLength(1);
+  });
 });

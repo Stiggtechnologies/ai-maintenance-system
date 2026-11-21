@@ -1,8 +1,9 @@
 # Declared Cox numerical boundary qualification
 
-**Draft — C7.14 remains yellow.** This is a computational and mathematical
-witness, not customer evidence, fleet suitability, an endpoint latency SLA,
-production load testing, validated predictive coverage or operating authority.
+**Numerical witness.** C7.14 is closed for the reachable tenant-scoped survival
+scenario. This document is still not customer evidence, fleet suitability, an
+endpoint latency SLA, production load testing, validated predictive coverage or
+operating authority.
 
 The existing kernel accepts at most 2,000 complete exposure intervals and eight
 named covariates. Those are software computation limits, not engineering
@@ -118,18 +119,20 @@ canonical life and calculation IDs, and retain `life-identity-capture-gap.png`.
 That new browser witness also remains pending until its exact-head hosted run
 executes and the screenshot is inspected.
 
-This needs a serialized architecture/invariant migration, not a numerical
-workaround. Required closure includes an explicit physical-life/source identity
-at initial capture, preservation of historical records and old API behavior,
-same-source retry idempotency, rejection of duplicate physical lives, tenant
-and independent-review boundaries, and an actual complete-cohort
-capture/review/calculation/history/browser witness. Do not alter measured
-exposure, relabel assets, drop colliding lives, disable the old constraint
-without a replacement identity, or fabricate approvals to claim capacity.
+`20271108120000_physical_life_identity.sql` is that migration. Capture can now
+store an explicit physical-life identity on the canonical life event. A null
+identity keeps the legacy exposure refusal. The same identity with the same
+source facts is an audited idempotent retry. The same identity with different
+facts is refused. An included covariate life reference must equal the captured
+identity, and a join that cannot see every event refuses the whole population.
+Historical rows are not rewritten, measured exposure is not altered, and the
+old constraint is replaced only by those two identities. Customer calibration,
+a future-event prediction interval, real authenticator enrollment and production
+deployment remain unqualified.
 
 The application solver, numerical pins, tenant/auth/source/approval rules,
-canonical calculation ledger and advisory authority are unchanged. This
-increment adds qualification, not a new model or a new persistence path.
+canonical calculation ledger and advisory authority are unchanged. The identity
+is one column on the existing life event, not a second life store or a new model.
 `phAssumptionValidated`, `coverageValidated`, `futureEventPredictionInterval`
 and `liveAssetForecast` remain false; predictive `confidenceInterval` remains
 null. Passing synthetic PH calculations does not establish PH for a customer.

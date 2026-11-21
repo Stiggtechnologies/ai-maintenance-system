@@ -1,9 +1,11 @@
 # Conditional survival sampling-confidence contract
 
-**Draft; C7.14 remains yellow.** Mathematical qualification is not customer
-predictive calibration, engineering applicability, independent review or
-production acceptance. This document describes the declared method, not a
-claim that the current draft has shipped to production.
+**Sampling-confidence method.** C7.14 is closed for the reachable tenant-scoped
+survival scenario. Mathematical qualification is not customer predictive
+calibration, engineering applicability, independent review or production
+acceptance. This document describes the declared method. These bounds are not a
+future-event prediction interval and have not been claimed as a production
+forecast.
 
 ## What the calculation means
 

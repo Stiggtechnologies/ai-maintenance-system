@@ -230,11 +230,13 @@ function Field({
   value,
   onChange,
   numeric = false,
+  readOnly = false,
 }: {
   label: string;
   value: string;
   onChange: (value: string) => void;
   numeric?: boolean;
+  readOnly?: boolean;
 }) {
   return (
     <label className="block text-xs text-slate-400">
@@ -242,6 +244,7 @@ function Field({
       <input
         className={inputClass}
         required
+        readOnly={readOnly}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         type={numeric ? "number" : "text"}
@@ -381,6 +384,7 @@ export function CovariateSurvivalWorkbench({
     );
   }
   function selectEvent(id: string) {
+    const row = data?.events.find((event) => String(event.id) === id);
     setEventId(id);
     setComponentInstanceLink("");
     setInstallationEvidence("");
@@ -389,7 +393,7 @@ export function CovariateSurvivalWorkbench({
     setReviewBasis("");
     setReceipt(null);
     setMode("include");
-    setLifeRef("");
+    setLifeRef(row?.physicalLifeRef ?? "");
     setStratum("");
     setEntryHours("");
     setServiceStartedAt("");
@@ -433,7 +437,11 @@ export function CovariateSurvivalWorkbench({
     if (!overlay) return;
     setMode(overlay.mode);
     setBasis(overlay.basis);
-    setLifeRef(overlay.lifeRef ?? "");
+    setLifeRef(
+      !("installedAt" in row) && row.physicalLifeRef
+        ? row.physicalLifeRef
+        : (overlay.lifeRef ?? ""),
+    );
     setStratum(overlay.stratum ?? "");
     setEntryHours(overlay.entryHours == null ? "" : String(overlay.entryHours));
     setServiceStartedAt(overlay.serviceStartedAt ?? "");
@@ -846,6 +854,12 @@ export function CovariateSurvivalWorkbench({
                   </td>
                   <td className="p-2">
                     {row.eventKind} · {row.hoursAtChangeOut} h
+                    {row.physicalLifeRef ? (
+                      <>
+                        <br />
+                        Physical life {row.physicalLifeRef}
+                      </>
+                    ) : null}
                   </td>
                   <td className="p-2">
                     v{row.overlayVersion} · {row.overlayStatus}
@@ -1073,6 +1087,7 @@ export function CovariateSurvivalWorkbench({
                     label="Physical component life reference"
                     value={lifeRef}
                     onChange={setLifeRef}
+                    readOnly={Boolean(event?.physicalLifeRef)}
                   />
                 )}
                 <Field

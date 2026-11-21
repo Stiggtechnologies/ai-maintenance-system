@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   LifeEventIdentityCollisionError,
+  PhysicalLifeIdentityConflictError,
   recordComponentLifeEvent,
   type LifeEventInput,
 } from "./reliabilityLifeDataService";
@@ -23,7 +24,10 @@ describe("life capture collision boundary", () => {
   beforeEach(() => vi.resetAllMocks());
   it("returns only the canonical event identity after an actual successful receipt", async () => {
     rpc.mockResolvedValue({ data: { event_id: 42 }, error: null });
-    expect(await recordComponentLifeEvent(input)).toBe(42);
+    expect(await recordComponentLifeEvent(input)).toEqual({
+      eventId: 42,
+      idempotent: false,
+    });
     expect(rpc).toHaveBeenCalledTimes(1);
     expect(rpc).toHaveBeenCalledWith("record_component_life_event", {
       p_asset_id: input.assetId,
@@ -36,8 +40,52 @@ describe("life capture collision boundary", () => {
       p_work_order_ref: input.workOrderRef,
       p_source_file: input.sourceReference,
       p_source_basis: input.evidenceBasis,
+      p_physical_life_ref: null,
     });
   });
+  it("sends a trimmed physical-life identity and reports an exact replay without a second id", async () => {
+    rpc.mockResolvedValue({
+      data: { event_id: 42, idempotent: true },
+      error: null,
+    });
+    expect(
+      await recordComponentLifeEvent({
+        ...input,
+        physicalLifeRef: "  synthetic-life-2  ",
+      }),
+    ).toEqual({ eventId: 42, idempotent: true });
+    expect(rpc).toHaveBeenCalledWith(
+      "record_component_life_event",
+      expect.objectContaining({ p_physical_life_ref: "synthetic-life-2" }),
+    );
+  });
+  it("refuses a repeated identity whose source facts differ and does not invent an event", async () => {
+    rpc.mockResolvedValue({
+      data: {
+        error:
+          "this physical life is already recorded with different source facts",
+      },
+      error: null,
+    });
+    const error = await recordComponentLifeEvent({
+      ...input,
+      physicalLifeRef: "synthetic-life-2",
+    }).catch((failure: unknown) => failure);
+    expect(error).toBeInstanceOf(PhysicalLifeIdentityConflictError);
+    expect(error).not.toBeInstanceOf(LifeEventIdentityCollisionError);
+    expect((error as Error).message).toContain("different source facts");
+    expect((error as Error).message).toContain("no second life");
+    expect(rpc).toHaveBeenCalledTimes(1);
+  });
+  it.each(["x", "a".repeat(161), "life\n2"])(
+    "refuses physical life identity %j before any capture RPC",
+    async (physicalLifeRef) => {
+      await expect(
+        recordComponentLifeEvent({ ...input, physicalLifeRef }),
+      ).rejects.toThrow("2–160 characters");
+      expect(rpc).not.toHaveBeenCalled();
+    },
+  );
   it("recognizes only the known legacy collision, preserves all source values and never retries or invents an ID", async () => {
     rpc.mockResolvedValue({
       data: { error: "this component life event is already recorded" },
