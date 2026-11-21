@@ -216,6 +216,7 @@ Deno.serve(async (request) => {
     budget?: unknown;
     component?: unknown;
     planId?: unknown;
+    assetId?: unknown;
     covariates?: unknown;
     scenario?: unknown;
     activeScenario?: unknown;
@@ -714,6 +715,121 @@ Deno.serve(async (request) => {
     } catch (error) {
       console.error("asset-strategy calculation failed", error);
       return json({ error: "asset_strategy_calculation_failed" }, 422);
+    }
+  }
+
+  if (body.action === "pm_policy") {
+    const assetId = typeof body.assetId === "string" ? body.assetId.trim() : "";
+    if (!/^[0-9a-f]{8}-[0-9a-f-]{27}$/i.test(assetId))
+      return json({ error: "valid_asset_id_required" }, 400);
+    if (
+      !["reliability_engineer", "maintenance_manager", "admin"].includes(
+        profile.role ?? "",
+      )
+    ) {
+      return json({ error: "pm_policy_role_required" }, 403);
+    }
+    try {
+      const { data: sourceData, error: sourceError } = await service.rpc(
+        "get_pm_policy_source",
+        {
+          p_organization_id: organizationId,
+          p_actor_id: actorId,
+          p_asset_id: assetId,
+        },
+      );
+      if (sourceError) throw new Error(sourceError.message);
+      const source = sourceData as {
+        error?: string;
+        kernelVersion?: string;
+        groupingBasis?: {
+          id?: string;
+          version?: number;
+          sharedAccessCostUsd?: number | string;
+          accessExcludedFromTaskCosts?: boolean;
+        } | null;
+        components?: Array<{
+          planId: string;
+          planVersion: number;
+          label: string;
+          plannedItemCost: number | string | null;
+          failureCost: number | string | null;
+          costBasis: string | null;
+          safetyCritical: boolean | null;
+          regulatoryRequired: boolean | null;
+          ageHours: number | string | null;
+          failureHours?: Array<number | string>;
+          censoredHours?: Array<number | string>;
+          eventIds?: Array<number | string>;
+        }>;
+      } | null;
+      if (source?.error) return json({ error: source.error }, 403);
+      if (!source?.kernelVersion || !Array.isArray(source.components))
+        return json({ error: "pm_policy_source_incomplete" }, 422);
+      const { optimizePmPolicies, PM_POLICY_KERNEL_VERSION } = await import(
+        "../../../src/lib/optimization/pm-policies.ts"
+      );
+      const hours = (values: Array<number | string> | undefined) =>
+        (values ?? [])
+          .map((value) => finiteNumber(value))
+          .filter((value): value is number => value != null && value > 0);
+      const components = source.components.map((component) => {
+        const failureHours = hours(component.failureHours);
+        const censoredHours = hours(component.censoredHours);
+        const method = selectWeibullMethod(failureHours, censoredHours);
+        return {
+          key: component.planId,
+          label: component.label,
+          method: method.method,
+          failures: method.failures,
+          suspensions: method.suspensions,
+          beta: method.beta,
+          eta: method.eta,
+          eventIds: (component.eventIds ?? [])
+            .map((value) => finiteNumber(value))
+            .filter((value): value is number => value != null),
+          planVersion: Number(component.planVersion),
+          plannedItemCost: finiteNumber(component.plannedItemCost),
+          failureCost: finiteNumber(component.failureCost),
+          costBasis: component.costBasis,
+          safetyCritical: component.safetyCritical,
+          regulatoryRequired: component.regulatoryRequired,
+          ageHours: finiteNumber(component.ageHours),
+        };
+      });
+      const basis = source.groupingBasis;
+      const access =
+        basis &&
+        typeof basis.id === "string" &&
+        finiteNumber(basis.sharedAccessCostUsd) != null
+          ? {
+              sharedAccessCost: finiteNumber(basis.sharedAccessCostUsd) as number,
+              accessExcludedFromTaskCosts:
+                basis.accessExcludedFromTaskCosts === true,
+            }
+          : null;
+      if (source.kernelVersion !== PM_POLICY_KERNEL_VERSION)
+        return json({ error: "pm_policy_kernel_mismatch" }, 422);
+      const result = optimizePmPolicies(components, access);
+      const { data: receiptData, error: receiptError } = await service.rpc(
+        "record_pm_policy_assessment",
+        {
+          p_organization_id: organizationId,
+          p_actor_id: actorId,
+          p_asset_id: assetId,
+          p_grouping_basis_id: basis?.id ?? null,
+          p_grouping_basis_version: basis?.version ?? null,
+          p_kernel_version: PM_POLICY_KERNEL_VERSION,
+          p_result: result,
+        },
+      );
+      if (receiptError) throw new Error(receiptError.message);
+      const receipt = receiptData as { error?: string } | null;
+      if (receipt?.error) return json({ error: receipt.error }, 422);
+      return json(receipt);
+    } catch (error) {
+      console.error("pm-policy calculation failed", error);
+      return json({ error: "pm_policy_calculation_failed" }, 422);
     }
   }
 

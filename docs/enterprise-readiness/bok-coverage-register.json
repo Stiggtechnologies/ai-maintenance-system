@@ -217,18 +217,28 @@
       ],
       "testFile": "src/lib/bok-decision-kernels.test.ts",
       "registerRows": ["C7.08"],
-      "customerReachable": false,
-      "nextStep": "Offer block replacement next to age replacement in the asset-strategy agent's interval advice."
+      "customerReachable": true,
+      "nextStep": "Block replacement is now calculated beside age replacement in the governed PM policy assessment. It is reported with its premium and is not selected over age replacement unless a recorded shared access cost makes a common block cheaper."
     },
     {
       "id": "BOK-11B",
       "title": "Opportunistic grouping and multi-component maintenance policies",
       "severity": "medium",
       "references": ["Dekker 1996", "Wang 2002"],
-      "status": "open",
+      "status": "kernel_verified",
+      "module": "src/lib/optimization/pm-policies.ts",
+      "exports": [
+        "optimizePmPolicies",
+        "opportunisticAgeThreshold",
+        "ageAtWeibullFailureRate",
+        "weibullFailureRate",
+        "hasPmCostEvidence",
+        "pmIntervalWriteAllowed"
+      ],
+      "testFile": "src/lib/optimization/pm-policies.test.ts",
       "registerRows": ["C7.08"],
-      "customerReachable": false,
-      "nextStep": "Model grouping against shutdown windows using the turnaround schedule graph."
+      "customerReachable": true,
+      "nextStep": "The hazard threshold and common block are customer-operable. Coupling those policies to a recorded turnaround window, rather than to an already-open access, is still separate work."
     },
     {
       "id": "BOK-12",
