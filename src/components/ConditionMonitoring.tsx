@@ -22,10 +22,12 @@ import { LoadingState, ErrorState } from "./ui/AsyncStates";
 import {
   adoptPfInterval,
   canAdoptPfInterval,
+  canRecordConditionObservation,
   deriveObservedPf,
   linkAlertToWork,
   listOpenWorkOrders,
   listPfIntervals,
+  recordConditionObservation,
   type ObservedPfResult,
   type OpenWorkOrderOption,
   type PfIntervalRow,
@@ -38,6 +40,7 @@ import { ConditionSensorRegistry } from "./ConditionSensorRegistry";
 
 interface Alert {
   id: string;
+  asset_id?: string | null;
   asset: string | null;
   sensor: string;
   severity: "warning" | "alarm";
@@ -66,8 +69,22 @@ interface Payload {
     value: number | null;
     unit: string;
     sample: number;
+    min_hours?: number | null;
     basis: string;
+    to_repair?: {
+      available: boolean;
+      value: number | null;
+      sample: number;
+      basis: string;
+    };
+    open_backlog?: {
+      available: boolean;
+      count: number | null;
+      mean_age_hours: number | null;
+      basis: string;
+    };
   };
+  observation_points?: ObservationPoint[];
   pm_task_effectiveness: {
     available: boolean;
     recordedOutcomes: number;
@@ -79,6 +96,18 @@ interface Payload {
   };
   pf_note: string;
   contextual: ContextualConditionPayload;
+}
+
+interface ObservationPoint {
+  id: string;
+  name: string;
+  asset_id: string | null;
+  asset: string | null;
+  unit: string | null;
+  warning_limit: number | null;
+  alarm_limit: number | null;
+  limit_direction: string | null;
+  registry_status: string;
 }
 
 interface ContextualConditionReading {
@@ -141,6 +170,9 @@ const EMPTY_CONTEXTUAL: ContextualConditionPayload = {
 export function ConditionMonitoring() {
   const { profile } = useAuth();
   const canAdopt = canAdoptPfInterval(profile?.role as string | undefined);
+  const canObserve = canRecordConditionObservation(
+    profile?.role as string | undefined,
+  );
   const { data, loading, error, refetch } = useAsyncData<Payload>(async () => {
     const [monitoring, effectiveness, contextual] = await Promise.all([
       supabase.rpc("get_condition_monitoring", {}),
@@ -181,6 +213,13 @@ export function ConditionMonitoring() {
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [flash, setFlash] = useState<string | null>(null);
+  const [obsSensor, setObsSensor] = useState("");
+  const [obsValue, setObsValue] = useState("");
+  const [obsTakenAt, setObsTakenAt] = useState("");
+  const [obsQuality, setObsQuality] = useState<
+    "good" | "suspect" | "bad" | "substituted"
+  >("good");
+  const [obsBasis, setObsBasis] = useState("");
 
   // Keep the last verified payload visible during a background refetch. Apart
   // from avoiding a disruptive full-panel flash, this preserves the human-
@@ -192,6 +231,12 @@ export function ConditionMonitoring() {
   const cov = data?.coverage;
   const alerts = data?.active_alerts ?? [];
   const lead = data?.warning_lead_time;
+  const points = data?.observation_points ?? [];
+  const observationReady =
+    obsSensor !== "" &&
+    Number.isFinite(Number(obsValue)) &&
+    obsTakenAt !== "" &&
+    obsBasis.trim().length >= 20;
   const pm = data?.pm_task_effectiveness;
   const pf = intervals.data ?? [];
   const alarms = alerts.filter((a) => a.severity === "alarm").length;
@@ -317,6 +362,74 @@ export function ConditionMonitoring() {
           {lead?.basis}
         </p>
       )}
+      {lead?.available && (
+        <p className="text-xs leading-relaxed text-slate-500">{lead.basis}</p>
+      )}
+      {lead?.to_repair?.available && (
+        <p className="text-xs leading-relaxed text-slate-400">
+          Recorded completion is {lead.to_repair.value} h after the warning
+          over {lead.to_repair.sample} completed work order
+          {lead.to_repair.sample === 1 ? "" : "s"}. {lead.to_repair.basis}
+        </p>
+      )}
+      {lead?.open_backlog?.available && (
+        <p className="text-xs leading-relaxed text-slate-400">
+          Open unlinked alerts: {lead.open_backlog.count ?? "—"}.
+          {lead.open_backlog.mean_age_hours != null
+            ? ` Mean age ${lead.open_backlog.mean_age_hours} h.`
+            : ""}{" "}
+          {lead.open_backlog.basis}
+        </p>
+      )}
+      {lead?.open_backlog && !lead.open_backlog.available && (
+        <p className="text-xs leading-relaxed text-slate-400">
+          {lead.open_backlog.basis}
+        </p>
+      )}
+
+      <ConditionObservationForm
+        canObserve={canObserve}
+        points={points}
+        sensorId={obsSensor}
+        value={obsValue}
+        takenAt={obsTakenAt}
+        quality={obsQuality}
+        basis={obsBasis}
+        ready={observationReady}
+        busy={busy}
+        onSensor={setObsSensor}
+        onValue={setObsValue}
+        onTakenAt={setObsTakenAt}
+        onQuality={setObsQuality}
+        onBasis={setObsBasis}
+        onSubmit={async () => {
+          setBusy(true);
+          setFlash(null);
+          try {
+            const result = await recordConditionObservation({
+              sensorId: obsSensor,
+              value: Number(obsValue),
+              takenAt: obsTakenAt,
+              quality: obsQuality,
+              basis: obsBasis,
+            });
+            setFlash(
+              result.alert_id
+                ? "Observation recorded and an alert was raised. Link it to later same-asset work to measure lead time. This is not work authorization."
+                : "Observation recorded. No alert was raised, so it does not enter lead time. This is not work authorization.",
+            );
+            setObsValue("");
+            setObsBasis("");
+            await refetch();
+          } catch (err) {
+            setFlash(
+              err instanceof Error ? err.message : "That did not work.",
+            );
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
 
       <div className="pt-1">
         <h3 className="flex items-center gap-2 text-base font-semibold text-white">
@@ -376,7 +489,9 @@ export function ConditionMonitoring() {
                     alerts. Linking records the reason; it does not authorize
                     the work.
                   </p>
-                  {(openWork.data ?? []).length === 0 ? (
+                  {(openWork.data ?? []).filter((wo) =>
+                    a.asset_id ? wo.asset_id === a.asset_id : true,
+                  ).length === 0 ? (
                     <p className="text-xs text-slate-500">
                       No open work order to link. Create or import work first
                       (CMMS read activation is not a substitute for this link).
@@ -395,7 +510,11 @@ export function ConditionMonitoring() {
                         className="min-w-52 rounded-lg border border-white/10 bg-industrial-black px-2 py-1.5 text-xs text-slate-200"
                       >
                         <option value="">Select open work order…</option>
-                        {(openWork.data ?? []).map((wo) => (
+                        {(openWork.data ?? [])
+                          .filter((wo) =>
+                            a.asset_id ? wo.asset_id === a.asset_id : true,
+                          )
+                          .map((wo) => (
                           <option key={wo.id} value={wo.id}>
                             {wo.wo_number ?? wo.id} — {wo.title}
                           </option>
@@ -755,6 +874,164 @@ function ContextualConditionEvidence({
         </div>
       )}
     </div>
+  );
+}
+
+function ConditionObservationForm({
+  canObserve,
+  points,
+  sensorId,
+  value,
+  takenAt,
+  quality,
+  basis,
+  ready,
+  busy,
+  onSensor,
+  onValue,
+  onTakenAt,
+  onQuality,
+  onBasis,
+  onSubmit,
+}: {
+  canObserve: boolean;
+  points: ObservationPoint[];
+  sensorId: string;
+  value: string;
+  takenAt: string;
+  quality: "good" | "suspect" | "bad" | "substituted";
+  basis: string;
+  ready: boolean;
+  busy: boolean;
+  onSensor: (value: string) => void;
+  onValue: (value: string) => void;
+  onTakenAt: (value: string) => void;
+  onQuality: (value: "good" | "suspect" | "bad" | "substituted") => void;
+  onBasis: (value: string) => void;
+  onSubmit: () => void;
+}) {
+  return (
+    <form
+      className="space-y-3 rounded-xl border border-white/6 bg-white/2 p-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        if (!ready || busy) return;
+        onSubmit();
+      }}
+    >
+      <h3 className="text-sm font-semibold text-white">
+        Record a condition observation
+      </h3>
+      <p className="text-xs leading-relaxed text-slate-400">
+        A named human records the value and the time it was observed. A good
+        reading that crosses the sensor&apos;s existing limit raises an alert.
+        Inactive and decommissioned sensors are refused, and an empty series
+        does not become a lead time. This does not authorize work.
+      </p>
+      {!canObserve ? (
+        <p className="text-xs text-slate-500">
+          Recording requires a reliability engineer, maintenance manager or
+          administrator.
+        </p>
+      ) : points.length === 0 ? (
+        <p className="text-xs text-slate-500">
+          No active sensor with a warning or alarm limit. Lead time stays
+          unmeasured until one exists and a reading is recorded.
+        </p>
+      ) : (
+        <>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-slate-400">
+              Sensor
+            </span>
+            <select
+              aria-label="Observation sensor"
+              value={sensorId}
+              onChange={(event) => onSensor(event.target.value)}
+              className="w-full rounded-lg border border-white/10 bg-industrial-black px-3 py-2 text-sm text-slate-200"
+            >
+              <option value="">Select an active sensor…</option>
+              {points.map((point) => (
+                <option key={point.id} value={point.id}>
+                  {point.asset ?? "Unassigned"} — {point.name}
+                  {point.unit ? ` (${point.unit})` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          <div className="flex flex-wrap gap-3">
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-slate-400">
+                Value
+              </span>
+              <input
+                aria-label="Observation value"
+                type="number"
+                step="any"
+                value={value}
+                onChange={(event) => onValue(event.target.value)}
+                className="w-32 rounded-lg border border-white/10 bg-industrial-black px-3 py-2 font-mono text-sm text-slate-200"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-slate-400">
+                Observed at
+              </span>
+              <input
+                aria-label="Observation time"
+                type="datetime-local"
+                value={takenAt}
+                onChange={(event) => onTakenAt(event.target.value)}
+                className="rounded-lg border border-white/10 bg-industrial-black px-3 py-2 text-sm text-slate-200"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs font-medium text-slate-400">
+                Quality
+              </span>
+              <select
+                aria-label="Observation quality"
+                value={quality}
+                onChange={(event) =>
+                  onQuality(
+                    event.target.value as
+                      | "good"
+                      | "suspect"
+                      | "bad"
+                      | "substituted",
+                  )
+                }
+                className="rounded-lg border border-white/10 bg-industrial-black px-3 py-2 text-sm text-slate-200"
+              >
+                <option value="good">good</option>
+                <option value="suspect">suspect</option>
+                <option value="bad">bad</option>
+                <option value="substituted">substituted</option>
+              </select>
+            </label>
+          </div>
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-slate-400">
+              Evidence basis
+            </span>
+            <textarea
+              aria-label="Observation basis"
+              value={basis}
+              onChange={(event) => onBasis(event.target.value)}
+              rows={2}
+              className="w-full rounded-lg border border-white/10 bg-industrial-black px-3 py-2 text-sm text-slate-200"
+            />
+          </label>
+          <button
+            type="submit"
+            disabled={!ready || busy}
+            className="rounded-lg border border-signal-cyan/40 px-3 py-1.5 text-sm text-signal-cyan disabled:opacity-40"
+          >
+            Record observation
+          </button>
+        </>
+      )}
+    </form>
   );
 }
 
