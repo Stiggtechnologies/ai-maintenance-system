@@ -19,6 +19,34 @@ vi.mock("../lib/supabase", () => ({
   },
 }));
 
+vi.mock("../services/operatingDutyService", () => ({
+  previewOperatingDuty: () =>
+    Promise.resolve({
+      asset_id: "a1",
+      window_days: 90,
+      window_from: "2026-08-01T00:00:00Z",
+      window_to: "2026-11-03T00:00:00Z",
+      starts: 0,
+      stops: 0,
+      cycles_completed: 0,
+      running_open: 0,
+      source_start_events: 0,
+      source_stop_events: 0,
+      excursions: 0,
+      trips: 0,
+      alarms: 0,
+      interlocks: 0,
+      states: [],
+      hours_covered: 0,
+      coverage_pct: 0,
+      source_digest: "empty",
+      basis: "No operating-state record and no process event exist for this asset. Silence is not uptime.",
+      condition_alerts_consulted: false,
+    }),
+  getOperatingDutyReadings: () => Promise.resolve([]),
+  recordOperatingDutyReading: () => Promise.resolve({ replayed: false }),
+}));
+
 vi.mock("../services/reliabilityCallers", async () => {
   const actual = await vi.importActual<
     typeof import("../services/reliabilityCallers")
