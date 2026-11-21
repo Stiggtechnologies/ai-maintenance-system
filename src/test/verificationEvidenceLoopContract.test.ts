@@ -55,6 +55,42 @@ describe("C4.08 evidence-linked verification contract", () => {
     );
   });
 
+  it("normalizes later actioned-insert and release checks so mixed case cannot skip them", () => {
+    const later = readFileSync(
+      "supabase/migrations/20271110120000_verification_actioned_client_insert.sql",
+      "utf8",
+    ).toLowerCase();
+    expect(later).toContain(
+      "enforce_recommendation_client_insert_not_actioned",
+    );
+    expect(later).toContain("current_user in ('authenticated','anon')");
+    expect(later).toContain("using errcode = '42501'");
+    expect(later).toContain(
+      "lower(btrim(coalesce(status,''))) not in",
+    );
+    expect(later).toContain(
+      "lower(btrim(coalesce(new.status,''))) in ('approved','released','scheduled')",
+    );
+    expect(later).toContain("organization_id=public.app_current_org()");
+    const insertFn = later.slice(
+      later.indexOf(
+        "create or replace function public.enforce_recommendation_client_insert_not_actioned()",
+      ),
+      later.indexOf(
+        "revoke all on function public.enforce_recommendation_client_insert_not_actioned()",
+      ),
+    );
+    expect(insertFn).toContain("set search_path=public");
+    expect(insertFn).not.toContain("security definer");
+    const release = later.slice(
+      later.indexOf(
+        "create or replace function public.enforce_recommendation_verification_plan_on_release()",
+      ),
+    );
+    expect(release).toContain("security definer");
+    expect(release).toContain("set search_path=public");
+  });
+
   it("never derives a new recommendation verification date from plus 30 days", () => {
     const triggerStart = migration.indexOf(
       "create or replace function public.create_verification_obligation()",

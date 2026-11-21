@@ -137,7 +137,7 @@ client_insert(){
     -H 'content-type: application/json' -H 'Prefer: return=representation' \
     -d "{\"id\":\"$CLIENT_REC\",\"organization_id\":\"$ORG\",\"asset_id\":\"$ASSET\",\"title\":\"C4.08 client draft\",\"issue\":\"The client draft has not been authorized for execution.\",\"action\":\"Gather governed evidence before seeking human approval.\",\"impact\":\"Preserve approval and verification gates.\",\"confidence\":70,\"urgency\":\"advisory\",\"status\":\"$2\",\"accountable\":\"Reliability Manager\",\"approval_required\":\"Reliability Manager\",\"rationale\":\"A draft is not a release or a verified outcome.\"}"
 }
-for ACTIONED_STATE in approved released scheduled completed; do
+for ACTIONED_STATE in approved released scheduled completed Approved RELEASED ' scheduled ' Completed; do
   R=$(client_insert "$RE" "$ACTIONED_STATE")
   expect_contains "$R" '42501'
   test "$(psqlc "select count(*) from recommendations where id='$CLIENT_REC'")" = '0'
