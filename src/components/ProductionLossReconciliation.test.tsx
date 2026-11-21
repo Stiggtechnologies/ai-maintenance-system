@@ -6,6 +6,19 @@ const { getLoss, classify } = vi.hoisted(() => ({
   classify: vi.fn(),
 }));
 
+vi.mock("../services/productionConstraintService", () => ({
+  loadProductionConstraintWorkspace: vi.fn().mockResolvedValue({
+    studies: [],
+    sites: [],
+    method:
+      "The bottleneck is the lowest declared limit in the study unit. Declared limits are alternative ceilings and are not added together.",
+    authority:
+      "Recording a bottleneck does not release work, change an operating limit, adopt a production plan, or forecast loss.",
+  }),
+  recordProductionConstraintStudy: vi.fn(),
+  listConstraintAssets: vi.fn().mockResolvedValue([]),
+}));
+
 vi.mock("../services/productionLossService", async (importOriginal) => {
   const actual =
     await importOriginal<typeof import("../services/productionLossService")>();
