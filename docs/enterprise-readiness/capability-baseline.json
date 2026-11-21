@@ -2796,10 +2796,10 @@
     "backticked": 0
   },
   "A1.05": {
-    "status": "🟡",
-    "evidence": false,
-    "citations": 0,
-    "backticked": 0
+    "status": "✅",
+    "evidence": true,
+    "citations": 17,
+    "backticked": 5
   },
   "A1.06": {
     "status": "🟡",
