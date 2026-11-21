@@ -15,13 +15,21 @@
  *  - Only an ADOPTED plan may be applied; apply_job_plan refuses drafts, so
  *    the picker shows adopted plans only rather than offering something the
  *    database will refuse.
- *  - Recording an actual is the moment planning accuracy becomes honest:
- *    the metric compares planned to actual hours, and an estimate with no
- *    recorded actual is a forecast, not a measurement.
+ *  - Recording an actual stores the hours a named person worked. It is not
+ *    yet a planning-accuracy sample.
+ *  - Sealing compares those actuals with the adopted plan after governed
+ *    closeout. The seal does not complete the work order or return equipment
+ *    to service.
  *  - Refusals are shown in the database's own words.
  */
 import { useState } from "react";
-import { ClipboardList, PackagePlus, ShieldCheck, Timer } from "lucide-react";
+import {
+  ClipboardList,
+  PackagePlus,
+  ShieldCheck,
+  Target,
+  Timer,
+} from "lucide-react";
 import { supabase } from "../lib/supabase";
 import { useAsyncData } from "../hooks/useAsyncData";
 import {
@@ -156,8 +164,26 @@ export function WorkOrderPlanningPanel({
       p_status: "complete",
     });
     if (r) {
-      setFlash("Recorded. Planning accuracy measures against this now.");
+      setFlash(
+        "Recorded. Seal planning accuracy after governed closeout to include this work order.",
+      );
       setDrafts((d) => ({ ...d, [taskId]: "" }));
+      onChanged();
+    }
+  };
+
+  const sealMeasurement = async () => {
+    const r = await call("seal_planning_accuracy", {
+      p_work_order_id: workOrderId,
+    });
+    if (r) {
+      const planned = String(r.planned_hours ?? "");
+      const actual = String(r.actual_hours ?? "");
+      setFlash(
+        r.already_sealed === true
+          ? `Already sealed: ${planned}h planned against ${actual}h recorded. This does not return equipment to service.`
+          : `Sealed ${planned}h planned against ${actual}h recorded. This does not complete the work order or return equipment to service.`,
+      );
       onChanged();
     }
   };
@@ -295,8 +321,9 @@ export function WorkOrderPlanningPanel({
             </p>
           </div>
           <p className="mt-1 text-xs text-slate-500">
-            Planning accuracy compares planned to actual. An estimate with no
-            recorded actual is a forecast, not a measurement.
+            Record the hours actually worked. An estimate with no recorded
+            actual is a forecast. The percentage waits for a seal after
+            governed closeout.
           </p>
           <div className="mt-3 space-y-2">
             {unrecorded.map((t) => (
@@ -333,6 +360,31 @@ export function WorkOrderPlanningPanel({
               </div>
             ))}
           </div>
+        </div>
+      )}
+
+      {tasks.length > 0 && (
+        <div className="rounded-lg border border-white/8 bg-industrial-black p-4">
+          <div className="flex items-center gap-2">
+            <Target size={16} className="text-slate-400" />
+            <p className="text-sm font-medium text-industrial-text">
+              Seal planning accuracy
+            </p>
+          </div>
+          <p className="mt-1 text-xs text-slate-500">
+            Compares the applied job plan with named-human task actuals after
+            governed closeout. Open work, a missing actual, and a status change
+            that never went through closeout stay out of the percentage. Sealing
+            does not complete the work order or return equipment to service.
+          </p>
+          <button
+            type="button"
+            onClick={sealMeasurement}
+            disabled={busy}
+            className="mt-3 rounded-lg border border-teal-500/40 bg-teal-500/10 px-3 py-2 text-sm text-teal-300 disabled:opacity-50"
+          >
+            Seal planning accuracy
+          </button>
         </div>
       )}
 

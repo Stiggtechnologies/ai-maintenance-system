@@ -366,4 +366,80 @@ describe("WorkOrderPlanningPanel", () => {
       await screen.findByText(/A draft plan may not be applied to real work/),
     ).toBeInTheDocument();
   });
+
+  it("seals planning accuracy through seal_planning_accuracy without claiming return to service", async () => {
+    const onChanged = vi.fn();
+    rpc.mockImplementation((fn: string) => {
+      if (fn === "get_job_plans")
+        return Promise.resolve({ data: { plans: [] }, error: null });
+      if (fn === "seal_planning_accuracy")
+        return Promise.resolve({
+          data: {
+            sealed: true,
+            already_sealed: false,
+            planned_hours: 6,
+            actual_hours: 7.5,
+            task_count: 1,
+          },
+          error: null,
+        });
+      return Promise.resolve({ data: { status: "ok" }, error: null });
+    });
+    render(
+      <WorkOrderPlanningPanel
+        workOrderId="wo1"
+        assetId="a1"
+        safetyFlag={false}
+        tasks={[TASK]}
+        onChanged={onChanged}
+      />,
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Seal planning accuracy" }),
+    );
+    await waitFor(() =>
+      expect(rpc).toHaveBeenCalledWith("seal_planning_accuracy", {
+        p_work_order_id: "wo1",
+      }),
+    );
+    expect(
+      await screen.findByText(
+        /Sealed 6h planned against 7.5h recorded. This does not complete the work order or return equipment to service./,
+      ),
+    ).toBeInTheDocument();
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("shows a seal refusal in the database's own words", async () => {
+    rpc.mockImplementation((fn: string) => {
+      if (fn === "get_job_plans")
+        return Promise.resolve({ data: { plans: [] }, error: null });
+      if (fn === "seal_planning_accuracy")
+        return Promise.resolve({
+          data: {
+            error:
+              "governed closeout must complete this work order before planning accuracy can be sealed",
+          },
+          error: null,
+        });
+      return Promise.resolve({ data: { status: "ok" }, error: null });
+    });
+    render(
+      <WorkOrderPlanningPanel
+        workOrderId="wo1"
+        assetId="a1"
+        safetyFlag={false}
+        tasks={[TASK]}
+        onChanged={() => {}}
+      />,
+    );
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Seal planning accuracy" }),
+    );
+    expect(
+      await screen.findByText(
+        /governed closeout must complete this work order before planning accuracy can be sealed/,
+      ),
+    ).toBeInTheDocument();
+  });
 });
