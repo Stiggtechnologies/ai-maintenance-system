@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { requireCaller, tenantForbidden } from '../_shared/edge-request-guards.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || 'https://app.syncai.ca',
@@ -37,8 +38,16 @@ Deno.serve(async (req: Request) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const openaiKey = Deno.env.get('OPENAI_API_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const auth = await requireCaller(req, supabase, corsHeaders);
+    if (!auth.ok) return auth.response;
 
     const { action, data } = await req.json();
+    if (data && typeof data === 'object' && tenantForbidden(data.tenant_id, auth.caller.organizationId)) {
+      return new Response(
+        JSON.stringify({ error: 'tenant_forbidden' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
 
     switch (action) {
       case 'create_agent':

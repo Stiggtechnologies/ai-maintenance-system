@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { requireCaller } from '../_shared/edge-request-guards.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || 'https://app.syncai.ca',
@@ -16,6 +17,8 @@ Deno.serve(async (req: Request) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const stripeKey = Deno.env.get('STRIPE_SECRET_KEY');
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const auth = await requireCaller(req, supabase, corsHeaders);
+    if (!auth.ok) return auth.response;
 
     const body = await req.json();
     const { subscription_id } = body;
@@ -36,6 +39,12 @@ Deno.serve(async (req: Request) => {
       .single();
 
     if (subError || !subscription) throw new Error('Subscription not found');
+    if (subscription.tenant_id !== auth.caller.organizationId) {
+      return new Response(
+        JSON.stringify({ error: 'tenant_forbidden' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
 
     const plan = (subscription as any).plan;
     const limits = (subscription as any).limits[0];
@@ -97,7 +106,7 @@ Deno.serve(async (req: Request) => {
         meta: {
           plan_code: plan.code,
           included_assets: plan.included_assets,
-          asset_overage,
+          asset_overage: assetOverage,
           included_credits: plan.included_credits,
           credit_overage: creditOverage,
         },
@@ -111,7 +120,10 @@ Deno.serve(async (req: Request) => {
     let stripeInvoiceId = null;
     let stripeHostedUrl = null;
 
-    if (stripeKey && subscription.stripe_customer_id) {
+    const stripeAttempted = Boolean(stripeKey && subscription.stripe_customer_id);
+    let stripeFailed = false;
+
+    if (stripeAttempted) {
       try {
         const stripeResponse = await fetch('https://api.stripe.com/v1/invoices', {
           method: 'POST',
@@ -130,7 +142,9 @@ Deno.serve(async (req: Request) => {
           }),
         });
 
-        if (stripeResponse.ok) {
+        if (!stripeResponse.ok) {
+          stripeFailed = true;
+        } else {
           const stripeInvoice = await stripeResponse.json();
           stripeInvoiceId = stripeInvoice.id;
           stripeHostedUrl = stripeInvoice.hosted_invoice_url;
@@ -194,6 +208,7 @@ Deno.serve(async (req: Request) => {
           });
         }
       } catch (stripeError) {
+        stripeFailed = true;
         console.error('Stripe error:', stripeError);
       }
     }
@@ -209,26 +224,29 @@ Deno.serve(async (req: Request) => {
         .eq('id', invoice.id);
     }
 
-    // Reset credits for next period
-    await supabase
-      .from('subscription_limits')
-      .update({
-        remaining_credits: plan.included_credits,
-        last_reset_at: new Date().toISOString(),
-      })
-      .eq('subscription_id', subscription_id);
+    // A failed Stripe invoice must leave credits and the period in place so
+    // the uninvoiced usage can be retried. Stripe retries on our non-success
+    // path only when we did not advance the window.
+    if (!stripeFailed) {
+      await supabase
+        .from('subscription_limits')
+        .update({
+          remaining_credits: plan.included_credits,
+          last_reset_at: new Date().toISOString(),
+        })
+        .eq('subscription_id', subscription_id);
 
-    // Advance subscription period
-    const newPeriodEnd = new Date(subscription.current_period_end);
-    newPeriodEnd.setMonth(newPeriodEnd.getMonth() + 1);
+      const newPeriodEnd = new Date(subscription.current_period_end);
+      newPeriodEnd.setMonth(newPeriodEnd.getMonth() + 1);
 
-    await supabase
-      .from('billing_subscriptions')
-      .update({
-        current_period_start: subscription.current_period_end,
-        current_period_end: newPeriodEnd.toISOString(),
-      })
-      .eq('id', subscription_id);
+      await supabase
+        .from('billing_subscriptions')
+        .update({
+          current_period_start: subscription.current_period_end,
+          current_period_end: newPeriodEnd.toISOString(),
+        })
+        .eq('id', subscription_id);
+    }
 
     return new Response(
       JSON.stringify({

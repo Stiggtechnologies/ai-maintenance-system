@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { functionRoutePath, requireCaller, tenantForbidden } from '../_shared/edge-request-guards.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || 'https://app.syncai.ca',
@@ -85,14 +86,34 @@ Deno.serve(async (req: Request) => {
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const url = new URL(req.url);
-    const path = url.pathname.replace('/stripe-checkout', '');
+    const path = functionRoutePath(url.pathname, 'stripe-checkout');
+    const knownRoute =
+      req.method === 'POST' &&
+      (path === '/checkout' || path === '/portal' || path === '/usage/report');
+    if (!knownRoute) {
+      return new Response(
+        JSON.stringify({ error: 'Route not found' }),
+        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      );
+    }
+    const auth = await requireCaller(req, supabase, corsHeaders);
+    if (!auth.ok) return auth.response;
+    const caller = auth.caller;
 
     // POST /checkout - Create Stripe Checkout Session
     if (req.method === 'POST' && path === '/checkout') {
       const body = await req.json();
-      const { tenant_id, plan_code } = body as { tenant_id: string; plan_code: PlanCode };
+      const { tenant_id, plan_code } = body as { tenant_id?: string; plan_code: PlanCode };
 
-      if (!tenant_id || !plan_code) {
+      if (tenantForbidden(tenant_id, caller.organizationId)) {
+        return new Response(
+          JSON.stringify({ error: 'tenant_forbidden' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
+      }
+      const tenantId = caller.organizationId;
+
+      if (!plan_code) {
         throw new Error('Missing tenant_id or plan_code');
       }
 
@@ -101,8 +122,8 @@ Deno.serve(async (req: Request) => {
         throw new Error('Invalid plan code');
       }
 
-      // Get or create Stripe customer
-      const customerId = await getOrCreateStripeCustomer(supabase, tenant_id);
+      // Get or create Stripe customer for the caller's organization.
+      const customerId = await getOrCreateStripeCustomer(supabase, tenantId);
 
       // Create checkout session
       const checkoutResponse = await fetch('https://api.stripe.com/v1/checkout/sessions', {
@@ -120,7 +141,7 @@ Deno.serve(async (req: Request) => {
           'line_items[1][quantity]': '1',
           success_url: `${appBaseUrl}/app/billing?success=1&session_id={CHECKOUT_SESSION_ID}`,
           cancel_url: `${appBaseUrl}/app/billing?canceled=1`,
-          'subscription_data[metadata][tenant_id]': tenant_id,
+          'subscription_data[metadata][tenant_id]': tenantId,
           'subscription_data[metadata][plan_code]': plan_code,
           'automatic_tax[enabled]': 'true',
         }),
@@ -142,14 +163,17 @@ Deno.serve(async (req: Request) => {
     // POST /portal - Create Customer Portal Session
     if (req.method === 'POST' && path === '/portal') {
       const body = await req.json();
-      const { tenant_id } = body as { tenant_id: string };
+      const { tenant_id } = body as { tenant_id?: string };
 
-      if (!tenant_id) {
-        throw new Error('Missing tenant_id');
+      if (tenantForbidden(tenant_id, caller.organizationId)) {
+        return new Response(
+          JSON.stringify({ error: 'tenant_forbidden' }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        );
       }
 
-      // Get Stripe customer ID
-      const customerId = await getOrCreateStripeCustomer(supabase, tenant_id);
+      // Portal is for the caller's organization, never a tenant named in the body.
+      const customerId = await getOrCreateStripeCustomer(supabase, caller.organizationId);
 
       // Create portal session
       const portalResponse = await fetch('https://api.stripe.com/v1/billing_portal/sessions', {

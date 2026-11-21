@@ -1,4 +1,5 @@
 import { createClient } from 'npm:@supabase/supabase-js@2';
+import { requireCaller } from '../_shared/edge-request-guards.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': Deno.env.get('ALLOWED_ORIGIN') || 'https://app.syncai.ca',
@@ -11,9 +12,8 @@ Deno.serve(async (req: Request) => {
     return new Response(null, { status: 200, headers: corsHeaders });
   }
 
-  // Verify authentication
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader) {
+  const authHeader = req.headers.get('Authorization') ?? '';
+  if (!authHeader.startsWith('Bearer ') || !authHeader.slice('Bearer '.length).trim()) {
     return new Response(
       JSON.stringify({ error: 'Missing authorization header' }),
       { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -24,6 +24,8 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
+    const auth = await requireCaller(req, supabase, corsHeaders);
+    if (!auth.ok) return auth.response;
 
     const { limit = 10 } = await req.json();
 
@@ -31,6 +33,7 @@ Deno.serve(async (req: Request) => {
       .from('openclaw_notifications')
       .select('*')
       .eq('status', 'queued')
+      .eq('tenant_id', auth.caller.organizationId)
       .order('created_at', { ascending: true })
       .limit(limit);
 
@@ -50,15 +53,25 @@ Deno.serve(async (req: Request) => {
           .limit(1);
 
         const endpoint = endpoints && endpoints[0];
-        if (endpoint?.endpoint_url) {
-          await fetch(endpoint.endpoint_url, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              ...(endpoint.headers || {})
-            },
-            body: JSON.stringify({ message: n.message, channel: n.channel, target: n.target })
-          });
+        if (!endpoint?.endpoint_url) {
+          await supabase
+            .from('openclaw_notifications')
+            .update({ status: 'failed' })
+            .eq('id', n.id);
+          results.push({ id: n.id, status: 'failed', error: 'no active endpoint' });
+          continue;
+        }
+
+        const delivery = await fetch(endpoint.endpoint_url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            ...(endpoint.headers || {})
+          },
+          body: JSON.stringify({ message: n.message, channel: n.channel, target: n.target })
+        });
+        if (!delivery.ok) {
+          throw new Error(`endpoint status ${delivery.status}`);
         }
 
         await supabase

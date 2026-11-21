@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient, SupabaseClient } from "jsr:@supabase/supabase-js@2";
+import { requireCaller, tenantForbidden } from "../_shared/edge-request-guards.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin":
@@ -491,8 +492,8 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
+  const authHeader = req.headers.get("Authorization") ?? "";
+  if (!authHeader.startsWith("Bearer ") || !authHeader.slice("Bearer ".length).trim()) {
     return errorResponse("Missing authorization", 401);
   }
 
@@ -502,7 +503,20 @@ Deno.serve(async (req) => {
   );
 
   try {
+    const auth = await requireCaller(req, supabase, corsHeaders);
+    if (!auth.ok) return auth.response;
+
     const { action, data } = await req.json();
+    if (
+      data &&
+      typeof data === "object" &&
+      tenantForbidden(
+        (data as { organization_id?: unknown }).organization_id,
+        auth.caller.organizationId,
+      )
+    ) {
+      return errorResponse("tenant_forbidden", 403);
+    }
 
     switch (action) {
       case "list_templates":
