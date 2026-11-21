@@ -34,6 +34,7 @@ import { InvertedOpeningPage } from "./pages/InvertedOpeningPage";
 import { WorkActionBoard } from "./pages/WorkActionBoard";
 import NotificationScreening from "./pages/NotificationScreening";
 import { DecisionGovernance } from "./pages/DecisionGovernance";
+import { EscalationPathsPage } from "./pages/EscalationPathsPage";
 import { RunsAuditPage } from "./pages/RunsAuditPage";
 import { ResearchDashboard } from "./pages/ResearchDashboard";
 import { WorkOrderDetailPage } from "./pages/WorkOrderDetailPage";
@@ -271,7 +272,8 @@ function ApplicationRoutes() {
               // case back, never by overwriting it from the browser.
               save: async (draft) => {
                 const canonical = await loadPersistedDecisionCase(draft.id);
-                if (!canonical) throw new Error("Saved Decision Case not found");
+                if (!canonical)
+                  throw new Error("Saved Decision Case not found");
               },
               storage: window.sessionStorage,
             },
@@ -574,6 +576,7 @@ function AuthenticatedApp() {
             <Route path="/approvals" element={<ApprovalQueue />} />
             <Route path="/guard" element={<SyncAiGuardPage />} />
             <Route path="/governance" element={<DecisionGovernance />} />
+            <Route path="/escalations" element={<EscalationPathsPage />} />
 
             <Route path="/assets/:assetId" element={<AssetDetailPage />} />
             <Route path="/assets/ontology" element={<AssetOntologyPage />} />
