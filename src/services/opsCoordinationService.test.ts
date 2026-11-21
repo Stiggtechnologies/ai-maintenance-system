@@ -5,6 +5,7 @@ vi.mock("../lib/supabase", () => ({ supabase: { rpc: rpcMock } }));
 
 import {
   getOpsCoordination,
+  recordEquipmentProductionLossReceipt,
   returnEquipmentToOperations,
   verifyAndAcceptEquipment,
 } from "./opsCoordinationService";
@@ -71,5 +72,18 @@ describe("ops coordination service", () => {
         note: "Operations reviewed the released test and confirmed the asset condition.",
       }),
     ).rejects.toThrow(/acceptance test required/i);
+  });
+
+  it("records the equipment-loss receipt through the audited tenant door", async () => {
+    rpcMock.mockResolvedValue({
+      data: { recorded: true, audit_event_id: "audit-1" },
+      error: null,
+    });
+
+    await recordEquipmentProductionLossReceipt(90);
+    expect(rpcMock).toHaveBeenCalledWith(
+      "record_equipment_production_loss_receipt",
+      { p_window_days: 90 },
+    );
   });
 });

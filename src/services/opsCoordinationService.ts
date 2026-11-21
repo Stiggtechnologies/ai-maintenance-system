@@ -27,21 +27,43 @@ export interface EquipmentRelease {
 
 export interface ProductionLossRow {
   asset: string;
+  asset_id?: string;
   down_hours: number;
   demonstrated_rate: number;
   unit_of_measure: string;
   units_lost: number;
 }
 
+export interface ProductionLossTotal {
+  unit_of_measure: string;
+  assets: number;
+  down_hours: number;
+  units_lost: number;
+}
+
+export interface ProductionLossExclusion {
+  classification: string;
+  events: number;
+  down_hours: number;
+}
+
+export interface ProductionLoss {
+  window_days: number;
+  by_asset: ProductionLossRow[];
+  assets_measurable: number;
+  assets: number;
+  basis: string;
+  totals_by_unit?: ProductionLossTotal[];
+  exclusions?: ProductionLossExclusion[];
+  not_measurable_equipment_hours?: number;
+  mixed_unit_assets?: number;
+  attribution_rule?: string;
+  decision_boundary?: string;
+}
+
 export interface OpsCoordinationPayload {
   open_releases: EquipmentRelease[];
-  production_loss: {
-    window_days: number;
-    by_asset: ProductionLossRow[];
-    assets_measurable: number;
-    assets: number;
-    basis: string;
-  };
+  production_loss: ProductionLoss;
   note: string;
 }
 
@@ -65,6 +87,14 @@ export async function getOpsCoordination(): Promise<OpsCoordinationPayload> {
     "get_ops_coordination",
     {},
   )) as unknown as OpsCoordinationPayload;
+}
+
+export async function recordEquipmentProductionLossReceipt(
+  windowDays: number,
+): Promise<RpcPayload> {
+  return governedRpc("record_equipment_production_loss_receipt", {
+    p_window_days: windowDays,
+  });
 }
 
 export async function returnEquipmentToOperations(input: {

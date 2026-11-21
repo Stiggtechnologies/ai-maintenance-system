@@ -1,16 +1,18 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const { getOps, returnEquipment, verifyAccept } = vi.hoisted(() => ({
+const { getOps, returnEquipment, verifyAccept, recordLoss } = vi.hoisted(() => ({
   getOps: vi.fn(),
   returnEquipment: vi.fn(),
   verifyAccept: vi.fn(),
+  recordLoss: vi.fn(),
 }));
 
 vi.mock("../services/opsCoordinationService", () => ({
   getOpsCoordination: getOps,
   returnEquipmentToOperations: returnEquipment,
   verifyAndAcceptEquipment: verifyAccept,
+  recordEquipmentProductionLossReceipt: recordLoss,
 }));
 
 import { OpsCoordination } from "./OpsCoordination";
@@ -48,6 +50,10 @@ function payload(eligible = [releasedTest]) {
       assets_measurable: 0,
       assets: 1,
       basis: "Measured from demonstrated operating rate.",
+      totals_by_unit: [],
+      exclusions: [],
+      decision_boundary:
+        "This total does not release work, accept risk, commit spend, change an operating limit, or return equipment to service.",
     },
     note: "A returned asset remains out of service until governed acceptance.",
   };
@@ -92,5 +98,60 @@ describe("OpsCoordination governed return to service", () => {
     expect(
       screen.getByRole("button", { name: /accept back into service/i }),
     ).toBeDisabled();
+  });
+
+  it("shows separate equipment-loss totals and records an audit receipt", async () => {
+    getOps.mockResolvedValue({
+      ...payload(),
+      production_loss: {
+        window_days: 90,
+        by_asset: [
+          {
+            asset: "Pump P-101",
+            down_hours: 4,
+            demonstrated_rate: 10,
+            unit_of_measure: "t",
+            units_lost: 40,
+          },
+        ],
+        assets_measurable: 1,
+        assets: 2,
+        basis: "Equipment-failure downtime times demonstrated rate.",
+        totals_by_unit: [
+          { unit_of_measure: "bbl", assets: 1, down_hours: 2, units_lost: 8 },
+          { unit_of_measure: "t", assets: 1, down_hours: 4, units_lost: 40 },
+        ],
+        exclusions: [
+          { classification: "planned_maintenance", events: 1, down_hours: 6 },
+          { classification: "unclassified", events: 2, down_hours: 3 },
+        ],
+        not_measurable_equipment_hours: 1.5,
+        mixed_unit_assets: 1,
+        decision_boundary:
+          "This total does not release work, accept risk, commit spend, change an operating limit, or return equipment to service.",
+      },
+    });
+    recordLoss.mockResolvedValue({
+      recorded: true,
+      audit_event_id: "audit-1",
+    });
+
+    render(<OpsCoordination />);
+
+    expect(await screen.findByText(/Enterprise total/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/40 t/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/8 bbl/)).toBeInTheDocument();
+    expect(screen.getByText(/These units are not added together/i)).toBeInTheDocument();
+    expect(screen.getByText(/Excluded planned maintenance: 6 h/i)).toBeInTheDocument();
+    expect(screen.getByText(/Excluded unclassified: 3 h/i)).toBeInTheDocument();
+    expect(screen.getByText(/1.5 equipment-failure hours/i)).toBeInTheDocument();
+    expect(screen.getByText(/mixed production units/i)).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /record measurement receipt/i }),
+    );
+    await waitFor(() => expect(recordLoss).toHaveBeenCalledWith(90));
+    expect(await screen.findByText(/audit-1 recorded/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/does not release work/i).length).toBeGreaterThan(0);
   });
 });
