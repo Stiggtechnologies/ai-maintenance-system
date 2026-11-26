@@ -111,6 +111,22 @@ describe("NotificationScreening", () => {
     confirmSpy.mockRestore();
   });
 
+  it("links the canonical order returned by a human conversion", async () => {
+    rpc.mockImplementation((fn: string) => {
+      if (fn === "get_open_notifications") return Promise.resolve({ data: [NOTIFICATION], error: null });
+      if (fn === "get_duplicate_notification_candidates") return Promise.resolve({ data: [], error: null });
+      return Promise.resolve({data: {work_order_id: "wo-42"}, error: null});
+    });
+    const prompt = vi.spyOn(window, "prompt").mockReturnValueOnce("Inspect seal").mockReturnValueOnce("");
+    try {
+      render(<NotificationScreening />);
+      fireEvent.click(await screen.findByText("Convert to work order"));
+      expect(await screen.findByRole("link", {name: "Open linked work order"})).toHaveAttribute("href", "/work/wo-42");
+    } finally {
+      prompt.mockRestore();
+    }
+  });
+
   it("surfaces the database's own refusal sentence rather than a generic error", async () => {
     rpc.mockImplementation((fn: string) => {
       if (fn === "get_open_notifications") return Promise.resolve({ data: [NOTIFICATION], error: null });
