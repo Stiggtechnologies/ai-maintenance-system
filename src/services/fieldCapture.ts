@@ -19,6 +19,7 @@ export interface ReportFailureInput {
 export interface ReportFailureResult {
   notificationId: string;
   photoPath?: string;
+  photoWarning?: string;
 }
 
 /** The governed failure report + photo chain. */
@@ -36,21 +37,44 @@ export async function reportFailure(
   if (!d.id) throw new Error("notification id not returned");
 
   if (input.photo) {
-    const path = `${input.assetId}/${d.id}/${Date.now()}-${input.photo.name.replace(/[^\w.-]/g, "_")}`;
-    const { error: upErr } = await supabase.storage
-      .from("failure-evidence")
-      .upload(path, input.photo, {
-        contentType: input.photo.type || "image/jpeg",
-      });
-    if (upErr) throw new Error(`photo upload failed: ${upErr.message}`);
+    const warning = {
+      notificationId: d.id,
+      photoWarning:
+        "The report was filed, but the photo was not confirmed attached. Do not file the report again.",
+    };
+    try {
+      // Resolve the organization from the actual asset under RLS. The storage
+      // policy also checks the active organization independently when uploading.
+      const { data: asset, error: assetError } = await supabase
+        .from("assets")
+        .select("organization_id")
+        .eq("id", input.assetId)
+        .maybeSingle();
+      if (assetError || !asset?.organization_id) return warning;
 
-    const { error: attachErr } = await supabase.rpc("attach_failure_photo", {
-      p_notification_id: d.id,
-      p_asset_id: input.assetId,
-      p_storage_path: path,
-    });
-    if (attachErr) throw new Error(`photo attach failed: ${attachErr.message}`);
-    return { notificationId: d.id, photoPath: path };
+      const path = `${asset.organization_id}/${input.assetId}/${d.id}/${Date.now()}-${input.photo.name.replace(/[^\w.-]/g, "_")}`;
+      const { error: uploadError } = await supabase.storage
+        .from("failure-evidence")
+        .upload(path, input.photo, {
+          contentType: input.photo.type || "image/jpeg",
+        });
+      if (uploadError) return warning;
+
+      const { data: attached, error: attachError } = await supabase.rpc(
+        "attach_failure_photo",
+        {
+          p_notification_id: d.id,
+          p_asset_id: input.assetId,
+          p_storage_path: path,
+        },
+      );
+      if (attachError || attached?.attached !== path) return warning;
+      return { notificationId: d.id, photoPath: path };
+    } catch {
+      // The notification already committed. A network or photo failure must not
+      // be presented as a failed filing, which would invite a duplicate report.
+      return warning;
+    }
   }
 
   return { notificationId: d.id };

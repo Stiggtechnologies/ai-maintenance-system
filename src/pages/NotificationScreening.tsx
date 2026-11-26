@@ -61,6 +61,7 @@ const RESPONSE_CLASSES = ["emergency", "urgent", "scheduled"] as const;
 
 export default function NotificationScreening() {
   const [flash, setFlash] = useState<string | null>(null);
+  const [convertedWorkOrderId, setConvertedWorkOrderId] = useState<string | null>(null);
   const [showReport, setShowReport] = useState(false);
   const [assetId, setAssetId] = useState("");
   const [description, setDescription] = useState("");
@@ -97,17 +98,18 @@ export default function NotificationScreening() {
   // flattened into a generic failure toast.
   const call = async (fn: string, args: Record<string, unknown>) => {
     setBusy(true);
+    setConvertedWorkOrderId(null);
     try {
       const { data, error } = await supabase.rpc(fn, args);
       if (error) throw new Error(error.message);
-      const result = data as { error?: string } | null;
+      const result = data as { error?: string; work_order_id?: string } | null;
       if (result?.error) {
         setFlash(result.error);
         return false;
       }
       queue.refetch();
       duplicates.refetch();
-      return true;
+      return result ?? {};
     } catch (e) {
       setFlash(e instanceof Error ? e.message : "That did not work.");
       return false;
@@ -147,14 +149,20 @@ export default function NotificationScreening() {
       `Response class — ${RESPONSE_CLASSES.join(" / ")}. Leave blank if unknown; it will report as unclassified rather than be guessed.`,
       "",
     );
-    if (await call("convert_notification_to_work_order", {
+    const result = await call("convert_notification_to_work_order", {
       p_id: n.id,
       p_title: title,
       p_priority: "medium",
       p_work_type: "corrective",
       p_response_class: responseClass?.trim() ? responseClass.trim() : null,
-    }))
+    });
+    if (!result) return;
+    if (result.work_order_id) {
+      setConvertedWorkOrderId(result.work_order_id);
       setFlash("Converted to a work order.");
+    } else {
+      setFlash("No work order ID returned. Check the work list before retrying.");
+    }
   };
 
   const merge = async (c: Candidate) => {
@@ -189,7 +197,15 @@ export default function NotificationScreening() {
 
       {flash && (
         <div className="rounded-lg border border-white/10 bg-overlook-deep/60 px-4 py-3 text-sm text-slate-300">
-          {flash}
+          <p role="status">{flash}</p>
+          {convertedWorkOrderId && (
+            <a
+              href={`/work/${encodeURIComponent(convertedWorkOrderId)}`}
+              className="mt-2 inline-block text-signal-cyan underline"
+            >
+              Open linked work order
+            </a>
+          )}
         </div>
       )}
 

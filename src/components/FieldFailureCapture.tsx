@@ -49,7 +49,7 @@ export function FieldFailureCapture({
     }
     setBusy(true);
     try {
-      await reportFailure({
+      const result = await reportFailure({
         assetId,
         description: description.trim(),
         notificationType: type,
@@ -57,10 +57,11 @@ export function FieldFailureCapture({
       });
       trackUiEvent("field_report_filed", type);
       setDone(
-        photo
-          ? `Notification filed — photo attached as evidence.`
-          : "Notification filed.",
+        result.photoPath
+          ? "Notification filed — photo attached as evidence."
+          : `Notification filed (${result.notificationId}).`,
       );
+      if (result.photoWarning) setError(result.photoWarning);
       setDescription("");
       setPhoto(null);
       setPhotoPreview(null);

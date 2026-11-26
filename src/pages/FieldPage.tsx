@@ -153,6 +153,7 @@ export function FieldPage() {
           type: notificationType,
           withPhoto: Boolean(result.photoPath),
         });
+        if (result.photoWarning) status += ` ${result.photoWarning}`;
       } catch (e) {
         const message = e instanceof Error ? e.message : "Report was not filed";
         setError(message);
